@@ -4,7 +4,7 @@ import { PageGuideLink } from '../layout/PageGuideLink'
 import { cn } from '../../lib/utils'
 
 type ContentHeaderProps = {
-  title: string
+  title: ReactNode
   subtitle?: ReactNode
   /** Right-aligned controls (buttons, pills, filters). */
   meta?: ReactNode

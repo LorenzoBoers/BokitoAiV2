@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ChevronRight, FolderKanban, Loader2, Plus, Workflow } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { Badge } from '../components/ui/badge'
+import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -114,9 +115,7 @@ export default function WorkstreamsPage() {
       {loading ? (
         <TableRowsSkeleton rows={6} />
       ) : workstreams.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-text-muted">
-          {t('workstreamsPage.empty')}
-        </p>
+        <EmptyState tone="dashed" size="sm" icon={Workflow} title={t('workstreamsPage.empty')} />
       ) : (
         <ul className="space-y-2" data-testid="flows-list">
           {workstreams.map((ws) => (
@@ -149,8 +148,8 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
     <Link
       to={workstreamPath(ws.id)}
       className={cn(
-        'group flex items-center gap-4 rounded-xl border border-border/50 bg-bg-elevated/40 px-4 py-3 transition',
-        'hover:border-border hover:bg-bg-muted/40',
+        'panel hover-lift group flex items-center gap-4 px-4 py-3 transition',
+        'hover:border-border',
         !ws.enabled && 'opacity-70',
       )}
     >
@@ -160,7 +159,7 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
             <Hashtag name={flowTitle(ws)} category />
           </span>
           {!ws.enabled ? (
-            <Badge variant="secondary" className="text-2xs">
+            <Badge variant="neutral" size="sm">
               {t('workstreamsPage.deactivated')}
             </Badge>
           ) : null}

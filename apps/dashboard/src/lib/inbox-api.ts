@@ -367,7 +367,15 @@ export type PatchThreadInput = {
   followUpTitle?: string
 }
 
-export type BulkThreadAction = 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'snooze'
+export type BulkThreadAction =
+  | 'close'
+  | 'reopen'
+  | 'spam'
+  | 'read'
+  | 'unread'
+  | 'assign'
+  | 'snooze'
+  | 'trash'
 
 export type SavedReply = {
   id: string

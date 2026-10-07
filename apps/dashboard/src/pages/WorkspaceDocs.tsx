@@ -19,6 +19,8 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Badge, badgeVariants } from '../components/ui/badge'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import MarkdownView from '../components/docs/MarkdownView'
 import { KnowledgeMarkdownEditor } from '../components/knowledge/KnowledgeMarkdownEditor'
 import { DocSectionsEditor } from '../components/knowledge/DocSections'
@@ -104,6 +106,7 @@ export default function WorkspaceDocs() {
   const { docId } = useParams<{ docId?: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const { user } = useAuth()
   const { currentWorkspace } = useWorkspace()
   const organizationName = workspaceBrandName(
@@ -418,7 +421,7 @@ export default function WorkspaceDocs() {
   const handlePublishToggle = useCallback(async () => {
     if (!active) return
     const publish = !isPublished(active)
-    if (publish && !window.confirm(t('knowledgePage.publishConfirm'))) return
+    if (publish && !(await confirm({ description: t('knowledgePage.publishConfirm') }))) return
     setPublishing(true)
     try {
       const updated = await publishWorkspaceDoc(active.id, publish)
@@ -430,11 +433,17 @@ export default function WorkspaceDocs() {
     } finally {
       setPublishing(false)
     }
-  }, [active, refresh, t])
+  }, [active, confirm, refresh, t])
 
   const handleDelete = useCallback(async () => {
     if (!active) return
-    if (!window.confirm(t('knowledgePage.deleteConfirm', { path: active.path }))) return
+    if (
+      !(await confirm({
+        description: t('knowledgePage.deleteConfirm', { path: active.path }),
+        destructive: true,
+      }))
+    )
+      return
     try {
       await deleteWorkspaceDoc(active.id)
       setActive(null)
@@ -447,7 +456,7 @@ export default function WorkspaceDocs() {
       setError(message)
       toast.error(message)
     }
-  }, [active, navigate, refresh, t])
+  }, [active, confirm, navigate, refresh, t])
 
   const activeTitle = active ? docTitle(active) : ''
   const displayContent = active
@@ -686,7 +695,7 @@ export default function WorkspaceDocs() {
                         {isPublished(doc) ? (
                           <span
                             title={t('knowledgePage.publishedHelp')}
-                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+                            className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-success"
                           />
                         ) : null}
                       </button>
@@ -751,9 +760,7 @@ export default function WorkspaceDocs() {
                     {docTitle(active)}
                   </h1>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="inline-flex items-center rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-xs font-medium text-text-secondary">
-                      {kindLabel(active.kind)}
-                    </span>
+                    <Badge>{kindLabel(active.kind)}</Badge>
                     <button
                       type="button"
                       onClick={() => {
@@ -763,7 +770,7 @@ export default function WorkspaceDocs() {
                         )
                       }}
                       title={t('knowledgePage.copyPath')}
-                      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 font-mono text-xs text-text-muted hover:text-text-secondary"
+                      className={cn(badgeVariants({ variant: 'neutral' }), 'gap-1 font-mono text-text-muted hover:text-text-secondary')}
                     >
                       <Copy size={10} />
                       {active.path}
@@ -772,10 +779,9 @@ export default function WorkspaceDocs() {
                       <LearnedChip label={t('knowledgePage.aiMaintained')} />
                     ) : null}
                     {isPublished(active) ? (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                        <Globe size={11} />
+                      <Badge variant="success" icon={Globe}>
                         {t('knowledgePage.publishedBadge')}
-                      </span>
+                      </Badge>
                     ) : null}
                   </div>
                   {AI_MAINTAINED_KINDS.has(active.kind) ? (
@@ -873,13 +879,10 @@ export default function WorkspaceDocs() {
               {frontmatterEntries.length > 0 && !editing ? (
                 <div className="mb-5 flex flex-wrap gap-1.5">
                   {frontmatterEntries.map(([k, v]) => (
-                    <span
-                      key={k}
-                      className="inline-flex max-w-full items-center gap-1 rounded-md border border-border/40 bg-bg-elevated/40 px-2 py-0.5 text-xs"
-                    >
-                      <span className="font-medium text-text-muted">{k}</span>
-                      <span className="truncate-fade text-text-secondary">{String(v)}</span>
-                    </span>
+                    <Badge key={k} className="max-w-full gap-1">
+                      <span className="text-text-muted">{k}</span>
+                      <span className="truncate-fade">{String(v)}</span>
+                    </Badge>
                   ))}
                 </div>
               ) : null}

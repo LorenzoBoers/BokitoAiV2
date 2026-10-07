@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import * as Dialog from '@radix-ui/react-dialog'
 import { ArrowLeft, Check, ChevronRight, Copy, Mail, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import ProviderLogo from '../email/ProviderLogo'
 import { BrandMark } from '../integrations/BrandMark'
@@ -96,10 +97,10 @@ function ChoiceRow({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated/30 px-3 py-3 text-left transition-all',
+        'group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated px-3 py-3 text-left transition-all',
         'hover:border-border hover:bg-bg-hover/50',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated/30',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated',
         className,
       )}
     >
@@ -139,18 +140,18 @@ function ProviderCard({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'relative flex flex-col items-start gap-3 rounded-lg border border-border/50 bg-bg-elevated/30 p-3.5 text-left transition-all',
+        'relative flex flex-col items-start gap-3 rounded-lg border border-border/50 bg-bg-elevated p-3.5 text-left transition-all',
         'hover:border-border hover:bg-bg-hover/50 ',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated/30 disabled:hover:shadow-none',
+        'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated disabled:hover:shadow-none',
       )}
     >
       {badge ? (
-        <span className="absolute right-2.5 top-2.5 rounded-full bg-bg-input px-1.5 py-0.5 text-2xs font-medium text-text-muted">
+        <Badge variant="neutral" size="sm" className="absolute right-2.5 top-2.5">
           {badge}
-        </span>
+        </Badge>
       ) : null}
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-bg-surface">
+      <span className="panel flex h-9 w-9 items-center justify-center">
         {icon}
       </span>
       <span className="min-w-0">
@@ -470,10 +471,10 @@ export default function AddChannelDialog({
             {choice === 'relay' ? (
               createdAddress ? (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-border/50 bg-bg-elevated/40 px-4 py-4">
+                  <div className="rounded-lg border border-border/50 bg-bg-elevated px-4 py-4">
                     <p className="text-sm text-text-secondary">{t('channelsPage.relay.created')}</p>
                     <div className="mt-3 flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate-fade rounded-lg border border-border/60 bg-bg-surface px-2.5 py-2 text-xs font-medium text-text-heading">
+                      <code className="panel min-w-0 flex-1 truncate-fade px-2.5 py-2 text-xs font-medium text-text-heading">
                         {createdAddress}
                       </code>
                       <Button variant="secondary" size="sm" onClick={() => void copyAddress()}>
@@ -499,7 +500,7 @@ export default function AddChannelDialog({
                       className="rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 font-mono text-sm text-text-primary outline-none transition-colors focus:border-accent/60"
                     />
                   </label>
-                  <div className="rounded-lg border border-dashed border-border/60 bg-bg-elevated/20 px-3 py-2.5">
+                  <div className="rounded-lg border border-dashed border-border/60 bg-bg-elevated px-3 py-2.5">
                     <p className="text-xs text-text-muted">
                       {t('channelsPage.relay.preview')}
                     </p>

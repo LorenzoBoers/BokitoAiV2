@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import { Badge } from './badge'
 import { Tip } from './Tip'
 
 /** Inline pill next to an option title that marks the inherited default. */
@@ -12,15 +13,13 @@ export function DefaultBadge({
   className?: string
 }) {
   const badge = (
-    <span
+    <Badge
       data-testid="default-badge"
-      className={cn(
-        'shrink-0 rounded-full bg-bg-hover px-1.5 py-px text-2xs font-semibold text-text-secondary',
-        className,
-      )}
+      variant="info"
+      className={cn('shrink-0', className)}
     >
       {children}
-    </span>
+    </Badge>
   )
   return title ? <Tip label={title}>{badge}</Tip> : badge
 }

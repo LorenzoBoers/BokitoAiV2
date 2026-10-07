@@ -5,6 +5,9 @@
 @layer base {
   :root {
     color-scheme: dark;
+    /* Type: Inter for UI, JetBrains Mono for code and ids. Change here only. */
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     /*
      * Dashboard surfaces (design system v2, 2026-10): warm-neutral greys that sit
      * within a few points of each other. Depth comes from hairline borders and
@@ -131,7 +134,7 @@
   body {
     background: var(--body-bg);
     color: rgb(var(--color-text-primary));
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 160ms ease, color 160ms ease;
@@ -166,18 +169,13 @@
 @layer components {
   /*
    * THE card recipe. Solid surface, hairline border, no shadow.
-   * Use `.panel` or `<Card>` — do not hand-roll shadows/borders for new UI.
-   * Radius nesting: shell sheet xl (12) > cards lg (8) > inner panels /
-   * inputs md (6) > chips sm (4) > pills full. Children always one step
-   * smaller than their parent.
+   * Use `<Card>` / `<InsetPanel>` — do not hand-roll shadows/borders.
+   * Radius ladder: shell sheet xl > Card, Badge, OptionCard lg > InsetPanel,
+   * input, button md > FilterChip md. `rounded-full` only for avatars,
+   * dots and switches. Catalog: apps/dashboard/docs/DESIGN_SYSTEM.md.
    */
   .panel {
     @apply bg-bg-surface border border-border/70 rounded-lg;
-  }
-
-  /* Flat inset region inside a panel (filters, sublists) — no second border weight. */
-  .panel-inset {
-    @apply rounded-md border border-border/50 bg-bg-elevated;
   }
 
   /*
@@ -569,14 +567,6 @@
     @apply px-5 py-4 border-b border-border/40 flex items-center justify-between;
   }
 
-  .badge-accent {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold rounded-full bg-accent-muted text-accent;
-  }
-
-  .badge-status {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 text-2xs font-semibold rounded-full;
-  }
-
   /* Legacy row recipes: now aliases of .nav-row so old call sites follow the new look. */
   .sidebar-item,
   .nav-item {
@@ -895,10 +885,10 @@
 
 @keyframes thinking-shimmer {
   0% {
-    background-position: 120% 0;
+    background-position: 100% 0;
   }
   100% {
-    background-position: -120% 0;
+    background-position: 0% 0;
   }
 }
 
@@ -916,21 +906,25 @@
   }
 }
 
+/* Own element: sharing one with .activity-live-label would drop this animation. */
 .thinking-shimmer-text {
+  display: inline-block;
   color: transparent;
   background-image: linear-gradient(
-    110deg,
-    rgb(var(--color-text-secondary)) 0%,
-    rgb(var(--color-text-secondary)) 38%,
-    rgb(var(--color-ai-ink)) 50%,
-    rgb(var(--color-text-secondary)) 62%,
-    rgb(var(--color-text-secondary)) 100%
+    100deg,
+    rgb(var(--color-text-muted)) 0%,
+    rgb(var(--color-text-muted)) 30%,
+    rgb(var(--color-ai-ink)) 42%,
+    rgb(var(--color-text-heading)) 50%,
+    rgb(var(--color-ai-ink)) 58%,
+    rgb(var(--color-text-muted)) 70%,
+    rgb(var(--color-text-muted)) 100%
   );
-  background-size: 220% 100%;
+  background-size: 250% 100%;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: thinking-shimmer 2.1s linear infinite;
+  animation: thinking-shimmer 1.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 .thinking-wave-bar {

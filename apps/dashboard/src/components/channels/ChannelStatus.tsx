@@ -16,6 +16,7 @@ const STATE_DOT: Record<ChannelState, string> = {
   action_required: 'bg-status-error',
   error: 'bg-status-error',
   paused: 'bg-text-muted/60',
+  archived: 'bg-text-muted/30',
 }
 
 /** The one channel state: a dot and a word, same in the list and the hub. */

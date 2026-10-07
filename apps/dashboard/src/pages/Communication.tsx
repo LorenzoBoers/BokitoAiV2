@@ -52,6 +52,7 @@ import {
 import { TicketStageMoveCancelled, loadOpenTickets, resolveOpenTickets } from '../lib/close-thread-signals'
 import { useCollectStageFields } from '../components/inbox/TicketStageGate'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { InboxSplitSkeleton } from '../components/ui/skeleton'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
@@ -110,6 +111,7 @@ function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFil
 export default function Communication() {
   const { t } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
+  const confirm = useConfirm()
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
   const { threadId: threadIdParam } = useParams<{ threadId?: string }>()
@@ -559,7 +561,7 @@ export default function Communication() {
     async (id: ThreadId, subject?: string) => {
       if (!token) return
       const label = subject?.trim() || t('actions.deleteFallback', { id })
-      if (!window.confirm(t('actions.deleteConfirm', { label }))) {
+      if (!(await confirm({ description: t('actions.deleteConfirm', { label }), destructive: true }))) {
         return
       }
 
@@ -578,7 +580,7 @@ export default function Communication() {
         setDeletingThreadId(null)
       }
     },
-    [token, removeThread, pinnedIds, removePin, selectedThreadId, leaf, navigate, refreshNavBadges, inboxQuery, t],
+    [token, removeThread, pinnedIds, removePin, selectedThreadId, leaf, navigate, refreshNavBadges, inboxQuery, t, confirm],
   )
 
   const handleDetailDelete = useCallback(async () => {
@@ -616,16 +618,16 @@ export default function Communication() {
         const openTickets = await loadOpenTickets(String(id))
         if (openTickets.length > 0) {
           if (
-            !window.confirm(
-              t('threadChrome.closeWithTicketShortcutConfirm', { count: openTickets.length }),
-            )
+            !(await confirm({
+              description: t('threadChrome.closeWithTicketShortcutConfirm', { count: openTickets.length }),
+            }))
           ) {
             return
           }
           if (
-            window.confirm(
-              t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
-            )
+            await confirm({
+              description: t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
+            })
           ) {
             try {
               await resolveOpenTickets(openTickets, collectStageFields)
@@ -663,6 +665,7 @@ export default function Communication() {
     },
     [
       token,
+      confirm,
       collectStageFields,
       selectedThreadId,
       leaveResolvedThread,
@@ -704,11 +707,7 @@ export default function Communication() {
       if (inboxQueue === 'for_you' && detail.thread.status === 'open') return
       if (threadFitsInboxQueue(detail.thread, inboxQueue, currentUserId)) return
       if (resolvedStatusLeavesInboxQueue(detail.thread.status, inboxQueue)) {
-        const dedicated = dedicatedInboxQueueForStatus(detail.thread.status)
-        if (dedicated) {
-          navigate(`${inboxPath(dedicated, String(detail.thread.id))}${inboxQuery}`, { replace: true })
-          return
-        }
+        // Stay in Open / For you / … — do not follow the thread into Closed or Spam.
         advancingRef.current = true
         try {
           leaveResolvedThread(selectedThreadId, detail.thread.status)
@@ -832,19 +831,25 @@ export default function Communication() {
     onClose: () => {
       void (async () => {
         if (selectedThreadId == null) return
+        // Same key as Close: in Closed/Spam it reopens (Not spam), like the thread button.
+        const status = detail?.thread.status
+        if (status === 'closed' || status === 'spam') {
+          await handlePatch({ status: 'open' })
+          return
+        }
         const openTickets = await loadOpenTickets(String(selectedThreadId))
         if (openTickets.length > 0) {
           if (
-            !window.confirm(
-              t('threadChrome.closeWithTicketShortcutConfirm', { count: openTickets.length }),
-            )
+            !(await confirm({
+              description: t('threadChrome.closeWithTicketShortcutConfirm', { count: openTickets.length }),
+            }))
           ) {
             return
           }
           if (
-            window.confirm(
-              t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
-            )
+            await confirm({
+              description: t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
+            })
           ) {
             try {
               await resolveOpenTickets(openTickets, collectStageFields)
@@ -936,6 +941,12 @@ export default function Communication() {
   const handleBulkAction = useCallback(
     async (action: BulkThreadAction, assigneeId?: number) => {
       if (!token || bulkSelectedIds.size === 0) return
+      const count = bulkSelectedIds.size
+      if (action === 'trash') {
+        // Double confirm: bulk bin is easy to hit and hard to undo in the list.
+        if (!(await confirm({ description: t('bulkActions.trashConfirm', { count }), destructive: true }))) return
+        if (!(await confirm({ description: t('bulkActions.trashConfirmAgain', { count }), destructive: true }))) return
+      }
       setBulkBusy(true)
       try {
         const updated = await bulkUpdateSignalThreads(
@@ -944,7 +955,11 @@ export default function Communication() {
           action,
           assigneeId,
         )
-        toast.success(t('actions.bulkUpdated', { count: updated }))
+        toast.success(
+          action === 'trash'
+            ? t('bulkActions.trashDone', { count: updated })
+            : t('actions.bulkUpdated', { count: updated }),
+        )
         setBulkSelectedIds(new Set())
         void refreshThreads()
         void refreshNavBadges()
@@ -954,7 +969,7 @@ export default function Communication() {
         setBulkBusy(false)
       }
     },
-    [token, bulkSelectedIds, refreshThreads, refreshNavBadges, t],
+    [token, bulkSelectedIds, refreshThreads, refreshNavBadges, t, confirm],
   )
 
   const handleBulkPin = useCallback(
@@ -1340,6 +1355,7 @@ export default function Communication() {
             onBulkPin={mode === 'customer' ? (next) => void handleBulkPin(next) : undefined}
             onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
             bulkBusy={bulkBusy}
+            listQueue={leaf.queue ?? null}
             scrollKey={leafKey(leaf)}
             assigneeFilter={assigneeFilter}
             onAssigneeFilter={setAssigneeFilter}

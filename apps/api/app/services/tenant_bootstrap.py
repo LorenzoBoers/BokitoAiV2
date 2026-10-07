@@ -380,6 +380,15 @@ def default_tenant_settings() -> dict:
     # New workspaces must complete the first-run wizard once. Legacy tenants
     # without this key are never force-redirected.
     base["onboarding"] = {"wizard_required": True}
+    # Bokito AI: Automatic — Bokito picks Maki / Bokito / Kong per action.
+    # Agents on Workspace default inherit this until an admin pins a tier.
+    base["models"] = {
+        "workspace_chat_mode": "automatic",
+        "default_chat": "",
+        "default_embedding": "",
+        "allowed_chat": [],
+        "non_eu_platform_models": "blocked",
+    }
     return base
 
 

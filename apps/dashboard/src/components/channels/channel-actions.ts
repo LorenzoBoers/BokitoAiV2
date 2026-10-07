@@ -8,7 +8,11 @@ export type ChannelActions = {
   reconnect: (row: ChannelRow) => void
   makePrimary: (row: ChannelRow) => void
   rename: (row: ChannelRow) => void
-  remove: (row: ChannelRow) => void
+  /** Stop the channel for good; conversations and access stay. */
+  archive: (row: ChannelRow) => void
+  restore: (row: ChannelRow) => void
+  /** Delete an archived channel together with its conversations. */
+  deletePermanently: (row: ChannelRow) => void
   setSyncWindow: (row: ChannelRow, days: number) => void
   setArchiveAutomatedMail: (row: ChannelRow, enabled: boolean) => void
   editFolders: (row: ChannelRow) => void
@@ -21,6 +25,7 @@ export type ChannelActions = {
 export type ChannelFix = 'reconnect' | 'retry_sync' | 'resume'
 
 export function channelFix(row: ChannelRow): ChannelFix | null {
+  if (row.state === 'archived') return null
   if (!row.isEnabled) return 'resume'
   if (row.actions.includes('reconnect') && row.state === 'action_required') return 'reconnect'
   const canSync = row.capabilities.includes('sync')

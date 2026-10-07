@@ -70,7 +70,11 @@ async def count_widget_channels(session: AsyncSession, tenant_id: UUID) -> int:
     result = await session.execute(
         select(func.count())
         .select_from(ChannelAccount)
-        .where(ChannelAccount.tenant_id == tenant_id, ChannelAccount.channel == "widget")
+        .where(
+            ChannelAccount.tenant_id == tenant_id,
+            ChannelAccount.channel == "widget",
+            ChannelAccount.archived_at.is_(None),
+        )
     )
     return int(result.scalar_one() or 0)
 

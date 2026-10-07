@@ -20,6 +20,7 @@ import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { PersonAvatar } from '../ui/PersonAvatar'
+import { Badge } from '../ui/badge'
 import { useAuth } from '../../context/AuthContext'
 import {
   findThreadsForContact,
@@ -437,8 +438,8 @@ export default function ContactPanel({
               <p className="truncate-fade text-base font-semibold text-text-heading">
                 {teammate.name || teammate.email}
               </p>
-              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-accent/10 px-1.5 py-px text-2xs font-semibold text-accent">
-                <Users size={9} />
+              <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-lg bg-accent/12 px-2.5 py-0.5 text-xs font-medium text-accent">
+                <Users size={11} />
                 {isSelf ? t('contactPanel.you') : t('contactPanel.teammate')}
               </span>
               <IdentitySeenLine at={latestThreadActivityAt(threads) || threadActivityAt} />
@@ -571,18 +572,15 @@ export default function ContactPanel({
                   : t('contactPanel.kindContact')}
             </span>
             {basis === 'verified' || basis === 'claimed' ? (
-              <span
+              <Badge
                 data-testid="contact-basis"
+                size="sm"
+                variant={basis === 'verified' ? 'success' : 'neutral'}
+                icon={basis === 'verified' ? ShieldCheck : undefined}
                 title={t(basis === 'verified' ? 'contactPanel.basisVerifiedHint' : 'contactPanel.basisClaimedHint')}
-                className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-2xs font-semibold ${
-                  basis === 'verified'
-                    ? 'bg-status-success/12 text-status-success'
-                    : 'bg-bg-hover text-text-secondary'
-                }`}
               >
-                {basis === 'verified' ? <ShieldCheck size={9} /> : null}
                 {t(basis === 'verified' ? 'contactPanel.basisVerified' : 'contactPanel.basisClaimed')}
-              </span>
+              </Badge>
             ) : null}
             </div>
             <IdentitySeenLine at={lastSeenAt || threadActivityAt} />

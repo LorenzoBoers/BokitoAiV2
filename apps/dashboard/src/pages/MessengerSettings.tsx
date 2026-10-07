@@ -18,6 +18,7 @@ import { PageGuideLink } from '../components/layout/PageGuideLink'
 import { AutosaveStatus } from '../components/ui/AutosaveStatus'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { SegmentedControl } from '../components/ui/segmented-control'
 import { Switch } from '../components/ui/switch'
 import { useAutosave } from '../hooks/useAutosave'
 import { useWorkspace } from '../context/WorkspaceContext'
@@ -95,58 +96,6 @@ function ColorField({
         onChange={(e) => onChange(e.target.value)}
         className="w-28 rounded-lg border border-border/60 bg-bg-surface/50 px-3 py-2 font-mono text-sm text-text-primary focus:border-accent/55 focus:outline-none"
       />
-    </div>
-  )
-}
-
-function SegmentedControl<T extends string>({
-  value,
-  onChange,
-  options,
-  className,
-  size = 'md',
-  stretch,
-}: {
-  value: T
-  onChange: (v: T) => void
-  options: { value: T; label: string; icon?: ReactNode }[]
-  className?: string
-  size?: 'sm' | 'md'
-  stretch?: boolean
-}) {
-  const pad = size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'
-  return (
-    <div
-      role="tablist"
-      className={cn(
-        'max-w-full gap-0.5 rounded-lg border border-border/60 bg-bg-input/40 p-1 dark:bg-bg-input/55',
-        stretch ? 'flex w-full' : 'inline-flex flex-wrap',
-        className,
-      )}
-    >
-      {options.map((opt) => {
-        const active = value === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              'relative z-10 inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
-              stretch && 'min-w-0 flex-1',
-              pad,
-              active
-                ? 'bg-bg-surface text-text-heading ring-1 ring-border/40'
-                : 'text-text-secondary hover:text-text-primary',
-            )}
-          >
-            {opt.icon ? <span className="hidden sm:inline">{opt.icon}</span> : null}
-            <span className="whitespace-nowrap">{opt.label}</span>
-          </button>
-        )
-      })}
     </div>
   )
 }

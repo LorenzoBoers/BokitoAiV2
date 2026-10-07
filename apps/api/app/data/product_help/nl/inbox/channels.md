@@ -1,8 +1,8 @@
 ---
 title: Kanalen koppelen
 intro: Breng klantmail en andere inboxen naar Communicatie.
-description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP of WhatsApp, lees de status en controles per kanaal, en pauzeer of verwijder een kanaal.
-keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening, kanaal pauzeren, automatische mail archiveren, nieuwsbrieven, syncfouten
+description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP of WhatsApp, lees de status en controles per kanaal, en pauzeer, archiveer of verwijder een kanaal.
+keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening, kanaal pauzeren, kanaal archiveren, kanaal herstellen, kanaal verwijderen, automatische mail archiveren, nieuwsbrieven, syncfouten
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
@@ -80,18 +80,26 @@ Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 
 Setupgids, Koppelingen, Kanalen en de reply-composer gebruiken dezelfde kanaalstatus. Alleen een agenda-login telt niet als verzendklare mailbox — Koppelingen toont dan dat de agenda gesynchroniseerd is terwijl mail nog niet klaar is.
 
-1. Bekijk de status rechts op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd** of **Fout**. **Verbinden** hoort alleen tijdens een installatie die nog loopt — na een geslaagde koppeling zie je **Actief**.
+1. Bekijk de status rechts op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd**, **Fout** of **Gearchiveerd**. **Verbinden** hoort alleen tijdens een installatie die nog loopt — na een geslaagde koppeling zie je **Actief**.
 2. Heeft een kanaal een mens nodig, dan toont de rij één herstelknop naast de status: **Opnieuw koppelen**, **Sync opnieuw proberen** of **Hervatten**. Een gele melding boven de lijst telt de kanalen die nog niet klaar zijn, en de eerste daarvan gaat vanzelf open.
 3. Klik op de rij en lees **Status**. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
 4. Bij een mailbox staat **Geschiedenis** in de sectie **Mailbox** voor latere backfills na opnieuw koppelen. Hoe ver terug bij de eerste installatie kies je tijdens **Kanaal toevoegen**.
 5. Een mailbox die 50 keer achter elkaar niet kan synchroniseren pauzeert zichzelf in plaats van eindeloos opnieuw te proberen. De rij toont **Gepauzeerd**, **Syncfouten** toont de reden en er komt een melding in Communicatie. Herstel de aanmelding of server en kies **Hervatten**; een geslaagde sync zet de teller op nul.
 
-## Pauzeer of verwijder een kanaal
+## Pauzeer of archiveer een kanaal
 
 1. Klik op de kanaalrij en scroll naar **Beheer**.
-2. Kies **Pauzeren** naast **Kanaal pauzeren**. Een gepauzeerd kanaal ontvangt en verstuurt niets nieuws; gesprekken en instellingen blijven bewaard. Een gepauzeerde mailbox is ook geen primaire afzender meer.
-3. De rij toont dan **Gepauzeerd** met een knop **Hervatten**. Kies **Hervatten** om weer te ontvangen en te verzenden.
-4. Kies **Verwijderen** naast **Kanaal verwijderen** om het definitief te ontkoppelen. Bestaande gesprekken blijven in Communicatie. De websitechat kun je pauzeren maar niet verwijderen.
+2. Kies **Pauzeren** naast **Kanaal pauzeren** voor een korte onderbreking. Een gepauzeerd kanaal ontvangt en verstuurt niets nieuws; gesprekken en instellingen blijven bewaard. Een gepauzeerde mailbox is ook geen primaire afzender meer. Kies **Hervatten** om weer te ontvangen en te verzenden.
+3. Kies **Archiveren** naast **Kanaal archiveren** als je het kanaal niet meer gebruikt. Synchroniseren en verzenden stoppen, en Bokito vergeet de inlog. De websitechat kun je alleen archiveren als de workspace er nog een heeft.
+4. De rij zakt naar onderen in de lijst en toont **Gearchiveerd**. De gesprekken blijven in Communicatie, en **Toegang** op de kanaalpagina bepaalt nog steeds wie ze ziet.
+5. Kies **Herstellen** om het kanaal terug te zetten als **Gepauzeerd**, en koppel of hervat het daarna. Dezelfde mailbox opnieuw koppelen via **Kanaal toevoegen** haalt het ook uit het archief.
+
+## Verwijder een kanaal met alle data
+
+1. Archiveer het kanaal eerst. Een kanaal met gesprekken kun je niet direct verwijderen.
+2. Open het gearchiveerde kanaal en kies **Definitief verwijderen** naast **Verwijderen met alle data** onder **Beheer**.
+3. Het venster toont hoeveel gesprekken meegaan. Typ het adres of de naam van het kanaal om te bevestigen en kies **Definitief verwijderen**.
+4. Het kanaal en elk gesprek dat via dit kanaal binnenkwam worden verwijderd, inclusief berichten en bijlagen. Ze gaan niet naar de Prullenbak en zijn niet terug te halen.
 
 In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** als er al een kanaal is dat nog niet klaar is, of **Mailbox koppelen** als er nog geen kanaal is. De setupgids markeert de kanaalstap pas klaar wanneer een mailbox kan verzenden of ontvangen.
 

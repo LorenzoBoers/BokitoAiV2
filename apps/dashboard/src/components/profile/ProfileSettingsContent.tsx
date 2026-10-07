@@ -17,6 +17,7 @@ import {
 } from '../../lib/sso-api'
 import { describeSsoError } from '../auth/sso-errors'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
 import SignatureEditor from '../inbox/SignatureEditor'
 import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
@@ -150,7 +151,7 @@ function Section({ title, description, children }: { title: string; description?
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-bg-surface px-4">
+    <div className="panel px-4">
       {children}
     </div>
   )
@@ -264,6 +265,7 @@ export function ProfileSettingsContent() {
   const { t, i18n } = useTranslation(['profile', 'common'])
   const { user, token, logout, patchLocalUser, refreshUser } = useAuth()
   const { mode, setMode } = useTheme()
+  const confirm = useConfirm()
   const [defaultLanding, setDefaultLanding] = useState<DefaultLanding>(() => readCachedDefaultLanding())
 
   useEffect(() => {
@@ -321,7 +323,7 @@ export function ProfileSettingsContent() {
   const [deleting, setDeleting] = useState(false)
   const handleDeleteAccount = useCallback(async () => {
     if (!token || deleting) return
-    if (!window.confirm(t('profile:account.deleteConfirm'))) return
+    if (!(await confirm({ description: t('profile:account.deleteConfirm'), destructive: true }))) return
     const password = window.prompt(t('profile:account.deletePasswordPrompt'))
     if (!password) return
     setDeleting(true)
@@ -333,7 +335,7 @@ export function ProfileSettingsContent() {
       toast.error(err instanceof Error ? err.message : t('profile:errors.deleteAccount'))
       setDeleting(false)
     }
-  }, [token, deleting, t, logout])
+  }, [token, deleting, t, logout, confirm])
 
   // Password form
   const [showPasswordForm, setShowPasswordForm] = useState(false)
@@ -404,7 +406,7 @@ export function ProfileSettingsContent() {
     async (provider: SsoProviderId) => {
       if (!token || ssoBusy) return
       const label = t(`profile:security.${provider}`)
-      if (!window.confirm(t('profile:security.disconnectConfirm', { provider: label }))) return
+      if (!(await confirm({ description: t('profile:security.disconnectConfirm', { provider: label }), destructive: true }))) return
       setSsoBusy(provider)
       try {
         const data = await unlinkSsoProvider(token, provider)
@@ -417,7 +419,7 @@ export function ProfileSettingsContent() {
         setSsoBusy(null)
       }
     },
-    [token, ssoBusy, t],
+    [token, ssoBusy, t, confirm],
   )
 
   const saveName = useCallback(async (next: string) => {
@@ -730,7 +732,7 @@ export function ProfileSettingsContent() {
 
       {/* ── Appearance ── */}
       <Section title={t('profile:theme.title')} description={t('profile:theme.description')}>
-        <div className="grid grid-cols-3 gap-2.5 rounded-lg border border-border/60 bg-bg-surface p-3">
+        <div className="panel grid grid-cols-3 gap-2.5 p-3">
           <ThemeOption variant="light" label={t('profile:theme.light')} icon={<Sun size={12} />} active={mode === 'light'} onClick={() => setMode('light')} />
           <ThemeOption variant="dark" label={t('profile:theme.dark')} icon={<Moon size={12} />} active={mode === 'dark'} onClick={() => setMode('dark')} />
           <ThemeOption variant="system" label={t('profile:theme.system')} icon={<LaptopMinimal size={12} />} active={mode === 'system'} onClick={() => setMode('system')} />

@@ -5,6 +5,8 @@ import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { AiAvatar } from '../components/ui/AiAvatar'
+import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
+import { SegmentedControl } from '../components/ui/segmented-control'
 import { Switch } from '../components/ui/switch'
 import {
   AGENT_AVATAR_ICON_KEYS,
@@ -71,27 +73,17 @@ function ChoiceGrid({
   labelFor: (id: string) => string
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      {options.map((id) => {
-        const selected = value === id
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id)}
-            aria-pressed={selected}
-            className={cn(
-              'rounded-lg border px-3.5 py-2.5 text-left text-sm font-medium transition-colors',
-              selected
-                ? 'border-border-light bg-bg-hover text-text-heading'
-                : 'border-border/60 bg-bg-elevated/40 text-text-secondary hover:border-border hover:text-text-heading',
-            )}
-          >
-            {labelFor(id)}
-          </button>
-        )
-      })}
-    </div>
+    <OptionCardGrid columns={2} className="gap-2">
+      {options.map((id) => (
+        <OptionCard
+          key={id}
+          selected={value === id}
+          onClick={() => onChange(id)}
+          title={labelFor(id)}
+          className="py-2.5"
+        />
+      ))}
+    </OptionCardGrid>
   )
 }
 
@@ -372,27 +364,17 @@ export default function OnboardingWizardPage() {
             </div>
             <div className="space-y-2">
               <p className="text-xs font-medium text-text-secondary">{t('languages.uiLabel')}</p>
-              <div className="flex gap-2">
-                {(['nl', 'en'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    aria-pressed={uiLang === lang}
-                    onClick={() => {
-                      setUiLang(lang)
-                      applyUiLanguageLocally(i18n, lang)
-                    }}
-                    className={cn(
-                      'rounded-lg border px-4 py-2 text-sm font-medium',
-                      uiLang === lang
-                        ? 'border-border-light bg-bg-hover text-text-heading'
-                        : 'border-border/60 text-text-secondary',
-                    )}
-                  >
-                    {lang === 'en' ? t('languages.uiEn') : t('languages.uiNl')}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={uiLang}
+                onChange={(lang) => {
+                  setUiLang(lang)
+                  applyUiLanguageLocally(i18n, lang)
+                }}
+                options={(['nl', 'en'] as const).map((lang) => ({
+                  value: lang,
+                  label: lang === 'en' ? t('languages.uiEn') : t('languages.uiNl'),
+                }))}
+              />
             </div>
             {isOwnerScope ? (
               <div className="space-y-2">
@@ -400,24 +382,11 @@ export default function OnboardingWizardPage() {
                   {t('languages.workspaceLabel')}
                 </p>
                 <p className="text-xs text-text-muted">{t('languages.workspaceHint')}</p>
-                <div className="flex flex-wrap gap-2">
-                  {WORKSPACE_LANGS.map((lang) => (
-                    <button
-                      key={lang}
-                      type="button"
-                      aria-pressed={workspaceLang === lang}
-                      onClick={() => setWorkspaceLang(lang)}
-                      className={cn(
-                        'rounded-lg border px-3 py-1.5 text-sm font-medium ',
-                        workspaceLang === lang
-                          ? 'border-border-light bg-bg-hover text-text-heading'
-                          : 'border-border/60 text-text-secondary',
-                      )}
-                    >
-                      {lang}
-                    </button>
-                  ))}
-                </div>
+                <SegmentedControl
+                  value={workspaceLang}
+                  onChange={setWorkspaceLang}
+                  options={WORKSPACE_LANGS.map((lang) => ({ value: lang, label: lang }))}
+                />
               </div>
             ) : null}
           </section>
@@ -429,7 +398,7 @@ export default function OnboardingWizardPage() {
               <h2 className="text-lg font-semibold text-text-heading">{t('notifications.title')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('notifications.subtitle')}</p>
             </div>
-            <ul className="divide-y divide-border/40 rounded-lg border border-border/50 bg-bg-surface">
+            <ul className="panel divide-y divide-border/40">
               {NOTIFICATION_TIERS.map((tier) => (
                 <li key={tier} className="flex items-center justify-between gap-3 px-3.5 py-3">
                   <div className="min-w-0">
@@ -456,32 +425,18 @@ export default function OnboardingWizardPage() {
               <h2 className="text-lg font-semibold text-text-heading">{t('govern.title')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('govern.subtitle')}</p>
             </div>
-            <div className="space-y-2">
-              {POSTURES.map((id) => {
-                const selected = posture === id
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setPostureLocal(id)}
-                    className={cn(
-                      'w-full rounded-lg border px-4 py-3 text-left transition-colors',
-                      selected
-                        ? 'border-border-light bg-bg-hover'
-                        : 'border-border/60 bg-bg-elevated/30 hover:border-border',
-                    )}
-                  >
-                    <span className="block text-base font-semibold text-text-heading">
-                      {tg(`posture.${id}.label`)}
-                    </span>
-                    <span className="mt-0.5 block text-sm text-text-secondary">
-                      {tg(`posture.${id}.summary`)}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+            <OptionCardGrid className="grid-cols-1 gap-2 sm:grid-cols-1">
+              {POSTURES.map((id) => (
+                <OptionCard
+                  key={id}
+                  selected={posture === id}
+                  onClick={() => setPostureLocal(id)}
+                  title={tg(`posture.${id}.label`)}
+                  description={tg(`posture.${id}.summary`)}
+                  className="px-4"
+                />
+              ))}
+            </OptionCardGrid>
           </section>
         ) : null}
 
@@ -509,24 +464,15 @@ export default function OnboardingWizardPage() {
                 />
               </label>
             </div>
-            <div className="flex gap-2">
-              {(['initials', 'icon'] as const).map((kind) => (
-                <button
-                  key={kind}
-                  type="button"
-                  aria-pressed={avatarKind === kind}
-                  onClick={() => setAvatarKind(kind)}
-                  className={cn(
-                    'rounded-lg border px-3 py-1.5 text-xs font-medium',
-                    avatarKind === kind
-                      ? 'border-border-light bg-bg-hover text-text-heading'
-                      : 'border-border/60 text-text-secondary',
-                  )}
-                >
-                  {kind === 'icon' ? t('agent.icon') : t('agent.initials')}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              size="sm"
+              value={avatarKind}
+              onChange={setAvatarKind}
+              options={(['initials', 'icon'] as const).map((kind) => ({
+                value: kind,
+                label: kind === 'icon' ? t('agent.icon') : t('agent.initials'),
+              }))}
+            />
             {avatarKind === 'icon' ? (
               <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
                 {AGENT_AVATAR_ICON_KEYS.map((key) => {

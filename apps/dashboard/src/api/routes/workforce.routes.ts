@@ -33,7 +33,11 @@ export const workforceRoutes = {
     maintenanceRun: '/workforce/maintenance-run',
   },
   agents: {
-    list: '/agents',
+    list: (params?: { include_inactive?: boolean }) => {
+      const search = new URLSearchParams()
+      if (params?.include_inactive) search.set('include_inactive', 'true')
+      return withQuery('/agents', search)
+    },
     detail: (agentId: string) => `/agents/${encodeURIComponent(agentId)}`,
     status: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/status`,
     lead: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/lead`,

@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import { Button } from './button'
+import { Callout } from './callout'
 
 type ApiErrorBannerProps = {
   message: string
@@ -7,19 +9,22 @@ type ApiErrorBannerProps = {
 }
 
 /** User-safe API error with optional retry (no raw paths or stack traces). */
-export function ApiErrorBanner({ message, onRetry, className = '' }: ApiErrorBannerProps) {
+export function ApiErrorBanner({ message, onRetry, className }: ApiErrorBannerProps) {
+  const { t } = useTranslation('common')
   return (
-    <div
-      className={`rounded-lg border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error ${className}`}
-      role="alert"
+    <Callout
+      tone="error"
+      className={className}
+      actions={
+        onRetry ? (
+          <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onRetry}>
+            {t('actions.retry')}
+          </Button>
+        ) : null
+      }
     >
-      <p>{message}</p>
-      {onRetry ? (
-        <Button type="button" size="sm" variant="ghost" className="mt-2 h-7 px-2 text-xs" onClick={onRetry}>
-          Retry
-        </Button>
-      ) : null}
-    </div>
+      {message}
+    </Callout>
   )
 }
 

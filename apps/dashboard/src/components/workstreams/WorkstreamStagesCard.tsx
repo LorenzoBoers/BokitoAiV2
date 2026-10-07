@@ -109,7 +109,7 @@ function StageOwnerFields({
   return (
     <div className="space-y-2 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
       <div className="space-y-1">
-        <Label className="text-[11px] text-text-muted">{t('workstreamsPage.stages.owner')}</Label>
+        <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.owner')}</Label>
         <Select
           value={ownerValue(stage.owner)}
           disabled={!canEdit}
@@ -143,7 +143,7 @@ function StageOwnerFields({
       </div>
       {stage.kind !== 'done' ? (
         <div className="space-y-1">
-          <Label className="text-[11px] text-text-muted">{t('workstreamsPage.stages.checkup')}</Label>
+          <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.checkup')}</Label>
           <Select
             value={String(minutes)}
             disabled={!canEdit}
@@ -160,7 +160,7 @@ function StageOwnerFields({
               ))}
             </SelectContent>
           </Select>
-          <p className="text-[10px] leading-snug text-text-muted">{t('workstreamsPage.stages.checkupHint')}</p>
+          <p className="text-2xs leading-snug text-text-muted">{t('workstreamsPage.stages.checkupHint')}</p>
         </div>
       ) : null}
     </div>
@@ -233,7 +233,7 @@ function SortablePhaseCard({
         ) : null}
         <StageProgressIcon kind={stage.kind} size={18} />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-text-muted">
+          <span className="shrink-0 text-xs font-semibold tabular-nums text-text-muted">
             {index + 1}.
           </span>
           {canEdit ? (
@@ -245,10 +245,10 @@ function SortablePhaseCard({
               title={t('workstreamsPage.stages.editNameHint', {
                 defaultValue: 'Click to edit',
               })}
-              className="min-w-0 flex-1 cursor-text rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-[0.03em] text-text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-text-muted/50 hover:border-border/70 hover:bg-bg-input/90 focus:border-border focus:bg-bg-input focus:ring-1 focus:ring-border/60"
+              className="min-w-0 flex-1 cursor-text rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-[0.03em] text-text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-text-muted/50 hover:border-border/70 hover:bg-bg-input/90 focus:border-border focus:bg-bg-input focus:ring-1 focus:ring-border/60"
             />
           ) : (
-            <p className="truncate text-[12px] font-semibold uppercase tracking-[0.03em] text-text-heading">
+            <p className="truncate text-xs font-semibold uppercase tracking-[0.03em] text-text-heading">
               {stage.name.trim() || t('workstreamsPage.stages.namePlaceholder')}
             </p>
           )}
@@ -270,7 +270,7 @@ function SortablePhaseCard({
 
       <div className="flex flex-1 flex-col gap-3 p-3">
         <div className="space-y-1.5 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
-          <Label className="text-[11px] text-text-muted">{t('workstreamsPage.stages.kind')}</Label>
+          <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.kind')}</Label>
           <Select
             value={stage.kind}
             onValueChange={(value) => onUpdate({ kind: value as TicketStageKind })}
@@ -304,7 +304,7 @@ function SortablePhaseCard({
               <span className="block text-xs font-medium text-text-primary">
                 {t('workstreamsPage.stages.autoClose')}
               </span>
-              <span className="mt-0.5 block text-[11px] leading-snug text-text-muted">
+              <span className="mt-0.5 block text-xs leading-snug text-text-muted">
                 {t('workstreamsPage.stages.autoCloseHint')}
               </span>
             </span>
@@ -316,7 +316,7 @@ function SortablePhaseCard({
             type="button"
             onClick={() => setFieldsOpen((open) => !open)}
             aria-expanded={fieldsOpen}
-            className="flex w-full items-center gap-1.5 text-left text-[11px] font-medium text-text-muted hover:text-text-primary"
+            className="flex w-full items-center gap-1.5 text-left text-xs font-medium text-text-muted hover:text-text-primary"
           >
             <ChevronDown
               size={12}
@@ -325,13 +325,13 @@ function SortablePhaseCard({
             />
             <span>{t('workstreamsPage.stages.fields')}</span>
             {fieldCount > 0 ? (
-              <span className="ml-auto rounded bg-bg-muted px-1.5 text-[10px] tabular-nums text-text-secondary">
+              <span className="ml-auto rounded bg-bg-muted px-1.5 text-2xs tabular-nums text-text-secondary">
                 {fieldCount}
               </span>
             ) : null}
           </button>
           {fieldsOpen ? (
-            <p className="text-[10px] leading-snug text-text-muted">{t('workstreamsPage.stages.fieldsHint')}</p>
+            <p className="text-2xs leading-snug text-text-muted">{t('workstreamsPage.stages.fieldsHint')}</p>
           ) : null}
           {fieldsOpen ? (stage.fields ?? []).map((field, fieldIndex) => (
             <div
@@ -418,7 +418,7 @@ function SortablePhaseCard({
               </div>
               {field.type === 'enum' ? (
                 <div className="space-y-1.5 rounded-md border border-dashed border-border/50 p-1.5">
-                  <p className="text-[10px] font-medium text-text-muted">
+                  <p className="text-2xs font-medium text-text-muted">
                     {t('workstreamsPage.stages.fieldOptions')}
                   </p>
                   {(field.options ?? ['', '']).map((option, optionIndex) => (
@@ -467,7 +467,7 @@ function SortablePhaseCard({
                         }
                         onUpdate({ fields })
                       }}
-                      className="flex w-full items-center justify-center gap-1 rounded-md px-1 py-1 text-[10px] text-text-muted hover:text-text-primary"
+                      className="flex w-full items-center justify-center gap-1 rounded-md px-1 py-1 text-2xs text-text-muted hover:text-text-primary"
                     >
                       <Plus size={11} />
                       {t('workstreamsPage.stages.fieldOptionAdd')}

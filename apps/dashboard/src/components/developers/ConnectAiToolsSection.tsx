@@ -15,7 +15,7 @@ import {
 } from '../../lib/ai-tool-providers'
 import { mcpEndpointUrl } from '../../lib/api-token-mcp'
 import type { McpOAuthGrant } from '../../lib/mcp-oauth-api'
-import { cn } from '../../lib/utils'
+import { SegmentedControl } from '../ui/segmented-control'
 
 const DOCS_PATH = '/docs/developers/mcp-endpoint'
 
@@ -46,23 +46,15 @@ function ProviderBody({ provider, token }: { provider: AiToolProvider; token: st
     <>
       <p className="text-sm leading-relaxed text-text-secondary">{t(`${base}.body`)}</p>
       {provider.authModes.length > 1 ? (
-        <div className="inline-flex rounded-md border border-border/60 p-0.5" role="tablist">
-          {provider.authModes.map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="tab"
-              aria-selected={mode === option}
-              onClick={() => setMode(option)}
-              className={cn(
-                'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-                mode === option ? 'bg-bg-hover text-text-heading' : 'text-text-muted hover:text-text-primary',
-              )}
-            >
-              {t(`developersPage.aiTools.mode.${option}`)}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          size="sm"
+          value={mode}
+          onChange={setMode}
+          options={provider.authModes.map((option) => ({
+            value: option,
+            label: t(`developersPage.aiTools.mode.${option}`),
+          }))}
+        />
       ) : null}
       {mode === 'token' && !token ? (
         <p className="text-xs text-text-muted">{t('developersPage.aiTools.tokenHint')}</p>
@@ -74,7 +66,7 @@ function ProviderBody({ provider, token }: { provider: AiToolProvider; token: st
       </ol>
       {snippets.map((snippet) => (
         <div key={snippet.id} className="relative">
-          <pre className="max-h-64 overflow-x-auto rounded border border-border bg-bg-elevated/40 p-3 pr-28 text-xs">
+          <pre className="max-h-64 overflow-x-auto rounded-md border border-border/50 bg-bg-elevated p-3 pr-28 text-xs">
             {snippet.code}
           </pre>
           <div className="absolute right-2 top-2 flex gap-1">

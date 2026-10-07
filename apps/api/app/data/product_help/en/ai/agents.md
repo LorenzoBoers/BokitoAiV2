@@ -33,10 +33,11 @@ New chats in Communication require a **company agent**. If none are available fo
 ![Agent detail](/api/docs/assets/agents/agent-brief.png)
 *Edit purpose, model and allowed tools.*
 
-1. Open the agent. The **Instructions** card shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model**.
-2. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
-3. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
-4. A new workspace's front desk agent ships with a description and brief already filled in. During the first chat it asks what the company does and proposes its own updated description and instructions as a Govern draft; approve it under [Govern](/docs/govern/govern) **Pending reviews** or edit the brief here yourself.
+1. Open the agent. The **Instructions** card shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model and runtime**.
+2. Under **Model and runtime**, pick **Workspace default** (follows [Models](/docs/govern/models)), **Automatic** (Bokito picks a tier per action), or pin **Maki**, **Bokito** or **Kong**. New agents start on Workspace default.
+3. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
+4. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
+5. A new workspace's front desk agent ships with a description and brief already filled in. During the first chat it asks what the company does and proposes its own updated description and instructions as a Govern draft; approve it under [Govern](/docs/govern/govern) **Pending reviews** or edit the brief here yourself.
 
 ## Set when the agent acts on its own
 
@@ -65,7 +66,7 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 
 1. An idle agent shows **Ready**. Open **Communication** on the agent page (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.
 2. **Nobody** keeps background work (Agenda, AI handling) without a direct chat from Communication. Front desk, project and other lead agents start on **Everyone** so the whole team can ask them directly.
-3. To take an agent out of the library, use **Deactivate** under the ··· menu. Status becomes **Deactivated**. Use **Reactivate** there or on [Workforce](/docs/getting-started/team) under **Deactivated**. History stays.
+3. To take an agent out of the library, use **Deactivate** under the ··· menu. Status becomes **Deactivated**. On **Agents**, open the **Deactivated** filter to find them again, or use **Reactivate** on the agent page or on [Workforce](/docs/getting-started/team) under **Deactivated**. Deactivated agents leave pickers and channel access matrices; leftover grants clear when you save access. History stays. Each card shows **Last active** from the agent's last run.
 
 ## Add an agent signature
 

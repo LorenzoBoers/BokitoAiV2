@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import {
@@ -27,6 +28,7 @@ import {
 
 export default function StaffIntegrationCatalog() {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const { isStaff } = useAuth()
   const [hosts, setHosts] = useState<CatalogHostRow[]>([])
   const [providers, setProviders] = useState<CatalogProviderRow[]>([])
@@ -125,7 +127,7 @@ export default function StaffIntegrationCatalog() {
   }
 
   const removeProvider = async (row: CatalogProviderRow) => {
-    if (!window.confirm(`Delete ${row.slug}?`)) return
+    if (!(await confirm({ description: `Delete ${row.slug}?`, destructive: true }))) return
     setError(null)
     try {
       await deleteCatalogProvider(row.slug)

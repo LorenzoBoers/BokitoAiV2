@@ -3,8 +3,10 @@ import { formatAgentModelLine, humanizeModelId, modelCostBand, providerTypeLabel
 
 describe('humanizeModelId', () => {
   it('maps the Bokito virtual model slug to its product name', () => {
-    expect(humanizeModelId('bokito-ai-3-1')).toBe('Bokito AI 3.1')
-    expect(humanizeModelId('bokito-ai-3.1')).toBe('Bokito AI 3.1')
+    expect(humanizeModelId('bokito-ai-3-1')).toBe('Bokito')
+    expect(humanizeModelId('bokito-ai-3.1')).toBe('Bokito')
+    expect(humanizeModelId('bokito-maki')).toBe('Maki')
+    expect(humanizeModelId('bokito-kong')).toBe('Kong')
   })
 
   it('maps dated Claude slugs to a short product name', () => {

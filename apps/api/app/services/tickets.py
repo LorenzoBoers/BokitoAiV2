@@ -610,6 +610,8 @@ async def category_catalog_lines(session: AsyncSession, tenant_id: UUID) -> list
     """`#name - when to use it` lines for the triage prompt."""
     lines: list[str] = []
     for row in await list_categories(session, tenant_id):
+        if not bool(row.ai_auto_tag):
+            continue
         description = (row.description or "").strip()
         lines.append(f"#{row.name} - {description}" if description else f"#{row.name}")
     return lines

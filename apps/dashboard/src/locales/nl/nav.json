@@ -344,10 +344,10 @@
     "heroBody": "Gidsen voor het werken met Bokito en het bouwen op de API - van je eerste mailbox tot webhooks en MCP.",
     "searchPlaceholder": "Doorzoek de docs (druk /)",
     "noResults": "Geen resultaten voor die zoekopdracht.",
-    "apiReference": "API-reference",
-    "apiReferenceIntro": "Interactieve reference voor de publieke Bokito-API, gegenereerd uit het live OpenAPI-schema.",
-    "apiReferenceFallback": "De interactieve reference kon niet laden. Het rauwe schema staat op",
-    "apiGuides": "Developergidsen",
+    "apiReference": "API-referentie",
+    "apiReferenceIntro": "Interactieve referentie voor de publieke Bokito-API, gegenereerd uit het live OpenAPI-schema.",
+    "apiReferenceFallback": "De interactieve referentie kon niet laden. Het rauwe schema staat op",
+    "apiGuides": "Gidsen voor ontwikkelaars",
     "onThisPage": "Op deze pagina",
     "previous": "Vorige",
     "next": "Volgende",
@@ -358,6 +358,7 @@
     "continueLast": "Verder lezen",
     "continueLastHint": "Ga verder met {{title}}",
     "sectionCta": "{{count}} artikelen",
+    "language": "Taal",
     "sections": {
       "getting-started": {
         "title": "Aan de slag",
@@ -373,15 +374,15 @@
       },
       "govern": {
         "title": "Govern",
-        "blurb": "Autonomy posture, goedkeuringen, audit en de modellen die de workspace aandrijven."
+        "blurb": "Autonomiehouding, goedkeuringen, audit en de modellen die de workspace aandrijven."
       },
       "integrations": {
         "title": "Integraties",
         "blurb": "Koppel externe tools en MCP-servers zodat agents in je andere systemen kunnen handelen."
       },
       "developers": {
-        "title": "Developers",
-        "blurb": "REST-API, authenticatie, webhooks, het MCP-endpoint, widget-embedding en rate limits."
+        "title": "Voor ontwikkelaars",
+        "blurb": "REST-API, authenticatie, webhooks, het MCP-endpoint, widget insluiten en limieten."
       }
     }
   },
@@ -436,7 +437,7 @@
       "usage": "Verbruik",
       "workstreams": "Flows",
       "activity": "Activiteit",
-      "categories": "Actietags"
+      "categories": "Tags"
     },
     "cockpit": {
       "bannerTitle": "Overview is de polsslag van de workspace",
@@ -1648,7 +1649,6 @@
     "syncedNone": "Niets nieuws om te synchroniseren",
     "couldNotSync": "Synchroniseren is niet gelukt.",
     "primary": "Primair",
-    "neverSynced": "Nooit gesynchroniseerd",
     "history": "Geschiedenis",
     "historyAria": "Hoe ver terug mailgeschiedenis synchroniseren",
     "historyAdvancedHint": "Geldt voor toekomstige backfills na opnieuw koppelen. Dagelijkse sync loopt automatisch.",
@@ -1695,8 +1695,30 @@
     "resumeTitle": "Kanaal staat op pauze",
     "resumeHint": "Hervat om op dit kanaal weer te ontvangen en te verzenden.",
     "resume": "Hervatten",
-    "removeTitleShort": "Kanaal verwijderen",
-    "removeHint": "Ontkoppelt dit kanaal. Bestaande gesprekken blijven in Communicatie.",
+    "archiveTitle": "Kanaal archiveren",
+    "archiveHint": "Stopt synchroniseren en verzenden en meldt het account af. Gesprekken en toegang blijven beheerbaar.",
+    "archive": "Archiveren",
+    "archiveConfirmTitle": "Kanaal archiveren?",
+    "archiveConfirmBody": "{{name}} stopt met synchroniseren en verzenden, en Bokito vergeet de inlog. De gesprekken blijven in Communicatie met dezelfde toegang. Je kunt het kanaal later herstellen of met alle data verwijderen.",
+    "archived": "Kanaal gearchiveerd",
+    "archiveError": "Kanaal kon niet worden gearchiveerd.",
+    "archivedNote_one": "Dit kanaal is gearchiveerd. Er wordt niets gesynchroniseerd of verzonden. Het {{count}} gesprek blijft in Communicatie en volgt de toegang hieronder.",
+    "archivedNote_other": "Dit kanaal is gearchiveerd. Er wordt niets gesynchroniseerd of verzonden. De {{count}} gesprekken blijven in Communicatie en volgen de toegang hieronder.",
+    "restoreTitle": "Kanaal herstellen",
+    "restoreHint": "Zet het kanaal terug als gepauzeerd. Koppel het opnieuw of hervat het om weer te ontvangen.",
+    "restore": "Herstellen",
+    "restored": "Kanaal hersteld",
+    "restoreError": "Kanaal kon niet worden hersteld.",
+    "deleteTitle": "Verwijderen met alle data",
+    "deleteHint": "Verwijdert het kanaal en elk gesprek dat via dit kanaal binnenkwam. Dit kan niet ongedaan worden gemaakt.",
+    "delete": "Definitief verwijderen",
+    "deleteConfirmTitle": "Kanaal en gesprekken verwijderen?",
+    "deleteConfirmBody_one": "Dit verwijdert {{name}} en het {{count}} gesprek, inclusief berichten en bijlagen. Het gaat niet naar de Prullenbak en kan niet ongedaan worden gemaakt.",
+    "deleteConfirmBody_other": "Dit verwijdert {{name}} en de {{count}} gesprekken, inclusief berichten en bijlagen. Ze gaan niet naar de Prullenbak en dit kan niet ongedaan worden gemaakt.",
+    "deleteConfirmType": "Typ {{name}} om te bevestigen.",
+    "deleted_one": "Kanaal verwijderd met {{count}} gesprek",
+    "deleted_other": "Kanaal verwijderd met {{count}} gesprekken",
+    "deleteError": "Kanaal kon niet worden verwijderd.",
     "reconnect": "Opnieuw koppelen",
     "folders": "Mappen",
     "signature": "Handtekening",
@@ -1709,7 +1731,6 @@
     "renameHint": "Deze naam zie je in Communicatie en op de reply-knop.",
     "renameSave": "Naam opslaan",
     "renameSaved": "Kanaal hernoemd",
-    "remove": "Verwijderen",
     "close": "Sluiten",
     "kind": {
       "email_mailbox": "Mailbox",
@@ -1850,15 +1871,9 @@
     "connect": "Koppelen",
     "connecting": "Inloggen openen...",
     "cancel": "Annuleren",
-    "removeTitle": "Kanaal verwijderen?",
-    "removeBody": "Weet je zeker dat je {{email}} wilt verwijderen? Bestaande gesprekken blijven staan, maar er komt niets nieuws meer binnen. Dit kan niet ongedaan worden gemaakt.",
-    "thisChannel": "dit kanaal",
     "thisMailbox": "deze mailbox",
-    "removing": "Verwijderen...",
     "foldersTitle": "Mappen kiezen om te synchroniseren",
-    "foldersBody": "Kies welke mappen van {{email}} in Communicatie worden gesynchroniseerd.",
     "loadingFolders": "Mappen laden...",
-    "noFolders": "Geen mappen gevonden.",
     "saving": "Opslaan...",
     "save": "Opslaan",
     "bindings": {
@@ -1905,7 +1920,6 @@
     "routingSaved": "Routingregels opgeslagen",
     "routingLoadError": "Kon routingregels niet laden.",
     "routingSaveError": "Kon routingregels niet opslaan.",
-    "removeError": "Kanaal kon niet worden verwijderd.",
     "connectError": "Kon mailbox niet koppelen.",
     "noAuthorizeUrl": "Geen autorisatie-URL ontvangen van de server.",
     "foldersLoadError": "Kon mappen niet laden.",
@@ -2242,7 +2256,7 @@
     "newReminder": "Nieuwe herinnering",
     "checkupsDue": "Openstaande taken",
     "newFlow": "Nieuwe flow",
-    "openActionTags": "Actietags openen",
+    "openActionTags": "Tags openen",
     "newConversation": "Nieuw gesprek"
   },
   "gateway": {
@@ -2597,7 +2611,7 @@
       "groupChatHint": "Open de groepschat van dit team"
     },
     "hashtags": {
-      "empty": "Pin een hashtag of toon een actietag",
+      "empty": "Zet een tag vast of maak een flow",
       "settingsAria": "Tags beheren"
     },
     "projects": {
@@ -3628,8 +3642,11 @@
       "filters": {
         "all": "Alles",
         "working": "Bezig",
+        "deactivated": "Gedeactiveerd",
         "default": "Standaard"
       },
+      "emptyDeactivated": "Geen gedeactiveerde agents.",
+      "relatedWorkforce": "Workforce",
       "readonlyBanner": "Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.",
       "moreActions": "Meer acties",
       "duplicate": "Dupliceren",
@@ -3719,7 +3736,13 @@
       "toolsLoading": "Tools laden…",
       "toolsSaveError": "Kon tools niet opslaan.",
       "modelTitle": "Model en runtime",
-      "modelBody": "Het model dat deze agent gebruikt voor redeneren en chat. Maki is lichter, Bokito AI is de standaard, Kong is zwaarder.",
+      "modelBody": "Standaardmodus voor deze agent. Workspace-standaard volgt Instellingen → Modellen. Automatisch laat Bokito een niveau kiezen. Een vastgezet model wint altijd van Automatisch. Per-item overrides (flowstadium, Agenda-taak) kunnen later een model forceren.",
+      "modelMode": {
+        "inherit": "Workspace-standaard",
+        "inheritHint": "volgt Instellingen → Modellen",
+        "automatic": "Automatisch",
+        "automaticHint": "Bokito kiest het niveau"
+      },
       "modelTier": {
         "lighter": "lichter, minder tokens",
         "standard": "standaard",
@@ -3754,14 +3777,14 @@
       "signatureSaveError": "Handtekeninginstellingen konden niet worden opgeslagen",
       "signatureSave": "Opslaan",
       "signatureTextLabel": "Handtekeningstekst",
-      "signatureTextHint": "Alleen platte tekst. Regelafbrekingen blijven behouden. Bij verzenden als de agent komt er altijd een korte Bokito AI-regel onder.",
+      "signatureTextHint": "Alleen platte tekst. Regelafbrekingen blijven behouden. Bij verzenden als de agent komt er altijd een korte Bokito-regel onder.",
       "signatureTextPlaceholder": "{{name}}\nSupport",
       "signaturePreview": "Voorbeeld",
-      "signatureDisclaimerNote": "De regel Powered by Bokito AI staat er altijd bij wanneer deze agent namens zichzelf mailt.",
+      "signatureDisclaimerNote": "De regel Powered by Bokito staat er altijd bij wanneer deze agent namens zichzelf mailt.",
       "replySendAsLabel": "Standaard verzenden als",
       "replySendAsHint": "Geldt voor suggestie-antwoorden van deze agent wanneer je nog geen keuze hebt gemaakt.",
       "replySendAsAgent": "Als deze agent",
-      "replySendAsAgentHint": "Ondertekent met de naam van deze agent en de Bokito AI-regel.",
+      "replySendAsAgentHint": "Ondertekent met de naam van deze agent en de Bokito-regel.",
       "replySendAsUser": "Als de goedkeurende collega",
       "replySendAsUserHint": "Impersoneert de persoon die goedkeurt — diens handtekening wordt gebruikt.",
       "signatureEditorContext": "voor agent {{name}}",
@@ -4705,7 +4728,7 @@
       "conversations": "Gesprekken",
       "importsExports": "Importeren en exporteren",
       "mailboxes": "Mailboxen",
-      "categories": "Actietags"
+      "categories": "Tags"
     },
     "hints": {
       "profileSecurity": "Naam, foto, wachtwoord en e-mailhandtekening",
@@ -4729,8 +4752,8 @@
       "bin": "Herstel of verwijder items definitief tot 60 dagen",
       "reports": "Dagelijkse scan, aandacht en verbruik",
       "developers": "AI-tools, API-tokens en webhooks",
-      "models": "Bokito AI-standaard en optioneel eigen modellen",
-      "categories": "Actietags, vrije tags en hoe ze worden vastgelegd"
+      "models": "Bokito-standaard en optioneel eigen modellen",
+      "categories": "Tags met een grijze #; open de flow om een actietag in te richten"
     }
   },
   "helpHub": {
@@ -4792,12 +4815,12 @@
     "llmBodiesHint": "Uit = inbox-AI die volledige tekst nodig heeft blijft uit. Metadata-only stromen kunnen doorgaan.",
     "region": {
       "title": "Gegevensverwerking",
-      "body": "Bokito AI draait standaard op EU-gehoste infrastructuur. Optionele niet-EU platformmodellen blijven uit totdat een eigenaar of beheerder ze toestaat. Je eigen providersleutels worden niet geraakt.",
+      "body": "Bokito draait standaard op EU-gehoste infrastructuur. Optionele niet-EU platformmodellen blijven uit totdat een eigenaar of beheerder ze toestaat. Je eigen providersleutels worden niet geraakt.",
       "euShare30d": "EU-gehost, laatste 30 dagen",
       "allowUs": "Niet-EU platformmodellen toestaan",
-      "allowUsHint": "Uit: agents die naar een niet-EU platformmodel wijzen draaien in plaats daarvan op Bokito AI. Zet alleen aan als je verwerkersovereenkomst die doorgifte dekt.",
+      "allowUsHint": "Uit: agents die naar een niet-EU platformmodel wijzen draaien in plaats daarvan op Bokito. Zet alleen aan als je verwerkersovereenkomst die doorgifte dekt.",
       "inUseTitle": "Niet-EU modellen gekozen door actieve agents",
-      "inUseBlockedHint": "Deze agents draaien nu op Bokito AI omdat niet-EU platformmodellen geblokkeerd zijn.",
+      "inUseBlockedHint": "Deze agents draaien nu op Bokito omdat niet-EU platformmodellen geblokkeerd zijn.",
       "embeddingNote": "Kennis-embeddings draaien nog op een US-gehost model; een EU-alternatief volgt met een herindexeringsstap."
     },
     "dsarTitle": "Verzoeken van betrokkenen",
@@ -4861,7 +4884,7 @@
     "retention": "Standaard 365 dagen bewaartermijn voor berichten en agenda; per workspace configureerbaar.",
     "dsar": "Owners en admins kunnen persoonsgegevens voor een e-mailadres exporteren of scrubben.",
     "ai": "Chatoppervlakken vermelden AI-gebruik; mensen kunnen overnemen. LLM-gebruik van berichtteksten is per workspace uit te zetten.",
-    "dataRegion": "Bokito AI verwerkt gesprekken standaard op EU-gehoste modellen; US-gehoste platformmodellen blijven uit totdat een eigenaar of beheerder ze toestaat, en elk model toont zijn dataregio.",
+    "dataRegion": "Bokito verwerkt gesprekken standaard op EU-gehoste modellen; US-gehoste platformmodellen blijven uit totdat een eigenaar of beheerder ze toestaat, en elk model toont zijn dataregio.",
     "docsTitle": "Documenten",
     "operatorGuide": "Operatorgids: Privacy en beveiliging",
     "securityDoc": "Beveiligingsoverzicht (concept)",
@@ -5629,12 +5652,12 @@
     "noKey": "Geen sleutel",
     "keySet": "Sleutel ingesteld ····{{last4}}",
     "pageTitle": "Modellen",
-    "pageSubtitle": "Kies Maki, Bokito AI of Kong voor agents. Voeg eigen modellen toe wanneer je plan dat toelaat.",
+    "pageSubtitle": "Stel de workspace Bokito AI-standaard in (of Automatisch), kies daarna een modus per agent. Voeg eigen modellen toe wanneer je plan dat toelaat.",
     "saved": "Opgeslagen",
     "ownProvidersTitle": "Eigen providers",
-    "ownProvidersBody": "Optioneel. Modellen op je eigen sleutels gaan voor op Bokito AI; verbruik wordt dan door de provider gefactureerd, niet via Bokito. Sleutels worden versleuteld; alleen de laatste vier tekens zijn zichtbaar.",
+    "ownProvidersBody": "Optioneel. Modellen op je eigen sleutels gaan voor op Bokito; verbruik wordt dan door de provider gefactureerd, niet via Bokito. Sleutels worden versleuteld; alleen de laatste vier tekens zijn zichtbaar.",
     "addProvider": "Provider toevoegen",
-    "noProviders": "Geen eigen providers. Je workspace draait op Bokito AI.",
+    "noProviders": "Geen eigen providers. Je workspace draait op Bokito.",
     "providerType": "Provider",
     "labelOptional": "Label (optioneel)",
     "labelOptionalCustom": "Providernaam (optioneel)",
@@ -5661,12 +5684,33 @@
     "openUsage": "Verbruik bekijken",
     "openGovern": "Govern-beleid openen",
     "pricingInOut": "invoer {{in}} / miljoen tokens · uitvoer {{out}} / miljoen tokens",
+    "specs": {
+      "context": "{{size}} context",
+      "contextK": "{{count}}K tokens",
+      "contextM": "{{count}}M tokens",
+      "contextTokens": "{{count}} tokens",
+      "tools": "Tools",
+      "vision": "Vision"
+    },
     "removeModelConfirm": "Model \"{{name}}\" verwijderen?",
     "managed": {
-      "title": "Beheerde modellen",
+      "title": "Bokito AI-modellen",
       "body": "Beheerd door Bokito. Verbruik wordt per token gemeten voor deze workspace en telt mee voor je budget.",
-      "bodyLearn": "Drie niveaus voor alledaags, standaard en zwaar werk. Agents gebruiken standaard Bokito AI tenzij je een ander niveau kiest of eigen modellen inschakelt.",
-      "bodyDefault": "Drie beheerde modellen voor deze workspace. Op elke kaart staat de prijs per 1 miljoen tokens. Lichter gebruikt minder tokens; zwaarder gebruikt meer. Agents starten op Bokito AI tenzij je een ander niveau kiest of hieronder een eigen model toevoegt.",
+      "bodyLearn": "Drie niveaus plus Automatisch. Stel hier de workspace-standaard in; agents die de workspace-standaard volgen gebruiken die. Je kunt per agent nog een niveau of Automatisch vastzetten.",
+      "bodyDefault": "Drie Bokito AI-modellen voor deze workspace, plus Automatisch. Klik op een kaart om de workspace-standaard in te stellen — agents zonder eigen modus vallen hierop terug. Op elke modelkaart staan contextvenster, tools en vision, en de prijs per 1 miljoen tokens.",
+      "workspaceDefaultHint": "De workspace-standaard geldt wanneer een agent op Workspace-standaard staat. Overrides per item (wanneer geconfigureerd) gaan voor.",
+      "workspaceDefault": "Workspace-standaard",
+      "setAsDefault": "Instellen als standaard",
+      "usp": {
+        "eu": "EU-gehost",
+        "current": "Altijd actueel",
+        "privacy": "Traint niet op jouw data",
+        "competitive": "Bij met toonaangevende modellen"
+      },
+      "automatic": {
+        "title": "Automatisch",
+        "body": "Bokito kiest Maki, Bokito of Kong per actie op basis van de taak. Agents op Automatisch gebruiken dit pad; agents op Workspace-standaard alleen wanneer deze kaart is geselecteerd."
+      },
       "active": "Actief",
       "standby": "Stand-by",
       "notConfigured": "Niet geconfigureerd",
@@ -5683,9 +5727,9 @@
       "fallbackNotice": "Het voorkeurspad is tijdelijk niet beschikbaar, dus dit model draait op een backup in de {{actual}}. We schakelen automatisch terug naar de {{intended}}.",
       "fallbackNoticeSoft": "Een beheerd model gebruikt tijdelijk een backup. Het schakelt automatisch terug.",
       "tiers": {
-        "defaultBadge": "Standaard",
+        "defaultBadge": "Workspace-standaard",
         "lighterBody": "Lichter — goed voor alledaagse taken. Gebruikt minder tokens, dus goedkoper.",
-        "standardBody": "Standaard — gebalanceerd voor het meeste agentwerk. Default voor nieuwe agents.",
+        "standardBody": "Standaard — gebalanceerd voor het meeste agentwerk.",
         "heavierBody": "Zwaarder — voor lange of complexe taken. Gebruikt meer tokens."
       }
     },
@@ -5764,6 +5808,8 @@
     "colRoleOrCeiling": "Rol / plafond",
     "colTeams": "Teams",
     "colOpen": "Open",
+    "colLastActive": "Laatst actief",
+    "lastActiveNever": "Nooit",
     "colStatus": "Status",
     "colInvitedBy": "Uitgenodigd door",
     "colDate": "Datum",
@@ -5898,6 +5944,7 @@
   "teamPage": {
     "loadError": "Het team kon niet worden geladen.",
     "saveError": "Opslaan is mislukt.",
+    "relatedAgents": "Agents",
     "away": "Afwezig",
     "sections": {
       "teams": "Teams",
@@ -5976,13 +6023,13 @@
     "title": "Toegang tot kanaal",
     "description": "Zet met de schuifjes wie dit kanaal ziet en wie het mag afhandelen. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Agents zonder toegang doen niets op dit kanaal.",
     "hint": "Wie dit kanaal ziet en afhandelt",
-    "adminsNote": "Eigenaren en beheerders handelen altijd elk kanaal af."
+    "adminsNote": "Eigenaren en beheerders handelen altijd elk kanaal af; hun schuifjes blijven aan en zijn niet te wijzigen."
   },
   "connectionAccess": {
     "title": "Toegang tot koppeling",
     "description": "Zet met de schuifjes wie deze koppeling mag gebruiken en wie hem mag beheren. Gebruiken betekent dat agents en mensen de tools ervan kunnen draaien; Beheren betekent verifiëren, hernoemen, projecten koppelen en toegang wijzigen. Zonder toegang kan een agent de koppeling niet bereiken.",
     "hint": "Wie deze koppeling gebruikt en beheert",
-    "adminsNote": "Eigenaren en beheerders beheren altijd elke koppeling."
+    "adminsNote": "Eigenaren en beheerders beheren altijd elke koppeling; hun schuifjes blijven aan en zijn niet te wijzigen."
   },
   "access": {
     "default": "Alle mensen en agents",
@@ -6000,6 +6047,8 @@
       "manage": "Beheren"
     },
     "inheritHint": "Teams dekken hun leden. Een persoon of agent zonder eigen toekenning volgt nog steeds Alle mensen of Alle agents.",
+    "deactivated": "Gedeactiveerd",
+    "deactivatedHint": "Gedeactiveerde mensen en agents krijgen geen nieuwe toegang. Opslaan wist achtergebleven toekenningen.",
     "reset": "Terug naar standaard",
     "loadError": "Mensen en agents konden niet worden geladen.",
     "saveError": "Toegang kon niet worden bijgewerkt."
@@ -6060,9 +6109,8 @@
   },
   "tagRegistry": {
     "title": "Tags",
-    "description": "Vrije tags groeperen gesprekken; zet er een vast om hem een rij in Communicatie te geven. Een tag met een flow is een actietag, gemarkeerd met een accent-#. Agents en inboxregels gebruiken alleen tags uit deze lijst.",
+    "description": "Voeg een tag toe en maak er een flow bij om hem tot actietag te maken. Zet vast voor een rij in Communicatie. Zet AI-autotag uit als triage deze tag met rust moet laten.",
     "newTag": "Nieuwe tag",
-    "newActionTag": "Nieuwe actietag",
     "namePlaceholder": "tag",
     "descriptionPlaceholder": "Wanneer je hem gebruikt (agents lezen dit)",
     "empty": "Nog geen tags. Tag een gesprek of voeg er hier een toe.",
@@ -6077,7 +6125,8 @@
     "saveFailed": "De tag kon niet worden opgeslagen.",
     "pin": "Vastzetten in Communicatie",
     "unpin": "Losmaken uit Communicatie",
-    "showInNav": "In Communicatie",
+    "aiAutoOn": "AI mag hiermee automatisch taggen",
+    "aiAutoOff": "AI tagt hier niet automatisch mee",
     "promote": "Flow aanmaken",
     "openFlow": "Flow openen",
     "promoteTitle": "Flow aanmaken voor",
@@ -6137,17 +6186,17 @@
   },
   "communicationTags": {
     "title": "Communicatie-menu",
-    "description": "Elke rij in het Communicatie-menu heeft dezelfde submappen: Voor jou, Open, Niet toegewezen en Gesloten. Tags vastzetten en actietags tonen doe je onder Instellingen, Actietags.",
+    "description": "Elke rij in het Communicatie-menu heeft dezelfde submappen: Voor jou, Open, Niet toegewezen en Gesloten. Tags vastzetten doe je onder Instellingen, Tags.",
     "defaultTitle": "Standaard submap",
     "defaultDescription": "De weergave die een rij opent als je erop klikt. Stel hieronder per rij een andere in.",
     "useGlobal": "Standaard ({{queue}})",
     "saveFailed": "Kon de Communicatie-instellingen niet opslaan."
   },
   "categoriesPage": {
-    "intro": "Een actietag is een tag die een flow start. Elk inkomend bericht wordt tegen deze lijst gelezen: een zekere match legt een ticket vast, een onzekere match vraagt om een bevestiging op het gesprek, en alles wat nieuw is landt in de backlog hieronder.",
+    "intro": "Tags groeperen gesprekken. Voeg een tag toe en maak er een flow bij om een actietag te maken. Elk inkomend bericht wordt gelezen tegen tags met AI-autotag aan — een zekere match legt een ticket vast, een onzekere vraagt om bevestiging, en alles wat nieuw is landt in de backlog hieronder.",
     "loading": "Laden...",
-    "loadError": "Kon de actietags niet laden.",
-    "saveError": "Kon de actietag niet bijwerken.",
+    "loadError": "Kon de tags niet laden.",
+    "saveError": "Kon de tag niet bijwerken.",
     "createError": "Kon de actietag niet aanmaken.",
     "policyError": "Kon de instelling niet opslaan.",
     "backlogError": "Kon de backlog niet bijwerken.",

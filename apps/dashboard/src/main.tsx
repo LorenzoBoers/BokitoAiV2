@@ -11,6 +11,7 @@ import { IntegrationBrandProvider } from './context/IntegrationBrandContext'
 import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
 import { NativeTitleTooltipBridge } from './components/ui/NativeTitleTooltipBridge'
 import { TooltipProvider } from './components/ui/tooltip'
+import { ConfirmProvider } from './components/ui/confirm-dialog'
 import App from './App'
 import i18n from './i18n'
 import { PLATFORM_DEFAULT_LANGUAGE } from './lib/api.config'
@@ -107,7 +108,9 @@ const router = createBrowserRouter([
               <IntegrationBrandProvider>
                 <NotificationProvider>
                   <ValidationProvider>
-                    <App />
+                    <ConfirmProvider>
+                      <App />
+                    </ConfirmProvider>
                     <NativeTitleTooltipBridge />
                     <Toaster
                       richColors

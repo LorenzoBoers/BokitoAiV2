@@ -119,7 +119,7 @@ export default function ActivityTerminalPage() {
         />
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-border/60 bg-bg-surface p-0.5">
+            <div className="panel flex max-w-full items-center gap-1 overflow-x-auto p-0.5">
               <button
                 type="button"
                 onClick={() => patchParams({ agent: null })}

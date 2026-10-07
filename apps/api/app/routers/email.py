@@ -163,7 +163,7 @@ async def list_accounts(
     accounts = [
         a
         for a in await _list_email_accounts(session, auth.tenant.id)
-        if visible is None or a.id in visible
+        if (visible is None or a.id in visible) and a.archived_at is None
     ]
     explicit_primary = any(_load_settings(a).get("is_primary") for a in accounts)
     return [
@@ -193,14 +193,15 @@ async def _resolve_email_account(
     accounts = list(result.scalars().all())
     if connection_id is not None:
         for account in accounts:
-            if user_numeric_id(account.id) == connection_id:
+            if user_numeric_id(account.id) == connection_id and account.archived_at is None:
                 return account
     # Fall back to the first enabled account so replies still work without a
     # connection hint.
     for account in accounts:
-        if account.is_enabled:
+        if account.is_enabled and account.archived_at is None:
             return account
-    return accounts[0] if accounts else None
+    live = [a for a in accounts if a.archived_at is None]
+    return live[0] if live else None
 
 
 @router.post("/send")
@@ -247,6 +248,11 @@ async def send_email(
             raise HTTPException(
                 status_code=409,
                 detail="The mailbox for this conversation is disconnected. Reconnect it under Settings > Channels to reply.",
+            )
+        if account.archived_at is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="The mailbox for this conversation is archived. Restore and reconnect it under Settings > Channels to reply.",
             )
         if not account.is_enabled:
             raise HTTPException(
@@ -534,51 +540,6 @@ async def update_connection_folders(
     ]
     await _save_account_settings(session, account, {"sync_folders": selection})
     return {"ok": True, "folders": selection}
-
-
-@router.delete("/connections/{connection_id}")
-async def disconnect_email_connection(
-    connection_id: int,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    account = await _require_account(session, auth.tenant.id, connection_id)
-    address = account.address
-    provider = account.provider
-    # Postgres enforces the FK constraints on channel_accounts.id, so first
-    # detach threads (conversation history stays) and remove per-mailbox
-    # config rows that hard-reference this account.
-    from sqlalchemy import delete as sa_delete, update as sa_update
-
-    from app.models.channel import ChannelBinding
-    from app.models.learning import InboxRule
-
-    await session.execute(
-        sa_update(Signal)
-        .where(Signal.channel_account_id == account.id)
-        .values(channel_account_id=None)
-    )
-    await session.execute(
-        sa_delete(InboxRule).where(InboxRule.channel_account_id == account.id)
-    )
-    await session.execute(
-        sa_delete(ChannelBinding).where(ChannelBinding.channel_account_id == account.id)
-    )
-    await session.delete(account)
-    await session.commit()
-    from app.services.audit import record_audit
-
-    await record_audit(
-        session,
-        auth.tenant.id,
-        action="email:mailbox_disconnected",
-        actor_type="user",
-        actor_id=auth.user.id,
-        resource_type="channel_account",
-        resource_id=connection_id,
-        payload={"address": address, "provider": provider},
-    )
-    return {"ok": True}
 
 
 @router.get("/connections/{connection_id}/ai-config")

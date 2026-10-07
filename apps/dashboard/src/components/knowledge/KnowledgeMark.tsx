@@ -1,6 +1,8 @@
 import { Brain } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { AI_PILL_CLASS, AI_TEXT_CLASS } from '../ai/AiMark'
+import { AI_TEXT_CLASS } from '../ai/AiMark'
+import { Badge } from '../ui/badge'
+import { IconTile } from '../ui/icon-tile'
 
 /**
  * Platform-wide knowledge identity: a violet brain. Shares the AI violet
@@ -27,19 +29,7 @@ export function KnowledgeTile({
   size?: 'md' | 'lg'
   className?: string
 }) {
-  const box = size === 'lg' ? 'h-12 w-12 rounded-lg' : 'h-8 w-8 rounded-lg'
-  const icon = size === 'lg' ? 24 : 16
-  return (
-    <div
-      className={cn(
-        'flex shrink-0 items-center justify-center border border-ai/20 bg-ai/10',
-        box,
-        className,
-      )}
-    >
-      <Brain size={icon} className={KNOWLEDGE_TEXT_CLASS} />
-    </div>
-  )
+  return <IconTile icon={Brain} tone="ai" size={size} className={className} />
 }
 
 /** Chip marking content that agents learn or maintain themselves. */
@@ -53,16 +43,8 @@ export function LearnedChip({
   className?: string
 }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
-        AI_PILL_CLASS,
-        glow && 'knowledge-glow',
-        className,
-      )}
-    >
-      <Brain size={11} className="shrink-0" />
+    <Badge variant="ai" icon={Brain} className={cn(glow && 'knowledge-glow', className)}>
       {label}
-    </span>
+    </Badge>
   )
 }

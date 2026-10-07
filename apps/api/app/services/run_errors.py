@@ -17,6 +17,7 @@ from app.exceptions import AppError
 BLOCK_SPEND_CAP = "spend_cap"
 BLOCK_PROVIDER_CREDITS = "provider_credits"
 BLOCK_PROVIDER_AUTH = "provider_auth"
+BLOCK_RATE_LIMIT = "rate_limit"
 
 _CREDIT_MARKERS = (
     "credit balance is too low",
@@ -30,6 +31,16 @@ _AUTH_MARKERS = (
     "incorrect api key",
     "authentication_error",
 )
+_RATE_MARKERS = (
+    "rate limit",
+    "rate_limited",
+    "error code: 429",
+    "'code': '1300'",
+    '"code": "1300"',
+)
+
+# Short pause so inbound jobs stop hammering a hot gateway; chat retries first.
+LLM_RATE_LIMIT_BACKOFF_MINUTES = 5
 
 
 def workspace_block(exc: BaseException) -> str | None:
@@ -41,6 +52,8 @@ def workspace_block(exc: BaseException) -> str | None:
         return BLOCK_PROVIDER_CREDITS
     if any(marker in text for marker in _AUTH_MARKERS):
         return BLOCK_PROVIDER_AUTH
+    if type(exc).__name__ == "RateLimitError" or any(marker in text for marker in _RATE_MARKERS):
+        return BLOCK_RATE_LIMIT
     return None
 
 
@@ -58,6 +71,10 @@ def error_summary(exc: BaseException) -> str:
 LLM_BLOCK_SETTINGS_KEY = "llm_block"
 LLM_BLOCK_BACKOFF_MINUTES = 60
 LLM_BLOCK_MAX_DEFERRED = 500
+
+_BLOCK_BACKOFF_MINUTES = {
+    BLOCK_RATE_LIMIT: LLM_RATE_LIMIT_BACKOFF_MINUTES,
+}
 
 
 def _settings_of(tenant: Any) -> dict[str, Any]:
@@ -89,11 +106,12 @@ def open_workspace_block(tenant: Any, *, kind: str, error: BaseException | str) 
     settings = _settings_of(tenant)
     previous = settings.get(LLM_BLOCK_SETTINGS_KEY)
     previous = previous if isinstance(previous, dict) else {}
+    minutes = _BLOCK_BACKOFF_MINUTES.get(kind, LLM_BLOCK_BACKOFF_MINUTES)
     block = {
         "kind": kind,
         "error": (str(error) or kind)[:500],
         "since": previous.get("since") or now.isoformat(),
-        "until": (now + timedelta(minutes=LLM_BLOCK_BACKOFF_MINUTES)).isoformat(),
+        "until": (now + timedelta(minutes=minutes)).isoformat(),
         "deferred_signal_ids": list(previous.get("deferred_signal_ids") or []),
     }
     settings[LLM_BLOCK_SETTINGS_KEY] = block

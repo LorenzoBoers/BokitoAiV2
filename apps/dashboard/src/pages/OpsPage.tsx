@@ -5,6 +5,7 @@ import { Loader2, Lock, Search, Shield } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import {
   deleteStaffOpsTenant,
@@ -38,6 +39,7 @@ function formatWhen(value: string | null, locale: string): string {
 export default function OpsPage() {
   const { t, i18n } = useTranslation('nav')
   const { token, isStaff, switchStaffTenant, adoptWorkspaceSession, user } = useAuth()
+  const confirm = useConfirm()
   const [data, setData] = useState<StaffOpsDirectory | null>(null)
   const [query, setQuery] = useState('')
   const [appliedQuery, setAppliedQuery] = useState('')
@@ -164,7 +166,7 @@ export default function OpsPage() {
         setError(t('ops.deleteSlugMismatch'))
         return
       }
-      if (!window.confirm(t('ops.deleteConfirm', { name: tenant.name }))) return
+      if (!(await confirm({ description: t('ops.deleteConfirm', { name: tenant.name }), destructive: true }))) return
       setDeletingId(tenant.id)
       setError(null)
       try {
@@ -180,7 +182,7 @@ export default function OpsPage() {
         setDeletingId(null)
       }
     },
-    [token, deletingId, activeTenantId, load, appliedQuery, t],
+    [token, deletingId, activeTenantId, load, appliedQuery, t, confirm],
   )
 
   const env = useMemo(

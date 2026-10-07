@@ -39,6 +39,9 @@ class ChannelAccount(SQLModel, table=True):
     default_agent_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="agents.id", index=True
     )
+    # Archived channels keep their conversations and access list but never
+    # sync, receive or send; see services/channel_lifecycle.py.
+    archived_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

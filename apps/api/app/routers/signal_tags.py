@@ -22,6 +22,7 @@ class TagRow(BaseModel):
     workstream_name: str | None = None
     pinned: bool = False
     show_in_nav: bool = False
+    ai_auto_tag: bool = True
 
 
 class TagCreate(BaseModel):
@@ -35,6 +36,7 @@ class TagUpdate(BaseModel):
     description: str | None = None
     pinned: bool | None = None
     show_in_nav: bool | None = None
+    ai_auto_tag: bool | None = None
 
 
 class TagPromote(BaseModel):
@@ -83,8 +85,8 @@ async def update_tag(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Rename, describe, pin or show a tag. Renaming onto an existing free tag merges them."""
-    if body.show_in_nav is not None:
+    """Rename, describe, pin, show, or toggle AI auto-tag. Renaming onto an existing free tag merges them."""
+    if body.show_in_nav is not None or body.ai_auto_tag is not None:
         auth.require_role("owner", "admin")
     try:
         row = await tag_svc.update_tag(
@@ -95,6 +97,7 @@ async def update_tag(
             description=body.description,
             pinned=body.pinned,
             show_in_nav=body.show_in_nav,
+            ai_auto_tag=body.ai_auto_tag,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

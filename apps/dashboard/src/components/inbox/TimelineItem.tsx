@@ -9,6 +9,7 @@ import { useCorrectionChat } from '../../lib/correction-chat'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tip } from '../ui/Tip'
+import { useConfirm } from '../ui/confirm-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
@@ -634,7 +635,7 @@ function LazyEmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean })
         <EmailHtmlFrame html={html} isDark={isDark} />
       ) : (
         <div
-          className="rounded-md border border-border/40 bg-bg-elevated/40 px-3 py-2 text-sm leading-relaxed text-text-secondary"
+          className="rounded-md border border-border/40 bg-bg-elevated px-3 py-2 text-sm leading-relaxed text-text-secondary"
           aria-label={t('timeline.events.emailContent')}
         >
           {wasVisible ? (
@@ -884,7 +885,7 @@ function ActivityPill({
     <Tip label={tip}>
       <span
         className={cn(
-          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
+          'inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
           ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
         )}
       >
@@ -993,10 +994,8 @@ function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
   return (
     <span
       className={cn(
-        'shrink-0 rounded border px-1 py-px text-2xs font-medium leading-3',
-        kind === 'ai'
-          ? AI_PILL_CLASS
-          : 'border-border/60 bg-bg-elevated text-text-muted',
+        'shrink-0 rounded-lg border-0 px-2 py-0.5 text-2xs font-medium leading-none',
+        kind === 'ai' ? AI_PILL_CLASS : 'bg-bg-elevated text-text-muted',
       )}
     >
       {kind === 'ai' ? t('timeline.roleAi') : t('timeline.roleTeam')}
@@ -1166,6 +1165,7 @@ export function MessageTimelineItem({
   stack = 'single',
 }: MessageItemProps) {
   const { t, i18n } = useTranslation('communication')
+  const confirm = useConfirm()
   const { user, token } = useAuth()
   const [enriched, setEnriched] = useState<Pick<
     InboxMessage,
@@ -1235,7 +1235,7 @@ export function MessageTimelineItem({
 
   const removeNote = useCallback(async () => {
     if (!noteActions || noteBusy) return
-    if (!window.confirm(t('composer.deleteNoteConfirm'))) return
+    if (!(await confirm({ description: t('composer.deleteNoteConfirm'), destructive: true }))) return
     setNoteBusy(true)
     try {
       await noteActions.onDelete(String(message.id))
@@ -1243,7 +1243,7 @@ export function MessageTimelineItem({
       toast.error(t('composer.noteDeleteError'))
       setNoteBusy(false)
     }
-  }, [noteActions, noteBusy, message.id, t])
+  }, [noteActions, noteBusy, message.id, t, confirm])
 
   // Same centered activity pill as SignalEvents — never "Teamlid / Interne notitie".
   if (isSystemEvent) {

@@ -1936,7 +1936,7 @@ async def flag_due_follow_ups(session: AsyncSession) -> int:
     return len(due)
 
 
-BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "snooze")
+BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "snooze", "trash")
 
 
 async def bulk_update_threads(
@@ -1960,7 +1960,11 @@ async def bulk_update_threads(
             raise HTTPException(status_code=404, detail="Assignee not found")
 
     result = await session.execute(
-        select(Signal).where(Signal.tenant_id == tenant_id, Signal.id.in_(signal_ids))
+        select(Signal).where(
+            Signal.tenant_id == tenant_id,
+            Signal.id.in_(signal_ids),
+            Signal.deleted_at.is_(None),
+        )
     )
     signals = list(result.scalars().all())
     now = datetime.utcnow()
@@ -1969,6 +1973,40 @@ async def bulk_update_threads(
         for s in signals
     }
     from app.services import ai_handling as handling_svc
+
+    if action == "trash":
+        from app.services.audit import record_audit
+        from app.services.trash import load_tenant, move_to_bin
+
+        tenant = await load_tenant(session, tenant_id)
+        for signal in signals:
+            await move_to_bin(
+                session,
+                tenant,
+                resource_type="conversation",
+                row=signal,
+                user_id=user_id,
+                title=signal.subject,
+                commit=False,
+            )
+        if signals:
+            await record_audit(
+                session,
+                tenant_id,
+                action="signal:bulk_trash",
+                actor_type="user",
+                actor_id=user_id,
+                resource_type="signal",
+                resource_id=";".join(str(s.id) for s in signals[:50]),
+                summary=f"Bulk trash on {len(signals)} thread(s)",
+                before=before_states,
+                after=None,
+                commit=False,
+            )
+        await session.commit()
+        for signal in signals:
+            await publish_thread_update(signal)
+        return {"updated": len(signals), "action": action}
 
     for signal in signals:
         before_assignee = signal.assigned_user_id

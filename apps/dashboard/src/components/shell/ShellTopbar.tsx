@@ -98,7 +98,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <button
           type="button"
           onClick={onOpenPalette}
-          className="hidden h-7 w-56 items-center gap-2 rounded-md border border-border/70 bg-bg-elevated/40 px-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary sm:flex"
+          className="hidden h-7 w-56 items-center gap-2 rounded-md border border-border/70 bg-bg-input px-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary sm:flex"
         >
           <Search size={12} />
           <span className="flex-1 text-left">{t('topbar.search')}</span>

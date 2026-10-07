@@ -95,7 +95,7 @@ export function CalendarConnectBar({
 
   if (connections.length === 0) {
     return (
-      <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-3" data-testid="agenda-connect-calendars-banner">
+      <div className="rounded-lg border border-border/60 bg-bg-elevated px-4 py-3" data-testid="agenda-connect-calendars-banner">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
@@ -121,7 +121,7 @@ export function CalendarConnectBar({
   const eventCount = connections.reduce((n: number, c) => n + (c.event_count ?? 0), 0)
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 bg-bg-surface px-3 py-2 text-xs">
+    <div className="panel flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs">
       <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-text-muted">
         <span className="font-medium text-text-heading">{t('agendaPage.calendar.connectedLabel')}</span>
         {connections.map((connection, index) => (

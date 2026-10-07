@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Code2, ExternalLink } from 'lucide-react'
 import { publicOpenApiUrl } from '../lib/product-help-api'
 import { applyDocsMeta } from '../lib/docs-seo'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
-import { DocsHeader, useDocsLang } from '../components/docs/DocsChrome'
+import { DocsHeader, docsChipClass, useDocsLang, useDocsT } from '../components/docs/DocsChrome'
 
 /**
  * Public API reference at /docs/api: Scalar API Reference rendered against
@@ -13,8 +12,8 @@ import { DocsHeader, useDocsLang } from '../components/docs/DocsChrome'
  * CDN; when that fails we fall back to a link to the raw schema.
  */
 export default function DocsApiReference() {
-  const { t } = useTranslation('nav')
   const [lang, setLang] = useDocsLang()
+  const t = useDocsT(lang)
   const hostRef = useRef<HTMLDivElement>(null)
   const [failed, setFailed] = useState(false)
 
@@ -69,10 +68,7 @@ export default function DocsApiReference() {
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <Link
-                to="/docs/developers/api-overview"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-3.5 py-2 text-xs font-medium transition-colors hover:border-accent/40 hover:bg-accent/10 hover:text-accent"
-              >
+              <Link to="/docs/developers/api-overview" className={docsChipClass(false)}>
                 <ArrowLeft className="h-3 w-3" aria-hidden />
                 {t('docs.apiGuides')}
               </Link>
@@ -80,7 +76,7 @@ export default function DocsApiReference() {
                 href={publicOpenApiUrl()}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-3.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:bg-accent/10 hover:text-accent"
+                className={docsChipClass(false)}
               >
                 openapi.json
                 <ExternalLink className="h-3 w-3" aria-hidden />

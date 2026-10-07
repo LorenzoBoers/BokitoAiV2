@@ -1,8 +1,8 @@
 ---
 title: Connect channels
 intro: Bring customer mail and other inboxes into Communication.
-description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and pause or remove a channel.
-keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, pause channel, archive automated mail, newsletters, sync errors
+description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and pause, archive or delete a channel.
+keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, pause channel, archive channel, restore channel, delete channel, archive automated mail, newsletters, sync errors
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
@@ -80,18 +80,26 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 
 Setup, Connections, Channels and the reply composer all use the same channel status. A calendar login alone does not count as a send-ready mailbox — Connections then shows that the agenda is synced while mail is not ready yet.
 
-1. Look at the state on the right of the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused** or **Error**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
+1. Look at the state on the right of the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused**, **Error** or **Archived**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
 2. When a channel needs a human, the row shows one repair button next to the state: **Reconnect**, **Retry sync** or **Resume**. A yellow notice above the list counts channels that still need setup, and the first of them opens automatically.
 3. Click the row and read **Status**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
 4. For a mailbox, **History** in the **Mailbox** section is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
 5. A mailbox that fails 50 syncs in a row pauses itself instead of retrying forever. The row reads **Paused**, **Sync errors** shows the reason, and an alert lands in Communication. Fix the sign-in or server and choose **Resume**; a successful sync clears the counter.
 
-## Pause or remove a channel
+## Pause or archive a channel
 
 1. Click the channel row and scroll to **Manage**.
-2. Choose **Pause** next to **Pause channel**. A paused channel receives and sends nothing new; conversations and settings stay. A paused mailbox also stops being the primary sender.
-3. The row then reads **Paused** with a **Resume** button. Choose **Resume** to receive and send again.
-4. Choose **Remove** next to **Remove channel** to disconnect it for good. Existing conversations stay in Communication. The website chat can be paused but not removed.
+2. Choose **Pause** next to **Pause channel** for a short break. A paused channel receives and sends nothing new; conversations and settings stay. A paused mailbox also stops being the primary sender. Choose **Resume** to receive and send again.
+3. Choose **Archive** next to **Archive channel** when you stop using the channel. Sync and sending stop, and Bokito forgets the sign-in. The website chat can be archived only when the workspace has another one.
+4. The row moves to the bottom of the list and reads **Archived**. Its conversations stay in Communication, and **Access** on the channel page still decides who sees them.
+5. Choose **Restore** to bring the channel back as **Paused**, then reconnect or resume it. Connecting the same mailbox again through **Add channel** also takes it out of the archive.
+
+## Delete a channel with all its data
+
+1. Archive the channel first. A channel that still has conversations cannot be deleted directly.
+2. Open the archived channel and choose **Delete permanently** next to **Delete with all data** under **Manage**.
+3. The dialog shows how many conversations go with it. Type the channel address or name to confirm, then choose **Delete permanently**.
+4. The channel and every conversation it brought in are deleted, including messages and attachments. They do not go to the Bin and cannot be restored.
 
 In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked. The setup guide marks the channel step done only when a mailbox can send or receive.
 

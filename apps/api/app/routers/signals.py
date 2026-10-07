@@ -66,7 +66,7 @@ class ThreadPatch(BaseModel):
 
 class BulkBody(BaseModel):
     signal_ids: list[UUID]
-    action: str  # close | reopen | spam | read | unread | assign | snooze
+    action: str  # close | reopen | spam | read | unread | assign | snooze | trash
     assignee_id: int | None = None
     snoozed_until: datetime | None = None
 
@@ -584,7 +584,7 @@ async def bulk_update(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Bulk operator actions on threads (close/reopen/spam/read/unread/assign/snooze)."""
+    """Bulk operator actions on threads (close/reopen/spam/read/unread/assign/snooze/trash)."""
     return await svc.bulk_update_threads(
         session,
         auth.tenant.id,

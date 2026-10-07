@@ -43,6 +43,7 @@ import { ChannelGlyph } from '../components/ui/ChannelGlyph'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { confirmAutonomousRaise } from '../hooks/useAiHandling'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { getAiConfig, saveAiConfig, type EmailConnection, type MailboxReplyLanguage } from '../lib/email-api'
 import {
   getAiCommunicationSettings,
@@ -152,6 +153,7 @@ export default function AiCommunicationSettings() {
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation('common')
   const { token } = useAuth()
+  const confirm = useConfirm()
   const { activeConnections: activeMailboxes, loading: mailboxesLoading } = useMailboxConnections()
 
   const [overview, setOverview] = useState<AiHandlingOverview | null>(null)
@@ -343,7 +345,7 @@ export default function AiCommunicationSettings() {
   const changeWorkspaceMode = async (mode: AiHandlingMode | null) => {
     if (!token || !mode) return
     if (mode === 'autonomous' && overview?.workspace.effective !== 'autonomous') {
-      if (!(await confirmAutonomousRaise(token, 'workspace', 'current', tc))) return
+      if (!(await confirmAutonomousRaise(token, 'workspace', 'current', tc, confirm))) return
     }
     setHandlingSaving(true)
     try {

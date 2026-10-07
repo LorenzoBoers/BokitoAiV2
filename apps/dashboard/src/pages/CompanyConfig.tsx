@@ -558,7 +558,7 @@ export default function CompanyConfig() {
               disabled={saving || !brandingDirty}
               className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
                 saved
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-status-success/12 text-status-success border border-status-success/30'
                   : 'bg-accent text-accent-fg hover:bg-accent-hover shadow-[0_4px_14px_rgba(70,82,242,0.3)]'
               }`}
             >

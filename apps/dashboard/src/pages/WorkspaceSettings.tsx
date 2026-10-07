@@ -86,13 +86,13 @@ export default function WorkspaceSettings() {
         {t('description')}
       </p>
 
-      <div className="rounded-lg border border-border/60 bg-bg-elevated/40 p-4">
+      <div className="rounded-lg border border-border/50 bg-bg-elevated p-4">
         <p className="text-sm font-medium text-text-heading">{t('startHereTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">{t('startHereBody')}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             to="/settings/setup"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <ListChecks size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -102,7 +102,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to="/settings/channels"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <Mail size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -112,7 +112,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to="/settings/communication"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <Bot size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -122,7 +122,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to={WEBSITE_WIDGET_PATH}
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <MessageSquare size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -132,7 +132,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to="/connections/marketplace"
-            className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <Puzzle size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">

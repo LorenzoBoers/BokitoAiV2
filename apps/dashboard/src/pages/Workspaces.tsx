@@ -79,7 +79,7 @@ function AssistantThreadsSection({
             <button
               type="button"
               onClick={() => void onOpen(thread)}
-              className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover/60"
+              className="panel flex w-full items-center gap-3 px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover/60"
             >
               <Sparkles size={14} className="shrink-0 text-ai-ink" aria-hidden />
               <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">
@@ -165,7 +165,7 @@ export default function Workspaces() {
     <div className="flex min-h-full items-center justify-center px-6 py-10">
       <div className="w-full max-w-[860px] space-y-10">
         <section className="space-y-1.5 text-center">
-          <h2 className="text-[28px] font-semibold leading-tight text-text-heading">{t('title')}</h2>
+          <h2 className="text-2xl font-semibold leading-tight text-text-heading">{t('title')}</h2>
           <p className="text-sm text-text-secondary">{t('description')}</p>
         </section>
 

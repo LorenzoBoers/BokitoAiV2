@@ -710,6 +710,13 @@ def _agent_error_message(exc: Exception, llm_meta: dict) -> str:
             "The assistant cannot reply because no LLM API key is configured for this workspace. "
             "Add a provider key in Settings or contact your administrator."
         )
+    from app.services.agent.llm import is_rate_limit_error
+
+    if is_rate_limit_error(exc):
+        return (
+            "The AI provider is busy right now (rate limit). "
+            "Wait a few seconds and send your message again."
+        )
     return (
         "The assistant encountered an error while generating a reply. "
         "Please try again in a moment."

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Code2, MessageSquare, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
@@ -42,6 +43,7 @@ type Props = {
 
 export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = false }: Props) {
   const { t, i18n } = useTranslation('nav')
+  const confirm = useConfirm()
   const [items, setItems] = useState<ProjectCanvas[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -110,7 +112,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
   }
 
   async function onDelete(id: string) {
-    if (!window.confirm(t('projects.canvas.deleteConfirm'))) return
+    if (!(await confirm({ description: t('projects.canvas.deleteConfirm'), destructive: true }))) return
     setBusy(true)
     try {
       await deleteCanvas(id)

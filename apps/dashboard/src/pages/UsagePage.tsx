@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { OctagonAlert, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
 import CockpitTabs from '../components/shell/CockpitTabs'
 import WorkspaceIdHint from '../components/shell/WorkspaceIdHint'
@@ -19,11 +19,17 @@ import {
   type UsageBreakdown,
 } from '../lib/bokito-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { Callout } from '../components/ui/callout'
+import { CapBar } from '../components/ui/cap-bar'
+import { useConfirm } from '../components/ui/confirm-dialog'
+import { SegmentedControl } from '../components/ui/segmented-control'
+import { StatGrid, StatTile } from '../components/ui/stat-tile'
 import { formatAppTime } from '../lib/app-locale'
 import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
 import { workspaceBrandName } from '../lib/tenant-branding'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
+import { ModelIcon } from '../components/ui/ModelIcon'
 import { humanizeModelId } from '../lib/model-label'
 import { RegionBadge } from '../components/models/RegionBadge'
 import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
@@ -35,41 +41,6 @@ function isSystemUsageName(name: string): boolean {
 
 function formatUsd(micros: number, language?: string) {
   return formatAppUsdCents(micros / 10_000, language)
-}
-
-function BudgetBar({
-  label,
-  period,
-  format,
-}: {
-  label: string
-  period: SpendPeriodStatus
-  format: (value: number) => string
-}) {
-  const { t } = useTranslation('nav')
-  const pct = period.cap ? Math.min(100, Math.round(period.ratio * 100)) : 0
-  const barColor = period.exceeded
-    ? 'bg-status-error'
-    : period.ratio >= 0.8
-      ? 'bg-amber-500'
-      : 'bg-accent'
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between text-xs">
-        <span className="font-medium text-text-primary">{label}</span>
-        <span className="text-text-muted">
-          {period.cap
-            ? t('usagePage.usedOfCap', { used: format(period.used), cap: format(period.cap) })
-            : `${format(period.used)} ${t('usagePage.noCapParen')}`}
-        </span>
-      </div>
-      {period.cap ? (
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-hover/70">
-          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
-        </div>
-      ) : null}
-    </div>
-  )
 }
 
 export default function UsagePage() {
@@ -90,6 +61,20 @@ export default function UsagePage() {
   const [capDraft, setCapDraft] = useState<{ tokens: string; usd: string } | null>(null)
   const [savingCaps, setSavingCaps] = useState(false)
   const [capError, setCapError] = useState<string | null>(null)
+  const confirm = useConfirm()
+
+  const capBar = (label: string, period: SpendPeriodStatus, format: (value: number) => string) => (
+    <CapBar
+      label={label}
+      value={
+        period.cap
+          ? t('usagePage.usedOfCap', { used: format(period.used), cap: format(period.cap) })
+          : `${format(period.used)} ${t('usagePage.noCapParen')}`
+      }
+      ratio={period.cap ? period.ratio : null}
+      exceeded={period.exceeded}
+    />
+  )
 
   const load = useCallback(() => {
     if (!token) return
@@ -127,7 +112,7 @@ export default function UsagePage() {
     })
   }, [budget])
 
-  const saveCaps = useCallback(() => {
+  const saveCaps = useCallback(async () => {
     if (!token || !capDraft) return
     setSavingCaps(true)
     setCapError(null)
@@ -139,7 +124,7 @@ export default function UsagePage() {
       return
     }
     if (!tokensCap && !usdCap && (budget?.config.daily_token_cap || budget?.config.monthly_customer_micros_cap)) {
-      if (!window.confirm(t('usagePage.confirmClearCaps'))) {
+      if (!(await confirm({ description: t('usagePage.confirmClearCaps'), destructive: true }))) {
         setSavingCaps(false)
         return
       }
@@ -154,7 +139,7 @@ export default function UsagePage() {
       })
       .catch((err) => setCapError(formatApiErrorMessage(err, t('usagePage.couldNotSave'))))
       .finally(() => setSavingCaps(false))
-  }, [token, capDraft, t, budget])
+  }, [token, capDraft, t, budget, confirm])
 
   const stats = summary
     ? [
@@ -241,25 +226,20 @@ export default function UsagePage() {
         meta={
           <div className="flex flex-wrap items-center gap-2">
             <WorkspaceIdHint />
-            <div className="flex rounded-lg border border-border/60 p-0.5">
-              {([7, 30, 90] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams(searchParams)
-                    if (value === 30) params.delete('days')
-                    else params.set('days', String(value))
-                    setSearchParams(params, { replace: true })
-                  }}
-                  className={`rounded-md px-2 py-1 text-xs font-medium ${
-                    days === value ? 'bg-bg-hover text-text-heading' : 'text-text-muted hover:text-text-primary'
-                  }`}
-                >
-                  {t(`usagePage.period${value}` as 'usagePage.period7')}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              size="sm"
+              value={String(days)}
+              onChange={(next) => {
+                const params = new URLSearchParams(searchParams)
+                if (next === '30') params.delete('days')
+                else params.set('days', next)
+                setSearchParams(params, { replace: true })
+              }}
+              options={([7, 30, 90] as const).map((value) => ({
+                value: String(value),
+                label: t(`usagePage.period${value}` as 'usagePage.period7'),
+              }))}
+            />
             {refreshedAt ? (
               <span className="text-xs text-text-muted">
                 {t('usagePage.refreshedAt', { time: formatAppTime(refreshedAt, locale) })}
@@ -323,16 +303,11 @@ export default function UsagePage() {
       ) : null}
 
       {budget?.status.blocked ? (
-        <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-status-error/40 bg-status-error/10 px-4 py-3 text-sm text-text-primary">
-          <OctagonAlert size={15} className="shrink-0 text-status-error" />
-          <span>
-            {t('usagePage.budgetBlocked')}
-          </span>
-        </div>
+        <Callout tone="error" title={t('usagePage.budgetBlocked')} className="mb-4" />
       ) : null}
 
       {budget ? (
-        <div className="mb-5 rounded-lg border border-border/60 bg-bg-surface p-4">
+        <div className="panel mb-5 p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h3>
             {capDraft ? null : (
@@ -346,16 +321,8 @@ export default function UsagePage() {
             )}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <BudgetBar
-              label={t('usagePage.tokensToday')}
-              period={budget.status.daily_tokens}
-              format={num}
-            />
-            <BudgetBar
-              label={t('usagePage.spendMonth')}
-              period={budget.status.monthly_customer_micros}
-              format={usd}
-            />
+            {capBar(t('usagePage.tokensToday'), budget.status.daily_tokens, num)}
+            {capBar(t('usagePage.spendMonth'), budget.status.monthly_customer_micros, usd)}
           </div>
           {capDraft ? (
             <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
@@ -367,7 +334,7 @@ export default function UsagePage() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      saveCaps()
+                      void saveCaps()
                     }
                   }}
                   placeholder={t('usagePage.noCap')}
@@ -383,7 +350,7 @@ export default function UsagePage() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      saveCaps()
+                      void saveCaps()
                     }
                   }}
                   placeholder={t('usagePage.noCap')}
@@ -394,7 +361,7 @@ export default function UsagePage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={saveCaps}
+                  onClick={() => void saveCaps()}
                   disabled={savingCaps}
                   className="rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
                 >
@@ -417,29 +384,32 @@ export default function UsagePage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <StatGrid className="grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
         {stats.map((stat) => (
-          <div key={stat.key} className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3.5">
-            <p className="text-xs font-medium text-text-muted">{stat.label}</p>
-            <p className="mt-2 text-[22px] font-semibold leading-none text-text-heading">{stat.value}</p>
-            {stat.hint && stat.hintTo && stat.hintLink ? (
-              <p className="mt-2 text-xs leading-snug text-text-muted">
-                {stat.hint}{' '}
-                <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
-                  {stat.hintLink}
-                </Link>
-              </p>
-            ) : null}
-          </div>
+          <StatTile
+            key={stat.key}
+            label={stat.label}
+            value={stat.value}
+            hint={
+              stat.hint && stat.hintTo && stat.hintLink ? (
+                <span className="leading-snug">
+                  {stat.hint}{' '}
+                  <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
+                    {stat.hintLink}
+                  </Link>
+                </span>
+              ) : null
+            }
+          />
         ))}
         {!summary && !error ? (
           <p className="col-span-full px-1 py-6 text-sm text-text-muted">{t('usagePage.loading')}</p>
         ) : null}
-      </div>
+      </StatGrid>
 
       {breakdown ? (
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <div className="panel p-4">
             <div className="mb-3 flex items-baseline justify-between">
               <h3 className="text-sm font-semibold text-text-heading">{t('usagePage.byModel', { days: breakdown.days })}</h3>
               <span className="text-xs text-text-muted">
@@ -472,20 +442,23 @@ export default function UsagePage() {
                     to="/settings/models"
                     className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate-fade font-medium text-text-primary">
-                        {humanizeModelId(row.model) || t('usagePage.unknown')}
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        {t('usagePage.tokens', { count: num(row.tokens) })} ·{' '}
-                        {row.billable ? (
-                          <span className="text-amber-500">
-                            {t('usagePage.billableRow', { amount: usd(row.customer_cost_micros) })}
-                          </span>
-                        ) : (
-                          <span className="text-status-success">{t('usagePage.byok')}</span>
-                        )}
-                      </p>
+                    <div className="flex min-w-0 items-start gap-2">
+                      <ModelIcon slug={row.model} provider={row.provider} size={18} className="mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="truncate-fade font-medium text-text-primary">
+                          {humanizeModelId(row.model) || t('usagePage.unknown')}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          {t('usagePage.tokens', { count: num(row.tokens) })} ·{' '}
+                          {row.billable ? (
+                            <span className="text-status-warning">
+                              {t('usagePage.billableRow', { amount: usd(row.customer_cost_micros) })}
+                            </span>
+                          ) : (
+                            <span className="text-status-success">{t('usagePage.byok')}</span>
+                          )}
+                        </p>
+                      </div>
                     </div>
                   </Link>
                 ))
@@ -493,7 +466,7 @@ export default function UsagePage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <div className="panel p-4">
             <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byAgent', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {breakdown.by_agent.length === 0 ? (
@@ -545,7 +518,7 @@ export default function UsagePage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <div className="panel p-4">
             <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byUser', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {(breakdown.by_user ?? []).length === 0 ? (
@@ -585,7 +558,7 @@ export default function UsagePage() {
             </p>
           </div>
 
-          <div className="rounded-lg border border-border/60 bg-bg-surface p-4">
+          <div className="panel p-4">
             <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byRegion', { days: breakdown.days })}</h3>
             <div className="space-y-2">
               {(breakdown.by_region ?? []).length === 0 ? (

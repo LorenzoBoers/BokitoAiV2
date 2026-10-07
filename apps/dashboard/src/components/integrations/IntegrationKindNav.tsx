@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { cn } from '../../lib/utils'
+import { FilterChip, FilterChipRow } from '../ui/filter-chip'
 import type { IntegrationKindFilter } from '../../lib/integration-kind-url'
 
 const SEGMENTS: IntegrationKindFilter[] = ['all', 'inbox', 'calendar', 'app', 'mcp', 'repository']
@@ -22,45 +22,24 @@ export function IntegrationKindNav({ value, onChange, counts, className }: Integ
   const { t } = useTranslation('nav')
 
   return (
-    <div
-      className={cn(
-        'inline-flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-bg-elevated/40 p-1',
-        className,
-      )}
-      role="tablist"
+    <FilterChipRow
+      className={className}
+      role="group"
       aria-label={t('integrations.kindNav.label', { defaultValue: 'Integration type' })}
     >
       {SEGMENTS.map((segment) => {
         const count = counts?.[segment]
-        const active = value === segment
         return (
-          <button
+          <FilterChip
             key={segment}
-            type="button"
-            role="tab"
-            aria-selected={active}
+            active={value === segment}
+            count={count != null && count > 0 ? count : undefined}
             onClick={() => onChange(segment)}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-              active
-                ? 'bg-bg-surface text-text-heading '
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover/60',
-            )}
           >
-            <span>{t(segmentLabelKey(segment))}</span>
-            {count != null && count > 0 ? (
-              <span
-                className={cn(
-                  'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums',
-                  active ? 'bg-bg-hover text-text-heading' : 'bg-bg-hover/80 text-text-muted',
-                )}
-              >
-                {count}
-              </span>
-            ) : null}
-          </button>
+            {t(segmentLabelKey(segment))}
+          </FilterChip>
         )
       })}
-    </div>
+    </FilterChipRow>
   )
 }

@@ -33,10 +33,11 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 ![Agentdetail](/api/docs/assets/agents/agent-brief.png)
 *Wijzig doel, model en toegestane tools.*
 
-1. Open de agent. De kaart **Instructies** toont een korte preview. Kies **Bewerken** om de volledige prompt in een dialoog te wijzigen. Wijzig ook **Naam**, **Doel** en **Model**.
-2. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
-3. Kies op [Kanalen](/docs/inbox/channels) per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Deactiveren** verbergt de agent uit de bibliotheek en wist de kanaalstandaarden; run-geschiedenis blijft.
-4. De front desk-agent van een nieuwe workspace komt met een ingevulde omschrijving en briefing. In het eerste gesprek vraagt hij wat het bedrijf doet en stelt hij zijn eigen bijgewerkte omschrijving en instructies voor als Govern-concept; keur dat goed onder [Govern](/docs/govern/govern) **Openstaande concepten** of pas de briefing hier zelf aan.
+1. Open de agent. De kaart **Instructies** toont een korte preview. Kies **Bewerken** om de volledige prompt in een dialoog te wijzigen. Wijzig ook **Naam**, **Doel** en **Model en runtime**.
+2. Kies onder **Model en runtime** **Workspace-standaard** (volgt [Modellen](/docs/govern/models)), **Automatisch** (Bokito kiest een niveau per actie), of zet **Maki**, **Bokito** of **Kong** vast. Nieuwe agents starten op Workspace-standaard.
+3. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
+4. Kies op [Kanalen](/docs/inbox/channels) per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Deactiveren** verbergt de agent uit de bibliotheek en wist de kanaalstandaarden; run-geschiedenis blijft.
+5. De front desk-agent van een nieuwe workspace komt met een ingevulde omschrijving en briefing. In het eerste gesprek vraagt hij wat het bedrijf doet en stelt hij zijn eigen bijgewerkte omschrijving en instructies voor als Govern-concept; keur dat goed onder [Govern](/docs/govern/govern) **Openstaande concepten** of pas de briefing hier zelf aan.
 
 ## Bepaal wanneer de agent zelf handelt
 
@@ -65,7 +66,7 @@ Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading). Die
 
 1. Een stille agent toont **Klaar**. Open **Communicatie** op de agentpagina (chattoegang). Kies **Iedereen**, **Geselecteerde gebruikers** of **Niemand**.
 2. **Niemand** houdt achtergrondwerk (Agenda, AI-afhandeling) zonder directe chat vanuit Communicatie. Front desk-, project- en andere lead-agents starten op **Iedereen**, zodat het hele team ze direct kan aanspreken.
-3. Om een agent uit de bibliotheek te halen, gebruik **Deactiveren** onder het ···-menu. Status wordt **Gedeactiveerd**. Gebruik **Opnieuw activeren** daar of op [Workforce](/docs/getting-started/team) onder **Gedeactiveerd**. Geschiedenis blijft.
+3. Om een agent uit de bibliotheek te halen, gebruik **Deactiveren** onder het ···-menu. Status wordt **Gedeactiveerd**. Op **Agents** open je het filter **Gedeactiveerd** om ze terug te vinden, of gebruik **Opnieuw activeren** op de agentpagina of op [Workforce](/docs/getting-started/team) onder **Gedeactiveerd**. Gedeactiveerde agents verdwijnen uit keuzelijsten en kanaaltoegang; achtergebleven toekenningen verdwijnen bij opslaan. Geschiedenis blijft. Elke kaart toont **Laatst actief** van de laatste run.
 
 ## Voeg een agenthandtekening toe
 

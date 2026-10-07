@@ -37,7 +37,7 @@ export function ApplicationCard({ application, offer, onOpenDetail }: Props) {
         }
       }}
       className={cn(
-        'flex flex-col rounded-lg border border-border/60 bg-bg-surface p-5',
+        'panel flex flex-col p-5',
         isComingSoon
           ? 'pointer-events-none cursor-not-allowed opacity-50'
           : 'hover-lift hover:border-border cursor-pointer',

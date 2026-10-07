@@ -32,7 +32,7 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
 
 ## Lees de directory
 
-1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen.
+1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen. De kolom **Laatst actief** toont wanneer iemand voor het laatst online was en wanneer een agent voor het laatst draaide. Via Gerelateerd open je **Agents** (zelfde filter **Gedeactiveerd** daar).
 2. Elke persoon toont rol, teams, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout** — geen vraagtellers. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)).
 3. Mensen, agents en teams gebruiken dezelfde soort markering: twee letters (of een icoon/afbeelding als die is gezet). De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents beschikbaar zijn, grijs als iedereen offline is.
 

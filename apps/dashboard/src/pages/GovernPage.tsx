@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { EmptyState } from '../components/ui/empty-state'
+import { useConfirm } from '../components/ui/confirm-dialog'
+import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -174,6 +176,7 @@ export default function GovernPage() {
   const [showAllAudit, setShowAllAudit] = useState(false)
   const { sendReady } = useChannelStatus()
   const { live: liveModelReady } = useLlmRuntime()
+  const confirm = useConfirm()
   const autonomousBlockedReason = !liveModelReady
     ? t('posture.autonomousNeedsLiveModel')
     : !sendReady
@@ -286,7 +289,7 @@ export default function GovernPage() {
       toast.error(autonomousBlockedReason)
       return
     }
-    if (next === 'autonomous' && !window.confirm(t('posture.autonomousConfirm'))) return
+    if (next === 'autonomous' && !(await confirm({ description: t('posture.autonomousConfirm') }))) return
     setSavingPosture(true)
     try {
       const resp = await setPosture(next)
@@ -575,48 +578,38 @@ export default function GovernPage() {
                     {t('drafts.openInboxAi')}
                   </Link>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <OptionCardGrid columns={3}>
                   {POSTURE_ORDER.map((id) => {
                     const active = posture === id
                     const blocked = id === 'autonomous' && Boolean(autonomousBlockedReason)
                     return (
-                      <button
+                      <OptionCard
                         key={id}
-                        type="button"
+                        selected={active}
                         disabled={savingPosture || blocked}
-                        title={blocked ? autonomousBlockedReason ?? undefined : undefined}
+                        title={t(`posture.${id}.label`)}
+                        description={t(`posture.${id}.summary`)}
+                        badge={
+                          active ? (
+                            <Badge variant="accent" size="sm">
+                              {t('posture.current')}
+                            </Badge>
+                          ) : null
+                        }
                         onClick={() => void handlePostureChange(id)}
-                        className={cn(
-                          'rounded-lg border p-4 text-left transition-colors',
-                          active
-                            ? 'border-accent bg-accent/5 ring-1 ring-accent/30'
-                            : 'border-border/60 hover:border-border hover:bg-bg-muted/40',
-                          blocked && 'cursor-not-allowed opacity-60',
-                        )}
                       >
-                        <p className="text-sm font-medium text-text-heading">
-                          {t(`posture.${id}.label`)}
-                        </p>
-                        <p className="mt-1 text-xs text-text-muted leading-relaxed">
-                          {t(`posture.${id}.summary`)}
-                        </p>
-                        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-text-muted">
+                        <ul className="list-disc space-y-0.5 pl-4 text-xs text-text-muted">
                           <li>{t(`posture.${id}.effects.inbox`)}</li>
                           <li>{t(`posture.${id}.effects.tools`)}</li>
                           <li>{t(`posture.${id}.effects.structure`)}</li>
                         </ul>
                         {blocked ? (
-                          <p className="mt-2 text-xs text-status-warning">{autonomousBlockedReason}</p>
+                          <span className="text-xs text-status-warning">{autonomousBlockedReason}</span>
                         ) : null}
-                        {active ? (
-                          <Badge variant="default" className="mt-2 text-2xs">
-                            {t('posture.current')}
-                          </Badge>
-                        ) : null}
-                      </button>
+                      </OptionCard>
                     )
                   })}
-                </div>
+                </OptionCardGrid>
               </CardContent>
             </Card>
 

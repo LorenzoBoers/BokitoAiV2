@@ -273,7 +273,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
               return (
                 <div
                   key={pillar}
-                  className="bk-tour-pop flex items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated/40 px-3.5 py-2.5"
+                  className="bk-tour-pop flex items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated px-3.5 py-2.5"
                   style={{ animationDelay: `${80 + idx * 60}ms` }}
                 >
                   <span
@@ -470,7 +470,7 @@ function StepOverlay({
             {t('skipTour')}
           </button>
         </div>
-        <h3 className="text-[14.5px] font-semibold text-text-heading">
+        <h3 className="text-lg font-semibold text-text-heading">
           {t(`steps.${step.id}.title`)}
         </h3>
         <p className="mt-1 text-sm leading-relaxed text-text-secondary">

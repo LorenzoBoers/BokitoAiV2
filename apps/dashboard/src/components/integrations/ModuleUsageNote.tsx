@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { moduleHomePath, moduleNavIcon } from '../../lib/integration-modules'
 import type { IntegrationModuleRow } from '../../lib/integrations-api'
+import { InsetPanel } from '../ui/inset-panel'
 
 /**
  * Which modules can run on this connection, and what agents do with it.
@@ -12,7 +13,7 @@ export function ModuleUsageNote({ modules }: { modules: IntegrationModuleRow[] }
   if (modules.length === 0) return null
 
   return (
-    <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2.5">
+    <InsetPanel className="px-3 py-2.5">
       <p className="text-2xs font-semibold text-text-muted">
         {t('integrations.application.usedByModules', { defaultValue: 'Works with modules' })}
       </p>
@@ -40,6 +41,6 @@ export function ModuleUsageNote({ modules }: { modules: IntegrationModuleRow[] }
           )
         })}
       </ul>
-    </div>
+    </InsetPanel>
   )
 }

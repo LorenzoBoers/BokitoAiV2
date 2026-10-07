@@ -292,24 +292,28 @@ async def verify_account(
     }
 
 
-@router.delete("/accounts/{account_id}")
+class ChannelDeleteResponse(BaseModel):
+    ok: bool = True
+    conversations_deleted: int = 0
+
+
+@router.delete("/accounts/{account_id}", response_model=ChannelDeleteResponse)
 async def delete_account(
     account_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
-):
+) -> ChannelDeleteResponse:
+    """Permanently delete a channel together with all of its conversations.
+
+    Only an archived channel (or one without conversations, such as a failed
+    install) can be deleted; archive first to stop it while keeping history.
+    """
+    from app.services.channel_lifecycle import delete_channel_permanently
+
     auth.require_role("owner", "admin")
     account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
-    if account.channel == "widget":
-        from app.services.widget_channel import count_widget_channels
-
-        if await count_widget_channels(session, auth.tenant.id) <= 1:
-            raise HTTPException(
-                status_code=400,
-                detail="The last website chat cannot be removed. You can pause it instead.",
-            )
-    await _detach_and_delete(session, account)
-    return {"ok": True}
+    deleted = await delete_channel_permanently(session, account, user_id=auth.user.id)
+    return ChannelDeleteResponse(conversations_deleted=deleted)
 
 
 class WidgetCreateBody(BaseModel):
@@ -475,6 +479,10 @@ class ChannelRow(BaseModel):
     # Mailboxes: file newsletters, receipts and no-reply mail as closed +
     # tagged "automated" instead of leaving them in Open.
     archive_automated_mail: bool = False
+    # Set when the channel is archived: no sync, inbound or sending.
+    archived_at: str | None = None
+    # Conversations on this channel; filled on the single-channel endpoints.
+    conversation_count: int | None = None
 
 
 class ChannelListResponse(BaseModel):
@@ -511,29 +519,8 @@ async def _tenant_account_or_404(
     return account
 
 
-async def _detach_and_delete(session: AsyncSession, account: ChannelAccount) -> None:
-    """Drop a channel without losing history: threads keep their messages."""
-    from sqlalchemy import delete as sa_delete, update as sa_update
-
-    from app.models.channel import ChannelBinding
-    from app.models.learning import InboxRule
-
-    await session.execute(
-        sa_update(Signal)
-        .where(Signal.channel_account_id == account.id)
-        .values(channel_account_id=None)
-    )
-    await session.execute(
-        sa_delete(InboxRule).where(InboxRule.channel_account_id == account.id)
-    )
-    await session.execute(
-        sa_delete(ChannelBinding).where(ChannelBinding.channel_account_id == account.id)
-    )
-    await session.delete(account)
-    await session.commit()
-
-
 async def _row(session: AsyncSession, auth: AuthContext, account: ChannelAccount) -> dict:
+    from app.services.channel_lifecycle import conversation_count
     from app.services.channel_registry import last_event_by_account, resolve_channel
     from app.services.widget_channel import count_widget_channels
 
@@ -543,12 +530,14 @@ async def _row(session: AsyncSession, auth: AuthContext, account: ChannelAccount
         if account.channel == "widget"
         else None
     )
-    return resolve_channel(
+    row = resolve_channel(
         account,
         tenant=auth.tenant,
         last_event_at=events.get(account.id),
         widget_count=widget_count,
     )
+    row["conversation_count"] = await conversation_count(session, account)
+    return row
 
 
 class ChannelStatusRow(BaseModel):
@@ -600,7 +589,10 @@ async def list_channel_status(
     rows = await list_channels(
         session, auth.tenant, user_id=auth.user.id, role=auth.role
     )
-    statuses = [ChannelStatusRow(**to_channel_status(row)) for row in rows]
+    # Archived channels are history, not something Setup or the composer offers.
+    statuses = [
+        ChannelStatusRow(**to_channel_status(row)) for row in rows if row.get("state") != "archived"
+    ]
     ready = [s for s in statuses if s.summary == "ready"]
     email_ready = any(
         s.summary == "ready" and s.channel == "email" for s in statuses
@@ -635,8 +627,12 @@ async def patch_channel(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ChannelRow:
     """Rename, pause/resume, set the backfill window, or mark the primary sender."""
+    from app.services.channel_lifecycle import require_not_archived
+
     auth.require_role("owner", "admin")
     account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    if body.is_enabled or body.is_primary:
+        require_not_archived(account)
     settings = account_settings(account)
     if body.sync_window_days is not None:
         from app.services.email_sync import clamp_sync_window_days, MAX_SYNC_WINDOW_DAYS
@@ -728,7 +724,10 @@ async def sync_channel(
     from app.services.channel_registry import resolve_channel
     from app.services.email_sync import sync_account
 
+    from app.services.channel_lifecycle import require_not_archived
+
     account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    require_not_archived(account)
     row = resolve_channel(account, tenant=auth.tenant)
     if "sync" not in row["capabilities"]:
         raise HTTPException(status_code=400, detail="This channel does not sync")
@@ -739,6 +738,40 @@ async def sync_channel(
         synced=int(result.get("synced") or 0),
         status=str(result.get("status") or "ok"),
     )
+
+
+@router.post("/accounts/{account_id}/archive", response_model=ChannelRow)
+async def archive_account(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelRow:
+    """Stop a channel for good: no sync, inbound or sending; credentials wiped.
+
+    Its conversations and access list stay, so owners can keep managing who
+    sees them. Restore or reconnect the same mailbox to bring it back.
+    """
+    from app.services.channel_lifecycle import archive_channel
+
+    auth.require_role("owner", "admin")
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    account = await archive_channel(session, account, user_id=auth.user.id)
+    return ChannelRow(**await _row(session, auth, account))
+
+
+@router.post("/accounts/{account_id}/restore", response_model=ChannelRow)
+async def restore_account(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ChannelRow:
+    """Bring an archived channel back as paused; reconnect it to resume."""
+    from app.services.channel_lifecycle import restore_channel
+
+    auth.require_role("owner", "admin")
+    account = await _tenant_account_or_404(session, auth.tenant.id, account_id)
+    account = await restore_channel(session, account, user_id=auth.user.id)
+    return ChannelRow(**await _row(session, auth, account))
 
 
 # ── Bokito relay addresses ───────────────────────────────────────────

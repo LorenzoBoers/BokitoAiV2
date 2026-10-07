@@ -9,7 +9,8 @@ type:
   ``setup_required`` (platform side not configured), ``connecting`` (credentials
   in place, first sync pending), ``active``, ``degraded`` (works with a warning),
   ``action_required`` (a human must reconnect or fill something in), ``paused``
-  (switched off), ``error`` (hard failure).
+  (switched off), ``error`` (hard failure), ``archived`` (stopped for good;
+  conversations and access stay, see ``channel_lifecycle``).
 - **capabilities** — ``receive`` / ``send`` / ``sync``. A channel without
   ``sync`` simply has no sync detail to show, which is why the old
   "Sync status" panel could sit there empty.
@@ -40,6 +41,7 @@ CHANNEL_STATES = (
     "action_required",
     "paused",
     "error",
+    "archived",
 )
 CHECK_STATES = ("ok", "warn", "fail", "pending", "na")
 CHANNEL_CAPABILITIES = ("receive", "send", "sync")
@@ -189,7 +191,7 @@ def _resolve_email_relay(ctx: ChannelContext) -> ChannelFacts:
     return ChannelFacts(
         capabilities=("receive", "send"),
         checks=checks,
-        actions=["copy_address", "pause", "remove"],
+        actions=["copy_address", "pause", "archive"],
     )
 
 
@@ -260,7 +262,7 @@ def _resolve_email_mailbox(ctx: ChannelContext) -> ChannelFacts:
 
     # Manual sync is not a day-to-day control — only offer retry when broken.
     sync_broken = bool(ctx.last_error) or sync_state in ("pending", "warn", "fail")
-    actions = ["reconnect", "pause", "remove"]
+    actions = ["reconnect", "pause", "archive"]
     if sync_broken and connected:
         actions.insert(0, "retry_sync")
 
@@ -305,7 +307,7 @@ def _resolve_whatsapp(ctx: ChannelContext) -> ChannelFacts:
     return ChannelFacts(
         capabilities=("receive", "send"),
         checks=checks,
-        actions=["reconnect", "pause", "remove"],
+        actions=["reconnect", "pause", "archive"],
     )
 
 
@@ -329,7 +331,7 @@ def _resolve_slack(ctx: ChannelContext) -> ChannelFacts:
     return ChannelFacts(
         capabilities=("receive", "send"),
         checks=checks,
-        actions=["reconnect", "pause", "remove"],
+        actions=["reconnect", "pause", "archive"],
     )
 
 
@@ -343,11 +345,13 @@ _RESOLVERS: dict[str, Callable[[ChannelContext], ChannelFacts]] = {
 
 
 def _fallback_facts(ctx: ChannelContext) -> ChannelFacts:
-    return ChannelFacts(capabilities=("receive",), checks=[], actions=["pause", "remove"])
+    return ChannelFacts(capabilities=("receive",), checks=[], actions=["pause", "archive"])
 
 
 def _derive_state(ctx: ChannelContext, facts: ChannelFacts) -> tuple[str, str]:
     """State + the check id that explains it."""
+    if ctx.account.archived_at is not None:
+        return "archived", ""
     if not ctx.account.is_enabled:
         # Paused by the platform after repeated sync failures, not by a person.
         return "paused", "sync_errors" if ctx.settings.get("auto_paused_at") else ""
@@ -400,11 +404,17 @@ def resolve_channel(
     kind = channel_kind(account)
     facts = _RESOLVERS.get(kind, _fallback_facts)(ctx)
     state, reason = _derive_state(ctx, facts)
-    actions = list(facts.actions)
-    if not account.is_enabled:
-        actions = ["resume" if a == "pause" else a for a in actions]
-    if kind == "widget" and widget_count is not None and widget_count > 1 and "remove" not in actions:
-        actions.append("remove")
+    archived = account.archived_at is not None
+    if archived:
+        # Nothing runs on an archived channel; its checks would only alarm.
+        facts.checks = []
+        actions = ["restore", "delete"]
+    else:
+        actions = list(facts.actions)
+        if not account.is_enabled:
+            actions = ["resume" if a == "pause" else a for a in actions]
+        if kind == "widget" and widget_count is not None and widget_count > 1 and "archive" not in actions:
+            actions.append("archive")
 
     # The widget's address is the internal tenant key, not something an
     # operator shares or copies, so the row keeps it out of the UI.
@@ -444,6 +454,7 @@ def resolve_channel(
         "created_at": account.created_at.isoformat(),
         "sync_window_days": account_sync_window_days(settings),
         "archive_automated_mail": account_archives_automated_mail(settings),
+        "archived_at": _iso(account.archived_at),
     }
 
 
@@ -459,7 +470,7 @@ def can_send(row: dict[str, Any]) -> bool:
 def can_receive(row: dict[str, Any]) -> bool:
     """Whether a resolved row may accept inbound messages right now."""
     state = row.get("state")
-    if state in ("paused", "error", "setup_required", "action_required"):
+    if state in ("paused", "error", "setup_required", "action_required", "archived"):
         return False
     return "receive" in row.get("capabilities", [])
 

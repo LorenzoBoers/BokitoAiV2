@@ -57,7 +57,7 @@ export function ConnectionSections({
                 {group.programs.map((program) => (
                   <div
                     key={program.programKey}
-                    className="rounded-lg border border-border/60 bg-bg-surface"
+                    className="panel"
                   >
                     <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2">
                       <div className="flex min-w-0 items-center gap-2">

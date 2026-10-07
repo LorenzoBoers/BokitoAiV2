@@ -26,7 +26,7 @@ async def test_widget_channel_page_and_extra_site(client: AsyncClient):
     assert len(widgets) >= 1
     first = widgets[0]
     assert first["configure_href"] == f"/settings/channels/{first['id']}"
-    assert "remove" not in first["actions"]
+    assert "archive" not in first["actions"]
 
     got = await client.get(f"/api/channels/accounts/{first['id']}/widget", headers=headers)
     assert got.status_code == 200, got.text
@@ -51,12 +51,12 @@ async def test_widget_channel_page_and_extra_site(client: AsyncClient):
     extra = created.json()
     assert extra["kind"] == "widget"
     assert extra["label"] == "Shop"
-    assert "remove" in extra["actions"]
+    assert "archive" in extra["actions"]
 
     listed = await client.get("/api/channels", headers=headers)
     widgets = [row for row in listed.json()["channels"] if row["kind"] == "widget"]
     assert len(widgets) == 2
-    assert all("remove" in row["actions"] for row in widgets)
+    assert all("archive" in row["actions"] for row in widgets)
 
     session = await client.post(
         "/api/livechat/session/start",

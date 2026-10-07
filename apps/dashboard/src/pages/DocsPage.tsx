@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   ArrowRight,
@@ -19,7 +18,7 @@ import {
 import MarkdownView from '../components/docs/MarkdownView'
 import ArticleFeedback from '../components/docs/ArticleFeedback'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
-import { DocsHeader, useDocsLang } from '../components/docs/DocsChrome'
+import { DocsHeader, useDocsLang, useDocsT } from '../components/docs/DocsChrome'
 import {
   getProductHelpArticle,
   getProductHelpIndex,
@@ -69,7 +68,7 @@ export default function DocsPage() {
 
   // Legacy flat URL /docs/{slug}: redirect to the canonical section path.
   if (!section && slug) {
-    return <LegacyRedirect slug={slug} index={index} loadFailed={error} />
+    return <LegacyRedirect slug={slug} index={index} loadFailed={error} lang={lang} />
   }
 
   return (
@@ -77,7 +76,7 @@ export default function DocsPage() {
       {section && slug ? (
         <ArticleView key={`${slug}:${lang}`} slug={slug} section={section} lang={lang} index={index} />
       ) : (
-        <Landing index={index} loadFailed={error} />
+        <Landing index={index} loadFailed={error} lang={lang} />
       )}
     </DocsScrollShell>
   )
@@ -87,12 +86,14 @@ function LegacyRedirect({
   slug,
   index,
   loadFailed,
+  lang,
 }: {
   slug: string
   index: ProductHelpIndex | null
   loadFailed: boolean
+  lang: string
 }) {
-  const { t } = useTranslation('nav')
+  const t = useDocsT(lang)
   if (loadFailed) return <Navigate to="/docs" replace />
   if (!index) {
     return (
@@ -105,8 +106,16 @@ function LegacyRedirect({
   return <Navigate to={article ? `/docs/${article.path}` : '/docs'} replace />
 }
 
-function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFailed: boolean }) {
-  const { t } = useTranslation('nav')
+function Landing({
+  index,
+  loadFailed,
+  lang,
+}: {
+  index: ProductHelpIndex | null
+  loadFailed: boolean
+  lang: string
+}) {
+  const t = useDocsT(lang)
 
   useEffect(() => {
     return applyDocsMeta({ title: t('docs.title'), description: t('docs.heroBody') })
@@ -153,7 +162,7 @@ function Landing({ index, loadFailed }: { index: ProductHelpIndex | null; loadFa
         {lastDocs ? (
           <Link
             to={lastDocs.path}
-            className="mt-7 inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/15"
+            className="mt-7 inline-flex items-center gap-2 rounded-lg border border-accent/35 bg-accent/10 px-4 py-2 text-sm font-medium text-accent transition-colors hover:bg-accent/15"
           >
             <span className="text-accent/70">{t('docs.continueLast')}</span>
             <span className="text-foreground">{lastDocs.title}</span>
@@ -241,7 +250,7 @@ function ArticleView({
   lang: string
   index: ProductHelpIndex | null
 }) {
-  const { t } = useTranslation('nav')
+  const t = useDocsT(lang)
   const [article, setArticle] = useState<ProductHelpArticle | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -391,7 +400,7 @@ function ArticleView({
             ) : null}
 
             <div className="mt-8">
-              <ArticleFeedback slug={article.slug} />
+              <ArticleFeedback slug={article.slug} lang={lang} />
             </div>
 
             <nav className="mt-8 grid gap-3 sm:grid-cols-2">

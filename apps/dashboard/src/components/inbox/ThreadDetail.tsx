@@ -45,6 +45,7 @@ import ReplyComposer from './ReplyComposer'
 import ThreadHeader from './ThreadHeader'
 import ThreadTimeline, { buildTimelineRows, type ThreadTimelineHandle } from './ThreadTimeline'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { InboxThreadSkeleton } from '../ui/skeleton'
 import { TooltipProvider } from '../ui/tooltip'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -57,6 +58,8 @@ import {
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
 import AgentTurnLive from './AgentTurnLive'
+import { AiAvatar } from '../ui/AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { textOnlyTurn, turnHasContent, turnSaved } from '../../lib/agentActivity'
 import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
@@ -143,6 +146,7 @@ type Props = {
 
 export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
   const { t, i18n } = useTranslation('communication')
+  const confirm = useConfirm()
   const { token, user } = useAuth()
   const collectStageFields = useCollectStageFields()
   const location = useLocation()
@@ -586,7 +590,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     if (!token || !detail) return
     const sender = detail.thread.contactEmail.trim()
     if (!sender || isPlaceholderContactAddress(sender)) return
-    if (!window.confirm(t('threadChrome.alwaysCloseConfirm', { sender }))) return
+    if (!(await confirm({ description: t('threadChrome.alwaysCloseConfirm', { sender }) }))) return
     setClosingSender(true)
     try {
       await createInboxRule(token, {
@@ -613,7 +617,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       ) ||
       (!isPlaceholderContactAddress(detail.thread.contactEmail) && detail.thread.contactEmail) ||
       t('contactPanel.thisContact')
-    if (!window.confirm(t('contactPanel.blockConfirm', { name }))) return
+    if (!(await confirm({ description: t('contactPanel.blockConfirm', { name }), destructive: true }))) return
     setBlockingContact(true)
     try {
       await updateContact(token, detail.thread.contactId, { status: 'blocked' })
@@ -1109,7 +1113,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               setUnseenNew(0)
               pinToBottom('smooth')
             }}
-            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-accent/30 bg-accent px-3 py-1 text-xs font-medium text-accent-fg"
+            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-lg border border-accent/30 bg-accent px-3 py-1 text-xs font-medium text-accent-fg"
           >
             {t('threadChrome.newMessages', { count: unseenNew })}
           </button>
@@ -1171,7 +1175,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onAtBottomChange={(atBottom) => {
             anchorToBottomRef.current = atBottom
           }}
-          liveTrace={threadLiveTurn ? <AgentTurnLive turn={threadLiveTurn} /> : null}
+          liveTrace={
+            threadLiveTurn ? (
+              <AgentTurnLive
+                turn={threadLiveTurn}
+                avatar={
+                  thread.agentId ? (
+                    <AiAvatar {...toAiAvatarProps(thread)} size={28} decorative />
+                  ) : undefined
+                }
+              />
+            ) : null
+          }
           emptyState={
             <div className="flex h-full flex-col items-center justify-center text-center text-xs text-text-muted">
               <p>{t('threadChrome.emptyTitle')}</p>

@@ -17,7 +17,7 @@ async def test_seed_and_default_model(session_override):
     # The Bokito virtual model is the platform default chat model.
     assert chat is not None and chat.slug == "bokito-ai-3-1"
     assert chat.provider == "bokito"
-    assert chat.display_name == "Bokito AI"
+    assert chat.display_name == "Bokito"
     assert emb is not None and emb.kind == "embedding"
     from app.services.model_catalog import list_models
 
@@ -67,11 +67,12 @@ async def test_resolve_byok_platform_mock(session_override, monkeypatch):
     assert resolved.model_id == "mistral-medium-latest"
     assert resolved.region == "eu"
     assert resolved.fallback_active is False
-    # Bill prices match backing provider costs; markup is applied separately.
+    # Provider cost follows Mistral Medium; customer pays fixed Bokito list prices.
     assert resolved.input_cost_per_mtok_cents == 150
     assert resolved.output_cost_per_mtok_cents == 750
-    assert resolved.bill_input_cost_per_mtok_cents == 150
-    assert resolved.bill_output_cost_per_mtok_cents == 750
+    assert resolved.bill_input_cost_per_mtok_cents == 50
+    assert resolved.bill_output_cost_per_mtok_cents == 150
+    assert resolved.markup == 1.0
 
     # Maki uses the same Mistral key on the lighter tier.
     maki = await resolve_model_call(
@@ -117,7 +118,7 @@ async def test_bokito_virtual_model_routing(session_override):
     )
     assert kong.slug == "bokito-kong"
     assert kong.provider == "bokito"
-    assert kong.model_id == "mistral-large-latest"
+    assert kong.model_id == "mistral-large-4"
 
     entry = await record_usage(
         session_override, tenant.id, resolved, tokens_in=100, tokens_out=50, commit=True
@@ -174,21 +175,115 @@ async def test_non_eu_platform_models_blocked_by_default(session_override):
     assert resolved.redirected_from == ""
 
 
-def test_backing_family_switch(monkeypatch):
-    """BOKITO_BACKING_FAMILY flips all three tiers between Mistral and Claude maps."""
+def test_backing_chains_default_to_mistral_and_env_overrides(monkeypatch):
+    """Built-in chains are Mistral only; BOKITO_BACKINGS overrides single tiers."""
     from app.config import get_settings
     from app.services import bokito_models
 
     settings = get_settings()
-    monkeypatch.setattr(settings, "bokito_backing_family", "mistral")
+    monkeypatch.setattr(settings, "bokito_backings", "")
     assert bokito_models.select_backing_slug("bokito-maki") == "ministral-3b-2512"
     assert bokito_models.select_backing_slug("bokito-ai-3-1") == "mistral-medium-latest"
-    assert bokito_models.select_backing_slug("bokito-kong") == "mistral-large-latest"
+    assert bokito_models.select_backing_slug("bokito-kong") == "mistral-large-4"
+    for tier in bokito_models.MANAGED_CHAT_SLUGS:
+        assert all(s.startswith(("mistral", "ministral")) for s in bokito_models.backing_candidates(tier))
 
-    monkeypatch.setattr(settings, "bokito_backing_family", "claude")
-    assert bokito_models.select_backing_slug("bokito-maki") == "claude-haiku-4-5"
-    assert bokito_models.select_backing_slug("bokito-ai-3-1") == "claude-sonnet-5-5"
-    assert bokito_models.select_backing_slug("bokito-kong") == "claude-opus-5-5"
+    monkeypatch.setattr(settings, "bokito_backings", '{"bokito-kong": ["mistral-medium-latest"]}')
+    assert bokito_models.backing_candidates("bokito-kong") == ["mistral-medium-latest"]
+    assert bokito_models.select_backing_slug("bokito-ai-3-1") == "mistral-medium-latest"
+    assert bokito_models.route_sources()["bokito-kong"] == "env"
+
+    monkeypatch.setattr(settings, "bokito_backings", "{not json")
+    assert bokito_models.select_backing_slug("bokito-kong") == "mistral-large-4"
+
+
+@pytest.mark.asyncio
+async def test_staff_backing_override_routes_tier(
+    client: AsyncClient, session_override, monkeypatch
+):
+    """Staff can point a tier at any catalog model; resolution follows within the call."""
+    from app.services import model_resolution
+    from tests.test_staff_ops import _create_staff, _staff_token
+
+    await _create_staff(session_override)
+    staff_headers = {"Authorization": f"Bearer {await _staff_token(client)}"}
+
+    monkeypatch.setattr(model_resolution.settings, "llm_mode", "mock")
+    monkeypatch.setattr(model_resolution.settings, "bokito_backings", "")
+    await seed_model_catalog(session_override)
+    tenant = Tenant(slug="backing-staff", name="Backing Staff")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+    await platform_secrets.set_platform_secret(session_override, "mistral", "mi-p")
+    await platform_secrets.set_platform_secret(session_override, "anthropic", "sk-p")
+
+    bad = await client.put(
+        "/api/staff/bokito-backings",
+        json={"routes": {"bokito-ai-3-1": ["no-such-model"]}},
+        headers=staff_headers,
+    )
+    assert bad.status_code == 400
+
+    res = await client.put(
+        "/api/staff/bokito-backings",
+        json={"routes": {"bokito-ai-3-1": ["claude-sonnet-5-5", "mistral-medium-latest"]}},
+        headers=staff_headers,
+    )
+    assert res.status_code == 200, res.text
+    tier = next(t for t in res.json()["tiers"] if t["slug"] == "bokito-ai-3-1")
+    assert tier["source"] == "setting"
+    assert [s["provider"] for s in tier["steps"]] == ["anthropic", "mistral"]
+    assert all(s["has_platform_key"] for s in tier["steps"])
+
+    resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
+    assert resolved.provider_type == "anthropic"
+    assert resolved.slug == "bokito-ai-3-1"
+
+    reset = await client.delete("/api/staff/bokito-backings", headers=staff_headers)
+    assert reset.status_code == 200
+    resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
+    assert resolved.provider_type == "mistral"
+
+
+@pytest.mark.asyncio
+async def test_tenant_key_on_later_step_wins(session_override, monkeypatch):
+    """A workspace's own key on any chain step beats the platform key (BYOK)."""
+    from app.services import model_resolution
+
+    monkeypatch.setattr(model_resolution.settings, "llm_mode", "mock")
+    monkeypatch.setattr(
+        model_resolution.settings,
+        "bokito_backings",
+        '{"bokito-ai-3-1": ["mistral-medium-latest", "claude-sonnet-5-5"]}',
+    )
+    await seed_model_catalog(session_override)
+    tenant = Tenant(slug="backing-byok", name="Backing BYOK")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+    await platform_secrets.set_platform_secret(session_override, "mistral", "mi-p")
+    await tenant_secrets.set_secret(session_override, tenant.id, "anthropic", "sk-own")
+
+    resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
+    assert resolved.api_key == "sk-own"
+    assert resolved.key_source == "tenant"
+    assert resolved.billable is False
+
+
+def test_bokito_fixed_list_prices(monkeypatch):
+    """Managed tier list prices come from env, not backing provider costs."""
+    from app.config import get_settings
+    from app.services import bokito_models
+
+    settings = get_settings()
+    assert bokito_models.bill_prices_for_slug("bokito-maki") == (10, 10)
+    assert bokito_models.bill_prices_for_slug("bokito-ai-3-1") == (50, 150)
+    assert bokito_models.bill_prices_for_slug("bokito-kong") == (150, 750)
+
+    monkeypatch.setattr(settings, "bokito_ai_input_cost_per_mtok_cents", 99)
+    monkeypatch.setattr(settings, "bokito_ai_output_cost_per_mtok_cents", 199)
+    assert bokito_models.bill_prices_for_slug("bokito-ai-3-1") == (99, 199)
 
 
 def test_provider_regions():
@@ -207,28 +302,28 @@ def test_provider_regions():
 
 
 def test_bokito_billing_margin():
-    """Customer pays the Bokito list price; provider cost follows the backing model."""
+    """Customer pays fixed Bokito list prices (no markup); provider follows backing."""
     from app.services.model_resolution import ResolvedModelCall
 
     resolved = ResolvedModelCall(
         slug="bokito-ai-3-1",
         provider="bokito",
-        provider_type="anthropic",
-        model_id="claude-haiku-4-5-20251001",
+        provider_type="mistral",
+        model_id="mistral-medium-latest",
         kind="chat",
-        api_key="sk-x",
+        api_key="mi-x",
         key_source="platform",
-        # Cheap backing model...
-        input_cost_per_mtok_cents=100,
-        output_cost_per_mtok_cents=500,
-        markup=1.2,
-        # ...billed at the Bokito list price.
-        bill_input_cost_per_mtok_cents=300,
-        bill_output_cost_per_mtok_cents=1500,
+        # Backing provider cost...
+        input_cost_per_mtok_cents=150,
+        output_cost_per_mtok_cents=750,
+        markup=1.0,
+        # ...billed at fixed Bokito list prices (env).
+        bill_input_cost_per_mtok_cents=50,
+        bill_output_cost_per_mtok_cents=150,
     )
     provider_micros, customer_micros = compute_costs(resolved, 1000, 500)
-    assert provider_micros == round(1000 * 100 / 100 + 500 * 500 / 100)  # 3500
-    assert customer_micros == round((1000 * 300 / 100 + 500 * 1500 / 100) * 1.2)
+    assert provider_micros == round(1000 * 150 / 100 + 500 * 750 / 100)  # 5250
+    assert customer_micros == round(1000 * 50 / 100 + 500 * 150 / 100)  # 1250
 
 
 @pytest.mark.asyncio
@@ -301,7 +396,7 @@ async def test_bokito_identity_line_in_system_prompt(session_override):
         model_id="claude-sonnet-5-5", kind="chat", api_key="", key_source="mock",
     )
     prompt = await loop._build_system_prompt()
-    assert "Bokito AI" in prompt
+    assert "Bokito" in prompt
     assert "Never state or imply" in prompt
 
     loop.resolved_call = ResolvedModelCall(
@@ -354,12 +449,13 @@ async def test_compute_costs_and_record(session_override):
 
     await platform_secrets.set_platform_secret(session_override, "mistral", "mi-platform-5555")
     resolved = await resolve_model_call(session_override, tenant.id, kind="chat")
-    resolved.markup = 1.2  # deterministic for the assertion
 
     provider_micros, customer_micros = compute_costs(resolved, 1000, 500)
-    # Mistral Medium backing: 1000*150/100 + 500*750/100 = 1500 + 3750 = 5250
+    # Provider: Mistral Medium 1000*150/100 + 500*750/100 = 5250
+    # Customer: fixed Bokito list 1000*50/100 + 500*150/100 = 500 + 750 = 1250 (no markup)
     assert provider_micros == 5250
-    assert customer_micros == round(5250 * 1.2)
+    assert customer_micros == 1250
+    assert resolved.markup == 1.0
 
     entry = await record_usage(
         session_override, tenant.id, resolved, tokens_in=1000, tokens_out=500,
@@ -367,7 +463,7 @@ async def test_compute_costs_and_record(session_override):
     )
     assert entry.billable is True
     assert entry.provider_cost_micros == 5250
-    assert entry.customer_cost_micros == round(5250 * 1.2)
+    assert entry.customer_cost_micros == 1250
 
 
 @pytest.mark.asyncio
@@ -445,6 +541,12 @@ async def test_tenant_models_api_and_agent_patch(client: AsyncClient):
     assert payload["managed"]["chat"]["region"] == "eu"
     managed_slugs = {m["slug"] for m in payload.get("managed", {}).get("models", [])}
     assert managed_slugs == {"bokito-maki", "bokito-ai-3-1", "bokito-kong"}
+    by_slug = {m["slug"]: m for m in payload["managed"]["models"]}
+    assert by_slug["bokito-maki"]["context_window"] == 256000
+    assert by_slug["bokito-ai-3-1"]["context_window"] == 128000
+    assert by_slug["bokito-kong"]["context_window"] == 128000
+    assert by_slug["bokito-maki"]["supports_tools"] is True
+    assert by_slug["bokito-maki"]["supports_vision"] is True
     selectable = {m["slug"] for m in payload.get("selectable_chat", [])}
     assert {"bokito-maki", "bokito-ai-3-1", "bokito-kong"} <= selectable
     assert any(m["slug"] == "bokito-ai-3-1" for m in payload["models"])

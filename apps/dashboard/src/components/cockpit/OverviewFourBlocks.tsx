@@ -75,7 +75,7 @@ function Block({
 }) {
   return (
     <section
-      className="stagger-in min-w-0 rounded-lg border border-border/60 bg-bg-surface p-4"
+      className="panel stagger-in min-w-0 p-4"
       style={{ '--stagger': index } as CSSProperties}
     >
       <div>

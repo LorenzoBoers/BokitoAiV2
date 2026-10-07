@@ -101,7 +101,7 @@ function ActivityTypeIcon({
 function MarkerGlyph({ cluster }: { cluster: ActivityCluster }) {
   if (cluster.items.length > 1) {
     return (
-      <span className="pointer-events-none absolute inset-0 grid place-items-center text-[10px] font-semibold leading-none tabular-nums tracking-tight">
+      <span className="pointer-events-none absolute inset-0 grid place-items-center text-2xs font-semibold leading-none tabular-nums tracking-tight">
         {cluster.items.length > 9 ? '9+' : cluster.items.length}
       </span>
     )

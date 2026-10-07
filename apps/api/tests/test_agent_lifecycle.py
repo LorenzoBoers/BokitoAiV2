@@ -150,7 +150,14 @@ async def test_archive_agent_hides_it_from_the_list(client: AsyncClient):
     assert r.status_code == 200, r.text
     assert r.json()["ok"] is True
 
-    assert not any(a["id"] == agent_id and a.get("is_active") is not False for a in await _list_agents(client, owner))
+    assert agent_id not in {a["id"] for a in await _list_agents(client, owner)}
+
+    with_inactive = await client.get(
+        "/api/workforce/agents", headers=owner, params={"include_inactive": "true"}
+    )
+    assert with_inactive.status_code == 200
+    inactive_row = next(a for a in with_inactive.json()["items"] if a["id"] == agent_id)
+    assert inactive_row["is_active"] is False
 
     r = await client.post(f"/api/workforce/agents/{agent_id}/restore", headers=owner)
     assert r.status_code == 200, r.text

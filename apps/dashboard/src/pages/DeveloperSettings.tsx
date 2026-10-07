@@ -13,9 +13,15 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { Callout } from '../components/ui/callout'
+import { useConfirm } from '../components/ui/confirm-dialog'
+import { EmptyState } from '../components/ui/empty-state'
+import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import { statusTone } from '../lib/badge-tones'
 import { buildApiTokenCurl } from '../lib/api-token-curl'
 import { TOKEN_SCOPE_PRESETS } from '../lib/api-token-mcp'
 import { ConnectAiToolsSection } from '../components/developers/ConnectAiToolsSection'
@@ -108,11 +114,17 @@ function McpOAuthGrantsSection({
 }) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const confirm = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
 
   async function handleRevoke(grant: McpOAuthGrant) {
     if (!token) return
-    if (!window.confirm(t('developersPage.oauthGrants.revokeConfirm', { name: grant.client_name }))) {
+    if (
+      !(await confirm({
+        description: t('developersPage.oauthGrants.revokeConfirm', { name: grant.client_name }),
+        destructive: true,
+      }))
+    ) {
       return
     }
     setBusyId(grant.id)
@@ -128,7 +140,7 @@ function McpOAuthGrantsSection({
   }
 
   return (
-    <section id="mcp-clients" className="rounded-lg border border-border/60 bg-bg-surface p-4">
+    <section id="mcp-clients" className="panel p-4">
       <h2 className="text-lg font-semibold text-text-heading">
         {t('developersPage.oauthGrants.title')}
       </h2>
@@ -179,6 +191,7 @@ function ApiTokensSection({
 }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const [tokens, setTokens] = useState<ApiTokenRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -246,7 +259,7 @@ function ApiTokensSection({
   }
 
   async function handleRevoke(token: ApiTokenRow) {
-    if (!window.confirm(t('developersPage.revokeConfirm', { name: token.name }))) return
+    if (!(await confirm({ description: t('developersPage.revokeConfirm', { name: token.name }), destructive: true }))) return
     try {
       await revokeApiToken(token.id)
       toast.success(t('developersPage.revoked'))
@@ -274,7 +287,7 @@ function ApiTokensSection({
       </div>
 
       {showAdd ? (
-        <div className="mt-4 space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
+        <div className="panel mt-4 space-y-3 p-4">
           <div>
             <Label htmlFor="token-name">{t('developersPage.tokenName')}</Label>
             <Input
@@ -315,27 +328,22 @@ function ApiTokensSection({
                         : t('developersPage.selectAllMcp')}
                     </button>
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-2">
+                  <FilterChipRow className="mt-1">
                     {group.scopes.map((scope) => (
-                      <button
+                      <FilterChip
                         key={scope}
-                        type="button"
+                        active={scopes.includes(scope)}
                         onClick={() => toggleScope(scope)}
-                        className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                          scopes.includes(scope)
-                            ? 'border-border-light bg-bg-hover text-text-heading'
-                            : 'border-border/60 text-text-secondary hover:bg-bg-hover'
-                        }`}
                       >
                         {scope}
-                      </button>
+                      </FilterChip>
                     ))}
-                  </div>
+                  </FilterChipRow>
                 </div>
               ))}
             </div>
             {scopes.length === 0 ? (
-              <p className="mt-2 text-xs text-amber-600">{t('developersPage.fullAccessWarning')}</p>
+              <p className="mt-2 text-xs text-status-warning">{t('developersPage.fullAccessWarning')}</p>
             ) : null}
           </div>
           <div className="flex gap-2">
@@ -413,16 +421,16 @@ function ApiTokensSection({
           {tokens.filter((row) => showRevoked || !row.revoked_at).map((row) => (
             <div
               key={row.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-3"
+              className="panel flex items-center justify-between gap-3 px-4 py-3"
             >
               <div className="min-w-0">
                 <p className="truncate-fade text-sm font-medium text-text-heading">
                   {row.name}{' '}
                   <span className="font-mono text-xs text-text-muted">bok_…</span>
                   {row.revoked_at ? (
-                    <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-2xs font-medium text-red-500">
+                    <Badge variant={statusTone('revoked')} size="sm" className="ml-2 align-middle">
                       {t('developersPage.revokedBadge')}
-                    </span>
+                    </Badge>
                   ) : null}
                 </p>
                 <p className="mt-0.5 text-xs text-text-muted">
@@ -436,8 +444,8 @@ function ApiTokensSection({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-red-500 hover:text-red-600"
-                  onClick={() => handleRevoke(row)}
+                  className="text-status-error hover:text-status-error/80"
+                  onClick={() => void handleRevoke(row)}
                   aria-label={t('developersPage.revokeAria')}
                 >
                   <Trash2 size={13} />
@@ -467,20 +475,17 @@ function StatusPill({ endpoint }: { endpoint: WebhookEndpoint }) {
   }
   const ok = endpoint.last_status !== 'failed'
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-2xs font-medium ${
-        ok ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'
-      }`}
-    >
+    <Badge variant={ok ? 'success' : 'error'} size="sm">
       {ok
         ? t('developersPage.webhooks.lastDelivery', { status: endpoint.last_status })
         : t('developersPage.webhooks.lastFailed')}
-    </span>
+    </Badge>
   )
 }
 
 export default function DeveloperSettings() {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const [createdToken, setCreatedToken] = useState<string | null>(null)
   const grantsState = useMcpOAuthGrants()
   const [items, setItems] = useState<WebhookEndpoint[]>([])
@@ -560,7 +565,7 @@ export default function DeveloperSettings() {
   }
 
   async function handleDelete(endpoint: WebhookEndpoint) {
-    if (!window.confirm(t('developersPage.webhooks.removeConfirm', { url: endpoint.url }))) return
+    if (!(await confirm({ description: t('developersPage.webhooks.removeConfirm', { url: endpoint.url }), destructive: true }))) return
     try {
       await deleteWebhook(endpoint.id)
       toast.success(t('developersPage.webhooks.removed'))
@@ -637,7 +642,7 @@ export default function DeveloperSettings() {
           </div>
 
           {showAdd ? (
-            <div className="mt-4 space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
+            <div className="panel mt-4 space-y-3 p-4">
               <div>
                 <Label htmlFor="wh-url">{t('developersPage.webhooks.url')}</Label>
             <Input
@@ -658,33 +663,20 @@ export default function DeveloperSettings() {
               </div>
               <div>
                 <Label>{t('developersPage.webhooks.events')}</Label>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleNewEvent('*')}
-                    className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                      newEvents.includes('*')
-                        ? 'border-border-light bg-bg-hover text-text-heading'
-                        : 'border-border/60 text-text-secondary hover:bg-bg-hover'
-                    }`}
-                  >
+                <FilterChipRow className="mt-1">
+                  <FilterChip active={newEvents.includes('*')} onClick={() => toggleNewEvent('*')}>
                     {t('developersPage.webhooks.allEvents')}
-                  </button>
+                  </FilterChip>
                   {eventCatalog.map((event) => (
-                    <button
+                    <FilterChip
                       key={event}
-                      type="button"
+                      active={newEvents.includes(event)}
                       onClick={() => toggleNewEvent(event)}
-                      className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                        newEvents.includes(event)
-                          ? 'border-border-light bg-bg-hover text-text-heading'
-                          : 'border-border/60 text-text-secondary hover:bg-bg-hover'
-                      }`}
                     >
                       {event}
-                    </button>
+                    </FilterChip>
                   ))}
-                </div>
+                </FilterChipRow>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleCreate} disabled={busy || !newUrl.trim()}>
@@ -703,32 +695,37 @@ export default function DeveloperSettings() {
               <Loader2 size={14} className="animate-spin" /> {t('developersPage.webhooks.loading')}
             </div>
           ) : error ? (
-            <p className="mt-6 text-sm text-red-500">{error}</p>
+            <Callout tone="error" title={error} className="mt-6" />
           ) : items.length === 0 ? (
-            <div className="mt-6 flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 py-10 text-center">
-              <WebhookIcon size={20} className="text-text-muted" />
-              <p className="text-sm text-text-muted">
-                {t('developersPage.webhooks.empty')}
-              </p>
-              <Link
-                to="/settings/communication"
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                {t('developersPage.webhooks.emptyCommunicationLink')}
-              </Link>
-              {showAdd ? null : (
-                <Button size="sm" variant="secondary" className="mt-1" onClick={() => setShowAdd(true)}>
-                  <Plus size={14} className="mr-1" />
-                  {t('developersPage.webhooks.add')}
-                </Button>
-              )}
-            </div>
+            <EmptyState
+              tone="dashed"
+              size="sm"
+              className="mt-6"
+              icon={WebhookIcon}
+              title={t('developersPage.webhooks.empty')}
+              action={
+                showAdd ? undefined : (
+                  <Button size="sm" variant="secondary" onClick={() => setShowAdd(true)}>
+                    <Plus size={14} className="mr-1" />
+                    {t('developersPage.webhooks.add')}
+                  </Button>
+                )
+              }
+              footer={
+                <Link
+                  to="/settings/communication"
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  {t('developersPage.webhooks.emptyCommunicationLink')}
+                </Link>
+              }
+            />
           ) : (
             <div className="mt-4 space-y-3">
               {items.map((endpoint) => (
                 <div
                   key={endpoint.id}
-                  className="rounded-lg border border-border/60 bg-bg-surface p-4"
+                  className="panel p-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -754,8 +751,8 @@ export default function DeveloperSettings() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-500 hover:text-red-600"
-                        onClick={() => handleDelete(endpoint)}
+                        className="text-status-error hover:text-status-error/80"
+                        onClick={() => void handleDelete(endpoint)}
                         aria-label={t('developersPage.webhooks.removeAria')}
                       >
                         <Trash2 size={13} />
@@ -764,17 +761,14 @@ export default function DeveloperSettings() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {!endpoint.active ? (
-                      <span className="rounded-full bg-bg-surface-hover px-2 py-0.5 text-2xs font-medium text-text-muted">
+                      <Badge variant="neutral" size="sm">
                         {t('developersPage.webhooks.disabled')}
-                      </span>
+                      </Badge>
                     ) : null}
                     {endpoint.events.map((event) => (
-                      <span
-                        key={event}
-                        className="rounded-md border border-border/60 px-2 py-0.5 text-2xs text-text-secondary"
-                      >
+                      <Badge key={event} variant="neutral" size="sm">
                         {event === '*' ? t('developersPage.webhooks.allEvents') : event}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                   {endpoint.secret ? (
@@ -833,9 +827,9 @@ export default function DeveloperSettings() {
                                   <span
                                     className={
                                       delivery.status === 'delivered'
-                                        ? 'text-emerald-500'
+                                        ? 'text-status-success'
                                         : delivery.status === 'failed'
-                                          ? 'text-red-500'
+                                          ? 'text-status-error'
                                           : 'text-text-muted'
                                     }
                                   >
@@ -860,7 +854,7 @@ export default function DeveloperSettings() {
           )}
         </section>
 
-        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+        <section className="panel p-4">
           <h2 className="text-lg font-semibold text-text-heading">{t('developersPage.publicTitle')}</h2>
           <p className="mt-1 text-sm leading-relaxed text-text-secondary">
             {t('developersPage.publicBody')}

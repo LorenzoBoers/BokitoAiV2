@@ -1,88 +1,46 @@
 /**
- * Action tags (`/settings/action-tags`): one Tags list (free tags and action
- * tags), backlog of unmatched patterns, and who may confirm tickets.
+ * Tags (`/settings/action-tags`): one list of free tags and action tags,
+ * backlog of unmatched patterns, and who may confirm tickets.
  *
- * A conversation carries at most one action tag; filing it makes the
- * conversation a ticket in that flow's stages. Interpretation reads every
- * inbound message against these action tags and never invents one; patterns it
- * keeps seeing land in the backlog at the bottom.
+ * Make an action tag by adding a tag, then Create flow. Filing rules live on
+ * the flow page (Open flow).
  */
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronDown, Plus, Radar, Users } from 'lucide-react'
+import { Plus, Radar, Users } from 'lucide-react'
 import PageContent from '../components/layout/PageContent'
 import { PageIntro } from '../components/layout/PageIntro'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { TagRegistrySection } from '../components/inbox/TagRegistrySection'
-import { AutosaveStatus } from '../components/ui/AutosaveStatus'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { useAutosave } from '../hooks/useAutosave'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog'
-import { HashtagMark } from '../components/ui/HashtagMark'
-import { Label } from '../components/ui/label'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Switch } from '../components/ui/switch'
-import { Textarea } from '../components/ui/textarea'
-import { useAuth } from '../context/AuthContext'
-import { normalizeHashtag, stripHash } from '../lib/hashtag'
 import { inboxPath } from '../lib/messages-paths'
-import { listSignalTags, type SignalTag } from '../lib/signals-api'
 import {
-  createCategory,
   dismissSignalBacklog,
   getSignalPolicy,
-  listCategories,
   listSignalBacklog,
-  patchCategory,
   promoteSignalBacklog,
   saveSignalPolicy,
-  type CategoryCreateMode,
-  type CategoryRow,
   type SignalAcceptRoles,
   type SignalBacklogEntry,
   type SignalPolicy,
 } from '../lib/tickets-api'
 import { listWorkstreams, type WorkstreamRow } from '../lib/workstreams-api'
-import { workstreamPath } from '../lib/workstream-ui'
-import { cn } from '../lib/utils'
-
-const NEW_PLAYBOOK = '__new__'
-
-const CREATE_MODES: CategoryCreateMode[] = ['ask_customer', 'ask_operator', 'auto', 'manual_only']
-
-type CatalogData = {
-  categories: CategoryRow[]
-  workstreams: WorkstreamRow[]
-}
 
 export default function CategoriesSettings() {
   const { t } = useTranslation('nav')
-  const [data, setData] = useState<CatalogData | null>(null)
   const [policy, setPolicy] = useState<SignalPolicy | null>(null)
   const [backlog, setBacklog] = useState<SignalBacklogEntry[]>([])
-  const [createOpen, setCreateOpen] = useState(false)
   const [savingPolicy, setSavingPolicy] = useState(false)
 
-  const load = useCallback(async () => {
-    const [categories, workstreams] = await Promise.all([
-      listCategories(),
-      listWorkstreams().catch(() => [] as WorkstreamRow[]),
-    ])
-    setData({ categories, workstreams })
+  const loadWorkstreams = useCallback(async () => {
+    await listWorkstreams().catch(() => [] as WorkstreamRow[])
   }, [])
 
   const loadBacklog = useCallback(async () => {
@@ -91,15 +49,12 @@ export default function CategoriesSettings() {
   }, [])
 
   useEffect(() => {
-    void load().catch((err) => toast.error(formatApiErrorMessage(err, t('categoriesPage.loadError'))))
+    void loadWorkstreams().catch((err) =>
+      toast.error(formatApiErrorMessage(err, t('categoriesPage.loadError'))),
+    )
     void getSignalPolicy().then(setPolicy).catch(() => setPolicy(null))
     void loadBacklog()
-  }, [load, loadBacklog, t])
-
-  const categoriesById = useMemo(
-    () => new Map((data?.categories ?? []).map((row) => [row.id, row])),
-    [data],
-  )
+  }, [loadWorkstreams, loadBacklog, t])
 
   const savePolicy = async (patch: { accept_roles?: SignalAcceptRoles; backlog_threshold?: number }) => {
     setSavingPolicy(true)
@@ -117,22 +72,7 @@ export default function CategoriesSettings() {
       <PageIntro description={t('categoriesPage.intro')} />
 
       <Card className="space-y-0 p-5">
-        <TagRegistrySection
-          onChanged={() => void load()}
-          onCreateActionTag={() => setCreateOpen(true)}
-          renderExpandedCategory={(tag) => {
-            const row = categoriesById.get(tag.id)
-            if (!row || !data) return null
-            return (
-              <CategoryEditor
-                key={row.id}
-                row={row}
-                workstreams={data.workstreams}
-                onSaved={() => void load()}
-              />
-            )
-          }}
-        />
+        <TagRegistrySection onChanged={() => void loadWorkstreams()} />
       </Card>
 
       <Card className="space-y-4 p-5">
@@ -145,44 +85,37 @@ export default function CategoriesSettings() {
         ) : (
           <ul className="space-y-2">
             {backlog.map((entry) => (
-              <BacklogRow
-                key={entry.key}
-                entry={entry}
-                onChanged={() => {
-                  void loadBacklog()
-                  void load()
-                }}
-              />
+              <BacklogRow key={entry.key} entry={entry} onChanged={() => void loadBacklog()} />
             ))}
           </ul>
         )}
       </Card>
 
-      <Card className="space-y-5 p-5">
-        <div>
-          <h2 className="text-sm font-medium text-text-heading">{t('categoriesPage.policyTitle')}</h2>
-          <p className="mt-0.5 text-xs text-text-muted">{t('categoriesPage.policyDescription')}</p>
+      <Card className="space-y-4 p-5">
+        <div className="flex items-start gap-2">
+          <Users size={16} className="mt-0.5 shrink-0 text-text-muted" aria-hidden />
+          <div>
+            <h2 className="text-sm font-medium text-text-heading">{t('categoriesPage.policyTitle')}</h2>
+            <p className="mt-0.5 text-xs text-text-muted">{t('categoriesPage.policyDescription')}</p>
+          </div>
         </div>
         {!policy ? (
           <LoadingBlock variant="inline" label={t('categoriesPage.loading')} />
         ) : (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <Users size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="signal-accept-roles" className="text-sm font-medium">
-                    {t('categoriesPage.acceptRolesLabel')}
-                  </Label>
-                  <p className="mt-0.5 max-w-sm text-xs text-text-muted">{t('categoriesPage.acceptRolesHint')}</p>
-                </div>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-text-heading">
+                  {t('categoriesPage.acceptRolesLabel')}
+                </p>
+                <p className="mt-0.5 max-w-sm text-xs text-text-muted">{t('categoriesPage.acceptRolesHint')}</p>
               </div>
               <Select
                 value={policy.accept_roles}
-                onValueChange={(v) => void savePolicy({ accept_roles: v as SignalAcceptRoles })}
                 disabled={savingPolicy}
+                onValueChange={(value) => void savePolicy({ accept_roles: value as SignalAcceptRoles })}
               >
-                <SelectTrigger id="signal-accept-roles" className="w-56">
+                <SelectTrigger className="h-8 w-56 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -191,26 +124,23 @@ export default function CategoriesSettings() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-start justify-between gap-4 border-t border-border/60 pt-5">
-              <div className="flex items-start gap-3">
-                <Radar size={16} className="mt-0.5 text-accent" />
-                <div>
-                  <Label htmlFor="signal-backlog-threshold" className="text-sm font-medium">
-                    {t('categoriesPage.thresholdLabel')}
-                  </Label>
-                  <p className="mt-0.5 max-w-sm text-xs text-text-muted">{t('categoriesPage.thresholdHint')}</p>
-                </div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-text-heading">
+                  {t('categoriesPage.thresholdLabel')}
+                </p>
+                <p className="mt-0.5 max-w-sm text-xs text-text-muted">{t('categoriesPage.thresholdHint')}</p>
               </div>
               <Select
                 value={String(policy.backlog_threshold)}
-                onValueChange={(v) => void savePolicy({ backlog_threshold: Number(v) })}
                 disabled={savingPolicy}
+                onValueChange={(value) => void savePolicy({ backlog_threshold: Number(value) })}
               >
-                <SelectTrigger id="signal-backlog-threshold" className="w-56">
+                <SelectTrigger className="h-8 w-56 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[2, 3, 5, 8].map((n) => (
+                  {[1, 2, 3, 5, 10].map((n) => (
                     <SelectItem key={n} value={String(n)}>
                       {t('categoriesPage.thresholdOption', { count: n })}
                     </SelectItem>
@@ -222,17 +152,6 @@ export default function CategoriesSettings() {
         )}
       </Card>
 
-      <CreateCategoryDialog
-        open={createOpen}
-        workstreams={data?.workstreams ?? []}
-        onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          setCreateOpen(false)
-          void load()
-        }}
-      />
-
-
       <PageRelatedLinks
         links={[
           { to: inboxPath('all'), label: t('categoriesPage.crossLinks.communicationHub') },
@@ -240,164 +159,6 @@ export default function CategoriesSettings() {
         ]}
       />
     </PageContent>
-  )
-}
-
-/** Description, playbook and filing gates of one category. */
-function CategoryEditor({
-  row,
-  workstreams,
-  onSaved,
-}: {
-  row: CategoryRow
-  workstreams: WorkstreamRow[]
-  onSaved: () => void
-}) {
-  const { t } = useTranslation('nav')
-  const [description, setDescription] = useState(row.description)
-  const [playbookId, setPlaybookId] = useState(row.workstream_id)
-  const [createMode, setCreateMode] = useState<CategoryCreateMode>(row.create_mode)
-  const [requiresVerification, setRequiresVerification] = useState(row.requires_verification)
-  const [showGates, setShowGates] = useState(false)
-  const [detaching, setDetaching] = useState(false)
-
-  const dirty =
-    description !== row.description ||
-    playbookId !== row.workstream_id ||
-    createMode !== row.create_mode ||
-    requiresVerification !== row.requires_verification
-
-  useEffect(() => {
-    if (dirty) return
-    setDescription(row.description)
-    setPlaybookId(row.workstream_id)
-    setCreateMode(row.create_mode)
-    setRequiresVerification(row.requires_verification)
-  }, [row.id, row.description, row.workstream_id, row.create_mode, row.requires_verification, dirty])
-
-  const save = useCallback(async () => {
-    try {
-      await patchCategory(row.id, {
-        description,
-        workstream_id: playbookId,
-        create_mode: createMode,
-        requires_verification: requiresVerification,
-      })
-      onSaved()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('categoriesPage.saveError')))
-      throw err
-    }
-  }, [row.id, description, playbookId, createMode, requiresVerification, onSaved, t])
-
-  const { phase, lastSavedAt, error } = useAutosave({
-    dirty,
-    enabled: true,
-    canSave: Boolean(playbookId),
-    save,
-  })
-
-  const detach = async () => {
-    setDetaching(true)
-    try {
-      await patchCategory(row.id, { workstream_id: null })
-      onSaved()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('categoriesPage.saveError')))
-    } finally {
-      setDetaching(false)
-    }
-  }
-
-  return (
-    <div className="space-y-4 border-t border-border/60 bg-bg-elevated/30 px-3 py-4">
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-text-muted">{t('categoriesPage.whatItIs')}</p>
-        <Textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className="text-sm"
-          placeholder={t('categoriesPage.descriptionPlaceholder')}
-        />
-      </div>
-
-      <div className="space-y-2 border-t border-border/60 pt-4">
-        <Label htmlFor={`playbook-${row.id}`} className="block text-xs font-semibold text-text-muted">
-          {t('categoriesPage.playbook')}
-        </Label>
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={playbookId} onValueChange={setPlaybookId}>
-            <SelectTrigger id={`playbook-${row.id}`} className="h-8 w-56 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {workstreams.map((ws) => (
-                <SelectItem key={ws.id} value={ws.id}>
-                  {ws.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Link to={workstreamPath(row.workstream_id)} className="text-xs font-medium text-accent hover:underline">
-            {t('categoriesPage.openPlaybook')}
-          </Link>
-        </div>
-        <p className="text-xs text-text-muted">{t('categoriesPage.playbookHint')}</p>
-      </div>
-
-      <div className="border-t border-border/60 pt-3">
-        <button
-          type="button"
-          onClick={() => setShowGates((prev) => !prev)}
-          className="flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-text-primary"
-          aria-expanded={showGates}
-        >
-          <ChevronDown size={13} className={cn('transition-transform', showGates && 'rotate-180')} />
-          {t('categoriesPage.gatesToggle')}
-        </button>
-        {showGates ? (
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <div>
-              <Label htmlFor={`create-mode-${row.id}`} className="mb-1 block text-xs font-medium">
-                {t('categoriesPage.createModeLabel')}
-              </Label>
-              <Select value={createMode} onValueChange={(v) => setCreateMode(v as CategoryCreateMode)}>
-                <SelectTrigger id={`create-mode-${row.id}`} className="h-8 w-44 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CREATE_MODES.map((mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      {t(`categoriesPage.createModes.${mode}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <label className="flex h-8 items-center gap-2 text-xs text-text-secondary">
-              <Switch checked={requiresVerification} onCheckedChange={setRequiresVerification} />
-              {t('categoriesPage.needsVerify')}
-            </label>
-            <p className="basis-full text-xs text-text-muted">{t('categoriesPage.projectRule')}</p>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border/60 pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={detaching || Boolean(row.module_slug)}
-          title={row.module_slug ? t('categoriesPage.moduleNoDetach') : t('categoriesPage.detachHint')}
-          onClick={() => void detach()}
-        >
-          {t('categoriesPage.detach')}
-        </Button>
-        <AutosaveStatus phase={phase} lastSavedAt={lastSavedAt} error={error} />
-      </div>
-    </div>
   )
 }
 
@@ -419,12 +180,13 @@ function BacklogRow({ entry, onChanged }: { entry: SignalBacklogEntry; onChanged
   }
 
   return (
-    <li className="rounded-lg border border-border/40 bg-bg-elevated/40 px-3 py-2.5">
+    <li className="rounded-md border border-border/50 bg-bg-elevated px-3 py-2.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
+            <Radar size={14} className="shrink-0 text-text-muted" aria-hidden />
             <span className="truncate-fade">{entry.name}</span>
-            <Badge variant={entry.ready ? 'accent' : 'outline'} className="text-2xs">
+            <Badge variant={entry.ready ? 'accent' : 'neutral'} size="sm">
               {t('categoriesPage.backlogCount', { count: entry.count })}
             </Badge>
           </p>
@@ -458,121 +220,5 @@ function BacklogRow({ entry, onChanged }: { entry: SignalBacklogEntry; onChanged
         </div>
       </div>
     </li>
-  )
-}
-
-/** Register a hashtag (or pick an existing free one) and attach a playbook. */
-function CreateCategoryDialog({
-  open,
-  workstreams,
-  onClose,
-  onCreated,
-}: {
-  open: boolean
-  workstreams: WorkstreamRow[]
-  onClose: () => void
-  onCreated: () => void
-}) {
-  const { t } = useTranslation('nav')
-  const { token } = useAuth()
-  const listId = useId()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [playbookId, setPlaybookId] = useState(NEW_PLAYBOOK)
-  const [freeTags, setFreeTags] = useState<SignalTag[]>([])
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (!open || !token) return
-    void listSignalTags(token)
-      .then((rows) => setFreeTags(rows.filter((row) => !row.isCategory)))
-      .catch(() => setFreeTags([]))
-  }, [open, token])
-
-  const clean = normalizeHashtag(name)
-
-  const create = async () => {
-    if (!clean) return
-    setBusy(true)
-    try {
-      await createCategory({
-        name: clean,
-        description,
-        ...(playbookId === NEW_PLAYBOOK ? { playbook_name: clean } : { workstream_id: playbookId }),
-      })
-      setName('')
-      setDescription('')
-      setPlaybookId(NEW_PLAYBOOK)
-      onCreated()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('categoriesPage.createError')))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : undefined)}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('categoriesPage.newCategory')}</DialogTitle>
-          <DialogDescription>{t('categoriesPage.newCategoryHint')}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="flex h-9 items-center rounded-md border border-border bg-bg-input pl-2.5 focus-within:border-accent/60">
-            <HashtagMark category className="text-sm" />
-            <input
-              value={name}
-              list={listId}
-              onChange={(e) => setName(stripHash(e.target.value))}
-              placeholder={t('categoriesPage.namePlaceholder')}
-              aria-label={t('categoriesPage.nameLabel')}
-              className="h-full min-w-0 flex-1 bg-transparent pl-0.5 pr-2.5 text-sm text-text-primary focus:outline-none"
-              autoFocus
-            />
-            <datalist id={listId}>
-              {freeTags.map((tag) => (
-                <option key={tag.id} value={tag.name} />
-              ))}
-            </datalist>
-          </div>
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="text-sm"
-            placeholder={t('categoriesPage.descriptionPlaceholder')}
-          />
-          <div className="space-y-1">
-            <Label htmlFor="new-category-playbook" className="text-xs font-medium">
-              {t('categoriesPage.playbook')}
-            </Label>
-            <Select value={playbookId} onValueChange={setPlaybookId}>
-              <SelectTrigger id="new-category-playbook" className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NEW_PLAYBOOK}>
-                  {t('categoriesPage.newPlaybook', { name: clean ? `#${clean}` : '' })}
-                </SelectItem>
-                {workstreams.map((ws) => (
-                  <SelectItem key={ws.id} value={ws.id}>
-                    {ws.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
-            {t('categoriesPage.cancel')}
-          </Button>
-          <Button type="button" disabled={busy || !clean} onClick={() => void create()}>
-            {t('categoriesPage.create')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

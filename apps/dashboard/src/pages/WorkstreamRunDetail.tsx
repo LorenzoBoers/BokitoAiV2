@@ -6,6 +6,7 @@ import { ArrowLeft, BookOpenCheck, Loader2, RefreshCw, Send, XCircle } from 'luc
 import { PageContent } from '../components/layout/PageContent'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Textarea } from '../components/ui/textarea'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -26,6 +27,7 @@ const OPEN_STATUSES = new Set(['running', 'waiting', 'awaiting_gate'])
 
 export default function WorkstreamRunDetail() {
   const { t, i18n } = useTranslation('nav')
+  const confirm = useConfirm()
   const { runId } = useParams<{ runId: string }>()
   const isAdmin = useIsAdmin()
 
@@ -81,7 +83,7 @@ export default function WorkstreamRunDetail() {
   }
 
   const cancel = async () => {
-    if (!runId || !window.confirm(t('workstreamsPage.cancelConfirm'))) return
+    if (!runId || !(await confirm({ description: t('workstreamsPage.cancelConfirm'), destructive: true }))) return
     setActing(true)
     try {
       await cancelWorkstreamRun(runId)

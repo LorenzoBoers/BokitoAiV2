@@ -43,6 +43,7 @@ _SEED_NAMES = {
 _TAG_DEFAULTS = {
     "pinned": "0",
     "show_in_nav": "0",
+    "ai_auto_tag": "1",
     "create_mode": "'ask_customer'",
     "ask_threshold": "6",
     "auto_threshold": "9",

@@ -220,7 +220,7 @@ export default function NotificationSettings() {
           </div>
         ))}
         <div
-          className="border-b border-border/60 bg-bg-elevated/40 px-5 py-2 text-xs font-semibold text-text-muted"
+          className="border-b border-border/60 bg-bg-elevated px-5 py-2 text-xs font-semibold text-text-muted"
           data-testid="notification-events-section"
         >
           {t('notificationsPage.perEvent')}

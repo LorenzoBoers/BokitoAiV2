@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
+import { Badge } from '../ui/badge'
 import { TeamAvatar } from '../ui/TeamAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
@@ -88,9 +89,9 @@ export default function MentionPopover({ items, activeIndex, onSelect, onHover }
                 ) : null}
               </span>
               {item.type !== 'user' ? (
-                <span className="shrink-0 rounded-full bg-accent/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent">
+                <Badge variant="accent" size="sm" className="font-semibold">
                   {item.type === 'agent' ? t('mentions.agent') : t('mentions.team')}
-                </span>
+                </Badge>
               ) : null}
             </button>
           </li>

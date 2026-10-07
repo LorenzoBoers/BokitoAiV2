@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import {
   createModuleSource,
   deleteModuleSource,
@@ -13,6 +14,7 @@ import { useEntityRefresh } from '../../lib/live-store'
 
 export function ModuleSourcesPanel({ slug }: { slug: string }) {
   const { t } = useTranslation(['nav', 'common'])
+  const confirm = useConfirm()
   const [rows, setRows] = useState<ModuleSourceRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [url, setUrl] = useState('')
@@ -172,16 +174,23 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
                     variant="ghost"
                     disabled={busy}
                     onClick={() => {
-                      if (!window.confirm(t('integrations.modules.sources.deleteConfirm'))) {
-                        return
-                      }
-                      setBusy(true)
-                      void deleteModuleSource(slug, row.id)
-                        .then(() => refresh())
-                        .catch((err) =>
-                          setError(err instanceof Error ? err.message : String(err)),
-                        )
-                        .finally(() => setBusy(false))
+                      void (async () => {
+                        if (
+                          !(await confirm({
+                            description: t('integrations.modules.sources.deleteConfirm'),
+                            destructive: true,
+                          }))
+                        ) {
+                          return
+                        }
+                        setBusy(true)
+                        await deleteModuleSource(slug, row.id)
+                          .then(() => refresh())
+                          .catch((err) =>
+                            setError(err instanceof Error ? err.message : String(err)),
+                          )
+                          .finally(() => setBusy(false))
+                      })()
                     }}
                   >
                     {t('common:actions.delete')}

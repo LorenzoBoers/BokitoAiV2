@@ -227,13 +227,13 @@ export default function SetupHubPage() {
 
       <div className="mx-auto max-w-3xl space-y-6">
         {loading ? (
-          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-4 py-5 text-sm text-text-muted">
+          <div className="panel flex items-center gap-2 px-4 py-5 text-sm text-text-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
             {t('setupGuidePage.checking')}
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
+            <div className="panel flex items-center gap-3 px-4 py-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent">
                 <Sparkles size={16} />
               </div>
@@ -264,7 +264,7 @@ export default function SetupHubPage() {
                     key={step.id}
                     className={`rounded-lg border p-4 ${
                       step.done
-                        ? 'border-border/60 bg-bg-elevated/30'
+                        ? 'border-border/50 bg-bg-elevated'
                         : 'border-border/60 bg-bg-surface'
                     }`}
                   >
@@ -327,7 +327,7 @@ export default function SetupHubPage() {
               <h2 className="mb-2 text-xs font-semibold text-text-muted">
                 {t('setupGuidePage.later.title', { defaultValue: 'Later' })}
               </h2>
-              <ul className="divide-y divide-border/50 rounded-lg border border-border/60 bg-bg-surface">
+              <ul className="panel divide-y divide-border/50">
                 {later.map((item) => (
                   <li key={item.to}>
                     <Link

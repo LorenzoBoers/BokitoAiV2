@@ -21,7 +21,7 @@ export function Grid({ columns = 2, children }: { columns?: number; children?: R
 
 export function Card({ title, children }: { title?: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-bg-surface p-3">
+    <div className="panel p-3">
       {title ? <p className="mb-2 text-sm font-medium text-text-heading">{title}</p> : null}
       <div className="space-y-2">{children}</div>
     </div>

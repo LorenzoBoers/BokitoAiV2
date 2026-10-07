@@ -170,7 +170,7 @@ export function LiveWorkLog({ workLogId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
+      <div className="panel px-4 py-3">
         <p className="text-lg font-semibold text-text-heading">
           {formatWorkLogSubject(taskSubject, t, t('workforce.runLog.title'))}
         </p>
@@ -200,7 +200,7 @@ export function LiveWorkLog({ workLogId }: Props) {
         </div>
       </div>
 
-      <div className="max-h-96 space-y-1.5 overflow-y-auto rounded-lg border border-border/60 bg-bg-surface p-3">
+      <div className="panel max-h-96 space-y-1.5 overflow-y-auto p-3">
         <p className="mb-2 text-xs text-text-muted">{t('workforce.runLog.stepsHint')}</p>
         {loading && events.length === 0 && !error ? (
           <p className="text-sm text-text-muted">{t('workforce.runLog.loadingEvents')}</p>

@@ -76,7 +76,7 @@ export default function AiAgentDetail() {
     try {
       const [agentRows, projectRows, passportRows, agendaRows, threadsResult, openThreadsResult] =
         await Promise.all([
-        listAgents(),
+        listAgents({ includeInactive: true }),
         listProjects(),
         listAgentPassports()
           .then((r) => r.items)

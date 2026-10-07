@@ -12,6 +12,7 @@ import {
 } from '../../lib/signals-api'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -51,6 +52,7 @@ function statusBadge(rule: InboxRule, t: (key: string, opts?: Record<string, num
  */
 export default function AutomationRulesManager() {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const { token } = useAuth()
   const [rules, setRules] = useState<InboxRule[]>([])
   const [loading, setLoading] = useState(true)
@@ -132,7 +134,7 @@ export default function AutomationRulesManager() {
   const handleDelete = useCallback(
     async (rule: InboxRule) => {
       if (!token) return
-      if (!window.confirm(t('automationRules.deleteConfirm', { value: rule.matchValue }))) return
+      if (!(await confirm({ description: t('automationRules.deleteConfirm', { value: rule.matchValue }), destructive: true }))) return
       setBusyId(rule.id)
       setError(null)
       try {
@@ -144,7 +146,7 @@ export default function AutomationRulesManager() {
         setBusyId(null)
       }
     },
-    [token],
+    [token, confirm],
   )
 
   return (

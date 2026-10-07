@@ -421,9 +421,12 @@ models:
   code_globs:
     - apps/dashboard/src/pages/ModelsSettings.tsx
     - apps/dashboard/src/components/workforce/AgentModelCard.tsx
+    - apps/dashboard/src/components/workforce/NewAgentDialog.tsx
     - apps/dashboard/src/components/models/RegionBadge.tsx
+    - apps/dashboard/src/lib/models-api.ts
     - apps/api/app/services/model_regions.py
     - apps/api/app/services/model_resolution.py
+    - apps/api/app/services/model_policy.py
     - apps/api/app/services/bokito_models.py
     - apps/api/app/routers/models.py
     - apps/api/app/services/run_errors.py

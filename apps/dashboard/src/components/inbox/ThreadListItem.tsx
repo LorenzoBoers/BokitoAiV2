@@ -516,7 +516,7 @@ function ThreadListItem({
                   <div className="flex min-w-0 flex-wrap items-center gap-1">
                     {ticket ? (
                       <span
-                        className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/70 px-1.5 text-2xs text-text-muted"
+                        className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border/70 px-1.5 text-2xs text-text-muted"
                         title={ticket.stage ? `${ticketName} · ${stageLabel(ticket.stage, t)}` : ticketName}
                         data-testid="thread-row-ticket"
                       >

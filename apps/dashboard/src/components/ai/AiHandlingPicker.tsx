@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { DefaultBadge } from '../ui/DefaultBadge'
+import { OptionCard, OptionCardGrid } from '../ui/option-card'
 import { AiHandlingIcon } from './AiHandlingIcon'
 
 export const AI_HANDLING_SETTINGS_PATH = '/settings/communication'
@@ -231,43 +232,28 @@ export default function AiHandlingPicker({
     const selected = handling?.own ?? handling?.effective ?? null
     return (
       <div className={cn('space-y-2', className)} data-testid={testId ?? 'ai-handling-cards'}>
-        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label={t('aiHandling.title')}>
+        <OptionCardGrid columns={3} className="gap-2" aria-label={t('aiHandling.title')}>
           {AI_HANDLING_MODES.map((mode) => {
             const allowed = canSetMode(canRaise, scope, mode, inherited)
             const active = selected === mode
             return (
-              <button
-                key={mode}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                disabled={saving || disabled || !allowed}
-                title={allowed ? undefined : t('aiHandling.needsAdmin')}
-                data-testid={`ai-handling-card-${mode}`}
-                onClick={() => void onChange(mode)}
-                className={cn(
-                  'flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                  active
-                    ? AI_HANDLING_META[mode].tone === 'ai'
-                      ? 'border-ai/40 bg-ai/[0.07]'
-                      : 'border-text-muted/40 bg-bg-elevated'
-                    : 'border-border/70 hover:bg-bg-hover/50',
-                )}
-              >
-                <span className="flex w-full items-center gap-2">
-                  <AiHandlingIcon mode={mode} size={16} />
-                  <span className="text-sm font-medium text-text-heading">
-                    {t(`aiHandling.modes.${mode}.label`)}
-                  </span>
-                  {active ? <Check size={14} className="ml-auto text-text-secondary" /> : null}
-                </span>
-                <span className="text-xs leading-snug text-text-muted">
-                  {t(`aiHandling.modes.${mode}.description`)}
-                </span>
-              </button>
+              <div key={mode} className="h-full" title={allowed ? undefined : t('aiHandling.needsAdmin')}>
+                <OptionCard
+                  selected={active}
+                  tone={AI_HANDLING_META[mode].tone === 'ai' ? 'ai' : 'accent'}
+                  disabled={saving || disabled || !allowed}
+                  data-testid={`ai-handling-card-${mode}`}
+                  onClick={() => void onChange(mode)}
+                  icon={<AiHandlingIcon mode={mode} size={16} />}
+                  title={t(`aiHandling.modes.${mode}.label`)}
+                  description={t(`aiHandling.modes.${mode}.description`)}
+                  badge={active ? <Check size={14} className="ml-auto text-text-secondary" aria-hidden /> : null}
+                  className="gap-1.5"
+                />
+              </div>
             )
           })}
-        </div>
+        </OptionCardGrid>
         {handling ? <ClampNote handling={handling} /> : null}
       </div>
     )

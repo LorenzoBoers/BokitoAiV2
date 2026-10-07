@@ -19,7 +19,9 @@ import {
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
+import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
+import { SearchField } from '../components/ui/search-field'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import {
   BIN_TYPES,
@@ -64,6 +66,7 @@ export default function BinPage() {
   const [type, setType] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const confirm = useConfirm()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,7 +106,7 @@ export default function BinPage() {
   }
 
   const onPurge = async (id: string) => {
-    if (!window.confirm(t('binPage.purgeConfirm'))) return
+    if (!(await confirm({ description: t('binPage.purgeConfirm'), destructive: true }))) return
     setBusyId(id)
     try {
       await purgeTrashItem(id)
@@ -147,36 +150,23 @@ export default function BinPage() {
       <ContentHeader title={t('binPage.title')} subtitle={t('binPage.subtitle')} />
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${type === null ? 'border-accent text-accent' : 'border-border/60 text-text-muted'}`}
-          onClick={() => setType(null)}
-        >
-          <Layers size={12} aria-hidden />
+      <FilterChipRow>
+        <FilterChip active={type === null} icon={Layers} onClick={() => setType(null)}>
           {t('binPage.allTypes')}
-        </button>
-        {BIN_TYPES.map((chip) => {
-          const Icon = BIN_TYPE_ICONS[chip]
-          return (
-            <button
-              key={chip}
-              type="button"
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${type === chip ? 'border-accent text-accent' : 'border-border/60 text-text-muted'}`}
-              onClick={() => setType(chip)}
-            >
-              <Icon size={12} aria-hidden />
-              {t(`binPage.types.${chip}`)}
-            </button>
-          )
-        })}
-      </div>
+        </FilterChip>
+        {BIN_TYPES.map((chip) => (
+          <FilterChip
+            key={chip}
+            active={type === chip}
+            icon={BIN_TYPE_ICONS[chip]}
+            onClick={() => setType(chip)}
+          >
+            {t(`binPage.types.${chip}`)}
+          </FilterChip>
+        ))}
+      </FilterChipRow>
 
-      <Input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={t('binPage.search')}
-      />
+      <SearchField value={q} onChange={setQ} placeholder={t('binPage.search')} />
 
       {loading ? (
         <p className="text-sm text-text-muted">{t('binPage.loading')}</p>

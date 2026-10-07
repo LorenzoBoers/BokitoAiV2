@@ -1,8 +1,8 @@
 import { cn } from '../../lib/utils'
 
 /**
- * The `#` in front of a hashtag. Action tags (hashtags with a flow) use the
- * accent colour; free hashtags stay muted.
+ * The `#` in front of a tag. Pass `category` for accent colour on action tags
+ * (Tags list and Communication rail); omit it for a muted gray `#` on free tags.
  */
 export function HashtagMark({ category = false, className }: { category?: boolean; className?: string }) {
   return (

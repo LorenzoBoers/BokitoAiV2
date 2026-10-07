@@ -11,7 +11,15 @@
     "disable": "Uitschakelen",
     "signOut": "Uitloggen",
     "retry": "Opnieuw proberen",
-    "close": "Sluiten"
+    "close": "Sluiten",
+    "clear": "Wissen",
+    "confirm": "Bevestigen",
+    "continue": "Doorgaan"
+  },
+  "confirmDialog": {
+    "title": "Weet je het zeker?",
+    "typeToConfirm": "Typ {{value}} om te bevestigen.",
+    "typePlaceholder": "Typ exact: {{value}}"
   },
   "autosave": {
     "saving": "Opslaan…",

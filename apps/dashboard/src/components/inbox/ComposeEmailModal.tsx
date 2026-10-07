@@ -10,6 +10,8 @@ import { listSavedReplies, type SavedReplyRow } from '../../lib/signals-api'
 import { uploadAttachment } from '../../lib/uploads-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
+import { Callout } from '../ui/callout'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import {
   DropdownMenu,
@@ -168,37 +170,45 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         </DialogHeader>
 
         {noMailbox ? (
-          <div className="rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-sm text-text-secondary">
-            <p>{t('compose.noMailbox')}</p>
-            <Link
-              to="/settings/channels"
-              onClick={onClose}
-              className="mt-1.5 inline-flex font-medium text-accent hover:underline"
-            >
-              {t('compose.connectMailbox')}
-            </Link>
-          </div>
+          <Callout
+            tone="warning"
+            actions={
+              <Link
+                to="/settings/channels"
+                onClick={onClose}
+                className="inline-flex text-xs font-medium text-accent hover:underline"
+              >
+                {t('compose.connectMailbox')}
+              </Link>
+            }
+          >
+            {t('compose.noMailbox')}
+          </Callout>
         ) : null}
 
         {enabledConnections.length > 0 ? (
-          <label className="flex items-center gap-2 text-xs text-text-secondary" title={t('compose.fromHint')}>
+          <div className="flex items-center gap-2 text-xs text-text-secondary" title={t('compose.fromHint')}>
             <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
             {enabledConnections.length === 1 ? (
               <span className="truncate-fade text-sm text-text-primary">{enabledConnections[0].mailboxEmail}</span>
             ) : (
-              <select
-                value={connectionId ?? ''}
-                onChange={(e) => setConnectionId(Number(e.target.value) || null)}
-                className={FIELD}
+              <Select
+                value={connectionId != null ? String(connectionId) : undefined}
+                onValueChange={(value) => setConnectionId(Number(value) || null)}
               >
-                {enabledConnections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.mailboxEmail}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 flex-1 text-sm" aria-label={t('compose.from')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {enabledConnections.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.mailboxEmail}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-          </label>
+          </div>
         ) : null}
 
         <div className="flex items-center gap-2 text-xs">

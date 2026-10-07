@@ -1,14 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BookOpen, Search } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 import {
   helpLang,
   searchProductHelp,
   type ProductHelpSearchResult,
 } from '../../lib/product-help-api'
+import { cn } from '../../lib/utils'
+import { SegmentedControl } from '../ui/segmented-control'
+import { SearchField } from '../ui/search-field'
 
 export const DOCS_LANG_KEY = 'bokito.docs.lang'
+
+/** FilterChip look for router links and anchors in the docs chrome (FilterChip itself is a button). */
+export function docsChipClass(active: boolean): string {
+  return cn(
+    'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium transition-colors',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
+    active
+      ? 'bg-accent/12 text-accent'
+      : 'bg-bg-hover/60 text-text-secondary hover:bg-bg-hover hover:text-text-heading',
+  )
+}
 
 export function useDocsLang(): [string, (next: 'en' | 'nl') => void] {
   const { i18n } = useTranslation()
@@ -30,6 +44,12 @@ export function useDocsLang(): [string, (next: 'en' | 'nl') => void] {
   return [lang, setLang]
 }
 
+/** UI copy for the public docs site, keyed to the docs language switcher (not the app locale). */
+export function useDocsT(lang: string) {
+  const { i18n } = useTranslation()
+  return useMemo(() => i18n.getFixedT(helpLang(lang), 'nav'), [i18n, lang])
+}
+
 type DocsHeaderProps = {
   lang: string
   setLang: (next: 'en' | 'nl') => void
@@ -38,9 +58,7 @@ type DocsHeaderProps = {
 }
 
 export function DocsHeader({ lang, setLang, activePage = 'docs' }: DocsHeaderProps) {
-  const { t } = useTranslation('nav')
-  const apiPillClass =
-    'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors'
+  const t = useDocsT(lang)
   return (
     <header className="z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-3.5">
@@ -58,40 +76,24 @@ export function DocsHeader({ lang, setLang, activePage = 'docs' }: DocsHeaderPro
         </div>
         <nav className="flex shrink-0 items-center gap-1.5">
           {activePage === 'api' ? (
-            <span
-              className={`${apiPillClass} border-accent/40 bg-accent/10 text-accent`}
-              aria-current="page"
-            >
+            <span className={docsChipClass(true)} aria-current="page">
               {t('docs.apiReference')}
             </span>
           ) : (
-            <Link
-              to="/docs/api"
-              className={`${apiPillClass} border-border/70 hover:border-accent/40 hover:bg-accent/10 hover:text-accent`}
-            >
+            <Link to="/docs/api" className={docsChipClass(false)}>
               {t('docs.apiReference')}
             </Link>
           )}
-          <div
-            className="flex items-center rounded-full border border-border/70 p-0.5"
-            role="group"
-            aria-label="Language"
-          >
-            {(['en', 'nl'] as const).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLang(code)}
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                  helpLang(lang) === code
-                    ? 'bg-accent/15 text-accent'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            size="sm"
+            aria-label={t('docs.language')}
+            value={helpLang(lang) as 'en' | 'nl'}
+            onChange={setLang}
+            options={[
+              { value: 'en', label: 'en' },
+              { value: 'nl', label: 'nl' },
+            ]}
+          />
         </nav>
       </div>
     </header>
@@ -99,7 +101,7 @@ export function DocsHeader({ lang, setLang, activePage = 'docs' }: DocsHeaderPro
 }
 
 function DocsSearch({ lang }: { lang: string }) {
-  const { t } = useTranslation('nav')
+  const t = useDocsT(lang)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ProductHelpSearchResult[] | null>(null)
   const [open, setOpen] = useState(false)
@@ -144,17 +146,15 @@ function DocsSearch({ lang }: { lang: string }) {
 
   return (
     <div ref={boxRef} className="relative max-w-md">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-      <input
+      <SearchField
         ref={inputRef}
         value={query}
-        onChange={(event) => {
-          setQuery(event.target.value)
+        onChange={(next) => {
+          setQuery(next)
           setOpen(true)
         }}
         onFocus={() => setOpen(true)}
         placeholder={t('docs.searchPlaceholder')}
-        className="w-full rounded-full border border-border/70 bg-muted/20 py-2 pl-9 pr-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-accent/50 focus:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.15)]"
       />
       {open && results !== null ? (
         <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border bg-background shadow-overlay">

@@ -1,7 +1,7 @@
 ---
 title: Actietags en tickets
 intro: Een actietag is een hashtag die een ticketflow start. Leg je haar vast op een gesprek, dan wordt dat gesprek een ticket dat door de fasen van de flow gaat.
-description: Maak van een hashtag een actietag, leg een ticket vast met een projectkeuze via Hashtags toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en splits een gesprek als er een tweede verzoek in opduikt.
+description: Maak van een tag een actietag, leg een ticket vast met een projectkeuze via Tags toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en splits een gesprek als er een tweede verzoek in opduikt.
 keywords: actietags, tickets, hashtags, fasen, flow, project, intake, gesprek splitsen, categorieën
 sort: 46
 related: workstreams,communication,channels,projects,widget
@@ -9,28 +9,27 @@ related: workstreams,communication,channels,projects,widget
 
 # Actietags en tickets
 
-Een actietag is een hashtag met een flow, gemarkeerd met een accent-`#`. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat, op een van de projecten van de flow of op geen project.
+Een actietag is een tag met een flow. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat, op een van de projecten van de flow of op geen project.
 
-Elk inkomend bericht wordt tegen de actietags gelezen voordat er een antwoord wordt opgesteld, ook als de AI-afhandeling op Handmatig staat. Een zekere lezing legt het ticket vast, een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije hashtags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
+Elk inkomend bericht wordt tegen de actietags gelezen voordat er een antwoord wordt opgesteld, ook als de AI-afhandeling op Handmatig staat. Een zekere lezing legt het ticket vast, een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije tags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
 
 ## Een tag tot actietag maken
 
 ![Instellingen met één actietag](/api/docs/assets/categories/catalog.png)
-*Eén Tags-lijst: eerst actietags, dan vrije tags; per rij kun je een flow aanmaken of openen.*
+*Eén Tags-lijst: elke rij ziet er hetzelfde uit; flow aanmaken of openen vanaf de rij.*
 
-1. Open **Instellingen**, dan **Actietags**. De pagina toont één **Tags**-lijst (actietags en vrije tags), dan **Wat we misten** en wie tickets mag bevestigen.
-2. Kies **Flow aanmaken** op een vrije tag (flow-icoon). Dat maakt of koppelt een flow met titel `#naam`. De tag wordt een actietag in dezelfde lijst.
-3. Op een actietag kies je **Flow openen**. Of kies **Nieuwe actietag**. Vul de **Tag** in, beschrijf wanneer die geldt (agents lezen dit), en kies de flow. Een nieuwe flow start met de fasen Open, Wachtend en Klaar en heet naar de tag.
-4. Klap de actietag open en stel onder **Hoe het wordt vastgelegd** in **Wanneer de AI het herkent** op **Vraag klant**, **Vraag operator**, **Auto** of **Alleen handmatig**.
-5. Zet **In Communicatie** aan voor een eigen rij in de zijbalk van Communicatie. **Maak vrije tag** haalt de flow weer weg; vastgelegde gesprekken zijn dan geen tickets meer.
+1. Open **Instellingen**, dan **# Tags**. De pagina toont één **Tags**-lijst (actietags eerst, met accent-`#`), dan **Wat we misten** en wie tickets mag bevestigen.
+2. Kies **Nieuwe tag** om een vrije tag toe te voegen, daarna **Flow aanmaken** op die rij. Dat maakt of koppelt een flow met titel `#naam`. De tag wordt een actietag in dezelfde lijst.
+3. Op een actietag kies je **Flow openen** om fasen, vastleggen en projecten op de flowpagina in te richten. Een nieuwe flow start met Open, Wachtend en Klaar.
+4. Gebruik de punaise op elke tag voor een rij in de zijbalk van Communicatie. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen.
 
 ## Een ticket op een gesprek vastleggen
 
 ![Ticketpaneel op een gesprek](/api/docs/assets/categories/ticket-panel.png)
 *Het Ticketpaneel toont de flow, een fasebalk, het project en de eigen velden van de flow.*
 
-1. Open een gesprek in **Communicatie**. Onder **Dit gesprek** kies je **Hashtags toevoegen**.
-2. Typ met een zachte `#` en kies een actietag (gemarkeerd **Actietag**), of een vrije hashtag. Een onbekende naam vraagt of je die als hashtag toevoegt of **Actietag maakt**.
+1. Open een gesprek in **Communicatie**. Onder **Dit gesprek** kies je **Tags toevoegen**.
+2. Typ met een zachte `#` en kies een actietag (gemarkeerd **Actietag**), of een vrije tag. Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**.
 3. Als de flow op een of meer projecten staat, kies er een of **Geen project**. Vastleggen vraagt dit altijd; agents kiezen ook, of laten het ticket voorgesteld.
 4. Het ticket start in de eerste fase van de flow. De lijstrij toont de actietag met fase en gekleurde stip. Een andere actietag kiezen vraagt om **Vervangen** (of splits het gesprek voor een tweede verzoek).
 5. In de composer legt `/ticket #naam` hetzelfde ticket vast. Bij projecten stuurt Bokito je naar het **Ticket**-paneel om er een te kiezen.
@@ -38,7 +37,7 @@ Elk inkomend bericht wordt tegen de actietags gelezen voordat er een antwoord wo
 ## Bevestigen wat de AI voorstelde
 
 1. Een onzekere lezing toont op het gesprek als "Lijkt op #klacht" met **Bevestigen** en **Afwijzen**. Bij projecten opent bevestigen de projectkeuze.
-2. Niets routeert en geen flow start voordat iemand bevestigt. Leden mogen zelf altijd een ticket vastleggen; **Wie mag tickets bevestigen** op **Instellingen** → **Actietags** bepaalt wie een voorstel mag bevestigen.
+2. Niets routeert en geen flow start voordat iemand bevestigt. Leden mogen zelf altijd een ticket vastleggen; **Wie mag tickets bevestigen** op **Instellingen** → **# Tags** bepaalt wie een voorstel mag bevestigen.
 3. Voorstellen tellen niet mee als vastgelegde tickets op Overview tot ze bevestigd zijn.
 4. Stel de **Tickets**-houding in op [Govern](/docs/govern/govern) als agents moeten stoppen met tickets vastleggen.
 
@@ -61,9 +60,9 @@ Als een klant iets nieuws in een oud thread opbrengt, krijgt dat verzoek een eig
 
 ## Een gemist patroon tot actietag maken
 
-1. Open **Instellingen**, dan **Actietags**, en lees **Wat we misten**. Daar staan verzoeken die bleven binnenkomen zonder passende actietag, met hoe vaak elk gezien is.
+1. Open **Instellingen**, dan **# Tags**, en lees **Wat we misten**. Daar staan verzoeken die bleven binnenkomen zonder passende actietag, met hoe vaak elk gezien is.
 2. Stel **Stel een nieuwe actietag voor na** in op hoeveel waarnemingen je wilt voordat een patroon klaar staat.
-3. Kies **Maak er een actietag van** om die met de voorgestelde hashtag en omschrijving aan te maken, of **Geen actietag** om hem te laten vallen. Agents maken zelf nooit een actietag.
+3. Kies **Maak er een actietag van** om die met de voorgestelde tag en omschrijving aan te maken, of **Geen actietag** om hem te laten vallen. Agents maken zelf nooit een actietag.
 
 ## Wat daarna
 

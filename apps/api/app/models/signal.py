@@ -268,6 +268,8 @@ class SignalTag(SQLModel, table=True):
     # A row in Communication's Tags and categories section.
     pinned: bool = False
     show_in_nav: bool = False
+    # When false, triage does not offer or apply this tag automatically.
+    ai_auto_tag: bool = True
     create_mode: str = "ask_customer"
     ask_threshold: int = 6
     auto_threshold: int = 9

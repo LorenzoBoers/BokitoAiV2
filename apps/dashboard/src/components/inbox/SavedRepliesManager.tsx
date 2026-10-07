@@ -11,6 +11,7 @@ import {
   type SavedReplyRow,
 } from '../../lib/signals-api'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
 import { inboxPath } from '../../lib/messages-paths'
@@ -18,6 +19,7 @@ import { inboxPath } from '../../lib/messages-paths'
 /** Settings card: manage the workspace's saved replies (canned responses). */
 export default function SavedRepliesManager() {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const { token } = useAuth()
   const [rows, setRows] = useState<SavedReplyRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,7 +82,7 @@ export default function SavedRepliesManager() {
   const handleDelete = useCallback(
     async (row: SavedReplyRow) => {
       if (!token) return
-      if (!window.confirm(t('savedReplies.deleteConfirm', { title: row.title }))) return
+      if (!(await confirm({ description: t('savedReplies.deleteConfirm', { title: row.title }), destructive: true }))) return
       try {
         await deleteSavedReply(token, row.id)
         setRows((prev) => prev.filter((r) => r.id !== row.id))
@@ -88,7 +90,7 @@ export default function SavedRepliesManager() {
         setError(err instanceof Error ? err.message : t('savedReplies.deleteFailed'))
       }
     },
-    [token, t],
+    [token, t, confirm],
   )
 
   return (

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Pause, Play, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, Pause, Play, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import AgentBindingPicker from '../settings/AgentBindingPicker'
 import { useAuth } from '../../context/AuthContext'
@@ -18,8 +18,9 @@ import type { ChannelActions } from './channel-actions'
 
 /**
  * The same four sections for every channel: what works (Status), how
- * conversations are handled (General), what only this kind has, and pause or
- * remove (Manage).
+ * conversations are handled (General), what only this kind has, and pause,
+ * archive, restore or delete (Manage). An archived channel keeps only its
+ * name and access.
  */
 export default function ChannelPanel({
   row,
@@ -35,14 +36,21 @@ export default function ChannelPanel({
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const KindSettings = CHANNEL_KIND_SETTINGS[row.kind]
-  const canPause = row.actions.includes('pause') || row.actions.includes('resume')
-  const canRemove = row.actions.includes('remove')
+  const archived = row.state === 'archived'
+  const canPause = !archived && (row.actions.includes('pause') || row.actions.includes('resume'))
+  const canArchive = row.actions.includes('archive')
+  const canRestore = row.actions.includes('restore')
+  const canDelete = row.actions.includes('delete')
 
   return (
     <div className="space-y-5" data-testid="channel-panel">
       <ChannelSection title={t('channelsPage.section.status')}>
         <div className="py-2.5">
-          {row.checks.length === 0 ? (
+          {archived ? (
+            <p className="text-xs text-text-muted" data-testid="channel-archived-note">
+              {t('channelsPage.archivedNote', { count: row.conversationCount ?? 0 })}
+            </p>
+          ) : row.checks.length === 0 ? (
             <p className="text-xs text-text-muted">{t('channelsPage.noChecks')}</p>
           ) : (
             <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
@@ -62,25 +70,29 @@ export default function ChannelPanel({
             {t('channelsPage.edit')}
           </Button>
         </ChannelSetting>
-        {row.aiHandling && AI_HANDLING_CHANNELS.has(row.channel) ? (
+        {!archived && row.aiHandling && AI_HANDLING_CHANNELS.has(row.channel) ? (
           <ChannelAiHandlingSetting row={row} onChanged={(next) => actions.aiHandlingChanged(row, next)} />
         ) : null}
-        <ChannelSetting label={t('channelsPage.team')} hint={t('channelsPage.teamHint')}>
-          <ChannelTeamPicker
-            accountId={row.id}
-            teamId={row.defaultTeamId}
-            onChanged={() => actions.accessChanged(row)}
-          />
-        </ChannelSetting>
-        <ChannelSetting label={t('channelsPage.agent')} hint={t('channelsPage.agentHint')}>
-          <AgentBindingPicker
-            channel={row.channel}
-            channelAccountId={row.id}
-            defaultAgentId={row.defaultAgentId}
-            onChanged={() => actions.accessChanged(row)}
-            aria-label={t('bindingPicker.ariaLabel')}
-          />
-        </ChannelSetting>
+        {!archived ? (
+          <>
+            <ChannelSetting label={t('channelsPage.team')} hint={t('channelsPage.teamHint')}>
+              <ChannelTeamPicker
+                accountId={row.id}
+                teamId={row.defaultTeamId}
+                onChanged={() => actions.accessChanged(row)}
+              />
+            </ChannelSetting>
+            <ChannelSetting label={t('channelsPage.agent')} hint={t('channelsPage.agentHint')}>
+              <AgentBindingPicker
+                channel={row.channel}
+                channelAccountId={row.id}
+                defaultAgentId={row.defaultAgentId}
+                onChanged={() => actions.accessChanged(row)}
+                aria-label={t('bindingPicker.ariaLabel')}
+              />
+            </ChannelSetting>
+          </>
+        ) : null}
         <ChannelSetting label={t('channelsPage.access')} hint={t('channelsPage.accessHint')}>
           <AccessPicker
             access={row.access}
@@ -97,13 +109,13 @@ export default function ChannelPanel({
         </ChannelSetting>
       </ChannelSection>
 
-      {KindSettings && !hideKindSettings ? (
+      {KindSettings && !hideKindSettings && !archived ? (
         <ChannelSection title={t(`channelsPage.kind.${row.kind}`, { defaultValue: row.kind })}>
           <KindSettings row={row} busy={busy} actions={actions} />
         </ChannelSection>
       ) : null}
 
-      {canPause || canRemove ? (
+      {canPause || canArchive || canRestore || canDelete ? (
         <ChannelSection title={t('channelsPage.section.manage')}>
           {canPause ? (
             <ChannelSetting
@@ -122,11 +134,45 @@ export default function ChannelPanel({
               </Button>
             </ChannelSetting>
           ) : null}
-          {canRemove ? (
-            <ChannelSetting label={t('channelsPage.removeTitleShort')} hint={t('channelsPage.removeHint')}>
-              <Button variant="destructive" size="sm" disabled={busy} onClick={() => actions.remove(row)}>
+          {canArchive ? (
+            <ChannelSetting label={t('channelsPage.archiveTitle')} hint={t('channelsPage.archiveHint')}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => actions.archive(row)}
+                data-testid="channel-archive"
+              >
+                <Archive size={13} />
+                {t('channelsPage.archive')}
+              </Button>
+            </ChannelSetting>
+          ) : null}
+          {canRestore ? (
+            <ChannelSetting label={t('channelsPage.restoreTitle')} hint={t('channelsPage.restoreHint')}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => actions.restore(row)}
+                data-testid="channel-restore"
+              >
+                <ArchiveRestore size={13} />
+                {t('channelsPage.restore')}
+              </Button>
+            </ChannelSetting>
+          ) : null}
+          {canDelete ? (
+            <ChannelSetting label={t('channelsPage.deleteTitle')} hint={t('channelsPage.deleteHint')}>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={busy}
+                onClick={() => actions.deletePermanently(row)}
+                data-testid="channel-delete"
+              >
                 <Trash2 size={13} />
-                {t('channelsPage.remove')}
+                {t('channelsPage.delete')}
               </Button>
             </ChannelSetting>
           ) : null}

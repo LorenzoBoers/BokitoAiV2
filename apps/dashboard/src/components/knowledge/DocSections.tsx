@@ -4,6 +4,9 @@ import { toast } from 'sonner'
 import { Check, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { Badge, type BadgeTone } from '../ui/badge'
+import { InsetPanel } from '../ui/inset-panel'
+import { useConfirm } from '../ui/confirm-dialog'
 import MarkdownView from '../docs/MarkdownView'
 import { KnowledgeMarkdownEditor } from './KnowledgeMarkdownEditor'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -18,13 +21,13 @@ import { cn } from '../../lib/utils'
 
 const STATUS_ORDER: DocSectionStatus[] = ['draft', 'review', 'final']
 
-const STATUS_STYLES: Record<DocSectionStatus, string> = {
-  draft: 'border-border/60 bg-bg-elevated/60 text-text-muted',
-  review: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  final: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+const STATUS_TONE: Record<DocSectionStatus, BadgeTone> = {
+  draft: 'neutral',
+  review: 'warning',
+  final: 'success',
 }
 
-export function SectionStatusChip({
+function SectionStatusBadge({
   status,
   onChange,
   disabled,
@@ -36,18 +39,12 @@ export function SectionStatusChip({
   const { t } = useTranslation('nav')
   const label = t(`knowledgePage.sectionStatus.${status}`, { defaultValue: status })
   const next = STATUS_ORDER[(STATUS_ORDER.indexOf(status) + 1) % STATUS_ORDER.length]
-  if (!onChange) {
-    return (
-      <span
-        className={cn(
-          'inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium',
-          STATUS_STYLES[status],
-        )}
-      >
-        {label}
-      </span>
-    )
-  }
+  const badge = (
+    <Badge size="sm" variant={STATUS_TONE[status]}>
+      {label}
+    </Badge>
+  )
+  if (!onChange) return badge
   return (
     <button
       type="button"
@@ -57,12 +54,11 @@ export function SectionStatusChip({
         next: t(`knowledgePage.sectionStatus.${next}`, { defaultValue: next }),
       })}
       className={cn(
-        'inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium transition-colors',
-        STATUS_STYLES[status],
+        'inline-flex rounded-lg transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
         disabled ? 'opacity-60' : 'hover:opacity-80',
       )}
     >
-      {label}
+      {badge}
     </button>
   )
 }
@@ -91,6 +87,7 @@ export function DocSectionsEditor({
   const [adding, setAdding] = useState(false)
   const [newHeading, setNewHeading] = useState('')
   const [newContent, setNewContent] = useState('')
+  const confirm = useConfirm()
 
   const startEdit = useCallback((section: DocSectionRow) => {
     setEditingId(section.id)
@@ -135,7 +132,12 @@ export function DocSectionsEditor({
 
   const removeSection = useCallback(
     async (section: DocSectionRow) => {
-      if (!window.confirm(t('knowledgePage.sectionDeleteConfirm', { heading: section.heading }))) {
+      if (
+        !(await confirm({
+          description: t('knowledgePage.sectionDeleteConfirm', { heading: section.heading }),
+          destructive: true,
+        }))
+      ) {
         return
       }
       setBusyId(section.id)
@@ -149,7 +151,7 @@ export function DocSectionsEditor({
         setBusyId(null)
       }
     },
-    [docId, onChanged, t],
+    [confirm, docId, onChanged, t],
   )
 
   const addSection = useCallback(async () => {
@@ -185,7 +187,7 @@ export function DocSectionsEditor({
             key={section.id}
             className={cn(
               'group rounded-lg border border-transparent px-3 py-2 transition-colors',
-              isEditing ? 'border-border/60 bg-bg-elevated/40' : 'hover:border-border/40',
+              isEditing ? 'border-border/50 bg-bg-elevated' : 'hover:border-border/40',
             )}
           >
             <div className="flex items-center gap-2">
@@ -200,7 +202,7 @@ export function DocSectionsEditor({
                   {section.heading || t('knowledgePage.sectionIntro')}
                 </h2>
               )}
-              <SectionStatusChip
+              <SectionStatusBadge
                 status={section.status}
                 onChange={readOnly ? undefined : (next) => void setStatus(section, next)}
                 disabled={busy}
@@ -265,7 +267,7 @@ export function DocSectionsEditor({
       })}
       {!readOnly ? (
         adding ? (
-          <div className="rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2">
+          <InsetPanel className="px-3 py-2">
             <Input
               value={newHeading}
               onChange={(e) => setNewHeading(e.target.value)}
@@ -290,7 +292,7 @@ export function DocSectionsEditor({
                 {t('knowledgePage.add')}
               </Button>
             </div>
-          </div>
+          </InsetPanel>
         ) : (
           <button
             type="button"

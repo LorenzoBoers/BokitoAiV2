@@ -4,6 +4,8 @@ import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { apiPost } from '../../lib/api'
 import { appRoutes } from '../../api/routes'
+import { helpLang } from '../../lib/product-help-api'
+import { useDocsT } from './DocsChrome'
 
 /**
  * "Was this helpful?" hook on product-help articles. Feeds the learning loop
@@ -11,8 +13,9 @@ import { appRoutes } from '../../api/routes'
  * articles become visible. Requires a session; anonymous visitors on the
  * public docs simply do not see it.
  */
-export default function ArticleFeedback({ slug }: { slug: string }) {
-  const { t } = useTranslation('nav')
+export default function ArticleFeedback({ slug, lang }: { slug: string; lang?: string }) {
+  const { i18n } = useTranslation()
+  const t = useDocsT(lang ?? helpLang(i18n.language))
   const { token } = useAuth()
   const [state, setState] = useState<'idle' | 'sending' | 'done'>('idle')
 

@@ -10,7 +10,9 @@
     "build:static": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "node scripts/check-design-system.mjs",
+    "lint:design": "node scripts/check-design-system.mjs --list"
   },
   "dependencies": {
     "@bokito/shared": "*",

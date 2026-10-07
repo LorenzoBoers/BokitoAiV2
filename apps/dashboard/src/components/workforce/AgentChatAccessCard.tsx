@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Loader2, MessageSquare } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { Badge } from '../ui/badge'
 import { Card } from '../ui/card'
+import { OptionCard, OptionCardGrid } from '../ui/option-card'
+import { roleTone } from '../../lib/badge-tones'
 import {
   getAgentChatAccess,
   updateAgentChatAccess,
   type AgentChatAccess,
   type ChatAccessMode,
 } from '../../lib/workforce-api'
-import { cn } from '../../lib/utils'
 
 /** Admin card: who in the workspace may open a direct chat with this company agent. */
 export function AgentChatAccessCard({ agentId }: { agentId: string }) {
@@ -125,26 +127,18 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
 
       {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <OptionCardGrid columns={3} className="mt-3 gap-2">
         {modes.map((m) => (
-          <button
+          <OptionCard
             key={m.value}
-            type="button"
+            selected={mode === m.value}
             onClick={() => chooseMode(m.value)}
-            className={cn(
-              'rounded-lg border px-3 py-2.5 text-left transition-colors',
-              mode === m.value
-                ? 'border-accent/50 bg-accent/8'
-                : 'border-border/60 bg-bg-elevated/40 hover:border-border hover:bg-bg-hover/50',
-            )}
-          >
-            <p className={cn('text-sm font-medium', mode === m.value ? 'text-accent' : 'text-text-heading')}>
-              {m.label}
-            </p>
-            <p className="mt-0.5 text-xs text-text-muted">{m.description}</p>
-          </button>
+            title={m.label}
+            description={m.description}
+            className="gap-1 py-2.5"
+          />
         ))}
-      </div>
+      </OptionCardGrid>
 
       {mode === 'selected' ? (
         <div className="mt-3">
@@ -157,7 +151,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
               return (
                 <label
                   key={member.id}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-3 py-2 transition-colors hover:bg-bg-hover/50"
+                  className="flex cursor-pointer items-center gap-2.5 rounded-md border border-border/50 bg-bg-elevated px-3 py-2 transition-colors hover:bg-bg-hover/50"
                 >
                   <input
                     type="checkbox"
@@ -169,9 +163,9 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
                     <span className="block truncate-fade text-sm text-text-primary">{member.name}</span>
                     <span className="block truncate-fade text-2xs text-text-muted">{member.email}</span>
                   </span>
-                  <span className="shrink-0 rounded-md border border-border/60 bg-bg-surface px-1.5 py-px text-2xs capitalize text-text-muted">
+                  <Badge variant={roleTone(member.role)} size="sm" className="capitalize">
                     {member.role}
-                  </span>
+                  </Badge>
                 </label>
               )
             })}

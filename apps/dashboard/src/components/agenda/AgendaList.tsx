@@ -133,7 +133,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
                     {formatAppDate(day, i18n.language, { day: 'numeric', month: 'long' })}
                   </span>
                 </h2>
-                <div className="divide-y divide-border/40 overflow-hidden rounded-xl border border-border/60 bg-bg-surface">
+                <div className="panel divide-y divide-border/40 overflow-hidden">
                   {rows.length === 0 && routines.length === 0 ? (
                     <p className="px-3 py-2.5 text-sm text-text-muted">{t('agendaPage.list.emptyDay')}</p>
                   ) : null}

@@ -52,7 +52,7 @@ export function ConnectionsNextSteps({ needsChannel, needsAgenda, needsModule }:
             <Link
               key={step.key}
               to={step.to}
-              className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-sm text-text-heading hover:border-border hover:bg-bg-hover/40"
+              className="panel inline-flex items-center gap-2 px-3 py-2 text-sm text-text-heading hover:border-border hover:bg-bg-hover/40"
             >
               <Icon size={14} className="text-text-muted" aria-hidden />
               {step.label}

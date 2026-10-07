@@ -23,16 +23,16 @@ function toneFor(entry: ActivityEntry): Tone {
 const TONE_DOT: Record<Tone, string> = {
   ok: 'bg-status-success',
   error: 'bg-status-error',
-  progress: 'bg-sky-500',
-  human: 'bg-amber-500',
+  progress: 'bg-status-info',
+  human: 'bg-status-warning',
   muted: 'bg-border',
 }
 
 const TONE_ICON_BG: Record<Tone, string> = {
   ok: 'bg-status-success/12 text-status-success',
   error: 'bg-status-error/12 text-status-error',
-  progress: 'bg-sky-500/12 text-sky-600 dark:text-sky-400',
-  human: 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
+  progress: 'bg-status-info/12 text-status-info',
+  human: 'bg-status-warning/12 text-status-warning',
   muted: 'bg-bg-hover text-text-muted',
 }
 

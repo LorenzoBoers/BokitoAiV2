@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Building2, Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '../components/ui/button'
+import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
+import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
 import {
   denyMcpOAuthConsent,
   fetchMcpOAuthConsentContext,
@@ -120,7 +122,7 @@ export default function OAuthMcpConsent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-      <div className="w-full max-w-md rounded-lg border border-border/60 bg-bg-surface p-6">
+      <div className="panel w-full max-w-md p-6">
         <div className="mb-5 flex items-center gap-2 text-text-heading">
           <ShieldCheck size={20} className="text-text-muted" />
           <h1 className="text-xl font-semibold">{t('oauthMcp.title')}</h1>
@@ -159,24 +161,19 @@ export default function OAuthMcpConsent() {
               {ctx.memberships.length === 0 ? (
                 <p className="text-sm text-destructive">{t('oauthMcp.noWorkspaces')}</p>
               ) : (
-                <ul className="space-y-1.5">
+                <OptionCardGrid className="grid-cols-1 gap-1.5 sm:grid-cols-1" aria-label={t('oauthMcp.pickWorkspace')}>
                   {ctx.memberships.map((m) => (
-                    <li key={m.tenant_id}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm hover:bg-bg-hover">
-                        <input
-                          type="radio"
-                          name="tenant"
-                          value={m.tenant_id}
-                          checked={tenantId === m.tenant_id}
-                          onChange={() => setTenantId(m.tenant_id)}
-                        />
-                        <Building2 size={14} className="text-text-muted" />
-                        <span className="font-medium text-text-heading">{m.tenant_name}</span>
-                        <span className="text-text-muted">({m.tenant_slug})</span>
-                      </label>
-                    </li>
+                    <OptionCard
+                      key={m.tenant_id}
+                      selected={tenantId === m.tenant_id}
+                      onClick={() => setTenantId(m.tenant_id)}
+                      icon={<Building2 size={14} className="text-text-muted" aria-hidden />}
+                      title={m.tenant_name}
+                      badge={<span className="text-xs text-text-muted">({m.tenant_slug})</span>}
+                      className="py-2"
+                    />
                   ))}
-                </ul>
+                </OptionCardGrid>
               )}
             </div>
 
@@ -184,32 +181,25 @@ export default function OAuthMcpConsent() {
               <p className="mb-1.5 text-xs font-medium text-text-heading">
                 {t('oauthMcp.scopesTitle')}
               </p>
-              <ul className="flex flex-wrap gap-1.5">
+              <FilterChipRow>
                 {(ctx.scopes_supported.length ? ctx.scopes_supported : selectedScopes).map(
                   (scope) => {
                     const labelKey = SCOPE_LABEL_KEYS[scope]
                     const label = labelKey ? t(labelKey) : scope
-                    const on = selectedScopes.includes(scope)
                     return (
-                      <li key={scope}>
-                        <button
-                          type="button"
-                          onClick={() => toggleScope(scope)}
-                          className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                            on
-                              ? 'border-border-light bg-bg-hover text-text-heading'
-                              : 'border-border/60 text-text-secondary hover:bg-bg-hover'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      </li>
+                      <FilterChip
+                        key={scope}
+                        active={selectedScopes.includes(scope)}
+                        onClick={() => toggleScope(scope)}
+                      >
+                        {label}
+                      </FilterChip>
                     )
                   },
                 )}
-              </ul>
+              </FilterChipRow>
               {!selectedScopes.length ? (
-                <p className="mt-1.5 text-xs text-amber-600">{t('oauthMcp.scopesFull')}</p>
+                <p className="mt-1.5 text-xs text-status-warning">{t('oauthMcp.scopesFull')}</p>
               ) : null}
             </div>
 

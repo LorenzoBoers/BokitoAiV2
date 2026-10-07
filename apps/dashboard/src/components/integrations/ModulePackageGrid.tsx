@@ -44,7 +44,7 @@ export function ModulePackageGrid({ items, onOpen, className }: Props) {
           <li key={item.key}>
             <article
               className={cn(
-                'flex h-full flex-col rounded-lg border border-border/60 bg-bg-surface p-4 ',
+                'panel flex h-full flex-col p-4 ',
                 planned && 'pointer-events-none cursor-not-allowed opacity-50',
                 !planned && onOpen && 'cursor-pointer hover:border-border-light',
               )}

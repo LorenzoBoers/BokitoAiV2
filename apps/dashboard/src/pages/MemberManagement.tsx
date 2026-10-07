@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Search, Send, Trash2, UserMinus } from 'lucide-react'
+import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Trash2, UserMinus } from 'lucide-react'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { toAiAvatarProps } from '../lib/agent-avatar'
@@ -23,7 +23,11 @@ import { isLikelyEmail } from '../lib/invite-email'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
+import { Badge, type BadgeTone } from '../components/ui/badge'
+import { Callout } from '../components/ui/callout'
+import { useConfirm } from '../components/ui/confirm-dialog'
+import { SearchField } from '../components/ui/search-field'
+import { memberTypeTone, roleTone } from '../lib/badge-tones'
 import {
   Select,
   SelectContent,
@@ -32,17 +36,19 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import { seenToIso } from '../components/inbox/IdentitySeenLine'
+import { timeAgo } from '../lib/time-ago'
 
 // Canonical roles: backend memberships are owner | admin | member.
 type MemberRole = 'owner' | 'admin' | 'member'
 type FilterTab = 'all' | 'people' | 'agents' | 'pending' | 'deactivated'
 
-function directoryTabCountClass(id: FilterTab, selected: boolean): string {
-  if (!selected) return 'bg-bg-hover text-text-muted'
-  if (id === 'agents') return 'bg-ai/10 text-ai-ink'
-  if (id === 'pending') return 'bg-status-warning/10 text-status-warning'
-  if (id === 'deactivated') return 'bg-status-error/10 text-status-error'
-  return 'bg-accent/15 text-accent'
+function directoryTabCountTone(id: FilterTab, selected: boolean): BadgeTone {
+  if (!selected) return 'neutral'
+  if (id === 'agents') return 'ai'
+  if (id === 'pending') return 'warning'
+  if (id === 'deactivated') return 'error'
+  return 'accent'
 }
 
 function directoryTabBorderClass(id: FilterTab, selected: boolean): string {
@@ -132,7 +138,13 @@ function mapInviteRow(item: unknown, unknownLabel: string): Invite | null {
   }
 }
 
-export type MemberMeta = { presence: PresenceStatus; teams: string[]; openOwned: number; openTurn: number }
+export type MemberMeta = {
+  presence: PresenceStatus
+  teams: string[]
+  openOwned: number
+  openTurn: number
+  lastSeenAt: string | null
+}
 
 /** Directory on Team: people, pending invites and company agents. */
 export default function MemberManagement({
@@ -151,6 +163,7 @@ export default function MemberManagement({
   const { t: tCommon } = useTranslation('common')
   const { user, token, hasPermission } = useAuth()
   const { currentWorkspace, workspaceLoading } = useWorkspace()
+  const confirm = useConfirm()
   const canInviteMembers = hasPermission('invite_members')
   const canManageMembers = hasPermission('invite_members')
   // Staff support defaults to admin in memberships; real owner membership wins.
@@ -333,7 +346,7 @@ export default function MemberManagement({
 
   const revokeInvite = async (invite: Invite) => {
     if (!token || !workspaceId) return
-    if (!window.confirm(t('membersPage.revokeConfirm', { email: invite.email }))) return
+    if (!(await confirm({ description: t('membersPage.revokeConfirm', { email: invite.email }), destructive: true }))) return
     setRowBusyId(invite.id)
     setError(null)
     try {
@@ -353,7 +366,7 @@ export default function MemberManagement({
       setError(t('membersPage.ownerOnlyError'))
       return
     }
-    if (role === 'owner' && !window.confirm(t('membersPage.ownerConfirm', { name: member.name }))) return
+    if (role === 'owner' && !(await confirm({ description: t('membersPage.ownerConfirm', { name: member.name }) }))) return
     setRowBusyId(member.id)
     setError(null)
     try {
@@ -377,7 +390,7 @@ export default function MemberManagement({
       setError(t('membersPage.ownerOnlyError'))
       return
     }
-    if (!window.confirm(t('membersPage.removeConfirm', { name: member.name }))) return
+    if (!(await confirm({ description: t('membersPage.removeConfirm', { name: member.name }), destructive: true }))) return
     setRowBusyId(member.id)
     setError(null)
     try {
@@ -397,7 +410,7 @@ export default function MemberManagement({
       setError(t('membersPage.ownerOnlyError'))
       return
     }
-    if (!window.confirm(t('membersPage.reactivateConfirm', { name: member.name }))) return
+    if (!(await confirm({ description: t('membersPage.reactivateConfirm', { name: member.name }) }))) return
     setRowBusyId(member.id)
     setError(null)
     try {
@@ -417,7 +430,7 @@ export default function MemberManagement({
 
   const deactivateAgent = async (agent: OverviewAgent) => {
     if (!token || !canManageMembers) return
-    if (!window.confirm(t('workforce.agents.archiveConfirm'))) return
+    if (!(await confirm({ description: t('workforce.agents.archiveConfirm'), destructive: true }))) return
     setRowBusyId(agent.id)
     setError(null)
     try {
@@ -433,7 +446,7 @@ export default function MemberManagement({
 
   const reactivateAgent = async (agent: OverviewAgent) => {
     if (!token || !canManageMembers) return
-    if (!window.confirm(t('membersPage.reactivateConfirm', { name: agent.name }))) return
+    if (!(await confirm({ description: t('membersPage.reactivateConfirm', { name: agent.name }) }))) return
     setRowBusyId(agent.id)
     setError(null)
     try {
@@ -502,20 +515,22 @@ export default function MemberManagement({
     { id: 'deactivated', label: t('membersPage.tabDeactivated'), count: deactivatedPeople.length + deactivatedAgents.length },
   ]
 
-  const colSpan = 7
+  const colSpan = 8
+
+  const lastActiveLabel = (at: string | number | null | undefined): string => {
+    const iso = seenToIso(at)
+    if (!iso) return t('membersPage.lastActiveNever')
+    return timeAgo(iso, t)
+  }
 
   return (
     <div className="space-y-5">
       {error ? (
-        <div className="rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-sm text-status-error">
-          {error}
-        </div>
+        <Callout tone="error" title={error} />
       ) : null}
 
       {mailConfigured === false && canInviteMembers ? (
-        <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-status-warning">
-          {t('membersPage.mailNotConfigured')}
-        </div>
+        <Callout tone="warning" title={t('membersPage.mailNotConfigured')} />
       ) : null}
 
       <Card id="member-invite" className="space-y-3 p-4 scroll-mt-24">
@@ -601,20 +616,19 @@ export default function MemberManagement({
                 className={`flex items-center gap-1.5 px-3 pb-3 text-sm font-medium border-b-2 transition-colors ${directoryTabBorderClass(tab.id, filterTab === tab.id)}`}
               >
                 {tab.label}
-                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${directoryTabCountClass(tab.id, filterTab === tab.id)}`}>
+                <Badge size="sm" variant={directoryTabCountTone(tab.id, filterTab === tab.id)} className="tabular-nums">
                   {tab.count}
-                </span>
+                </Badge>
               </button>
             ))}
           </div>
-          <div className="relative pb-3">
-            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-[calc(50%+6px)] text-text-muted" />
-            <input
-              type="text"
+          <div className="pb-3">
+            <SearchField
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
               placeholder={t('membersPage.searchDirectory')}
-              className="w-52 rounded-lg border border-border/60 bg-bg-input/60 py-1.5 pl-8 pr-3 text-sm text-text-primary placeholder-text-muted transition-colors focus:border-accent/55 focus:outline-none"
+              size="sm"
+              className="w-52"
             />
           </div>
         </div>
@@ -627,6 +641,7 @@ export default function MemberManagement({
               <TableHead>{t('membersPage.colRoleOrCeiling')}</TableHead>
               <TableHead>{t('membersPage.colTeams')}</TableHead>
               <TableHead>{t('membersPage.colOpen')}</TableHead>
+              <TableHead>{t('membersPage.colLastActive')}</TableHead>
               <TableHead>{t('membersPage.colStatus')}</TableHead>
               <TableHead className="w-[120px] text-right">{t('membersPage.colActions')}</TableHead>
             </TableRow>
@@ -707,7 +722,7 @@ export default function MemberManagement({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="neutral">{t('membersPage.typePerson')}</Badge>
+                        <Badge variant={memberTypeTone('human')}>{t('membersPage.typePerson')}</Badge>
                       </TableCell>
                       <TableCell>
                         {canEditMemberRow(m) && m.isActive ? (
@@ -728,7 +743,7 @@ export default function MemberManagement({
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant="neutral">{t(`membersPage.roles.${m.role}`)}</Badge>
+                          <Badge variant={roleTone(m.role)}>{t(`membersPage.roles.${m.role}`)}</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-text-secondary">
@@ -743,6 +758,9 @@ export default function MemberManagement({
                               .filter(Boolean)
                               .join(' · ')
                           : '-'}
+                      </TableCell>
+                      <TableCell className="text-xs text-text-muted">
+                        {lastActiveLabel(meta?.lastSeenAt)}
                       </TableCell>
                       <TableCell>
                         {m.isActive ? (
@@ -806,8 +824,9 @@ export default function MemberManagement({
                         <Badge variant="neutral">{t('membersPage.typeInvite')}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="neutral">{t(`membersPage.roles.${inv.role}`)}</Badge>
+                        <Badge variant={roleTone(inv.role)}>{t(`membersPage.roles.${inv.role}`)}</Badge>
                       </TableCell>
+                      <TableCell className="text-text-muted">-</TableCell>
                       <TableCell className="text-text-muted">-</TableCell>
                       <TableCell className="text-text-muted">-</TableCell>
                       <TableCell>
@@ -875,7 +894,7 @@ export default function MemberManagement({
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="neutral">{t('membersPage.typeAgent')}</Badge>
+                      <Badge variant={memberTypeTone('agent')}>{t('membersPage.typeAgent')}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant="neutral">
@@ -887,6 +906,9 @@ export default function MemberManagement({
                     </TableCell>
                     <TableCell className="text-text-secondary">
                       {t('teamPage.openCount', { count: agent.open_owned })}
+                    </TableCell>
+                    <TableCell className="text-xs text-text-muted">
+                      {lastActiveLabel(agent.last_active_at)}
                     </TableCell>
                     <TableCell>
                       {deactivated ? (

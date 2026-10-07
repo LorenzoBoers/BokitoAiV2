@@ -1,6 +1,9 @@
+import asyncio
 import json
+import logging
 import re
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from app.config import get_settings
 
@@ -8,6 +11,129 @@ if TYPE_CHECKING:
     from app.services.tenant_llm import TenantLLMConfig
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+# Platform / OpenAI-compatible gateways return 429 under load. A short retry
+# recovers most chat turns (Support agent failed hard on a single 429).
+_RATE_LIMIT_ATTEMPTS = 4
+_RATE_LIMIT_BASE_DELAY_S = 1.0
+_RATE_LIMIT_MAX_DELAY_S = 20.0
+
+
+def is_rate_limit_error(exc: BaseException) -> bool:
+    """True for provider 429 / rate_limited errors across OpenAI and Anthropic SDKs."""
+    name = type(exc).__name__
+    if name in ("RateLimitError", "APIStatusError") and getattr(exc, "status_code", None) == 429:
+        return True
+    if name == "RateLimitError":
+        return True
+    text = str(exc).lower()
+    return (
+        "rate limit" in text
+        or "rate_limited" in text
+        or "error code: 429" in text
+        or "'code': '1300'" in text
+        or '"code": "1300"' in text
+    )
+
+
+def _retry_after_seconds(exc: BaseException) -> float | None:
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+    headers = getattr(response, "headers", None)
+    if headers is None:
+        return None
+    raw = None
+    try:
+        raw = headers.get("retry-after") or headers.get("Retry-After")
+    except Exception:  # noqa: BLE001 — header maps vary by SDK
+        raw = None
+    if raw is None:
+        return None
+    try:
+        return max(0.5, min(float(raw), _RATE_LIMIT_MAX_DELAY_S))
+    except (TypeError, ValueError):
+        return None
+
+
+def is_hard_quota_error(exc: BaseException) -> bool:
+    """True when the provider reports a request quota of zero (account blocked)."""
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None) if response is not None else None
+    if headers is None:
+        return False
+    try:
+        limit = headers.get("x-ratelimit-limit-req-minute")
+    except Exception:  # noqa: BLE001 — header maps vary by SDK
+        return False
+    return limit is not None and str(limit).strip() == "0"
+
+
+def is_model_unavailable_error(exc: BaseException) -> bool:
+    """True when the provider refuses the model for this plan (e.g. Mistral 403 tier)."""
+    if getattr(exc, "status_code", None) != 403 and "error code: 403" not in str(exc).lower():
+        return False
+    text = str(exc).lower()
+    return "subscription tier" in text or "not available" in text
+
+
+def should_fail_over(exc: BaseException) -> bool:
+    return is_rate_limit_error(exc) or is_model_unavailable_error(exc)
+
+
+def is_hard_failure(exc: BaseException) -> bool:
+    """Zero quota or plan refusal: retrying the same model will not help."""
+    return is_hard_quota_error(exc) or is_model_unavailable_error(exc)
+
+
+async def with_rate_limit_retry(
+    operation: Callable[[], Awaitable[T]],
+    *,
+    label: str = "llm",
+    provider: str = "",
+    api_key: str = "",
+    model: str = "",
+) -> T:
+    """Call ``operation``; on rate limit wait and retry a few times.
+
+    When retries run out (or the quota is zero, or the plan refuses the model)
+    the key + model pair is parked in ``provider_health`` so the next
+    resolution picks the next step of the backing chain.
+    """
+    from app.services import provider_health
+
+    delay = _RATE_LIMIT_BASE_DELAY_S
+    last_exc: BaseException | None = None
+    for attempt in range(_RATE_LIMIT_ATTEMPTS):
+        try:
+            return await operation()
+        except Exception as exc:
+            last_exc = exc
+            if is_model_unavailable_error(exc):
+                provider_health.mark_rate_limited(provider or label, api_key, model, hard_quota=True)
+                raise
+            if not is_rate_limit_error(exc):
+                raise
+            hard = is_hard_quota_error(exc)
+            if hard or attempt >= _RATE_LIMIT_ATTEMPTS - 1:
+                provider_health.mark_rate_limited(provider or label, api_key, model, hard_quota=hard)
+                raise
+            wait = _retry_after_seconds(exc) or delay
+            logger.warning(
+                "%s rate limited (attempt %s/%s), retry in %.1fs: %s",
+                label,
+                attempt + 1,
+                _RATE_LIMIT_ATTEMPTS,
+                wait,
+                str(exc)[:200],
+            )
+            await asyncio.sleep(wait)
+            delay = min(delay * 2, _RATE_LIMIT_MAX_DELAY_S)
+    assert last_exc is not None
+    raise last_exc
 
 
 def _last_user_text(messages: list[dict[str, Any]]) -> str:
@@ -123,6 +249,36 @@ def _mock_topic(last_user: str) -> str:
     stripped = last_user.strip()
     first_line = stripped.splitlines()[0] if stripped else ""
     return first_line[:120]
+
+
+# Claude 5+ rejects ``thinking.type.enabled`` + ``budget_tokens``; it takes
+# ``adaptive`` with an effort level. Older ids that answer with that 400 are
+# learned at runtime.
+_ADAPTIVE_THINKING_MODELS: set[str] = set()
+_CLAUDE_MAJOR_RE = re.compile(r"claude-[a-z]+-(\d+)")
+
+
+def _uses_adaptive_thinking(model: str) -> bool:
+    if model in _ADAPTIVE_THINKING_MODELS:
+        return True
+    match = _CLAUDE_MAJOR_RE.search(model or "")
+    return bool(match) and int(match.group(1)) >= 5
+
+
+def _learn_adaptive_thinking(exc: BaseException, model: str) -> bool:
+    """Remember ``model`` needs adaptive thinking when the API says so."""
+    if "thinking.type.adaptive" not in str(exc) or model in _ADAPTIVE_THINKING_MODELS:
+        return False
+    _ADAPTIVE_THINKING_MODELS.add(model)
+    return True
+
+
+def _thinking_effort(budget: int) -> str:
+    if budget <= 2048:
+        return "low"
+    if budget <= 8192:
+        return "medium"
+    return "high"
 
 
 def _resolve_max_tokens(max_tokens: int | None, thinking_budget: int) -> int:
@@ -353,7 +509,11 @@ class AnthropicLLMProvider:
             "tools": tools or [],
         }
         if thinking_budget > 0:
-            kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+            if _uses_adaptive_thinking(kwargs["model"]):
+                kwargs["thinking"] = {"type": "adaptive"}
+                kwargs["output_config"] = {"effort": _thinking_effort(thinking_budget)}
+            else:
+                kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
         return kwargs
 
     async def chat(
@@ -370,8 +530,8 @@ class AnthropicLLMProvider:
         client = AsyncAnthropic(**self._client_kwargs())
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
-        response = await client.messages.create(
-            **self._create_kwargs(
+        def _kwargs() -> dict[str, Any]:
+            return self._create_kwargs(
                 model=model,
                 system=system,
                 chat_messages=chat_messages,
@@ -379,6 +539,22 @@ class AnthropicLLMProvider:
                 thinking_budget=thinking_budget,
                 max_tokens=max_tokens,
             )
+
+        async def _create():
+            create_kwargs = _kwargs()
+            try:
+                return await client.messages.create(**create_kwargs)
+            except Exception as exc:
+                if not _learn_adaptive_thinking(exc, create_kwargs["model"]):
+                    raise
+                return await client.messages.create(**_kwargs())
+
+        response = await with_rate_limit_retry(
+            _create,
+            label="anthropic.chat",
+            provider="anthropic",
+            api_key=self.api_key or "",
+            model=model or settings.default_chat_model,
         )
         return {
             "stop_reason": response.stop_reason,
@@ -403,15 +579,27 @@ class AnthropicLLMProvider:
         client = AsyncAnthropic(**self._client_kwargs())
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
-        create_kwargs = self._create_kwargs(
-            model=model,
-            system=system,
-            chat_messages=chat_messages,
-            tools=tools,
-            thinking_budget=thinking_budget,
-            max_tokens=max_tokens,
-        )
+        for attempt in range(2):
+            create_kwargs = self._create_kwargs(
+                model=model,
+                system=system,
+                chat_messages=chat_messages,
+                tools=tools,
+                thinking_budget=thinking_budget,
+                max_tokens=max_tokens,
+            )
+            started = False
+            try:
+                async for event in self._stream_events(client, create_kwargs):
+                    started = True
+                    yield event
+                return
+            except Exception as exc:
+                if started or attempt or not _learn_adaptive_thinking(exc, create_kwargs["model"]):
+                    raise
 
+    @staticmethod
+    async def _stream_events(client: Any, create_kwargs: dict[str, Any]):
         async with client.messages.stream(**create_kwargs) as stream:
             async for event in stream:
                 etype = getattr(event, "type", None)
@@ -453,6 +641,7 @@ class OpenAILLMProvider:
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = api_key or settings.openai_api_key
         self.base_url = (base_url or "").strip() or None
+        self.provider_type = "openai"
 
     @staticmethod
     def _tools_to_openai(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -543,7 +732,17 @@ class OpenAILLMProvider:
         oai_tools = self._tools_to_openai(tools)
         if oai_tools:
             create_kwargs["tools"] = oai_tools
-        response = await client.chat.completions.create(**create_kwargs)
+
+        async def _create():
+            return await client.chat.completions.create(**create_kwargs)
+
+        response = await with_rate_limit_retry(
+            _create,
+            label="openai.chat",
+            provider=self.provider_type,
+            api_key=self.api_key or "",
+            model=create_kwargs["model"],
+        )
         choice = response.choices[0]
         msg = choice.message
         content: list[dict[str, Any]] = []
@@ -599,7 +798,16 @@ class OpenAILLMProvider:
         if oai_tools:
             create_kwargs["tools"] = oai_tools
 
-        stream = await client.chat.completions.create(**create_kwargs)
+        async def _open_stream():
+            return await client.chat.completions.create(**create_kwargs)
+
+        stream = await with_rate_limit_retry(
+            _open_stream,
+            label="openai.stream",
+            provider=self.provider_type,
+            api_key=self.api_key or "",
+            model=create_kwargs["model"],
+        )
         text_parts: list[str] = []
         tool_calls: dict[int, dict[str, Any]] = {}
         usage = {"input_tokens": 0, "output_tokens": 0}
@@ -664,7 +872,9 @@ def get_chat_provider(provider_type: str, api_key: str, base_url: str | None = N
         from app.services.provider_presets import MISTRAL_BASE_URL
 
         # Mistral exposes an OpenAI-compatible Chat Completions API (EU-hosted).
-        return OpenAILLMProvider(api_key=api_key, base_url=base_url or MISTRAL_BASE_URL)
+        provider = OpenAILLMProvider(api_key=api_key, base_url=base_url or MISTRAL_BASE_URL)
+        provider.provider_type = "mistral"
+        return provider
     if provider_type in ("openai", "openai_compatible") and api_key:
         return OpenAILLMProvider(api_key=api_key, base_url=base_url)
     return MockLLMProvider()

@@ -5,7 +5,7 @@ const KIND_COLOR: Record<TicketStageKind, string> = {
   open: 'text-muted-foreground',
   waiting: 'text-status-warning',
   done: 'text-status-success',
-  closed: 'text-emerald-400',
+  closed: 'text-status-success/80',
 }
 
 /**

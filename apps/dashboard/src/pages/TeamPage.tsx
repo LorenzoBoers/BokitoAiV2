@@ -6,10 +6,12 @@ import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
 import { AiAvatar } from '../components/ui/AiAvatar'
@@ -214,6 +216,7 @@ export default function TeamPage() {
         teams: p.team_ids.filter((id) => !overview?.teams.find((tm) => tm.id === id)?.system).map((id) => teamNames[id]),
         openOwned: p.open_owned,
         openTurn: p.open_turn,
+        lastSeenAt: p.presence.last_seen_at,
       }
     }
     return map
@@ -331,6 +334,13 @@ export default function TeamPage() {
           }}
         />
       ) : null}
+
+      <PageRelatedLinks
+        links={[
+          { to: '/agents', label: t('teamPage.relatedAgents') },
+          { to: '/settings/setup', label: t('membersPage.openSetup') },
+        ]}
+      />
     </PageContent>
   )
 }
@@ -348,6 +358,7 @@ function TeamDialog({
 }) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const confirm = useConfirm()
   const [name, setName] = useState(team?.name ?? '')
   const [description, setDescription] = useState(team?.description ?? '')
   const [pickup, setPickup] = useState<TeamPickup>(team?.pickup ?? 'people')
@@ -421,7 +432,7 @@ function TeamDialog({
 
   const remove = async () => {
     if (!token || !team || isSystem) return
-    if (!window.confirm(t('teamPage.deleteConfirm', { name: team.name }))) return
+    if (!(await confirm({ description: t('teamPage.deleteConfirm', { name: team.name }), destructive: true }))) return
     setBusy(true)
     try {
       await deleteTeam(token, team.id)

@@ -57,7 +57,7 @@ export const STAGE_KIND_DOT: Record<TicketStageKind, string> = {
   open: 'bg-muted-foreground/70',
   waiting: 'bg-status-warning',
   done: 'bg-status-success',
-  closed: 'bg-emerald-400',
+  closed: 'bg-status-success/70',
 }
 
 const DEFAULT_STAGE_NAMES: Record<TicketStageKind, string> = {

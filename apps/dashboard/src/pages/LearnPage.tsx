@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, BookOpen, Search } from 'lucide-react'
+import { ArrowLeft, BookOpen } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import MarkdownView from '../components/docs/MarkdownView'
 import ArticleFeedback from '../components/docs/ArticleFeedback'
+import { SearchField } from '../components/ui/search-field'
+import { InsetPanel } from '../components/ui/inset-panel'
 import {
   getProductHelpArticle,
   getProductHelpIndex,
@@ -81,19 +83,7 @@ function LearnIndex() {
         </Link>
       ) : null}
 
-      <div className="relative">
-        <Search
-          size={14}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-          aria-hidden
-        />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t('pageGuides.search')}
-          className="w-full rounded-lg border border-border/60 bg-bg-elevated/40 py-2 pl-9 pr-3 text-sm outline-none focus:border-accent/50"
-        />
-      </div>
+      <SearchField value={query} onChange={setQuery} placeholder={t('pageGuides.search')} />
 
       {error ? (
         <p className="text-sm text-status-error">{t('pageGuides.loadError')}</p>
@@ -198,7 +188,7 @@ function LearnArticle({ slug }: { slug: string }) {
         }
       />
 
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-elevated/40 px-4 py-4">
+      <InsetPanel className="flex items-center justify-between gap-3 px-4 py-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-heading">{t('pageGuides.getStartedTitle')}</p>
           <p className="mt-0.5 text-sm text-text-muted">{t('pageGuides.getStartedBody')}</p>
@@ -209,7 +199,7 @@ function LearnArticle({ slug }: { slug: string }) {
         >
           {t('pageGuides.getStartedCta')}
         </Link>
-      </div>
+      </InsetPanel>
 
       {loading ? (
         <p className="text-sm text-text-muted">{t('pageGuides.loading')}</p>
@@ -220,7 +210,7 @@ function LearnArticle({ slug }: { slug: string }) {
       ) : null}
 
       {relatedArticles.length > 0 ? (
-        <section className="rounded-lg border border-border/60 bg-bg-elevated/30 px-4 py-4">
+        <section className="rounded-md border border-border/50 bg-bg-elevated px-4 py-4">
           <p className="text-sm font-medium text-text-heading">{t('pageGuides.relatedArticlesTitle')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {relatedArticles.map((item) => (
@@ -237,7 +227,7 @@ function LearnArticle({ slug }: { slug: string }) {
       ) : null}
 
       {quickLinks.length > 0 ? (
-        <section className="rounded-lg border border-border/60 bg-bg-elevated/30 px-4 py-4">
+        <section className="rounded-md border border-border/50 bg-bg-elevated px-4 py-4">
           <p className="text-sm font-medium text-text-heading">{t('pageGuides.relatedTitle')}</p>
           <p className="mt-0.5 text-xs text-text-muted">{t('pageGuides.relatedBody')}</p>
           <div className="mt-3 flex flex-wrap gap-2">

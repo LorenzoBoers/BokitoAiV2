@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bot, CalendarDays, Inbox, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react'
+import { Bot, CalendarDays, Inbox, MessageSquare, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
+import { SearchField } from '../components/ui/search-field'
+import { SegmentedControl } from '../components/ui/segmented-control'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
@@ -21,9 +23,16 @@ import { withNavReveal } from '../lib/nav-reveal'
 import { openEntityPath } from '../lib/open-entity'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
-import { filterLibraryAgents, sortAgentsForLibrary } from '../lib/workforce-nav-agents'
+import {
+  filterLibraryAgents,
+  isDeactivatedAgent,
+  sortAgentsForLibrary,
+} from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
+import { AgentActiveLine } from '../components/inbox/IdentitySeenLine'
 import { cn } from '../lib/utils'
+
+type AgentStatusFilter = 'all' | 'working' | 'deactivated'
 
 function AgentQuickLinks({
   agentId,
@@ -107,7 +116,7 @@ function AgentLibraryCard({
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="truncate-fade text-[15px] font-semibold tracking-tight text-text-heading">
+              <p className="truncate-fade text-lg font-semibold tracking-tight text-text-heading">
                 {agent.name}
               </p>
               {agent.managed ? (
@@ -124,23 +133,32 @@ function AgentLibraryCard({
               ) : null}
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span
-                className={cn(
-                  'inline-flex items-center rounded-md px-1.5 py-0.5 text-2xs font-medium',
-                  work === 'working' && 'bg-ai/12',
-                  work === 'error' && 'bg-status-error/10',
-                  work === 'standby' && 'bg-bg-hover/80',
-                  presenceTextClass(work),
-                )}
-              >
-                {presenceLabel(work, t)}
-              </span>
+              {isDeactivatedAgent(agent) ? (
+                <span className="inline-flex items-center rounded-md bg-status-error/10 px-1.5 py-0.5 text-2xs font-medium text-status-error">
+                  {presenceLabel('deactivated', t)}
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-md px-1.5 py-0.5 text-2xs font-medium',
+                    work === 'working' && 'bg-ai/12',
+                    work === 'error' && 'bg-status-error/10',
+                    work === 'standby' && 'bg-bg-hover/80',
+                    presenceTextClass(work),
+                  )}
+                >
+                  {presenceLabel(work, t)}
+                </span>
+              )}
               {projectName ? (
                 <span className="truncate text-2xs text-text-muted">
                   {t('workforce.agents.projectLink', { name: projectName })}
                 </span>
               ) : null}
             </div>
+            {!isDeactivatedAgent(agent) ? (
+              <AgentActiveLine at={view.last_active_at} working={work === 'working'} />
+            ) : null}
             {agent.description ? (
               <p className="mt-2 line-clamp-2 text-sm leading-snug text-text-secondary">{agent.description}</p>
             ) : null}
@@ -213,13 +231,20 @@ export default function AiAgents() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'working'>('all')
+  const [statusFilter, setStatusFilter] = useState<AgentStatusFilter>('all')
   const statusTick = useAgentLive()
   const visibleAgents = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return agents.filter((agent) => {
       const view = withAgentLive(agent)
-      if (statusFilter === 'working' && agentStatusOf(view) !== 'working') return false
+      const deactivated = isDeactivatedAgent(agent)
+      if (statusFilter === 'deactivated') {
+        if (!deactivated) return false
+      } else if (deactivated) {
+        return false
+      } else if (statusFilter === 'working' && agentStatusOf(view) !== 'working') {
+        return false
+      }
       if (!needle) return true
       const hay = [view.name, view.description, view.purpose, view.current_activity_summary]
         .filter(Boolean)
@@ -229,13 +254,21 @@ export default function AiAgents() {
     })
   }, [agents, query, statusFilter, statusTick])
 
+  const deactivatedCount = useMemo(
+    () => agents.filter(isDeactivatedAgent).length,
+    [agents],
+  )
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [rows, projectRows] = await Promise.all([listAgents(), listProjects()])
-      const library = sortAgentsForLibrary(filterLibraryAgents(rows))
-      seedAgentPresence(library)
+      const [rows, projectRows] = await Promise.all([
+        listAgents({ includeInactive: true }),
+        listProjects(),
+      ])
+      const library = sortAgentsForLibrary(filterLibraryAgents(rows, { includeInactive: true }))
+      seedAgentPresence(library.filter((a) => !isDeactivatedAgent(a)))
       setAgents(library)
       setProjects(projectRows)
     } catch (e) {
@@ -302,52 +335,39 @@ export default function AiAgents() {
         }
       />
 
-      {agents.length > 0 ? (
+      {agents.some((a) => !isDeactivatedAgent(a)) ? (
         <AgentActivityTimeline
-          agents={agents.map((agent) => ({
-            id: agent.id,
-            name: agent.name,
-            avatar_kind: agent.avatar_kind,
-            avatar_icon: agent.avatar_icon,
-            avatar_image_url: agent.avatar_image_url,
-          }))}
+          agents={agents
+            .filter((agent) => !isDeactivatedAgent(agent))
+            .map((agent) => ({
+              id: agent.id,
+              name: agent.name,
+              avatar_kind: agent.avatar_kind,
+              avatar_icon: agent.avatar_icon,
+              avatar_image_url: agent.avatar_image_url,
+            }))}
         />
       ) : null}
 
       {agents.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[14rem] max-w-sm flex-1">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t('workforce.agents.searchPlaceholder')}
-              aria-label={t('workforce.agents.searchPlaceholder')}
-              className="h-9 w-full rounded-lg border border-border/50 bg-bg-surface/80 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
-            />
-          </div>
-          <div
-            className="inline-flex h-9 items-center rounded-lg border border-border/50 bg-bg-surface/80 p-0.5"
-            role="group"
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            placeholder={t('workforce.agents.searchPlaceholder')}
             aria-label={t('workforce.agents.searchPlaceholder')}
-          >
-            {(['all', 'working'] as const).map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setStatusFilter(id)}
-                className={cn(
-                  'h-8 rounded-md px-3 text-xs font-medium transition-colors',
-                  statusFilter === id
-                    ? 'bg-bg-hover text-text-heading shadow-sm'
-                    : 'text-text-secondary hover:text-text-heading',
-                )}
-              >
-                {t(`workforce.agents.filters.${id}`)}
-              </button>
-            ))}
-          </div>
+            className="min-w-[14rem] max-w-sm flex-1"
+          />
+          <SegmentedControl
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={(['all', 'working', 'deactivated'] as const).map((id) => ({
+              value: id,
+              label: `${t(`workforce.agents.filters.${id}`)}${
+                id === 'deactivated' && deactivatedCount > 0 ? ` (${deactivatedCount})` : ''
+              }`,
+            }))}
+          />
         </div>
       ) : null}
 
@@ -366,7 +386,8 @@ export default function AiAgents() {
         ) : (
           askAdminEmpty
         )
-      ) : agents.length === 0 ? (
+      ) : agents.filter((a) => !isDeactivatedAgent(a)).length === 0 &&
+        statusFilter !== 'deactivated' ? (
         isAdmin ? (
           <EmptyState
             icon={Bot}
@@ -390,7 +411,11 @@ export default function AiAgents() {
       ) : (
         visibleAgents.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center">
-            <p className="text-sm text-text-muted">{t('workforce.agents.emptySearch')}</p>
+            <p className="text-sm text-text-muted">
+              {statusFilter === 'deactivated'
+                ? t('workforce.agents.emptyDeactivated')
+                : t('workforce.agents.emptySearch')}
+            </p>
             <button
               type="button"
               onClick={() => {
@@ -423,6 +448,7 @@ export default function AiAgents() {
 
       <PageRelatedLinks
         links={[
+          { to: '/team', label: t('workforce.agents.relatedWorkforce') },
           ...(isAdmin
             ? [
                 { to: '/projects', label: t('workforce.agents.projectsLink') },

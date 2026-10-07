@@ -1,6 +1,6 @@
-"""Mailbox lifecycle integrity: replying to a thread whose mailbox was
-disconnected must be blocked (409) instead of silently 'sending' nothing,
-and an explicit mailbox choice may rebind the orphaned thread."""
+"""Mailbox lifecycle integrity: replying to a thread whose mailbox is gone or
+archived must be blocked (409) instead of silently 'sending' nothing, and an
+explicit mailbox choice may rebind an orphaned thread."""
 
 import pytest
 from httpx import AsyncClient
@@ -51,16 +51,16 @@ async def test_reply_to_orphaned_thread_is_409(client: AsyncClient, session_over
 
 
 @pytest.mark.asyncio
-async def test_disconnect_then_reply_blocked(client: AsyncClient, session_override: AsyncSession):
+async def test_archive_then_reply_blocked(client: AsyncClient, session_override: AsyncSession):
+    from uuid import UUID
+
     headers = await _login(client)
 
     listing = await client.get("/api/email/accounts", headers=headers)
     assert listing.status_code == 200
-    conn_id = listing.json()[0]["id"]
+    account_id = listing.json()[0]["uuid"]
 
-    account = (
-        (await session_override.execute(select(ChannelAccount).limit(1))).scalars().first()
-    )
+    account = await session_override.get(ChannelAccount, UUID(account_id))
     signal = Signal(
         tenant_id=account.tenant_id,
         channel="email",
@@ -77,20 +77,21 @@ async def test_disconnect_then_reply_blocked(client: AsyncClient, session_overri
     r = await client.post(
         "/api/email/send",
         headers=headers,
-        json={"thread_id": str(signal.id), "body_text": "Before disconnect"},
+        json={"thread_id": str(signal.id), "body_text": "Before archive"},
     )
     assert r.status_code == 200, r.text
 
-    r = await client.delete(f"/api/email/connections/{conn_id}", headers=headers)
+    r = await client.post(f"/api/channels/accounts/{account_id}/archive", headers=headers)
     assert r.status_code == 200, r.text
 
-    # History stays but replying is now blocked with a clear error.
+    # History stays on the archived mailbox but replying is blocked with a clear error.
     r = await client.post(
         "/api/email/send",
         headers=headers,
-        json={"thread_id": str(signal.id), "body_text": "After disconnect"},
+        json={"thread_id": str(signal.id), "body_text": "After archive"},
     )
     assert r.status_code == 409, r.text
+    assert "archived" in r.text.lower()
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ import { Check, ChevronDown, Paperclip, PhoneOff, Quote, Send, Square, StickyNot
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { Callout } from '../ui/callout'
 import { ComposerCard } from '../ui/ComposerCard'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { AiMark } from '../ai/AiMark'
@@ -778,23 +779,27 @@ export default function ReplyComposer({
 
         {/* Only on Reply — Intern/Ask already work; repeating the mailbox banner there feels broken. */}
         {replyBlocked && isReply ? (
-          <div className="space-y-2 rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-xs text-text-secondary">
+          <Callout
+            tone="warning"
+            actions={
+              showNoteTab ? (
+                <button
+                  type="button"
+                  onClick={() => setMode('note')}
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  {t('composer.switchToNote', { defaultValue: 'Write an internal note instead' })}
+                </button>
+              ) : undefined
+            }
+          >
             {replyDisabledNotice}
-            {showNoteTab ? (
-              <button
-                type="button"
-                onClick={() => setMode('note')}
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                {t('composer.switchToNote', { defaultValue: 'Write an internal note instead' })}
-              </button>
-            ) : null}
-          </div>
+          </Callout>
         ) : null}
 
         {!isNote && !isAsk && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
           <div
-            className="mb-1.5 rounded-lg border border-border/60 bg-bg-elevated/40 px-2.5 py-1.5 text-xs"
+            className="mb-1.5 rounded-md border border-border/50 bg-bg-elevated px-2.5 py-1.5 text-xs"
             title={surface.includeSignature ? t('composer.withSignature') : undefined}
           >
             <div className="flex items-center gap-2">

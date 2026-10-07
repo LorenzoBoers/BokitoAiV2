@@ -61,7 +61,7 @@ export function ConnectionRow({
   const projects = row.projects ?? []
 
   return (
-    <li className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
+    <li className="panel px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-3">
           <IntegrationHostLogo

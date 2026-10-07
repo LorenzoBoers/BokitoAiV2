@@ -1,7 +1,7 @@
 /** Uniform channel rows: one shape for mailboxes, relays, widget, WhatsApp, Slack. */
 
 import { appRoutes } from '../api/routes/app.routes'
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost } from './api'
 import { normalizeAccess, type ChannelAccess } from './channel-accounts-api'
 import { normalizeAiHandling, type AiHandling } from './ai-handling'
 
@@ -13,6 +13,7 @@ export const CHANNEL_STATES = [
   'action_required',
   'paused',
   'error',
+  'archived',
 ] as const
 export type ChannelState = (typeof CHANNEL_STATES)[number]
 
@@ -64,6 +65,10 @@ export type ChannelRow = {
   syncWindowDays: number
   /** Mailboxes: file automated mail (newsletters, receipts, no-reply) as closed + tagged. */
   archiveAutomatedMail: boolean
+  /** Set when the channel is archived: no sync or sending, conversations and access stay. */
+  archivedAt: string | null
+  /** Conversations that came in through this channel; null when not computed. */
+  conversationCount: number | null
 }
 
 export type RelayOptions = {
@@ -130,6 +135,9 @@ export function normalizeChannelRow(raw: unknown): ChannelRow | null {
     syncWindowDays:
       typeof value.sync_window_days === 'number' ? value.sync_window_days : 30,
     archiveAutomatedMail: value.archive_automated_mail === true,
+    archivedAt: asString(value.archived_at) || null,
+    conversationCount:
+      typeof value.conversation_count === 'number' ? value.conversation_count : null,
   }
 }
 
@@ -274,8 +282,25 @@ export async function syncChannel(
   }
 }
 
-export async function deleteChannel(token: string, channelId: string): Promise<void> {
-  await apiDelete(appRoutes.channels.byId(channelId), token)
+/** Stop sync and sending; conversations and access stay manageable. */
+export async function archiveChannel(token: string, channelId: string): Promise<ChannelRow | null> {
+  const raw = await apiPost<Record<string, unknown>>(appRoutes.channels.archive(channelId), {}, token)
+  return normalizeChannelRow(raw)
+}
+
+/** Back from the archive as a paused channel; reconnect or resume to receive again. */
+export async function restoreChannel(token: string, channelId: string): Promise<ChannelRow | null> {
+  const raw = await apiPost<Record<string, unknown>>(appRoutes.channels.restore(channelId), {}, token)
+  return normalizeChannelRow(raw)
+}
+
+/** Delete the channel and every conversation it brought in. Archive first when it has any. */
+export async function deleteChannel(token: string, channelId: string): Promise<number> {
+  const raw = (await apiDelete<{ conversations_deleted?: number }>(
+    appRoutes.channels.byId(channelId),
+    token,
+  )) as { conversations_deleted?: number } | undefined
+  return typeof raw?.conversations_deleted === 'number' ? raw.conversations_deleted : 0
 }
 
 export async function getRelayOptions(token: string): Promise<RelayOptions> {

@@ -95,7 +95,7 @@ export function ModuleOverview({ module }: Props) {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+      <section className="panel p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-2.5">
             <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-bg-muted/40 text-text-secondary">
@@ -141,7 +141,7 @@ export function ModuleOverview({ module }: Props) {
       </section>
 
       {customerCards.length > 0 ? (
-        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+        <section className="panel p-4">
           <h2 className="text-sm font-semibold text-text-heading">
             {t('integrations.modules.workspace.customerToolsTitle', {
               defaultValue: 'Customer chat tools',
@@ -195,7 +195,7 @@ export function ModuleOverview({ module }: Props) {
             {roster.map((row) => (
               <li
                 key={row.id}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2.5"
+                className="panel flex flex-wrap items-center gap-2 px-3 py-2.5"
               >
                 <Link
                   to={`/agents/${row.agent_id}`}

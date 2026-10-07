@@ -16,7 +16,7 @@ export type ChannelListProps = {
   channels: ChannelRow[]
   loading: boolean
   busyId: string | null
-  actions: Omit<ChannelActions, 'rename'> & { saveLabel: (row: ChannelRow, label: string) => void }
+  actions: Pick<ChannelActions, 'setPaused' | 'sync' | 'reconnect'>
   onAddChannel: () => void
 }
 
@@ -67,6 +67,9 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
   const sorted = useMemo(
     () =>
       [...channels].sort((a, b) => {
+        const archivedA = a.state === 'archived' ? 1 : 0
+        const archivedB = b.state === 'archived' ? 1 : 0
+        if (archivedA !== archivedB) return archivedA - archivedB
         if (a.kind !== b.kind) return a.kind.localeCompare(b.kind)
         return a.label.localeCompare(b.label)
       }),

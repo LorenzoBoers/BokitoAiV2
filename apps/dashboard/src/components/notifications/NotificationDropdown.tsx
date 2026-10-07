@@ -5,7 +5,7 @@ import { AlertTriangle, AtSign, Bell, CalendarClock, ChevronDown, ChevronRight, 
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
 import { useOptionalNavBadges } from '../../context/NavBadgeContext';
 import { Button } from '../ui/button';
-import { Dropdown } from '../ui/dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { translateNotificationCopy } from '../../lib/activity-labels';
 import { collapseNotifications, type GroupedNotification } from '../../lib/notification-groups';
 import { activityDayBucket } from '../../lib/activity-day';
@@ -33,8 +33,13 @@ export default function NotificationDropdown() {
   const { t } = useTranslation(['nav', 'communication']);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const forYouCount = useOptionalNavBadges().counts.inboxByQueue.forYou;
-  const navigate = useNavigate();
+  const routerNavigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
+  const navigate = (to: string) => {
+    setOpen(false);
+    routerNavigate(to);
+  };
 
   const groupedNotifications = collapseNotifications(notifications.filter((item) => item.tier < 3));
   const digestNotifications = collapseNotifications(notifications.filter((item) => item.tier === 3));
@@ -105,7 +110,7 @@ export default function NotificationDropdown() {
     >
       <Bell size={16} />
       {unreadCount > 0 && (
-        <span className="count-pop absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-accent rounded-full text-[8px] font-bold flex items-center justify-center text-accent-fg">
+        <span className="count-pop absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-2xs font-bold leading-none text-accent-fg">
           {unreadCount > 9 ? '9+' : unreadCount}
         </span>
       )}
@@ -113,7 +118,9 @@ export default function NotificationDropdown() {
   );
 
   return (
-    <Dropdown trigger={trigger} align="right">
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[340px] max-w-[calc(100vw-1rem)] p-0">
       <div className="p-3">
         <div className="mb-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
@@ -217,6 +224,7 @@ export default function NotificationDropdown() {
           )}
         </div>
       </div>
-    </Dropdown>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

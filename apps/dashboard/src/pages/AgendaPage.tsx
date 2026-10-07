@@ -589,7 +589,7 @@ function AttentionChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border bg-bg-surface px-2.5 py-1 text-xs font-medium transition-colors hover:bg-bg-elevated',
+        'inline-flex items-center gap-1.5 rounded-lg border bg-bg-surface px-2.5 py-1 text-xs font-medium transition-colors hover:bg-bg-elevated',
         tone === 'error' ? 'border-status-error/40 text-status-error' : 'border-status-warning/40 text-status-warning',
       )}
     >

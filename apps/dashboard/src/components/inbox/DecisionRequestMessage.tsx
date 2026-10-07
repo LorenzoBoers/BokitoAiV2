@@ -817,7 +817,7 @@ export default function DecisionRequestMessage({
               {resolvedLabel}
               {excerpt ? ` — ${excerpt}` : ''}
             </span>
-            <span className="shrink-0 rounded-full bg-bg-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary">
+            <span className="shrink-0 rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
               {t('decisionCard.resolved')}
             </span>
           </div>
@@ -854,7 +854,7 @@ export default function DecisionRequestMessage({
                   : t('decision.waitForOk')}
           </span>
           {resolved ? (
-            <span className="rounded-full bg-bg-hover px-2 py-0.5 text-2xs font-medium text-text-secondary">
+            <span className="rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
               {t('decisionCard.resolved')}
             </span>
           ) : null}

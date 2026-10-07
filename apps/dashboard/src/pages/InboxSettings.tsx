@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { MessageSquare, Plus, RefreshCw } from 'lucide-react'
+import { MessageSquare, Plus } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../components/ui/button'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
@@ -12,7 +11,6 @@ import { PageIntro } from '../components/layout/PageIntro'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
-import SignatureEditor from '../components/inbox/SignatureEditor'
 import CommunicationTagsCard from '../components/inbox/CommunicationTagsCard'
 import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
@@ -28,29 +26,10 @@ import {
   providerFriendlyName,
 } from '../lib/email-oauth'
 import { cn } from '../lib/utils'
-import {
-  getConnectionSignature,
-  saveConnectionSignature,
-} from '../lib/email-api'
-import {
-  deleteChannel,
-  listChannels,
-  patchChannel,
-  syncChannel,
-  type ChannelRow,
-} from '../lib/channels-api'
+import { listChannels, patchChannel, syncChannel, type ChannelRow } from '../lib/channels-api'
 import { isChannelParked } from '../lib/channel-surface'
-import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
-import { formatAppDateTime } from '../lib/app-locale'
 import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { inboxPath } from '../lib/messages-paths'
-
-function formatLastSync(lastSyncAt: string | null, neverLabel: string, language?: string | null): string {
-  if (!lastSyncAt) return neverLabel
-  const date = new Date(lastSyncAt)
-  if (Number.isNaN(date.getTime())) return neverLabel
-  return formatAppDateTime(date, language)
-}
 
 type InboxSettingsAlert =
   | { kind: 'oauth_success'; message: string }
@@ -62,9 +41,6 @@ type InboxSettingsAlert =
       detail: string | null
     }
   | { kind: 'simple_error'; message: string }
-
-/** An email channel opened in a mailbox-only dialog (folders, signature, routing). */
-type MailboxTarget = { connectionId: number; address: string }
 
 /** Overlapping marks for every connectable channel kind next to the section title. */
 function ChannelKindsMark() {
@@ -94,29 +70,17 @@ function ChannelKindsMark() {
 }
 
 export default function InboxSettings() {
-  const { t, i18n } = useTranslation('nav')
+  const { t } = useTranslation('nav')
   const { token } = useAuth()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  // Numeric email connection ids for the mailbox-only dialogs.
-  const { connections, refresh: refreshConnections } = useMailboxConnections()
+  const { refresh: refreshConnections } = useMailboxConnections()
   const [channels, setChannels] = useState<ChannelRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [pageAlert, setPageAlert] = useState<InboxSettingsAlert | null>(null)
-
-  const [signatureTarget, setSignatureTarget] = useState<MailboxTarget | null>(null)
-  const [signatureHtml, setSignatureHtml] = useState('')
-  const [folderTarget, setFolderTarget] = useState<MailboxTarget | null>(null)
-  const [folders, setFolders] = useState<MailboxFolder[]>([])
-  const [foldersLoading, setFoldersLoading] = useState(false)
-  const [foldersSaving, setFoldersSaving] = useState(false)
-  const [foldersError, setFoldersError] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<ChannelRow | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const refreshChannels = useCallback(async () => {
     if (!token) return
@@ -134,15 +98,6 @@ export default function InboxSettings() {
   useEffect(() => {
     void refreshChannels()
   }, [refreshChannels])
-
-  const mailboxTarget = useCallback(
-    (row: ChannelRow): MailboxTarget | null => {
-      const match = connections.find((connection) => connection.uuid === row.id)
-      if (!match) return null
-      return { connectionId: match.id, address: row.address }
-    },
-    [connections],
-  )
 
   const applyRow = useCallback((next: ChannelRow | null) => {
     if (!next) return
@@ -174,82 +129,6 @@ export default function InboxSettings() {
     [token, applyRow, refreshConnections, t],
   )
 
-  const handleMakePrimary = useCallback(
-    async (row: ChannelRow) => {
-      if (!token) return
-      setBusyId(row.id)
-      try {
-        applyRow(await patchChannel(token, row.id, { is_primary: true }))
-        await refreshChannels()
-      } catch (err) {
-        setPageAlert({
-          kind: 'simple_error',
-          message: formatApiErrorMessage(err, t('channelsPage.mailboxSaveError')),
-        })
-      } finally {
-        setBusyId(null)
-      }
-    },
-    [token, applyRow, refreshChannels, t],
-  )
-
-  const handleRename = useCallback(
-    async (row: ChannelRow, label: string) => {
-      if (!token) return
-      setBusyId(row.id)
-      try {
-        applyRow(await patchChannel(token, row.id, { label }))
-        await refreshConnections()
-        toast.success(t('channelsPage.renameSaved', { defaultValue: 'Channel renamed' }))
-      } catch (err) {
-        setPageAlert({
-          kind: 'simple_error',
-          message: formatApiErrorMessage(err, t('channelsPage.mailboxSaveError')),
-        })
-      } finally {
-        setBusyId(null)
-      }
-    },
-    [token, applyRow, refreshConnections, t],
-  )
-
-  const handleSyncWindowChange = useCallback(
-    async (row: ChannelRow, days: number) => {
-      if (!token) return
-      setBusyId(row.id)
-      try {
-        applyRow(await patchChannel(token, row.id, { sync_window_days: days }))
-        await refreshConnections()
-      } catch (err) {
-        setPageAlert({
-          kind: 'simple_error',
-          message: formatApiErrorMessage(err, t('channelsPage.mailboxSaveError')),
-        })
-      } finally {
-        setBusyId(null)
-      }
-    },
-    [token, applyRow, refreshConnections, t],
-  )
-
-  const handleArchiveAutomatedChange = useCallback(
-    async (row: ChannelRow, enabled: boolean) => {
-      if (!token) return
-      setBusyId(row.id)
-      try {
-        applyRow(await patchChannel(token, row.id, { archive_automated_mail: enabled }))
-      } catch (err) {
-        setPageAlert({
-          kind: 'simple_error',
-          message: formatApiErrorMessage(err, t('channelsPage.mailboxSaveError')),
-        })
-      } finally {
-        setBusyId(null)
-      }
-    },
-    [token, applyRow, t],
-  )
-
   const handleSync = useCallback(
     async (row: ChannelRow) => {
       if (!token) return
@@ -271,132 +150,13 @@ export default function InboxSettings() {
     [token, applyRow, t],
   )
 
-  const handleConfirmDelete = useCallback(async () => {
-    if (!token || !deleteTarget) return
-    setDeleting(true)
-    setDeleteError(null)
-    try {
-      await deleteChannel(token, deleteTarget.id)
-      setDeleteTarget(null)
-      await refreshChannels()
-      await refreshConnections()
-    } catch (err) {
-      setDeleteError(formatApiErrorMessage(err, t('channelsPage.removeError')))
-    } finally {
-      setDeleting(false)
-    }
-  }, [token, deleteTarget, refreshChannels, refreshConnections, t])
-
-  const handleSignature = useCallback(
-    async (row: ChannelRow) => {
-      if (!token) return
-      const target = mailboxTarget(row)
-      if (!target) {
-        toast.error(t('channelsPage.signatureLoadError'))
-        return
-      }
-      try {
-        setSignatureHtml(await getConnectionSignature(token, target.connectionId))
-        setSignatureTarget(target)
-      } catch (err) {
-        toast.error(formatApiErrorMessage(err, t('channelsPage.signatureLoadError')))
-      }
-    },
-    [token, mailboxTarget, t],
-  )
-
-  const handleSaveSignature = useCallback(
-    async (signature: string) => {
-      if (!token || !signatureTarget) return
-      try {
-        await saveConnectionSignature(token, signatureTarget.connectionId, signature)
-        setSignatureTarget(null)
-        toast.success(t('channelsPage.signatureSaved'))
-      } catch (err) {
-        toast.error(formatApiErrorMessage(err, t('channelsPage.signatureSaveError')))
-      }
-    },
-    [token, signatureTarget, t],
-  )
-
-  const handleFolders = useCallback(
-    async (row: ChannelRow) => {
-      if (!token) return
-      const target = mailboxTarget(row)
-      if (!target) {
-        toast.error(t('channelsPage.foldersLoadError'))
-        return
-      }
-      setFolderTarget(target)
-      setFoldersError(null)
-      setFolders([])
-      setFoldersLoading(true)
-      try {
-        setFolders(await listMailboxFolders(token, target.connectionId))
-      } catch (err) {
-        setFoldersError(formatApiErrorMessage(err, t('channelsPage.foldersLoadError')))
-      } finally {
-        setFoldersLoading(false)
-      }
-    },
-    [token, mailboxTarget, t],
-  )
-
-  const handleToggleFolder = useCallback((folderId: string) => {
-    setFolders((prev) =>
-      prev.map((f) => (f.id === folderId ? { ...f, isSelected: !f.isSelected } : f)),
-    )
-  }, [])
-
-  const handleSaveFolders = useCallback(async () => {
-    if (!token || !folderTarget) return
-    setFoldersSaving(true)
-    setFoldersError(null)
-    try {
-      await saveMailboxFolders(
-        token,
-        folderTarget.connectionId,
-        folders.map((f) => ({ id: f.id, display_name: f.displayName, is_selected: f.isSelected })),
-      )
-      setFolderTarget(null)
-      await refreshChannels()
-    } catch (err) {
-      setFoldersError(formatApiErrorMessage(err, t('channelsPage.foldersSaveError')))
-    } finally {
-      setFoldersSaving(false)
-    }
-  }, [token, folderTarget, folders, refreshChannels, t])
-
   const channelActions = useMemo<ChannelListProps['actions']>(
     () => ({
       setPaused: (row, paused) => void handleSetPaused(row, paused),
       sync: (row) => void handleSync(row),
       reconnect: () => setAddOpen(true),
-      makePrimary: (row) => void handleMakePrimary(row),
-      saveLabel: (row, label) => void handleRename(row, label),
-      remove: (row) => {
-        setDeleteError(null)
-        setDeleteTarget(row)
-      },
-      setSyncWindow: (row, days) => void handleSyncWindowChange(row, days),
-      setArchiveAutomatedMail: (row, enabled) => void handleArchiveAutomatedChange(row, enabled),
-      editFolders: (row) => void handleFolders(row),
-      editSignature: (row) => void handleSignature(row),
-      aiHandlingChanged: (row, next) => applyRow({ ...row, aiHandling: next }),
-      accessChanged: () => void refreshChannels(),
     }),
-    [
-      handleSetPaused,
-      handleSync,
-      handleMakePrimary,
-      handleRename,
-      handleSyncWindowChange,
-      handleArchiveAutomatedChange,
-      handleFolders,
-      handleSignature,
-      applyRow,
-      refreshChannels,
-    ],
+    [handleSetPaused, handleSync],
   )
 
   useEffect(() => {
@@ -538,133 +298,6 @@ export default function InboxSettings() {
           void refreshConnections()
         }}
       />
-
-      <Dialog.Root
-        open={deleteTarget != null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null)
-            setDeleteError(null)
-          }
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[420px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
-            <Dialog.Title className="mb-2 text-lg font-semibold text-text-heading">
-              {t('channelsPage.removeTitle')}
-            </Dialog.Title>
-            <p className="mb-4 text-sm text-text-secondary">
-              {t('channelsPage.removeBody', {
-                email: deleteTarget?.address || deleteTarget?.label || t('channelsPage.thisChannel'),
-              })}
-            </p>
-            {deleteError ? <p className="mb-3 text-xs text-status-error">{deleteError}</p> : null}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                disabled={deleting}
-                onClick={() => {
-                  setDeleteTarget(null)
-                  setDeleteError(null)
-                }}
-              >
-                {t('channelsPage.cancel')}
-              </Button>
-              <Button variant="destructive" disabled={deleting} onClick={() => void handleConfirmDelete()}>
-                {deleting ? t('channelsPage.removing') : t('channelsPage.remove')}
-              </Button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      <Dialog.Root
-        open={folderTarget != null}
-        onOpenChange={(open) => {
-          if (!open) setFolderTarget(null)
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-bg-surface p-5 shadow-overlay"
-            data-testid="mailbox-folders-dialog"
-          >
-            <Dialog.Title className="mb-1 text-base font-semibold text-text-heading">
-              {t('channelsPage.foldersTitle')}
-            </Dialog.Title>
-            <p className="mb-4 text-xs text-text-secondary">
-              {t('channelsPage.foldersBody', {
-                email: folderTarget?.address ?? t('channelsPage.thisMailbox'),
-              })}
-            </p>
-
-            {foldersError ? <p className="mb-3 text-xs text-status-error">{foldersError}</p> : null}
-
-            {foldersLoading ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-text-muted">
-                <RefreshCw size={14} className="animate-spin" />
-                {t('channelsPage.loadingFolders')}
-              </div>
-            ) : (
-              <div className="mb-4 min-h-0 flex-1 space-y-1 overflow-y-auto">
-                {folders.length === 0 ? (
-                  <p className="py-4 text-center text-xs text-text-muted">
-                    {t('channelsPage.noFolders')}
-                  </p>
-                ) : (
-                  folders.map((folder) => (
-                    <label
-                      key={folder.id}
-                      className="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 hover:bg-bg-surface-hover"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={folder.isSelected}
-                          onChange={() => handleToggleFolder(folder.id)}
-                          className="accent-accent"
-                        />
-                        <span className="truncate-fade text-sm text-text-heading">{folder.displayName}</span>
-                        {folder.totalItems > 0 ? (
-                          <span className="shrink-0 text-xs text-text-muted">{folder.totalItems}</span>
-                        ) : null}
-                      </div>
-                      {folder.lastSyncAt ? (
-                        <span className="ml-2 shrink-0 text-xs text-text-muted">
-                          {formatLastSync(folder.lastSyncAt, t('channelsPage.neverSynced'), i18n.language)}
-                        </span>
-                      ) : null}
-                    </label>
-                  ))
-                )}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 border-t border-border/60 pt-2">
-              <Button variant="secondary" onClick={() => setFolderTarget(null)} disabled={foldersSaving}>
-                {t('channelsPage.cancel')}
-              </Button>
-              <Button onClick={() => void handleSaveFolders()} disabled={foldersLoading || foldersSaving}>
-                {foldersSaving ? t('channelsPage.saving') : t('channelsPage.save')}
-              </Button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      {signatureTarget ? (
-        <SignatureEditor
-          open
-          onOpenChange={(open) => {
-            if (!open) setSignatureTarget(null)
-          }}
-          initialSignature={signatureHtml}
-          onSave={(signature) => void handleSaveSignature(signature)}
-          mailboxEmail={signatureTarget.address}
-        />
-      ) : null}
 
       <PageRelatedLinks
         className="mt-2"

@@ -69,9 +69,9 @@ PLAIN_STYLE = "Plain text only. Never use emoji or emoticons."
 # "bokito" in model_resolution). Agents on BYOK/real models never get this.
 BOKITO_MODEL_IDENTITY = (
     "## Model identity\n"
-    "You run on Bokito AI, Bokito's own model. Never state or imply that "
+    "You run on Bokito, Bokito's own model. Never state or imply that "
     "you are Claude, Anthropic, or any other third-party model or vendor. If "
-    "asked which model you are, answer: Bokito AI."
+    "asked which model you are, answer: Bokito."
 )
 
 

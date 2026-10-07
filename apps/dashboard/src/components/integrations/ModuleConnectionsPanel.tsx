@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { BrandMark } from './BrandMark'
 import { ConnectionRow } from './ConnectionRow'
 import { ConnectionScopeEditor } from './ConnectionScopeEditor'
@@ -57,6 +58,7 @@ export function ModuleConnectionsPanel({
   onFinishSetup?: (row: ModuleConnectionRow) => void
 }) {
   const { t } = useTranslation(['nav', 'common'])
+  const confirm = useConfirm()
   const [rows, setRows] = useState<ModuleConnectionRow[]>([])
   const [eligible, setEligible] = useState<EligibleModuleConnection[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -95,8 +97,16 @@ export function ModuleConnectionsPanel({
   }
 
   const detach = (row: ModuleConnectionRow) => {
-    if (!window.confirm(t('integrations.modules.connections.detachConfirm'))) return
-    void actions.run(row, () => detachModuleConnection(slug, row.id))
+    void (async () => {
+      if (
+        !(await confirm({
+          description: t('integrations.modules.connections.detachConfirm'),
+          destructive: true,
+        }))
+      )
+        return
+      await actions.run(row, () => detachModuleConnection(slug, row.id))
+    })()
   }
 
   const attachExisting = (row: EligibleModuleConnection) => {

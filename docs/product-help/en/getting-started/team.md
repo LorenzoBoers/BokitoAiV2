@@ -32,7 +32,7 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
 
 ## Read the directory
 
-1. On **Workforce**, the directory lists people, pending invites and company agents together. Filter with **All**, **People**, **Agents**, **Pending** or **Deactivated**, or search by name. **All**, **People** and **Agents** hide deactivated rows.
+1. On **Workforce**, the directory lists people, pending invites and company agents together. Filter with **All**, **People**, **Agents**, **Pending** or **Deactivated**, or search by name. **All**, **People** and **Agents** hide deactivated rows. The **Last active** column shows when a person was last online and when an agent last ran. Open **Agents** from the related links for the agent library (same **Deactivated** filter there).
 2. Each person shows role, teams, open work and presence (**Available**, **Away**, **Offline**). Each agent uses the same mark as on Agents and in Communication, and Status is **Standby**, **Working** or **Error** — not question counts. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)).
 3. People, agents and teams use the same kind of mark: two-letter initials (or an icon/image when set). Corner dots follow a shared hierarchy: green when a person is available, purple pulse when an agent on the team is working, amber when someone is away, static purple when only agents are available, gray when everyone is offline.
 

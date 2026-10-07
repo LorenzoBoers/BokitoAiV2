@@ -206,8 +206,17 @@ async def run_status(
 async def list_agents(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    include_inactive: bool = False,
 ):
-    items = await svc.list_runtime_agents(session, auth.tenant.id)
+    """Company agents for pickers and the Agents library.
+
+    Deactivated agents are omitted by default so channel access, assign menus
+    and bindings stay on the working roster. Pass ``include_inactive=true`` for
+    directory views that show the Deactivated filter.
+    """
+    items = await svc.list_runtime_agents(
+        session, auth.tenant.id, include_inactive=include_inactive
+    )
     return {"items": items}
 
 

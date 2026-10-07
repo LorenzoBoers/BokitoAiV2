@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { Cpu, Loader2, Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -12,14 +12,17 @@ import {
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { ModelOptionLabel } from '../ui/ModelIcon'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { useAuth } from '../../context/AuthContext'
 import { bokitoCreateAgent } from '../../lib/bokito-api'
 import {
-  defaultChatSlug,
+  AUTOMATIC_MODE,
+  INHERIT_MODE,
+  agentChatModeOptions,
   getTenantModels,
-  selectableChatModels,
+  normalizeAgentChatMode,
   type SelectableChatModel,
 } from '../../lib/models-api'
 
@@ -31,7 +34,6 @@ type Props = {
   prefill?: { name?: string; model?: string; purpose?: string; description?: string } | null
 }
 
-const WORKSPACE_DEFAULT = '__default__'
 const MAX_DESCRIPTION = 280
 
 export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }: Props) {
@@ -51,8 +53,8 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
     setModelsError(false)
     getTenantModels(token)
       .then((data) => {
-        setModels(selectableChatModels(data))
-        setModel((prev) => prev || defaultChatSlug(data))
+        setModels(agentChatModeOptions(data))
+        setModel((prev) => prev || INHERIT_MODE)
       })
       .catch(() => setModelsError(true))
   }
@@ -61,13 +63,19 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
     if (!open || !token) return
     setName(prefill?.name ?? '')
     setDescription(prefill?.description ?? '')
-    setModel(prefill?.model ?? '')
+    setModel(normalizeAgentChatMode(prefill?.model) || INHERIT_MODE)
     setPurpose(prefill?.purpose ?? '')
     setError(null)
     setModelsError(false)
     loadModels()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, token, prefill])
+
+  const modeLabel = (slug: string) => {
+    if (slug === INHERIT_MODE) return t('workforce.agents.modelMode.inherit')
+    if (slug === AUTOMATIC_MODE) return t('workforce.agents.modelMode.automatic')
+    return ''
+  }
 
   const submit = async () => {
     if (!token || busy) return
@@ -81,7 +89,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
       const res = await bokitoCreateAgent(token, {
         name: name.trim(),
         description: description.trim() || undefined,
-        model: model || undefined,
+        model: normalizeAgentChatMode(model) || INHERIT_MODE,
         purpose: purpose.trim() || undefined,
       })
       onOpenChange(false)
@@ -128,19 +136,41 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
           <div className="space-y-1.5">
             <Label htmlFor="agent-model">{t('workforce.agents.create.model')}</Label>
             <Select
-              value={model || WORKSPACE_DEFAULT}
-              onValueChange={(value) => setModel(value === WORKSPACE_DEFAULT ? '' : value)}
+              value={normalizeAgentChatMode(model) || INHERIT_MODE}
+              onValueChange={(value) => setModel(value)}
             >
               <SelectTrigger id="agent-model" className="h-9 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={WORKSPACE_DEFAULT}>{t('workforce.agents.create.workspaceDefault')}</SelectItem>
-                {models.map((m) => (
-                  <SelectItem key={m.slug} value={m.slug}>
-                    {m.display_name}
-                  </SelectItem>
-                ))}
+                {models.map((m) => {
+                  const name = modeLabel(m.slug) || m.display_name
+                  if (m.slug === INHERIT_MODE || m.slug === AUTOMATIC_MODE) {
+                    return (
+                      <SelectItem key={m.slug} value={m.slug}>
+                        <span className="inline-flex items-center gap-2">
+                          {m.slug === AUTOMATIC_MODE ? (
+                            <Sparkles size={16} className="text-ai-ink" aria-hidden />
+                          ) : (
+                            <Cpu size={16} className="text-text-muted" aria-hidden />
+                          )}
+                          {name}
+                        </span>
+                      </SelectItem>
+                    )
+                  }
+                  return (
+                    <SelectItem key={m.slug} value={m.slug}>
+                      <ModelOptionLabel
+                        slug={m.slug}
+                        modelId={m.model_id}
+                        provider={m.provider}
+                        providerType={m.provider_type}
+                        name={name}
+                      />
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
             {modelsError ? (

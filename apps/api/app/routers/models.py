@@ -171,15 +171,21 @@ class TenantModelUpdateBody(BaseModel):
 
 
 async def _managed_ai_status(
-    session: AsyncSession, tenant_id: UUID, *, overridden: bool
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    overridden: bool,
+    workspace_chat_mode: str | None = None,
 ) -> dict:
-    """Managed Bokito tiers: platform catalog + platform keys, product-facing.
+    """Managed Bokito AI tiers: platform catalog + platform keys, product-facing.
 
     When the tenant runs self-managed models (BYOK), managed tiers are on
     standby: BYOK models take precedence for resolution defaults.
     """
-    from app.services import bokito_models
+    from app.services import bokito_models, model_policy
     from app.services.model_resolution import _resolve_from_platform_catalog
+
+    ws_mode = model_policy.normalize_workspace_mode(workspace_chat_mode)
 
     async def _tier_info(slug: str) -> dict:
         resolved = await _resolve_from_platform_catalog(
@@ -191,6 +197,10 @@ async def _managed_ai_status(
             if catalog_row
             else bokito_models.display_name_for_slug(slug)
         )
+        list_in, list_out = bokito_models.bill_prices_for_slug(slug) or (
+            catalog_row.input_cost_per_mtok_cents if catalog_row else 0,
+            catalog_row.output_cost_per_mtok_cents if catalog_row else 0,
+        )
         return {
             "slug": slug,
             "display_name": display,
@@ -201,16 +211,16 @@ async def _managed_ai_status(
             "region": resolved.region,
             "intended_region": resolved.intended_region or resolved.region,
             "fallback_active": resolved.fallback_active,
-            "is_default_chat": slug == catalog_svc.BOKITO_MODEL_SLUG,
+            "is_default_chat": slug == ws_mode,
+            "is_workspace_default": slug == ws_mode,
             "kind": "chat",
             "enabled": True,
             "model_id": "",
-            "input_cost_per_mtok_cents": (
-                catalog_row.input_cost_per_mtok_cents if catalog_row else 0
-            ),
-            "output_cost_per_mtok_cents": (
-                catalog_row.output_cost_per_mtok_cents if catalog_row else 0
-            ),
+            "context_window": int(catalog_row.context_window) if catalog_row else 0,
+            "supports_tools": bool(catalog_row.supports_tools) if catalog_row else True,
+            "supports_vision": bool(catalog_row.supports_vision) if catalog_row else False,
+            "input_cost_per_mtok_cents": list_in,
+            "output_cost_per_mtok_cents": list_out,
         }
 
     async def _embedding_info() -> dict:
@@ -236,7 +246,11 @@ async def _managed_ai_status(
             continue
         models.append(await _tier_info(slug))
 
-    default_slug = catalog_svc.BOKITO_MODEL_SLUG
+    default_slug = (
+        ws_mode
+        if ws_mode in bokito_models.MANAGED_CHAT_SLUGS
+        else catalog_svc.BOKITO_MODEL_SLUG
+    )
     chat = next((m for m in models if m["slug"] == default_slug), None)
     if chat is None and models:
         chat = models[0]
@@ -259,18 +273,26 @@ async def _managed_ai_status(
         "chat": chat,
         "models": models,
         "default_chat": chat["slug"],
+        "workspace_chat_mode": ws_mode,
         "embedding": embedding,
     }
 
 
 async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
     """Bokito-first payload: managed card always; custom block only when gated."""
+    from app.services import model_policy, tenant_models as tenant_models_svc
+
     tenant_id = tenant.id
     status = tenant_features.custom_models_status(tenant)
     active = status["active"]
     has_tenant_rows = await tenant_model_catalog.tenant_has_models(session, tenant_id)
+    prefs = await tenant_models_svc.get_tenant_model_prefs(session, tenant_id)
+    ws_mode = model_policy.workspace_chat_mode(prefs)
     managed = await _managed_ai_status(
-        session, tenant_id, overridden=active and has_tenant_rows
+        session,
+        tenant_id,
+        overridden=active and has_tenant_rows,
+        workspace_chat_mode=ws_mode,
     )
 
     custom_block: dict = {
@@ -332,8 +354,11 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
         "models": selectable if not active else custom_block["models"],
         "connections": custom_block["connections"],
         "presets": custom_block["presets"],
+        "workspace_chat_mode": ws_mode,
         "default_chat": (
-            custom_block["default_chat"] or managed["chat"]["slug"]
+            custom_block["default_chat"]
+            or (managed["chat"]["slug"] if ws_mode != model_policy.AUTOMATIC else "")
+            or managed["chat"]["slug"]
         ),
         "default_embedding": (
             custom_block["default_embedding"] or managed["embedding"]["slug"]
@@ -379,6 +404,31 @@ async def _data_region_block(session: AsyncSession, tenant_id: UUID) -> dict:
 
 class DataRegionPolicyBody(BaseModel):
     non_eu_platform_models: str
+
+
+class WorkspaceChatModeBody(BaseModel):
+    """Workspace Bokito AI default: automatic or a managed tier slug."""
+
+    workspace_chat_mode: str
+
+
+@router.patch("/models/workspace-chat-mode")
+async def patch_workspace_chat_mode(
+    body: WorkspaceChatModeBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Set the workspace Bokito AI default (Maki / Bokito / Kong / Automatic)."""
+    from app.services import model_policy
+    from app.services.tenant_models import set_tenant_model_prefs
+
+    auth.require_role("owner", "admin")
+    mode = model_policy.normalize_workspace_mode(body.workspace_chat_mode)
+    if mode not in model_policy.WORKSPACE_MODES:
+        raise HTTPException(status_code=400, detail="Invalid workspace chat mode")
+    await set_tenant_model_prefs(session, auth.tenant.id, workspace_chat_mode=mode)
+    refreshed = await tenant_features.get_tenant(session, auth.tenant.id)
+    return await _tenant_models_payload(session, refreshed or auth.tenant)
 
 
 @router.patch("/models/data-region")
@@ -738,6 +788,118 @@ async def staff_delete_platform_key(
         raise HTTPException(status_code=400, detail="Unknown provider")
     await platform_secrets.delete_platform_secret(session, provider)
     return {"providers": await platform_secrets.list_platform_status(session)}
+
+
+class BokitoBackingsBody(BaseModel):
+    """Backing chain per managed tier, e.g. ``{"bokito-ai-3-1": ["mistral-medium-latest"]}``.
+
+    Tiers left out keep the env / built-in chain.
+    """
+
+    routes: dict[str, list[str]]
+
+
+async def _bokito_backings_payload(session: AsyncSession) -> dict:
+    from app.services import provider_health
+    from app.services.model_resolution import platform_key_for
+
+    routes = await bokito_models.refresh_routes(session, force=True)
+    sources = bokito_models.route_sources()
+    tiers = []
+    for tier in bokito_models.MANAGED_CHAT_SLUGS:
+        steps = []
+        for slug in routes.get(tier, ()):
+            row = await catalog_svc.get_model(session, slug)
+            provider = row.provider if row else ""
+            key = await platform_key_for(session, provider) if provider else ""
+            steps.append(
+                {
+                    "slug": slug,
+                    "provider": provider,
+                    "in_catalog": row is not None,
+                    "has_platform_key": bool(key),
+                    "cooling": provider_health.is_cooling(key, (row.model_id or row.slug) if row else slug),
+                }
+            )
+        tiers.append(
+            {
+                "slug": tier,
+                "display_name": bokito_models.display_name_for_slug(tier),
+                "source": sources[tier],
+                "steps": steps,
+            }
+        )
+    return {
+        "tiers": tiers,
+        "defaults": {k: list(v) for k, v in bokito_models.DEFAULT_BACKINGS.items()},
+    }
+
+
+@staff_router.get("/bokito-backings")
+async def staff_get_bokito_backings(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Which catalog models (and providers) run each Bokito tier, in fallback order."""
+    _require_staff(auth)
+    return await _bokito_backings_payload(session)
+
+
+@staff_router.put("/bokito-backings")
+async def staff_set_bokito_backings(
+    body: BokitoBackingsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Replace the staff override. Every step must be an existing non-Bokito chat model."""
+    import json
+    from datetime import datetime
+
+    from app.models.model_catalog import PlatformSetting
+
+    _require_staff(auth)
+    try:
+        routes = bokito_models.parse_routes(body.routes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    for tier, chain in routes.items():
+        for slug in chain:
+            row = await catalog_svc.get_model(session, slug)
+            if row is None or row.kind != "chat" or bokito_models.is_bokito_provider(row.provider):
+                raise HTTPException(
+                    status_code=400, detail=f"{slug} is not a chat model in the catalog ({tier})"
+                )
+    value = json.dumps({k: list(v) for k, v in routes.items()})
+    result = await session.execute(
+        select(PlatformSetting).where(PlatformSetting.key == bokito_models.BACKINGS_SETTING_KEY)
+    )
+    row = result.scalar_one_or_none()
+    if row:
+        row.value = value
+        row.updated_at = datetime.utcnow()
+    else:
+        session.add(PlatformSetting(key=bokito_models.BACKINGS_SETTING_KEY, value=value))
+    await session.commit()
+    return await _bokito_backings_payload(session)
+
+
+@staff_router.delete("/bokito-backings")
+async def staff_reset_bokito_backings(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Drop the staff override; tiers fall back to env / built-in chains."""
+    from app.models.model_catalog import PlatformSetting
+
+    _require_staff(auth)
+    result = await session.execute(
+        select(PlatformSetting).where(PlatformSetting.key == bokito_models.BACKINGS_SETTING_KEY)
+    )
+    row = result.scalar_one_or_none()
+    if row:
+        await session.delete(row)
+        await session.commit()
+    return await _bokito_backings_payload(session)
 
 
 @staff_router.put("/markup")

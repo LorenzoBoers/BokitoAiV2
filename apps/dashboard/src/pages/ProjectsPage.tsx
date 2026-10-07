@@ -22,7 +22,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Card } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
+import { Badge, type BadgeTone } from '../components/ui/badge'
 import { AgentOptionRow } from '../components/ui/AgentOptionRow'
 import {
   Dialog,
@@ -35,6 +35,7 @@ import {
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { EmptyState } from '../components/ui/empty-state'
+import { SearchField } from '../components/ui/search-field'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { useIsAdmin } from '../hooks/useIsAdmin'
@@ -62,11 +63,11 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-const REPO_STATUS_VARIANT: Record<string, 'secondary' | 'destructive' | 'outline'> = {
-  ready: 'secondary',
-  indexing: 'outline',
-  pending: 'outline',
-  error: 'destructive',
+const REPO_STATUS_VARIANT: Record<string, BadgeTone> = {
+  ready: 'success',
+  indexing: 'info',
+  pending: 'warning',
+  error: 'error',
 }
 
 function ProjectCard({
@@ -240,8 +241,8 @@ function ProjectCard({
             <span className="truncate-fade">{project.github_repo_full_name}</span>
             {project.repo_index_status && project.repo_index_status !== 'none' ? (
               <Badge
-                variant={REPO_STATUS_VARIANT[project.repo_index_status] ?? 'outline'}
-                className="px-1.5 py-0 text-2xs"
+                variant={REPO_STATUS_VARIANT[project.repo_index_status] ?? 'neutral'}
+                size="sm"
               >
                 {indexStatusLabel(project.repo_index_status, t)}
               </Badge>
@@ -424,17 +425,13 @@ export default function ProjectsPage() {
         </p>
       ) : null}
       {projects.length > 0 ? (
-        <div className="relative max-w-sm">
-          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('projects.page.searchPlaceholder')}
-            aria-label={t('projects.page.searchPlaceholder')}
-            className="h-9 w-full rounded-lg border border-border/60 bg-bg-surface pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent/45 focus:outline-none focus:ring-2 focus:ring-accent/15"
-          />
-        </div>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder={t('projects.page.searchPlaceholder')}
+          aria-label={t('projects.page.searchPlaceholder')}
+          className="max-w-sm"
+        />
       ) : null}
 
       {loading ? (

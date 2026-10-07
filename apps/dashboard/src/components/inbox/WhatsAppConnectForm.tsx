@@ -220,7 +220,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
           <p className="text-sm leading-relaxed text-text-secondary">
             {t('whatsappCard.step3Body')}
           </p>
-          <div className="mt-3 space-y-2 rounded-lg border border-border/50 bg-bg-elevated/40 p-3">
+          <div className="mt-3 space-y-2 rounded-md border border-border/50 bg-bg-elevated p-3">
             <CopyRow
               label={t('whatsappCard.webhookUrl')}
               value={webhookUrl}
@@ -312,7 +312,7 @@ function StepPanel({
     <section
       className={cn(
         'rounded-lg border p-3.5',
-        active ? 'border-border/60 bg-bg-elevated/30' : 'border-border/40 bg-transparent',
+        active ? 'border-border/60 bg-bg-elevated' : 'border-border/40 bg-transparent',
       )}
     >
       <header className="mb-2 flex items-center gap-2">

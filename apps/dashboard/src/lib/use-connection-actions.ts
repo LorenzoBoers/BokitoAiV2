@@ -12,6 +12,7 @@ import {
   renameModuleConnection,
   verifyModuleConnection,
 } from './module-api'
+import { useConfirm } from '../components/ui/confirm-dialog'
 
 /** Module rows go through the module endpoints; provider rows through the connection endpoints. */
 export type ConnectionActionScope = { module: string } | { provider: string }
@@ -24,6 +25,7 @@ type Row = Pick<ProviderConnectionRow, 'id' | 'display_name'>
  */
 export function useConnectionActions(scope: ConnectionActionScope, onChanged: () => Promise<void> | void) {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -77,12 +79,13 @@ export function useConnectionActions(scope: ConnectionActionScope, onChanged: ()
 
   const disconnect = useCallback(
     async (row: Row) => {
-      if (!window.confirm(t('integrations.connections.disconnectConfirm'))) return
+      if (!(await confirm({ description: t('integrations.connections.disconnectConfirm'), destructive: true })))
+        return
       await run(row, () =>
         moduleSlug ? disconnectModuleConnection(moduleSlug, row.id) : revokeIntegrationConnection(row.id),
       )
     },
-    [moduleSlug, run, t],
+    [confirm, moduleSlug, run, t],
   )
 
   return { busyId, error, setError, notice, run, verify, rename, disconnect }

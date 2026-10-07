@@ -1064,8 +1064,11 @@ async def ensure_email_account(
     )
     existing = result.scalar_one_or_none()
     if existing:
+        from app.services.channel_lifecycle import unarchive_on_reconnect
+
         existing.provider = provider
         existing.is_enabled = True
+        unarchive_on_reconnect(existing)
         if seed_mock_credentials:
             _seed_mock_creds_if_missing(existing, sync_window_days=sync_window_days)
         session.add(existing)

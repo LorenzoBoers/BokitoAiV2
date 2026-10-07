@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import time
 from typing import Any, AsyncGenerator
 from uuid import UUID
@@ -18,6 +19,11 @@ from app.services.agent.tools import (
 )
 from app.tools.registry import audience_for_trust, filter_tools_for_audience
 from app.services.workspace import build_workspace_context, hybrid_search
+
+logger = logging.getLogger(__name__)
+
+# How many backing-chain steps one turn may fall through on rate limits.
+_MAX_FAILOVER_STEPS = 3
 
 
 def _sniff_image_mime(data: bytes) -> str | None:
@@ -81,6 +87,8 @@ class AgentLoop:
         user_role: str | None = None,
         surface: str = "",
         reply_mode: str | None = None,
+        model_override: str | None = None,
+        task_hint: str | None = None,
     ):
         self.session = session
         # mail | chat | document; resolved from the thread channel when None.
@@ -92,6 +100,10 @@ class AgentLoop:
         self.agent = agent
         self.run = run
         self.signal_id = signal_id
+        # Optional force from a flow stage / Agenda item / tool call.
+        self.model_override = model_override
+        # Hint for Automatic mode (lighter | heavier | free text).
+        self.task_hint = task_hint
         # Thread that tool calls act on. Differs from `signal_id` when the
         # conversation is an assistant session about another thread: streaming
         # stays in the session, while replies/tags/handover hit the real thread.
@@ -555,6 +567,99 @@ class AgentLoop:
             if definition:
                 self.tools = [*self.tools, definition]
 
+    async def _failover_after_rate_limit(self, exc: BaseException) -> bool:
+        """Park the rate-limited key and switch to the next backing, if any."""
+        from app.services import provider_health
+        from app.services.agent.llm import is_hard_failure, should_fail_over
+        from app.services.model_resolution import resolve_model_call
+
+        current = self.resolved_call
+        if current is None or not current.api_key or not should_fail_over(exc):
+            return False
+        provider_health.mark_rate_limited(
+            current.provider_type,
+            current.api_key,
+            current.model_id,
+            hard_quota=is_hard_failure(exc),
+        )
+        selected = await self._select_chat_model()
+        candidate = await resolve_model_call(
+            self.session,
+            self.tenant_id,
+            kind="chat",
+            model_slug=selected.slug,
+        )
+        if not candidate.api_key or (
+            candidate.api_key == current.api_key and candidate.model_id == current.model_id
+        ):
+            return False
+        logger.warning(
+            "Agent model failover after rate limit: %s/%s -> %s/%s",
+            current.provider_type,
+            current.model_id,
+            candidate.provider_type,
+            candidate.model_id,
+        )
+        self.resolved_call = candidate
+        self.llm = get_chat_provider(
+            candidate.provider_type, candidate.api_key, candidate.base_url or None
+        )
+        return True
+
+    async def _llm_chat(self, llm_messages: list[dict[str, Any]], max_tokens: int) -> dict[str, Any]:
+        for attempt in range(_MAX_FAILOVER_STEPS + 1):
+            try:
+                return await self.llm.chat(
+                    llm_messages,
+                    tools=self.tools,
+                    model=self.resolved_call.model_id if self.resolved_call else None,
+                    thinking_budget=self.thinking_budget,
+                    max_tokens=max_tokens,
+                )
+            except Exception as exc:
+                if attempt >= _MAX_FAILOVER_STEPS or not await self._failover_after_rate_limit(exc):
+                    raise
+        raise RuntimeError("unreachable")
+
+    async def _llm_stream(
+        self, llm_messages: list[dict[str, Any]], max_tokens: int
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        # Failover only before the first event; a half-streamed answer cannot restart.
+        for attempt in range(_MAX_FAILOVER_STEPS + 1):
+            started = False
+            try:
+                async for event in self.llm.stream_chat(
+                    llm_messages,
+                    tools=self.tools,
+                    model=self.resolved_call.model_id if self.resolved_call else None,
+                    thinking_budget=self.thinking_budget,
+                    max_tokens=max_tokens,
+                ):
+                    started = True
+                    yield event
+                return
+            except Exception as exc:
+                if (
+                    started
+                    or attempt >= _MAX_FAILOVER_STEPS
+                    or not await self._failover_after_rate_limit(exc)
+                ):
+                    raise
+
+    async def _select_chat_model(self):
+        """Product slug for this turn: item override > agent mode > workspace."""
+        from app.services.model_policy import ModelSelectionContext, resolve_chat_model_slug
+
+        return await resolve_chat_model_slug(
+            self.session,
+            self.tenant_id,
+            ModelSelectionContext(
+                override_slug=self.model_override,
+                agent_model=self.agent.model if self.agent else None,
+                task_hint=self.task_hint,
+            ),
+        )
+
     async def _prepare_chat(
         self,
         messages: list[dict[str, Any]],
@@ -563,7 +668,8 @@ class AgentLoop:
     ) -> tuple[list[dict[str, Any]], dict[str, int]]:
         from app.services.model_resolution import resolve_model_call
 
-        model_slug = self.agent.model if self.agent else None
+        selected = await self._select_chat_model()
+        model_slug = selected.slug
         if not getattr(self, "_module_tools_applied", False):
             from app.modules.catalog import enabled_module_slugs
             from app.services.module_agents import (
@@ -843,13 +949,7 @@ class AgentLoop:
             if await self._is_cancelled():
                 break
             await self._log_event("think", f"Loop {loop_idx + 1}")
-            response = await self.llm.chat(
-                llm_messages,
-                tools=self.tools,
-                model=self.resolved_call.model_id if self.resolved_call else None,
-                thinking_budget=self.thinking_budget,
-                max_tokens=max_tokens,
-            )
+            response = await self._llm_chat(llm_messages, max_tokens)
             tokens["input_tokens"] += response.get("usage", {}).get("input_tokens", 0)
             tokens["output_tokens"] += response.get("usage", {}).get("output_tokens", 0)
 
@@ -912,13 +1012,7 @@ class AgentLoop:
             stop_reason = "end_turn"
             streamed_text = False
 
-            async for event in self.llm.stream_chat(
-                llm_messages,
-                tools=self.tools,
-                model=self.resolved_call.model_id if self.resolved_call else None,
-                thinking_budget=self.thinking_budget,
-                max_tokens=max_tokens,
-            ):
+            async for event in self._llm_stream(llm_messages, max_tokens):
                 if await self._is_cancelled():
                     cancelled = True
                     break

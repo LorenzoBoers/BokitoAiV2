@@ -221,15 +221,23 @@ async def _conversation_counts_by_agent(
 CREATABLE_AGENT_ROLES = ("assistant", "communication", "builder", "orchestra")
 
 
-async def list_runtime_agents(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
+async def list_runtime_agents(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    include_inactive: bool = False,
+) -> list[dict[str, Any]]:
+    """List company agents. Deactivated (archived) rows are omitted unless requested."""
+    kinds = ("company", "archived") if include_inactive else ("company",)
+    filters = [
+        Agent.tenant_id == tenant_id,
+        Agent.acts_for_user.is_(False),
+        Agent.kind.in_(kinds),
+    ]
+    if not include_inactive:
+        filters.append(Agent.is_active.is_(True))
     result = await session.execute(
-        select(Agent)
-        .where(
-            Agent.tenant_id == tenant_id,
-            Agent.acts_for_user.is_(False),
-            Agent.kind.in_(("company", "archived")),
-        )
-        .order_by(Agent.updated_at.desc())
+        select(Agent).where(*filters).order_by(Agent.updated_at.desc())
     )
     agents = list(result.scalars().all())
     if not agents:
@@ -416,8 +424,8 @@ async def restore_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
 async def update_agent_model(
     session: AsyncSession, tenant_id: UUID, agent_id: UUID, model_slug: str
 ) -> dict[str, Any]:
-    """Set an agent's chat model, validated against tenant-enabled models."""
-    from app.services import provider_connections, tenant_model_catalog as tmc
+    """Set an agent's chat model or mode (inherit / automatic / managed / BYOK)."""
+    from app.services import model_policy, provider_connections, tenant_model_catalog as tmc
     from app.services.model_catalog import get_model
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
@@ -428,18 +436,48 @@ async def update_agent_model(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
+    mode = model_policy.normalize_agent_mode(model_slug)
+    if mode == model_policy.INHERIT:
+        agent.model = model_policy.INHERIT
+        agent.provider = "bokito"
+        agent.updated_at = datetime.utcnow()
+        session.add(agent)
+        await session.commit()
+        await session.refresh(agent)
+        return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
+    if mode == model_policy.AUTOMATIC:
+        agent.model = model_policy.AUTOMATIC
+        agent.provider = "bokito"
+        agent.updated_at = datetime.utcnow()
+        session.add(agent)
+        await session.commit()
+        await session.refresh(agent)
+        return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
+
     provider_type = ""
     if await tmc.tenant_has_models(session, tenant_id):
-        model = await tmc.get_model(session, tenant_id, model_slug)
+        model = await tmc.get_model(session, tenant_id, mode)
         if not model or model.kind != "chat" or not model.enabled:
-            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
-        conn = await provider_connections.get_connection(session, tenant_id, model.connection_id)
-        if not conn or not conn.enabled:
-            raise HTTPException(status_code=400, detail="Provider connection unavailable")
-        provider_type = conn.provider_type
-        slug = model.slug
+            # Managed Bokito tiers stay selectable even when BYOK is active.
+            catalog = await get_model(session, mode)
+            if (
+                catalog
+                and catalog.kind == "chat"
+                and catalog.enabled
+                and catalog.provider == "bokito"
+            ):
+                slug = catalog.slug
+                provider_type = "bokito"
+            else:
+                raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+        else:
+            conn = await provider_connections.get_connection(session, tenant_id, model.connection_id)
+            if not conn or not conn.enabled:
+                raise HTTPException(status_code=400, detail="Provider connection unavailable")
+            provider_type = conn.provider_type
+            slug = model.slug
     else:
-        model = await get_model(session, model_slug)
+        model = await get_model(session, mode)
         if not model or model.kind != "chat" or not model.enabled:
             raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
         prefs = await get_tenant_model_prefs(session, tenant_id)
@@ -473,8 +511,8 @@ async def create_agent(
     chat_access: str = "everyone",
 ) -> dict[str, Any]:
     """Create a company worker agent, with its model validated against tenant models."""
-    from app.services import provider_connections, tenant_model_catalog as tmc
-    from app.services.model_catalog import get_default_model, get_model
+    from app.services import model_policy, provider_connections, tenant_model_catalog as tmc
+    from app.services.model_catalog import get_model
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
     clean_name = (name or "").strip()
@@ -484,42 +522,40 @@ async def create_agent(
     if chat_access not in ("everyone", "selected", "nobody"):
         chat_access = "nobody"
 
+
     slug = ""
     provider_type = ""
     has_tenant = await tmc.tenant_has_models(session, tenant_id)
+    mode = model_policy.normalize_agent_mode(model_slug)
 
-    if has_tenant:
-        tenant_model = None
-        if model_slug:
-            tenant_model = await tmc.get_model(session, tenant_id, model_slug)
-            if not tenant_model or tenant_model.kind != "chat" or not tenant_model.enabled:
-                raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
-        else:
-            tenant_model = await tmc.get_default_model(session, tenant_id, "chat")
-        if tenant_model:
+    if mode in (model_policy.INHERIT, model_policy.AUTOMATIC) or not model_slug.strip():
+        # Empty create → follow workspace; explicit automatic stays on the agent.
+        slug = model_policy.AUTOMATIC if mode == model_policy.AUTOMATIC else model_policy.INHERIT
+        provider_type = "bokito"
+    elif has_tenant:
+        tenant_model = await tmc.get_model(session, tenant_id, mode)
+        if tenant_model and tenant_model.kind == "chat" and tenant_model.enabled:
             conn = await provider_connections.get_connection(
                 session, tenant_id, tenant_model.connection_id
             )
             if conn and conn.enabled:
                 slug = tenant_model.slug
                 provider_type = conn.provider_type
-    else:
-        prefs = await get_tenant_model_prefs(session, tenant_id)
-        model = None
-        if model_slug:
-            model = await get_model(session, model_slug)
+        if not slug:
+            model = await get_model(session, mode)
             if not model or model.kind != "chat" or not model.enabled:
                 raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
-            if not is_chat_model_allowed(prefs, model.slug):
-                raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
-        else:
-            if prefs.get("default_chat"):
-                model = await get_model(session, prefs["default_chat"])
-            if not model:
-                model = await get_default_model(session, "chat")
-        if model:
             slug = model.slug
             provider_type = model.provider
+    else:
+        prefs = await get_tenant_model_prefs(session, tenant_id)
+        model = await get_model(session, mode)
+        if not model or model.kind != "chat" or not model.enabled:
+            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+        if not is_chat_model_allowed(prefs, model.slug):
+            raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+        slug = model.slug
+        provider_type = model.provider
 
     agent = Agent(
         tenant_id=tenant_id,
@@ -536,10 +572,9 @@ async def create_agent(
         slug=_slugify(clean_name),
         runtime_status="standby",
         is_active=True,
+        model=slug or model_policy.INHERIT,
+        provider=provider_type or "bokito",
     )
-    if slug:
-        agent.model = slug
-        agent.provider = provider_type
     session.add(agent)
     await session.commit()
     await session.refresh(agent)

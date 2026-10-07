@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ChevronDown, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { FilterChip, FilterChipRow } from '../ui/filter-chip'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -335,26 +336,17 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               title={t('channelsPage.email.smtp.providerTitle')}
               subtitle={t('channelsPage.email.smtp.providerHint')}
             />
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('channelsPage.email.smtp.providerTitle')}>
-              {PRESETS.map((preset) => {
-                const selected = presetId === preset.id
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => applyPreset(preset.id)}
-                    className={cn(
-                      'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                      selected
-                        ? 'border-accent/50 bg-accent/15 text-text-heading'
-                        : 'border-border/50 bg-bg-elevated/40 text-text-secondary hover:border-border hover:bg-bg-hover',
-                    )}
-                  >
-                    {t(`channelsPage.email.smtp.presets.${preset.id}`)}
-                  </button>
-                )
-              })}
-            </div>
+            <FilterChipRow role="group" aria-label={t('channelsPage.email.smtp.providerTitle')}>
+              {PRESETS.map((preset) => (
+                <FilterChip
+                  key={preset.id}
+                  active={presetId === preset.id}
+                  onClick={() => applyPreset(preset.id)}
+                >
+                  {t(`channelsPage.email.smtp.presets.${preset.id}`)}
+                </FilterChip>
+              ))}
+            </FilterChipRow>
           </section>
 
           <div className="space-y-3">
@@ -414,7 +406,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               </div>
             </ServerCard>
 
-            <label className="flex items-center gap-2 rounded-lg border border-border/45 bg-bg-elevated/20 px-3 py-2.5 text-sm text-text-secondary">
+            <label className="flex items-center gap-2 rounded-lg border border-border/50 bg-bg-elevated px-3 py-2.5 text-sm text-text-secondary">
               <input
                 type="checkbox"
                 checked={sameHost}
@@ -534,7 +526,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
           </div>
         </>
       ) : (
-        <section className="rounded-lg border border-border/60 bg-bg-elevated/30 p-3.5">
+        <section className="rounded-lg border border-border/60 bg-bg-elevated p-3.5">
           <header className="mb-2 flex items-center gap-2">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-2xs font-semibold text-accent">
               3

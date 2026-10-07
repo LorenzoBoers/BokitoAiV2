@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Hammer } from 'lucide-react'
 import { AiToolProviderRow } from './AiToolProviderRow'
+import { Button } from '../ui/button'
+import { Callout } from '../ui/callout'
+import { Input } from '../ui/input'
 import { useAuth } from '../../context/AuthContext'
 import { WORKBENCH_PROVIDERS } from '../../lib/ai-tool-providers'
 import {
@@ -101,7 +104,7 @@ export function WorkbenchSection() {
         {t('developersPage.workbench.title')}
       </h2>
       <p className="mt-1 text-sm leading-relaxed text-text-secondary">{t('developersPage.workbench.body')}</p>
-      {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
+      {error ? <Callout tone="error" title={error} className="mt-2" /> : null}
       <div className="mt-4 space-y-2">
         {WORKBENCH_PROVIDERS.map((provider) => {
           const base = `developersPage.workbench.providers.${provider.id}`
@@ -134,10 +137,10 @@ export function WorkbenchSection() {
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-text-secondary">
                     {t('developersPage.workbench.connect.apiKey')}
-                    <input
+                    <Input
                       type="password"
                       autoComplete="off"
-                      className="mt-1 w-full rounded-md border border-border bg-bg-surface px-3 py-2 text-sm text-text-heading"
+                      className="mt-1"
                       value={apiKey[provider.id] || ''}
                       onChange={(e) =>
                         setApiKey((prev) => ({ ...prev, [provider.id]: e.target.value }))
@@ -148,9 +151,9 @@ export function WorkbenchSection() {
                   {backend === 'devin' ? (
                     <label className="block text-xs font-medium text-text-secondary">
                       {t('developersPage.workbench.connect.orgId')}
-                      <input
+                      <Input
                         type="text"
-                        className="mt-1 w-full rounded-md border border-border bg-bg-surface px-3 py-2 text-sm text-text-heading"
+                        className="mt-1"
                         value={orgId}
                         onChange={(e) => setOrgId(e.target.value)}
                         data-testid="workbench-org-devin"
@@ -160,19 +163,19 @@ export function WorkbenchSection() {
                   {backend === 'claude_managed' ? (
                     <label className="block text-xs font-medium text-text-secondary">
                       {t('developersPage.workbench.connect.gitToken')}
-                      <input
+                      <Input
                         type="password"
                         autoComplete="off"
-                        className="mt-1 w-full rounded-md border border-border bg-bg-surface px-3 py-2 text-sm text-text-heading"
+                        className="mt-1"
                         value={gitToken}
                         onChange={(e) => setGitToken(e.target.value)}
                         data-testid="workbench-git-claudeManaged"
                       />
                     </label>
                   ) : null}
-                  <button
+                  <Button
                     type="button"
-                    className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    size="sm"
                     disabled={busy === provider.id}
                     onClick={() => void onConnect(provider.id)}
                     data-testid={`workbench-connect-${provider.id}`}
@@ -180,7 +183,7 @@ export function WorkbenchSection() {
                     {busy === provider.id
                       ? t('developersPage.workbench.connect.saving')
                       : t('developersPage.workbench.connect.submit')}
-                  </button>
+                  </Button>
                 </div>
               ) : null}
 
@@ -189,15 +192,16 @@ export function WorkbenchSection() {
                   <p className="text-xs text-text-muted">
                     {t('developersPage.workbench.connect.activeHint')}
                   </p>
-                  <button
+                  <Button
                     type="button"
-                    className="rounded-md border border-border px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-surface-hover disabled:opacity-50"
+                    size="sm"
+                    variant="secondary"
                     disabled={busy === provider.id}
                     onClick={() => void onDisconnect(provider.id)}
                     data-testid={`workbench-disconnect-${provider.id}`}
                   >
                     {t('developersPage.workbench.connect.disconnect')}
-                  </button>
+                  </Button>
                 </div>
               ) : null}
 

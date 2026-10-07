@@ -358,6 +358,7 @@
     "continueLast": "Continue reading",
     "continueLastHint": "Pick up {{title}}",
     "sectionCta": "{{count}} articles",
+    "language": "Language",
     "sections": {
       "getting-started": {
         "title": "Getting started",
@@ -436,7 +437,7 @@
       "usage": "Usage",
       "workstreams": "Flows",
       "activity": "Activity",
-      "categories": "Action tags"
+      "categories": "Tags"
     },
     "cockpit": {
       "bannerTitle": "Overview is the pulse of the workspace",
@@ -1648,7 +1649,6 @@
     "syncedNone": "Nothing new to sync",
     "couldNotSync": "Could not sync.",
     "primary": "Primary",
-    "neverSynced": "Never synced",
     "history": "History",
     "historyAria": "How far back to sync mail history",
     "historyAdvancedHint": "Applies to future backfills after reconnect. Day-to-day sync runs automatically.",
@@ -1695,8 +1695,30 @@
     "resumeTitle": "Channel is paused",
     "resumeHint": "Resume to receive and send on this channel again.",
     "resume": "Resume",
-    "removeTitleShort": "Remove channel",
-    "removeHint": "Disconnects this channel. Existing conversations stay in Communication.",
+    "archiveTitle": "Archive channel",
+    "archiveHint": "Stops sync and sending and signs out of the account. Conversations and access stay manageable.",
+    "archive": "Archive",
+    "archiveConfirmTitle": "Archive channel?",
+    "archiveConfirmBody": "{{name}} stops syncing and sending, and Bokito forgets its sign-in. Its conversations stay in Communication with the same access. You can restore the channel or delete it with all its data later.",
+    "archived": "Channel archived",
+    "archiveError": "Channel could not be archived.",
+    "archivedNote_one": "This channel is archived. Nothing syncs or sends. Its {{count}} conversation stays in Communication and follows the access below.",
+    "archivedNote_other": "This channel is archived. Nothing syncs or sends. Its {{count}} conversations stay in Communication and follow the access below.",
+    "restoreTitle": "Restore channel",
+    "restoreHint": "Brings the channel back as paused. Reconnect or resume it to receive again.",
+    "restore": "Restore",
+    "restored": "Channel restored",
+    "restoreError": "Channel could not be restored.",
+    "deleteTitle": "Delete with all data",
+    "deleteHint": "Deletes the channel and every conversation it brought in. This cannot be undone.",
+    "delete": "Delete permanently",
+    "deleteConfirmTitle": "Delete channel and conversations?",
+    "deleteConfirmBody_one": "This deletes {{name}} and its {{count}} conversation, including messages and attachments. It does not go to the Bin and cannot be undone.",
+    "deleteConfirmBody_other": "This deletes {{name}} and its {{count}} conversations, including messages and attachments. They do not go to the Bin and cannot be undone.",
+    "deleteConfirmType": "Type {{name}} to confirm.",
+    "deleted_one": "Channel deleted with {{count}} conversation",
+    "deleted_other": "Channel deleted with {{count}} conversations",
+    "deleteError": "Channel could not be deleted.",
     "reconnect": "Reconnect",
     "folders": "Folders",
     "signature": "Signature",
@@ -1709,7 +1731,6 @@
     "renameHint": "This name appears in Communication and on the reply button.",
     "renameSave": "Save name",
     "renameSaved": "Channel renamed",
-    "remove": "Remove",
     "close": "Close",
     "kind": {
       "email_mailbox": "Mailbox",
@@ -1850,15 +1871,9 @@
     "connect": "Connect",
     "connecting": "Opening sign-in...",
     "cancel": "Cancel",
-    "removeTitle": "Remove channel?",
-    "removeBody": "Are you sure you want to remove {{email}}? Existing conversations stay, but nothing new arrives here. This cannot be undone.",
-    "thisChannel": "this channel",
     "thisMailbox": "this mailbox",
-    "removing": "Removing...",
     "foldersTitle": "Select folders to sync",
-    "foldersBody": "Choose which folders of {{email}} are synced into Communication.",
     "loadingFolders": "Loading folders...",
-    "noFolders": "No folders found.",
     "saving": "Saving...",
     "save": "Save",
     "bindings": {
@@ -1905,7 +1920,6 @@
     "routingSaved": "Routing rules saved",
     "routingLoadError": "Could not load routing rules.",
     "routingSaveError": "Could not save routing rules.",
-    "removeError": "Channel could not be removed.",
     "connectError": "Could not connect mailbox.",
     "noAuthorizeUrl": "No authorize URL received from the server.",
     "foldersLoadError": "Could not load folders.",
@@ -2242,7 +2256,7 @@
     "newReminder": "New reminder",
     "checkupsDue": "Tasks due",
     "newFlow": "New flow",
-    "openActionTags": "Open action tags",
+    "openActionTags": "Open tags",
     "newConversation": "New conversation"
   },
   "gateway": {
@@ -2597,7 +2611,7 @@
       "groupChatHint": "Open this team's group chat"
     },
     "hashtags": {
-      "empty": "Pin a hashtag or show an action tag",
+      "empty": "Pin a tag or create a flow",
       "settingsAria": "Manage tags"
     },
     "projects": {
@@ -3628,8 +3642,11 @@
       "filters": {
         "all": "All",
         "working": "Working",
+        "deactivated": "Deactivated",
         "default": "Default"
       },
+      "emptyDeactivated": "No deactivated agents.",
+      "relatedWorkforce": "Workforce",
       "readonlyBanner": "You can read this agent. Ask an admin to change settings.",
       "moreActions": "More actions",
       "duplicate": "Duplicate",
@@ -3719,7 +3736,13 @@
       "toolsLoading": "Loading tools…",
       "toolsSaveError": "Could not save tools.",
       "modelTitle": "Model and runtime",
-      "modelBody": "The model this agent uses for reasoning and chat. Maki is lighter, Bokito AI is the default, Kong is heavier.",
+      "modelBody": "Default mode for this agent. Workspace default follows Settings → Models. Automatic lets Bokito pick a tier. A pinned model always wins over Automatic. Per-item overrides (flow stage, Agenda task) can force a model later.",
+      "modelMode": {
+        "inherit": "Workspace default",
+        "inheritHint": "follows Settings → Models",
+        "automatic": "Automatic",
+        "automaticHint": "Bokito picks the tier"
+      },
       "modelTier": {
         "lighter": "lighter, fewer tokens",
         "standard": "standard",
@@ -3754,14 +3777,14 @@
       "signatureSaveError": "Could not save signature settings",
       "signatureSave": "Save",
       "signatureTextLabel": "Signature text",
-      "signatureTextHint": "Plain text only. Line breaks are kept. When mailing as the agent, a short Bokito AI line is always added underneath.",
+      "signatureTextHint": "Plain text only. Line breaks are kept. When mailing as the agent, a short Bokito line is always added underneath.",
       "signatureTextPlaceholder": "{{name}}\nSupport",
       "signaturePreview": "Preview",
-      "signatureDisclaimerNote": "The powered-by Bokito AI line is always included when this agent sends as itself.",
+      "signatureDisclaimerNote": "The powered-by Bokito line is always included when this agent sends as itself.",
       "replySendAsLabel": "Default send as",
       "replySendAsHint": "Used on suggested replies for this agent when you have not picked a send-as choice yet.",
       "replySendAsAgent": "As this agent",
-      "replySendAsAgentHint": "Signs with this agent’s name and the Bokito AI line.",
+      "replySendAsAgentHint": "Signs with this agent’s name and the Bokito line.",
       "replySendAsUser": "As the approving teammate",
       "replySendAsUserHint": "Impersonates the person who approves — their signature is used.",
       "signatureEditorContext": "for agent {{name}}",
@@ -4705,7 +4728,7 @@
       "companies": "Companies",
       "conversations": "Conversations",
       "importsExports": "Imports & exports",
-      "categories": "Action tags"
+      "categories": "Tags"
     },
     "hints": {
       "profileSecurity": "Name, photo, password and email signature",
@@ -4729,8 +4752,8 @@
       "bin": "Restore or permanently delete items for 60 days",
       "reports": "Daily scan, attention and usage",
       "developers": "AI tools, API tokens and webhooks",
-      "models": "Bokito AI default and optional own models",
-      "categories": "Action tags, free tags, and how they get filed"
+      "models": "Bokito default and optional own models",
+      "categories": "Tags with a gray #; open the flow to configure an action tag"
     }
   },
   "helpHub": {
@@ -4792,12 +4815,12 @@
     "llmBodiesHint": "When off, inbox AI drafts that need full bodies stay disabled. Metadata-only flows may still run.",
     "region": {
       "title": "Data processing",
-      "body": "Bokito AI runs on EU-hosted infrastructure by default. Optional non-EU platform models stay off until an owner or admin allows them. Your own provider keys are not affected.",
+      "body": "Bokito runs on EU-hosted infrastructure by default. Optional non-EU platform models stay off until an owner or admin allows them. Your own provider keys are not affected.",
       "euShare30d": "EU-hosted, last 30 days",
       "allowUs": "Allow non-EU platform models",
-      "allowUsHint": "When off, agents that point at a non-EU platform model run on Bokito AI instead. Turn on only when your data processing agreement covers that transfer.",
+      "allowUsHint": "When off, agents that point at a non-EU platform model run on Bokito instead. Turn on only when your data processing agreement covers that transfer.",
       "inUseTitle": "Non-EU models selected by active agents",
-      "inUseBlockedHint": "These agents currently run on Bokito AI because non-EU platform models are blocked.",
+      "inUseBlockedHint": "These agents currently run on Bokito because non-EU platform models are blocked.",
       "embeddingNote": "Knowledge embeddings still run on a US-hosted model; an EU alternative follows with a re-indexing step."
     },
     "dsarTitle": "Data subject requests",
@@ -4861,7 +4884,7 @@
     "retention": "Default 365-day retention for messages and calendar events; configurable per workspace.",
     "dsar": "Owners and admins can export or scrub personal data for a subject email.",
     "ai": "Chat surfaces disclose AI use; humans can take over. Message-body LLM use is workspace-togglable.",
-    "dataRegion": "Bokito AI processes conversations on EU-hosted models by default; US-hosted platform models stay off until an owner or admin allows them, and every model shows its data region.",
+    "dataRegion": "Bokito processes conversations on EU-hosted models by default; US-hosted platform models stay off until an owner or admin allows them, and every model shows its data region.",
     "docsTitle": "Documents",
     "operatorGuide": "Operator guide: Privacy and security",
     "securityDoc": "Security summary (draft)",
@@ -5629,12 +5652,12 @@
     "noKey": "No key",
     "keySet": "Key set ····{{last4}}",
     "pageTitle": "Models",
-    "pageSubtitle": "Choose Maki, Bokito AI or Kong for agents. Add your own models when your plan includes them.",
+    "pageSubtitle": "Set the workspace Bokito AI default (or Automatic), then pick a mode per agent. Add your own models when your plan includes them.",
     "saved": "Saved",
     "ownProvidersTitle": "Your own providers",
-    "ownProvidersBody": "Optional. Models enabled on your own keys take precedence over Bokito AI; usage is then billed by the provider, not through Bokito. Keys are encrypted; only the last four characters are shown.",
+    "ownProvidersBody": "Optional. Models enabled on your own keys take precedence over Bokito; usage is then billed by the provider, not through Bokito. Keys are encrypted; only the last four characters are shown.",
     "addProvider": "Add provider",
-    "noProviders": "No own providers configured. Your workspace runs on Bokito AI.",
+    "noProviders": "No own providers configured. Your workspace runs on Bokito.",
     "providerType": "Provider",
     "labelOptional": "Label (optional)",
     "labelOptionalCustom": "Provider name (optional)",
@@ -5661,12 +5684,33 @@
     "openUsage": "View usage",
     "openGovern": "Open Govern policy",
     "pricingInOut": "in {{in}} / million tokens · out {{out}} / million tokens",
+    "specs": {
+      "context": "{{size}} context",
+      "contextK": "{{count}}K tokens",
+      "contextM": "{{count}}M tokens",
+      "contextTokens": "{{count}} tokens",
+      "tools": "Tools",
+      "vision": "Vision"
+    },
     "removeModelConfirm": "Remove model \"{{name}}\"?",
     "managed": {
-      "title": "Managed models",
+      "title": "Bokito AI models",
       "body": "Managed by Bokito. Usage is metered per token for this workspace and counts toward your budget.",
-      "bodyLearn": "Three tiers for everyday, standard and heavy work. Agents use Bokito AI by default unless you pick another tier or opt into custom models.",
-      "bodyDefault": "Three managed models for this workspace. Each card shows the price per 1 million tokens. Lighter uses fewer tokens; heavier uses more. Agents default to Bokito AI unless you pick another tier or add your own model below.",
+      "bodyLearn": "Three tiers plus Automatic. Set the workspace default here; agents that follow workspace default use it. You can still pin a tier or Automatic on each agent.",
+      "bodyDefault": "Three Bokito AI models for this workspace, plus Automatic. Click a card to set the workspace default — agents without their own mode fall back here. Each model card shows context window, tools and vision, and the price per 1 million tokens.",
+      "workspaceDefaultHint": "Workspace default applies when an agent is set to Workspace default. Item-level overrides (when configured) beat both.",
+      "workspaceDefault": "Workspace default",
+      "setAsDefault": "Set as default",
+      "usp": {
+        "eu": "EU-hosted",
+        "current": "Always current",
+        "privacy": "Never trains on your data",
+        "competitive": "Keeps pace with leading models"
+      },
+      "automatic": {
+        "title": "Automatic",
+        "body": "Bokito picks Maki, Bokito or Kong per action from the task. Agents on Automatic use this path; agents on Workspace default follow it only when this card is selected."
+      },
       "active": "Active",
       "standby": "Standby",
       "notConfigured": "Not configured",
@@ -5683,9 +5727,9 @@
       "fallbackNotice": "The preferred path is temporarily unavailable, so this model runs on a backup path in the {{actual}}. We switch back to the {{intended}} automatically.",
       "fallbackNoticeSoft": "A managed model is temporarily using a backup path. It switches back automatically.",
       "tiers": {
-        "defaultBadge": "Default",
+        "defaultBadge": "Workspace default",
         "lighterBody": "Lighter — good for everyday tasks. Uses fewer tokens, so it costs less.",
-        "standardBody": "Standard — balanced for most agent work. Default for new agents.",
+        "standardBody": "Standard — balanced for most agent work.",
         "heavierBody": "Heavier — for long or complex tasks. Uses more tokens."
       }
     },
@@ -5764,6 +5808,8 @@
     "colRoleOrCeiling": "Role / ceiling",
     "colTeams": "Teams",
     "colOpen": "Open",
+    "colLastActive": "Last active",
+    "lastActiveNever": "Never",
     "colStatus": "Status",
     "colInvitedBy": "Invited by",
     "colDate": "Date",
@@ -5898,6 +5944,7 @@
   "teamPage": {
     "loadError": "Could not load the team.",
     "saveError": "Could not save.",
+    "relatedAgents": "Agents",
     "away": "Away",
     "sections": {
       "teams": "Teams",
@@ -5976,13 +6023,13 @@
     "title": "Channel access",
     "description": "Use the toggles to choose who sees this channel and who may handle it. Handle means reply, take conversations and receive them; View means read only. Agents without access do not act on this channel.",
     "hint": "Who sees and handles this channel",
-    "adminsNote": "Owners and admins always handle every channel."
+    "adminsNote": "Owners and admins always handle every channel; their toggles stay on and cannot be changed."
   },
   "connectionAccess": {
     "title": "Connection access",
     "description": "Use the toggles to choose who may use this connection and who may manage it. Use means agents and people can run its tools; Manage means verify, rename, link projects and change access. Without access an agent cannot reach the connection.",
     "hint": "Who uses and manages this connection",
-    "adminsNote": "Owners and admins always manage every connection."
+    "adminsNote": "Owners and admins always manage every connection; their toggles stay on and cannot be changed."
   },
   "access": {
     "default": "All people and agents",
@@ -6000,6 +6047,8 @@
       "manage": "Manage"
     },
     "inheritHint": "Teams cover their members. A person or agent with no own grant still follows All people or All agents.",
+    "deactivated": "Deactivated",
+    "deactivatedHint": "Deactivated people and agents cannot get new access. Save to remove leftover grants.",
     "reset": "Back to default",
     "loadError": "Could not load people and agents.",
     "saveError": "Could not update access."
@@ -6060,9 +6109,8 @@
   },
   "tagRegistry": {
     "title": "Tags",
-    "description": "Free tags group conversations; pin one to give it a row in Communication. A tag with a flow is an action tag, marked with an accent #. Agents and inbox rules only use tags from this list.",
+    "description": "Add a tag, then create a flow to make it an action tag. Pin for a row in Communication. Turn AI auto-tag off when triage should leave this tag alone.",
     "newTag": "New tag",
-    "newActionTag": "New action tag",
     "namePlaceholder": "tag",
     "descriptionPlaceholder": "When to use it (agents read this)",
     "empty": "No tags yet. Tag a conversation or add one here.",
@@ -6077,7 +6125,8 @@
     "saveFailed": "Could not save the tag.",
     "pin": "Pin to Communication",
     "unpin": "Unpin from Communication",
-    "showInNav": "In Communication",
+    "aiAutoOn": "AI may auto-tag with this",
+    "aiAutoOff": "AI will not auto-tag with this",
     "promote": "Create flow",
     "openFlow": "Open flow",
     "promoteTitle": "Create a flow for",
@@ -6137,17 +6186,17 @@
   },
   "communicationTags": {
     "title": "Communication rail",
-    "description": "Every row in the Communication rail has the same sub-views: For you, Open, Unassigned and Closed. Pin tags and show action tags under Settings, Action tags.",
+    "description": "Every row in the Communication rail has the same sub-views: For you, Open, Unassigned and Closed. Pin tags under Settings, Tags.",
     "defaultTitle": "Default sub-view",
     "defaultDescription": "The view a rail row opens on when you click it. Set a different one per row below.",
     "useGlobal": "Default ({{queue}})",
     "saveFailed": "Could not save the Communication settings."
   },
   "categoriesPage": {
-    "intro": "An action tag is a tag that starts a flow. Every inbound message is read against this list: a certain match files a ticket, an unsure match asks for a confirm on the thread, and anything new lands in the backlog below.",
+    "intro": "Tags group conversations. Add a tag, then create a flow to make an action tag. Every inbound message is read against tags with AI auto-tag on — a certain match files a ticket, an unsure match asks for a confirm, and anything new lands in the backlog below.",
     "loading": "Loading...",
-    "loadError": "Could not load the action tags.",
-    "saveError": "Could not update the action tag.",
+    "loadError": "Could not load the tags.",
+    "saveError": "Could not update the tag.",
     "createError": "Could not create the action tag.",
     "policyError": "Could not save the policy.",
     "backlogError": "Could not update the backlog.",

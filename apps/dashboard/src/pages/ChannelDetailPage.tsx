@@ -17,9 +17,11 @@ import { ChannelWidgetEditor } from './MessengerSettings'
 import { useAuth } from '../context/AuthContext'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import {
+  archiveChannel,
   deleteChannel,
   getChannel,
   patchChannel,
+  restoreChannel,
   syncChannel,
   type ChannelRow,
 } from '../lib/channels-api'
@@ -56,8 +58,9 @@ export default function ChannelDetailPage() {
 
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameDraft, setRenameDraft] = useState('')
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [confirm, setConfirm] = useState<'archive' | 'delete' | null>(null)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [deleteDraft, setDeleteDraft] = useState('')
 
   const [signatureTarget, setSignatureTarget] = useState<MailboxTarget | null>(null)
   const [signatureHtml, setSignatureHtml] = useState('')
@@ -148,9 +151,25 @@ export default function ChannelDetailPage() {
         setRenameDraft(channel.displayName || channel.label || '')
         setRenameOpen(true)
       },
-      remove: () => {
-        setDeleteError(null)
-        setDeleteOpen(true)
+      archive: () => {
+        setConfirmError(null)
+        setConfirm('archive')
+      },
+      restore: (channel) => {
+        if (!token) return
+        setBusy(true)
+        void restoreChannel(token, channel.id)
+          .then((next) => {
+            apply(next)
+            toast.success(t('channelsPage.restored'))
+          })
+          .catch((err) => toast.error(formatApiErrorMessage(err, t('channelsPage.restoreError'))))
+          .finally(() => setBusy(false))
+      },
+      deletePermanently: () => {
+        setConfirmError(null)
+        setDeleteDraft('')
+        setConfirm('delete')
       },
       setSyncWindow: (channel, days) => {
         if (!token) return
@@ -208,7 +227,33 @@ export default function ChannelDetailPage() {
     setSearchParams(params, { replace: true })
   }
 
-  const widgetSectionValue = widgetSection(tab)
+  const archived = row?.state === 'archived'
+  const widgetSectionValue = archived ? null : widgetSection(tab)
+  const deleteConfirmText = row ? row.address || row.label : ''
+
+  const runConfirm = () => {
+    if (!token || !row || !confirm) return
+    setBusy(true)
+    setConfirmError(null)
+    if (confirm === 'archive') {
+      void archiveChannel(token, row.id)
+        .then((next) => {
+          apply(next)
+          setConfirm(null)
+          toast.success(t('channelsPage.archived'))
+        })
+        .catch((err) => setConfirmError(formatApiErrorMessage(err, t('channelsPage.archiveError'))))
+        .finally(() => setBusy(false))
+      return
+    }
+    void deleteChannel(token, row.id)
+      .then((count) => {
+        toast.success(t('channelsPage.deleted', { count }))
+        navigate('/settings/channels')
+      })
+      .catch((err) => setConfirmError(formatApiErrorMessage(err, t('channelsPage.deleteError'))))
+      .finally(() => setBusy(false))
+  }
 
   if (loading) {
     return (
@@ -247,7 +292,7 @@ export default function ChannelDetailPage() {
         <PageGuideLink page={row.kind === 'widget' ? 'widget' : 'channels'} compact />
       </div>
 
-      {row.kind === 'widget' ? (
+      {row.kind === 'widget' && !archived ? (
         <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 p-0.5">
           {WIDGET_TABS.map((value) => (
             <button
@@ -329,31 +374,49 @@ export default function ChannelDetailPage() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <Dialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog.Root open={confirm != null} onOpenChange={(open) => (!open ? setConfirm(null) : null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[420px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
+          <Dialog.Content
+            className="fixed left-1/2 top-1/2 z-50 w-[440px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-overlay"
+            data-testid="channel-confirm-dialog"
+          >
             <Dialog.Title className="mb-2 text-lg font-semibold text-text-heading">
-              {t('channelsPage.removeTitle')}
+              {confirm === 'delete' ? t('channelsPage.deleteConfirmTitle') : t('channelsPage.archiveConfirmTitle')}
             </Dialog.Title>
             <p className="mb-4 text-sm text-text-secondary">
-              {t('channelsPage.removeBody', { email: row.address || row.label })}
+              {confirm === 'delete'
+                ? t('channelsPage.deleteConfirmBody', {
+                    name: deleteConfirmText,
+                    count: row.conversationCount ?? 0,
+                  })
+                : t('channelsPage.archiveConfirmBody', { name: deleteConfirmText })}
             </p>
-            {deleteError ? <p className="mb-3 text-xs text-status-error">{deleteError}</p> : null}
+            {confirm === 'delete' ? (
+              <label className="mb-4 block space-y-1.5">
+                <span className="text-xs text-text-muted">
+                  {t('channelsPage.deleteConfirmType', { name: deleteConfirmText })}
+                </span>
+                <input
+                  value={deleteDraft}
+                  onChange={(e) => setDeleteDraft(e.target.value)}
+                  className="w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm"
+                  autoComplete="off"
+                  data-testid="channel-delete-confirm-input"
+                />
+              </label>
+            ) : null}
+            {confirmError ? <p className="mb-3 text-xs text-status-error">{confirmError}</p> : null}
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDeleteOpen(false)}>
+              <Button variant="secondary" onClick={() => setConfirm(null)}>
                 {t('channelsPage.cancel')}
               </Button>
               <Button
-                variant="destructive"
-                onClick={() => {
-                  if (!token) return
-                  void deleteChannel(token, row.id)
-                    .then(() => navigate('/settings/channels'))
-                    .catch((err) => setDeleteError(formatApiErrorMessage(err, t('channelsPage.removeError'))))
-                }}
+                variant={confirm === 'delete' ? 'destructive' : 'default'}
+                disabled={busy || (confirm === 'delete' && deleteDraft.trim() !== deleteConfirmText)}
+                onClick={runConfirm}
               >
-                {t('channelsPage.remove')}
+                {confirm === 'delete' ? t('channelsPage.delete') : t('channelsPage.archive')}
               </Button>
             </div>
           </Dialog.Content>

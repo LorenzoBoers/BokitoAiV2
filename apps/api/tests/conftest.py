@@ -37,6 +37,17 @@ def _reset_rate_limits():
     reset_rate_limits()
 
 
+@pytest.fixture(autouse=True)
+def _reset_model_routing():
+    from app.services import bokito_models, provider_health
+
+    bokito_models.reset_route_cache()
+    provider_health.reset()
+    yield
+    bokito_models.reset_route_cache()
+    provider_health.reset()
+
+
 @pytest.fixture
 def unparked_channels(monkeypatch: pytest.MonkeyPatch):
     """Bring every channel back on the product surface for one test.

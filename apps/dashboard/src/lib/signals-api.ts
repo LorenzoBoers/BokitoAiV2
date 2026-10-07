@@ -382,7 +382,7 @@ export async function patchSignalThread(
 export async function bulkUpdateSignalThreads(
   token: string,
   signalIds: string[],
-  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'snooze',
+  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'snooze' | 'trash',
   assigneeId?: number,
   extra?: { snoozedUntil?: string | null },
 ): Promise<number> {
@@ -720,8 +720,10 @@ export type SignalTag = {
   workstreamName: string | null
   /** Free tag shown in the Communication rail. */
   pinned: boolean
-  /** Category shown in the Communication rail. */
+  /** Action tag shown in the Communication rail. */
   showInNav: boolean
+  /** When false, triage does not offer or apply this tag. */
+  aiAutoTag: boolean
 }
 
 function normalizeSignalTag(raw: unknown): SignalTag | null {
@@ -738,6 +740,7 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     workstreamName: typeof row.workstream_name === 'string' ? row.workstream_name : null,
     pinned: row.pinned === true,
     showInNav: row.show_in_nav === true,
+    aiAutoTag: row.ai_auto_tag !== false,
   }
 }
 
@@ -764,7 +767,13 @@ export async function createSignalTag(
 export async function updateSignalTag(
   token: string,
   tagId: string,
-  patch: { name?: string; description?: string; pinned?: boolean; show_in_nav?: boolean },
+  patch: {
+    name?: string
+    description?: string
+    pinned?: boolean
+    show_in_nav?: boolean
+    ai_auto_tag?: boolean
+  },
 ): Promise<SignalTag | null> {
   const payload = await apiPatch<unknown>(appRoutes.signals.tag(tagId), patch, token)
   return normalizeSignalTag(payload)

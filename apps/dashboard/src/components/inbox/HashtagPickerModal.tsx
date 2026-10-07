@@ -231,6 +231,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
           workstreamName: created.workstream_name ?? created.name,
           pinned: created.pinned,
           showInNav: created.show_in_nav,
+          aiAutoTag: true,
         },
       ])
       setBusy(false)
@@ -462,7 +463,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                               : t('tags.freeHashtag')
                         }
                         className={cn(
-                          'inline-flex h-7 max-w-full items-center rounded-full border px-2.5 text-xs transition-colors disabled:cursor-default',
+                          'inline-flex h-7 max-w-full items-center rounded-lg border px-2.5 text-xs transition-colors disabled:cursor-default',
                           row.isCategory
                             ? 'border-accent/40 bg-accent/10 text-text-heading hover:border-accent/60 hover:bg-accent/15'
                             : 'border-border/70 bg-bg-subtle/50 text-text-heading hover:border-border hover:bg-bg-hover/70',
@@ -479,7 +480,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                       disabled={busy}
                       onClick={() => setPhase('create')}
                       title={t('tags.applyFree')}
-                      className="inline-flex h-7 max-w-full items-center gap-1 rounded-full border border-dashed border-border/80 bg-transparent px-2.5 text-xs text-text-heading transition-colors hover:border-accent/50 hover:bg-accent/5 disabled:opacity-40"
+                      className="inline-flex h-7 max-w-full items-center gap-1 rounded-lg border border-dashed border-border/80 bg-transparent px-2.5 text-xs text-text-heading transition-colors hover:border-accent/50 hover:bg-accent/5 disabled:opacity-40"
                     >
                       <HashtagMark />
                       <span className="truncate">{normalized}</span>

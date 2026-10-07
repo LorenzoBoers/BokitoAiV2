@@ -195,7 +195,7 @@ function SessionTranscript({
           onUseAsReply={onUseAsReply}
         />
       ))}
-      {showLive && liveTurn ? <AgentTurnLive turn={liveTurn} /> : null}
+      {showLive && liveTurn ? <AgentTurnLive turn={liveTurn} avatar={agentAvatar} /> : null}
     </div>
   )
 }

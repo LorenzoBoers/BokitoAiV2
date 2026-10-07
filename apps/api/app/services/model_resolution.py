@@ -30,12 +30,18 @@ from app.config import get_settings
 from app.models.usage import UsageLedger
 from app.services import bokito_models
 from app.services import model_catalog as catalog_svc
-from app.services import platform_secrets, provider_connections, tenant_model_catalog, tenant_secrets
+from app.services import (
+    platform_secrets,
+    provider_connections,
+    provider_health,
+    tenant_model_catalog,
+    tenant_secrets,
+)
 from app.services.model_regions import REGION_EU, infer_provider, provider_region
 
 settings = get_settings()
 
-_FALLBACK_CHAT = ("bokito-ai-3-1", "anthropic", "claude-sonnet-5-5")
+_FALLBACK_CHAT = ("bokito-ai-3-1", "mistral", "mistral-medium-latest")
 _FALLBACK_EMBEDDING = ("text-embedding-3-small", "openai", "text-embedding-3-small")
 
 # Kept for callers that import the private helper.
@@ -94,6 +100,11 @@ def _env_key(provider: str) -> str:
     if provider in ("openai", "openai_compatible"):
         return settings.openai_api_key or ""
     return ""
+
+
+async def platform_key_for(session: AsyncSession, provider: str) -> str:
+    """Platform (Bokito) key for ``provider``: stored secret first, then env."""
+    return await platform_secrets.get_platform_secret(session, provider) or _env_key(provider)
 
 
 async def _resolve_platform_key(
@@ -171,6 +182,7 @@ async def _resolve_bokito_backing(
     provider; otherwise the first candidate with a platform key is used.
     Without any key the primary backing is returned in mock mode.
     """
+    await bokito_models.refresh_routes(session)
     candidates = bokito_models.backing_candidates(slug)
     primary_slug = candidates[0]
     packed_candidates: list[tuple] = []
@@ -190,6 +202,12 @@ async def _resolve_bokito_backing(
         packed_candidates.append(
             (provider, model_id, in_cents, out_cents, api_key, key_source, fallback_from)
         )
+    for wanted in ("tenant", "platform"):
+        for packed in packed_candidates:
+            if packed[5] == wanted and not provider_health.is_cooling(packed[4], packed[1]):
+                return packed
+    # Every keyed candidate is parked: keep the preferred one so the error
+    # surfaces instead of silently dropping to mock.
     for wanted in ("tenant", "platform"):
         for packed in packed_candidates:
             if packed[5] == wanted:
@@ -252,10 +270,16 @@ async def _resolve_from_platform_catalog(
     if model is not None and bokito_models.is_bokito_provider(model.provider):
         # Bokito virtual model: route to the real backing model. The slug and
         # usage label keep the Bokito identity; provider cost follows the
-        # backing row while the customer pays the Bokito row's list price.
+        # backing row while the customer pays fixed env list prices (no markup).
         provider_label = bokito_models.BOKITO_PROVIDER
-        bill_in = model.input_cost_per_mtok_cents
-        bill_out = model.output_cost_per_mtok_cents
+        fixed = bokito_models.bill_prices_for_slug(model.slug)
+        if fixed is not None:
+            bill_in, bill_out = fixed
+        else:
+            bill_in = model.input_cost_per_mtok_cents
+            bill_out = model.output_cost_per_mtok_cents
+        # Fixed list prices are final customer rates.
+        markup = 1.0
         slug = model.slug
         (
             provider,
@@ -283,6 +307,10 @@ async def _resolve_from_platform_catalog(
             # so the EU default and its visible fallback chain still apply.
             provider_label = bokito_models.BOKITO_PROVIDER
             slug = _FALLBACK_CHAT[0]
+            fixed = bokito_models.bill_prices_for_slug(slug)
+            if fixed is not None:
+                bill_in, bill_out = fixed
+            markup = 1.0
             (
                 provider,
                 model_id,

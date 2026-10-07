@@ -240,7 +240,7 @@ export type CreateAgentInput = {
 
 export async function bokitoCreateAgent(token: string, input: CreateAgentInput) {
   return bokitoFetch<{ ok: boolean; agent: RuntimeAgent }>(
-    `${WORKFORCE_API_BASE}${workforceRoutes.agents.list}`,
+    `${WORKFORCE_API_BASE}${workforceRoutes.agents.list()}`,
     token,
     {
     method: 'POST',

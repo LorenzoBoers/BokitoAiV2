@@ -98,7 +98,11 @@ async def ai_catalog_lines(
 ) -> list[str]:
     """`name - when to use it` lines for an agent prompt (free tags only)."""
     lines: list[str] = []
-    rows = [row for row in await registry_rows(session, tenant_id) if row.workstream_id is None]
+    rows = [
+        row
+        for row in await registry_rows(session, tenant_id)
+        if row.workstream_id is None and bool(row.ai_auto_tag)
+    ]
     for row in rows[:limit]:
         description = (row.description or "").strip()
         lines.append(f"{row.name} - {description}" if description else row.name)
@@ -235,6 +239,7 @@ def serialize_tag(row: SignalTag, count: int = 0) -> dict[str, Any]:
         "workstream_id": str(row.workstream_id) if row.workstream_id else None,
         "pinned": bool(row.pinned),
         "show_in_nav": bool(row.show_in_nav),
+        "ai_auto_tag": bool(row.ai_auto_tag),
     }
 
 
@@ -279,6 +284,7 @@ async def update_tag(
     description: str | None = None,
     pinned: bool | None = None,
     show_in_nav: bool | None = None,
+    ai_auto_tag: bool | None = None,
     commit: bool = True,
 ) -> SignalTag:
     """Rename, describe or place a tag. Renaming onto an existing free tag merges the two."""
@@ -309,6 +315,8 @@ async def update_tag(
         row.pinned = bool(pinned)
     if show_in_nav is not None:
         row.show_in_nav = bool(show_in_nav)
+    if ai_auto_tag is not None:
+        row.ai_auto_tag = bool(ai_auto_tag)
     row.updated_at = datetime.utcnow()
     if commit:
         await session.commit()

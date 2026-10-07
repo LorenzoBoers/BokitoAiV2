@@ -246,17 +246,25 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
 
     certain = certainty >= threshold * 10
     if suggested_tags and certain:
-        from app.services.signal_tags import add_signal_tags
+        from app.services.signal_tags import add_signal_tags, registry_rows
 
-        _, added = await add_signal_tags(
-            session, tenant_id, signal_id, suggested_tags, registered_only=True
-        )
-        if added:
-            await session.commit()
+        allowed = {
+            row.name
+            for row in await registry_rows(session, tenant_id)
+            if row.workstream_id is None and bool(row.ai_auto_tag)
+        }
+        applyable = [name for name in suggested_tags if normalize_tag(name) in allowed]
+        if applyable:
+            _, added = await add_signal_tags(
+                session, tenant_id, signal_id, applyable, registered_only=True
+            )
+            if added:
+                await session.commit()
     # A category match files a ticket. The category's create mode and
     # thresholds decide whether it opens (certain) or lands as `proposed`
-    # with a confirm chip on the thread (unsure).
-    if picked is not None:
+    # with a confirm chip on the thread (unsure). Tags with AI auto-tag off
+    # never appear in the catalog; skip if one slips through.
+    if picked is not None and bool(picked.ai_auto_tag):
         await _file_from_triage(
             session,
             tenant_id,

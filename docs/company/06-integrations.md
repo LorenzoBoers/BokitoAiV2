@@ -60,7 +60,7 @@ Email OAuth lives on Authentication / Integrations API groups:
 
 - Start: `GET /email/oauth/start?provider=outlook|gmail` or provider-specific start endpoints
 - Central callbacks: `GET /oauth/microsoft/callback`, `GET /oauth/google/callback`
-- Connections: `GET /email/connections`, `DELETE /email/connections/{id}`
+- Connections: `GET /email/connections`. Archive, restore and delete run on `/channels/accounts/{id}` (`POST .../archive`, `POST .../restore`, `DELETE`).
 - Sync cron: `email/outlook_sync_inboxes` every 15 minutes (Graph delta)
 
 Mailbox management UI: `/settings/inbox` (folders, signature). Marketplace starts OAuth with return URL to marketplace.

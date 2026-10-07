@@ -28,6 +28,8 @@ async def test_list_agents(client: AsyncClient):
     assert len(items) >= 1
     assert "role_slug" in items[0]
     assert "organisation_id" in items[0]
+    assert all(row.get("is_active", True) for row in items)
+    assert all(row.get("kind") != "archived" for row in items)
 
 
 @pytest.mark.asyncio

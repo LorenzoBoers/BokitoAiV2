@@ -122,19 +122,34 @@ export type ManagedAiModel = {
   /** lighter | standard | heavier — operator hint only. */
   tier?: 'lighter' | 'standard' | 'heavier' | string
   is_default_chat?: boolean
+  /** True when this tier is the workspace Bokito AI default. */
+  is_workspace_default?: boolean
   kind?: string
   enabled?: boolean
+  /** Product-facing context length from the platform catalog. */
+  context_window?: number
+  supports_tools?: boolean
+  supports_vision?: boolean
   input_cost_per_mtok_cents?: number
   output_cost_per_mtok_cents?: number
 }
+
+/** Workspace / agent Bokito AI mode. */
+export type WorkspaceChatMode = 'automatic' | 'bokito-maki' | 'bokito-ai-3-1' | 'bokito-kong'
+export type AgentChatMode = 'inherit' | WorkspaceChatMode | string
+
+export const AUTOMATIC_MODE = 'automatic'
+export const INHERIT_MODE = 'inherit'
+export const MANAGED_CHAT_SLUGS = ['bokito-maki', 'bokito-ai-3-1', 'bokito-kong'] as const
 
 export type ManagedAiStatus = {
   name: string
   status: 'active' | 'standby' | 'unconfigured'
   chat: ManagedAiModel
-  /** All managed chat tiers (Maki, Bokito AI, Kong). */
+  /** All managed chat tiers (Maki, Bokito, Kong). */
   models?: ManagedAiModel[]
   default_chat?: string
+  workspace_chat_mode?: WorkspaceChatMode | string
   embedding: ManagedAiModel
 }
 
@@ -192,6 +207,8 @@ export type TenantModelsPayload = {
   models: Array<TenantModelRow | CatalogModel | SelectableChatModel>
   connections?: ProviderConnection[]
   presets: Record<ProviderType, ProviderPreset>
+  /** Workspace Bokito AI default (automatic or a managed slug). */
+  workspace_chat_mode?: WorkspaceChatMode | string
   default_chat: string
   default_embedding: string
   /** Legacy platform-mode fields (may be absent). */
@@ -255,6 +272,58 @@ export function selectableChatModels(payload: TenantModelsPayload): SelectableCh
 
 export function defaultChatSlug(payload: TenantModelsPayload): string {
   return payload.default_chat || payload.managed?.chat?.slug || ''
+}
+
+export function workspaceChatMode(payload: TenantModelsPayload): string {
+  return (
+    payload.workspace_chat_mode ||
+    payload.managed?.workspace_chat_mode ||
+    AUTOMATIC_MODE
+  )
+}
+
+export async function setWorkspaceChatMode(token: string, mode: string) {
+  return settingsPatch<TenantModelsPayload>(
+    settingsRoutes.models.workspaceChatMode,
+    { workspace_chat_mode: mode },
+    token,
+  )
+}
+
+/** Normalize agent.model for pickers (empty → inherit). */
+export function normalizeAgentChatMode(value: string | null | undefined): string {
+  const raw = (value || '').trim().toLowerCase()
+  if (!raw || raw === INHERIT_MODE) return INHERIT_MODE
+  return raw
+}
+
+/** Options for agent default mode: inherit, automatic, then selectable chat models. */
+export function agentChatModeOptions(payload: TenantModelsPayload): SelectableChatModel[] {
+  const chat = selectableChatModels(payload)
+  const modes: SelectableChatModel[] = [
+    {
+      slug: INHERIT_MODE,
+      display_name: 'Workspace default',
+      kind: 'chat',
+      enabled: true,
+      tier: 'inherit',
+    },
+    {
+      slug: AUTOMATIC_MODE,
+      display_name: 'Automatic',
+      provider: 'bokito',
+      kind: 'chat',
+      enabled: true,
+      tier: 'automatic',
+    },
+  ]
+  const seen = new Set(modes.map((m) => m.slug))
+  for (const row of chat) {
+    if (seen.has(row.slug)) continue
+    seen.add(row.slug)
+    modes.push(row)
+  }
+  return modes
 }
 
 // --- Providers ---

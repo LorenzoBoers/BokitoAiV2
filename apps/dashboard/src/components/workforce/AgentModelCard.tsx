@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Cpu } from 'lucide-react'
+import { Cpu, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card } from '../ui/card'
+import { ModelIcon, ModelOptionLabel } from '../ui/ModelIcon'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useAuth } from '../../context/AuthContext'
 import {
+  AUTOMATIC_MODE,
+  INHERIT_MODE,
+  agentChatModeOptions,
   getTenantModels,
-  selectableChatModels,
+  normalizeAgentChatMode,
   setAgentModel,
   type SelectableChatModel,
 } from '../../lib/models-api'
@@ -37,7 +41,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
     getTenantModels(token)
       .then((data) => {
         if (cancelled) return
-        setModels(selectableChatModels(data))
+        setModels(agentChatModeOptions(data))
       })
       .catch(() => {
         if (!cancelled) setLoadError(t('workforce.agents.modelLoadError'))
@@ -47,8 +51,15 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
     }
   }, [token, reloadKey, t])
 
-  const current = models.find((m) => m.slug === currentModel || m.model_id === currentModel)
-  const currentLabel = current?.display_name || humanizeModelId(currentModel)
+  const mode = normalizeAgentChatMode(currentModel)
+  const current = models.find((m) => m.slug === mode || m.model_id === currentModel)
+  const modeLabel = (slug: string) => {
+    if (slug === INHERIT_MODE) return t('workforce.agents.modelMode.inherit')
+    if (slug === AUTOMATIC_MODE) return t('workforce.agents.modelMode.automatic')
+    return ''
+  }
+  const currentLabel =
+    modeLabel(mode) || current?.display_name || humanizeModelId(currentModel)
   const providerLabel = current?.provider_type || current?.provider || ''
 
   const onSelect = useCallback(
@@ -68,6 +79,16 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
     [token, busy, agentId, onChanged, t],
   )
 
+  const optionHint = (m: SelectableChatModel) => {
+    if (m.slug === INHERIT_MODE) return t('workforce.agents.modelMode.inheritHint')
+    if (m.slug === AUTOMATIC_MODE) return t('workforce.agents.modelMode.automaticHint')
+    const tierKey =
+      m.tier === 'lighter' || m.tier === 'heavier' || m.tier === 'standard'
+        ? `workforce.agents.modelTier.${m.tier}`
+        : ''
+    return tierKey ? t(tierKey) : ''
+  }
+
   return (
     <Card className="px-4 py-3">
       <div className="flex items-center gap-2">
@@ -79,7 +100,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {canEdit ? (
           <Select
-            value={current?.slug}
+            value={mode}
             onValueChange={(slug) => void onSelect(slug)}
             disabled={busy || models.length <= 1}
           >
@@ -88,45 +109,72 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
             </SelectTrigger>
             <SelectContent>
               {models.map((m) => {
-                const tierKey =
-                  m.tier === 'lighter' || m.tier === 'heavier' || m.tier === 'standard'
-                    ? `workforce.agents.modelTier.${m.tier}`
-                    : ''
-                const tierHint = tierKey ? t(tierKey) : ''
+                const hint = optionHint(m)
+                const name = modeLabel(m.slug) || m.display_name
                 return (
                   <SelectItem key={m.slug} value={m.slug}>
-                    {m.display_name}
-                    {tierHint ? ` — ${tierHint}` : ''}
+                    {m.slug === AUTOMATIC_MODE || m.slug === INHERIT_MODE ? (
+                      <span className="inline-flex items-center gap-2">
+                        {m.slug === AUTOMATIC_MODE ? (
+                          <Sparkles size={16} className="text-ai-ink" aria-hidden />
+                        ) : (
+                          <Cpu size={16} className="text-text-muted" aria-hidden />
+                        )}
+                        <span>
+                          <span className="font-medium">{name}</span>
+                          {hint ? (
+                            <span className="ml-1.5 text-xs text-text-muted">{hint}</span>
+                          ) : null}
+                        </span>
+                      </span>
+                    ) : (
+                      <ModelOptionLabel
+                        slug={m.slug}
+                        modelId={m.model_id}
+                        provider={m.provider}
+                        providerType={m.provider_type}
+                        name={name}
+                        hint={hint || undefined}
+                      />
+                    )}
                   </SelectItem>
                 )
               })}
             </SelectContent>
           </Select>
         ) : (
-          <p className="text-sm text-text-primary">
+          <p className="inline-flex items-center gap-2 text-sm text-text-primary">
+            {mode === AUTOMATIC_MODE ? (
+              <Sparkles size={18} className="text-ai-ink" aria-hidden />
+            ) : mode === INHERIT_MODE ? (
+              <Cpu size={18} className="text-text-muted" aria-hidden />
+            ) : (
+              <ModelIcon
+                slug={current?.slug || currentModel}
+                modelId={current?.model_id}
+                provider={current?.provider || providerLabel}
+                providerType={current?.provider_type}
+                size={18}
+              />
+            )}
             {currentLabel}
-            {providerLabel ? (
-              <span className="ml-1.5 text-text-muted">({providerLabel})</span>
-            ) : null}
           </p>
         )}
+        <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
+          {t('workforce.agents.openModels')}
+        </Link>
       </div>
 
       {loadError ? (
-        <p className="mt-2 text-xs text-status-error">
-          {loadError}{' '}
-          <button type="button" className="underline" onClick={() => setReloadKey((k) => k + 1)}>
-            {t('workforce.agents.retry')}
-          </button>
-        </p>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="mt-2 text-xs font-medium text-accent hover:underline"
+        >
+          {loadError}
+        </button>
       ) : null}
       {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
-
-      <p className="mt-3 text-xs text-text-muted">
-        <Link to="/settings/models" className="text-accent hover:underline">
-          {t('workforce.agents.openModels')}
-        </Link>
-      </p>
     </Card>
   )
 }

@@ -4,8 +4,8 @@ import { humanizeLabel } from './labels'
 const MODEL_ALIASES: Array<[RegExp, string]> = [
   [/^bokito-maki/i, 'Maki'],
   [/^bokito-kong/i, 'Kong'],
-  [/^bokito-ai-3[.-]1/i, 'Bokito AI'],
-  [/^bokito-ai/i, 'Bokito AI'],
+  [/^bokito-ai-3[.-]1/i, 'Bokito'],
+  [/^bokito-ai/i, 'Bokito'],
   [/^ministral/i, 'Maki'],
   [/^mistral-medium/i, 'Mistral Medium'],
   [/^mistral-large/i, 'Mistral Large'],

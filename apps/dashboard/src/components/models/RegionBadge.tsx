@@ -17,10 +17,7 @@ export function RegionBadge({ region, className }: Props) {
   const label = t('dataRegion.badgeTitle', { region: regionLabel(key, t) })
   return (
     <Tip label={label}>
-      <Badge
-        variant={variant}
-        className={['gap-1 px-2 py-0.5 text-xs', className].filter(Boolean).join(' ')}
-      >
+      <Badge variant={variant} className={className}>
         <Globe size={11} aria-hidden />
         {regionLabel(key, t)}
       </Badge>

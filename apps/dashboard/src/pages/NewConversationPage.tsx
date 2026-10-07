@@ -23,6 +23,7 @@ import { agentRoleLabel } from '../lib/agent-role-label'
 import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, channelPath } from '../lib/messages-paths'
 import { ComposerCard } from '../components/ui/ComposerCard'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { canComposeToAddress } from '../lib/compose-intent'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { isSendableMailbox, sendNewEmail } from '../lib/email-api'
@@ -487,7 +488,7 @@ export default function NewConversationPage() {
                 </div>
               ) : (
                 <div ref={toPickerRef} className="relative">
-                  <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+                  <div className="panel flex items-center gap-2 px-3 py-2">
                     <span className="text-xs font-medium text-text-muted">{t('newConversation.to')}</span>
                     {toPickerOpen ? (
                       <input
@@ -572,7 +573,7 @@ export default function NewConversationPage() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+              <div className="panel flex flex-wrap items-center gap-2 px-3 py-2">
                 <span className="text-xs font-medium text-text-muted">{t('newConversation.from')}</span>
                 {!canSendEmail ? (
                   <Link to="/settings/channels" className="text-sm font-medium text-accent hover:underline">
@@ -581,17 +582,21 @@ export default function NewConversationPage() {
                 ) : sendableMailboxes.length === 1 ? (
                   <span className="truncate-fade text-sm text-text-primary">{sendableMailboxes[0].mailboxEmail}</span>
                 ) : (
-                  <select
-                    value={connectionId ?? ''}
-                    onChange={(e) => onFromChange(Number(e.target.value))}
-                    className="min-w-0 flex-1 rounded-md border border-border/50 bg-bg-input px-2 py-1 text-sm text-text-primary"
+                  <Select
+                    value={connectionId != null ? String(connectionId) : undefined}
+                    onValueChange={(value) => onFromChange(Number(value))}
                   >
-                    {sendableMailboxes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.mailboxEmail}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-8 min-w-0 flex-1 text-sm" aria-label={t('newConversation.from')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sendableMailboxes.map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          {c.mailboxEmail}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
                 {canSendEmail && sendableMailboxes.length > 1 ? (
                   <label className="ml-auto flex items-center gap-1.5 text-xs text-text-muted">
@@ -618,7 +623,7 @@ export default function NewConversationPage() {
           {intent === 'agent' ? (
             <div ref={agentPickerRef} className="relative">
               {noAgents ? (
-                <div className="rounded-lg border border-border/60 bg-bg-surface px-5 py-8 text-center">
+                <div className="panel px-5 py-8 text-center">
                   <Bot size={28} className="mx-auto text-text-muted" />
                   <p className="mt-3 text-lg font-medium text-text-primary">
                     {t('newConversation.noAgentsAvailable')}
@@ -628,7 +633,7 @@ export default function NewConversationPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+                <div className="panel flex items-center gap-2 px-3 py-2">
                   <span className="text-xs font-medium text-text-muted">{t('newConversation.to')}</span>
                   {agentPickerOpen ? (
                     <input
@@ -802,7 +807,7 @@ function IntentCard({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex flex-col items-start gap-2 rounded-lg border border-border/60 bg-bg-surface p-4 text-left transition-colors',
+        'panel flex flex-col items-start gap-2 p-4 text-left transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-50'
           : 'hover:border-border-light hover:bg-bg-hover/40',

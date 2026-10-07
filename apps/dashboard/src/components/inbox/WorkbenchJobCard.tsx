@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { cancelWorkbenchJob, followUpWorkbenchJob } from '../../lib/workbench-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { cn } from '../../lib/utils'
 
 const ACTIVE = new Set(['queued', 'running', 'needs_input', 'started', 'progress'])
@@ -19,6 +20,7 @@ type Props = {
 
 export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
   const { t } = useTranslation('communication')
+  const confirm = useConfirm()
   const { token } = useAuth()
   const [busy, setBusy] = useState<'follow' | 'stop' | null>(null)
   const [stopped, setStopped] = useState(false)
@@ -46,7 +48,7 @@ export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
 
   const onStop = async () => {
     if (!token || busy) return
-    if (!window.confirm(t('timeline.workbench.stopConfirm'))) return
+    if (!(await confirm({ description: t('timeline.workbench.stopConfirm'), destructive: true }))) return
     setBusy('stop')
     try {
       await cancelWorkbenchJob(token, jobId)

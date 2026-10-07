@@ -62,7 +62,7 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        'relative flex h-9 cursor-default select-none items-center rounded-md pl-8 pr-2.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover/80',
+        'relative flex min-h-9 cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover/80',
         className,
       )}
       {...props}
@@ -72,7 +72,9 @@ function SelectItem({
           <Check size={12} className="text-accent" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemText asChild>
+        <span className="flex min-w-0 flex-1 items-center">{children}</span>
+      </SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )
 }

@@ -190,7 +190,7 @@ export default function MarkdownView({ content }: { content: string }) {
         <div key={key++} className="overflow-x-auto rounded-lg border border-border/40">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border/40 bg-bg-elevated/60">
+              <tr className="border-b border-border/40 bg-bg-elevated">
                 {header.map((cell, idx) => (
                   <th key={idx} className="px-3 py-2 text-left font-semibold text-text-heading">
                     {renderInline(cell)}

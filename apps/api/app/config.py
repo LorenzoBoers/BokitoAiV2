@@ -74,16 +74,25 @@ class Settings(BaseSettings):
     def parked_channel_set(self) -> set[str]:
         return {s.strip().lower() for s in self.parked_channels.split(",") if s.strip()}
 
-    # Platform LLM keys. Default managed family is Mistral (EU); set
-    # BOKITO_BACKING_FAMILY=claude to route all three tiers to Anthropic.
+    # Platform LLM keys. Managed tiers run on Mistral (EU) by default.
     # OpenAI covers embeddings and BYOK. Keys can also live in platform_secrets.
     mistral_api_key: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
-    # mistral | claude — switches silent backings for Maki / Bokito AI / Kong.
-    bokito_backing_family: str = "mistral"
-    # Customer list-price multiplier on platform-key (billable) usage. Invisible
-    # to tenants; set via env, not the Models settings page.
+    # JSON {tier slug: [catalog slug, ...]} overriding the backing chain per
+    # Bokito tier. The staff setting (PUT /api/staff/bokito-backings) wins.
+    bokito_backings: str = ""
+    # Fixed customer list prices for managed Bokito tiers (cents per 1M tokens).
+    # These are the final customer prices shown in Models and used for billing;
+    # TOKEN_MARKUP_MULTIPLIER is not applied on top of Bokito virtual models.
+    bokito_maki_input_cost_per_mtok_cents: int = 10
+    bokito_maki_output_cost_per_mtok_cents: int = 10
+    bokito_ai_input_cost_per_mtok_cents: int = 50
+    bokito_ai_output_cost_per_mtok_cents: int = 150
+    bokito_kong_input_cost_per_mtok_cents: int = 150
+    bokito_kong_output_cost_per_mtok_cents: int = 750
+    # Customer markup on non-Bokito platform-key usage. Invisible to tenants;
+    # set via env, not the Models settings page. Not applied to managed tiers.
     token_markup_multiplier: float = 1.2
     # Global kill-switch for BYOK / custom models. Must also be entitled per
     # tenant (`settings_json.features.custom_models`) before the UI appears.

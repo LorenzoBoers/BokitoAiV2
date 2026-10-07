@@ -44,7 +44,7 @@ const SEGMENT_KIND: Record<TicketStageKind, string> = {
   open: 'bg-text-muted/70',
   waiting: 'bg-status-warning',
   done: 'bg-status-success',
-  closed: 'bg-emerald-400',
+  closed: 'bg-status-success/70',
 }
 
 const INLINE_INPUT =
@@ -208,7 +208,7 @@ export function ThreadCategory({ signalId, version }: Props) {
 
       <div
         className={cn(
-          'overflow-hidden rounded-xl border bg-bg-elevated/40',
+          'overflow-hidden rounded-lg border bg-bg-elevated',
           proposed ? 'border-status-warning/50' : live ? 'border-accent/35' : 'border-border/60',
         )}
       >

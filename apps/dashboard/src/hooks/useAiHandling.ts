@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from './useIsAdmin'
+import { useConfirm, type ConfirmFn } from '../components/ui/confirm-dialog'
 import { minMode, type AiHandling, type AiHandlingMode, type AiHandlingScope } from '../lib/ai-handling'
 import { getAiHandling, previewAiHandling, setAiHandling } from '../lib/ai-handling-api'
 
@@ -17,9 +18,10 @@ export async function confirmAutonomousRaise(
   scope: AiHandlingScope,
   targetId: string,
   t: TFunction,
+  confirm: ConfirmFn,
 ): Promise<boolean> {
   if (scope === 'conversation') return true
-  const lines = [t('aiHandling.preview.confirm')]
+  const lines: string[] = []
   try {
     const preview = await previewAiHandling(token, scope, targetId, 'autonomous')
     lines.push(t('aiHandling.preview.followers', { count: preview.followers }))
@@ -36,7 +38,11 @@ export async function confirmAutonomousRaise(
   } catch {
     // Preview is advisory; still ask before raising.
   }
-  return window.confirm(lines.join('\n\n'))
+  return confirm({
+    title: t('aiHandling.preview.confirm'),
+    description: lines.join('\n\n'),
+    confirmLabel: t('aiHandling.modes.autonomous.label'),
+  })
 }
 
 type Options = {
@@ -59,6 +65,7 @@ export function useAiHandling(
 ) {
   const { t } = useTranslation('common')
   const { token } = useAuth()
+  const confirm = useConfirm()
   const canRaise = useIsAdmin()
   const [handling, setHandling] = useState<AiHandling | null>(initial)
   const [saving, setSaving] = useState(false)
@@ -87,7 +94,7 @@ export function useAiHandling(
     async (mode: AiHandlingMode | null, opts: { assignToMe?: boolean; reason?: string } = {}) => {
       if (!token || !targetId) return null
       if (mode === 'autonomous' && handling?.effective !== 'autonomous') {
-        if (!(await confirmAutonomousRaise(token, scope, targetId, t))) return null
+        if (!(await confirmAutonomousRaise(token, scope, targetId, t, confirm))) return null
       }
       const previous = handling
       if (previous && mode) {
@@ -119,7 +126,7 @@ export function useAiHandling(
         setSaving(false)
       }
     },
-    [token, scope, targetId, handling, t],
+    [token, scope, targetId, handling, t, confirm],
   )
 
   return { handling, setHandling, change, saving, canRaise, refresh }

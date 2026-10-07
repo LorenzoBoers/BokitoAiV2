@@ -50,7 +50,7 @@ export default function DecisionGroupsBanner({ onDismissed }: Props) {
 
   return (
     <div className="border-b border-border/40 bg-bg-elevated/60 px-3 py-2" data-testid="decision-groups-banner">
-      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+      <div className="mb-1 flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
         <Layers size={11} aria-hidden />
         {t('decisionGroups.heading')}
       </div>
@@ -65,7 +65,7 @@ export default function DecisionGroupsBanner({ onDismissed }: Props) {
               type="button"
               disabled={busy !== null}
               onClick={() => void dismissGroup(group)}
-              className="shrink-0 rounded-md border border-border/60 px-2 py-0.5 text-[11px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
+              className="shrink-0 rounded-md border border-border/60 px-2 py-0.5 text-2xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
             >
               {busy === group.title ? t('decisionGroups.dismissing') : t('decisionGroups.dismissAll')}
             </button>

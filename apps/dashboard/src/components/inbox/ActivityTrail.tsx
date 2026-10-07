@@ -156,8 +156,8 @@ export function ActivityGroupLine({
     return (
       <div className="flex min-w-0 items-center gap-2 py-0.5 text-sm" role="status" aria-live="polite">
         <ActivityIcon kind={group.kind} tool={current?.tool} provider={current?.provider} size={14} live />
-        <span key={current?.id} className="activity-live-label min-w-0 truncate-fade font-medium thinking-shimmer-text">
-          {label}
+        <span key={current?.id} className="activity-live-label min-w-0 truncate-fade font-medium">
+          <span className="thinking-shimmer-text">{label}</span>
         </span>
         {group.kind === 'work' && group.items.length > 1 ? (
           <span className="shrink-0 text-2xs tabular-nums text-text-muted">{group.items.length}</span>

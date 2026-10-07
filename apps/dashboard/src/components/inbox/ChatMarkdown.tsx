@@ -144,7 +144,7 @@ function ChatMarkdownImpl({ content, className }: { content: string; className?:
       const level = headingMatch[1].length
       const cls =
         level <= 2
-          ? 'text-[14.5px] font-semibold text-text-heading'
+          ? 'text-lg font-semibold text-text-heading'
           : 'text-base font-semibold text-text-heading'
       blocks.push(
         <p key={key++} className={cls}>

@@ -37,12 +37,20 @@ export function filterOrchestratorAgents(agents: RuntimeAgent[]): RuntimeAgent[]
 }
 
 /** Company agents shown on the Agents library (not personal or hidden platform roles). */
-export function filterLibraryAgents(agents: RuntimeAgent[]): RuntimeAgent[] {
+export function filterLibraryAgents(
+  agents: RuntimeAgent[],
+  opts?: { includeInactive?: boolean },
+): RuntimeAgent[] {
   return agents.filter((agent) => {
     if (agent.kind === 'personal') return false
-    if (agent.is_active === false) return false
+    if (!opts?.includeInactive && agent.is_active === false) return false
+    if (!opts?.includeInactive && agent.kind === 'archived') return false
     return !PLATFORM_ROLE_SLUGS.has(normalizeRoleSlug(agent))
   })
+}
+
+export function isDeactivatedAgent(agent: RuntimeAgent): boolean {
+  return agent.is_active === false || agent.kind === 'archived'
 }
 
 /** Lead first, then most recently updated. */

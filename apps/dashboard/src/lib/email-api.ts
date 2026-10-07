@@ -257,10 +257,6 @@ export async function startOAuthConnection(
   }
 }
 
-export async function disconnectEmailConnection(token: string, connectionId: number): Promise<void> {
-  await apiDelete(integrationsRoutes.email.connections.byId(connectionId), token)
-}
-
 export async function syncMailboxes(token: string): Promise<{ synced: number }> {
   const payload = await apiPost<{ synced?: number }>(integrationsRoutes.email.sync, {}, token)
   return { synced: typeof payload.synced === 'number' ? payload.synced : 0 }

@@ -119,6 +119,8 @@ class OverviewAgent(BaseModel):
     avatar_color: str | None = None
     avatar_image_url: str | None = None
     deactivated: bool = False
+    # Last run, reply or tool step (Unix ms); null before the first run.
+    last_active_at: int | None = None
     metrics: OverviewMetrics = Field(default_factory=OverviewMetrics)
 
 

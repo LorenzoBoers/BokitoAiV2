@@ -32,7 +32,14 @@ export type AccessState<L extends string = string> = { entries: AccessEntry<L>[]
 /** Copy for the object being shared; generic labels come from `access.*`. */
 export type AccessCopy = { title: string; description: string; hint: string; adminsNote: string }
 
+/** Matches API `UNRESTRICTED_ROLES` — always hold the highest level. */
+const UNRESTRICTED_ROLES = new Set(['owner', 'admin'])
+
 const key = (kind: AccessKind, id: string) => `${kind}:${id}`
+
+function isUnrestrictedRole(role: string | undefined): boolean {
+  return UNRESTRICTED_ROLES.has((role || '').trim().toLowerCase())
+}
 
 function levelOn<L extends string>(choice: L | 'none', level: L, levels: readonly L[]): boolean {
   if (choice === 'none') return false
@@ -138,6 +145,30 @@ function AccessDialog<L extends string>({
       .catch((err) => toast.error(formatApiErrorMessage(err, t('access.loadError'))))
   }, [token, t])
 
+  const unrestrictedUserIds = useMemo(() => {
+    if (!overview) return new Set<string>()
+    return new Set(
+      overview.people.filter((p) => isUnrestrictedRole(p.role)).map((p) => p.uuid),
+    )
+  }, [overview])
+
+  const grantedKeys = useMemo(
+    () => new Set(access.entries.map((e) => key(e.kind, e.id))),
+    [access.entries],
+  )
+
+  const deactivatedKeys = useMemo(() => {
+    if (!overview) return new Set<string>()
+    const keys = new Set<string>()
+    for (const p of overview.people) {
+      if (p.deactivated) keys.add(key('user', p.uuid))
+    }
+    for (const a of overview.agents) {
+      if (a.deactivated) keys.add(key('agent', a.id))
+    }
+    return keys
+  }, [overview])
+
   const groups = useMemo(() => {
     if (!overview) return []
     const teamRows = overview.teams.map((team) => ({
@@ -145,27 +176,45 @@ function AccessDialog<L extends string>({
       id: team.system ? team.kind : team.id,
       label: team.system ? t(`teamPage.system.${team.kind}`) : team.name,
       avatar: <TeamAvatar {...toTeamAvatarProps(team)} size={20} />,
+      locked: false,
+      deactivated: false,
     }))
-    const peopleRows = overview.people.map((p) => ({
-      kind: 'user' as const,
-      id: p.uuid,
-      label: p.name,
-      avatar: (
-        <UserAvatar name={p.name} email={p.email} avatarUrl={p.avatar_url} size={20} presence={p.presence?.status} />
-      ),
-    }))
-    const agentRows = overview.agents.map((a) => ({
-      kind: 'agent' as const,
-      id: a.id,
-      label: a.name,
-      avatar: <AiAvatar {...toAiAvatarProps(a)} size={20} />,
-    }))
+    // Active roster only; keep a deactivated row when it still has a grant so
+    // the operator can clear it (save drops deactivated principals).
+    const peopleRows = overview.people
+      .filter((p) => !p.deactivated || grantedKeys.has(key('user', p.uuid)))
+      .map((p) => ({
+        kind: 'user' as const,
+        id: p.uuid,
+        label: p.name,
+        avatar: (
+          <UserAvatar
+            name={p.name}
+            email={p.email}
+            avatarUrl={p.avatar_url}
+            size={20}
+            presence={p.deactivated ? undefined : p.presence?.status}
+          />
+        ),
+        locked: isUnrestrictedRole(p.role),
+        deactivated: Boolean(p.deactivated),
+      }))
+    const agentRows = overview.agents
+      .filter((a) => !a.deactivated || grantedKeys.has(key('agent', a.id)))
+      .map((a) => ({
+        kind: 'agent' as const,
+        id: a.id,
+        label: a.name,
+        avatar: <AiAvatar {...toAiAvatarProps(a)} size={20} />,
+        locked: false,
+        deactivated: Boolean(a.deactivated),
+      }))
     return [
       { title: t('access.teams'), items: teamRows },
       { title: t('access.people'), items: peopleRows },
       { title: t('access.agents'), items: agentRows },
     ]
-  }, [overview, t])
+  }, [overview, grantedKeys, t])
 
   const submit = async (entries: AccessEntry<L>[] | null) => {
     setBusy(true)
@@ -178,9 +227,18 @@ function AccessDialog<L extends string>({
     }
   }
 
+  const highest = levels[levels.length - 1]
+
   const entries = (): AccessEntry<L>[] =>
     Object.entries(choices)
-      .filter(([, level]) => level !== 'none')
+      .filter(([k, level]) => {
+        if (level === 'none') return false
+        // Drop leftover grants on deactivated people/agents so save stays valid.
+        if (deactivatedKeys.has(k)) return false
+        const [kind, ...rest] = k.split(':')
+        if (kind === 'user' && unrestrictedUserIds.has(rest.join(':'))) return false
+        return true
+      })
       .map(([k, level]) => {
         const [kind, ...rest] = k.split(':')
         return { kind: kind as AccessKind, id: rest.join(':'), level: level as L }
@@ -227,7 +285,11 @@ function AccessDialog<L extends string>({
                   <p className="text-xs font-medium text-text-heading">{group.title}</p>
                   {group.items.map((item) => {
                     const k = key(item.kind, item.id)
-                    const choice = choices[k] ?? 'none'
+                    const choice = item.locked
+                      ? highest
+                      : item.deactivated
+                        ? 'none'
+                        : (choices[k] ?? 'none')
                     return (
                       <div
                         key={k}
@@ -236,7 +298,14 @@ function AccessDialog<L extends string>({
                       >
                         <span className="flex min-w-0 items-center gap-2 text-sm">
                           {item.avatar}
-                          <span className="truncate">{item.label}</span>
+                          <span className="min-w-0 truncate">
+                            {item.label}
+                            {item.deactivated ? (
+                              <span className="ml-1.5 text-2xs font-medium text-status-error">
+                                {t('access.deactivated')}
+                              </span>
+                            ) : null}
+                          </span>
                         </span>
                         {levels.map((level) => {
                           const on = levelOn(choice, level, levels)
@@ -244,8 +313,16 @@ function AccessDialog<L extends string>({
                             <div key={level} className="flex justify-center">
                               <Switch
                                 checked={on}
+                                disabled={item.locked || item.deactivated}
                                 onCheckedChange={(checked) => setChoice(k, level, checked)}
                                 aria-label={`${item.label}: ${t(`access.level.${level}`)}`}
+                                title={
+                                  item.deactivated
+                                    ? t('access.deactivatedHint')
+                                    : item.locked
+                                      ? copy.adminsNote
+                                      : undefined
+                                }
                               />
                             </div>
                           )
@@ -256,6 +333,10 @@ function AccessDialog<L extends string>({
                 </div>
               ) : null,
             )}
+            {deactivatedKeys.size > 0 &&
+            access.entries.some((e) => deactivatedKeys.has(key(e.kind, e.id))) ? (
+              <p className="text-xs text-status-error">{t('access.deactivatedHint')}</p>
+            ) : null}
             <p className="text-xs text-text-muted">{t('access.inheritHint')}</p>
             <p className="text-xs text-text-muted">{copy.adminsNote}</p>
           </div>

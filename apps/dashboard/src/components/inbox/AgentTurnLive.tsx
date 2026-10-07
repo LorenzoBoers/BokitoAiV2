@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
 import { liveBlocks, type LiveTurn } from '../../lib/agentActivity'
 import { splitChatMessages } from '../../lib/chatMessages'
-import { AI_ICON_BOX_CLASS, AiMark } from '../ai/AiMark'
-import ActivityTrail, { ActivityIcon } from './ActivityTrail'
+import { Sparkles } from 'lucide-react'
+import { IconTile } from '../ui/icon-tile'
+import ActivityTrail from './ActivityTrail'
 import ChatText from './ChatText'
 
 function TypingDots({ label }: { label: string }) {
@@ -49,7 +51,14 @@ function LiveSpeech({ text, writing }: { text: string; writing: boolean }) {
  * While nothing visible runs (the model is deciding), a thinking line shows
  * so the turn never looks stalled.
  */
-export default function AgentTurnLive({ turn }: { turn: LiveTurn }) {
+export default function AgentTurnLive({
+  turn,
+  avatar,
+}: {
+  turn: LiveTurn
+  /** The working agent's avatar (28px); the generic AI mark when unknown. */
+  avatar?: ReactNode
+}) {
   const { t } = useTranslation('communication')
   const blocks = liveBlocks(turn)
   if (!turn.active && blocks.length === 0) return null
@@ -60,10 +69,8 @@ export default function AgentTurnLive({ turn }: { turn: LiveTurn }) {
 
   return (
     <div className="flex items-start gap-2.5">
-      <span
-        className={`mt-0.5 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg border ${AI_ICON_BOX_CLASS}`}
-      >
-        <AiMark size={13} />
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+        {avatar ?? <IconTile icon={Sparkles} tone="ai" size="md" className="h-7 w-7" />}
       </span>
       <div className="min-w-0 flex-1 space-y-1.5">
         {blocks.map((block, index) =>
@@ -78,10 +85,9 @@ export default function AgentTurnLive({ turn }: { turn: LiveTurn }) {
           ),
         )}
         {waiting ? (
-          <div className="flex min-w-0 items-center gap-2 py-0.5 text-sm" role="status" aria-live="polite">
-            <ActivityIcon kind="think" size={14} live />
-            <span className="activity-live-label font-medium thinking-shimmer-text">
-              {t('activity.thinking')}
+          <div className="flex h-7 min-w-0 items-center text-sm" role="status" aria-live="polite">
+            <span className="activity-live-label">
+              <span className="thinking-shimmer-text font-medium">{t('activity.thinking')}</span>
             </span>
           </div>
         ) : null}

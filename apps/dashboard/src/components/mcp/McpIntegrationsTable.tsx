@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
+import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
@@ -24,6 +25,7 @@ type Props = {
 
 export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const [testingId, setTestingId] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; toolCount: number; error?: string }>>({})
   const [query, setQuery] = useState('')
@@ -195,8 +197,16 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                       size="sm"
                       className="text-text-muted hover:text-status-error"
                       onClick={() => {
-                        if (!window.confirm(t('integrations.mcp.servers.disconnectConfirm'))) return
-                        void revokeMcpConnection(row.id).then(onChange)
+                        void (async () => {
+                          if (
+                            !(await confirm({
+                              description: t('integrations.mcp.servers.disconnectConfirm'),
+                              destructive: true,
+                            }))
+                          )
+                            return
+                          await revokeMcpConnection(row.id).then(onChange)
+                        })()
                       }}
                       aria-label={t('integrations.actions.disconnect')}
                     >

@@ -342,6 +342,27 @@ async def test_bulk_rejects_unknown_action(client: AsyncClient):
     assert r.status_code == 400
 
 
+@pytest.mark.asyncio
+async def test_bulk_trash_moves_to_bin(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    a = await _create_thread(client, owner, subject="Trash A")
+    b = await _create_thread(client, owner, subject="Trash B")
+
+    r = await client.post(
+        "/api/signals/bulk", headers=owner, json={"signal_ids": [a, b], "action": "trash"}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["updated"] == 2
+
+    open_ids = [t["id"] for t in await _list(client, owner, view="open")]
+    assert a not in open_ids and b not in open_ids
+
+    bin_list = await client.get("/api/trash?type=conversation", headers=owner)
+    assert bin_list.status_code == 200, bin_list.text
+    resource_ids = {item["resource_id"] for item in bin_list.json()["items"]}
+    assert a in resource_ids and b in resource_ids
+
+
 # ---------------------------------------------------------------------------
 # Saved replies
 # ---------------------------------------------------------------------------

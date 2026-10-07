@@ -129,6 +129,8 @@ export const appRoutes = {
     status: '/channels/status',
     byId: (id: string) => `/channels/accounts/${id}`,
     sync: (id: string) => `/channels/accounts/${id}/sync`,
+    archive: (id: string) => `/channels/accounts/${id}/archive`,
+    restore: (id: string) => `/channels/accounts/${id}/restore`,
     widget: (id: string) => `/channels/accounts/${id}/widget`,
     createWidget: '/channels/widget',
     emailRelays: '/channels/email/relays',

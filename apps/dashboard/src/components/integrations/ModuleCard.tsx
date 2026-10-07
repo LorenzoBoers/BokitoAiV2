@@ -4,6 +4,7 @@ import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
 import { ModuleStatusBadge } from './ModuleStatusBadge'
 import { Button } from '../ui/button'
+import { IconTile } from '../ui/icon-tile'
 import {
   moduleHomePath,
   moduleIsOn,
@@ -93,11 +94,8 @@ export function ModulePartnerLogos({
 
 function ModuleIcon({ slug }: { slug: string }) {
   const Icon = moduleNavIcon(slug)
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-bg-elevated/70 text-text-secondary">
-      <Icon size={17} aria-hidden />
-    </span>
-  )
+  return <IconTile icon={Icon} />
+
 }
 
 /** Marketplace and Connections hub share this card: install, manage, uninstall. */
@@ -121,7 +119,7 @@ export function MarketplaceModuleCard({
   return (
     <article
       className={cn(
-        'flex h-full flex-col rounded-lg border border-border/60 bg-bg-elevated/40 p-4',
+        'panel flex h-full flex-col p-4',
         comingSoon && 'pointer-events-none cursor-not-allowed opacity-50',
       )}
       aria-disabled={comingSoon || undefined}

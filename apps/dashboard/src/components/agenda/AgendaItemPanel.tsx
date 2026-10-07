@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderKanban, MessageSquare, Pause, Pencil, Play, Bot, X, Zap } from 'lucide-react'
 import { Button } from '../ui/button'
+import { Callout } from '../ui/callout'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { itemEnd, itemOwner, itemStart, layerOf } from '../../lib/agenda-layout'
 import { runTrigger, updateTrigger, type Trigger } from '../../lib/orchestration-api'
@@ -40,7 +41,7 @@ export default function AgendaItemPanel(props: Props) {
   const { t } = useTranslation('nav')
   return (
     <aside
-      className="flex max-h-[calc(100vh-10rem)] flex-col overflow-hidden rounded-xl border border-border/60 bg-bg-surface lg:sticky lg:top-4"
+      className="panel flex max-h-[calc(100vh-10rem)] flex-col overflow-hidden lg:sticky lg:top-4"
       data-testid="agenda-item-panel"
     >
       <div className="flex items-start justify-between gap-2 border-b border-border/50 px-4 py-3">
@@ -180,7 +181,7 @@ function ItemBody({
       </dl>
 
       {isCheckup ? (
-        <p className="rounded-lg bg-violet-500/10 px-3 py-2 text-xs text-text-secondary">{t('agendaPage.panel.checkupHint')}</p>
+        <Callout tone="ai" bare>{t('agendaPage.panel.checkupHint')}</Callout>
       ) : null}
 
       {item.instructions && item.kind !== 'checkup' ? (

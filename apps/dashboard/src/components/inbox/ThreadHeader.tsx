@@ -227,7 +227,7 @@ export default function ThreadHeader({
               className="flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 px-2 text-xs font-medium text-text-primary"
               aria-label={t('threadChrome.customerRatingScore', { score: csat.score })}
             >
-              <Star size={11} className="fill-amber-500 text-amber-500" />
+              <Star size={11} className="fill-status-warning text-status-warning" />
               {csat.score}/5
             </span>
           </TooltipTrigger>
@@ -463,7 +463,7 @@ export default function ThreadHeader({
               >
                 <PanelRightOpen size={13} />
                 {panelCount > 0 ? (
-                  <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-text-heading px-1 text-[9px] font-medium leading-none text-bg tabular-nums">
+                  <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-text-heading px-1 text-2xs font-medium leading-none text-bg tabular-nums">
                     {panelCount > 9 ? '9+' : panelCount}
                   </span>
                 ) : null}

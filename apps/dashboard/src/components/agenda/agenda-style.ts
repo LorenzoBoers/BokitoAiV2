@@ -16,16 +16,16 @@ export const LAYER_ICON: Record<AgendaVisualLayer, LucideIcon> = {
 
 /** Swatch for rail toggles and list dots. */
 export const LAYER_DOT: Record<AgendaVisualLayer, string> = {
-  calendar: 'bg-sky-500',
+  calendar: 'bg-status-info',
   tasks: 'bg-accent',
-  activity: 'bg-emerald-500',
+  activity: 'bg-status-success',
 }
 
 /** Block on the time grid: tinted fill, coloured left edge. */
 export const LAYER_BLOCK: Record<AgendaVisualLayer, string> = {
-  calendar: 'border-sky-500/70 bg-sky-500/10 hover:bg-sky-500/20',
+  calendar: 'border-status-info/70 bg-status-info/10 hover:bg-status-info/20',
   tasks: 'border-accent/70 bg-accent/10 hover:bg-accent/15',
-  activity: 'border-emerald-500/60 bg-emerald-500/10 hover:bg-emerald-500/15',
+  activity: 'border-status-success/60 bg-status-success/10 hover:bg-status-success/15',
 }
 
 /** Selected chip stays fully opaque even when the occurrence is in the past or paused. */
@@ -43,9 +43,9 @@ export function agendaChipState({
 }
 
 export const LAYER_TEXT: Record<AgendaVisualLayer, string> = {
-  calendar: 'text-sky-600 dark:text-sky-400',
+  calendar: 'text-status-info',
   tasks: 'text-accent',
-  activity: 'text-emerald-600 dark:text-emerald-400',
+  activity: 'text-status-success',
 }
 
 /** One line under the title: what happened or who is responsible. */

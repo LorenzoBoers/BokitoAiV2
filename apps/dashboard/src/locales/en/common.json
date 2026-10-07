@@ -11,7 +11,15 @@
     "disable": "Disable",
     "signOut": "Sign out",
     "retry": "Retry",
-    "close": "Close"
+    "close": "Close",
+    "clear": "Clear",
+    "confirm": "Confirm",
+    "continue": "Continue"
+  },
+  "confirmDialog": {
+    "title": "Are you sure?",
+    "typeToConfirm": "Type {{value}} to confirm.",
+    "typePlaceholder": "Type exactly: {{value}}"
   },
   "autosave": {
     "saving": "Saving…",

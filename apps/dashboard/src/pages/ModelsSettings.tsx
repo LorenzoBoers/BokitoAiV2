@@ -1,24 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Eye, EyeOff, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
+import {
+  Check,
+  Eye,
+  EyeOff,
+  Globe2,
+  Loader2,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Zap,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { useConfirm } from '../components/ui/confirm-dialog'
+import { IconTile } from '../components/ui/icon-tile'
 import { Input } from '../components/ui/input'
+import { InsetPanel } from '../components/ui/inset-panel'
 import { Label } from '../components/ui/label'
+import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
+import { Switch } from '../components/ui/switch'
+import { ModelIcon, ModelOptionLabel } from '../components/ui/ModelIcon'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { DEFAULT_BRAND_COLOR, DEFAULT_BRAND_MARK } from '../lib/tenant-branding'
 import { providerTypeLabel } from '../lib/model-label'
+import { useIsAdmin } from '../hooks/useIsAdmin'
 import {
+  AUTOMATIC_MODE,
   createProvider,
   createTenantModel,
   deleteProvider,
   deleteTenantModel,
   getTenantModels,
   setCustomModelsOptIn,
+  setWorkspaceChatMode,
   testProvider,
   updateProvider,
+  workspaceChatMode,
   type ManagedAiModel,
   type ProviderType,
   type TenantModelRow,
@@ -35,6 +59,8 @@ const PROVIDER_TYPE_OPTIONS: { value: ProviderType; labelKey: string }[] = [
 export default function ModelsSettings() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const isAdmin = useIsAdmin()
+  const confirm = useConfirm()
   const [data, setData] = useState<TenantModelsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -118,6 +144,21 @@ export default function ModelsSettings() {
     }
   }
 
+  const handleWorkspaceMode = async (mode: string) => {
+    if (!token || busy || !isAdmin) return
+    const current = data ? workspaceChatMode(data) : ''
+    if (mode === current) return
+    setBusy(true)
+    try {
+      setData(await setWorkspaceChatMode(token, mode))
+      flashSaved()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('modelsPage.setDefaultError'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleCreateProvider = async () => {
     if (!token || busy || !apiKey.trim()) return
     if (needsBaseUrl && !baseUrl.trim()) {
@@ -174,7 +215,7 @@ export default function ModelsSettings() {
 
   const handleRemoveModel = async (row: TenantModelRow) => {
     if (!token || busy) return
-    if (!window.confirm(t('modelsPage.removeModelConfirm', { name: row.display_name }))) return
+    if (!(await confirm({ description: t('modelsPage.removeModelConfirm', { name: row.display_name }), destructive: true }))) return
     setBusy(true)
     try {
       await deleteTenantModel(token, row.id)
@@ -189,7 +230,7 @@ export default function ModelsSettings() {
 
   const handleRemoveProvider = async (id: string, name: string) => {
     if (!token || busy) return
-    if (!window.confirm(t('modelsPage.removeConfirm', { name }))) return
+    if (!(await confirm({ description: t('modelsPage.removeConfirm', { name }), destructive: true }))) return
     setBusy(true)
     try {
       await deleteProvider(token, id)
@@ -255,6 +296,27 @@ export default function ModelsSettings() {
     }).format(value)
   }
 
+  const formatContextWindow = (tokens: number | undefined) => {
+    const n = Math.max(0, Number(tokens) || 0)
+    if (n <= 0) return null
+    if (n >= 1_000_000) {
+      return t('modelsPage.specs.contextM', { count: Math.round(n / 1_000_000) })
+    }
+    if (n >= 1000) {
+      return t('modelsPage.specs.contextK', { count: Math.round(n / 1000) })
+    }
+    return t('modelsPage.specs.contextTokens', { count: n })
+  }
+
+  const tierSpecsLine = (tier: (typeof managedTiers)[number]) => {
+    const parts: string[] = []
+    const ctx = formatContextWindow(tier.context_window)
+    if (ctx) parts.push(t('modelsPage.specs.context', { size: ctx }))
+    if (tier.supports_tools) parts.push(t('modelsPage.specs.tools'))
+    if (tier.supports_vision) parts.push(t('modelsPage.specs.vision'))
+    return parts.length ? parts.join(' · ') : null
+  }
+
   return (
     <PageContent width="lg" className="space-y-6 pb-12">
       <ContentHeader
@@ -273,62 +335,108 @@ export default function ModelsSettings() {
       />
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
-      {/* Managed Bokito tiers */}
-      <section className="space-y-3 rounded-lg border border-border/70 bg-bg-surface px-4 py-3.5">
+      {/* Bokito AI models + workspace default */}
+      <section className="panel space-y-3 px-4 py-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-ai/10 text-ai-ink">
-              <Sparkles size={16} />
-            </span>
+            <span
+              aria-hidden
+              className="mt-0.5 h-8 w-8 shrink-0"
+              style={{
+                backgroundColor: DEFAULT_BRAND_COLOR,
+                WebkitMask: `url(${DEFAULT_BRAND_MARK}) center / contain no-repeat`,
+                mask: `url(${DEFAULT_BRAND_MARK}) center / contain no-repeat`,
+              }}
+            />
             <div className="min-w-0 space-y-0.5">
               <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
               <p className="text-sm text-text-muted">{t('modelsPage.managed.bodyDefault')}</p>
             </div>
           </div>
-          <span
-            className={
+          <Badge
+            variant={
               managed?.status === 'active'
-                ? 'rounded-full bg-status-success/15 px-2.5 py-0.5 text-xs font-semibold text-status-success'
+                ? 'success'
                 : managed?.status === 'standby'
-                  ? 'rounded-full bg-bg-hover px-2.5 py-0.5 text-xs font-semibold text-text-secondary'
-                  : 'rounded-full bg-status-warning/15 px-2.5 py-0.5 text-xs font-semibold text-status-warning'
+                  ? 'secondary'
+                  : 'warning'
             }
+            dot={managed?.status === 'active'}
           >
             {statusLabel}
-          </span>
+          </Badge>
         </div>
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {managedTiers.map((tier) => (
-            <li
-              key={tier.slug}
-              className="flex min-h-[9.5rem] flex-col justify-between gap-3 rounded-md border border-border/60 bg-bg-elevated/40 px-3 py-3"
-            >
-              <div className="min-w-0 space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium text-text-heading">{tier.display_name}</p>
-                  {tier.is_default_chat ? (
-                    <span className="rounded-full bg-ai/10 px-2 py-0.5 text-2xs font-medium text-ai-ink">
-                      {t('modelsPage.managed.tiers.defaultBadge')}
+        <p className="text-xs text-text-muted">{t('modelsPage.managed.workspaceDefaultHint')}</p>
+        {(() => {
+          const wsMode = data ? workspaceChatMode(data) : ''
+          const automaticSelected = wsMode === AUTOMATIC_MODE
+          const defaultBadge = <Badge variant="ai">{t('modelsPage.managed.tiers.defaultBadge')}</Badge>
+          return (
+            <OptionCardGrid columns={4}>
+              <OptionCard
+                tone="ai"
+                selected={automaticSelected}
+                readOnly={!isAdmin}
+                disabled={busy}
+                onClick={() => void handleWorkspaceMode(AUTOMATIC_MODE)}
+                icon={<IconTile icon={Sparkles} tone="ai" size="sm" />}
+                title={t('modelsPage.managed.automatic.title')}
+                description={t('modelsPage.managed.automatic.body')}
+                badge={automaticSelected ? defaultBadge : null}
+                className="min-h-[9.5rem]"
+              />
+              {managedTiers.map((tier) => {
+                const specs = tierSpecsLine(tier)
+                const selected = wsMode === tier.slug
+                return (
+                  <OptionCard
+                    key={tier.slug}
+                    tone="ai"
+                    selected={selected}
+                    readOnly={!isAdmin}
+                    disabled={busy}
+                    onClick={() => void handleWorkspaceMode(tier.slug)}
+                    icon={<ModelIcon slug={tier.slug} provider={tier.provider} size={28} />}
+                    title={tier.display_name}
+                    description={t(tierBodyKey(tier.tier))}
+                    badge={selected ? defaultBadge : null}
+                    className="min-h-[9.5rem]"
+                  >
+                    {specs ? <span className="text-xs text-text-secondary">{specs}</span> : null}
+                    <span className="text-xs text-text-secondary">
+                      {t('modelsPage.pricingInOut', {
+                        in: formatMtok(tier.input_cost_per_mtok_cents),
+                        out: formatMtok(tier.output_cost_per_mtok_cents),
+                      })}
                     </span>
-                  ) : null}
-                </div>
-                <p className="text-xs text-text-muted">{t(tierBodyKey(tier.tier))}</p>
-                <p className="text-xs text-text-secondary">
-                  {t('modelsPage.pricingInOut', {
-                    in: formatMtok(tier.input_cost_per_mtok_cents),
-                    out: formatMtok(tier.output_cost_per_mtok_cents),
-                  })}
-                </p>
-              </div>
-              <span
-                className={
-                  tier.ready
-                    ? 'w-fit rounded-full bg-status-success/15 px-2 py-0.5 text-2xs font-semibold text-status-success'
-                    : 'w-fit rounded-full bg-status-warning/15 px-2 py-0.5 text-2xs font-semibold text-status-warning'
-                }
-              >
-                {tier.ready ? t('modelsPage.managed.active') : t('modelsPage.managed.notConfigured')}
-              </span>
+                    <Badge
+                      variant={tier.ready ? 'success' : 'warning'}
+                      dot={tier.ready}
+                      className="mt-auto w-fit"
+                    >
+                      {tier.ready
+                        ? t('modelsPage.managed.active')
+                        : t('modelsPage.managed.notConfigured')}
+                    </Badge>
+                  </OptionCard>
+                )
+              })}
+            </OptionCardGrid>
+          )
+        })()}
+        <ul className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              { key: 'modelsPage.managed.usp.eu', icon: Globe2 },
+              { key: 'modelsPage.managed.usp.current', icon: RefreshCw },
+              { key: 'modelsPage.managed.usp.privacy', icon: ShieldCheck },
+              { key: 'modelsPage.managed.usp.competitive', icon: Zap },
+            ] as const
+            ).map(({ key, icon }) => (
+            <li key={key}>
+              <Badge variant="neutral" icon={icon}>
+                {t(key)}
+              </Badge>
             </li>
           ))}
         </ul>
@@ -345,27 +453,28 @@ export default function ModelsSettings() {
 
       {/* Models list */}
       {!custom?.allowed ? (
-        <section className="rounded-lg border border-dashed border-border/70 bg-bg-elevated/40 px-5 py-4">
+        <section className="rounded-lg border border-dashed border-border/70 bg-bg-elevated px-5 py-4">
           <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.custom.lockedTitle')}</h2>
           <p className="mt-1 text-sm text-text-muted">{t('modelsPage.custom.lockedBody')}</p>
         </section>
       ) : (
-        <section className="space-y-4 rounded-lg border border-border/70 bg-bg-surface p-5">
+        <section className="panel space-y-4 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <h2 className="text-base font-semibold text-text-heading">{t('modelsPage.custom.title')}</h2>
               <p className="text-sm text-text-muted">{t('modelsPage.custom.body')}</p>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-text-primary">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-border"
+            <div className="flex items-center gap-2">
+              <Switch
+                id="models-custom-opt-in"
                 checked={Boolean(custom.enabled)}
                 disabled={busy}
-                onChange={(e) => void handleOptIn(e.target.checked)}
+                onCheckedChange={(checked) => void handleOptIn(checked)}
               />
-              {t('modelsPage.custom.optIn')}
-            </label>
+              <Label htmlFor="models-custom-opt-in" className="cursor-pointer text-sm text-text-primary">
+                {t('modelsPage.custom.optIn')}
+              </Label>
+            </div>
           </div>
 
           {custom.enabled ? (
@@ -377,16 +486,25 @@ export default function ModelsSettings() {
               {chatModels.map((row) => (
                 <div
                   key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 bg-bg-elevated/50 px-3 py-2.5"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 bg-bg-elevated px-3 py-2.5"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate-fade text-sm font-medium text-text-heading">{row.display_name}</p>
-                    <p className="truncate-fade font-mono text-xs text-text-muted">
-                      {row.connection_label ||
-                        (row.provider_type ? providerTypeLabel(row.provider_type) : '') ||
-                        ''}
-                      {row.model_id ? ` · ${row.model_id}` : ''}
-                    </p>
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <ModelIcon
+                      slug={row.slug}
+                      modelId={row.model_id}
+                      providerType={row.provider_type}
+                      size={24}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate-fade text-sm font-medium text-text-heading">{row.display_name}</p>
+                      <p className="truncate-fade font-mono text-xs text-text-muted">
+                        {row.connection_label ||
+                          (row.provider_type ? providerTypeLabel(row.provider_type) : '') ||
+                          ''}
+                        {row.model_id ? ` · ${row.model_id}` : ''}
+                      </p>
+                    </div>
                   </div>
                   <Button
                     type="button"
@@ -443,7 +561,7 @@ export default function ModelsSettings() {
                   {t('modelsPage.custom.addModel')}
                 </Button>
               ) : (
-                <div className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated/40 p-4">
+                <InsetPanel className="space-y-3 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium text-text-heading">
                       {t('modelsPage.custom.wizardTitle', { step })}
@@ -558,7 +676,11 @@ export default function ModelsSettings() {
                           <SelectContent>
                             {presetModels.map((m) => (
                               <SelectItem key={m.slug} value={m.model_id}>
-                                {m.display_name} ({m.model_id})
+                                <ModelOptionLabel
+                                  slug={m.slug}
+                                  modelId={m.model_id}
+                                  name={`${m.display_name} (${m.model_id})`}
+                                />
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -595,7 +717,7 @@ export default function ModelsSettings() {
                       </div>
                     </div>
                   ) : null}
-                </div>
+                </InsetPanel>
               )}
             </div>
           ) : null}

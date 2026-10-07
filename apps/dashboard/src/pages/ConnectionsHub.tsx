@@ -14,6 +14,7 @@ import {
 } from '../components/integrations/ApplicationHubDialog'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
@@ -61,6 +62,7 @@ function hubStepFromLegacy(step: IntegrationHubStep, offer?: IntegrationOffer): 
 
 export default function ConnectionsHub() {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFromUrl = searchParams.get('kind')
@@ -234,7 +236,7 @@ export default function ConnectionsHub() {
 
   const handleDisconnect = async (item: ConnectionListItem) => {
     if (item.source !== 'mcp') return
-    if (!window.confirm(t('integrations.actions.disconnectConfirm'))) return
+    if (!(await confirm({ description: t('integrations.actions.disconnectConfirm'), destructive: true }))) return
     try {
       await revokeMcpConnection(item.connectionId)
       toast.success(t('integrations.actions.disconnected'))

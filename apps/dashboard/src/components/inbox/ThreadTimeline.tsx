@@ -573,7 +573,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     if (row.kind === 'day') {
       return (
         <div className="flex justify-center pb-3 pt-2">
-          <span className="rounded-full bg-bg-elevated/80 px-2.5 py-0.5 text-2xs font-medium text-text-muted backdrop-blur">
+          <span className="rounded-lg bg-bg-elevated/80 px-2.5 py-0.5 text-2xs font-medium text-text-muted backdrop-blur">
             {row.label}
           </span>
         </div>

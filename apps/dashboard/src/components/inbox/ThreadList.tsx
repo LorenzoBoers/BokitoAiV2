@@ -40,6 +40,8 @@ type Props = {
   onBulkPin?: (nextPinned: boolean) => void
   onClearBulkSelection?: () => void
   bulkBusy?: boolean
+  /** Communication folder queue so bulk actions hide no-ops (e.g. Close in Closed). */
+  listQueue?: string | null
   scrollKey?: string
   assigneeFilter?: number | null
   onAssigneeFilter?: (id: number | null) => void
@@ -94,6 +96,7 @@ export default function ThreadList({
   onBulkPin,
   onClearBulkSelection,
   bulkBusy = false,
+  listQueue = null,
   scrollKey,
   assigneeFilter = null,
   onAssigneeFilter,
@@ -289,6 +292,8 @@ export default function ThreadList({
         <BulkActionsBar
           count={bulkSelectedIds?.size ?? 0}
           busy={bulkBusy}
+          listQueue={listQueue}
+          quickFilter={quickFilter}
           onAction={onBulkAction}
           onPin={onBulkPin}
           onClear={onClearBulkSelection}

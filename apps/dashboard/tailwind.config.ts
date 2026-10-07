@@ -58,9 +58,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Jaro', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: 'var(--font-sans)',
+        mono: 'var(--font-mono)',
       },
       // Compact UI scale: 13px body, 11.5px secondary. Headings stay editorial
       // via tracking, not size. Keep 3xl+ at Tailwind defaults.

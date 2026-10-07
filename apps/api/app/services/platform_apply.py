@@ -585,6 +585,8 @@ async def apply_category_change(
             row.description = str(after["description"]).strip()[:300]
         if after.get("show_in_nav") is not None:
             row.show_in_nav = bool(after["show_in_nav"])
+        if after.get("ai_auto_tag") is not None:
+            row.ai_auto_tag = bool(after["ai_auto_tag"])
         session.add(row)
         await session.flush()
         return serialize_category(row)

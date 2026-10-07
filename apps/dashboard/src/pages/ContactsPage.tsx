@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Plus,
   RefreshCw,
-  Search,
   ShieldBan,
   ShieldCheck,
   Trash2,
@@ -25,6 +24,12 @@ import { ChannelGlyph, ChannelLabel, channelKind } from '../components/ui/Channe
 import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
 import { DomainFavicon } from '../components/ui/DomainFavicon'
 import { PersonAvatar } from '../components/ui/PersonAvatar'
+import { Badge, type BadgeTone } from '../components/ui/badge'
+import { useConfirm } from '../components/ui/confirm-dialog'
+import { SearchField } from '../components/ui/search-field'
+import { FilterChip } from '../components/ui/filter-chip'
+import { SegmentedControl } from '../components/ui/segmented-control'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageContent } from '../components/layout/PageContent'
@@ -76,10 +81,10 @@ import type { InboxThread } from '../lib/inbox-api'
 import { listSignalThreads } from '../lib/signals-api'
 import { ThreadLookAt, ThreadTicketPrefix } from '../components/contacts/ContactThreadMeta'
 
-const STATUS_STYLE: Record<ContactStatus, string> = {
-  approved: 'bg-status-success/15 text-status-success',
-  pending: 'bg-status-warning/15 text-status-warning',
-  blocked: 'bg-status-error/15 text-status-error',
+const STATUS_TONE: Record<ContactStatus, BadgeTone> = {
+  approved: 'success',
+  pending: 'warning',
+  blocked: 'error',
 }
 
 function ContactDetail({ contactId }: { contactId: string }) {
@@ -96,6 +101,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
   const [dirty, setDirty] = useState(false)
   const { t: tc } = useTranslation('common')
   const aiHandling = useAiHandling('contact', contactId)
+  const confirm = useConfirm()
 
   const load = useCallback(async () => {
     if (!token) return
@@ -147,7 +153,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
 
   const detachIdentity = async (identityId: string) => {
     if (!token || !contact || saving) return
-    if (!window.confirm(t('contactsPage.detachConfirm'))) return
+    if (!(await confirm({ description: t('contactsPage.detachConfirm'), destructive: true }))) return
     setSaving(true)
     try {
       await detachContactIdentity(token, contact.id, identityId)
@@ -204,7 +210,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
   const removeContact = async () => {
     if (!token || !contact || saving) return
     const label = contact.displayName || contact.address || t('contactsPage.thisContact')
-    if (!window.confirm(t('contactsPage.deleteContactConfirm', { label }))) return
+    if (!(await confirm({ description: t('contactsPage.deleteContactConfirm', { label }), destructive: true }))) return
     setSaving(true)
     try {
       await deleteContact(token, contact.id)
@@ -339,19 +345,17 @@ function ContactDetail({ contactId }: { contactId: string }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+        <section className="panel p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2.5">
               <PersonAvatar name={contact.displayName} email={contact.address} size={32} />
               <h2 className="truncate-fade text-base font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
             </span>
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-semibold ${STATUS_STYLE[displayContactStatus(contact)]}`}
-            >
+            <Badge size="sm" variant={STATUS_TONE[displayContactStatus(contact)]}>
               {isAnonymousContact(contact.displayName, contact.address)
                 ? t('contactsPage.statusAwaitingEmail')
                 : contactStatusLabel(contact.status, t)}
-            </span>
+            </Badge>
           </div>
           <div className="mt-3 space-y-3">
             <p className="flex items-center gap-2 text-sm text-text-secondary">
@@ -468,7 +472,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
           </div>
         </section>
 
-        <section id="conversations" className="rounded-lg border border-border/60 bg-bg-surface p-4">
+        <section id="conversations" className="panel p-4">
           <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
           <p className="text-xs text-text-muted">
             {t('contactsPage.threadCount', { count: threads.length })}
@@ -533,6 +537,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
 
 function CompanyDetailView({ companyId }: { companyId: string }) {
   const { t } = useTranslation('nav')
+  const confirm = useConfirm()
   const { token } = useAuth()
   const navigate = useNavigate()
   const [company, setCompany] = useState<CompanyDetailData | null>(null)
@@ -584,7 +589,13 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
 
   const remove = async () => {
     if (!token || !company || saving) return
-    if (!window.confirm(t('contactsPage.deleteCompanyConfirm', { label: company.name || company.domain }))) return
+    if (
+      !(await confirm({
+        description: t('contactsPage.deleteCompanyConfirm', { label: company.name || company.domain }),
+        destructive: true,
+      }))
+    )
+      return
     setSaving(true)
     try {
       await deleteCompany(token, company.id)
@@ -662,7 +673,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+        <section className="panel p-4">
           <h2 className="flex items-center gap-2.5 text-base font-semibold text-text-heading">
             <DomainFavicon host={company.domain} name={company.name || company.domain} size={28} />
             {t('contactsPage.companySection')}
@@ -740,7 +751,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-border/60 bg-bg-surface p-4">
+        <section className="panel p-4">
           <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
           <p className="text-xs text-text-muted">{t('contactsPage.companyThreadsHint')}</p>
           <div className="mt-3 space-y-1.5">
@@ -1041,19 +1052,16 @@ export default function ContactsPage() {
         }
       />
 
-      <div className="mb-3 flex items-center gap-2 rounded-lg border border-border/60 bg-bg-surface px-3 py-2 focus-within:border-accent/50">
-        <Search size={14} className="shrink-0 text-text-muted" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={
-            view === 'companies'
-              ? t('contactsPage.searchCompanies')
-              : t('contactsPage.searchPeople')
-          }
-          className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
-        />
-      </div>
+      <SearchField
+        className="mb-3"
+        value={search}
+        onChange={setSearch}
+        placeholder={
+          view === 'companies'
+            ? t('contactsPage.searchCompanies')
+            : t('contactsPage.searchPeople')
+        }
+      />
 
       {view === 'people' && anonymousCount > 0 ? (
         <p className="mb-3 rounded-lg border border-status-warning/30 bg-status-warning/8 px-3 py-2 text-xs text-text-secondary">
@@ -1062,61 +1070,55 @@ export default function ContactsPage() {
       ) : null}
 
       <div className="mb-4 flex items-center gap-1.5">
-        <div className="mr-2 flex items-center rounded-lg border border-border/60 p-0.5">
-          {(['people', 'companies'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => handleViewChange(v)}
-              className={
-                view === v
-                  ? 'rounded-md bg-accent/15 px-2.5 py-1 text-xs font-medium text-accent'
-                  : 'rounded-md px-2.5 py-1 text-xs text-text-secondary hover:text-text-primary'
-              }
-            >
-              {v === 'people' ? t('contactsPage.people') : t('contactsPage.companies')}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="mr-2"
+          size="sm"
+          value={view}
+          onChange={handleViewChange}
+          options={[
+            { value: 'people', label: t('contactsPage.people') },
+            { value: 'companies', label: t('contactsPage.companies') },
+          ]}
+        />
         {view === 'people'
           ? STATUS_FILTERS.map((f) => (
-              <button
+              <FilterChip
                 key={f.key}
-                type="button"
                 title={t(f.hintKey)}
+                active={statusFilter === f.key}
                 onClick={() => setStatusFilter(f.key)}
-                className={
-                  statusFilter === f.key
-                    ? 'rounded-md bg-bg-hover px-2 py-0.5 text-xs font-medium text-text-heading'
-                    : 'rounded-full bg-bg-hover/60 px-2.5 py-0.5 text-xs text-text-secondary hover:text-text-primary'
-                }
               >
                 {t(f.labelKey)}
-              </button>
+              </FilterChip>
             ))
           : null}
         {view === 'people' ? (
-          <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-text-secondary">
+          <div className="ml-auto inline-flex items-center gap-1.5 text-xs text-text-secondary">
             {aiFilter !== 'all' && aiFilter !== 'custom' ? (
               <AiHandlingIcon mode={aiFilter} size={12} />
             ) : null}
-            <span className="sr-only">{tc('aiHandling.title')}</span>
-            <select
-              aria-label={tc('aiHandling.title')}
-              data-testid="contacts-ai-handling-filter"
+            <Select
               value={aiFilter}
-              onChange={(e) => setAiFilter(e.target.value as ContactAiHandlingFilter | 'all')}
-              className="rounded-md border border-border/60 bg-bg-surface px-2 py-0.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+              onValueChange={(value) => setAiFilter(value as ContactAiHandlingFilter | 'all')}
             >
-              <option value="all">{tc('aiHandling.filter.all')}</option>
-              <option value="custom">{tc('aiHandling.filter.custom')}</option>
-              {AI_HANDLING_MODES.map((mode) => (
-                <option key={mode} value={mode}>
-                  {tc(`aiHandling.modes.${mode}.label`)}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger
+                aria-label={tc('aiHandling.title')}
+                data-testid="contacts-ai-handling-filter"
+                className="h-7 w-auto gap-2 rounded-md px-2 text-xs"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{tc('aiHandling.filter.all')}</SelectItem>
+                <SelectItem value="custom">{tc('aiHandling.filter.custom')}</SelectItem>
+                {AI_HANDLING_MODES.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {tc(`aiHandling.modes.${mode}.label`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ) : null}
       </div>
       {view === 'people' && statusFilter === 'pending' ? (
@@ -1146,7 +1148,7 @@ export default function ContactsPage() {
       ) : null}
 
       {createOpen ? (
-        <div className="mb-4 rounded-lg border border-border/60 bg-bg-surface p-4">
+        <div className="panel mb-4 p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.newContact')}</h2>
             <button
@@ -1159,18 +1161,21 @@ export default function ContactsPage() {
             </button>
           </div>
           <div className="grid gap-3 sm:grid-cols-4">
-            <select
-              aria-label={t('contactsPage.channelLabel')}
+            <Select
               value={createDraft.channel}
-              onChange={(e) => setCreateDraft((p) => ({ ...p, channel: e.target.value }))}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+              onValueChange={(value) => setCreateDraft((p) => ({ ...p, channel: value }))}
             >
-              {withoutParkedChannels(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
-                <option key={channel} value={channel}>
-                  {t(`contactsPage.channels.${channel}`)}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger aria-label={t('contactsPage.channelLabel')} className="h-auto rounded-md px-2.5 py-1.5">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {withoutParkedChannels(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
+                  <SelectItem key={channel} value={channel}>
+                    {t(`contactsPage.channels.${channel}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <input
               value={createDraft.address}
               onChange={(e) => setCreateDraft((p) => ({ ...p, address: e.target.value }))}
@@ -1257,7 +1262,7 @@ export default function ContactsPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border/60 bg-bg-surface">
+          <div className="panel overflow-hidden">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border/60 text-xs font-semibold text-text-muted">
@@ -1344,7 +1349,7 @@ export default function ContactsPage() {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border/60 bg-bg-surface">
+        <div className="panel overflow-hidden">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border/60 text-xs font-semibold text-text-muted">
@@ -1488,15 +1493,15 @@ export default function ContactsPage() {
                               <AiHandlingIcon mode={contact.aiHandling} size={12} />
                             </span>
                           ) : null}
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold ${STATUS_STYLE[shown]}`}
+                          <Badge
+                            size="sm"
+                            variant={STATUS_TONE[shown]}
+                            icon={shown === 'blocked' ? ShieldBan : shown === 'approved' ? Check : undefined}
                           >
-                            {shown === 'blocked' ? <ShieldBan size={10} /> : null}
-                            {shown === 'approved' ? <Check size={10} /> : null}
                             {awaiting
                               ? t('contactsPage.statusAwaitingEmail')
                               : contactStatusLabel(shown, t)}
-                          </span>
+                          </Badge>
                         </span>
                       )
                     })()}

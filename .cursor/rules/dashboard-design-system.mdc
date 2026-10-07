@@ -1,78 +1,68 @@
 ---
-description: Dashboard UI surface recipe — keep light/dark hierarchy simple and reusable
+description: Dashboard design system catalog — reuse these components, change looks centrally
 globs: apps/dashboard/src/**/*.{tsx,ts,css}
 alwaysApply: false
 ---
 
 # Dashboard design system
 
-Canonical tokens live in `apps/dashboard/src/index.css`. Theme is `html[data-theme=light|dark]` (not `.dark`).
+One small catalog in `apps/dashboard/src/components/ui/` (barrel: `components/ui/index.ts`).
+Full guide with examples: `apps/dashboard/docs/DESIGN_SYSTEM.md`.
 
-## Surface ladder (both themes)
+**Rule of use:** if the catalog has it, use it. If a look is wrong, fix the
+component, never the call site. A new primitive needs a real second use, a
+catalog entry here and in `DESIGN_SYSTEM.md`, and an export in `index.ts`.
+Rare one-off styles fold into the nearest catalog component.
 
-| Token | Use for |
-|-------|---------|
-| `bg-bg` / `app-atmosphere` | App chrome / page canvas |
-| `bg-bg-sidebar` | Rail / section nav |
-| `bg-bg-canvas` | Rare; prefer surface for main sheets |
-| `bg-bg-surface` | Cards, dialogs, main panels |
-| `bg-bg-elevated` | Insets inside a surface (chips, sublists) |
-| `bg-bg-hover` | Hover / selected rows |
-| `bg-bg-input` | Form fields |
+## Catalog
 
-Light mode keeps **one shared gray canvas** (`bg` = `sidebar` = `canvas`) and reserves **white** for `surface`. Do not invent extra gray steps or multi-layer glows.
+| Family | Component | Use for |
+|---|---|---|
+| Surfaces | `Card` (+ `CardHeader`, `CardTitle`, `CardContent`) / `.panel` | Every card, section, standalone list |
+| | `InsetPanel` | Region inside a Card (sublist, preview, group) |
+| | `SettingsSection` | Settings form card with title, description, actions |
+| | `SectionHeading` | Heading of a group inside a page or card |
+| Controls | `Button` | Every action (`default`, `secondary`, `ghost`, `ai`, `destructive`) |
+| | `TextLink` | Inline text action, router or external link |
+| | `OptionCard` + `OptionCardGrid` | Large selectable choice (mode, tier, plan) |
+| | `SegmentedControl` | 2-5 short in-place options |
+| | `FilterChip` + `FilterChipRow` | Toggleable filters |
+| | `SearchField` | Search input with clear |
+| | `Input`, `Textarea`, `Select`, `Switch`, `Label` | Forms (never native `<select>`) |
+| | `DropdownMenu`, `Dialog` | Menus, modals |
+| Feedback | `Callout` | Inline status / warning / error banner |
+| | `ConfirmDialog` / `useConfirm()` | Every confirmation (never `window.confirm`) |
+| | `EmptyState` (`tone="card" \| "dashed" \| "plain"`) | Empty lists and pages |
+| | `Spinner`, `LoadingBlock`, `Skeleton` | Loading |
+| | `ApiErrorBanner` | API error with retry (a Callout preset) |
+| Data | `Badge` + `lib/badge-tones.ts` | Every pill: status, role, type, count label |
+| | `MetaLine` | "a · b · c" muted facts |
+| | `EntityRow`, `EntityList`, `DescriptionRow` | Rows of people, agents, keys; label/value pairs |
+| | `StatTile`, `StatGrid` | KPIs |
+| | `CapBar` | Usage against a cap |
+| | `Table` family | Tabular data |
+| Identity | `IconTile` | Square icon or logo tile |
+| | `UserAvatar`, `AiAvatar`, `ContactAvatar`, `TeamAvatar` | People, agents, contacts, teams |
 
-## The only card recipe
+## Tokens
 
-Use one of:
+- Fonts: `--font-sans` (Inter) and `--font-mono` (JetBrains Mono) in `index.css`. No other families.
+- Size ladder: `text-2xs`, `xs`, `sm`, `base`, `lg`, `xl`, `2xl`. Never `text-[Npx]`.
+- Radius ladder: shell `2xl`/`xl` > `Card`, `Badge`, `OptionCard`, `Callout` `lg` > `InsetPanel`, input, button, `FilterChip` `md`. `rounded-full` only for avatars, dots, switches and numeric count bubbles.
+- Colors: surface ladder `bg`, `bg-surface`, `bg-elevated`, `bg-hover`, `bg-input`; status via `status-success|warning|error|info`; AI via `ai`/`ai-ink`; brand via `accent`. No raw palette colors (`emerald-500`, `amber-600`, `red-500`).
+- Badge tones: `neutral`, `accent`, `ai`, `success`, `warning`, `error`, `info`. Map domain values with `statusTone`, `roleTone`, `memberTypeTone`, `ratioTone`.
 
-- React: `<Card>` / `<CardHeader>` / `<CardContent>` from `components/ui/card.tsx`
-- CSS: `.panel`
+## Guard
 
-Recipe: `bg-bg-surface` + `border border-border/60` + `rounded-xl` + `box-shadow: var(--shadow-card)`.
-
-Inside a card: `.panel-inset` or `bg-bg-elevated` + `border-border/40` — **no second card shadow**.
-
-Interactive cards: `<Card interactive>` or `.panel` + `.hover-lift`.
-
-## Borders
-
-- `/40` — soft dividers, table rows, card header lines
-- `/60` — cards, dialogs, dropdowns (default)
-- full `border-border` — strong input edges only when needed
-
-## Elevation
-
-| Class / token | When |
-|---------------|------|
-| `shadow-card` / `.panel` | Cards and shell sheets |
-| `shadow-overlay` | Dialogs, popovers, command palette |
-| `.btn-elevated` | Buttons (uses `--shadow-btn`) |
-| `.shadow-inset-highlight` | Inputs, tab lists |
-| `.shadow-chip-active` | Selected nav chips |
-
-Do **not** hand-roll `shadow-xl` / `shadow-lg` / raw `rgba(255,255,255,…)` insets. Do **not** stack 3+ custom box-shadows for light mode.
-
-## Buttons
-
-Use `components/ui/button.tsx` variants only:
-
-- Primary actions → `default` (accent)
-- Secondary chrome → `secondary` / `outline` / `subtle`
-- Quiet → `ghost`
-- AI actions → `ai`
-
-No one-off `bg-black`, `bg-text-heading`, or solid dark slabs for CTAs in light mode.
-
-Header actions sit in `CardHeaderActions` as `Button variant="ghost" size="iconSm"`. `CardHeader` is always `h-11`. Do not put `size="sm"` labelled buttons in the header — they stretch the bar and misalign neighbouring cards.
-
-## Radius nesting
-
-`rounded-2xl` (shell) → `rounded-xl` (card) → `rounded-lg` (input/inner) → `rounded-md` (chip) → `rounded-full` (pill).
+`npm run lint` in `apps/dashboard` runs `scripts/check-design-system.mjs`. It fails on
+`window.confirm`, native `<select>`, `text-[Npx]`, hand-rolled card strings,
+`bg-bg-elevated/40`, raw status colors, capsule chips and removed legacy classes.
+Exempt a line only with a `design-system-ignore` comment and a reason.
 
 ## Anti-patterns
 
-- Duplicating the card string instead of `<Card>` / `.panel`
-- Light-only special-case shadows or gradients on random pages
-- Transparent `bg-bg-surface/80` without `backdrop-blur`
-- Legacy: `bg-surface-raised`, `border-border-subtle`, `bg-surface-muted`
+- Duplicating a card string instead of `<Card>` / `.panel`
+- Hand-coloring a pill instead of `<Badge variant>`
+- Page-local segmented controls, option cards, cap bars or confirm prompts
+- Light-only shadows or gradients on random pages
+- Legacy: `bg-surface-raised`, `border-border-subtle`, `bg-surface-muted`, `.badge-*`, `font-display`, `.panel-inset`

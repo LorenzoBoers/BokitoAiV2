@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { disconnectEmailConnection, isSendableMailbox, listEmailConnections, type EmailConnection } from '../lib/email-api'
+import { isSendableMailbox, listEmailConnections, type EmailConnection } from '../lib/email-api'
 
 export function useMailboxConnections() {
   const { token, user, isLoading: authLoading } = useAuth()
@@ -32,17 +32,6 @@ export function useMailboxConnections() {
     }
   }, [token, user?.organisationId, authLoading])
 
-  const removeConnection = useCallback(
-    async (connectionId: number) => {
-      if (!token) {
-        throw new Error('Not signed in.')
-      }
-      await disconnectEmailConnection(token, connectionId)
-      setConnections((prev) => prev.filter((item) => item.id !== connectionId))
-    },
-    [token],
-  )
-
   useEffect(() => {
     void refresh()
   }, [refresh])
@@ -68,7 +57,6 @@ export function useMailboxConnections() {
     loading: loadingState,
     error,
     refresh,
-    removeConnection,
     needsOrganisation,
   }
 }

@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { Button } from '../ui/button'
+import { useConfirm } from '../ui/confirm-dialog'
 import { deleteCalendarEvent } from '../../lib/calendars-api'
 import type { TimeItem } from '../../lib/time-items'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
@@ -41,6 +42,7 @@ export default function CalendarEventDetailDialog({
   const { t, i18n } = useTranslation('nav')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const confirm = useConfirm()
 
   if (!item) return null
 
@@ -51,7 +53,7 @@ export default function CalendarEventDetailDialog({
   const remove = async () => {
     const id = calendarEventId(item)
     if (!id) return
-    if (!window.confirm(t('agendaPage.calendar.deleteConfirm'))) return
+    if (!(await confirm({ description: t('agendaPage.calendar.deleteConfirm'), destructive: true }))) return
     setBusy(true)
     setError(null)
     try {

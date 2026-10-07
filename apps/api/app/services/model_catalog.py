@@ -22,14 +22,15 @@ DEFAULT_MARKUP = 1.2
 # tools, vision, default_chat, default_embedding, sort
 DEFAULT_MODELS: list[tuple] = [
     # Managed Bokito tiers (virtual): no model_id; see bokito_models.py.
-    # Default bill prices match the Mistral backing family (BOKITO_BACKING_FAMILY).
-    # Seed refresh overwrites these from the active family's backing row.
+    # List prices are fixed via env (BOKITO_*_COST_PER_MTOK_CENTS); seed refresh
+    # overwrites catalog rows from bill_prices_for_slug so the ladder stays
+    # lighter < standard < heavier independent of silent backing costs.
     ("bokito-maki", "bokito", "chat", "", "Maki",
      256000, 10, 10, True, True, False, False, 3),
-    ("bokito-ai-3-1", "bokito", "chat", "", "Bokito AI",
-     128000, 150, 750, True, True, True, False, 5),
+    ("bokito-ai-3-1", "bokito", "chat", "", "Bokito",
+     128000, 50, 150, True, True, True, False, 5),
     ("bokito-kong", "bokito", "chat", "", "Kong",
-     128000, 50, 150, True, True, False, False, 7),
+     128000, 150, 750, True, True, False, False, 7),
     # Real provider rows (staff / BYOK / silent backing).
     ("ministral-3b-2512", "mistral", "chat", "ministral-3b-2512", "Ministral 3B",
      256000, 10, 10, True, True, False, False, 8),
@@ -39,6 +40,8 @@ DEFAULT_MODELS: list[tuple] = [
      128000, 50, 150, True, True, False, False, 10),
     ("mistral-small-latest", "mistral", "chat", "mistral-small-latest", "Mistral Small 4",
      128000, 15, 60, True, True, False, False, 11),
+    ("mistral-large-4", "mistral", "chat", "mistral-large-4", "Mistral Large 4",
+     524288, 136, 418, True, True, False, False, 11),
     ("mistral-embed", "mistral", "embedding", "mistral-embed", "Mistral Embed",
      8192, 10, 0, False, False, False, False, 12),
     ("claude-sonnet-5-5", "anthropic", "chat", "claude-sonnet-5-5", "Claude Sonnet 5.5",
@@ -166,8 +169,8 @@ async def _refresh_legacy_agent_models(session: AsyncSession) -> None:
 async def _refresh_managed_virtual_rows(session: AsyncSession) -> None:
     """Keep managed Bokito tier display names, prices and sort in sync.
 
-    List prices follow the active backing family (`BOKITO_BACKING_FAMILY`) so a
-    Mistral↔Claude switch updates customer-facing cents/Mtok without a migration.
+    List prices come from fixed env vars (see ``bokito_models.bill_prices_for_slug``),
+    not from the silent backing family's provider costs.
     """
     from datetime import datetime
 

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
+import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Switch } from '../components/ui/switch'
@@ -27,6 +28,7 @@ const LEGAL_BASE = 'https://github.com/bokito-ai/bokito/blob/master/docs/legal'
 export default function TrustPrivacyPage() {
   const { t } = useTranslation('nav')
   const { token, currentTenantRole } = useAuth()
+  const confirm = useConfirm()
   const isOwnerOrAdmin = currentTenantRole === 'owner' || currentTenantRole === 'admin'
   const [settings, setSettings] = useState<PrivacySettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -100,7 +102,7 @@ export default function TrustPrivacyPage() {
       toast.error(t('trustPage.emailRequired'))
       return
     }
-    if (!window.confirm(t('trustPage.eraseConfirm'))) return
+    if (!(await confirm({ description: t('trustPage.eraseConfirm'), destructive: true }))) return
     setBusyAction('erase')
     try {
       await erasePrivacySubject(subjectEmail.trim())
@@ -134,7 +136,7 @@ export default function TrustPrivacyPage() {
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
-      <section className="space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
+      <section className="panel space-y-3 p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.legalTitle')}</h2>
         <p className="text-xs text-text-muted">{t('trustPage.legalBody')}</p>
         <ul className="space-y-1 text-sm">
@@ -167,7 +169,7 @@ export default function TrustPrivacyPage() {
         </ul>
       </section>
 
-      <section className="space-y-4 rounded-lg border border-border/60 bg-bg-surface p-4">
+      <section className="panel space-y-4 p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.retentionTitle')}</h2>
         {loading || !settings ? (
           <p className="text-sm text-text-muted">{t('trustPage.loading')}</p>
@@ -213,7 +215,7 @@ export default function TrustPrivacyPage() {
         )}
       </section>
 
-      <section className="space-y-4 rounded-lg border border-border/60 bg-bg-surface p-4">
+      <section className="panel space-y-4 p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.region.title')}</h2>
         <p className="text-xs text-text-muted">{t('trustPage.region.body')}</p>
         {region?.eu_share_pct_30d != null && region.eu_share_pct_30d > 0 ? (
@@ -253,7 +255,7 @@ export default function TrustPrivacyPage() {
         <p className="text-xs text-text-muted">{t('trustPage.region.embeddingNote')}</p>
       </section>
 
-      <section className="space-y-3 rounded-lg border border-border/60 bg-bg-surface p-4">
+      <section className="panel space-y-3 p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.dsarTitle')}</h2>
         <p className="text-xs text-text-muted">{t('trustPage.dsarBody')}</p>
         <div className="space-y-1.5">

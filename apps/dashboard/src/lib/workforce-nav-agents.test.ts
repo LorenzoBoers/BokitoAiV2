@@ -31,6 +31,18 @@ describe('filterLibraryAgents', () => {
     ]
     expect(filterLibraryAgents(rows).map((row) => row.id)).toEqual(['1', '2'])
   })
+
+  it('can include deactivated company agents for the Deactivated filter', () => {
+    const rows = [
+      agent({ id: '1', name: 'Live', role_slug: 'assistant' }),
+      agent({ id: '5', name: 'Former', is_active: false, kind: 'archived' }),
+      agent({ id: '3', name: 'Mine', kind: 'personal', is_active: false }),
+    ]
+    expect(filterLibraryAgents(rows, { includeInactive: true }).map((row) => row.id)).toEqual([
+      '1',
+      '5',
+    ])
+  })
 })
 
 describe('sortAgentsForLibrary', () => {

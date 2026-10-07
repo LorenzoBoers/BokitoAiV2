@@ -10,7 +10,7 @@ const HUB_BRANDS = aiCodingToolBrandSlugs()
 export default function AiCodingToolsBanner() {
   const { t } = useTranslation('nav')
   return (
-    <section className="rounded-lg border border-border/60 bg-bg-surface px-4 py-3">
+    <section className="panel px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

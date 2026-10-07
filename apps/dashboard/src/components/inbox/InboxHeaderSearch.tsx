@@ -66,7 +66,7 @@ export default function InboxHeaderSearch() {
             writeSavedSearches(next)
             setSaved(next)
           }}
-          className="absolute right-8 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-full text-text-muted hover:bg-bg-hover hover:text-text-primary"
+          className="absolute right-8 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-primary"
         >
           <BookmarkPlus size={13} />
         </button>
@@ -76,7 +76,7 @@ export default function InboxHeaderSearch() {
           type="button"
           onClick={() => setSearch('')}
           aria-label={t('inboxSearchClear')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-full text-text-muted hover:bg-bg-hover hover:text-text-primary"
+          className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-primary"
         >
           <X size={13} />
         </button>

@@ -92,7 +92,14 @@ async def validate_entries(
     entries: list[dict[str, Any]],
     levels: Sequence[str],
 ) -> list[dict[str, str]]:
-    """Validate operator input; system team rows map to their kind; the highest level wins."""
+    """Validate operator input; system team rows map to their kind; the highest level wins.
+
+    Agent grants must target an active company agent so deactivated agents cannot
+    be re-added via the access matrix (leftover grants are cleared by the UI).
+    """
+    from app.models.agent import Agent
+    from app.models.auth import Membership
+
     system_ids = {
         str(row.id): row.kind
         for row in (
@@ -103,6 +110,8 @@ async def validate_entries(
     }
     rank = {lvl: i for i, lvl in enumerate(levels)}
     seen: dict[tuple[str, str], str] = {}
+    agent_ids: list[UUID] = []
+    user_ids: list[UUID] = []
     for entry in entries:
         kind = str(entry.get("kind") or "")
         ident = str(entry.get("id") or "")
@@ -115,9 +124,52 @@ async def validate_entries(
                 _require_uuid(ident)
         else:
             _require_uuid(ident)
+            if kind == "agent":
+                agent_ids.append(UUID(ident))
+            elif kind == "user":
+                user_ids.append(UUID(ident))
         key = (kind, ident)
         if key not in seen or rank[level] > rank[seen[key]]:
             seen[key] = level
+
+    if agent_ids:
+        active_agents = {
+            str(aid)
+            for aid in (
+                await session.execute(
+                    select(Agent.id).where(
+                        Agent.tenant_id == tenant_id,
+                        Agent.id.in_(agent_ids),
+                        Agent.kind == "company",
+                        Agent.is_active.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        }
+        for aid in agent_ids:
+            if str(aid) not in active_agents:
+                raise ValueError("Agent is deactivated or unknown")
+    if user_ids:
+        active_users = {
+            str(uid)
+            for uid in (
+                await session.execute(
+                    select(Membership.user_id).where(
+                        Membership.tenant_id == tenant_id,
+                        Membership.user_id.in_(user_ids),
+                        Membership.is_active.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        }
+        for uid in user_ids:
+            if str(uid) not in active_users:
+                raise ValueError("Person is deactivated or unknown")
+
     return [{"kind": k, "id": i, "level": lvl} for (k, i), lvl in seen.items()]
 
 

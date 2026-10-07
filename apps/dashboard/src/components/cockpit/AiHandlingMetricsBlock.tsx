@@ -34,7 +34,7 @@ export default function AiHandlingMetricsBlock() {
 
   return (
     <section
-      className="rounded-lg border border-border/60 bg-bg-surface p-4"
+      className="panel p-4"
       data-testid="overview-ai-handling"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">

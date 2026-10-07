@@ -267,7 +267,7 @@ async def test_email_sync_rate_limited(client: AsyncClient, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_mailbox_disconnect_records_audit(
+async def test_channel_archive_records_audit(
     client: AsyncClient, session_override: AsyncSession
 ):
     headers = await _login(client)
@@ -275,17 +275,15 @@ async def test_mailbox_disconnect_records_audit(
     assert listing.status_code == 200
     connections = listing.json()
     assert connections
-    conn_id = connections[0]["id"]
+    account_id = connections[0]["uuid"]
 
-    res = await client.delete(f"/api/email/connections/{conn_id}", headers=headers)
-    assert res.status_code == 200
+    res = await client.post(f"/api/channels/accounts/{account_id}/archive", headers=headers)
+    assert res.status_code == 200, res.text
 
     events = (
         (
             await session_override.execute(
-                select(AuditEvent).where(
-                    AuditEvent.action == "email:mailbox_disconnected"
-                )
+                select(AuditEvent).where(AuditEvent.action == "channel:archived")
             )
         )
         .scalars()
@@ -296,12 +294,14 @@ async def test_mailbox_disconnect_records_audit(
 
 
 @pytest.mark.asyncio
-async def test_mailbox_disconnect_detaches_referencing_rows(
+async def test_channel_delete_removes_referencing_rows(
     client: AsyncClient, session_override: AsyncSession
 ):
-    """Disconnect must not 500 when threads/rules/bindings reference the
-    account (Postgres enforces the FKs in production): threads are detached
-    and kept, per-mailbox rules and bindings are removed."""
+    """Deleting an archived channel must not 500 when threads/rules/bindings
+    reference the account (Postgres enforces the FKs in production): threads,
+    per-mailbox rules and bindings go with it."""
+    from uuid import UUID
+
     from app.models.agent import Agent
     from app.models.channel import ChannelBinding
     from app.models.learning import InboxRule
@@ -312,13 +312,9 @@ async def test_mailbox_disconnect_detaches_referencing_rows(
     assert listing.status_code == 200
     connections = listing.json()
     assert connections
-    conn_id = connections[0]["id"]
+    account_id = connections[0]["uuid"]
 
-    account = (
-        (await session_override.execute(select(ChannelAccount).limit(1)))
-        .scalars()
-        .first()
-    )
+    account = await session_override.get(ChannelAccount, UUID(account_id))
     assert account is not None
     tenant_id = account.tenant_id
 
@@ -336,7 +332,7 @@ async def test_mailbox_disconnect_detaches_referencing_rows(
     signal = Signal(
         tenant_id=tenant_id,
         channel="email",
-        subject="Disconnect FK check",
+        subject="Delete FK check",
         channel_account_id=account.id,
     )
     rule = InboxRule(
@@ -360,37 +356,19 @@ async def test_mailbox_disconnect_detaches_referencing_rows(
     rule_id = rule.id
     binding_id = binding.id
 
-    res = await client.delete(f"/api/email/connections/{conn_id}", headers=headers)
-    assert res.status_code == 200
+    res = await client.post(f"/api/channels/accounts/{account_id}/archive", headers=headers)
+    assert res.status_code == 200, res.text
+    res = await client.delete(f"/api/channels/accounts/{account_id}", headers=headers)
+    assert res.status_code == 200, res.text
 
     session_override.expire_all()
-    kept_signal = (
-        (await session_override.execute(select(Signal).where(Signal.id == signal_id)))
-        .scalars()
-        .first()
-    )
-    assert kept_signal is not None
-    assert kept_signal.channel_account_id is None
-    assert (
-        (
-            await session_override.execute(
-                select(InboxRule).where(InboxRule.id == rule_id)
-            )
+    for model, row_id in ((Signal, signal_id), (InboxRule, rule_id), (ChannelBinding, binding_id)):
+        assert (
+            (await session_override.execute(select(model).where(model.id == row_id)))
+            .scalars()
+            .first()
+            is None
         )
-        .scalars()
-        .first()
-        is None
-    )
-    assert (
-        (
-            await session_override.execute(
-                select(ChannelBinding).where(ChannelBinding.id == binding_id)
-            )
-        )
-        .scalars()
-        .first()
-        is None
-    )
 
 
 @pytest.mark.asyncio
