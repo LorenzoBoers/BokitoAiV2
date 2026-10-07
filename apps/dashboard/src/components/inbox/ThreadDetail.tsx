@@ -643,7 +643,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // reply. An active meta conversation keeps Ask. Switching to Ask or @-mentioning
   // an agent must not snap back to Reply just because the thread refreshed.
   const handlingEffective = detail?.thread?.aiHandling?.effective ?? null
-  const prevThreadIdRef = useRef<typeof threadId | null>(null)
+  const prevThreadIdRef = useRef<string | null>(null)
   useEffect(() => {
     setAskAgentId(null)
   }, [threadId])
@@ -661,8 +661,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setComposerMode('ask')
       return
     }
-    const threadChanged = prevThreadIdRef.current !== threadId
-    prevThreadIdRef.current = threadId
+    // Compare the loaded thread, not the route: right after navigation
+    // `detail` still holds the previous thread and would pick its mode.
+    const threadChanged = prevThreadIdRef.current !== String(thread.id)
+    prevThreadIdRef.current = String(thread.id)
     if (threadChanged) {
       // An automated mail the agent judged "no reply needed" has nobody to
       // write to: start on a note instead of a reply to the no-reply sender.

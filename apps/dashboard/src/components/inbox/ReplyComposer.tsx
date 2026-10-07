@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import type { ComposerSurface, ComposerMode } from '../../lib/message-composer'
+import { effectiveComposerMode, type ComposerSurface, type ComposerMode } from '../../lib/message-composer'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
 import type { MessageAttachment } from '../../lib/inbox-api'
@@ -168,7 +168,7 @@ export default function ReplyComposer({
   )
   const [uncontrolledMode, setUncontrolledMode] = useState<ComposerMode>(surface.defaultMode)
   const [dictationInterim, setDictationInterim] = useState('')
-  const mode: ComposerMode = modeProp ?? uncontrolledMode
+  const mode = effectiveComposerMode(surface, modeProp ?? uncontrolledMode)
   const setMode = (next: ComposerMode) => {
     if (next === 'reply' && mode !== 'reply') {
       // Structured mentions become plain @Name when returning to customer reply.

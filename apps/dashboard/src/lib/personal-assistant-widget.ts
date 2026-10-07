@@ -24,6 +24,14 @@ export function assistantWidgetReady(): boolean {
   return mounted != null
 }
 
+/** Viewport box of the floating helper launcher, or null when it is not shown. */
+export function assistantLauncherRect(): DOMRect | null {
+  const launcher = mounted?.shadowRoot?.querySelector<HTMLElement>('.bk-launcher')
+  if (!launcher) return null
+  const rect = launcher.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0 ? rect : null
+}
+
 export function openAssistant(): void {
   mounted?.open?.()
 }

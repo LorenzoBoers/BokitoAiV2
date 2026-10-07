@@ -159,6 +159,18 @@ function mapSignalChannel(thread: InboxThread): ComposerChannel {
 }
 
 /**
+ * The mode the composer actually uses. A mode the surface does not offer
+ * (Reply on an agent chat) would send the text somewhere the operator has no
+ * tab for, so it falls back to the surface default.
+ */
+export function effectiveComposerMode(
+  surface: Pick<ComposerSurface, 'modes' | 'defaultMode'>,
+  requested: ComposerMode,
+): ComposerMode {
+  return surface.modes.includes(requested) ? requested : surface.defaultMode
+}
+
+/**
  * Derive composer modes and defaults from thread channel + counterparty.
  * The reply destination matches the conversation source; `ask` and `note`
  * never leave the workspace, so every channel offers them.

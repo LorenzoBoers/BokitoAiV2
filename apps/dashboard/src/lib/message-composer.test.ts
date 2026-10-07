@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { InboxThread } from './inbox-api'
 import {
   customersFirst,
+  effectiveComposerMode,
   pickPreferredInboxThread,
   resolveComposerSurface,
   threadCounterpartyName,
@@ -193,5 +194,19 @@ describe('resolveComposerSurface (whatsapp)', () => {
   it('treats live-chat aliases as chat', () => {
     expect(resolveComposerSurface(thread({ channel: 'webchat' })).channel).toBe('chat')
     expect(resolveComposerSurface(thread({ channel: 'livechat' })).channel).toBe('chat')
+  })
+})
+
+describe('effectiveComposerMode', () => {
+  it('never sends a Reply on an agent chat', () => {
+    const surface = resolveComposerSurface(thread({ channel: 'assistant', agentName: 'Support agent' }))
+    expect(surface.modes).not.toContain('reply')
+    expect(effectiveComposerMode(surface, 'reply')).toBe(surface.defaultMode)
+    expect(effectiveComposerMode(surface, 'note')).toBe('note')
+  })
+
+  it('keeps Reply on a customer channel', () => {
+    const surface = resolveComposerSurface(thread({ channel: 'whatsapp', contactName: 'Jan Jansen' }))
+    expect(effectiveComposerMode(surface, 'reply')).toBe('reply')
   })
 })

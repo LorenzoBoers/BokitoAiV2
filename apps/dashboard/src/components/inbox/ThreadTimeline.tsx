@@ -449,24 +449,29 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     [snapScrollerToEnd, stopSettling, virtuosoData.length],
   )
 
-  useEffect(() => {
-    readingHistoryRef.current = false
-    atBottomRef.current = true
-    stopSettling()
-    return () => stopSettling()
-  }, [threadId, stopSettling])
+  // Cleanup only: a stopSettling() here would run after the layout effect
+  // below and cancel the opening snap, leaving the thread underscrolled.
+  useEffect(() => () => stopSettling(), [threadId, stopSettling])
 
   const openedThreadSnapRef = useRef<string | null>(null)
   useLayoutEffect(() => {
     openedThreadSnapRef.current = null
+    readingHistoryRef.current = false
+    atBottomRef.current = true
   }, [threadId])
   useLayoutEffect(() => {
-    if (!landing.pinToBottom || virtuosoData.length === 0) return
+    if (rows.length === 0) return
     const key = String(threadId)
     if (openedThreadSnapRef.current === key) return
     openedThreadSnapRef.current = key
+    if (!landing.pinToBottom) {
+      // Landing mid-thread (deep link, top of a new email): stay put.
+      readingHistoryRef.current = true
+      atBottomRef.current = false
+      return
+    }
     scrollToAbsoluteBottom('auto', 280)
-  }, [threadId, landing.pinToBottom, virtuosoData.length, scrollToAbsoluteBottom])
+  }, [threadId, landing.pinToBottom, rows.length, scrollToAbsoluteBottom])
 
   useEffect(() => {
     const el = scrollerNode.current
@@ -488,21 +493,41 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       releaseIfScrollingUp(touchY - y)
       touchY = y
     }
+    // Scrollbar drags and keyboard scrolling have no wheel/touch event: treat
+    // an upward scroll shortly after a pointer or key press as reading.
+    let gestureUntil = 0
+    let lastTop = el.scrollTop
+    const markGesture = () => {
+      gestureUntil = Date.now() + 1000
+    }
+    const onScroll = () => {
+      const top = el.scrollTop
+      if (Date.now() < gestureUntil) releaseIfScrollingUp(top - lastTop)
+      lastTop = top
+    }
     el.addEventListener('wheel', onWheel, { passive: true })
     el.addEventListener('touchstart', onTouchStart, { passive: true })
     el.addEventListener('touchmove', onTouchMove, { passive: true })
+    el.addEventListener('pointerdown', markGesture, { passive: true })
+    el.addEventListener('keydown', markGesture)
+    el.addEventListener('scroll', onScroll, { passive: true })
+    // Follow growth (a streamed answer, a reply replacing the live trace)
+    // until the operator scrolls up. Virtuoso's first child is a fixed-height
+    // viewport, so watch the item list itself.
     const onResize = () => {
-      if (readingHistoryRef.current) return
-      if (atBottomRef.current || Date.now() < settleUntilRef.current) snapScrollerToEnd()
+      if (!readingHistoryRef.current) snapScrollerToEnd()
     }
     const ro = new ResizeObserver(onResize)
     ro.observe(el)
-    const inner = el.firstElementChild
-    if (inner) ro.observe(inner)
+    const list = el.querySelector('[data-testid="virtuoso-item-list"]') ?? el.firstElementChild
+    if (list) ro.observe(list)
     return () => {
       el.removeEventListener('wheel', onWheel)
       el.removeEventListener('touchstart', onTouchStart)
       el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('pointerdown', markGesture)
+      el.removeEventListener('keydown', markGesture)
+      el.removeEventListener('scroll', onScroll)
       ro.disconnect()
     }
   }, [threadId, virtuosoData.length, snapScrollerToEnd, stopSettling, onAtBottomChange])
@@ -519,6 +544,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
           scrollToAbsoluteBottom(behavior, 280)
         } else {
           stopSettling()
+          readingHistoryRef.current = true
           virtuosoRef.current?.scrollToIndex({
             index: landing.index,
             align: landing.align,
@@ -538,6 +564,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       (row) => row.kind === 'message' && String(row.data.id) === focusedMessageId,
     )
     if (index < 0) return
+    readingHistoryRef.current = true
     const timer = window.setTimeout(
       () => virtuosoRef.current?.scrollToIndex({ index, align: 'center' }),
       60,
@@ -677,10 +704,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         initialTopMostItemIndex={{ index: landing.index, align: landing.align }}
         defaultItemHeight={72}
         alignToBottom
-        followOutput={(atBottom) => {
-          if (readingHistoryRef.current) return false
-          return atBottom ? 'auto' : false
-        }}
+        followOutput={() => (readingHistoryRef.current ? false : 'auto')}
         atBottomThreshold={72}
         atBottomStateChange={(atBottom) => {
           atBottomRef.current = atBottom
@@ -689,16 +713,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             onAtBottomChange?.(true)
             return
           }
-          // Virtuoso reports a brief "not at bottom" while it measures. Ignore
-          // that during a programmatic land; a real wheel/touch already flipped
-          // `readingHistoryRef` and cancelled the settle.
-          if (readingHistoryRef.current) {
-            onAtBottomChange?.(false)
-            return
-          }
-          if (Date.now() < settleUntilRef.current) return
-          readingHistoryRef.current = true
-          onAtBottomChange?.(false)
+          // Content growing past the threshold (a long answer arriving) also
+          // reports "not at bottom". Only operator input means reading, and
+          // that already flipped `readingHistoryRef` in the scroll listeners.
+          if (readingHistoryRef.current) onAtBottomChange?.(false)
         }}
         // Email bodies render in iframes that measure asynchronously; a
         // generous viewport keeps them mounted so heights stay stable.

@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -15,6 +16,7 @@ import {
   writeComposerFloor,
   type ComposerGrowMode,
 } from '../../lib/composer-grow'
+import { assistantLauncherRect } from '../../lib/personal-assistant-widget'
 import { cn } from '../../lib/utils'
 import { Tip } from './Tip'
 
@@ -128,6 +130,34 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
     commitFloor(floorRef.current)
   }
 
+  // The floating helper launcher sits bottom-right and can be dragged; when it
+  // lands on the action row, shift the actions left so Send stays clickable.
+  const [launcherGutter, setLauncherGutter] = useState(0)
+  useEffect(() => {
+    const check = () => {
+      const card = cardRef.current
+      const launcher = assistantLauncherRect()
+      let next = 0
+      if (card && launcher) {
+        const box = card.getBoundingClientRect()
+        const overlaps =
+          launcher.left < box.right &&
+          launcher.right > box.right - 160 &&
+          launcher.top < box.bottom &&
+          launcher.bottom > box.bottom - 48
+        if (overlaps) next = Math.min(120, Math.ceil(box.right - launcher.left) + 4)
+      }
+      setLauncherGutter((prev) => (prev === next ? prev : next))
+    }
+    check()
+    const timer = window.setInterval(check, 1500)
+    window.addEventListener('resize', check)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('resize', check)
+    }
+  }, [])
+
   const expanded = floor >= preset.max - 8
   // Email/note drafts are multi-line; keep the editor full width and the
   // actions on a row underneath. Chat stays one line + send on the right.
@@ -229,7 +259,12 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
           />
         </div>
         {children ? (
-          <div className="flex shrink-0 items-center justify-end gap-1.5">{children}</div>
+          <div
+            className="flex shrink-0 items-center justify-end gap-1.5"
+            style={launcherGutter ? { paddingRight: launcherGutter } : undefined}
+          >
+            {children}
+          </div>
         ) : null}
       </div>
     </div>
