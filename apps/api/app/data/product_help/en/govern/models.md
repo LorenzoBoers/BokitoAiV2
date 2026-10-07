@@ -21,7 +21,7 @@ Models live under **Settings**, then **Models**. The page shows **Bokito AI mode
    - **Automatic** — Bokito picks Maki, Bokito or Kong per action from the task.
    - **Maki** — lighter, good for everyday tasks. Uses fewer tokens, so it costs less. Larger context window for long threads.
    - **Bokito** — standard and balanced for most agent work.
-   - **Kong** — heavier, for long or complex work. Uses more tokens.
+   - **Kong** — heavier, for long or complex work. Always reasons before it answers, so it uses more tokens.
 3. Each model card shows context window (and tools / vision when supported) and the list price per 1 million tokens (input and output). Below the cards: **EU-hosted**, **Always current**, **Never trains on your data**, and **Keeps pace with leading models**.
 4. New workspaces start on **Automatic**. Agents set to **Workspace default** fall back to this choice. Agents with their own mode (Automatic or a pinned tier) ignore it.
 

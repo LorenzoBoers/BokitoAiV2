@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AlertCircle, Brain, ChevronDown, ChevronRight, CircleDot, UserRound, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
@@ -10,6 +10,7 @@ import {
   groupSummary,
   isHandoffTool,
   isKnowledgeTool,
+  isVisibleActivity,
   itemDurationMs,
   itemLabel,
   type ActivityGroup,
@@ -130,6 +131,67 @@ function useNow(running: boolean): number {
 }
 
 /**
+ * Live reasoning: the shimmering "Thinking" line is already a toggle, so a
+ * long think can be read while it streams. The open panel follows the newest
+ * text unless the reader scrolled up in it.
+ */
+function LiveThinkLine({ group }: { group: ActivityGroup }) {
+  const { t } = useTranslation('communication')
+  const [open, setOpen] = useState(false)
+  const panelRef = useRef<HTMLPreElement>(null)
+  const followRef = useRef(true)
+  const text = group.items
+    .map((i) => (i.text ?? '').trim())
+    .filter(Boolean)
+    .join('\n\n')
+
+  useLayoutEffect(() => {
+    const el = panelRef.current
+    if (open && el && followRef.current) el.scrollTop = el.scrollHeight
+  }, [open, text])
+
+  return (
+    <div className="min-w-0">
+      <button
+        type="button"
+        disabled={!text}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cn(
+          'group flex min-w-0 items-center gap-2 py-0.5 text-left text-sm',
+          text ? 'cursor-pointer' : 'cursor-default',
+        )}
+      >
+        <ActivityIcon kind="think" size={14} live />
+        <span className="activity-live-label min-w-0 truncate-fade font-medium" role="status" aria-live="polite">
+          <span className="thinking-shimmer-text">{t('activity.thinking')}</span>
+        </span>
+        <span className="shrink-0 tabular-nums text-2xs text-text-muted">{formatDuration(group.durationMs)}</span>
+        {text ? (
+          open ? (
+            <ChevronDown size={12} className="shrink-0 text-text-muted" />
+          ) : (
+            <ChevronRight size={12} className="shrink-0 text-text-muted opacity-60 group-hover:opacity-100" />
+          )
+        ) : null}
+      </button>
+      {open && text ? (
+        <pre
+          ref={panelRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            followRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+          }}
+          className="mb-1 ml-5 mt-0.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-2xs leading-relaxed text-text-muted"
+        >
+          {text}
+        </pre>
+      ) : null}
+    </div>
+  )
+}
+
+/**
  * One group of same-kind actions. Live: a single line with the newest action
  * (each new action replaces the label). Finished: "Worked for 12s · 4 actions",
  * expandable to every action.
@@ -150,6 +212,10 @@ export function ActivityGroupLine({
   const provider = group.kind === 'work' ? groupProvider(group) : ''
   const sharedTool = group.items.every((i) => i.tool === current?.tool) ? current?.tool : ''
   const hasError = group.items.some((i) => i.status === 'error')
+
+  if (live && group.kind === 'think') {
+    return <LiveThinkLine group={group} />
+  }
 
   if (live) {
     const label = groupLiveLabel(group, t)
@@ -223,7 +289,7 @@ export default function ActivityTrail({
   className?: string
 }) {
   const now = useNow(live)
-  const groups = groupActivity(items, now)
+  const groups = groupActivity(items.filter(isVisibleActivity), now)
   if (groups.length === 0) return null
   return (
     <div className={cn('min-w-0 max-w-[82%] space-y-0.5', className)}>

@@ -7,6 +7,7 @@ import {
   groupActivity,
   groupProvider,
   groupSummary,
+  isVisibleActivity,
   liveBlocks,
   normalizeActivity,
   normalizeMessageActivity,
@@ -31,6 +32,23 @@ function item(id: string, kind: ActivityItem['kind'], start: number, end: number
     ...extra,
   }
 }
+
+describe('isVisibleActivity', () => {
+  it('hides finished think items without reasoning text', () => {
+    expect(isVisibleActivity(item('t', 'think', 0, 500, { text: '' }))).toBe(false)
+    expect(isVisibleActivity(item('t', 'think', 0, 500, { hasText: false }))).toBe(false)
+    expect(isVisibleActivity(item('t', 'think', 0, 500, { hasText: true }))).toBe(true)
+    expect(isVisibleActivity(item('t', 'think', 0, 500, { text: 'weighing options' }))).toBe(true)
+    expect(isVisibleActivity(item('t', 'think', 0, null))).toBe(true)
+    expect(isVisibleActivity(item('w', 'work', 0, 500))).toBe(true)
+  })
+
+  it('reads has_text from list payloads', () => {
+    const [slim] = normalizeActivity([{ id: 't', kind: 'think', has_text: false }])
+    expect(slim.hasText).toBe(false)
+    expect(normalizeMessageActivity({ payload: { activity: [{ id: 't', kind: 'think', has_text: false }] } }).hasActivity).toBe(false)
+  })
+})
 
 describe('groupActivity', () => {
   it('groups consecutive items of the same kind and measures wall time', () => {

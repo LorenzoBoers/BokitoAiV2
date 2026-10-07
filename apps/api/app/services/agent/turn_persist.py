@@ -127,6 +127,8 @@ def slim_activity_item(item: dict[str, Any]) -> dict[str, Any]:
     """List/stream shape: no tool payloads or thinking text. A note keeps its
     (short) text: it is the label operators read."""
     out = {k: v for k, v in item.items() if k not in _DETAIL_KEYS}
+    if item.get("kind") == "think":
+        out["has_text"] = bool(str(item.get("text") or "").strip())
     if item.get("label") == "note" and item.get("text"):
         out["text"] = str(item["text"])[:NOTE_TEXT_MAX]
     return out
@@ -138,7 +140,7 @@ def _legacy_activity(meta: dict[str, Any]) -> list[dict[str, Any]]:
 
     items: list[dict[str, Any]] = []
     thinking = meta.get("thinking")
-    if isinstance(thinking, dict) and (thinking.get("text") or thinking.get("ms")):
+    if isinstance(thinking, dict) and str(thinking.get("text") or "").strip():
         items.append(
             {
                 "id": "legacy-think",

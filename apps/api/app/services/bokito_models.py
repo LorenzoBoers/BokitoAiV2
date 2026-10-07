@@ -49,7 +49,9 @@ BACKINGS_SETTING_KEY = "bokito_backings"
 DEFAULT_BACKINGS: dict[str, tuple[str, ...]] = {
     "bokito-maki": ("ministral-3b-2512", "mistral-small-latest"),
     "bokito-ai-3-1": ("mistral-medium-latest", "mistral-large-4", "mistral-small-latest"),
-    "bokito-kong": ("mistral-large-4", "mistral-large-latest", "mistral-medium-latest"),
+    # Kong always reasons (``reasoning_policy``); Large 4 has no reasoning mode,
+    # so it is only the last fallback.
+    "bokito-kong": ("mistral-medium-latest", "mistral-small-latest", "mistral-large-4"),
 }
 DEFAULT_TIER = "bokito-ai-3-1"
 

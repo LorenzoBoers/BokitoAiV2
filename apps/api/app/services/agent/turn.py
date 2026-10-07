@@ -95,7 +95,7 @@ class TurnRecorder:
     # -- thinking -----------------------------------------------------------
 
     async def thinking(self, delta: str) -> None:
-        if not delta:
+        if not delta or (self._think is None and not delta.strip()):
             return
         await self.start()
         if self._think is None:

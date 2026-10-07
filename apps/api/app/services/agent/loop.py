@@ -148,13 +148,27 @@ class AgentLoop:
         self.thinking_budget = 0
 
     def _resolve_thinking_budget(self) -> int:
-        """Agent override, else global chat fallback when chat thinking is enabled."""
+        """This turn's reasoning budget (see ``reasoning_policy``).
+
+        An agent's own budget always reasons; the global chat default only
+        reasons when the message calls for it. Kong always reasons.
+        """
+        from app.services.agent.reasoning_policy import turn_thinking_budget
+
         agent_budget = int(getattr(self.agent, "thinking_budget", 0) or 0) if self.agent else 0
         if agent_budget > 0:
-            return agent_budget
-        if not self.enable_chat_thinking:
-            return 0
-        return max(0, int(get_settings().chat_thinking_budget or 0))
+            configured = agent_budget
+        elif self.enable_chat_thinking:
+            configured = max(0, int(get_settings().chat_thinking_budget or 0))
+        else:
+            configured = 0
+        return turn_thinking_budget(
+            configured,
+            model_slug=getattr(self, "_turn_model_slug", None),
+            user_text=getattr(self, "_turn_user_text", ""),
+            has_attachments=getattr(self, "_turn_has_attachments", False),
+            agent_pinned=agent_budget > 0,
+        )
 
     def _resolve_max_tokens(self) -> int | None:
         if self.agent and getattr(self.agent, "max_tokens", None):
@@ -165,7 +179,9 @@ class AgentLoop:
         text = (self.thinking_text or "").strip()
         if len(text) > 8000:
             text = f"{text[:8000]}..."
-        if not text and not self.thinking_ms and not self.thinking_budget:
+        # No reasoning text, nothing to unfold: the UI only shows "Thought for"
+        # when there is something to read.
+        if not text:
             return None
         return {
             "text": text,
@@ -725,6 +741,9 @@ class AgentLoop:
         if messages:
             last = messages[-1]
             user_query = last.get("content", "") if isinstance(last.get("content"), str) else ""
+        self._turn_model_slug = model_slug
+        self._turn_user_text = user_query
+        self._turn_has_attachments = bool(attachments)
         system = await self._build_system_prompt(extra_context, user_query=user_query)
         if attachments:
             vision_note = self._attachments_context(attachments)

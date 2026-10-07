@@ -30,6 +30,8 @@ export type ActivityItem = {
   input?: unknown
   result?: unknown
   text?: string
+  /** Think items in list payloads: the text exists but loads on expand. */
+  hasText?: boolean
 }
 
 export type ActivityGroup = {
@@ -83,7 +85,18 @@ export function normalizeActivityItem(raw: unknown): ActivityItem | null {
   if (r.input !== undefined) item.input = r.input
   if (r.result !== undefined) item.result = r.result
   if (typeof r.text === 'string') item.text = r.text
+  if (typeof r.has_text === 'boolean') item.hasText = r.has_text
   return item
+}
+
+/**
+ * A think item is only worth a row when there is reasoning to read (or it is
+ * still streaming in). Models that think without exposing text leave none.
+ */
+export function isVisibleActivity(item: ActivityItem): boolean {
+  if (item.kind !== 'think' || item.status === 'running') return true
+  if (item.text !== undefined) return Boolean(item.text.trim())
+  return item.hasText !== false
 }
 
 export function normalizeActivity(raw: unknown): ActivityItem[] {
@@ -111,7 +124,10 @@ export function normalizeMessageActivity(raw: Record<string, unknown>): MessageA
     activity,
     activityAfter,
     activityDetail: payload.activity_detail === true || raw.activity_detail === true,
-    hasActivity: raw.has_activity === true || activity.length > 0 || activityAfter.length > 0,
+    hasActivity:
+    raw.has_activity === true ||
+    activity.some(isVisibleActivity) ||
+    activityAfter.some(isVisibleActivity),
     turnId,
   }
 }
