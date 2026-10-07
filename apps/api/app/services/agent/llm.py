@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# Platform / OpenAI-compatible gateways return 429 under load. A short retry
-# recovers most chat turns (Support agent failed hard on a single 429).
-_RATE_LIMIT_ATTEMPTS = 4
+# Soft 429s: one short retry on the same key+model, then park and fail over
+# to the next backing step. Longer backoff stacks hurt chat latency when a
+# model is genuinely limited; hard quota (limit=0) still fails immediately.
+_RATE_LIMIT_ATTEMPTS = 2
 _RATE_LIMIT_BASE_DELAY_S = 1.0
 _RATE_LIMIT_MAX_DELAY_S = 20.0
 
@@ -271,6 +272,9 @@ def _learn_adaptive_thinking(exc: BaseException, model: str) -> bool:
         return False
     _ADAPTIVE_THINKING_MODELS.add(model)
     return True
+
+
+_MISTRAL_REASONING_PREFIXES = ("mistral-medium", "mistral-small")
 
 
 def _thinking_effort(budget: int) -> str:
@@ -729,6 +733,9 @@ class OpenAILLMProvider:
             "messages": oai_messages,
             "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
         }
+        extra_body = _reasoning_extra_body(self.provider_type, create_kwargs["model"], thinking_budget)
+        if extra_body:
+            create_kwargs["extra_body"] = extra_body
         oai_tools = self._tools_to_openai(tools)
         if oai_tools:
             create_kwargs["tools"] = oai_tools
@@ -746,8 +753,9 @@ class OpenAILLMProvider:
         choice = response.choices[0]
         msg = choice.message
         content: list[dict[str, Any]] = []
-        if msg.content:
-            content.append({"type": "text", "text": msg.content})
+        _, answer_text = _split_content_chunks(msg.content)
+        if answer_text:
+            content.append({"type": "text", "text": answer_text})
         for call in msg.tool_calls or []:
             try:
                 parsed = json.loads(call.function.arguments or "{}")
@@ -794,6 +802,9 @@ class OpenAILLMProvider:
             "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
             "stream": True,
         }
+        extra_body = _reasoning_extra_body(self.provider_type, create_kwargs["model"], thinking_budget)
+        if extra_body:
+            create_kwargs["extra_body"] = extra_body
         oai_tools = self._tools_to_openai(tools)
         if oai_tools:
             create_kwargs["tools"] = oai_tools
@@ -823,9 +834,12 @@ class OpenAILLMProvider:
             reasoning = getattr(delta, "reasoning", None) or getattr(delta, "reasoning_content", None)
             if isinstance(reasoning, str) and reasoning:
                 yield {"type": "thinking", "text": reasoning}
-            if delta.content:
-                text_parts.append(delta.content)
-                yield {"type": "delta", "text": delta.content}
+            thinking_text, answer_text = _split_content_chunks(delta.content)
+            if thinking_text:
+                yield {"type": "thinking", "text": thinking_text}
+            if answer_text:
+                text_parts.append(answer_text)
+                yield {"type": "delta", "text": answer_text}
             if delta.tool_calls:
                 for tc in delta.tool_calls:
                     idx = tc.index
@@ -862,6 +876,52 @@ class OpenAILLMProvider:
             "content": content,
             "stop_reason": stop_reason,
         }
+
+
+def _reasoning_extra_body(provider_type: str, model: str, thinking_budget: int) -> dict[str, Any] | None:
+    """Mistral hybrid models keep their reasoning hidden unless asked for it."""
+    if provider_type != "mistral" or thinking_budget <= 0:
+        return None
+    if not model.startswith(_MISTRAL_REASONING_PREFIXES):
+        return None
+    return {"reasoning_effort": "high"}
+
+
+def _chunk_field(chunk: Any, name: str) -> Any:
+    if isinstance(chunk, dict):
+        return chunk.get(name)
+    return getattr(chunk, name, None)
+
+
+def _split_content_chunks(content: Any) -> tuple[str, str]:
+    """``(thinking, text)`` from a message or delta ``content``.
+
+    Plain strings are answer text. With ``reasoning_effort`` Mistral sends a
+    list of chunks instead: ``thinking`` chunks (holding text chunks) and
+    ``text`` chunks.
+    """
+    if content is None:
+        return "", ""
+    if isinstance(content, str):
+        return "", content
+    thinking: list[str] = []
+    text: list[str] = []
+    for chunk in content if isinstance(content, list) else [content]:
+        kind = _chunk_field(chunk, "type")
+        if kind == "thinking":
+            inner = _chunk_field(chunk, "thinking")
+            if isinstance(inner, str):
+                thinking.append(inner)
+            else:
+                for part in inner or []:
+                    value = _chunk_field(part, "text")
+                    if isinstance(value, str):
+                        thinking.append(value)
+        elif kind == "text":
+            value = _chunk_field(chunk, "text")
+            if isinstance(value, str):
+                text.append(value)
+    return "".join(thinking), "".join(text)
 
 
 def get_chat_provider(provider_type: str, api_key: str, base_url: str | None = None):

@@ -54,13 +54,13 @@ async def test_with_rate_limit_retry_succeeds_after_429(monkeypatch):
 
     async def flaky() -> str:
         calls["n"] += 1
-        if calls["n"] < 3:
+        if calls["n"] < 2:
             raise _FakeRateLimit()
         return "ok"
 
     assert await with_rate_limit_retry(flaky, label="test") == "ok"
-    assert calls["n"] == 3
-    assert sleeps == [1.0, 2.0]
+    assert calls["n"] == 2
+    assert sleeps == [1.0]
 
 
 @pytest.mark.asyncio

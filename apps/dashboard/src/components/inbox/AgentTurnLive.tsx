@@ -5,7 +5,7 @@ import { liveBlocks, type LiveTurn } from '../../lib/agentActivity'
 import { splitChatMessages } from '../../lib/chatMessages'
 import { Sparkles } from 'lucide-react'
 import { IconTile } from '../ui/icon-tile'
-import ActivityTrail from './ActivityTrail'
+import ActivityTrail, { ActivityIcon } from './ActivityTrail'
 import ChatText from './ChatText'
 
 function TypingDots({ label }: { label: string }) {
@@ -85,7 +85,8 @@ export default function AgentTurnLive({
           ),
         )}
         {waiting ? (
-          <div className="flex h-7 min-w-0 items-center text-sm" role="status" aria-live="polite">
+          <div className="flex h-7 min-w-0 items-center gap-2 text-sm" role="status" aria-live="polite">
+            <ActivityIcon kind="think" size={14} live />
             <span className="activity-live-label">
               <span className="thinking-shimmer-text font-medium">{t('activity.thinking')}</span>
             </span>
