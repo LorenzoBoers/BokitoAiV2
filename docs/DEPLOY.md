@@ -1,6 +1,6 @@
 # Bokito deploy pipeline
 
-Push to `master` runs CI, then builds container images, deploys to **staging**, and waits for **production** approval before promoting the same API image to prod.
+Push to `master` runs CI, then builds container images, deploys to **staging**, smokes it, and promotes the same API image to **production** automatically (no manual approval).
 
 ## Flow
 
@@ -9,7 +9,7 @@ local dev + tests  ->  git push master  ->  CI (ruff, pytest, build, e2e)
                                               ->  GHCR build (api + web staging + web prod)
                                               ->  auto deploy staging.bokito.ai
                                               ->  smoke test staging
-                                              ->  [manual approve] production (app.bokito.ai)
+                                              ->  auto deploy production (app.bokito.ai)
                                               ->  smoke test prod (rollback on failure)
 ```
 
@@ -22,7 +22,7 @@ In **Settings -> Environments**:
 | Environment | Protection | Purpose |
 |-------------|------------|---------|
 | `staging` | None (auto) | Cloud test bed for 24/7 autonomous flows |
-| `production` | Required reviewers (you) | Promotes the staging-tested image |
+| `production` | None (auto) | Promotes the staging-tested image |
 
 ### Secrets (repository or both environments)
 
