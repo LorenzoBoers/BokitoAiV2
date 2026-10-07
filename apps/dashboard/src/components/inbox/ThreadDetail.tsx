@@ -70,6 +70,7 @@ import {
   type ChatMessage,
 } from '../../lib/signals-api'
 import { useAiChatStream } from '../../lib/use-agent-session-chat'
+import { applyAgentLive } from '../../hooks/useAgentPresence'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { toast } from 'sonner'
@@ -891,6 +892,27 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     if (isAssistantThread && agentStreaming) return textOnlyTurn(sessionStream.text)
     return null
   }, [liveTurn, liveTurnSaved, isAssistantThread, agentStreaming, sessionStream.text])
+
+
+  // Pulse avatar corners as soon as this thread sees a live turn / Ask stream.
+  // The API also broadcasts agent.status; this covers the same browser before
+  // that event lands (and keeps the open-thread agent marked working).
+  const liveAgentId =
+    askAgentId ?? activeSession?.agentId ?? detail?.thread.agentId ?? null
+  const agentTurnBusy = Boolean(
+    agentStreaming || (threadLiveTurn && (threadLiveTurn.active || !threadLiveTurn.ended)),
+  )
+  useEffect(() => {
+    if (!liveAgentId || !agentTurnBusy) return
+    applyAgentLive(liveAgentId, {
+      status: 'working',
+      summary: null,
+      threadId: detail?.thread.id != null ? String(detail.thread.id) : null,
+      activityId: null,
+      lastActiveAt: Date.now(),
+      source: 'ws',
+    })
+  }, [liveAgentId, agentTurnBusy, detail?.thread.id])
 
   const requestCloseThread = useCallback(
     async (afterClose?: () => Promise<void>) => {

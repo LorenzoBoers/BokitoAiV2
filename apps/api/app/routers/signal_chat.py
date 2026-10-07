@@ -16,9 +16,12 @@ AI handling (take over / hand back) uses PUT /ai-handling/conversation/{id}.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
+
+# Chat streams that die without finalize leave AgentRun=running and block Send.
+CHAT_BUSY_STALE = timedelta(seconds=90)
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -56,6 +59,40 @@ ASSISTANT_CHANNELS = ("assistant", "widget")
 def _apply_intent_title_once(signal: Signal, content: str) -> None:
     """Replace the placeholder list title once, with a short intent label."""
     maybe_apply_intent_title(signal, content)
+
+
+async def _set_chat_agent_live(
+    session: AsyncSession,
+    agent: Agent | None,
+    *,
+    status: str,
+    signal: Signal | None = None,
+    run: AgentRun | None = None,
+    summary: str | None = None,
+) -> None:
+    """Corner status for Ask/chat turns: working while the loop runs, then standby.
+
+    Broadcasts ``agent.status`` so avatars (sidebar, panel, list) pulse live.
+    Failures are logged and swallowed — presence must never break the reply.
+    """
+    if agent is None:
+        return
+    from app.services.workforce_runtime import mark_agent_activity
+
+    try:
+        working = status == "working"
+        await mark_agent_activity(
+            session,
+            agent,
+            status=status,
+            summary=(summary or (signal.subject if signal else None) or "Replying")[:200]
+            if working
+            else None,
+            signal_id=signal.id if working and signal is not None else None,
+            activity_id=run.id if working and run is not None else None,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed to set chat agent live status=%s", status)
 
 
 class ConversationCreate(BaseModel):
@@ -324,6 +361,9 @@ async def send_message(
         }
 
     agent, run = await _agent_run(session, auth, signal, body.content)
+    await _set_chat_agent_live(
+        session, agent, status="working", signal=signal, run=run, summary=body.content
+    )
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(
         session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
@@ -335,47 +375,70 @@ async def send_message(
     from app.services.agent.run_cancel import clear_cancel, is_run_cancelled
 
     try:
-        reply_text, tokens = await loop.run_chat(
-            history,
-            extra_context=page_context_block(body.page_context),
-            attachments=body.attachments,
-        )
-    except Exception as exc:
-        logger.exception("assistant chat failed for signal %s", signal.id)
-        reply_text = _agent_error_message(exc, llm_meta)
-        tokens = {}
-        await _finalize_run(session, run, status="failed", error=exc)
-        assistant_msg = await append_signal_chat_message(
-            session,
-            signal,
-            role="assistant",
-            content=reply_text,
-            author_agent_id=agent.id if agent else None,
-            metadata={"error": True, "llm_meta": llm_meta},
-        )
-        await session.commit()
-        await session.refresh(assistant_msg)
-        if run:
-            clear_cancel(run.id)
-        return {
-            "message": {
-                "id": str(assistant_msg.id),
-                "role": "assistant",
-                "content": reply_text,
-            },
-            "usage": tokens,
-            "error": True,
-            **llm_meta,
-        }
-
-    cancelled = await is_run_cancelled(session, run.id if run else None)
-    if cancelled:
-        await _finalize_run(session, run, status="cancelled", tokens=tokens)
-        saved = []
-        if reply_text.strip():
-            saved = await loop.persist_turn(
-                signal, metadata=llm_meta, final_metadata={"cancelled": True, "usage": tokens}
+        try:
+            reply_text, tokens = await loop.run_chat(
+                history,
+                extra_context=page_context_block(body.page_context),
+                attachments=body.attachments,
             )
+        except Exception as exc:
+            logger.exception("assistant chat failed for signal %s", signal.id)
+            reply_text = _agent_error_message(exc, llm_meta)
+            tokens = {}
+            await _finalize_run(session, run, status="failed", error=exc)
+            assistant_msg = await append_signal_chat_message(
+                session,
+                signal,
+                role="assistant",
+                content=reply_text,
+                author_agent_id=agent.id if agent else None,
+                metadata={"error": True, "llm_meta": llm_meta},
+            )
+            await session.commit()
+            await session.refresh(assistant_msg)
+            if run:
+                clear_cancel(run.id)
+            return {
+                "message": {
+                    "id": str(assistant_msg.id),
+                    "role": "assistant",
+                    "content": reply_text,
+                },
+                "usage": tokens,
+                "error": True,
+                **llm_meta,
+            }
+
+        cancelled = await is_run_cancelled(session, run.id if run else None)
+        if cancelled:
+            await _finalize_run(session, run, status="cancelled", tokens=tokens)
+            saved = []
+            if reply_text.strip():
+                saved = await loop.persist_turn(
+                    signal, metadata=llm_meta, final_metadata={"cancelled": True, "usage": tokens}
+                )
+            await session.commit()
+            for msg in saved:
+                await session.refresh(msg)
+            if run:
+                clear_cancel(run.id)
+            payloads = [serialize_chat_message(m) for m in saved]
+            return {
+                "message": payloads[-1] if payloads else {"role": "assistant", "content": ""},
+                "messages": payloads,
+                "usage": tokens,
+                "cancelled": True,
+                **llm_meta,
+            }
+
+        thinking_meta = loop.thinking_payload()
+        saved = await loop.persist_turn(
+            signal,
+            metadata=llm_meta,
+            final_metadata={"usage": tokens, **({"thinking": thinking_meta} if thinking_meta else {})},
+        )
+        _apply_intent_title_once(signal, body.content)
+        await _finalize_run(session, run, status="completed", tokens=tokens)
         await session.commit()
         for msg in saved:
             await session.refresh(msg)
@@ -383,33 +446,13 @@ async def send_message(
             clear_cancel(run.id)
         payloads = [serialize_chat_message(m) for m in saved]
         return {
-            "message": payloads[-1] if payloads else {"role": "assistant", "content": ""},
+            "message": payloads[-1],
             "messages": payloads,
             "usage": tokens,
-            "cancelled": True,
             **llm_meta,
         }
-
-    thinking_meta = loop.thinking_payload()
-    saved = await loop.persist_turn(
-        signal,
-        metadata=llm_meta,
-        final_metadata={"usage": tokens, **({"thinking": thinking_meta} if thinking_meta else {})},
-    )
-    _apply_intent_title_once(signal, body.content)
-    await _finalize_run(session, run, status="completed", tokens=tokens)
-    await session.commit()
-    for msg in saved:
-        await session.refresh(msg)
-    if run:
-        clear_cancel(run.id)
-    payloads = [serialize_chat_message(m) for m in saved]
-    return {
-        "message": payloads[-1],
-        "messages": payloads,
-        "usage": tokens,
-        **llm_meta,
-    }
+    finally:
+        await _set_chat_agent_live(session, agent, status="standby")
 
 
 @router.post("/conversations/{conversation_id}/stream")
@@ -445,6 +488,9 @@ async def stream_message(
     run = None
     try:
         agent, run = await _agent_run(session, auth, signal, body.content)
+        await _set_chat_agent_live(
+            session, agent, status="working", signal=signal, run=run, summary=body.content
+        )
         history = await signal_chat_history(session, conversation_id)
         loop = AgentLoop(
             session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
@@ -471,6 +517,7 @@ async def stream_message(
         await session.commit()
         if run:
             clear_cancel(run.id)
+        await _set_chat_agent_live(session, agent, status="standby")
 
         async def setup_failed_generator():
             yield {
@@ -482,6 +529,7 @@ async def stream_message(
 
     async def event_generator():
         full_text = ""
+        run_closed = False
         if run:
             yield {
                 "event": "start",
@@ -510,6 +558,12 @@ async def stream_message(
                     final = event.get("text", full_text)
                     cancelled = bool(event.get("cancelled"))
                     thinking_meta = loop.thinking_payload()
+                    # Tool-only / dropped replies still need a visible bubble.
+                    if not (final or "").strip() and not cancelled:
+                        final = (
+                            "I could not finish a reply for that. "
+                            "Try again, or press Stop if the AI stays busy."
+                        )
                     final_meta = {
                         "usage": event.get("usage", {}),
                         **({"thinking": thinking_meta} if thinking_meta else {}),
@@ -530,6 +584,7 @@ async def stream_message(
                         tokens=event.get("usage") or {},
                     )
                     await session.commit()
+                    run_closed = True
                     if run:
                         clear_cancel(run.id)
                     done_payload: dict = {
@@ -561,12 +616,50 @@ async def stream_message(
                 metadata={"error": True, **llm_meta},
             )
             await session.commit()
+            run_closed = True
             if run:
                 clear_cancel(run.id)
             yield {
                 "event": "done",
                 "data": json.dumps({"text": error_text, "error": True, **llm_meta}),
             }
+        finally:
+            # Client disconnect / proxy timeout / cancelled generator: never leave
+            # AgentRun=running or the next Send hits agent_busy with an empty UI.
+            try:
+                open_run = run
+                if not run_closed and open_run is not None:
+                    refresh_ok = True
+                    try:
+                        await session.refresh(open_run)
+                    except Exception:
+                        refresh_ok = False
+                    if refresh_ok and open_run.status == "running":
+                        logger.warning(
+                            "assistant stream abandoned for signal %s run %s — closing busy lock",
+                            signal.id,
+                            open_run.id,
+                        )
+                        try:
+                            await _finalize_run(session, open_run, status="failed")
+                            if not full_text.strip():
+                                await append_signal_chat_message(
+                                    session,
+                                    signal,
+                                    role="assistant",
+                                    content=(
+                                        "The reply stopped unexpectedly. "
+                                        "Send your message again."
+                                    ),
+                                    author_agent_id=agent.id if agent else None,
+                                    metadata={"error": True, "abandoned_stream": True, **llm_meta},
+                                )
+                            await session.commit()
+                        except Exception:
+                            logger.exception("failed to close abandoned chat run %s", open_run.id)
+                        clear_cancel(open_run.id)
+            finally:
+                await _set_chat_agent_live(session, agent, status="standby")
 
     return EventSourceResponse(event_generator())
 
@@ -589,6 +682,9 @@ async def cancel_conversation_run(
     run.completed_at = datetime.utcnow()
     session.add(run)
     await session.commit()
+    if run.agent_id:
+        agent = await session.get(Agent, run.agent_id)
+        await _set_chat_agent_live(session, agent, status="standby")
     return {"ok": True, "cancelled": True, "run_id": str(run.id)}
 
 
@@ -612,12 +708,28 @@ async def _running_chat_run(
 async def _ensure_session_idle(
     session: AsyncSession, tenant_id: UUID, conversation_id: UUID
 ) -> None:
+    from app.services.agent.run_cancel import clear_cancel
+
     busy = await _running_chat_run(session, tenant_id, conversation_id)
-    if busy is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="agent_busy",
+    if busy is None:
+        return
+    started = busy.started_at or datetime.utcnow()
+    if datetime.utcnow() - started >= CHAT_BUSY_STALE:
+        # Orphaned lock after a dropped SSE / crashed worker.
+        logger.warning(
+            "reclaiming stale chat run %s on conversation %s (age %s)",
+            busy.id,
+            conversation_id,
+            datetime.utcnow() - started,
         )
+        await _finalize_run(session, busy, status="failed")
+        await session.commit()
+        clear_cancel(busy.id)
+        return
+    raise HTTPException(
+        status_code=409,
+        detail="agent_busy",
+    )
 
 
 async def _get_thread(session: AsyncSession, conversation_id: UUID, tenant_id: UUID) -> Signal:

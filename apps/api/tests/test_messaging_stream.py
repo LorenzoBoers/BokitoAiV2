@@ -183,3 +183,94 @@ async def test_chat_stream_sse(client: AsyncClient):
                 if line.startswith("data:"):
                     chunks.append(json.loads(line[5:].strip()))
             assert any("Streamed" in (c.get("text") or "") for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_broadcasts_agent_working_then_standby(client: AsyncClient):
+    """Avatars pulse while Ask/chat runs: agent.status working, then standby."""
+    from unittest.mock import AsyncMock
+
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    conv = await client.post("/api/signals/conversations", json={"title": "Live status"}, headers=headers)
+    conv_id = conv.json()["id"]
+
+    async def fake_stream(self, messages, extra_context="", attachments=None):
+        yield {"type": "delta", "text": "Hi"}
+        yield {"type": "done", "text": "Hi", "usage": {}}
+
+    pub = AsyncMock()
+    with (
+        patch("app.services.agent.loop.AgentLoop.stream_chat", new=fake_stream),
+        patch("app.gateway.publish.publish_agent_status", new=pub),
+    ):
+        async with client.stream(
+            "POST",
+            f"/api/signals/conversations/{conv_id}/stream",
+            json={"content": "Ping"},
+            headers=headers,
+        ) as resp:
+            assert resp.status_code == 200
+            async for _ in resp.aiter_lines():
+                pass
+
+    statuses = [call.kwargs.get("status") for call in pub.await_args_list]
+    assert "working" in statuses
+    assert statuses[-1] == "standby"
+
+
+@pytest.mark.asyncio
+async def test_stale_chat_run_is_reclaimed_before_busy(client: AsyncClient, session_override):
+    """A dropped SSE left AgentRun=running; the next send must not 409 forever."""
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import select
+
+    from app.models.agent import Agent, AgentRun
+    from app.models.auth import Tenant
+    from app.models.signal import Signal
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    conv = await client.post("/api/signals/conversations", json={"title": "Stale busy"}, headers=headers)
+    conv_id = conv.json()["id"]
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id))
+    ).scalars().first()
+    assert agent is not None
+    stuck = AgentRun(
+        tenant_id=tenant.id,
+        agent_id=agent.id,
+        trigger_type="chat",
+        trigger_id=str(conv_id),
+        status="running",
+        subject="Stuck",
+        started_at=datetime.utcnow() - timedelta(minutes=5),
+    )
+    session_override.add(stuck)
+    await session_override.commit()
+
+    async def fake_stream(self, messages, extra_context="", attachments=None):
+        yield {"type": "delta", "text": "Ok"}
+        yield {"type": "done", "text": "Ok", "usage": {}}
+
+    with patch("app.services.agent.loop.AgentLoop.stream_chat", new=fake_stream):
+        async with client.stream(
+            "POST",
+            f"/api/signals/conversations/{conv_id}/stream",
+            json={"content": "Again"},
+            headers=headers,
+        ) as resp:
+            assert resp.status_code == 200
+            body = ""
+            async for line in resp.aiter_lines():
+                body += line
+            assert "Ok" in body
+
+    await session_override.refresh(stuck)
+    assert stuck.status != "running"
