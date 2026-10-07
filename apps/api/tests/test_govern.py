@@ -236,12 +236,13 @@ async def test_set_posture_autonomous_allows_agents(client: AsyncClient, session
     from app.services import platform_secrets
 
     headers = await _auth_headers(client)
+    # Default managed chat is Bokito → Mistral; a platform Mistral key makes it live.
     await platform_secrets.set_platform_secret(
-        session_override, "anthropic", "sk-ant-test-autonomous"
+        session_override, "mistral", "mi-test-autonomous"
     )
 
     res = await client.put("/api/govern/posture", headers=headers, json={"posture": "autonomous"})
-    assert res.status_code == 200
+    assert res.status_code == 200, res.text
     data = res.json()
     assert data["posture"] == "autonomous"
     assert data["allowances"]["agents"] == "allow"
