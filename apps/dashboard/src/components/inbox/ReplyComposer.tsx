@@ -62,7 +62,8 @@ type Props = {
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   /** Send into the active agent meta session (no customer delivery). */
-  onAgentMessage?: (bodyText: string) => Promise<void>
+  /** Resolve `false` when nothing was sent, so the text goes back into the editor. */
+  onAgentMessage?: (bodyText: string) => Promise<boolean | void>
   /** Abort the in-flight agent stream (Stop). */
   onStopAgent?: () => void
   /** True while an agent reply is streaming — blocks Send/Enter. */
@@ -415,6 +416,9 @@ export default function ReplyComposer({
   }, [persistKey])
 
   const clearDraft = () => {
+    // Update the flush ref now: an unmount before the next render would
+    // otherwise write the sent text back and restore it on the next open.
+    draftRef.current = { body: '', cc: '', bcc: '' }
     setBody('')
     setCc('')
     setBcc('')
@@ -542,7 +546,12 @@ export default function ReplyComposer({
         // Clear immediately so Enter cannot triple-submit the same body.
         clearDraft()
         setAttachments([])
-        await onAgentMessage(text)
+        let sent: boolean | void = false
+        try {
+          sent = await onAgentMessage(text)
+        } finally {
+          if (sent === false) setBody((current) => (current.trim() ? current : text))
+        }
         requestAnimationFrame(() => textareaRef.current?.focus())
         return
       } else if (isNote) {

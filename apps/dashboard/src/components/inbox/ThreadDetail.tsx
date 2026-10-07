@@ -779,10 +779,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [])
 
   const handleAgentMessage = useCallback(
-    async (bodyText: string) => {
-      if (!token || !threadIdString) return
+    async (bodyText: string): Promise<boolean> => {
+      if (!token || !threadIdString) return false
       const text = stripMentionMarkup(bodyText).trim()
-      if (!text) return
+      if (!text) return false
       const isAssistant = (detail?.thread.channel ?? '') === 'assistant'
       let sessionId = isAssistant ? threadIdString : activeSessionId
       const wantedAgentId = askAgentId ?? detail?.thread.agentId ?? null
@@ -795,12 +795,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           sessionId = started?.id ?? null
         } catch {
           toast.error(t('agentSession.startError'))
-          return
+          return false
         }
-        if (!sessionId) return
+        if (!sessionId) return false
         onRefresh()
       }
-      if (!sessionId) return
+      if (!sessionId) return false
       try {
         const sendPromise = sendAgentSessionMessage(sessionId, text, {
           onFinished: async () => {
@@ -809,10 +809,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             window.setTimeout(() => pinToBottom('smooth'), 120)
           },
         })
+        // Show the operator's own message right away, not only after the reply.
+        pinToBottom('smooth')
         if (isAssistant) {
           window.setTimeout(() => onRefresh(), 280)
         }
-        await sendPromise
+        return (await sendPromise) !== false
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''
         if (msg === 'agent_busy') {
@@ -821,6 +823,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           toast.error(t('aiChat.sendError', { defaultValue: 'Could not send to the AI.' }))
         }
         if (!isAssistant) await loadSessionMessages(sessionId)
+        return false
       }
     },
     [
