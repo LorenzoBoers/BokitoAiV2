@@ -661,9 +661,14 @@ export default function ReplyComposer({
   )
 
   return (
-    <div className="shrink-0 px-4 pb-4 pt-1">
+    <div className="relative shrink-0 bg-bg px-4 pb-4 pt-1">
+      {/* Softens into the thread canvas so mode tabs float over scrolling messages. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-full z-10 h-12 bg-gradient-to-t from-bg from-20% to-transparent"
+      />
       <div className={CHAT_COLUMN_CLASS}>
-        <div className="mb-1.5 flex items-center gap-1">
+        <div className="relative z-10 mb-1.5 flex items-center gap-1">
           {showReplyTab ? (
             canPickMailbox ? (
               <DropdownMenu>

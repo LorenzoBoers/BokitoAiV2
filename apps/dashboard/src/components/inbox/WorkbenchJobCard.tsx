@@ -48,7 +48,7 @@ export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
 
   const onStop = async () => {
     if (!token || busy) return
-    if (!(await confirm({ description: t('timeline.workbench.stopConfirm'), destructive: true }))) return
+    if (!(await confirm({ description: t('timeline.workbench.stopConfirm'), confirmLabel: t('actions.stop', { ns: 'common' }), destructive: true }))) return
     setBusy('stop')
     try {
       await cancelWorkbenchJob(token, jobId)

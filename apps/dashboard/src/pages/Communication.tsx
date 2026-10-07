@@ -358,6 +358,7 @@ export default function Communication() {
     markUnread,
     togglePin,
     changeAiHandling,
+    unreadHighlightIds,
   } = useThreadDetail(selectedThreadId, pinnedIds, { skipMarkRead })
   const [aiHandlingSaving, setAiHandlingSaving] = useState(false)
 
@@ -943,9 +944,7 @@ export default function Communication() {
       if (!token || bulkSelectedIds.size === 0) return
       const count = bulkSelectedIds.size
       if (action === 'trash') {
-        // Double confirm: bulk bin is easy to hit and hard to undo in the list.
         if (!(await confirm({ description: t('bulkActions.trashConfirm', { count }), destructive: true }))) return
-        if (!(await confirm({ description: t('bulkActions.trashConfirmAgain', { count }), destructive: true }))) return
       }
       setBulkBusy(true)
       try {
@@ -1476,6 +1475,7 @@ export default function Communication() {
             error={detailError === 'THREAD_LOAD_FAILED' ? t('threadChrome.loadError') : detailError}
             saving={saving}
             threadId={selectedThreadId}
+            unreadHighlightIds={unreadHighlightIds}
             onPatch={handlePatch}
             onReply={handleReply}
             onNote={handleNote}

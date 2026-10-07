@@ -221,6 +221,12 @@ export type TimelineLanding = {
   pinToBottom: boolean
 }
 
+/**
+ * Clears the top edge fade. Virtuoso's `offset` is added to scrollTop, so a
+ * negative value leaves space above an `align: 'start'` item.
+ */
+const TOP_FADE_CLEARANCE_PX = -48
+
 function isSkippableLandingMessage(message: InboxMessage): boolean {
   const kind = message.kind || ''
   return (
@@ -228,6 +234,26 @@ function isSkippableLandingMessage(message: InboxMessage): boolean {
     kind === 'system_event' ||
     kind === 'decision_request'
   )
+}
+
+/**
+ * Inbound messages at the end of the thread that made it unread. Thread-level
+ * unread has no per-message cursor, so we take the trailing inbound cluster
+ * after the last outbound reply (or from the start when none).
+ */
+export function trailingUnreadInboundIds(messages: InboxMessage[]): string[] {
+  const ids: string[] = []
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]
+    if (!message) continue
+    if (isSkippableLandingMessage(message)) continue
+    if (message.direction === 'inbound') {
+      ids.push(String(message.id))
+      continue
+    }
+    if (message.direction === 'outbound') break
+  }
+  return ids.reverse()
 }
 
 /** Where the timeline should open: bottom of the thread, or the start of a new inbound email. */
@@ -253,7 +279,9 @@ export function resolveTimelineLanding(
     if (row.kind !== 'message') continue
     if (isSkippableLandingMessage(row.data)) continue
     if (row.data.direction === 'inbound') {
-      return { index: i, align: 'start', pinToBottom: false }
+      // Include the day pill above the mail so "Gisteren" stays in view.
+      const dayIndex = i > 0 && rows[i - 1]?.kind === 'day' ? i - 1 : i
+      return { index: dayIndex, align: 'start', pinToBottom: false }
     }
     return bottom
   }
@@ -288,6 +316,8 @@ type Props = {
   noteActions?: NoteActions
   /** Deep-linked card (`?message=`): highlighted and scrolled into view. */
   focusedMessageId: string | null
+  /** Trailing unread inbound messages briefly flash when the thread opens. */
+  unreadHighlightIds?: string[]
   hasOlder?: boolean
   loadingOlder?: boolean
   onLoadOlder?: () => void | Promise<void>
@@ -356,6 +386,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     events,
     noteActions,
     focusedMessageId,
+    unreadHighlightIds = [],
     hasOlder = false,
     loadingOlder = false,
     onLoadOlder,
@@ -548,6 +579,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
           virtuosoRef.current?.scrollToIndex({
             index: landing.index,
             align: landing.align,
+            offset: landing.align === 'start' ? TOP_FADE_CLEARANCE_PX : 0,
             behavior,
           })
         }
@@ -642,6 +674,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     }
     const message = row.data
     const focused = focusedMessageId != null && String(message.id) === focusedMessageId
+    const unreadFlash = unreadHighlightIds.includes(String(message.id))
     const stack = bubbleStacks.get(row.id) ?? 'single'
     const tightBelow = stack === 'start' || stack === 'middle'
     return (
@@ -650,6 +683,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         className={cn(
           tightBelow ? 'mb-0.5' : 'mb-4',
           focused && 'rounded-[20px] ring-2 ring-accent/50 ring-offset-4 ring-offset-bg-canvas',
+          unreadFlash && 'unread-message-flash',
         )}
       >
         {message.kind === 'decision_request' ? (
@@ -701,7 +735,11 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         data={virtuosoData}
         className="absolute inset-0 overflow-x-hidden"
         computeItemKey={(_index, row) => row.id}
-        initialTopMostItemIndex={{ index: landing.index, align: landing.align }}
+        initialTopMostItemIndex={{
+          index: landing.index,
+          align: landing.align,
+          offset: landing.align === 'start' ? TOP_FADE_CLEARANCE_PX : 0,
+        }}
         defaultItemHeight={72}
         alignToBottom
         followOutput={() => (readingHistoryRef.current ? false : 'auto')}
@@ -728,7 +766,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
           Scroller: TimelineScroller,
           Header: () =>
             hasOlder && onLoadOlder ? (
-              <div className={cn(CHAT_COLUMN_CLASS, 'px-4 pb-3 pt-4')}>
+              <div className={cn(CHAT_COLUMN_CLASS, 'px-4 pb-3 pt-12')}>
                 <div className="flex justify-center">
                   <button
                     type="button"
@@ -741,7 +779,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
                 </div>
               </div>
             ) : (
-              <div className="pt-4" />
+              // Clears the top edge fade so the first bubble/header stays readable.
+              <div className="pt-12" />
             ),
         }}
         itemContent={(_index, row) => {
@@ -755,7 +794,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             )
           }
           if (row.kind === 'end') {
-            return <div className="h-5" aria-hidden />
+            // Room for the composer mode-tab fade so the last bubble can sit in it.
+            return <div className="h-10" aria-hidden />
           }
           return (
             <div className="px-4">

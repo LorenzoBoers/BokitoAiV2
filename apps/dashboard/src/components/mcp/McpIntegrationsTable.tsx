@@ -201,7 +201,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                           if (
                             !(await confirm({
                               description: t('integrations.mcp.servers.disconnectConfirm'),
-                              destructive: true,
+                              confirmLabel: t('actions.disconnect', { ns: 'common' }), destructive: true,
                             }))
                           )
                             return

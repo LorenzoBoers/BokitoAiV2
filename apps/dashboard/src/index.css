@@ -329,6 +329,26 @@
     opacity: 1;
   }
 
+  /* Brief cue on unread inbound messages when a thread is opened. */
+  @keyframes unread-message-flash {
+    0% {
+      background-color: rgb(var(--color-accent) / 0.1);
+      box-shadow: 0 0 0 0 rgb(var(--color-accent) / 0.28);
+    }
+    55% {
+      background-color: rgb(var(--color-accent) / 0.06);
+      box-shadow: 0 0 0 3px rgb(var(--color-accent) / 0.14);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+  .unread-message-flash {
+    border-radius: 12px;
+    animation: unread-message-flash 2.4s ease-out both;
+  }
+
   /* Blinking caret at the end of a streaming AI reply. */
   .stream-caret {
     display: inline-block;
@@ -703,6 +723,9 @@
     .hover-lift:hover {
       transform: none;
       transition: none;
+    }
+    .unread-message-flash {
+      animation: none;
     }
     .animate-page-enter,
     .animate-content-enter,

@@ -20,6 +20,7 @@ import {
   type ReplyInput,
   type ThreadId,
 } from '../lib/inbox-api'
+import { trailingUnreadInboundIds } from '../components/inbox/ThreadTimeline'
 
 function escapeHtml(input: string): string {
   return input
@@ -59,9 +60,12 @@ export function useThreadDetail(
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  /** Inbound message ids briefly highlighted after opening an unread thread. */
+  const [unreadHighlightIds, setUnreadHighlightIds] = useState<string[]>([])
   // Bumps whenever the open thread changes (or a new fetch starts) so in-flight
   // responses for a previous thread cannot overwrite the current detail pane.
   const fetchGeneration = useRef(0)
+  const unreadHighlightTimer = useRef<number | null>(null)
 
   // Drop the previous conversation before paint when the route thread changes,
   // otherwise one frame still renders the old detail under the new URL.
@@ -69,6 +73,11 @@ export function useThreadDetail(
     fetchGeneration.current += 1
     setRawDetail(null)
     setError(null)
+    setUnreadHighlightIds([])
+    if (unreadHighlightTimer.current != null) {
+      window.clearTimeout(unreadHighlightTimer.current)
+      unreadHighlightTimer.current = null
+    }
     setLoading(Boolean(token && threadId))
   }, [token, threadId])
 
@@ -137,6 +146,17 @@ export function useThreadDetail(
         // reflects the read status. If the request fails the next list poll
         // will reconcile.
         if (result && result.thread.hasUnread && !options?.skipMarkRead) {
+          if (!quiet) {
+            const ids = trailingUnreadInboundIds(result.messages)
+            setUnreadHighlightIds(ids)
+            if (unreadHighlightTimer.current != null) {
+              window.clearTimeout(unreadHighlightTimer.current)
+            }
+            unreadHighlightTimer.current = window.setTimeout(() => {
+              setUnreadHighlightIds([])
+              unreadHighlightTimer.current = null
+            }, 2600)
+          }
           applyResult({ ...result, thread: { ...result.thread, hasUnread: false } })
           void markThreadRead(token, threadId).catch(() => {})
         } else {
@@ -493,6 +513,7 @@ export function useThreadDetail(
     loadOlder,
     error,
     saving,
+    unreadHighlightIds,
     refresh: fetchDetail,
     patch,
     reply,

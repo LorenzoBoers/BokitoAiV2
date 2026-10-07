@@ -142,9 +142,11 @@ type Props = {
   mode?: 'customer' | 'agent'
   /** Opens the look-again planner (owned by the page; also reachable from the panel). */
   onWhatsNext?: () => void
+  /** Trailing unread inbound messages briefly flash when the thread opens. */
+  unreadHighlightIds?: string[]
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { token, user } = useAuth()
@@ -617,7 +619,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       ) ||
       (!isPlaceholderContactAddress(detail.thread.contactEmail) && detail.thread.contactEmail) ||
       t('contactPanel.thisContact')
-    if (!(await confirm({ description: t('contactPanel.blockConfirm', { name }), destructive: true }))) return
+    if (!(await confirm({ description: t('contactPanel.blockConfirm', { name }), confirmLabel: t('actions.block', { ns: 'common' }), destructive: true }))) return
     setBlockingContact(true)
     try {
       await updateContact(token, detail.thread.contactId, { status: 'blocked' })
@@ -1148,6 +1150,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               : undefined
           }
           focusedMessageId={focusedMessageId}
+          unreadHighlightIds={unreadHighlightIds}
           hasOlder={hasOlder}
           loadingOlder={loadingOlder}
           onLoadOlder={onLoadOlder}

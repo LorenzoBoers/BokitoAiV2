@@ -57,6 +57,10 @@ export default {
           ink: 'rgb(var(--color-accent-ink) / <alpha-value>)',
         },
       },
+      // Soft pill fills (Badge, FilterChip) use /12; not in Tailwind's default scale.
+      opacity: {
+        12: '0.12',
+      },
       fontFamily: {
         sans: 'var(--font-sans)',
         mono: 'var(--font-mono)',

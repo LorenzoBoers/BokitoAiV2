@@ -122,7 +122,7 @@ function McpOAuthGrantsSection({
     if (
       !(await confirm({
         description: t('developersPage.oauthGrants.revokeConfirm', { name: grant.client_name }),
-        destructive: true,
+        confirmLabel: t('actions.revoke', { ns: 'common' }), destructive: true,
       }))
     ) {
       return
@@ -259,7 +259,7 @@ function ApiTokensSection({
   }
 
   async function handleRevoke(token: ApiTokenRow) {
-    if (!(await confirm({ description: t('developersPage.revokeConfirm', { name: token.name }), destructive: true }))) return
+    if (!(await confirm({ description: t('developersPage.revokeConfirm', { name: token.name }), confirmLabel: t('actions.revoke', { ns: 'common' }), destructive: true }))) return
     try {
       await revokeApiToken(token.id)
       toast.success(t('developersPage.revoked'))

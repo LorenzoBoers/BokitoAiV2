@@ -83,7 +83,7 @@ export default function WorkstreamRunDetail() {
   }
 
   const cancel = async () => {
-    if (!runId || !(await confirm({ description: t('workstreamsPage.cancelConfirm'), destructive: true }))) return
+    if (!runId || !(await confirm({ description: t('workstreamsPage.cancelConfirm'), confirmLabel: t('actions.stop', { ns: 'common' }), destructive: true }))) return
     setActing(true)
     try {
       await cancelWorkstreamRun(runId)

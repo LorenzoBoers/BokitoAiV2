@@ -346,7 +346,7 @@ export default function MemberManagement({
 
   const revokeInvite = async (invite: Invite) => {
     if (!token || !workspaceId) return
-    if (!(await confirm({ description: t('membersPage.revokeConfirm', { email: invite.email }), destructive: true }))) return
+    if (!(await confirm({ description: t('membersPage.revokeConfirm', { email: invite.email }), confirmLabel: t('actions.revoke', { ns: 'common' }), destructive: true }))) return
     setRowBusyId(invite.id)
     setError(null)
     try {
@@ -390,7 +390,7 @@ export default function MemberManagement({
       setError(t('membersPage.ownerOnlyError'))
       return
     }
-    if (!(await confirm({ description: t('membersPage.removeConfirm', { name: member.name }), destructive: true }))) return
+    if (!(await confirm({ description: t('membersPage.removeConfirm', { name: member.name }), confirmLabel: t('actions.deactivate', { ns: 'common' }), destructive: true }))) return
     setRowBusyId(member.id)
     setError(null)
     try {
@@ -430,7 +430,7 @@ export default function MemberManagement({
 
   const deactivateAgent = async (agent: OverviewAgent) => {
     if (!token || !canManageMembers) return
-    if (!(await confirm({ description: t('workforce.agents.archiveConfirm'), destructive: true }))) return
+    if (!(await confirm({ description: t('workforce.agents.archiveConfirm'), confirmLabel: t('actions.deactivate', { ns: 'common' }), destructive: true }))) return
     setRowBusyId(agent.id)
     setError(null)
     try {

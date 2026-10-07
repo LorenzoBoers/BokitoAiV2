@@ -236,7 +236,7 @@ export default function ConnectionsHub() {
 
   const handleDisconnect = async (item: ConnectionListItem) => {
     if (item.source !== 'mcp') return
-    if (!(await confirm({ description: t('integrations.actions.disconnectConfirm'), destructive: true }))) return
+    if (!(await confirm({ description: t('integrations.actions.disconnectConfirm'), confirmLabel: t('actions.disconnect', { ns: 'common' }), destructive: true }))) return
     try {
       await revokeMcpConnection(item.connectionId)
       toast.success(t('integrations.actions.disconnected'))

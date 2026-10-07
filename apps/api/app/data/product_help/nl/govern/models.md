@@ -21,7 +21,7 @@ Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **
    - **Automatisch** — Bokito kiest Maki, Bokito of Kong per actie op basis van de taak.
    - **Maki** — lichter, goed voor alledaagse taken. Gebruikt minder tokens, dus goedkoper. Groter contextvenster voor lange threads.
    - **Bokito** — standaard en gebalanceerd voor het meeste agentwerk.
-   - **Kong** — zwaarder, voor lang of complex werk. Denkt altijd na voordat hij antwoordt, dus gebruikt meer tokens.
+   - **Kong** — zwaarder, voor lang of complex werk. Gebruikt meer tokens.
 3. Op elke modelkaart staan het contextvenster (en tools / vision wanneer ondersteund) en de prijs per 1 miljoen tokens (invoer en uitvoer). Onder de kaarten: **EU-gehost**, **Altijd actueel**, **Traint niet op jouw data**, en **Bij met toonaangevende modellen**.
 4. Nieuwe workspaces starten op **Automatisch**. Agents op **Workspace-standaard** vallen terug op deze keuze. Agents met een eigen modus (Automatisch of een vastgezet niveau) negeren die.
 

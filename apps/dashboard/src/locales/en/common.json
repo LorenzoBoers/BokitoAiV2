@@ -14,7 +14,14 @@
     "close": "Close",
     "clear": "Clear",
     "confirm": "Confirm",
-    "continue": "Continue"
+    "continue": "Continue",
+    "revoke": "Revoke",
+    "disconnect": "Disconnect",
+    "block": "Block",
+    "stop": "Stop",
+    "detach": "Detach",
+    "deactivate": "Deactivate",
+    "remove": "Remove"
   },
   "confirmDialog": {
     "title": "Are you sure?",

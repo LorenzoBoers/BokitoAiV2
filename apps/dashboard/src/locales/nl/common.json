@@ -14,7 +14,14 @@
     "close": "Sluiten",
     "clear": "Wissen",
     "confirm": "Bevestigen",
-    "continue": "Doorgaan"
+    "continue": "Doorgaan",
+    "revoke": "Intrekken",
+    "disconnect": "Ontkoppelen",
+    "block": "Blokkeren",
+    "stop": "Stoppen",
+    "detach": "Losmaken",
+    "deactivate": "Deactiveren",
+    "remove": "Verwijderen"
   },
   "confirmDialog": {
     "title": "Weet je het zeker?",

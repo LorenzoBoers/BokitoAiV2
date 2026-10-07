@@ -101,7 +101,7 @@ export function ModuleConnectionsPanel({
       if (
         !(await confirm({
           description: t('integrations.modules.connections.detachConfirm'),
-          destructive: true,
+          confirmLabel: t('actions.remove', { ns: 'common' }), destructive: true,
         }))
       )
         return

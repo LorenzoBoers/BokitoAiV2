@@ -79,7 +79,7 @@ export function useConnectionActions(scope: ConnectionActionScope, onChanged: ()
 
   const disconnect = useCallback(
     async (row: Row) => {
-      if (!(await confirm({ description: t('integrations.connections.disconnectConfirm'), destructive: true })))
+      if (!(await confirm({ description: t('integrations.connections.disconnectConfirm'), confirmLabel: t('actions.remove', { ns: 'common' }), destructive: true })))
         return
       await run(row, () =>
         moduleSlug ? disconnectModuleConnection(moduleSlug, row.id) : revokeIntegrationConnection(row.id),

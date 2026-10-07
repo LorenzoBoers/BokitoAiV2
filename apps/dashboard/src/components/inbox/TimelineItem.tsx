@@ -17,7 +17,7 @@ import { formatAppTime } from '../../lib/app-locale'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment, ThreadId } from '../../lib/inbox-api'
-import { getMessage } from '../../lib/inbox-api'
+import { asMessageAttachments, getMessage } from '../../lib/inbox-api'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
 import { AI_PILL_CLASS, AiMark } from '../ai/AiMark'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
@@ -176,6 +176,76 @@ function isSimpleMessageHtml(html: string): boolean {
   // iframe so the dark-mode transform keeps them readable.
   if (/(?:^|[^-\w])color\s*[:=]/i.test(trimmed)) return false
   return true
+}
+
+/** True when a plain-text body is actually HTML source (mislabelled part). */
+function looksLikeEmailHtml(value: string | null | undefined): boolean {
+  const raw = (value || '').trim()
+  if (!raw || raw.length < 32) return false
+  if (/^<!DOCTYPE\s+html/i.test(raw) || /^<html[\s>]/i.test(raw)) return true
+  if (/<!--\s*\[if\s+mso\]/i.test(raw)) return true
+  if (/<(?:table|style|head|body|div|p|img|a)\b/i.test(raw) && /<\/(?:table|style|head|body|div|p|a)>/i.test(raw)) {
+    return true
+  }
+  return false
+}
+
+/** Off-screen iframe placeholder: never dump raw HTML/MSO comments into the bubble. */
+function htmlToPlainPreview(html: string, fallbackText?: string): string {
+  const fallback = (fallbackText || '').replace(/\s+/g, ' ').trim()
+  if (fallback && !looksLikeEmailHtml(fallback)) return fallback.slice(0, 280)
+  const text = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<!\[if[\s\S]*?<!\[endif\]-->/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|div|tr|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = Number(n)
+      return Number.isFinite(code) ? String.fromCharCode(code) : ' '
+    })
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.slice(0, 280)
+}
+
+function normalizeCidKey(value: string): string {
+  return value.trim().replace(/^<|>$/g, '').trim().toLowerCase()
+}
+
+/** Rewrite leftover cid: image refs using stored inline attachments. */
+function rewriteCidInHtml(
+  html: string,
+  attachments: Array<{ url: string; contentId?: string | null; inline?: boolean }>,
+): string {
+  if (!html || !attachments.length) return html
+  const lookup = new Map<string, string>()
+  for (const att of attachments) {
+    const cid = att.contentId ? normalizeCidKey(att.contentId) : ''
+    if (cid && att.url) lookup.set(cid, att.url)
+  }
+  if (lookup.size === 0) return html
+  let out = html.replace(
+    /(?:src|background)\s*=\s*(["'])cid:(.*?)\1/gi,
+    (full, quote: string, rawId: string) => {
+      const url = lookup.get(normalizeCidKey(rawId))
+      if (!url) return full
+      return `src=${quote}${url}${quote}`
+    },
+  )
+  out = out.replace(/(?:src|background)\s*=\s*cid:([^\s>]+)/gi, (full, rawId: string) => {
+    const url = lookup.get(normalizeCidKey(rawId))
+    if (!url) return full
+    return `src="${url}"`
+  })
+  return out
 }
 
 function SimpleMessageHtml({ html }: { html: string }) {
@@ -463,7 +533,12 @@ a { color: #60a5fa; }
       for (const el of roots) el.style.display = 'none'
     }
     measure()
+    // Remote CDNs (Google, ESP trackers) often block hotlinks when the
+    // referrer is the app origin; no-referrer matches Gmail's image proxy
+    // behaviour and unblocks most marketing-mail images.
     doc.querySelectorAll('img').forEach((img) => {
+      img.setAttribute('referrerpolicy', 'no-referrer')
+      if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy')
       if (!img.complete) {
         img.addEventListener('load', measure, { once: true })
         img.addEventListener('error', measure, { once: true })
@@ -519,7 +594,7 @@ a { color: #60a5fa; }
 
   // Base document renders the email as designed (light defaults); the
   // dark-mode style sheet injected on load decides invert vs. blend.
-  const wrappedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>
+  const wrappedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><base target="_blank"><style>
 html { background: transparent; }
 html, body { margin: 0; padding: 0; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; }
 body { padding: 2px 0; background: transparent; }
@@ -585,7 +660,15 @@ a { color: #2563eb; }
  * keep a light text preview so long threads do not hold dozens of iframe
  * documents + decoded images in memory at once.
  */
-function LazyEmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
+function LazyEmailHtmlFrame({
+  html,
+  isDark,
+  plainText,
+}: {
+  html: string
+  isDark: boolean
+  plainText?: string
+}) {
   const { t } = useTranslation('communication')
   const hostRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -615,19 +698,10 @@ function LazyEmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean })
     return () => observer.disconnect()
   }, [])
 
-  const plainPreview = useMemo(() => {
-    const text = html
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .replace(/\s+/g, ' ')
-      .trim()
-    return text.slice(0, 280)
-  }, [html])
+  const plainPreview = useMemo(
+    () => htmlToPlainPreview(html, plainText),
+    [html, plainText],
+  )
 
   return (
     <div ref={hostRef} className="min-h-[4.5rem]">
@@ -651,12 +725,24 @@ function LazyEmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean })
   )
 }
 
-function MessageHtmlBody({ html }: { html: string }) {
+function MessageHtmlBody({
+  html,
+  plainText,
+  attachments,
+}: {
+  html: string
+  plainText?: string
+  attachments?: Array<{ url: string; contentId?: string | null; inline?: boolean }>
+}) {
   const { isDark } = useTheme()
-  if (isSimpleMessageHtml(html)) {
-    return <SimpleMessageHtml html={html} />
+  const resolvedHtml = useMemo(
+    () => rewriteCidInHtml(html, attachments ?? []),
+    [html, attachments],
+  )
+  if (isSimpleMessageHtml(resolvedHtml)) {
+    return <SimpleMessageHtml html={resolvedHtml} />
   }
-  return <LazyEmailHtmlFrame html={html} isDark={isDark} />
+  return <LazyEmailHtmlFrame html={resolvedHtml} isDark={isDark} plainText={plainText} />
 }
 
 type MemberNameResolver = (userId: number | null | undefined) => string | undefined
@@ -1179,7 +1265,8 @@ export function MessageTimelineItem({
   const ensureFullMessage = useCallback(async () => {
     if (!token || !threadId) return message
     const needsActivity = Boolean(message.hasActivity) && !message.activityDetail
-    if (!needsActivity && (message.bodyHtml || !message.hasHtml)) return message
+    const needsHtml = Boolean(message.hasHtml) && !message.bodyHtml
+    if (!needsActivity && !needsHtml) return message
     if (enriching) return message
     setEnriching(true)
     try {
@@ -1200,6 +1287,14 @@ export function MessageTimelineItem({
       setEnriching(false)
     }
   }, [token, threadId, message, enriching])
+
+  // Timeline windows may omit body_html while has_html is true — fetch once
+  // so HTML mail never stays stuck on a messy plain-text fallback.
+  useEffect(() => {
+    if (!token || !threadId) return
+    if (!message.hasHtml || message.bodyHtml) return
+    void ensureFullMessage()
+  }, [token, threadId, message.hasHtml, message.bodyHtml, ensureFullMessage])
 
   const currentUserId = user?.id ?? null
   const isInternal = message.direction === 'internal'
@@ -1294,15 +1389,7 @@ export function MessageTimelineItem({
   const inboundEmail = message.fromAddress || contactEmail || ''
   const inboundName = contactName || inboundEmail || t('timeline.events.sender')
 
-  const attachmentItems: MessageAttachment[] = Array.isArray(message.attachments)
-    ? message.attachments.filter(
-        (a): a is MessageAttachment =>
-          !!a &&
-          typeof a === 'object' &&
-          typeof (a as MessageAttachment).id === 'string' &&
-          typeof (a as MessageAttachment).url === 'string',
-      )
-    : []
+  const attachmentItems: MessageAttachment[] = asMessageAttachments(message.attachments)
 
   const isAgentMessage =
     message.kind === 'agent_message' ||
@@ -1313,14 +1400,16 @@ export function MessageTimelineItem({
     message.bodyText ||
     message.bodyPreview ||
     (message.bodyHtml
-      ? message.bodyHtml
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
+      ? htmlToPlainPreview(message.bodyHtml)
       : '')
   const displayBody = translateMockAgentBody(plainBody, t)
-  const usePlainBody = displayBody !== plainBody || !message.bodyHtml
+  // Prefer HTML whenever we have it (or the plain body is mislabelled HTML).
+  // Mock translations still force the plain path so i18n placeholders work.
+  const htmlSource =
+    (message.bodyHtml && message.bodyHtml.trim()) ||
+    (looksLikeEmailHtml(message.bodyText) ? message.bodyText!.trim() : '') ||
+    ''
+  const usePlainBody = displayBody !== plainBody || !htmlSource
 
   const bubbleBody = editingNote ? (
     <div className="space-y-1.5">
@@ -1353,13 +1442,24 @@ export function MessageTimelineItem({
     </div>
   ) : usePlainBody ? (
     <div className="space-y-1">
-      <ChatText content={displayBody} />
-      <MessageAttachments attachments={attachmentItems} />
+      {enriching && message.hasHtml ? (
+        <div className="flex items-center gap-1.5 text-xs text-text-muted">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          <span>{t('timeline.events.emailContent')}</span>
+        </div>
+      ) : (
+        <ChatText content={displayBody} />
+      )}
+      <MessageAttachments attachments={attachmentItems.filter((a) => !a.inline)} />
     </div>
   ) : (
     <div className="space-y-1">
-      <MessageHtmlBody html={message.bodyHtml ?? ''} />
-      <MessageAttachments attachments={attachmentItems} />
+      <MessageHtmlBody
+        html={htmlSource}
+        plainText={message.bodyText || message.bodyPreview || undefined}
+        attachments={attachmentItems}
+      />
+      <MessageAttachments attachments={attachmentItems.filter((a) => !a.inline)} />
     </div>
   )
 

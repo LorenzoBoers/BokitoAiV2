@@ -312,6 +312,9 @@ export type MessageAttachment = {
   mime: string
   size: number
   url: string
+  /** MIME Content-ID for inline images referenced as cid: in body_html. */
+  contentId?: string | null
+  inline?: boolean
 }
 
 /** Best-effort normalize of stored / forwarded attachment payloads. */
@@ -324,12 +327,15 @@ export function asMessageAttachments(raw: unknown[] | null | undefined): Message
     const id = typeof row.id === 'string' ? row.id : ''
     const url = typeof row.url === 'string' ? row.url : ''
     if (!id || !url) continue
+    const contentIdRaw = row.content_id ?? row.contentId
     out.push({
       id,
       name: typeof row.name === 'string' && row.name.trim() ? row.name : 'file',
       mime: typeof row.mime === 'string' ? row.mime : '',
       size: typeof row.size === 'number' ? row.size : 0,
       url,
+      contentId: typeof contentIdRaw === 'string' && contentIdRaw.trim() ? contentIdRaw : null,
+      inline: row.inline === true,
     })
   }
   return out

@@ -153,7 +153,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
 
   const detachIdentity = async (identityId: string) => {
     if (!token || !contact || saving) return
-    if (!(await confirm({ description: t('contactsPage.detachConfirm'), destructive: true }))) return
+    if (!(await confirm({ description: t('contactsPage.detachConfirm'), confirmLabel: t('actions.detach', { ns: 'common' }), destructive: true }))) return
     setSaving(true)
     try {
       await detachContactIdentity(token, contact.id, identityId)

@@ -118,7 +118,7 @@ async def test_bokito_virtual_model_routing(session_override):
     )
     assert kong.slug == "bokito-kong"
     assert kong.provider == "bokito"
-    assert kong.model_id == "mistral-medium-latest"
+    assert kong.model_id == "mistral-large-4"
 
     entry = await record_usage(
         session_override, tenant.id, resolved, tokens_in=100, tokens_out=50, commit=True
@@ -184,17 +184,17 @@ def test_backing_chains_default_to_mistral_and_env_overrides(monkeypatch):
     monkeypatch.setattr(settings, "bokito_backings", "")
     assert bokito_models.select_backing_slug("bokito-maki") == "ministral-3b-2512"
     assert bokito_models.select_backing_slug("bokito-ai-3-1") == "mistral-medium-latest"
-    assert bokito_models.select_backing_slug("bokito-kong") == "mistral-medium-latest"
+    assert bokito_models.select_backing_slug("bokito-kong") == "mistral-large-4"
     for tier in bokito_models.MANAGED_CHAT_SLUGS:
         assert all(s.startswith(("mistral", "ministral")) for s in bokito_models.backing_candidates(tier))
 
-    monkeypatch.setattr(settings, "bokito_backings", '{"bokito-kong": ["mistral-large-4"]}')
-    assert bokito_models.backing_candidates("bokito-kong") == ["mistral-large-4"]
+    monkeypatch.setattr(settings, "bokito_backings", '{"bokito-kong": ["mistral-medium-latest"]}')
+    assert bokito_models.backing_candidates("bokito-kong") == ["mistral-medium-latest"]
     assert bokito_models.select_backing_slug("bokito-ai-3-1") == "mistral-medium-latest"
     assert bokito_models.route_sources()["bokito-kong"] == "env"
 
     monkeypatch.setattr(settings, "bokito_backings", "{not json")
-    assert bokito_models.select_backing_slug("bokito-kong") == "mistral-medium-latest"
+    assert bokito_models.select_backing_slug("bokito-kong") == "mistral-large-4"
 
 
 @pytest.mark.asyncio

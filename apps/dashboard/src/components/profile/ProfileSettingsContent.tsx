@@ -406,7 +406,7 @@ export function ProfileSettingsContent() {
     async (provider: SsoProviderId) => {
       if (!token || ssoBusy) return
       const label = t(`profile:security.${provider}`)
-      if (!(await confirm({ description: t('profile:security.disconnectConfirm', { provider: label }), destructive: true }))) return
+      if (!(await confirm({ description: t('profile:security.disconnectConfirm', { provider: label }), confirmLabel: t('actions.disconnect', { ns: 'common' }), destructive: true }))) return
       setSsoBusy(provider)
       try {
         const data = await unlinkSsoProvider(token, provider)

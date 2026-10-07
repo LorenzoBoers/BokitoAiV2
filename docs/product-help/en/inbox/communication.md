@@ -76,7 +76,7 @@ An agent turn reads like a chat: a few short messages, with one line between the
 ![Agent turn with activity lines between chat messages](/api/docs/assets/communication/agent-turn.png)
 *Thinking and working lines sit between the agent's messages and fold up when done.*
 
-1. While the agent thinks, a line with a brain icon reads **Thinking** with a running time. When the model shares its reasoning, click the line to read it as it streams. Short replies skip reasoning; Kong always reasons. While it works, the line shows the current action with the integration logo (or a knowledge or wrench icon); each new action replaces the previous one.
+1. While the agent thinks, a line with a brain icon reads **Thinking** with a running time. When the model shares its reasoning, click the line to read it as it streams. Short messages skip reasoning. While it works, the line shows the current action with the integration logo (or a knowledge or wrench icon); each new action replaces the previous one.
 2. When the agent switches from thinking to working (or back), the line folds into **Thought for 3s** or **Worked for 12s · 4 actions**. Click it to see each action, its input and its result. **Thought for** only shows when there is reasoning to read.
 3. **Typing...** means the agent is writing its next message. A blank line in its answer starts a new message, so a turn arrives as up to five short bubbles. Email stays one structured message.
 4. Agent messages use chat formatting only: bold, italic, strikethrough and links. Headings and tables become plain lines.
