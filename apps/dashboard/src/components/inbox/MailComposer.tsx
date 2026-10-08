@@ -6,6 +6,10 @@
  * subject, the sender signature under the input, and the quoted mail history
  * behind a 3-dots toggle. Bokito extras (AI write assist, dictation,
  * attachments) stay available.
+ *
+ * Drafts autosave per conversation (`mail-draft-store`): closing the
+ * composer, switching threads or reloading keeps the unsent mail, and the
+ * thread shows a draft chip to continue it. Sending clears the draft.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -38,6 +42,13 @@ import { listChannels, type ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { previewSignatureHtml, type SignatureIdentityVars } from '../../lib/default-signature'
+import {
+  clearStoredMailDraft,
+  mailDraftHasContent,
+  readStoredMailDraft,
+  writeStoredMailDraft,
+  type StoredMailDraft,
+} from '../../lib/mail-draft-store'
 import { parseAddressList, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
 import { uploadAttachment } from '../../lib/uploads-api'
 import ComposerWriteAssist from './ComposerWriteAssist'
@@ -85,14 +96,29 @@ export default function MailComposer({
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
 
-  const [body, setBody] = useState('')
-  const [to, setTo] = useState(intent.to)
-  const [cc, setCc] = useState(intent.cc)
-  const [bcc, setBcc] = useState('')
-  const [subject, setSubject] = useState(intent.subject)
-  const [ccBccOpen, setCcBccOpen] = useState(Boolean(intent.cc))
+  // Unsent draft of this conversation: the body (and attachments) always come
+  // back; recipients and subject only when the draft targets the same mail
+  // and mode, otherwise the fresh intent wins.
+  const [restoredDraft] = useState<StoredMailDraft | null>(() => readStoredMailDraft(threadId))
+  const restoredMatchesIntent =
+    restoredDraft != null &&
+    restoredDraft.mode === intent.mode &&
+    restoredDraft.sourceMessageId === intent.sourceMessageId
+
+  const [body, setBody] = useState(() => restoredDraft?.body ?? '')
+  const [to, setTo] = useState(() => (restoredMatchesIntent ? restoredDraft.to : intent.to))
+  const [cc, setCc] = useState(() => (restoredMatchesIntent ? restoredDraft.cc : intent.cc))
+  const [bcc, setBcc] = useState(() => restoredDraft?.bcc ?? '')
+  const [subject, setSubject] = useState(() =>
+    restoredMatchesIntent ? restoredDraft.subject : intent.subject,
+  )
+  const [ccBccOpen, setCcBccOpen] = useState(() =>
+    Boolean(intent.cc || restoredDraft?.cc || restoredDraft?.bcc),
+  )
   const [quoteOpen, setQuoteOpen] = useState(false)
-  const [attachments, setAttachments] = useState<MessageAttachment[]>([])
+  const [attachments, setAttachments] = useState<MessageAttachment[]>(
+    () => restoredDraft?.attachments ?? [],
+  )
   const [uploading, setUploading] = useState(false)
   const [sending, setSending] = useState(false)
   // Mounts collapsed at composer height, then grows — the standard composer
@@ -131,10 +157,20 @@ export default function MailComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key change carries the new intent
   }, [intentKey])
 
-  // From selector: same mailbox set the standard composer offers.
+  // --- Draft persistence -----------------------------------------------
+  // Autosaves while typing (debounced) and flushes on unmount, so Esc / X,
+  // a thread switch or a reload never loses the mail. Sending clears it.
+  const suppressPersistRef = useRef(false)
+  const draftRef = useRef<StoredMailDraft | null>(null)
+  const [draftSaved, setDraftSaved] = useState(() =>
+    Boolean(restoredDraft && mailDraftHasContent(restoredDraft)),
+  )
+
+  // From selector: same mailbox set the standard composer offers. A restored
+  // draft keeps its chosen mailbox; the fetch below validates the id.
   const [emailChannels, setEmailChannels] = useState<ChannelRow[]>([])
   const [selectedChannelAccountId, setSelectedChannelAccountId] = useState<string | null>(
-    boundChannelAccountId ?? null,
+    () => restoredDraft?.channelAccountId ?? boundChannelAccountId ?? null,
   )
   useEffect(() => {
     if (!token) return
@@ -169,6 +205,39 @@ export default function MailComposer({
     () => emailChannels.find((row) => row.id === selectedChannelAccountId) ?? null,
     [emailChannels, selectedChannelAccountId],
   )
+
+  // Snapshot for the draft store, kept fresh every render so the unmount
+  // flush below writes the very last keystrokes.
+  draftRef.current = {
+    mode: intent.mode,
+    sourceMessageId: intent.sourceMessageId,
+    to,
+    cc,
+    bcc,
+    subject,
+    body,
+    attachments,
+    channelAccountId: selectedChannelAccountId,
+    updatedAt: new Date().toISOString(),
+  }
+
+  useEffect(() => {
+    if (suppressPersistRef.current) return
+    const timer = window.setTimeout(() => {
+      if (suppressPersistRef.current || !draftRef.current) return
+      writeStoredMailDraft(threadId, draftRef.current)
+      setDraftSaved(mailDraftHasContent(draftRef.current))
+    }, 400)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot lives in draftRef
+  }, [threadId, body, to, cc, bcc, subject, attachments, selectedChannelAccountId, intentKey])
+
+  useEffect(() => {
+    return () => {
+      if (suppressPersistRef.current || !draftRef.current) return
+      writeStoredMailDraft(threadId, draftRef.current)
+    }
+  }, [threadId])
 
   // Signature exactly as the server will append it (custom template rendered,
   // or the Bokito default with avatar).
@@ -237,6 +306,10 @@ export default function MailComposer({
   const handleSend = async () => {
     if (!canSend || busy) return
     setSending(true)
+    // Clear the stored draft up front so the unmount flush after a
+    // successful send cannot write the sent text back as a leftover draft.
+    suppressPersistRef.current = true
+    clearStoredMailDraft(threadId)
     try {
       await onSend({
         bodyText: body.trim(),
@@ -251,6 +324,9 @@ export default function MailComposer({
         quotedHtml: intent.quotedHtml || undefined,
       })
     } catch (err) {
+      // The mail did not go out: keep the draft.
+      suppressPersistRef.current = false
+      if (draftRef.current) writeStoredMailDraft(threadId, draftRef.current)
       toast.error(formatApiErrorMessage(err, t('composer.sendError')))
     } finally {
       setSending(false)
@@ -530,7 +606,11 @@ export default function MailComposer({
               <Paperclip size={14} />
             </button>
             <div className="ml-auto flex items-center gap-2">
-              <span className="hidden text-2xs text-text-muted sm:block">{t('composer.sendShortcut')}</span>
+              <span className="hidden text-2xs text-text-muted sm:block">
+                {draftSaved && mailDraftHasContent({ body, attachments })
+                  ? `${t('mailComposer.draftSaved')} · ${t('composer.sendShortcut')}`
+                  : t('composer.sendShortcut')}
+              </span>
               <button
                 type="button"
                 disabled={!canSend || busy || uploading}

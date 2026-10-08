@@ -1,4 +1,4 @@
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, PenLine, RefreshCw, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -16,6 +16,12 @@ import {
   type InboxMessage,
 } from '../../lib/inbox-api'
 import { buildMailDraftIntent, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
+import {
+  clearStoredMailDraft,
+  readStoredMailDraft,
+  type StoredMailDraft,
+} from '../../lib/mail-draft-store'
+import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import MailComposer, { type MailSendPayload } from './MailComposer'
 import { parseDecisionOptions, pickSoftDecisionTarget } from '../../lib/decision-options'
 import { getContactThreads, updateContact } from '../../lib/contacts-api'
@@ -203,6 +209,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // Mail-native composer: set when Reply / Reply all / Forward is clicked on
   // an email bubble (or the Reply tab on an email thread).
   const [mailDraft, setMailDraft] = useState<MailDraftIntent | null>(null)
+  // Unsent mail draft persisted by the mail composer; shown as a chip above
+  // the standard composer so the operator can pick the mail back up.
+  const [storedMailDraft, setStoredMailDraft] = useState<StoredMailDraft | null>(null)
   // Agent chosen with @ or Ask, before the first send creates the meta conversation.
   const [askAgentId, setAskAgentId] = useState<string | null>(null)
   // Close-the-loop prompt when typed Signals are still Open (F-49).
@@ -636,6 +645,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     setMailDraft(null)
   }, [threadId])
 
+  // The mail composer autosaves and flushes its draft on unmount; re-read
+  // whenever the mail surface closes (or the thread changes) so the draft
+  // chip above the composer stays accurate.
+  useEffect(() => {
+    if (mailDraft) return
+    setStoredMailDraft(readStoredMailDraft(String(threadId)))
+  }, [threadId, mailDraft])
+
   // Addresses of our own mailboxes: excluded from reply-all recipient lists
   // and used to decide whether a bubble shows the Reply all button.
   const mailOwnAddresses = useMemo(
@@ -1040,6 +1057,48 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [detail, mailboxDisconnected, mailOwnAddresses, i18n.language, user?.name],
   )
 
+  // Reopens the mail composer with the unsent draft. The intent (recipients,
+  // quoted history) is rebuilt fresh from the source mail when it is still
+  // loaded; the composer then restores the typed fields from the store.
+  const resumeStoredMailDraft = useCallback(() => {
+    if (!detail || !storedMailDraft) return
+    if (mailboxDisconnected) {
+      setComposerMode('reply')
+      return
+    }
+    const source = detail.messages.find(
+      (m) => String(m.id) === storedMailDraft.sourceMessageId,
+    )
+    if (source) {
+      setMailDraft(
+        buildMailDraftIntent(source, storedMailDraft.mode, {
+          ownAddresses: mailOwnAddresses,
+          contactEmail: detail.thread.contactEmail,
+          threadSubject: detail.thread.emailSubject,
+          language: i18n.language,
+          senderName:
+            source.direction === 'inbound' ? detail.thread.contactName || null : user?.name || null,
+        }),
+      )
+      return
+    }
+    // Source mail outside the loaded window: resume without quoted history.
+    setMailDraft({
+      mode: storedMailDraft.mode,
+      sourceMessageId: storedMailDraft.sourceMessageId,
+      to: storedMailDraft.to,
+      cc: storedMailDraft.cc,
+      subject: storedMailDraft.subject,
+      quotedHtml: '',
+      quotedPreview: '',
+    })
+  }, [detail, storedMailDraft, mailboxDisconnected, mailOwnAddresses, i18n.language, user?.name])
+
+  const discardStoredMailDraft = useCallback(() => {
+    clearStoredMailDraft(String(threadId))
+    setStoredMailDraft(null)
+  }, [threadId])
+
   const handleComposerModeChange = useCallback(
     (mode: ComposerMode) => {
       // The Reply tab on an email thread is a mail action: it opens the
@@ -1047,6 +1106,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       // input, so recipients and quoting are always explicit. A pending AI
       // proposal draft stays in the standard composer (it resolves on send).
       if (mode === 'reply' && messageLayout === 'email' && detail && !mailboxDisconnected && !composerDraft) {
+        // An unsent mail draft wins: the Reply tab picks it back up.
+        if (storedMailDraft) {
+          resumeStoredMailDraft()
+          return
+        }
         const source = [...detail.messages]
           .reverse()
           .find(
@@ -1061,7 +1125,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setComposerMode(mode)
       if (mode !== 'ask') setAskAgentId(null)
     },
-    [messageLayout, detail, mailboxDisconnected, composerDraft, handleMailAction],
+    [
+      messageLayout,
+      detail,
+      mailboxDisconnected,
+      composerDraft,
+      storedMailDraft,
+      resumeStoredMailDraft,
+      handleMailAction,
+    ],
   )
 
   // Send from the mail-native composer; afterwards the standard composer
@@ -1462,6 +1534,48 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           contactName={thread.contactName}
           currentChannel={thread.channel}
         />
+      ) : null}
+      {composerSurface &&
+      !mailDraft &&
+      storedMailDraft &&
+      messageLayout === 'email' &&
+      !mailboxDisconnected ? (
+        <div className="shrink-0 bg-bg px-4 pt-1">
+          <div className={CHAT_COLUMN_CLASS}>
+            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/70 px-3 py-1.5 text-xs">
+              <PenLine size={13} className="shrink-0 text-text-muted" />
+              <button
+                type="button"
+                onClick={resumeStoredMailDraft}
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                data-testid="mail-draft-chip"
+              >
+                <span className="shrink-0 font-medium text-text-heading">
+                  {t('mailComposer.draftChip')}
+                </span>
+                <span className="truncate text-text-muted">
+                  {storedMailDraft.subject || storedMailDraft.body}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={resumeStoredMailDraft}
+                className="shrink-0 font-medium text-accent transition-colors hover:text-accent-hover"
+              >
+                {t('mailComposer.draftChipResume')}
+              </button>
+              <button
+                type="button"
+                onClick={discardStoredMailDraft}
+                title={t('mailComposer.draftChipDiscard')}
+                aria-label={t('mailComposer.draftChipDiscard')}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
       {composerSurface && mailDraft && messageLayout === 'email' && !mailboxDisconnected ? (
         <MailComposer

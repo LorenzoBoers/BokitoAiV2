@@ -187,7 +187,11 @@
     "modeForward": "Doorsturen",
     "signature": "Handtekening",
     "quoteToggle": "Meegestuurde mailgeschiedenis tonen",
-    "quoteTitle": "Geciteerde mailgeschiedenis"
+    "quoteTitle": "Geciteerde mailgeschiedenis",
+    "draftSaved": "Concept opgeslagen",
+    "draftChip": "Mailconcept",
+    "draftChipResume": "Verder schrijven",
+    "draftChipDiscard": "Concept verwijderen"
   },
   "compose": {
     "title": "Nieuwe e-mail",

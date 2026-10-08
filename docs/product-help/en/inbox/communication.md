@@ -68,7 +68,7 @@ Email conversations answer like a mail client: every received mail carries its o
 2. The composer at the bottom grows into a mail view, with a mini thread view above it. **To** is prefilled from the mail you clicked (empty on a forward), **CC/BCC** opens extra recipient fields, and the subject is editable — `Re:` or `Fwd:` is set for you. **From** switches mailboxes when more than one can send.
 3. Write your message. Your signature sits under the input exactly as it will be sent. The three dots below it expand the quoted mail history that goes along. AI write help, dictation and the attachment button stay available.
 4. Send with the button or **Ctrl+Enter**. The mail lands in the timeline as an expandable mail bubble with only your message, and the composer returns to its normal size.
-5. **Esc** or the **X** in the corner closes the mail view without sending.
+5. **Esc** or the **X** in the corner closes the mail view without sending. Your draft is saved automatically — a **Mail draft** chip above the composer offers **Continue writing** or discards it with the bin icon. The draft survives thread switches and reloads; sending clears it.
 
 ## See and change what the AI does
 

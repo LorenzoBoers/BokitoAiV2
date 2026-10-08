@@ -1,4 +1,5 @@
 import type { InboxListQuickFilter } from './inbox-prefs'
+import { clearStoredMailDraft } from './mail-draft-store'
 
 /** Inclusive range select for bulk checkboxes (Gmail/Linear style). */
 export function toggleOrRangeSelect(
@@ -124,7 +125,10 @@ export function serializeComposerDraft(draft: StoredComposerDraft): string {
 
 export const composerDraftStorageKey = (threadId: string) => `inbox.draft.${threadId}`
 
-/** Drop the unsent draft of a conversation (close, spam, handled elsewhere). */
+/**
+ * Drop the unsent drafts of a conversation (close, spam, handled elsewhere) —
+ * both the standard composer draft and the mail-native draft.
+ */
 export function clearStoredComposerDraft(threadId: string | null | undefined): void {
   if (!threadId || typeof window === 'undefined') return
   try {
@@ -132,6 +136,7 @@ export function clearStoredComposerDraft(threadId: string | null | undefined): v
   } catch {
     // Private mode / quota: nothing to clear.
   }
+  clearStoredMailDraft(threadId)
 }
 
 export type DraftFreshnessContext = {

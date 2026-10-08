@@ -187,7 +187,11 @@
     "modeForward": "Forward",
     "signature": "Signature",
     "quoteToggle": "Show the quoted mail history sent along",
-    "quoteTitle": "Quoted mail history"
+    "quoteTitle": "Quoted mail history",
+    "draftSaved": "Draft saved",
+    "draftChip": "Mail draft",
+    "draftChipResume": "Continue writing",
+    "draftChipDiscard": "Discard draft"
   },
   "compose": {
     "title": "New email",

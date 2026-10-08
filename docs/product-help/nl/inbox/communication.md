@@ -68,7 +68,7 @@ E-mailgesprekken antwoorden zoals een mailclient: elke ontvangen mail draagt eig
 2. De composer onderin groeit naar een mailweergave, met daarboven een mini-weergave van de thread. **Aan** is vooringevuld vanuit de mail die je aanklikte (leeg bij doorsturen), **CC/BCC** opent extra ontvangervelden en het onderwerp is bewerkbaar — `Re:` of `Fwd:` staat al klaar. **Van** wisselt van mailbox wanneer er meer dan één kan versturen.
 3. Schrijf je bericht. Je handtekening staat onder de invoer, precies zoals die meegaat. De drie puntjes eronder klappen de geciteerde mailgeschiedenis uit die wordt meegestuurd. AI-schrijfhulp, dicteren en de bijlageknop blijven beschikbaar.
 4. Verstuur met de knop of **Ctrl+Enter**. De mail landt in de tijdlijn als een uitklapbare mailwolk met alleen jouw bericht, en de composer keert terug naar zijn normale formaat.
-5. **Esc** of de **X** in de hoek sluit de mailweergave zonder te versturen.
+5. **Esc** of de **X** in de hoek sluit de mailweergave zonder te versturen. Je concept wordt automatisch bewaard — een chip **Mailconcept** boven de composer biedt **Verder schrijven** of verwijdert het via het prullenbak-icoon. Het concept overleeft threadwissels en herladen; versturen ruimt het op.
 
 ## Zie en wijzig wat de AI doet
 
