@@ -19,10 +19,13 @@ async def find_member_by_email(
     tenant_id: UUID,
     email: str | None,
 ) -> tuple[User, Membership] | None:
-    """Return the tenant membership for this email, if any.
+    """Return the active tenant membership for this email, if any.
 
     Used so inbound mail from a teammate is not treated as a CRM customer,
     and so the UI can show a teammate context card instead of Block / approve.
+    Deactivated memberships do not count — that person left the workspace
+    roster (Team → Deactivated) and their mail must be handled like any
+    other external sender again.
     """
     address = normalize_email(email)
     if not address or "@" not in address:
@@ -32,6 +35,7 @@ async def find_member_by_email(
         .join(Membership, Membership.user_id == User.id)
         .where(
             Membership.tenant_id == tenant_id,
+            Membership.is_active.is_(True),
             func.lower(User.email) == address,
             User.is_active.is_(True),
         )
@@ -47,6 +51,10 @@ async def member_emails_for_tenant(session: AsyncSession, tenant_id: UUID) -> se
     result = await session.execute(
         select(User.email)
         .join(Membership, Membership.user_id == User.id)
-        .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
+        .where(
+            Membership.tenant_id == tenant_id,
+            Membership.is_active.is_(True),
+            User.is_active.is_(True),
+        )
     )
     return {normalize_email(email) for email in result.scalars().all() if email}

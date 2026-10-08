@@ -64,6 +64,54 @@ async def test_ingest_member_email_skips_contact_and_agent(session_override):
 
 
 @pytest.mark.asyncio
+async def test_deactivated_member_email_is_external_again(session_override):
+    """A deactivated teammate's address must no longer short-circuit inbound AI."""
+    from datetime import datetime, timezone
+
+    from app.channels.base import InboundMessage, ingest_inbound
+    from app.models.auth import Membership, Tenant, User
+    from app.services.auth import hash_password
+    from app.services.workspace_members import find_member_by_email
+
+    tenant = Tenant(slug="ex-member-ingest", name="Ex Member Ingest")
+    user = User(
+        email="exteammate@example.com",
+        password_hash=hash_password("x"),
+        display_name="Ex Teammate",
+        email_verified=True,
+    )
+    session_override.add(tenant)
+    session_override.add(user)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+    await session_override.refresh(user)
+    session_override.add(
+        Membership(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            role="member",
+            is_active=False,
+            deactivated_at=datetime.now(timezone.utc),
+        )
+    )
+    await session_override.commit()
+
+    assert await find_member_by_email(session_override, tenant.id, user.email) is None
+
+    inbound = InboundMessage(
+        channel="email",
+        source="mock",
+        sender_address="exteammate@example.com",
+        sender_name="Ex Teammate",
+        subject="Please look this up",
+        body_text="What is the VAT rate?",
+        external_id=f"ext-{uuid4()}",
+    )
+    _signal, should_process = await ingest_inbound(session_override, tenant.id, inbound)
+    assert should_process is True
+
+
+@pytest.mark.asyncio
 async def test_operator_context_marks_internal_user(session_override):
     from app.models.auth import Membership, Tenant, User
     from app.services.agent.loop import AgentLoop
