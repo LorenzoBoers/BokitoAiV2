@@ -59,20 +59,29 @@ async def _resolve_project(ctx: ToolContext, tool_input: dict[str, Any]) -> Proj
 
 
 async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.proposal_items import resolve_items, stash_attach_items
+
     result = await ctx.session.execute(
         select(Project).where(Project.tenant_id == ctx.tenant_id).order_by(Project.updated_at.desc())
     )
-    return {
-        "projects": [
-            {
-                "id": str(p.id),
-                "name": p.name,
-                "slug": p.slug,
-                "description": (p.description or "")[:200],
-            }
-            for p in result.scalars().all()
-        ]
-    }
+    projects = [
+        {
+            "id": str(p.id),
+            "name": p.name,
+            "slug": p.slug,
+            "description": (p.description or "")[:200],
+        }
+        for p in result.scalars().all()
+    ]
+    # Cards under the reply — do not rely on the model calling attach_items.
+    showcase = await resolve_items(
+        ctx.session,
+        ctx.tenant_id,
+        [{"type": "project", "id": p["id"]} for p in projects],
+    )
+    if showcase:
+        stash_attach_items(ctx.signal_id, showcase)
+    return {"projects": projects, "items": showcase}
 
 
 async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -409,7 +418,11 @@ async def _propose_project_resource(ctx: ToolContext, tool_input: dict[str, Any]
 register_tool(
     ToolSpec(
         name="list_projects",
-        description="List the tenant's projects (id, slug, description) to pick the right one.",
+        description=(
+            "List the tenant's projects (id, slug, description) to pick the "
+            "right one. Results are showcased as project cards under your "
+            "reply — keep the text short; do not list every name again."
+        ),
         category="projects",
         input_schema={"type": "object", "properties": {}},
         handler=_list_projects,

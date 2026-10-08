@@ -387,7 +387,14 @@ const TimelineScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElemen
           if (holder) holder.current = node
         }}
         className={cn('overflow-x-hidden overflow-y-auto', className)}
-        style={{ ...style, overflowX: 'hidden', overflowY: 'auto' }}
+        style={{
+          ...style,
+          overflowX: 'hidden',
+          overflowY: 'auto',
+          // Prefer keeping the row under the cursor stable when email/image
+          // heights settle above or below the viewport.
+          overflowAnchor: 'auto',
+        }}
       />
     )
   },

@@ -194,7 +194,15 @@ export function parseChatText(
 }
 
 /** Icon hint for app-path link pills. */
-export type AppLinkKind = 'docs' | 'connections' | 'settings' | 'project' | 'flow' | 'inbox' | 'other'
+export type AppLinkKind =
+  | 'docs'
+  | 'connections'
+  | 'settings'
+  | 'project'
+  | 'flow'
+  | 'inbox'
+  | 'contact'
+  | 'other'
 
 export function appLinkKind(href: string): AppLinkKind {
   if (href.startsWith('/docs') || href.startsWith('/learn')) return 'docs'
@@ -203,5 +211,7 @@ export function appLinkKind(href: string): AppLinkKind {
   if (href.startsWith('/projects')) return 'project'
   if (href.startsWith('/workstreams') || href.startsWith('/flows')) return 'flow'
   if (href.startsWith('/communication') || href.startsWith('/inbox')) return 'inbox'
+  // Person page; companies stay "other" (folder icon would be wrong).
+  if (/^\/contacts\/(?!companies(?:\/|$))[^/]+/.test(href)) return 'contact'
   return 'other'
 }

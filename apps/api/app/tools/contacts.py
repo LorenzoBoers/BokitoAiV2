@@ -32,10 +32,28 @@ def _serialize(row: Contact, *, thread_count: int | None = None) -> dict[str, An
         "merged_into_id": str(row.merged_into_id) if row.merged_into_id else None,
         "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
         "created_at": row.created_at.isoformat() if row.created_at else None,
+        # In-app path for markdown chips: [Name](/contacts/{id}).
+        "path": f"/contacts/{row.id}",
     }
     if thread_count is not None:
         data["thread_count"] = thread_count
     return data
+
+
+async def _showcase_contacts(ctx: ToolContext, contact_ids: list[str]) -> list[dict[str, Any]]:
+    """Resolve and stash contact cards for the final reply bubble."""
+    from app.services.proposal_items import resolve_items, stash_attach_items
+
+    if not contact_ids:
+        return []
+    showcase = await resolve_items(
+        ctx.session,
+        ctx.tenant_id,
+        [{"type": "contact", "id": cid} for cid in contact_ids],
+    )
+    if showcase:
+        stash_attach_items(ctx.signal_id, showcase)
+    return showcase
 
 
 async def _find_contact(ctx: ToolContext, raw_id: str) -> Contact | None:
@@ -72,7 +90,9 @@ async def _thread_count(ctx: ToolContext, contact: Contact) -> int:
 async def _list_contacts(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     limit = max(1, min(int(tool_input.get("limit") or 25), 100))
     stmt = select(Contact).where(
-        Contact.tenant_id == ctx.tenant_id, Contact.merged_into_id.is_(None)
+        Contact.tenant_id == ctx.tenant_id,
+        Contact.merged_into_id.is_(None),
+        Contact.deleted_at.is_(None),
     )
     query = str(tool_input.get("query") or "").strip()
     if query:
@@ -99,9 +119,12 @@ async def _list_contacts(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
             .group_by(Signal.contact_id)
         )
         counts = {row[0]: int(row[1]) for row in count_rows.all()}
+    contacts = [_serialize(c, thread_count=counts.get(c.id, 0)) for c in rows]
+    showcase = await _showcase_contacts(ctx, [c["id"] for c in contacts])
     return {
-        "contacts": [_serialize(c, thread_count=counts.get(c.id, 0)) for c in rows],
-        "count": len(rows),
+        "contacts": contacts,
+        "count": len(contacts),
+        "items": showcase,
     }
 
 
@@ -112,7 +135,9 @@ async def _get_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     contact = await _find_contact(ctx, raw)
     if contact is None:
         return {"error": "Contact not found"}
-    return _serialize(contact, thread_count=await _thread_count(ctx, contact))
+    payload = _serialize(contact, thread_count=await _thread_count(ctx, contact))
+    showcase = await _showcase_contacts(ctx, [payload["id"]])
+    return {**payload, "items": showcase}
 
 
 async def _upsert_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -378,9 +403,11 @@ register_tool(
     ToolSpec(
         name="list_contacts",
         description=(
-            "List CRM contacts (name, email, company, thread count). Optional "
-            "query matches name, email, or company. Aliases merged into another "
-            "contact are left out."
+            "List CRM contacts (name, email, company, thread count, path). "
+            "Optional query matches name, email, or company. Aliases merged "
+            "into another contact are left out. Results are showcased as "
+            "contact cards under your reply — keep the text short; for a "
+            "single name in prose use [Name](/contacts/{id}) from path."
         ),
         category="messaging",
         input_schema={
@@ -400,7 +427,10 @@ register_tool(
 register_tool(
     ToolSpec(
         name="get_contact",
-        description="Read one contact: CRM profile fields plus how many threads it has.",
+        description=(
+            "Read one contact: CRM profile fields plus how many threads it has. "
+            "Showcases the contact card under your reply."
+        ),
         category="messaging",
         input_schema={
             "type": "object",

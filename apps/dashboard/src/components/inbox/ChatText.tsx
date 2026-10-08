@@ -7,6 +7,7 @@ import {
   type ChatInline,
   type ChatTagMap,
 } from '../../lib/chatText'
+import { ContactAvatar } from '../ui/ContactAvatar'
 import { HashtagMark } from '../ui/HashtagMark'
 import { cn } from '../../lib/utils'
 
@@ -39,6 +40,15 @@ function LinkIcon({ href }: { href: string }) {
     default:
       return null
   }
+}
+
+function ContactAppLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link to={href} className={APP_LINK_CLASS} data-testid="chat-contact-link">
+      <ContactAvatar name={label} size={14} className="shrink-0" />
+      {label}
+    </Link>
+  )
 }
 
 function MentionChip({ name, kind }: { name: string; kind: string }) {
@@ -120,6 +130,9 @@ function renderInline(nodes: ChatInline[]): ReactNode[] {
           )
         }
         if (isAppPath(node.href)) {
+          if (appLinkKind(node.href) === 'contact') {
+            return <ContactAppLink key={index} href={node.href} label={node.label} />
+          }
           return (
             <Link key={index} to={node.href} className={APP_LINK_CLASS}>
               <LinkIcon href={node.href} />

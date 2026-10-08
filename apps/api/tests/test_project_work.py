@@ -499,3 +499,33 @@ async def test_agent_scoped_workspace_doc(client: AsyncClient, session_override)
 
     org = await client.get("/api/workspace/docs", headers=headers)
     assert all(d["id"] != doc["id"] for d in org.json()["docs"])
+
+
+@pytest.mark.asyncio
+async def test_list_projects_auto_showcases(client: AsyncClient, session_override):
+    """list_projects stashes project cards so the reply shows them without attach_items."""
+    from app.models.signal import Signal
+    from app.services.proposal_items import take_attach_items
+    from app.tools import execute_tool
+
+    tenant = await _tenant(session_override)
+    project = await _project(session_override, tenant.id, "showcase")
+    chat = Signal(tenant_id=tenant.id, channel="assistant", subject="Which projects?")
+    session_override.add(chat)
+    await session_override.commit()
+
+    result = await execute_tool(
+        session_override,
+        tenant.id,
+        None,
+        "list_projects",
+        {},
+        signal_id=chat.id,
+    )
+    assert "error" not in result, result
+    ids = {p["id"] for p in result["projects"]}
+    assert str(project.id) in ids
+    assert any(i.get("type") == "project" and i.get("id") == str(project.id) for i in result.get("items") or [])
+
+    pending = take_attach_items(chat.id)
+    assert any(i.get("type") == "project" and i.get("id") == str(project.id) for i in pending)

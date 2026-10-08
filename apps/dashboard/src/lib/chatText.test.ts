@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { parseChatInline, parseChatText, plainChatText, type ChatInline } from './chatText'
+import {
+  appLinkKind,
+  parseChatInline,
+  parseChatText,
+  plainChatText,
+  type ChatInline,
+} from './chatText'
 
 function kinds(nodes: ChatInline[]): string[] {
   return nodes.map((n) => n.type)
@@ -79,5 +85,13 @@ describe('parseChatText', () => {
     const blocks = parseChatText('one\n\n\n```\nx = 1\n\ny = 2\n```')
     expect(blocks.map((b) => b.type)).toEqual(['line', 'gap', 'code'])
     expect(blocks[2]).toEqual({ type: 'code', text: 'x = 1\n\ny = 2' })
+  })
+})
+
+describe('appLinkKind', () => {
+  it('detects person contact paths but not the companies list', () => {
+    expect(appLinkKind('/contacts/abc-123')).toBe('contact')
+    expect(appLinkKind('/contacts/companies/acme')).toBe('other')
+    expect(appLinkKind('/projects/p1')).toBe('project')
   })
 })

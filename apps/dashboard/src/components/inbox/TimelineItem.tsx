@@ -377,6 +377,28 @@ const EMAIL_QUOTE_SELECTORS = [
 ].join(',')
 
 const EMAIL_HEIGHT_CAP_PX = 480
+/** Remember measured email heights so Virtuoso remounts do not collapse to 80px. */
+const emailDisplayHeightCache = new Map<string, number>()
+
+function emailHeightCacheKey(html: string): string {
+  // Cheap stable key: length + ends — enough to reuse within a session.
+  if (html.length <= 96) return html
+  return `${html.length}:${html.slice(0, 48)}:${html.slice(-48)}`
+}
+
+function cachedEmailDisplayHeight(html: string): number | undefined {
+  return emailDisplayHeightCache.get(emailHeightCacheKey(html))
+}
+
+function rememberEmailDisplayHeight(html: string, height: number) {
+  if (height < 40) return
+  emailDisplayHeightCache.set(emailHeightCacheKey(html), height)
+  // Bound memory on long inbox sessions.
+  if (emailDisplayHeightCache.size > 200) {
+    const first = emailDisplayHeightCache.keys().next().value
+    if (first != null) emailDisplayHeightCache.delete(first)
+  }
+}
 
 function findEmailQuoteRoots(doc: Document): HTMLElement[] {
   const roots: HTMLElement[] = []
@@ -431,14 +453,29 @@ function findEmailQuoteRoots(doc: Document): HTMLElement[] {
 // aware, hue preserving) instead of using CSS invert filters — filters kill
 // subpixel text antialiasing and make text fuzzy. Emails that are already
 // dark-designed render untouched on the dark surface.
-function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
+function EmailHtmlFrame({
+  html,
+  isDark,
+  initialHeight,
+  onDisplayHeight,
+}: {
+  html: string
+  isDark: boolean
+  /** Last known display height (cache) so the row does not start at 80px. */
+  initialHeight?: number
+  onDisplayHeight?: (height: number) => void
+}) {
   const { t } = useTranslation('communication')
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const quoteRootsRef = useRef<HTMLElement[]>([])
-  const [naturalHeight, setNaturalHeight] = useState(80)
+  const [naturalHeight, setNaturalHeight] = useState(
+    () => initialHeight ?? cachedEmailDisplayHeight(html) ?? 80,
+  )
   const [quotesCollapsed, setQuotesCollapsed] = useState(true)
   const [hasQuotes, setHasQuotes] = useState(false)
   const [expandedFull, setExpandedFull] = useState(false)
+  const onDisplayHeightRef = useRef(onDisplayHeight)
+  onDisplayHeightRef.current = onDisplayHeight
 
   const measure = useCallback(() => {
     const iframe = iframeRef.current
@@ -450,7 +487,7 @@ function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
       doc.body?.scrollHeight ?? 0,
       40,
     )
-    setNaturalHeight(next)
+    setNaturalHeight((prev) => (prev === next ? prev : next))
   }, [])
 
   // Light emails get their colors rewritten in place (no CSS filter — filters
@@ -621,6 +658,11 @@ a { color: #2563eb; }
   const capped = !expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
   const displayHeight = capped ? EMAIL_HEIGHT_CAP_PX : naturalHeight
 
+  useEffect(() => {
+    rememberEmailDisplayHeight(html, displayHeight)
+    onDisplayHeightRef.current?.(displayHeight)
+  }, [html, displayHeight])
+
   return (
     <div className="space-y-1.5">
       <div className={cn('relative overflow-hidden', capped && 'max-h-[480px]')}>
@@ -671,9 +713,10 @@ a { color: #2563eb; }
 }
 
 /**
- * Mount the heavy sandboxed iframe only near the viewport. Off-screen emails
- * keep a light text preview so long threads do not hold dozens of iframe
- * documents + decoded images in memory at once.
+ * Mount the sandboxed iframe near the viewport. Once mounted, keep it mounted
+ * for as long as Virtuoso keeps the row — unmounting collapsed the row from
+ * hundreds of px back to a text stub and made the timeline jump while scrolling.
+ * Far-away rows are already discarded by Virtuoso's windowing.
  */
 function LazyEmailHtmlFrame({
   html,
@@ -687,27 +730,26 @@ function LazyEmailHtmlFrame({
   const { t } = useTranslation('communication')
   const hostRef = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
-  const [wasVisible, setWasVisible] = useState(false)
+  const [reservedHeight, setReservedHeight] = useState(
+    () => cachedEmailDisplayHeight(html) ?? null,
+  )
 
   useEffect(() => {
     const el = hostRef.current
     if (!el || typeof IntersectionObserver === 'undefined') {
       setVisible(true)
-      setWasVisible(true)
       return
     }
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry) return
-        if (entry.isIntersecting) {
+        if (entry?.isIntersecting) {
           setVisible(true)
-          setWasVisible(true)
-        } else if (entry.intersectionRatio === 0) {
-          // Drop the iframe once fully off-screen so memory can reclaim.
-          setVisible(false)
+          observer.disconnect()
         }
       },
-      { rootMargin: '200px 0px', threshold: [0, 0.01] },
+      // Prefetch a bit before the row enters the viewport so measure finishes
+      // closer to first paint (Virtuoso already windows far rows).
+      { rootMargin: '600px 0px', threshold: 0.01 },
     )
     observer.observe(el)
     return () => observer.disconnect()
@@ -719,17 +761,25 @@ function LazyEmailHtmlFrame({
   )
 
   return (
-    <div ref={hostRef} className="min-h-[4.5rem]">
+    <div
+      ref={hostRef}
+      className={reservedHeight == null ? 'min-h-[4.5rem]' : undefined}
+      style={reservedHeight != null ? { minHeight: reservedHeight } : undefined}
+    >
       {visible ? (
-        <EmailHtmlFrame html={html} isDark={isDark} />
+        <EmailHtmlFrame
+          html={html}
+          isDark={isDark}
+          initialHeight={reservedHeight ?? undefined}
+          onDisplayHeight={setReservedHeight}
+        />
       ) : (
         <div
           className="rounded-md border border-border/40 bg-bg-elevated px-3 py-2 text-sm leading-relaxed text-text-secondary"
+          style={reservedHeight != null ? { minHeight: reservedHeight } : undefined}
           aria-label={t('timeline.events.emailContent')}
         >
-          {wasVisible ? (
-            <span className="text-text-muted">{t('timeline.showFullMessage')}</span>
-          ) : plainPreview ? (
+          {plainPreview ? (
             <span className="line-clamp-4 whitespace-pre-wrap">{plainPreview}</span>
           ) : (
             <span className="text-text-muted">{t('timeline.events.emailContent')}</span>
