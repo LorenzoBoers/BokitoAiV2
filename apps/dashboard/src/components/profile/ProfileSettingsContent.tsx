@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect, type KeyboardEvent, type ChangeEvent } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo, type KeyboardEvent, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
@@ -20,6 +20,7 @@ import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
 import SignatureEditor from '../inbox/SignatureEditor'
+import { previewSignatureHtml, type SignatureIdentityVars } from '../../lib/default-signature'
 import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
 import {
   fetchDefaultLanding,
@@ -460,6 +461,21 @@ export function ProfileSettingsContent() {
 
   // Personal email signature: appended to replies sent as this user.
   const [signatureEditorOpen, setSignatureEditorOpen] = useState(false)
+  const signatureIdentity = useMemo<SignatureIdentityVars>(
+    () => ({
+      name: user?.name || user?.email || '',
+      email: user?.email || '',
+      jobTitle: user?.jobTitle || '',
+      company: user?.tenant?.name || '',
+      avatarUrl: user?.avatarUrl || user?.signatureUrl || null,
+      language: i18n.language?.slice(0, 2) || 'nl',
+    }),
+    [user?.name, user?.email, user?.jobTitle, user?.tenant?.name, user?.avatarUrl, user?.signatureUrl, i18n.language],
+  )
+  const signaturePreviewHtml = useMemo(
+    () => previewSignatureHtml(user?.emailSignatureHtml, signatureIdentity),
+    [user?.emailSignatureHtml, signatureIdentity],
+  )
   const saveEmailSignature = useCallback(async (signature: string) => {
     if (!token) return
     try {
@@ -637,14 +653,13 @@ export function ProfileSettingsContent() {
         <Card>
           <div className="flex items-center justify-between gap-4 py-3.5 pr-4">
             <div className="min-w-0 flex-1">
-              {user?.emailSignatureHtml ? (
-                <div
-                  className="prose prose-sm max-h-24 overflow-hidden text-sm text-text-secondary [&_p]:my-0.5"
-                  dangerouslySetInnerHTML={{ __html: user.emailSignatureHtml }}
-                />
-              ) : (
-                <p className="text-sm text-text-muted">{t('profile:signature.empty')}</p>
+              {!user?.emailSignatureHtml?.trim() && (
+                <p className="mb-2 text-xs font-medium text-text-muted">{t('profile:signature.usingDefault')}</p>
               )}
+              <div
+                className="max-h-36 overflow-hidden text-sm text-text-secondary [&_img]:inline-block"
+                dangerouslySetInnerHTML={{ __html: signaturePreviewHtml }}
+              />
             </div>
             <Button
               variant="secondary"
@@ -653,7 +668,7 @@ export function ProfileSettingsContent() {
               onClick={() => setSignatureEditorOpen(true)}
             >
               <PenLine size={12} />
-              {user?.emailSignatureHtml ? t('profile:signature.edit') : t('profile:signature.add')}
+              {user?.emailSignatureHtml?.trim() ? t('profile:signature.edit') : t('profile:signature.add')}
             </Button>
           </div>
         </Card>
@@ -664,6 +679,7 @@ export function ProfileSettingsContent() {
           onSave={(signature) => void saveEmailSignature(signature)}
           mailboxEmail={user?.email ?? ''}
           contextLabel={t('profile:signature.editorContext')}
+          identity={signatureIdentity}
         />
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
           <Link to="/settings/channels" className="font-medium text-accent hover:underline">

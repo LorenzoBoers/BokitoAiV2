@@ -21,13 +21,14 @@
   },
   "signature": {
     "title": "Email signature",
-    "description": "Appended automatically to replies you send or approve as yourself.",
-    "empty": "No personal signature yet. Without one, the mailbox signature is used.",
-    "add": "Add signature",
+    "description": "Appended automatically to replies you send or approve as yourself. Placeholders such as {{name}} and {{company}} fill from your profile at send time.",
+    "empty": "Using the Bokito default: round avatar, your name, role and contact details.",
+    "usingDefault": "Bokito default",
+    "add": "Customize signature",
     "edit": "Edit signature",
     "saved": "Signature saved",
     "saveError": "Could not save the signature.",
-    "editorContext": "Your personal signature, used when a reply is sent as you."
+    "editorContext": "Your personal signature, used when a reply is sent as you. Leave empty for the Bokito default with avatar."
   },
   "language": {
     "title": "Language",

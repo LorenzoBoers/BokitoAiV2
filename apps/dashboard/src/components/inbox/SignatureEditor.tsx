@@ -6,6 +6,7 @@ import {
   Italic,
   Link,
   Save,
+  Sparkles,
   Type,
   Underline,
   X,
@@ -14,6 +15,11 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import {
+  composeDefaultSignatureHtml,
+  renderSignatureTemplate,
+  type SignatureIdentityVars,
+} from '../../lib/default-signature';
 
 interface SignatureEditorProps {
   open: boolean;
@@ -24,23 +30,20 @@ interface SignatureEditorProps {
   mailboxEmail?: string;
   /** Overrides the "for mailbox X" line (e.g. "Your personal signature"). */
   contextLabel?: string;
+  /** Real identity for Preview; falls back to sample data when omitted. */
+  identity?: SignatureIdentityVars | null;
 }
 
-const SAMPLE_VARIABLES: Record<string, string> = {
+const SAMPLE_IDENTITY: SignatureIdentityVars = {
   name: 'Jane Doe',
   company: 'Acme Inc.',
-  function: 'Support Lead',
+  jobTitle: 'Support Lead',
   address: '123 Main Street, Springfield',
   phone: '+1 555 0100',
   website: 'www.example.com',
   email: 'jane@example.com',
+  language: 'en',
 };
-
-function withSampleData(html: string): string {
-  return html.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key: string) =>
-    SAMPLE_VARIABLES[key] ?? match,
-  );
-}
 
 export default function SignatureEditor({
   open,
@@ -49,8 +52,9 @@ export default function SignatureEditor({
   onSave,
   mailboxEmail = '',
   contextLabel,
+  identity = null,
 }: SignatureEditorProps) {
-  const { t } = useTranslation('communication');
+  const { t, i18n } = useTranslation('communication');
   const [signature, setSignature] = useState(initialSignature);
   const [activeTab, setActiveTab] = useState<'edit' | 'html' | 'preview'>('edit');
   const editorRef = useRef<HTMLDivElement | null>(null);
@@ -59,9 +63,36 @@ export default function SignatureEditor({
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
 
+  const previewIdentity = useMemo<SignatureIdentityVars>(() => {
+    const base = identity
+      ? {
+          ...identity,
+          language: identity.language || i18n.language?.slice(0, 2) || 'nl',
+          email: identity.email || mailboxEmail || SAMPLE_IDENTITY.email,
+        }
+      : {
+          ...SAMPLE_IDENTITY,
+          email: mailboxEmail || SAMPLE_IDENTITY.email,
+          language: i18n.language?.slice(0, 2) || 'en',
+        };
+    return base;
+  }, [identity, mailboxEmail, i18n.language]);
+
   const defaultTemplates = useMemo(() => {
     const emailToken = mailboxEmail || '{{email}}';
     return [
+      {
+        name: t('signatureEditor.templateModern'),
+        html:
+          `<p style="margin:0 0 14px 0">{{closing}},</p>` +
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;color:#1f2937;` +
+          `padding-left:14px;border-left:2px solid #e5e7eb">` +
+          `<div style="font-weight:600;color:#111827">{{name}}</div>` +
+          `<div style="color:#6b7280;font-size:13px;margin-top:2px">{{function}}</div>` +
+          `<div style="color:#6b7280;font-size:13px">{{company}}</div>` +
+          `<div style="margin-top:8px;font-size:12px;color:#4b5563;line-height:1.5">` +
+          `${emailToken}<br>{{phone}}<br>{{website}}</div></div>`,
+      },
       {
         name: t('signatureEditor.templateStandard'),
         html: `<p>${t('signatureEditor.kindRegards')},<br><br><strong>{{name}}</strong><br>{{company}}<br>${t('signatureEditor.emailAbbr')}: ${emailToken}<br>${t('signatureEditor.phoneAbbr')}: {{phone}}</p>`,
@@ -122,6 +153,22 @@ export default function SignatureEditor({
       editorRef.current.innerHTML = html;
     }
   }, []);
+
+  const useDynamicDefault = useCallback(() => {
+    // Empty stored signature → server composes the modern avatar layout at send time.
+    setSignature('');
+    if (editorRef.current) {
+      editorRef.current.innerHTML = '';
+    }
+  }, []);
+
+  const previewHtml = useMemo(() => {
+    const custom = signature.trim();
+    if (!custom) {
+      return composeDefaultSignatureHtml(previewIdentity);
+    }
+    return renderSignatureTemplate(custom, previewIdentity);
+  }, [signature, previewIdentity]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -229,12 +276,26 @@ export default function SignatureEditor({
                   />
                 </div>
 
+                {!signature.trim() && (
+                  <p className="text-xs text-text-muted">{t('signatureEditor.dynamicDefaultHint')}</p>
+                )}
+
                 {/* Templates */}
                 <div>
                   <h4 className="text-sm font-medium text-text-heading mb-2">
                     {t('signatureEditor.templates')}
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={useDynamicDefault}
+                      className="text-left justify-start"
+                    >
+                      <Sparkles size={14} className="shrink-0" />
+                      {t('signatureEditor.useDynamicDefault')}
+                    </Button>
                     {defaultTemplates.map((template) => (
                       <Button
                         key={template.name}
@@ -276,9 +337,13 @@ export default function SignatureEditor({
 
               <TabsContent value="preview" className="space-y-4">
                 <div className="border border-border rounded-md p-4 bg-white text-black min-h-[200px]">
-                  <div dangerouslySetInnerHTML={{ __html: withSampleData(signature) }} />
+                  <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 </div>
-                <p className="text-xs text-text-muted">{t('signatureEditor.previewHint')}</p>
+                <p className="text-xs text-text-muted">
+                  {identity
+                    ? t('signatureEditor.previewHintIdentity')
+                    : t('signatureEditor.previewHint')}
+                </p>
               </TabsContent>
             </Tabs>
           </div>

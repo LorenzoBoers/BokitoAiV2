@@ -105,7 +105,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 
 ## Zet een handtekening en standaardagent
 
-1. Klik op de rij van een mailbox of Bokito-adres en kies **Wijzigen** naast **Handtekening**. Uitgaande mail vanaf dat adres voegt die toe. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
+1. Klik op de rij van een mailbox of Bokito-adres en kies **Wijzigen** naast **Handtekening**. Uitgaande mail vanaf dat adres voegt die toe wanneer de afzender geen persoonlijke handtekening heeft. Persoonlijke handtekeningen (Profiel) en agenthandtekeningen gaan voor; placeholders zoals `{{name}}` worden bij verzenden ingevuld. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
 2. Kies onder **Algemeen** een **Eigenaar-team** voor nieuwe gesprekken tot iemand ze oppakt, en een **AI-agent** voor AI-afhandeling. Zonder agent behandelt de standaardagent van de werkruimte nieuwe gesprekken.
 3. Kies **Toegang** om de toegangsmatrix te openen. Zet **Zien** en **Afhandelen** per team, persoon en agent aan of uit. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Teams dekken hun leden — iemand zonder eigen toekenning volgt nog steeds **Alle mensen**. Eigenaren en beheerders handelen altijd elk kanaal af.
 4. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.

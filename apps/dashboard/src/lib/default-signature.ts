@@ -20,6 +20,120 @@ const CLOSINGS: Record<string, string> = {
 }
 
 const BOKITO_SITE = 'https://bokito.ai'
+const AVATAR_COLOR = '#4652f2'
+
+const PLACEHOLDER_ALIASES: Record<string, string> = {
+  function: 'job_title',
+  title: 'job_title',
+  role: 'job_title',
+  job: 'job_title',
+  org: 'company',
+  organisation: 'company',
+  organization: 'company',
+  tel: 'phone',
+  telephone: 'phone',
+  mobile: 'phone',
+  web: 'website',
+  url: 'website',
+  addr: 'address',
+}
+
+export type SignatureIdentityVars = {
+  name: string
+  email?: string | null
+  jobTitle?: string | null
+  company?: string | null
+  phone?: string | null
+  website?: string | null
+  address?: string | null
+  avatarUrl?: string | null
+  language?: string | null
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase()
+}
+
+function initialsAvatarDataUri(name: string, color = AVATAR_COLOR): string {
+  const label = escapeHtml(initials(name))
+  const fill = escapeHtml(color)
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">` +
+    `<circle cx="48" cy="48" r="48" fill="${fill}"/>` +
+    `<text x="48" y="52" text-anchor="middle" dominant-baseline="middle" ` +
+    `fill="#ffffff" font-family="system-ui,-apple-system,Segoe UI,sans-serif" ` +
+    `font-size="36" font-weight="600">${label}</text></svg>`
+  // btoa expects Latin1; initials are ASCII-safe.
+  return `data:image/svg+xml;base64,${btoa(svg)}`
+}
+
+function resolveAvatarUrl(url: string | null | undefined, name: string): string {
+  const raw = (url || '').trim()
+  if (raw.startsWith('data:image/') && raw.length <= 120_000) return raw
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) return raw
+  return initialsAvatarDataUri(name)
+}
+
+function roundAvatarImgHtml(url: string, name: string, size = 48): string {
+  return (
+    `<img src="${escapeHtml(url)}" alt="${escapeHtml(name || 'Avatar')}" ` +
+    `width="${size}" height="${size}" ` +
+    `style="border-radius:50%;display:block;width:${size}px;height:${size}px;` +
+    `object-fit:cover;border:0" />`
+  )
+}
+
+export function signatureIdentityMap(opts: SignatureIdentityVars): Record<string, string> {
+  const display = (opts.name || '').trim() || (opts.email || '').trim() || 'Team'
+  const langRaw = (opts.language || 'nl').trim().toLowerCase().slice(0, 2)
+  return {
+    name: display,
+    email: (opts.email || '').trim(),
+    job_title: (opts.jobTitle || '').trim(),
+    company: (opts.company || '').trim(),
+    phone: (opts.phone || '').trim(),
+    website: (opts.website || '').trim(),
+    address: (opts.address || '').trim(),
+    closing: CLOSINGS[langRaw] || CLOSINGS.en,
+  }
+}
+
+function cleanupAfterRender(html: string): string {
+  let out = html.replace(
+    /(?:^|<br\s*\/?>|<\/p>\s*<p[^>]*>)\s*(?:T|E|W|M|Tel\.?|Phone|Email|Web|Mobile|Fax)\s*[:：]\s*(?:&nbsp;|\s)*(?=(?:<br\s*\/?>|<\/p>|<\/div>|<\/td>|$))/gi,
+    '',
+  )
+  out = out.replace(
+    /(?:<br\s*\/?>\s*)+(?:T|E|W|M|Tel\.?|Phone|Email|Web|Mobile)\s*[:：]\s*(?=(?:<br\s*\/?>|<\/p>|<\/div>|<\/td>|$))/gi,
+    '',
+  )
+  out = out.replace(/(?:<br\s*\/?>\s*){3,}/gi, '<br><br>')
+  out = out.replace(/(<p[^>]*>)\s*(?:<br\s*\/?>\s*)+/gi, '$1')
+  out = out.replace(/(?:<br\s*\/?>\s*)+(<\/p>)/gi, '$1')
+  return out.trim()
+}
+
+/** Substitute ``{{placeholders}}`` the same way the API does at send time. */
+export function renderSignatureTemplate(
+  templateHtml: string,
+  vars: SignatureIdentityVars | Record<string, string>,
+): string {
+  const raw = (templateHtml || '').trim()
+  if (!raw) return ''
+  const map =
+    'jobTitle' in vars || 'avatarUrl' in vars || 'language' in vars
+      ? signatureIdentityMap(vars as SignatureIdentityVars)
+      : (vars as Record<string, string>)
+  const rendered = raw.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => {
+    const canonical = PLACEHOLDER_ALIASES[key.toLowerCase()] ?? key.toLowerCase()
+    const value = map[canonical] ?? map[key] ?? ''
+    return escapeHtml(String(value))
+  })
+  return cleanupAfterRender(rendered)
+}
 
 export function plainTextToSignatureHtml(text: string): string {
   const cleaned = text.trim()
@@ -52,28 +166,75 @@ export function withAgentDisclaimer(signatureHtml: string, language?: string | n
   return body ? `${body}${disclaimer}` : disclaimer
 }
 
-export function composeDefaultSignatureHtml(opts: {
-  name: string
-  email?: string | null
-  jobTitle?: string | null
-  company?: string | null
-  language?: string | null
-}): string {
-  const display = (opts.name || '').trim() || (opts.email || '').trim() || 'Team'
+/** Modern default: closing + round avatar left, name / role / contacts right. */
+export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string {
+  const vars = signatureIdentityMap(opts)
+  const display = vars.name
   const langRaw = (opts.language || 'nl').trim().toLowerCase().slice(0, 2)
   const closing = CLOSINGS[langRaw] || CLOSINGS.en
-  const parts = [
-    `<p>${escapeHtml(closing)},<br><br>`,
-    `<strong>${escapeHtml(display)}</strong>`,
+  const avatarSrc = resolveAvatarUrl(opts.avatarUrl, display)
+  const avatar = roundAvatarImgHtml(avatarSrc, display, 48)
+
+  const detailBits: string[] = [
+    `<div style="font-weight:600;color:#111827;font-size:14px;line-height:1.35">${escapeHtml(display)}</div>`,
   ]
-  const title = (opts.jobTitle || '').trim()
-  if (title) parts.push(`<br>${escapeHtml(title)}`)
-  const org = (opts.company || '').trim()
-  if (org) parts.push(`<br>${escapeHtml(org)}`)
-  const addr = (opts.email || '').trim()
-  if (addr && addr.toLowerCase() !== display.toLowerCase()) {
-    parts.push(`<br>${escapeHtml(addr)}`)
+  if (vars.job_title) {
+    detailBits.push(
+      `<div style="color:#6b7280;font-size:13px;line-height:1.35;margin-top:2px">${escapeHtml(vars.job_title)}</div>`,
+    )
   }
-  parts.push('</p>')
-  return parts.join('')
+  if (vars.company) {
+    detailBits.push(
+      `<div style="color:#6b7280;font-size:13px;line-height:1.35;margin-top:1px">${escapeHtml(vars.company)}</div>`,
+    )
+  }
+
+  const contactParts: string[] = []
+  if (vars.email && vars.email.toLowerCase() !== display.toLowerCase()) {
+    const addr = escapeHtml(vars.email)
+    contactParts.push(`<a href="mailto:${addr}" style="color:#4b5563;text-decoration:none">${addr}</a>`)
+  }
+  if (vars.phone) {
+    const phone = escapeHtml(vars.phone)
+    contactParts.push(`<a href="tel:${phone}" style="color:#4b5563;text-decoration:none">${phone}</a>`)
+  }
+  if (vars.website) {
+    const site = vars.website
+    const href = /^https?:\/\//i.test(site) ? site : `https://${site}`
+    contactParts.push(
+      `<a href="${escapeHtml(href)}" style="color:#4b5563;text-decoration:none" ` +
+        `target="_blank" rel="noopener noreferrer">${escapeHtml(site)}</a>`,
+    )
+  }
+  if (vars.address) {
+    contactParts.push(escapeHtml(vars.address))
+  }
+  if (contactParts.length) {
+    detailBits.push(
+      `<div style="margin-top:8px;font-size:12px;line-height:1.5;color:#4b5563">` +
+        contactParts.join('<span style="color:#d1d5db"> · </span>') +
+        `</div>`,
+    )
+  }
+
+  return (
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` +
+    `font-size:14px;line-height:1.45;color:#1f2937">` +
+    `<p style="margin:0 0 14px 0">${escapeHtml(closing)},</p>` +
+    `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse">` +
+    `<tr>` +
+    `<td style="vertical-align:top;padding:0 14px 0 0">${avatar}</td>` +
+    `<td style="vertical-align:top;padding:0 0 0 14px;border-left:2px solid #e5e7eb">${detailBits.join('')}</td>` +
+    `</tr></table></div>`
+  )
+}
+
+/** Effective signature for UI preview: custom template rendered, else modern default. */
+export function previewSignatureHtml(
+  templateHtml: string | null | undefined,
+  identity: SignatureIdentityVars,
+): string {
+  const custom = (templateHtml || '').trim()
+  if (custom) return renderSignatureTemplate(custom, identity)
+  return composeDefaultSignatureHtml(identity)
 }

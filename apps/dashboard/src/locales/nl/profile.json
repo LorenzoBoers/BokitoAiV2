@@ -21,13 +21,14 @@
   },
   "signature": {
     "title": "E-mailhandtekening",
-    "description": "Wordt automatisch toegevoegd aan antwoorden die je zelf verstuurt of goedkeurt.",
-    "empty": "Nog geen persoonlijke handtekening. Zonder handtekening wordt die van de mailbox gebruikt.",
-    "add": "Handtekening toevoegen",
+    "description": "Wordt automatisch toegevoegd aan antwoorden die je zelf verstuurt of goedkeurt. Placeholders zoals {{name}} en {{company}} worden bij verzenden vanuit je profiel ingevuld.",
+    "empty": "Bokito-standaard: ronde avatar, je naam, rol en contactgegevens.",
+    "usingDefault": "Bokito-standaard",
+    "add": "Handtekening aanpassen",
     "edit": "Handtekening bewerken",
     "saved": "Handtekening opgeslagen",
     "saveError": "Handtekening opslaan is niet gelukt.",
-    "editorContext": "Je persoonlijke handtekening, gebruikt wanneer een antwoord als jou wordt verstuurd."
+    "editorContext": "Je persoonlijke handtekening, gebruikt wanneer een antwoord als jou wordt verstuurd. Laat leeg voor de Bokito-standaard met avatar."
   },
   "language": {
     "title": "Taal",
