@@ -5,8 +5,10 @@ import {
   extractLiveMessage,
   extractLiveThreadRow,
   threadMatchesFilters,
+  upsertLiveMessage,
   upsertThreadRow,
 } from './thread-live'
+import type { InboxMessage } from './inbox-api'
 
 function thread(overrides: Partial<InboxThread> = {}): InboxThread {
   return {
@@ -307,5 +309,23 @@ describe('extractLiveMessage', () => {
 
   it('ignores non-message events', () => {
     expect(extractLiveMessage(gatewayEvent({ message: fullMessage }, 'thread'))).toBeNull()
+  })
+})
+
+describe('upsertLiveMessage', () => {
+  it('updates send_status on an existing message id', () => {
+    const scheduled = {
+      id: 'msg-1',
+      threadId: 'sig-1',
+      kind: 'user_message',
+      direction: 'outbound',
+      bodyText: 'Hi Harold',
+      sendStatus: 'scheduled' as const,
+    } as InboxMessage
+    const sent = { ...scheduled, sendStatus: 'sent' as const }
+    const next = upsertLiveMessage([scheduled], sent)
+    expect(next).toHaveLength(1)
+    expect(next[0].sendStatus).toBe('sent')
+    expect(next[0].bodyText).toBe('Hi Harold')
   })
 })

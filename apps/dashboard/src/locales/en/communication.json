@@ -1155,6 +1155,7 @@
     "roleTeam": "Team",
     "aiAgent": "AI agent",
     "sentToCustomer": "Sent to the customer",
+    "sentOk": "Sent",
     "mockNotSent": "Placeholder — not sent to the customer",
     "sending": "Sending",
     "copyId": "Copy message ID",

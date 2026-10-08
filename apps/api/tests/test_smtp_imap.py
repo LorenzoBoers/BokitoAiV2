@@ -137,7 +137,10 @@ def test_send_smtp_builds_headers():
         def quit(self):
             pass
 
-    with patch.object(smtp_imap, "_smtp_connect", return_value=FakeSMTP()):
+    with (
+        patch.object(smtp_imap, "_smtp_connect", return_value=FakeSMTP()),
+        patch.object(smtp_imap, "_append_to_sent") as append,
+    ):
         send_smtp_sync(
             _creds(verified_at="x"),
             from_address="user@example.com",
@@ -155,6 +158,54 @@ def test_send_smtp_builds_headers():
     assert captured["references"] == "<msg-1@example.com>"
     assert captured["is_multipart"] is True
     assert "alice@example.com" in captured["to_addrs"]
+    append.assert_called_once()
+
+
+def test_find_sent_mailbox_prefers_sent_flag():
+    client = MagicMock()
+    client.list.return_value = (
+        "OK",
+        [
+            b'(\\HasNoChildren) "/" "INBOX"',
+            b'(\\HasNoChildren \\Sent) "/" "Sent"',
+            b'(\\HasNoChildren) "/" "Drafts"',
+        ],
+    )
+    assert smtp_imap._find_sent_mailbox(client) == "Sent"
+
+
+def test_append_to_sent_uses_seen_flag():
+    client = MagicMock()
+    client.list.return_value = ("OK", [b'(\\Sent) "/" "Sent"'])
+    client.append.return_value = ("OK", [b"1"])
+    with patch.object(smtp_imap, "_imap_connect", return_value=client):
+        msg = smtp_imap._build_outbound_message(
+            from_address="user@example.com",
+            from_display_name=None,
+            to_address="alice@example.com",
+            subject="Hi",
+            body_text="Hi",
+        )
+        smtp_imap._append_to_sent(_creds(verified_at="x"), msg)
+    client.append.assert_called_once()
+    args = client.append.call_args[0]
+    assert args[0] == "Sent"
+    assert args[1] == "\\Seen"
+    client.logout.assert_called()
+
+
+def test_append_to_sent_never_raises():
+    with patch.object(
+        smtp_imap, "_imap_connect", side_effect=SmtpImapError("auth_failed", "nope")
+    ):
+        msg = smtp_imap._build_outbound_message(
+            from_address="user@example.com",
+            from_display_name=None,
+            to_address="alice@example.com",
+            subject="Hi",
+            body_text="Hi",
+        )
+        smtp_imap._append_to_sent(_creds(verified_at="x"), msg)
 
 
 def test_registry_smtp_imap_connected_without_access_token():

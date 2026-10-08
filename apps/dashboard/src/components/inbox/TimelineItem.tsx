@@ -1711,6 +1711,15 @@ export function MessageTimelineItem({
         </div>
       )
     }
+    // Email (and other customer channels): a quiet check once the provider accepted the send.
+    if (isCustomerChannel(channel) && message.sendStatus === 'sent') {
+      return (
+        <div className="mb-1 flex min-w-0 items-center gap-1 text-2xs font-medium text-status-success">
+          <Check size={12} className="shrink-0" aria-hidden />
+          <span>{t('timeline.sentOk')}</span>
+        </div>
+      )
+    }
     return null
   })()
 

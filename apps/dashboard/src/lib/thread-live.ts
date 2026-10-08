@@ -200,3 +200,31 @@ export function upsertThreadRow(prev: InboxThread[], row: InboxThread): InboxThr
   next[idx] = mergeThreadRow(prev[idx], row)
   return next
 }
+
+/**
+ * Merge a live message into an existing one. Scheduled email delivery
+ * republishes the same id with an updated ``send_status``; skipping that
+ * left the bubble stuck on "Sending".
+ */
+export function mergeLiveMessage(existing: InboxMessage, incoming: InboxMessage): InboxMessage {
+  return {
+    ...existing,
+    ...incoming,
+    // Keep richer local fields when the event payload is thinner.
+    bodyHtml: incoming.bodyHtml ?? existing.bodyHtml,
+    attachments: incoming.attachments ?? existing.attachments,
+    payload: incoming.payload ?? existing.payload,
+    activity: incoming.activity ?? existing.activity,
+    activityAfter: incoming.activityAfter ?? existing.activityAfter,
+  }
+}
+
+/** Append a new message or replace an existing one by id. */
+export function upsertLiveMessage(messages: InboxMessage[], msg: InboxMessage): InboxMessage[] {
+  const id = String(msg.id)
+  const idx = messages.findIndex((m) => String(m.id) === id)
+  if (idx === -1) return [...messages, msg]
+  const next = messages.slice()
+  next[idx] = mergeLiveMessage(messages[idx], msg)
+  return next
+}

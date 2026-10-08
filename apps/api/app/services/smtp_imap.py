@@ -400,8 +400,7 @@ async def fetch_inbox_since(
     )
 
 
-def send_smtp_sync(
-    creds: dict[str, Any],
+def _build_outbound_message(
     *,
     from_address: str,
     from_display_name: str | None,
@@ -414,7 +413,7 @@ def send_smtp_sync(
     in_reply_to: str | None = None,
     references: str | None = None,
     attachments: list[dict[str, Any]] | None = None,
-) -> None:
+) -> EmailMessage:
     msg = EmailMessage()
     msg["Subject"] = subject or ""
     msg["From"] = (
@@ -451,6 +450,97 @@ def send_smtp_sync(
             subtype=subtype,
             filename=filename,
         )
+    return msg
+
+
+def _find_sent_mailbox(client: imaplib.IMAP4) -> str | None:
+    """IMAP mailbox that holds Sent mail (\\Sent flag, else common names)."""
+    try:
+        typ, data = client.list()
+    except Exception:
+        return None
+    if typ != "OK" or not data:
+        return None
+    candidates: list[str] = []
+    for raw in data:
+        line = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
+        # LIST (\HasNoChildren \Sent) "/" "Sent"
+        if "\\Sent" in line or "\\sent" in line.lower():
+            # Last quoted token is the mailbox name.
+            parts = line.rsplit('"', 2)
+            if len(parts) >= 2 and parts[-2]:
+                return parts[-2]
+        lower = line.lower()
+        for name in ("sent", "sent items", "sent messages", "inbox.sent", "[gmail]/sent mail"):
+            if f'"{name}"' in lower:
+                # Preserve the server's casing from the quoted name.
+                start = lower.rfind(f'"{name}"')
+                candidates.append(line[start + 1 : start + 1 + len(name)])
+    for preferred in ("Sent", "Sent Items", "INBOX.Sent", "[Gmail]/Sent Mail"):
+        for hit in candidates:
+            if hit.lower() == preferred.lower():
+                return hit
+    return candidates[0] if candidates else None
+
+
+def _append_to_sent(creds: dict[str, Any], msg: EmailMessage) -> None:
+    """Best-effort copy into the provider Sent folder after SMTP accept.
+
+    SMTP alone does not put a copy in Hostinger/Outlook Sent; without this
+    append the operator sees the mail arrive for the recipient but not in
+    their mailbox Sent folder.
+    """
+    client = None
+    try:
+        client = _imap_connect(creds)
+        mailbox = _find_sent_mailbox(client)
+        if not mailbox:
+            # Last resort: many Hostinger accounts expose a plain Sent folder.
+            mailbox = "Sent"
+        raw = msg.as_bytes(policy=email.policy.SMTP)
+        # \\Seen so it does not look unread in Sent.
+        typ, _ = client.append(mailbox, "\\Seen", None, raw)
+        if typ != "OK":
+            logger.warning("IMAP APPEND to Sent failed mailbox=%s typ=%s", mailbox, typ)
+    except Exception:
+        # Delivery already succeeded; never fail the send for a Sent copy.
+        logger.exception("IMAP APPEND to Sent failed")
+    finally:
+        if client is not None:
+            try:
+                client.logout()
+            except Exception:
+                pass
+
+
+def send_smtp_sync(
+    creds: dict[str, Any],
+    *,
+    from_address: str,
+    from_display_name: str | None,
+    to_address: str,
+    subject: str,
+    body_text: str,
+    body_html: str | None = None,
+    cc: str | None = None,
+    bcc: str | None = None,
+    in_reply_to: str | None = None,
+    references: str | None = None,
+    attachments: list[dict[str, Any]] | None = None,
+) -> None:
+    msg = _build_outbound_message(
+        from_address=from_address,
+        from_display_name=from_display_name,
+        to_address=to_address,
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        cc=cc,
+        bcc=bcc,
+        in_reply_to=in_reply_to,
+        references=references,
+        attachments=attachments,
+    )
 
     recipients: list[str] = []
     for field in (to_address, cc or "", bcc or ""):
@@ -469,6 +559,7 @@ def send_smtp_sync(
             client.quit()
         except Exception:
             pass
+    _append_to_sent(creds, msg)
 
 
 async def send_smtp(

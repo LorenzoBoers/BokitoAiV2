@@ -1154,6 +1154,7 @@
     "roleTeam": "Team",
     "aiAgent": "AI-agent",
     "sentToCustomer": "Verstuurd naar de klant",
+    "sentOk": "Verstuurd",
     "mockNotSent": "Tijdelijk antwoord — niet naar de klant gestuurd",
     "sending": "Verzenden",
     "copyId": "Bericht-ID kopiëren",

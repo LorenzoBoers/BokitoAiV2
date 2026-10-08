@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent } from '../lib/gateway'
-import { extractLiveMessage, extractLiveThreadRow, mergeThreadRow } from '../lib/thread-live'
+import {
+  extractLiveMessage,
+  extractLiveThreadRow,
+  mergeThreadRow,
+  upsertLiveMessage,
+} from '../lib/thread-live'
 import type { AiHandling, AiHandlingMode } from '../lib/ai-handling'
 import { setAiHandling } from '../lib/ai-handling-api'
 import {
@@ -244,25 +249,24 @@ export function useThreadDetail(
           String(current.thread.id) === String(threadId) &&
           String(msg.threadId) === String(threadId)
         ) {
-          if (current.messages.some((m) => String(m.id) === String(msg.id))) return
           const threadRow = extractLiveThreadRow(event)
+          const already = current.messages.some((m) => String(m.id) === String(msg.id))
           setRawDetail((prev) => {
             if (!prev || String(prev.thread.id) !== String(msg.threadId)) return prev
-            if (prev.messages.some((m) => String(m.id) === String(msg.id))) return prev
             return {
               ...prev,
-              messages: [...prev.messages, msg],
+              messages: upsertLiveMessage(prev.messages, msg),
               thread: {
                 ...prev.thread,
                 lastMessageAt: msg.receivedAt ?? msg.createdAt ?? prev.thread.lastMessageAt,
                 status: threadRow?.status ?? prev.thread.status,
-                // The thread is on screen: mirror the refetch path, which
-                // auto-marks unread threads as read on load.
-                hasUnread: false,
+                // New messages: mirror the refetch path (auto-mark read).
+                // Updates to an existing row (e.g. send_status) keep unread as-is.
+                hasUnread: already ? prev.thread.hasUnread : false,
               },
             }
           })
-          if (threadRow?.hasUnread) {
+          if (!already && threadRow?.hasUnread) {
             void markThreadRead(token, threadId).catch(() => {})
           }
           return
@@ -309,18 +313,16 @@ export function useThreadDetail(
       if (!token || !threadId) return
       setSaving(true)
       try {
-        const useEmailFormat = input.format === 'email'
+        // Email replies: body only. The API appends the operator/mailbox
+        // signature server-side. Never inject tenant logo or the Bokito mark —
+        // that produced a huge unsolicited logo under every send.
         let bodyHtml = input.bodyHtml?.trim() ? input.bodyHtml : undefined
         if (!bodyHtml) {
-          if (useEmailFormat) {
-            const signatureImageUrl =
-              user?.signatureUrl?.trim() ||
-              user?.tenant?.logo?.trim() ||
-              '/bokito-logo.svg'
-            bodyHtml = buildEmailReplyHtml(input.bodyText, signatureImageUrl)
-          } else {
-            bodyHtml = buildPlainReplyHtml(input.bodyText)
-          }
+          const signatureImageUrl = user?.signatureUrl?.trim()
+          bodyHtml =
+            input.format === 'email' && signatureImageUrl
+              ? buildEmailReplyHtml(input.bodyText, signatureImageUrl)
+              : buildPlainReplyHtml(input.bodyText)
         }
         const msg = await replyToThread(token, threadId, { ...input, bodyHtml })
         if (msg) {
@@ -354,7 +356,7 @@ export function useThreadDetail(
         setSaving(false)
       }
     },
-    [token, threadId, user?.signatureUrl, user?.tenant?.logo],
+    [token, threadId, user?.signatureUrl],
   )
 
   const addNote = useCallback(

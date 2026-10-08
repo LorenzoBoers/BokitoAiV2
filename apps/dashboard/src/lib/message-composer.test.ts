@@ -165,7 +165,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
         folder: 'assistant',
         agentName: 'Bokito Assistant',
         hasOpenDecision: true,
-        turn: { kind: 'team', userId: null, agentId: null, teamId: 'tm-1' },
+        turn: { kind: 'team', userId: null, userNum: null, teamId: 'tm-1', reason: '' },
         owner: { kind: 'agent', userId: null, agentId: 'ag-1', teamId: null },
       }),
     )
