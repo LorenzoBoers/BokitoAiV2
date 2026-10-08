@@ -11,7 +11,7 @@ test.describe('Dashboard', () => {
   test('communication rail shows fixed inbox block and customizable sections', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/communication/inbox/all')
-    await expect(page.getByRole('link', { name: 'New chat' }).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('link', { name: 'New conversation' }).first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('link', { name: 'Unassigned' }).first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('button', { name: 'Teams' }).first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('link', { name: 'Contacts' }).first()).toBeVisible({ timeout: 20000 })
