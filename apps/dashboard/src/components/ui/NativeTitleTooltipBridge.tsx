@@ -149,10 +149,19 @@ export function NativeTitleTooltipBridge() {
       if (event.key === 'Escape') hide()
     }
 
+    // Clicking usually changes the screen (send, navigate, open dialog);
+    // never leave a tooltip floating over whatever appears next.
+    const onPointerDown = () => {
+      if (active) hide()
+    }
+
     // Strip titles as soon as they appear (incl. React re-renders) so the
     // browser never gets a chance to show its delayed native tip.
     disarmTree(document.body)
     const observer = new MutationObserver((mutations) => {
+      // The hovered control can disappear without a pointerout (composer
+      // unmounts after send, list rerenders): drop the orphaned tooltip.
+      if (active && !active.isConnected) hide()
       for (const mutation of mutations) {
         if (mutation.type === 'attributes' && mutation.attributeName === 'title') {
           const el = mutation.target
@@ -179,6 +188,7 @@ export function NativeTitleTooltipBridge() {
 
     document.addEventListener('pointerover', onPointerOver, true)
     document.addEventListener('pointerout', onPointerOut, true)
+    document.addEventListener('pointerdown', onPointerDown, true)
     document.addEventListener('focusin', onFocusIn, true)
     document.addEventListener('focusout', onFocusOut, true)
     window.addEventListener('scroll', onScroll, true)
@@ -189,6 +199,7 @@ export function NativeTitleTooltipBridge() {
       observer.disconnect()
       document.removeEventListener('pointerover', onPointerOver, true)
       document.removeEventListener('pointerout', onPointerOut, true)
+      document.removeEventListener('pointerdown', onPointerDown, true)
       document.removeEventListener('focusin', onFocusIn, true)
       document.removeEventListener('focusout', onFocusOut, true)
       window.removeEventListener('scroll', onScroll, true)

@@ -11,7 +11,7 @@
  * composer, switching threads or reloading keeps the unsent mail, and the
  * thread shows a draft chip to continue it. Sending clears the draft.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Check,
@@ -41,6 +41,9 @@ import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { listChannels, type ChannelRow } from '../../lib/channels-api'
+import { canComposeToAddress } from '../../lib/compose-intent'
+import { humanizeContactName } from '../../lib/contact-label'
+import { listContacts } from '../../lib/contacts-api'
 import type { Provider } from '../../lib/email-oauth'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { previewSignatureHtml, type SignatureIdentityVars } from '../../lib/default-signature'
@@ -89,7 +92,7 @@ type Props = {
   channelAccountId?: string | null
   /** Preferred From mailbox by address when no channel account id is known. */
   defaultFromAddress?: string | null
-  /** Contact suggestions for the To field (new mail). */
+  /** Contact suggestions for To/CC/BCC; fetched from contacts when omitted. */
   recipientSuggestions?: MailRecipientSuggestion[]
   /** Deeplinked body text; a restored draft body wins. */
   initialBody?: string
@@ -108,6 +111,177 @@ const MODE_META: Record<MailComposerMode, { icon: typeof Reply; labelKey: string
   reply_all: { icon: ReplyAll, labelKey: 'mailComposer.modeReplyAll' },
   forward: { icon: Forward, labelKey: 'mailComposer.modeForward' },
   new: { icon: Mail, labelKey: 'mailComposer.modeNew' },
+}
+
+const FIELD_ROW = 'flex items-center gap-2 border-b border-border/40 px-3 py-1.5 text-xs'
+const FIELD_LABEL = 'w-14 shrink-0 font-medium text-text-muted'
+const FIELD_INPUT =
+  'min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none'
+
+/**
+ * Comma-separated entries that do not contain a usable address. The trailing
+ * entry can be skipped so the hint stays quiet while someone is still typing
+ * it; blurring the field (or a comma) makes it count.
+ */
+function invalidRecipientTokens(raw: string, opts: { skipTrailing?: boolean } = {}): string[] {
+  const tokens = raw.split(',').map((part) => part.trim())
+  const considered = opts.skipTrailing ? tokens.slice(0, -1) : tokens
+  return considered.filter((token) => token && parseAddressList(token).length === 0)
+}
+
+type RecipientFieldProps = {
+  label: string
+  value: string
+  onChange: (next: string) => void
+  placeholder?: string
+  /** Contact pool to suggest from; filtered on the entry being typed. */
+  suggestions: MailRecipientSuggestion[]
+  /** Addresses already picked anywhere (To/CC/BCC) — never re-suggested. */
+  exclude: ReadonlySet<string>
+  inputRef?: RefObject<HTMLInputElement | null>
+  testId?: string
+  onFocusChange?: (focused: boolean) => void
+  /** Extra control rendered at the end of the row (CC/BCC toggle). */
+  trailing?: ReactNode
+}
+
+/**
+ * One recipient row (To / CC / BCC) with a shared contact typeahead:
+ * matches on the entry after the last comma, supports ArrowUp/Down + Enter
+ * or Tab to pick, and Escape closes the dropdown before it closes the
+ * composer.
+ */
+function RecipientField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  suggestions,
+  exclude,
+  inputRef,
+  testId,
+  onFocusChange,
+  trailing,
+}: RecipientFieldProps) {
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const localRef = useRef<HTMLInputElement>(null)
+  const ref = inputRef ?? localRef
+
+  const matches = useMemo(() => {
+    if (!suggestions.length) return []
+    const parts = value.split(',')
+    const query = (parts[parts.length - 1] ?? '').trim().toLowerCase()
+    return suggestions
+      .filter((s) => !exclude.has(s.address.trim().toLowerCase()))
+      .filter((s) => !query || `${s.label} ${s.address}`.toLowerCase().includes(query))
+      .slice(0, 6)
+  }, [suggestions, exclude, value])
+
+  // Typing changes the match list; drop a highlight that no longer exists.
+  useEffect(() => {
+    setActiveIndex((prev) => (prev >= matches.length ? -1 : prev))
+  }, [matches.length])
+
+  const pick = (address: string) => {
+    const parts = value.split(',')
+    parts[parts.length - 1] = address
+    onChange(
+      parts
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .join(', '),
+    )
+    setOpen(false)
+    setActiveIndex(-1)
+    ref.current?.focus()
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!matches.length) return
+      e.preventDefault()
+      setOpen(true)
+      setActiveIndex((prev) => {
+        if (e.key === 'ArrowDown') return prev >= matches.length - 1 ? 0 : prev + 1
+        return prev <= 0 ? matches.length - 1 : prev - 1
+      })
+      return
+    }
+    if ((e.key === 'Enter' || e.key === 'Tab') && open && activeIndex >= 0 && matches[activeIndex]) {
+      e.preventDefault()
+      pick(matches[activeIndex].address)
+      return
+    }
+    if (e.key === 'Escape' && open) {
+      // First Escape only dismisses the dropdown; the next one reaches the
+      // composer and closes it.
+      e.preventDefault()
+      e.stopPropagation()
+      setOpen(false)
+      setActiveIndex(-1)
+    }
+  }
+
+  return (
+    <div className={cn(FIELD_ROW, 'relative')}>
+      <span className={FIELD_LABEL}>{label}</span>
+      <input
+        ref={ref}
+        type="text"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => {
+          setOpen(true)
+          onFocusChange?.(true)
+        }}
+        onBlur={() => {
+          onFocusChange?.(false)
+          window.setTimeout(() => {
+            setOpen(false)
+            setActiveIndex(-1)
+          }, 120)
+        }}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        className={FIELD_INPUT}
+        data-testid={testId}
+      />
+      {open && matches.length ? (
+        <div className="absolute left-14 right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
+          <div className="max-h-56 overflow-y-auto p-1">
+            {matches.map((s, index) => (
+              <button
+                key={s.address}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  pick(s.address)
+                }}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left',
+                  index === activeIndex ? 'bg-bg-hover/60' : 'hover:bg-bg-hover/60',
+                )}
+              >
+                <UserIcon size={12} className="shrink-0 text-text-muted" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate-fade text-xs text-text-primary">{s.label}</span>
+                  {s.label !== s.address ? (
+                    <span className="block truncate-fade text-2xs text-text-muted">{s.address}</span>
+                  ) : null}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {trailing}
+    </div>
+  )
 }
 
 export default function MailComposer({
@@ -166,6 +340,7 @@ export default function MailComposer({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const toFieldRef = useRef<HTMLInputElement>(null)
+  const ccFieldRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const raf = window.requestAnimationFrame(() => setExpanded(true))
@@ -258,31 +433,65 @@ export default function MailComposer({
     [emailChannels, selectedChannelAccountId],
   )
 
-  // Contact typeahead on the To field (new mail): matches on the text after
-  // the last comma, hides addresses that are already recipients.
-  const [toSuggestOpen, setToSuggestOpen] = useState(false)
-  const toSuggestions = useMemo(() => {
-    if (!recipientSuggestions?.length) return []
-    const parts = to.split(',')
-    const query = (parts[parts.length - 1] ?? '').trim().toLowerCase()
-    const chosen = new Set(parseAddressList(to))
-    return recipientSuggestions
-      .filter((s) => !chosen.has(s.address.trim().toLowerCase()))
-      .filter((s) => !query || `${s.label} ${s.address}`.toLowerCase().includes(query))
-      .slice(0, 6)
-  }, [recipientSuggestions, to])
-  const pickToSuggestion = (address: string) => {
-    setTo((prev) => {
-      const parts = prev.split(',')
-      parts[parts.length - 1] = address
-      return parts
-        .map((p) => p.trim())
-        .filter(Boolean)
-        .join(', ')
-    })
-    setToSuggestOpen(false)
-    toFieldRef.current?.focus()
-  }
+  // Contact typeahead on To/CC/BCC. Threads do not pass suggestions along,
+  // so the composer fetches the tenant's mailable contacts itself (forwards
+  // need a To field with completion just as much as a new mail).
+  const [fetchedSuggestions, setFetchedSuggestions] = useState<MailRecipientSuggestion[]>([])
+  useEffect(() => {
+    if (recipientSuggestions || !token) return
+    let cancelled = false
+    void listContacts(token)
+      .then((rows) => {
+        if (cancelled) return
+        setFetchedSuggestions(
+          rows
+            .filter((contact) => canComposeToAddress(contact.channel, contact.address))
+            .map((contact) => ({
+              label:
+                humanizeContactName(
+                  contact.displayName,
+                  contact.address,
+                  t('contactPanel.widgetVisitor'),
+                ) || contact.address,
+              address: contact.address,
+            })),
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedSuggestions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [recipientSuggestions, token, t])
+  const suggestionPool = recipientSuggestions ?? fetchedSuggestions
+  // Already-picked addresses (any field) are never suggested again.
+  const chosenAddresses = useMemo(
+    () =>
+      new Set([...parseAddressList(to), ...parseAddressList(cc), ...parseAddressList(bcc)]),
+    [to, cc, bcc],
+  )
+
+  // Entries that will not reach anyone: block the send and say which ones,
+  // instead of a silently disabled button. The entry still being typed in
+  // the focused field stays out of the hint until it is completed.
+  const [focusedField, setFocusedField] = useState<'to' | 'cc' | 'bcc' | null>(null)
+  const invalidAddresses = useMemo(
+    () => [
+      ...invalidRecipientTokens(to),
+      ...invalidRecipientTokens(cc),
+      ...invalidRecipientTokens(bcc),
+    ],
+    [to, cc, bcc],
+  )
+  const invalidShown = useMemo(
+    () => [
+      ...invalidRecipientTokens(to, { skipTrailing: focusedField === 'to' }),
+      ...invalidRecipientTokens(cc, { skipTrailing: focusedField === 'cc' }),
+      ...invalidRecipientTokens(bcc, { skipTrailing: focusedField === 'bcc' }),
+    ],
+    [to, cc, bcc, focusedField],
+  )
 
   // Snapshot for the draft store, kept fresh every render so the unmount
   // flush below writes the very last keystrokes.
@@ -378,7 +587,8 @@ export default function MailComposer({
   }
 
   const validTo = parseAddressList(to).length > 0
-  const canSend = validTo && (Boolean(body.trim()) || attachments.length > 0)
+  const canSend =
+    validTo && invalidAddresses.length === 0 && (Boolean(body.trim()) || attachments.length > 0)
   const busy = saving || sending
 
   const handleSend = async () => {
@@ -425,12 +635,12 @@ export default function MailComposer({
     }
   }
 
-  const ModeIcon = MODE_META[intent.mode].icon
-  const modeLabel = t(MODE_META[intent.mode].labelKey)
-  const fieldRow = 'flex items-center gap-2 border-b border-border/40 px-3 py-1.5 text-xs'
-  const fieldLabel = 'w-14 shrink-0 font-medium text-text-muted'
-  const fieldInput =
-    'min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none'
+  // A "reply" without a source mail (mailbox tab on an outbound-only thread)
+  // is really a fresh mail into the thread; title it that way.
+  const effectiveMode: MailComposerMode =
+    intent.mode === 'reply' && !intent.sourceMessageId ? 'new' : intent.mode
+  const ModeIcon = MODE_META[effectiveMode].icon
+  const modeLabel = t(MODE_META[effectiveMode].labelKey)
 
   return (
     <div className={variant === 'thread' ? 'relative shrink-0 bg-bg px-4 pb-4 pt-1' : undefined}>
@@ -536,90 +746,68 @@ export default function MailComposer({
           </div>
 
           {/* Recipients + subject */}
-          <div className={cn(fieldRow, 'relative')}>
-            <span className={fieldLabel}>{t('compose.to')}</span>
-            <input
-              ref={toFieldRef}
-              type="text"
-              value={to}
-              onChange={(e) => {
-                setTo(e.target.value)
-                setToSuggestOpen(true)
-              }}
-              onFocus={() => setToSuggestOpen(true)}
-              onBlur={() => window.setTimeout(() => setToSuggestOpen(false), 120)}
-              placeholder={t('compose.toPlaceholder')}
-              className={fieldInput}
-              data-testid="mail-composer-to"
-            />
-            {toSuggestOpen && toSuggestions.length ? (
-              <div className="absolute left-14 right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
-                <div className="max-h-56 overflow-y-auto p-1">
-                  {toSuggestions.map((s) => (
-                    <button
-                      key={s.address}
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        pickToSuggestion(s.address)
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-bg-hover/60"
-                    >
-                      <UserIcon size={12} className="shrink-0 text-text-muted" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate-fade text-xs text-text-primary">{s.label}</span>
-                        {s.label !== s.address ? (
-                          <span className="block truncate-fade text-2xs text-text-muted">{s.address}</span>
-                        ) : null}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setCcBccOpen((open) => !open)}
-              className={cn(
-                'shrink-0 text-2xs font-medium transition-colors',
-                ccBccOpen || cc || bcc ? 'text-accent' : 'text-text-muted hover:text-text-primary',
-              )}
-            >
-              {t('composer.ccBcc')}
-            </button>
-          </div>
+          <RecipientField
+            label={t('compose.to')}
+            value={to}
+            onChange={setTo}
+            placeholder={t('compose.toPlaceholder')}
+            suggestions={suggestionPool}
+            exclude={chosenAddresses}
+            inputRef={toFieldRef}
+            testId="mail-composer-to"
+            onFocusChange={(focused) => setFocusedField(focused ? 'to' : null)}
+            trailing={
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !ccBccOpen
+                  setCcBccOpen(next)
+                  if (next) requestAnimationFrame(() => ccFieldRef.current?.focus())
+                }}
+                className={cn(
+                  'shrink-0 text-2xs font-medium transition-colors',
+                  ccBccOpen || cc || bcc ? 'text-accent' : 'text-text-muted hover:text-text-primary',
+                )}
+              >
+                {t('composer.ccBcc')}
+              </button>
+            }
+          />
           {ccBccOpen ? (
             <>
-              <div className={fieldRow}>
-                <span className={fieldLabel}>{t('compose.cc')}</span>
-                <input
-                  type="text"
-                  value={cc}
-                  onChange={(e) => setCc(e.target.value)}
-                  placeholder={t('compose.ccPlaceholder')}
-                  className={fieldInput}
-                />
-              </div>
-              <div className={fieldRow}>
-                <span className={fieldLabel}>{t('compose.bcc')}</span>
-                <input
-                  type="text"
-                  value={bcc}
-                  onChange={(e) => setBcc(e.target.value)}
-                  placeholder={t('compose.bccPlaceholder')}
-                  className={fieldInput}
-                />
-              </div>
+              <RecipientField
+                label={t('compose.cc')}
+                value={cc}
+                onChange={setCc}
+                placeholder={t('compose.ccPlaceholder')}
+                suggestions={suggestionPool}
+                exclude={chosenAddresses}
+                inputRef={ccFieldRef}
+                onFocusChange={(focused) => setFocusedField(focused ? 'cc' : null)}
+              />
+              <RecipientField
+                label={t('compose.bcc')}
+                value={bcc}
+                onChange={setBcc}
+                placeholder={t('compose.bccPlaceholder')}
+                suggestions={suggestionPool}
+                exclude={chosenAddresses}
+                onFocusChange={(focused) => setFocusedField(focused ? 'bcc' : null)}
+              />
             </>
           ) : null}
-          <div className={fieldRow}>
-            <span className={fieldLabel}>{t('compose.subject')}</span>
+          {invalidShown.length ? (
+            <p className="border-b border-border/40 bg-status-error/5 px-3 py-1 text-2xs text-status-error">
+              {t('compose.invalidAddress', { addresses: invalidShown.join(', ') })}
+            </p>
+          ) : null}
+          <div className={FIELD_ROW}>
+            <span className={FIELD_LABEL}>{t('compose.subject')}</span>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder={t('compose.subjectPlaceholder')}
-              className={cn(fieldInput, 'font-medium')}
+              className={cn(FIELD_INPUT, 'font-medium')}
               data-testid="mail-composer-subject"
             />
           </div>
@@ -652,7 +840,7 @@ export default function MailComposer({
                 {t('mailComposer.signature')}
               </p>
               <div
-                className="pointer-events-none max-h-28 origin-top-left overflow-hidden text-[13px] opacity-80 [&_img]:inline-block"
+                className="signature-preview pointer-events-none max-h-28 overflow-hidden rounded-lg border border-border/40 bg-bg-input/30 px-2.5 py-1.5 text-sm [&_img]:inline-block"
                 dangerouslySetInnerHTML={{ __html: signatureHtml }}
               />
             </div>
@@ -686,7 +874,7 @@ export default function MailComposer({
           </div>
 
           {/* Footer: Bokito extras + send */}
-          <div className="flex items-center gap-1.5 border-t border-border/50 bg-bg-elevated/40 px-2.5 py-2">
+          <div className="flex items-center gap-1.5 border-t border-border/50 px-2.5 py-2">
             <input
               ref={fileInputRef}
               type="file"

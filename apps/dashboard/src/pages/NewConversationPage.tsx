@@ -11,6 +11,7 @@ import {
   Mail,
   User,
   Users,
+  X as XIcon,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
@@ -30,6 +31,11 @@ import MailComposer, {
   type MailRecipientSuggestion,
   type MailSendPayload,
 } from '../components/inbox/MailComposer'
+import {
+  clearStoredMailDraft,
+  readStoredMailDraft,
+  type StoredMailDraft,
+} from '../lib/mail-draft-store'
 import type { MailComposerIntent } from '../lib/mail-reply'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
@@ -95,6 +101,15 @@ export default function NewConversationPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(memberParam || null)
+
+  // Unsent new-mail draft: the chooser shows it as a resumable chip instead
+  // of only a passive "Draft" badge, so the saved mail is one click away.
+  const [newMailDraft, setNewMailDraft] = useState<StoredMailDraft | null>(() =>
+    readStoredMailDraft('new'),
+  )
+  useEffect(() => {
+    if (!intent) setNewMailDraft(readStoredMailDraft('new'))
+  }, [intent])
 
   const { members } = useMembers()
   const selfEmail = (user?.email || '').trim().toLowerCase()
@@ -417,6 +432,43 @@ export default function NewConversationPage() {
                 <h1 className="text-lg font-semibold text-text-primary">{t('newConversation.pickTitle')}</h1>
                 <p className="mt-1 text-sm text-text-muted">{t('newConversation.pickHint')}</p>
               </div>
+              {newMailDraft ? (
+                <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+                  <Mail size={14} className="shrink-0 text-accent" />
+                  <button
+                    type="button"
+                    onClick={() => setIntent('contact')}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="block truncate-fade text-xs font-medium text-text-primary">
+                      {t('mailComposer.draftChip')}
+                      {newMailDraft.to ? ` — ${newMailDraft.to}` : ''}
+                    </span>
+                    <span className="block truncate-fade text-2xs text-text-muted">
+                      {newMailDraft.subject || newMailDraft.body}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntent('contact')}
+                    className="shrink-0 text-xs font-medium text-accent hover:underline"
+                  >
+                    {t('mailComposer.draftChipResume')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearStoredMailDraft('new')
+                      setNewMailDraft(null)
+                    }}
+                    title={t('mailComposer.draftChipDiscard')}
+                    aria-label={t('mailComposer.draftChipDiscard')}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                  >
+                    <XIcon size={13} />
+                  </button>
+                </div>
+              ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
                 <IntentCard
                   icon={<Mail size={22} />}

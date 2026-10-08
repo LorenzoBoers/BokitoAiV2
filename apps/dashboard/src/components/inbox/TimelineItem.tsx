@@ -1725,8 +1725,9 @@ export function MessageTimelineItem({
         : t('timeline.deliveryFail.unknown')
       return (
         <div className="mb-1 flex min-w-0 items-center gap-1">
+          {/* Readable chip: plain status-red would drown in the accent bubble. */}
           <span
-            className="truncate-fade text-2xs font-medium text-status-error"
+            className="truncate-fade rounded bg-bg-surface px-1.5 py-0.5 text-2xs font-medium text-status-error"
             title={String(message.sendStatus)}
           >
             {t('timeline.notDelivered')}
@@ -1770,10 +1771,12 @@ export function MessageTimelineItem({
         </div>
       )
     }
-    // Email (and other customer channels): a quiet check once the provider accepted the send.
+    // Email (and other customer channels): a quiet check once the provider
+    // accepted the send. The bubble itself is accent-coloured, so the label
+    // uses the bubble foreground — status-green on green is unreadable.
     if (isCustomerChannel(channel) && message.sendStatus === 'sent') {
       return (
-        <div className="mb-1 flex min-w-0 items-center gap-1 text-2xs font-medium text-status-success">
+        <div className="mb-1 flex min-w-0 items-center gap-1 text-2xs font-medium text-accent-fg/80">
           <Check size={12} className="shrink-0" aria-hidden />
           <span>{t('timeline.sentOk')}</span>
         </div>

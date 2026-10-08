@@ -87,6 +87,7 @@ import {
   listFilterQuery,
 } from '../lib/signals-api'
 import { useCommunicationNav } from '../hooks/useCommunicationNav'
+import { writeStoredMailDraft } from '../lib/mail-draft-store'
 import type { AiHandlingMode } from '../lib/ai-handling'
 
 /** Soft-undo window for outbound email replies (server caps at 600s). */
@@ -1052,6 +1053,23 @@ export default function Communication() {
               onClick: () => {
                 void cancelScheduledMessage(token, messageId)
                   .then(() => {
+                    // Undo should not throw the text away: park the mail as
+                    // a draft so the thread shows its draft chip and the
+                    // composer reopens with everything still there.
+                    if (fromId != null) {
+                      writeStoredMailDraft(String(fromId), {
+                        mode: extras?.mode ?? 'reply',
+                        sourceMessageId: extras?.sourceMessageId ?? '',
+                        to: extras?.to ?? '',
+                        cc: extras?.cc ?? '',
+                        bcc: extras?.bcc ?? '',
+                        subject: extras?.subject ?? '',
+                        body: bodyText,
+                        attachments: attachments ?? [],
+                        channelAccountId: extras?.channelAccountId ?? null,
+                        updatedAt: new Date().toISOString(),
+                      })
+                    }
                     void refreshDetail()
                     void refreshThreads()
                     toast.success(

@@ -1114,6 +1114,8 @@ async def _resolve_impersonator(session: AsyncSession, auth: AuthContext) -> Use
 
 
 def _me_payload(auth: AuthContext, memberships: list[dict], *, impersonator: User | None = None) -> dict:
+    from app.services.signatures import user_signature_html
+
     avatar = None
     if auth.user.avatar_url:
         avatar = {"url": auth.user.avatar_url, "path": auth.user.avatar_url}
@@ -1132,6 +1134,11 @@ def _me_payload(auth: AuthContext, memberships: list[dict], *, impersonator: Use
         "is_staff": auth.is_staff,
         "impersonating": impersonating,
         "avatar": avatar,
+        # Top level too (not only under "user"): the dashboard's auth
+        # normalizer reads the flat payload, and the signature preview in the
+        # mail composer must match what /email/send appends.
+        "email_signature_html": user_signature_html(auth.user),
+        "has_password": bool(auth.user.password_hash),
         "tenant": {
             "id": tenant_id,
             "slug": auth.tenant.slug,

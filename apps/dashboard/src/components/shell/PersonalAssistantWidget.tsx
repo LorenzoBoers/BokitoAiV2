@@ -25,6 +25,17 @@ function describePage(pathname: string, search: string): string {
   return `${title} - ${pathname}${search}`
 }
 
+/**
+ * The launcher sits bottom-right — exactly where an open conversation puts
+ * its send controls. Hide it while a thread or the new-conversation composer
+ * is on screen so it never covers a Send button; it returns on every other
+ * page (lists, Overview, settings, ...).
+ */
+function launcherHiddenFor(pathname: string): boolean {
+  if (!pathname.startsWith('/communication')) return false
+  return pathname.includes('/t/') || pathname.startsWith('/communication/new')
+}
+
 function currentTheme(): string {
   if (typeof document === 'undefined') return 'light'
   const fromAttr = document.documentElement.dataset.theme
@@ -78,6 +89,7 @@ export default function PersonalAssistantWidget() {
           el.dataset.previewOverrides = JSON.stringify({ main_color: brandColor })
         }
         el.setAttribute('data-theme', currentTheme())
+        if (launcherHiddenFor(window.location.pathname)) el.style.display = 'none'
         document.body.appendChild(el)
         widgetRef.current = el
         registerAssistantWidget(el)
@@ -106,7 +118,9 @@ export default function PersonalAssistantWidget() {
 
   useEffect(() => {
     const el = widgetRef.current
-    if (el) el.dataset.pageContext = describePage(pathname, search)
+    if (!el) return
+    el.dataset.pageContext = describePage(pathname, search)
+    el.style.display = launcherHiddenFor(pathname) ? 'none' : ''
   }, [pathname, search])
 
   // Follow the dashboard's light/dark switch.

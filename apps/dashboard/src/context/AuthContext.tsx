@@ -289,6 +289,13 @@ function normalizeMemberships(payload: Record<string, unknown>): TenantMembershi
 
 function normalizeAuthUser(raw: unknown): User {
   const payload = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  // Some fields only live on the nested `user` object of /auth/me; fall back
+  // there so e.g. the mail composer's signature preview matches what the
+  // server actually appends to outgoing mail.
+  const nestedUser =
+    payload.user && typeof payload.user === 'object'
+      ? (payload.user as Record<string, unknown>)
+      : {};
   const memberships = normalizeMemberships(payload);
   const currentTenantRaw =
     payload.current_tenant && typeof payload.current_tenant === 'object'
@@ -329,7 +336,11 @@ function normalizeAuthUser(raw: unknown): User {
     avatarUrl: avatarUrl || null,
     signatureUrl: signatureUrl || null,
     emailSignatureHtml:
-      typeof payload.email_signature_html === 'string' ? payload.email_signature_html : '',
+      typeof payload.email_signature_html === 'string'
+        ? payload.email_signature_html
+        : typeof nestedUser.email_signature_html === 'string'
+          ? nestedUser.email_signature_html
+          : '',
     accountId: toNumber(payload.account_id),
     organisationId: normalizeOrganisationId(payload),
     role: mapTenantRoleToUserRole(payload.role),
@@ -350,7 +361,7 @@ function normalizeAuthUser(raw: unknown): User {
     })(),
     emailVerified: Boolean(payload.email_verified),
     totpEnabled: Boolean(payload.totp_enabled),
-    hasPassword: Boolean(payload.has_password),
+    hasPassword: Boolean(payload.has_password ?? nestedUser.has_password),
     tenant: {
       id: toNumber(tenantRaw.id),
       slug: toString(tenantRaw.slug, 'unknown'),
