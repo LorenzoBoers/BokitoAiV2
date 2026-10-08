@@ -86,6 +86,17 @@ class ReplyBody(BaseModel):
     send_after_seconds: int | None = None
     # Email-only: send from this mailbox and rebind the thread to it.
     channel_account_id: UUID | None = None
+    # Email-only, mail-native composer: explicit To override (comma-separated).
+    to: str | None = None
+    # reply | reply_all | forward — forward skips In-Reply-To threading.
+    mode: str = "reply"
+    # The bubble this reply/forward was started from (for the timeline).
+    source_message_id: UUID | None = None
+    # Subject override (e.g. "Fwd: …" on forwards).
+    subject: str | None = None
+    # Quoted prior-conversation HTML; the server appends it below the
+    # signature so the wire format matches normal mail clients.
+    quoted_html: str | None = None
 
 
 class NoteBody(BaseModel):
@@ -665,6 +676,11 @@ async def reply(
         send_after_seconds=min(body.send_after_seconds or 0, 600) or None,
         channel_account_id=body.channel_account_id,
         actor_role=auth.role,
+        to=body.to,
+        reply_mode=body.mode if body.mode in ("reply", "reply_all", "forward") else "reply",
+        source_message_id=body.source_message_id,
+        subject=body.subject,
+        quoted_html=body.quoted_html,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")

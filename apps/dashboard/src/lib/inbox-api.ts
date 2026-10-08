@@ -24,7 +24,7 @@ import type { ResolveDecisionResult, ThreadSession } from './signals-api'
 export type ThreadStatus = 'open' | 'pending' | 'closed' | 'spam'
 export type ThreadPriority = 'normal' | 'high' | 'urgent'
 export type MessageDirection = 'inbound' | 'outbound' | 'internal' | 'system'
-export type SendStatus = 'sending' | 'scheduled' | 'sent' | 'failed'
+export type SendStatus = 'sending' | 'scheduled' | 'sent' | 'failed' | `failed:${string}`
 
 export type ThreadId = string
 
@@ -159,6 +159,10 @@ export type InboxMessage = {
   toAddresses: string
   /** Comma-separated CC recipients on outbound email, if any. */
   cc?: string | null
+  /** Inbound To header (comma-separated) — feeds reply-all recipient lists. */
+  toHeader?: string | null
+  /** reply | reply_all | forward on outbound mail started from a bubble. */
+  replyMode?: string | null
   subject: string
   bodyPreview: string
   bodyText?: string
@@ -514,6 +518,16 @@ export type ReplyInput = {
   sendAfterSeconds?: number
   /** Email-only: send from this mailbox and rebind the thread to it. */
   channelAccountId?: string
+  /** Email-only, mail-native composer: explicit To override (comma-separated). */
+  to?: string
+  /** reply | reply_all | forward — forward skips In-Reply-To threading. */
+  mode?: 'reply' | 'reply_all' | 'forward'
+  /** The bubble this reply/forward was started from. */
+  sourceMessageId?: string
+  /** Subject override (e.g. "Fwd: ..."). */
+  subject?: string
+  /** Quoted prior-conversation HTML; the server appends it below the signature. */
+  quotedHtml?: string
 }
 
 export type PatchThreadInput = {
@@ -741,6 +755,9 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     direction,
     fromAddress: asString(raw.from_address),
     toAddresses: asString(raw.to_addresses),
+    cc: asNullableString(raw.cc),
+    toHeader: asNullableString(raw.to_header),
+    replyMode: asNullableString(raw.reply_mode),
     subject: asString(raw.subject),
     bodyPreview,
     bodyText,
@@ -767,8 +784,14 @@ export function normalizeDelivery(
   raw: Record<string, unknown>,
 ): Pick<InboxMessage, 'sendStatus' | 'isMock' | 'deliveredToCustomer'> {
   const value = asString(raw.send_status)
+  // Server values: sending | scheduled | sent | failed | failed:{reason}.
+  // The failure reason survives so the bubble can explain what to do.
   const sendStatus: SendStatus | null =
-    value === 'sending' ? 'sending' : value === 'sent' ? 'sent' : value === 'failed' ? 'failed' : null
+    value === 'sending' || value === 'scheduled' || value === 'sent' || value === 'failed'
+      ? value
+      : value.startsWith('failed:')
+        ? (value as SendStatus)
+        : null
   const payload =
     raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {}
   const isMock =

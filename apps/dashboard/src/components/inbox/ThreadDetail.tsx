@@ -13,7 +13,10 @@ import {
   type InboxMember,
   type ThreadId,
   type MessageAttachment,
+  type InboxMessage,
 } from '../../lib/inbox-api'
+import { buildMailDraftIntent, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
+import MailComposer, { type MailSendPayload } from './MailComposer'
 import { parseDecisionOptions, pickSoftDecisionTarget } from '../../lib/decision-options'
 import { getContactThreads, updateContact } from '../../lib/contacts-api'
 import {
@@ -104,7 +107,17 @@ type Props = {
     format?: 'email' | 'plain',
     attachments?: MessageAttachment[],
     snoozeMinutes?: number,
-    extras?: { cc?: string; bcc?: string; channelAccountId?: string },
+    extras?: {
+      cc?: string
+      bcc?: string
+      channelAccountId?: string
+      /** Mail-native composer: explicit recipients + reply/forward context. */
+      to?: string
+      mode?: MailDraftMode
+      sourceMessageId?: string
+      subject?: string
+      quotedHtml?: string
+    },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   /** Forward this email thread as a new outbound email (opens compose). */
@@ -187,6 +200,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // Composer surface the operator is on. Sticky on `ask` while an AI turn
   // runs, so the next keystroke goes to the AI, not the customer.
   const [composerMode, setComposerMode] = useState<ComposerMode>('reply')
+  // Mail-native composer: set when Reply / Reply all / Forward is clicked on
+  // an email bubble (or the Reply tab on an email thread).
+  const [mailDraft, setMailDraft] = useState<MailDraftIntent | null>(null)
   // Agent chosen with @ or Ask, before the first send creates the meta conversation.
   const [askAgentId, setAskAgentId] = useState<string | null>(null)
   // Close-the-loop prompt when typed Signals are still Open (F-49).
@@ -210,6 +226,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     (draft: NonNullable<typeof composerDraft>) => {
       // Do not yank the Ask tab mid-stream when a suggestion card appears.
       if (agentStreamingRef.current) return
+      // The draft lands in the standard composer; close the mail surface.
+      setMailDraft(null)
       setComposerDraft(draft)
     },
     [],
@@ -615,7 +633,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   useEffect(() => {
     setComposerDraft(null)
+    setMailDraft(null)
   }, [threadId])
+
+  // Addresses of our own mailboxes: excluded from reply-all recipient lists
+  // and used to decide whether a bubble shows the Reply all button.
+  const mailOwnAddresses = useMemo(
+    () => connections.map((row) => row.mailboxEmail).filter(Boolean),
+    [connections],
+  )
 
   const myMemberId = useMemo(() => {
     const email = user?.email?.toLowerCase()
@@ -990,10 +1016,73 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     void stopAgentSessionStream()
   }, [stopAgentSessionStream])
 
-  const handleComposerModeChange = useCallback((mode: ComposerMode) => {
-    setComposerMode(mode)
-    if (mode !== 'ask') setAskAgentId(null)
-  }, [])
+  // Reply / Reply all / Forward on an email bubble opens the mail-native
+  // composer, prefilled with recipients, subject and the quoted source mail.
+  const handleMailAction = useCallback(
+    (message: InboxMessage, draftMode: MailDraftMode) => {
+      if (!detail) return
+      if (mailboxDisconnected) {
+        // No sending mailbox: the standard composer shows the reconnect notice.
+        setComposerMode('reply')
+        return
+      }
+      setMailDraft(
+        buildMailDraftIntent(message, draftMode, {
+          ownAddresses: mailOwnAddresses,
+          contactEmail: detail.thread.contactEmail,
+          threadSubject: detail.thread.emailSubject,
+          language: i18n.language,
+          senderName:
+            message.direction === 'inbound' ? detail.thread.contactName || null : user?.name || null,
+        }),
+      )
+    },
+    [detail, mailboxDisconnected, mailOwnAddresses, i18n.language, user?.name],
+  )
+
+  const handleComposerModeChange = useCallback(
+    (mode: ComposerMode) => {
+      // The Reply tab on an email thread is a mail action: it opens the
+      // mail-native composer on the newest customer mail instead of the chat
+      // input, so recipients and quoting are always explicit. A pending AI
+      // proposal draft stays in the standard composer (it resolves on send).
+      if (mode === 'reply' && messageLayout === 'email' && detail && !mailboxDisconnected && !composerDraft) {
+        const source = [...detail.messages]
+          .reverse()
+          .find(
+            (m) =>
+              m.direction === 'inbound' && m.kind !== 'decision_request' && m.kind !== 'system_event',
+          )
+        if (source) {
+          handleMailAction(source, 'reply')
+          return
+        }
+      }
+      setComposerMode(mode)
+      if (mode !== 'ask') setAskAgentId(null)
+    },
+    [messageLayout, detail, mailboxDisconnected, composerDraft, handleMailAction],
+  )
+
+  // Send from the mail-native composer; afterwards the standard composer
+  // returns and the sent mail lands in the timeline as an expandable bubble.
+  const handleMailSend = useCallback(
+    async (payload: MailSendPayload) => {
+      await onReply(payload.bodyText, 'send', 'email', payload.attachments, undefined, {
+        cc: payload.cc,
+        bcc: payload.bcc,
+        channelAccountId: payload.channelAccountId,
+        to: payload.to,
+        mode: payload.mode,
+        sourceMessageId: payload.sourceMessageId,
+        subject: payload.subject,
+        quotedHtml: payload.quotedHtml,
+      })
+      setMailDraft(null)
+      window.setTimeout(() => scrollToBottom('smooth'), 80)
+    },
+    [onReply, scrollToBottom],
+  )
 
   // Hand the live turn off to its saved bubbles: once they are in the list
   // (matched by turn id), drop the live view so nothing shows twice.
@@ -1300,6 +1389,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               ? { onEdit: onUpdateNote, onDelete: onDeleteNote }
               : undefined
           }
+          onMailAction={messageLayout === 'email' ? handleMailAction : undefined}
+          mailOwnAddresses={mailOwnAddresses}
           focusedMessageId={focusedMessageId}
           unreadHighlightIds={unreadHighlightIds}
           hasOlder={hasOlder}
@@ -1372,7 +1463,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           currentChannel={thread.channel}
         />
       ) : null}
-      {composerSurface ? (
+      {composerSurface && mailDraft && messageLayout === 'email' && !mailboxDisconnected ? (
+        <MailComposer
+          intent={mailDraft}
+          threadId={String(thread.id)}
+          channelAccountId={thread.channelAccountId ?? null}
+          saving={saving}
+          onSend={handleMailSend}
+          onCancel={() => setMailDraft(null)}
+        />
+      ) : composerSurface ? (
         <ReplyComposer
           surface={composerSurface}
           onReply={handleReply}

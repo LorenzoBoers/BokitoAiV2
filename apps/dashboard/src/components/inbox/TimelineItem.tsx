@@ -1,4 +1,4 @@
-import { Check, Copy, Loader2, Mail, MessageSquareWarning, Pencil, Phone, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { Check, Copy, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -44,6 +44,8 @@ import MessageAttachments from './MessageAttachments'
 import ChatText from './ChatText'
 import ActivityTrail from './ActivityTrail'
 import { isCustomerChannel } from '../../lib/chatMessages'
+import { authorizeUploadUrls } from '../../lib/email-upload-auth'
+import { canReplyAll, type MailDraftMode } from '../../lib/mail-reply'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
 import { inboxPath } from '../../lib/messages-paths'
@@ -85,6 +87,10 @@ type MessageItemProps = {
   onProposalResolved?: (info?: { closed?: boolean }) => void
   /** Tag name -> kind for bare #name chips in ChatText. */
   chatTags?: ChatTagMap
+  /** Reply / Reply all / Forward started from this email bubble. */
+  onMailAction?: (message: InboxMessage, mode: MailDraftMode) => void
+  /** Our mailbox address(es); hides Reply all when nobody else was copied. */
+  mailOwnAddresses?: string[]
 }
 
 type EventItemProps = {
@@ -800,9 +806,10 @@ function MessageHtmlBody({
   attachments?: Array<{ url: string; contentId?: string | null; inline?: boolean }>
 }) {
   const { isDark } = useTheme()
+  const { token } = useAuth()
   const resolvedHtml = useMemo(
-    () => rewriteCidInHtml(html, attachments ?? []),
-    [html, attachments],
+    () => authorizeUploadUrls(rewriteCidInHtml(html, attachments ?? []), token),
+    [html, attachments, token],
   )
   if (isSimpleMessageHtml(resolvedHtml)) {
     return <SimpleMessageHtml html={resolvedHtml} />
@@ -1316,6 +1323,8 @@ export function MessageTimelineItem({
   stack = 'single',
   onProposalResolved,
   chatTags,
+  onMailAction,
+  mailOwnAddresses,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
@@ -1879,9 +1888,30 @@ export function MessageTimelineItem({
     isInbound && authorKind === 'external' && threadId && typeof message.id === 'string' && isCustomerChannel(channel) ? (
       <SplitConversationAction threadId={String(threadId)} messageId={message.id} />
     ) : null
-  const actions =
-    copyAction || feedbackRow || noteEditControls || splitAction ? (
+  // Mail-client actions on inbound email cards: Reply, Reply all, Forward.
+  const mailActions =
+    layout === 'email' && isInbound && authorKind === 'external' && onMailAction && !isInternal ? (
       <>
+        <BubbleAction label={t('timeline.replyMail')} onClick={() => onMailAction(message, 'reply')}>
+          <Reply size={12} />
+        </BubbleAction>
+        {canReplyAll(message, mailOwnAddresses ?? []) ? (
+          <BubbleAction
+            label={t('timeline.replyAllMail')}
+            onClick={() => onMailAction(message, 'reply_all')}
+          >
+            <ReplyAll size={12} />
+          </BubbleAction>
+        ) : null}
+        <BubbleAction label={t('timeline.forwardMail')} onClick={() => onMailAction(message, 'forward')}>
+          <Forward size={12} />
+        </BubbleAction>
+      </>
+    ) : null
+  const actions =
+    copyAction || feedbackRow || noteEditControls || splitAction || mailActions ? (
+      <>
+        {mailActions}
         {feedbackRow}
         {noteEditControls}
         {copyAction}

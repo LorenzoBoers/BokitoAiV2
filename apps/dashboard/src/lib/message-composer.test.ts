@@ -132,7 +132,8 @@ describe('resolveComposerSurface (whatsapp)', () => {
     )
     expect(surface.channel).toBe('email')
     expect(surface.includeSignature).toBe(true)
-    expect(surface.defaultMode).toBe('reply')
+    // Mail-native composer owns outbound mail; the bottom input starts on Ask.
+    expect(surface.defaultMode).toBe('ask')
   })
 
   it('defaults noreply addresses to an internal note, not Reply to', () => {

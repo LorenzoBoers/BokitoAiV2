@@ -181,6 +181,14 @@
     "cancelled": "Sending cancelled",
     "tooLate": "Too late — already sent"
   },
+  "mailComposer": {
+    "modeReply": "Reply",
+    "modeReplyAll": "Reply all",
+    "modeForward": "Forward",
+    "signature": "Signature",
+    "quoteToggle": "Show the quoted mail history sent along",
+    "quoteTitle": "Quoted mail history"
+  },
   "compose": {
     "title": "New email",
     "subjectPlaceholder": "Subject",
@@ -1127,6 +1135,9 @@
   },
   "timeline": {
     "internalNote": "Internal note",
+    "replyMail": "Reply",
+    "replyAllMail": "Reply all",
+    "forwardMail": "Forward",
     "ccLine": "CC: {{recipients}}",
     "sentFromOwnMailbox": "Sent from own mailbox ({{provider}})",
     "handledExternally": {

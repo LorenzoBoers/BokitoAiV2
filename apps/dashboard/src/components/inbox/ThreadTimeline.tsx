@@ -29,6 +29,7 @@ import type {
   ThreadId,
 } from '../../lib/inbox-api'
 import type { ChatTagMap } from '../../lib/chatText'
+import type { MailDraftMode } from '../../lib/mail-reply'
 import type { ChatMessage } from '../../lib/signals-api'
 import type { LiveTurn } from '../../lib/agentActivity'
 import {
@@ -341,6 +342,10 @@ type Props = {
   chatTags?: ChatTagMap
   events: InboxEvent[]
   noteActions?: NoteActions
+  /** Reply / Reply all / Forward started from an email bubble. */
+  onMailAction?: (message: InboxMessage, mode: MailDraftMode) => void
+  /** Our mailbox address(es); hides Reply all when nobody else was copied. */
+  mailOwnAddresses?: string[]
   /** Deep-linked card (`?message=`): highlighted and scrolled into view. */
   focusedMessageId: string | null
   /** Trailing unread inbound messages briefly flash when the thread opens. */
@@ -420,6 +425,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     chatTags,
     events,
     noteActions,
+    onMailAction,
+    mailOwnAddresses,
     focusedMessageId,
     unreadHighlightIds = [],
     hasOlder = false,
@@ -757,6 +764,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             stack={stack}
             onProposalResolved={onDecisionResolved}
             chatTags={chatTags}
+            onMailAction={onMailAction}
+            mailOwnAddresses={mailOwnAddresses}
           />
         )}
       </div>

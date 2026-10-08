@@ -52,10 +52,20 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 *One composer with three destinations: the customer, the AI, or the team.*
 
 1. Open a conversation. Under the timeline the composer shows a mode chip: **Reply to {name}**, **Ask {agent}**, and **Note**.
-2. **Reply** goes to the customer on the same channel they used. Placeholder text reminds you they will see it. On email, **Ctrl+Enter** sends; on chat, Enter sends.
+2. **Reply** goes to the customer on the same channel they used. Placeholder text reminds you they will see it. On chat, Enter sends. On an email conversation the composer starts on **Ask**, and the Reply chip opens the mail composer on the newest customer mail — see the next section.
 3. **Ask** talks only with the AI on this conversation (or starts an AI check-in). The customer sees nothing. The composer outline turns purple. Switching to Ask or mentioning an agent does not open a meta conversation until you send. **Cancel** on an empty meta conversation removes it. A **Stop** control appears while the AI streams. Paste a screenshot or image into the composer (or use the paperclip) so the AI can see it on that turn.
 4. **Note** is team-only. The composer outline is gray. Use it for handoffs and context that must not leave the workspace.
 5. On an AI chat (`assistant` channel) or an AI check-in, Reply is hidden — only Ask and Note stay, with **Note** after **Ask**. Slash verbs and `@` mentions still work.
+
+## Reply, reply all or forward an email
+
+Email conversations answer like a mail client: every received mail carries its own reply buttons, and the composer grows into a full mail view when you use them.
+
+1. Open an email conversation. On a received mail, hover the bubble and choose **Reply** (left arrow), **Reply all** (double arrow — shown only when more people were on the mail) or **Forward** (right arrow) in its action row.
+2. The composer at the bottom grows into a mail view, with a mini thread view above it. **To** is prefilled from the mail you clicked (empty on a forward), **CC/BCC** opens extra recipient fields, and the subject is editable — `Re:` or `Fwd:` is set for you. **From** switches mailboxes when more than one can send.
+3. Write your message. Your signature sits under the input exactly as it will be sent. The three dots below it expand the quoted mail history that goes along. AI write help, dictation and the attachment button stay available.
+4. Send with the button or **Ctrl+Enter**. The mail lands in the timeline as an expandable mail bubble with only your message, and the composer returns to its normal size.
+5. **Esc** or the **X** in the corner closes the mail view without sending.
 
 ## See and change what the AI does
 

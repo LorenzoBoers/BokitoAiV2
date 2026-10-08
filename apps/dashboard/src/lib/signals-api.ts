@@ -80,6 +80,8 @@ export function normalizeSignalMessage(row: unknown): InboxMessage | null {
     fromAddress: asString(raw.from_address),
     toAddresses: asString(raw.to_addresses),
     cc: typeof raw.cc === 'string' && raw.cc ? raw.cc : null,
+    toHeader: typeof raw.to_header === 'string' && raw.to_header ? raw.to_header : null,
+    replyMode: typeof raw.reply_mode === 'string' && raw.reply_mode ? raw.reply_mode : null,
     subject: asString(raw.subject),
     bodyPreview: asString(raw.body_preview ?? raw.body_text),
     bodyText: asString(raw.body_text),
@@ -504,6 +506,11 @@ export async function replyToSignalThread(
   if (input.channelAccountId?.trim()) {
     body.channel_account_id = input.channelAccountId.trim()
   }
+  if (input.to?.trim()) body.to = input.to.trim()
+  if (input.mode && input.mode !== 'reply') body.mode = input.mode
+  if (input.sourceMessageId) body.source_message_id = input.sourceMessageId
+  if (input.subject?.trim()) body.subject = input.subject.trim()
+  if (input.quotedHtml?.trim()) body.quoted_html = input.quotedHtml
   const payload = await apiPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
   return normalizeSignalMessage(payload)
 }

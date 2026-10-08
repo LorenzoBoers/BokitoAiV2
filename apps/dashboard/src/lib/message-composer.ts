@@ -214,7 +214,10 @@ export function resolveComposerSurface(
     const nonReceiving = isNonReceivingEmailAddress(email)
     return {
       channel: 'email',
-      defaultMode: nonReceiving ? 'note' : 'reply',
+      // Email threads land on Ask: writing a real mail goes through the
+      // mail-native composer (Reply tab or bubble actions), so the bottom
+      // input is for the AI and the team by default.
+      defaultMode: nonReceiving ? 'note' : 'ask',
       modes: ['reply', 'ask', 'note'],
       replyLabel: 'Email',
       replyTargetName: name || email,

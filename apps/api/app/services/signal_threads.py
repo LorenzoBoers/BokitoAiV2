@@ -577,6 +577,10 @@ def serialize_message(
         "to_addresses": message.to_addresses,
         "cc": str(meta.get("cc") or "") or None,
         "bcc": str(meta.get("bcc") or "") or None,
+        # Inbound To header (comma-separated) so the client can build
+        # reply-all recipient lists; outbound rows store it on to_addresses.
+        "to_header": str(meta.get("to") or "") or None,
+        "reply_mode": str(meta.get("reply_mode") or "") or None,
         "subject": message.subject,
         "body_preview": message.body_preview or (message.body_text or "")[:200],
         "body_text": message.body_text,
@@ -2456,6 +2460,11 @@ async def reply_to_thread(
     send_after_seconds: int | None = None,
     channel_account_id: UUID | None = None,
     actor_role: str = "member",
+    to: str | None = None,
+    reply_mode: str = "reply",
+    source_message_id: UUID | None = None,
+    subject: str | None = None,
+    quoted_html: str | None = None,
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
@@ -2475,7 +2484,15 @@ async def reply_to_thread(
     # the scheduler tick delivers once `send_after` passes, and the cancel
     # endpoint can remove it before that.
     scheduled = bool(send_after_seconds and send_after_seconds > 0) and direction == "outbound"
+    # Forward goes to a fresh recipient: skip In-Reply-To / Graph reply
+    # threading so the mail arrives as its own message with our subject.
+    is_forward = reply_mode == "forward"
+    to_override = (to or "").strip() or None
+    subject_override = (subject or "").strip() or None
     send_status = None
+    delivered_from = ""
+    delivered_to = ""
+    provider_message_id = ""
     if scheduled:
         send_status = "scheduled"
     elif direction == "outbound":
@@ -2495,22 +2512,41 @@ async def reply_to_thread(
             signal,
             body_text=body_text,
             body_html=body_html,
+            subject=subject_override or "",
+            to_address=to_override,
             cc=cc,
             bcc=bcc,
             attachments=attachments,
             signature_html=signature_html,
             from_display_name=from_display_name,
+            quoted_html=quoted_html,
+            suppress_threading=is_forward,
         )
         send_status = delivery.status
         if send_status == "skipped":
             send_status = "sent"
         if delivery.body_html:
             body_html = delivery.body_html
+        delivered_from = delivery.from_address
+        delivered_to = delivery.to_address
+        provider_message_id = delivery.provider_message_id
     message_meta: dict[str, Any] = {}
     if cc:
         message_meta["cc"] = cc
     if bcc:
         message_meta["bcc"] = bcc
+    if reply_mode and reply_mode != "reply":
+        message_meta["reply_mode"] = reply_mode
+    if source_message_id:
+        message_meta["source_message_id"] = str(source_message_id)
+    if scheduled:
+        # The flush tick needs the full send intent to deliver faithfully.
+        if to_override:
+            message_meta["to"] = to_override
+        if subject_override:
+            message_meta["subject"] = subject_override
+        if quoted_html:
+            message_meta["quoted_html"] = quoted_html
     message = SignalMessage(
         signal_id=signal_id,
         tenant_id=tenant_id,
@@ -2518,9 +2554,10 @@ async def reply_to_thread(
         direction=direction,
         role="user" if direction != "internal" else "system",
         author_user_id=user_id,
-        from_address="",
-        to_addresses=signal.contact_email,
-        subject=signal.subject,
+        from_address=delivered_from,
+        to_addresses=delivered_to or to_override or signal.contact_email,
+        external_id=provider_message_id,
+        subject=subject_override or signal.subject,
         body_text=body_text,
         body_preview=clean_message_preview(body_text, limit=200),
         body_html=body_html or f"<p>{body_text}</p>",
@@ -2824,15 +2861,25 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
                 signal,
                 body_text=message.body_text,
                 body_html=message.body_html or None,
+                subject=str(meta.get("subject") or ""),
+                to_address=str(meta.get("to") or "") or None,
                 cc=meta.get("cc"),
                 bcc=meta.get("bcc"),
                 attachments=attachments or None,
                 signature_html=signature_html,
                 from_display_name=from_display_name,
+                quoted_html=str(meta.get("quoted_html") or "") or None,
+                suppress_threading=meta.get("reply_mode") == "forward",
             )
             status = delivery.status
             if delivery.body_html:
                 message.body_html = delivery.body_html
+            if delivery.from_address:
+                message.from_address = delivery.from_address
+            if delivery.to_address:
+                message.to_addresses = delivery.to_address
+            if delivery.provider_message_id:
+                message.external_id = delivery.provider_message_id
         except Exception as exc:  # noqa: BLE001 — one bad message must not stall the queue
             logger.exception("Scheduled send failed for message %s", message.id)
             status = f"failed:{type(exc).__name__}"[:80]

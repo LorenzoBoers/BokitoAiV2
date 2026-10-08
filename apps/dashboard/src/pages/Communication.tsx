@@ -998,7 +998,16 @@ export default function Communication() {
       format?: 'email' | 'plain',
       attachments?: MessageAttachment[],
       snoozeMinutes?: number,
-      extras?: { cc?: string; bcc?: string; channelAccountId?: string },
+      extras?: {
+        cc?: string
+        bcc?: string
+        channelAccountId?: string
+        to?: string
+        mode?: 'reply' | 'reply_all' | 'forward'
+        sourceMessageId?: string
+        subject?: string
+        quotedHtml?: string
+      },
     ) => {
       // Email replies get a short soft-undo window: the backend schedules
       // delivery and the toast can cancel before the scheduler sends it.
@@ -1017,6 +1026,11 @@ export default function Communication() {
           cc: extras?.cc,
           bcc: extras?.bcc,
           channelAccountId: extras?.channelAccountId,
+          to: extras?.to,
+          mode: extras?.mode,
+          sourceMessageId: extras?.sourceMessageId,
+          subject: extras?.subject,
+          quotedHtml: extras?.quotedHtml,
           sendAfterSeconds: undoable ? UNDO_SEND_SECONDS : undefined,
         })
         void refreshThreads()

@@ -21,10 +21,17 @@ class OutboundDelivery:
 
     ``body_html`` is set for email and is the exact HTML that was sent
     (including signature), so callers can persist it on the timeline.
+    ``from_address`` / ``to_address`` are the resolved sender mailbox and
+    recipient; ``provider_message_id`` is the provider's id for the sent
+    message when the provider returns one (Gmail, Resend — Graph returns
+    an empty 202 and the Sent sync backfills it).
     """
 
     status: str
     body_html: str | None = None
+    from_address: str = ""
+    to_address: str = ""
+    provider_message_id: str = ""
 
     def startswith(self, prefix: str) -> bool:
         return self.status.startswith(prefix)
@@ -118,6 +125,8 @@ async def deliver_outbound(
     attachments: list[dict] | None = None,
     signature_html: str | None = None,
     from_display_name: str | None = None,
+    quoted_html: str | None = None,
+    suppress_threading: bool = False,
 ) -> OutboundDelivery:
     """Send `body_text` to the external party of this thread.
 
@@ -128,7 +137,10 @@ async def deliver_outbound(
     `signature_html` is the identity-resolved signature (user or agent, see
     services/signatures.py); when None the mailbox signature is the fallback.
     `from_display_name` is the visible From name for the same identity; the
-    mailbox address is never changed.
+    mailbox address is never changed. `quoted_html` is appended below the
+    signature (mail-client quoting order). `suppress_threading` skips
+    In-Reply-To / Graph reply threading — used for forwards so the mail
+    arrives as its own message with our subject.
     """
     if signal.channel not in ("email", "slack", "whatsapp"):
         return OutboundDelivery("skipped")
@@ -157,8 +169,13 @@ async def deliver_outbound(
         recipient = (to_address or "").strip() or signal.contact_email
         if not recipient:
             return OutboundDelivery("failed:no_recipient")
-        in_reply_to, references, reply_to_provider_id = await _reply_context(session, signal.id)
-        status, final_html = await email_adapter.send_via_provider(
+        if suppress_threading:
+            in_reply_to, references, reply_to_provider_id = (None, None, None)
+        else:
+            in_reply_to, references, reply_to_provider_id = await _reply_context(
+                session, signal.id
+            )
+        status, final_html, provider_message_id = await email_adapter.send_via_provider(
             account,
             to_address=recipient,
             subject=subject or signal.subject,
@@ -174,8 +191,15 @@ async def deliver_outbound(
             session=session,
             signature_html=signature_html,
             from_display_name=from_display_name,
+            quoted_html=quoted_html,
         )
-        return OutboundDelivery(status, body_html=final_html)
+        return OutboundDelivery(
+            status,
+            body_html=final_html,
+            from_address=(account.address or "").strip(),
+            to_address=recipient,
+            provider_message_id=provider_message_id,
+        )
     if signal.channel == "whatsapp":
         # thread_external_id IS the customer's wa_id (one thread per number).
         recipient = (to_address or "").strip() or (signal.external_id or "").strip()

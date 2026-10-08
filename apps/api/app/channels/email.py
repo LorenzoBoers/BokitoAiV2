@@ -340,6 +340,21 @@ def _graph_reply_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return {"message": message}
 
 
+def _provider_message_id(res: httpx.Response) -> str:
+    """Best-effort provider message id from a send response.
+
+    Gmail and Resend return ``{"id": ...}``; Graph sendMail/reply return an
+    empty 202 (the Sent-folder sync backfills the Graph id later).
+    """
+    try:
+        data = res.json()
+    except Exception:  # noqa: BLE001 — empty 202 bodies and test doubles
+        return ""
+    if isinstance(data, dict):
+        return str(data.get("id") or "")
+    return ""
+
+
 async def send_via_provider(
     account: ChannelAccount,
     *,
@@ -357,11 +372,17 @@ async def send_via_provider(
     session: AsyncSession | None = None,
     signature_html: str | None = None,
     from_display_name: str | None = None,
-) -> tuple[str, str]:
+    quoted_html: str | None = None,
+) -> tuple[str, str, str]:
     """Send an email through the account's provider.
 
-    Returns ``(send_status, final_html)`` where ``final_html`` is the body
-    including the signature that was actually handed to the provider.
+    Returns ``(send_status, final_html, provider_message_id)`` where
+    ``final_html`` is the body including the signature that was actually
+    handed to the provider and ``provider_message_id`` is the provider's id
+    for the sent message when the provider returns one (Gmail, Resend).
+
+    ``quoted_html`` (prior conversation history) lands below the signature,
+    matching mail-client quoting order: body, signature, quoted history.
     """
     attachment_payloads = await _load_attachment_payloads(attachments)
     final_html = compose_outbound_html(
@@ -370,6 +391,8 @@ async def send_via_provider(
         account=account,
         signature_html=signature_html,
     )
+    if quoted_html and quoted_html.strip():
+        final_html = f"{final_html}<br>{quoted_html.strip()}"
     payload = format_outbound(
         account,
         to_address=to_address,
@@ -386,7 +409,7 @@ async def send_via_provider(
         from_display_name=from_display_name,
     )
     if account.provider == "mock":
-        return "sent", final_html
+        return "sent", final_html, ""
 
     if account.provider == "bokito":
         # Built-in address: platform-level Resend key, no per-account OAuth.
@@ -395,18 +418,18 @@ async def send_via_provider(
         api_key = get_settings().resend_api_key
         if not api_key:
             if not get_settings().is_production:
-                return "sent", final_html
-            return "failed:no_credentials", final_html
+                return "sent", final_html, ""
+            return "failed:no_credentials", final_html, ""
         try:
             res = await _post_send(RESEND_SEND_URL, payload, api_key)
         except httpx.HTTPError:
-            return "failed:network", final_html
+            return "failed:network", final_html, ""
         if res.status_code in (200, 201, 202):
-            return "sent", final_html
+            return "sent", final_html, _provider_message_id(res)
         logger.warning(
             "resend send failed status=%s body=%s", res.status_code, res.text[:300]
         )
-        return f"failed:{res.status_code}", final_html
+        return f"failed:{res.status_code}", final_html, ""
 
     if account.provider == "smtp_imap":
         from app.services.smtp_imap import send_smtp
@@ -424,7 +447,7 @@ async def send_via_provider(
             attachments=attachment_payloads,
             from_display_name=from_display_name,
         )
-        return status, final_html
+        return status, final_html, ""
 
     creds = _credentials(account)
     token = creds.get("access_token")
@@ -434,8 +457,8 @@ async def send_via_provider(
         if not get_settings().is_production:
             # Dev mailboxes connected via the mock OAuth flow have placeholder
             # credentials; store-only "send" keeps every reply flow working.
-            return "sent", final_html
-        return "failed:no_credentials", final_html
+            return "sent", final_html, ""
+        return "failed:no_credentials", final_html, ""
 
     if account.provider == "outlook" and reply_to_provider_id:
         # Graph threads replies server-side; sendMail cannot set In-Reply-To.
@@ -469,15 +492,15 @@ async def send_via_provider(
     try:
         res = await _attempt(token)
         if res.status_code in (200, 201, 202):
-            return "sent", final_html
+            return "sent", final_html, _provider_message_id(res)
         if res.status_code == 401:
             refreshed = await _refresh_access_token(session, account)
             if not refreshed:
-                return "failed:auth_expired", final_html
+                return "failed:auth_expired", final_html, ""
             retry = await _attempt(refreshed)
             if retry.status_code in (200, 201, 202):
-                return "sent", final_html
-            return f"failed:{retry.status_code}", final_html
-        return f"failed:{res.status_code}", final_html
+                return "sent", final_html, _provider_message_id(retry)
+            return f"failed:{retry.status_code}", final_html, ""
+        return f"failed:{res.status_code}", final_html, ""
     except httpx.HTTPError:
-        return "failed:network", final_html
+        return "failed:network", final_html, ""

@@ -181,6 +181,14 @@
     "cancelled": "Versturen geannuleerd",
     "tooLate": "Te laat — al verstuurd"
   },
+  "mailComposer": {
+    "modeReply": "Beantwoorden",
+    "modeReplyAll": "Allen beantwoorden",
+    "modeForward": "Doorsturen",
+    "signature": "Handtekening",
+    "quoteToggle": "Meegestuurde mailgeschiedenis tonen",
+    "quoteTitle": "Geciteerde mailgeschiedenis"
+  },
   "compose": {
     "title": "Nieuwe e-mail",
     "subjectPlaceholder": "Onderwerp",
@@ -1127,6 +1135,9 @@
   },
   "timeline": {
     "internalNote": "Interne notitie",
+    "replyMail": "Beantwoorden",
+    "replyAllMail": "Allen beantwoorden",
+    "forwardMail": "Doorsturen",
     "ccLine": "CC: {{recipients}}",
     "sentFromOwnMailbox": "Verstuurd vanuit eigen mailbox ({{provider}})",
     "handledExternally": {

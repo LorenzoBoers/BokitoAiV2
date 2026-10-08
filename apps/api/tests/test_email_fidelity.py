@@ -198,7 +198,7 @@ async def test_outlook_reply_uses_graph_reply_endpoint():
         return _Resp()
 
     with patch.object(email_adapter, "_post_send", new=AsyncMock(side_effect=fake_post)):
-        status, _html = await email_adapter.send_via_provider(
+        status, _html, _provider_id = await email_adapter.send_via_provider(
             account,
             to_address="client@x.nl",
             subject="Re: BTW",
@@ -210,6 +210,113 @@ async def test_outlook_reply_uses_graph_reply_endpoint():
     assert url.endswith("/me/messages/graph-id-1/reply")
     # Subject is read-only on Graph replies.
     assert "subject" not in payload["message"]
+
+
+# --- Mail-native reply: to override, forward, quoted history ------------------
+
+
+@pytest.mark.asyncio
+async def test_send_via_provider_quoted_html_below_signature():
+    from app.channels import email as email_adapter
+
+    account = _account("mock")
+    status, final_html, provider_id = await email_adapter.send_via_provider(
+        account,
+        to_address="client@x.nl",
+        subject="Re: BTW",
+        body_text="Antwoord",
+        body_html="<p>Antwoord</p>",
+        signature_html="<p>Groet, Tester</p>",
+        quoted_html='<blockquote>Oorspronkelijk bericht</blockquote>',
+    )
+    assert status == "sent"
+    assert provider_id == ""
+    body_at = final_html.index("Antwoord")
+    sig_at = final_html.index("Groet, Tester")
+    quote_at = final_html.index("Oorspronkelijk bericht")
+    # Mail-client order: body, signature, quoted history.
+    assert body_at < sig_at < quote_at
+
+
+@pytest.mark.asyncio
+async def test_deliver_outbound_forward_overrides_recipient(session_override: AsyncSession):
+    from app.channels.outbound import deliver_outbound
+
+    tenant = await _tenant(session_override)
+    account = ChannelAccount(
+        tenant_id=tenant.id, channel="email", provider="mock", address="me@firm.nl"
+    )
+    session_override.add(account)
+    await session_override.flush()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="BTW vraag",
+        contact_email="klant@x.nl",
+        channel_account_id=account.id,
+    )
+    session_override.add(signal)
+    await session_override.commit()
+
+    delivery = await deliver_outbound(
+        session_override,
+        signal,
+        body_text="Zie onderstaande mail",
+        subject="Fwd: BTW vraag",
+        to_address="collega@firm.nl",
+        suppress_threading=True,
+    )
+    assert delivery.status == "sent"
+    assert delivery.from_address == "me@firm.nl"
+    assert delivery.to_address == "collega@firm.nl"
+
+
+@pytest.mark.asyncio
+async def test_reply_endpoint_forward_stores_recipients(client: AsyncClient, session_override: AsyncSession):
+    headers = await _login(client)
+    from app.models.auth import User
+
+    tenant = (
+        (await session_override.execute(select(Tenant).where(Tenant.slug == "test")))
+        .scalars()
+        .first()
+    ) or await _tenant(session_override)
+    account = ChannelAccount(
+        tenant_id=tenant.id, channel="email", provider="mock", address="me@firm.nl"
+    )
+    session_override.add(account)
+    await session_override.flush()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="BTW vraag",
+        contact_email="klant@x.nl",
+        channel_account_id=account.id,
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+
+    res = await client.post(
+        f"/api/signals/{signal.id}/reply",
+        headers=headers,
+        json={
+            "body_text": "Zie onderstaande mail van de klant.",
+            "mode": "forward",
+            "to": "collega@firm.nl",
+            "subject": "Fwd: BTW vraag",
+            "quoted_html": "<blockquote>Oorspronkelijke vraag</blockquote>",
+        },
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["to_addresses"] == "collega@firm.nl"
+    assert data["from_address"] == "me@firm.nl"
+    assert data["subject"] == "Fwd: BTW vraag"
+    assert data["reply_mode"] == "forward"
+    assert data["send_status"] == "sent"
+    # Quoted history was sent on the wire below the signature.
+    assert "Oorspronkelijke vraag" in (data["body_html"] or "")
 
 
 # --- Compose fidelity ---------------------------------------------------------

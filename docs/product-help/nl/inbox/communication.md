@@ -52,10 +52,20 @@ Een persoon als eigenaar houdt het gesprek vast: agents maken dan alleen concept
 *Eén composer met drie bestemmingen: de klant, de AI of het team.*
 
 1. Open een gesprek. Onder de tijdlijn toont de composer een mode-chip: **Antwoord aan {naam}**, **Vraag {agent}** en **Notitie**.
-2. **Antwoord** gaat naar de klant op hetzelfde kanaal. De placeholder herinnert je eraan dat de klant dit ziet. Op e-mail stuurt **Ctrl+Enter**; op chat stuurt Enter.
+2. **Antwoord** gaat naar de klant op hetzelfde kanaal. De placeholder herinnert je eraan dat de klant dit ziet. Op chat stuurt Enter. Op een e-mailgesprek start de composer op **Vraag**, en opent de Antwoord-chip de mailcomposer op de nieuwste klantmail — zie de volgende sectie.
 3. **Vraag** praat alleen met de AI op dit gesprek (of start een AI check-in). De klant ziet niets. De composer-omlijning wordt paars. Switchen naar Vraag of een agent @-vermelden opent nog geen metagesprek tot je verstuurt. **Annuleren** op een leeg metagesprek haalt het weg. Tijdens streamen staat **Stop** klaar. Plak een screenshot of afbeelding in de composer (of gebruik de paperclip) zodat de AI die op die beurt kan zien.
 4. **Notitie** is alleen voor het team. De omlijning is grijs. Gebruik die voor overdracht en context die de workspace niet mag verlaten.
 5. Op een AI-gesprek (`assistant`) of een AI check-in ontbreekt Antwoord — alleen Vraag en Notitie blijven, met **Notitie** na **Vraag**. Slash-commando's en `@`-mentions blijven werken.
+
+## Een e-mail beantwoorden, allen beantwoorden of doorsturen
+
+E-mailgesprekken antwoorden zoals een mailclient: elke ontvangen mail draagt eigen antwoordknoppen, en de composer groeit naar een volledige mailweergave zodra je ze gebruikt.
+
+1. Open een e-mailgesprek. Beweeg over een ontvangen mail en kies in de actierij **Beantwoorden** (pijl naar links), **Allen beantwoorden** (dubbele pijl — alleen zichtbaar wanneer meer mensen op de mail stonden) of **Doorsturen** (pijl naar rechts).
+2. De composer onderin groeit naar een mailweergave, met daarboven een mini-weergave van de thread. **Aan** is vooringevuld vanuit de mail die je aanklikte (leeg bij doorsturen), **CC/BCC** opent extra ontvangervelden en het onderwerp is bewerkbaar — `Re:` of `Fwd:` staat al klaar. **Van** wisselt van mailbox wanneer er meer dan één kan versturen.
+3. Schrijf je bericht. Je handtekening staat onder de invoer, precies zoals die meegaat. De drie puntjes eronder klappen de geciteerde mailgeschiedenis uit die wordt meegestuurd. AI-schrijfhulp, dicteren en de bijlageknop blijven beschikbaar.
+4. Verstuur met de knop of **Ctrl+Enter**. De mail landt in de tijdlijn als een uitklapbare mailwolk met alleen jouw bericht, en de composer keert terug naar zijn normale formaat.
+5. **Esc** of de **X** in de hoek sluit de mailweergave zonder te versturen.
 
 ## Zie en wijzig wat de AI doet
 
