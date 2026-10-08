@@ -770,7 +770,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setComposerMode('reply')
       return
     }
-    if (handlingEffective === 'manual') {
+    if (handlingEffective === 'manual' && messageLayout !== 'email') {
+      // Manual handling puts chat channels straight on Reply. Email threads
+      // keep their surface default: outbound mail always goes through the
+      // mail-native composer (Reply tab / bubble actions), never the chat input.
       setComposerMode('reply')
       return
     }
@@ -1066,12 +1069,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setComposerMode('reply')
       return
     }
+    // Thread drafts only hold reply intents; 'new' lives on the compose page.
+    const draftMode: MailDraftMode =
+      storedMailDraft.mode === 'new' ? 'reply' : storedMailDraft.mode
     const source = detail.messages.find(
       (m) => String(m.id) === storedMailDraft.sourceMessageId,
     )
     if (source) {
       setMailDraft(
-        buildMailDraftIntent(source, storedMailDraft.mode, {
+        buildMailDraftIntent(source, draftMode, {
           ownAddresses: mailOwnAddresses,
           contactEmail: detail.thread.contactEmail,
           threadSubject: detail.thread.emailSubject,
@@ -1084,7 +1090,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
     // Source mail outside the loaded window: resume without quoted history.
     setMailDraft({
-      mode: storedMailDraft.mode,
+      mode: draftMode,
       sourceMessageId: storedMailDraft.sourceMessageId,
       to: storedMailDraft.to,
       cc: storedMailDraft.cc,
@@ -1121,6 +1127,20 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           handleMailAction(source, 'reply')
           return
         }
+        // Outbound-started thread without an inbound mail yet: mail goes
+        // out through the mail composer too, just without quoted history.
+        if (detail.thread.contactEmail) {
+          setMailDraft({
+            mode: 'reply',
+            sourceMessageId: '',
+            to: detail.thread.contactEmail,
+            cc: '',
+            subject: detail.thread.emailSubject || '',
+            quotedHtml: '',
+            quotedPreview: '',
+          })
+          return
+        }
       }
       setComposerMode(mode)
       if (mode !== 'ask') setAskAgentId(null)
@@ -1145,8 +1165,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         bcc: payload.bcc,
         channelAccountId: payload.channelAccountId,
         to: payload.to,
-        mode: payload.mode,
-        sourceMessageId: payload.sourceMessageId,
+        // Threads only produce reply intents; 'new' lives on the compose page.
+        mode: payload.mode === 'new' ? 'reply' : payload.mode,
+        sourceMessageId: payload.sourceMessageId || undefined,
         subject: payload.subject,
         quotedHtml: payload.quotedHtml,
       })
@@ -1581,6 +1602,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <MailComposer
           intent={mailDraft}
           threadId={String(thread.id)}
+          draftKey={String(thread.id)}
           channelAccountId={thread.channelAccountId ?? null}
           saving={saving}
           onSend={handleMailSend}

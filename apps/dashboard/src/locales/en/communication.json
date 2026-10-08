@@ -185,6 +185,7 @@
     "modeReply": "Reply",
     "modeReplyAll": "Reply all",
     "modeForward": "Forward",
+    "modeNew": "New email",
     "signature": "Signature",
     "quoteToggle": "Show the quoted mail history sent along",
     "quoteTitle": "Quoted mail history",

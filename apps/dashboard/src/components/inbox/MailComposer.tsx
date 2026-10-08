@@ -17,11 +17,13 @@ import {
   Check,
   ChevronDown,
   Forward,
+  Mail,
   MoreHorizontal,
   Paperclip,
   Reply,
   ReplyAll,
   Send,
+  User as UserIcon,
   X as XIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -49,7 +51,11 @@ import {
   writeStoredMailDraft,
   type StoredMailDraft,
 } from '../../lib/mail-draft-store'
-import { parseAddressList, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
+import {
+  parseAddressList,
+  type MailComposerIntent,
+  type MailComposerMode,
+} from '../../lib/mail-reply'
 import { uploadAttachment } from '../../lib/uploads-api'
 import ComposerWriteAssist from './ComposerWriteAssist'
 import { DictationMicButton } from './DictationMicButton'
@@ -63,32 +69,56 @@ export type MailSendPayload = {
   subject?: string
   attachments?: MessageAttachment[]
   channelAccountId?: string
-  mode: MailDraftMode
+  /** Address of the chosen From mailbox (maps back to a connection id). */
+  fromAddress?: string
+  mode: MailComposerMode
+  /** Empty for a brand-new mail or when the source left the loaded window. */
   sourceMessageId: string
   quotedHtml?: string
 }
 
+export type MailRecipientSuggestion = { label: string; address: string }
+
 type Props = {
-  intent: MailDraftIntent
-  /** Thread id for the AI write assist. */
-  threadId: string
+  intent: MailComposerIntent
+  /** Thread id for the AI write assist; null hides it (new mail). */
+  threadId?: string | null
+  /** Stable key the unsent draft persists under (thread id, or 'new'). */
+  draftKey: string
   /** Bound mailbox of the thread (default From). */
   channelAccountId?: string | null
+  /** Preferred From mailbox by address when no channel account id is known. */
+  defaultFromAddress?: string | null
+  /** Contact suggestions for the To field (new mail). */
+  recipientSuggestions?: MailRecipientSuggestion[]
+  /** Deeplinked body text; a restored draft body wins. */
+  initialBody?: string
+  /**
+   * 'thread': grows out of the standard composer at the bottom of a thread.
+   * 'page': static full-height card (New conversation page).
+   */
+  variant?: 'thread' | 'page'
   saving: boolean
   onSend: (payload: MailSendPayload) => Promise<void>
   onCancel: () => void
 }
 
-const MODE_META: Record<MailDraftMode, { icon: typeof Reply; labelKey: string }> = {
+const MODE_META: Record<MailComposerMode, { icon: typeof Reply; labelKey: string }> = {
   reply: { icon: Reply, labelKey: 'mailComposer.modeReply' },
   reply_all: { icon: ReplyAll, labelKey: 'mailComposer.modeReplyAll' },
   forward: { icon: Forward, labelKey: 'mailComposer.modeForward' },
+  new: { icon: Mail, labelKey: 'mailComposer.modeNew' },
 }
 
 export default function MailComposer({
   intent,
   threadId,
+  draftKey,
   channelAccountId: boundChannelAccountId,
+  defaultFromAddress,
+  recipientSuggestions,
+  initialBody,
+  variant = 'thread',
   saving,
   onSend,
   onCancel,
@@ -96,22 +126,29 @@ export default function MailComposer({
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
 
-  // Unsent draft of this conversation: the body (and attachments) always come
+  // Unsent draft under this key: the body (and attachments) always come
   // back; recipients and subject only when the draft targets the same mail
-  // and mode, otherwise the fresh intent wins.
-  const [restoredDraft] = useState<StoredMailDraft | null>(() => readStoredMailDraft(threadId))
+  // and mode, otherwise the fresh intent wins. For a new mail an explicit
+  // deeplinked recipient or subject beats the stored draft.
+  const [restoredDraft] = useState<StoredMailDraft | null>(() => readStoredMailDraft(draftKey))
   const restoredMatchesIntent =
     restoredDraft != null &&
     restoredDraft.mode === intent.mode &&
     restoredDraft.sourceMessageId === intent.sourceMessageId
 
-  const [body, setBody] = useState(() => restoredDraft?.body ?? '')
-  const [to, setTo] = useState(() => (restoredMatchesIntent ? restoredDraft.to : intent.to))
+  const [body, setBody] = useState(() => restoredDraft?.body || initialBody || '')
+  const [to, setTo] = useState(() => {
+    if (!restoredMatchesIntent) return intent.to
+    if (intent.mode === 'new' && intent.to) return intent.to
+    return restoredDraft.to
+  })
   const [cc, setCc] = useState(() => (restoredMatchesIntent ? restoredDraft.cc : intent.cc))
   const [bcc, setBcc] = useState(() => restoredDraft?.bcc ?? '')
-  const [subject, setSubject] = useState(() =>
-    restoredMatchesIntent ? restoredDraft.subject : intent.subject,
-  )
+  const [subject, setSubject] = useState(() => {
+    if (!restoredMatchesIntent) return intent.subject
+    if (intent.mode === 'new' && intent.subject) return intent.subject
+    return restoredDraft.subject
+  })
   const [ccBccOpen, setCcBccOpen] = useState(() =>
     Boolean(intent.cc || restoredDraft?.cc || restoredDraft?.bcc),
   )
@@ -121,9 +158,10 @@ export default function MailComposer({
   )
   const [uploading, setUploading] = useState(false)
   const [sending, setSending] = useState(false)
-  // Mounts collapsed at composer height, then grows — the standard composer
-  // visually transforms into the mail surface.
-  const [expanded, setExpanded] = useState(false)
+  // Thread variant mounts collapsed at composer height, then grows — the
+  // standard composer visually transforms into the mail surface. The page
+  // variant renders at full height right away.
+  const [expanded, setExpanded] = useState(variant === 'page')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -132,9 +170,12 @@ export default function MailComposer({
   useEffect(() => {
     const raf = window.requestAnimationFrame(() => setExpanded(true))
     const focus = window.setTimeout(() => {
-      // Forward starts with an empty To field; replies start writing.
-      if (intent.mode === 'forward' && !intent.to) toFieldRef.current?.focus()
-      else textareaRef.current?.focus()
+      // Forward and a blank new mail start in the To field; replies start writing.
+      if ((intent.mode === 'forward' || intent.mode === 'new') && !to.trim()) {
+        toFieldRef.current?.focus()
+      } else {
+        textareaRef.current?.focus()
+      }
     }, 320)
     return () => {
       window.cancelAnimationFrame(raf)
@@ -143,9 +184,14 @@ export default function MailComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
   }, [])
 
-  // A new intent (other bubble / other mode) re-seeds the fields but keeps an
-  // already-typed body so switching Reply → Reply all does not lose text.
-  const intentKey = `${intent.mode}:${intent.sourceMessageId}`
+  // A new intent (other bubble / other mode / picked teammate) re-seeds the
+  // fields but keeps an already-typed body so switching Reply → Reply all
+  // does not lose text. A new mail has no source message, so the recipient
+  // is part of the key (teammate chips swap it).
+  const intentKey =
+    intent.mode === 'new'
+      ? `new:${intent.to}:${intent.subject}`
+      : `${intent.mode}:${intent.sourceMessageId}`
   const prevIntentKeyRef = useRef(intentKey)
   useEffect(() => {
     if (prevIntentKeyRef.current === intentKey) return
@@ -191,6 +237,12 @@ export default function MailComposer({
           if (boundChannelAccountId && mailboxes.some((row) => row.id === boundChannelAccountId)) {
             return boundChannelAccountId
           }
+          if (defaultFromAddress) {
+            const match = mailboxes.find(
+              (row) => row.address.trim().toLowerCase() === defaultFromAddress.trim().toLowerCase(),
+            )
+            if (match) return match.id
+          }
           return mailboxes[0]?.id ?? null
         })
       })
@@ -200,11 +252,37 @@ export default function MailComposer({
     return () => {
       cancelled = true
     }
-  }, [token, boundChannelAccountId])
+  }, [token, boundChannelAccountId, defaultFromAddress])
   const selectedMailbox = useMemo(
     () => emailChannels.find((row) => row.id === selectedChannelAccountId) ?? null,
     [emailChannels, selectedChannelAccountId],
   )
+
+  // Contact typeahead on the To field (new mail): matches on the text after
+  // the last comma, hides addresses that are already recipients.
+  const [toSuggestOpen, setToSuggestOpen] = useState(false)
+  const toSuggestions = useMemo(() => {
+    if (!recipientSuggestions?.length) return []
+    const parts = to.split(',')
+    const query = (parts[parts.length - 1] ?? '').trim().toLowerCase()
+    const chosen = new Set(parseAddressList(to))
+    return recipientSuggestions
+      .filter((s) => !chosen.has(s.address.trim().toLowerCase()))
+      .filter((s) => !query || `${s.label} ${s.address}`.toLowerCase().includes(query))
+      .slice(0, 6)
+  }, [recipientSuggestions, to])
+  const pickToSuggestion = (address: string) => {
+    setTo((prev) => {
+      const parts = prev.split(',')
+      parts[parts.length - 1] = address
+      return parts
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .join(', ')
+    })
+    setToSuggestOpen(false)
+    toFieldRef.current?.focus()
+  }
 
   // Snapshot for the draft store, kept fresh every render so the unmount
   // flush below writes the very last keystrokes.
@@ -225,19 +303,19 @@ export default function MailComposer({
     if (suppressPersistRef.current) return
     const timer = window.setTimeout(() => {
       if (suppressPersistRef.current || !draftRef.current) return
-      writeStoredMailDraft(threadId, draftRef.current)
+      writeStoredMailDraft(draftKey, draftRef.current)
       setDraftSaved(mailDraftHasContent(draftRef.current))
     }, 400)
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot lives in draftRef
-  }, [threadId, body, to, cc, bcc, subject, attachments, selectedChannelAccountId, intentKey])
+  }, [draftKey, body, to, cc, bcc, subject, attachments, selectedChannelAccountId, intentKey])
 
   useEffect(() => {
     return () => {
       if (suppressPersistRef.current || !draftRef.current) return
-      writeStoredMailDraft(threadId, draftRef.current)
+      writeStoredMailDraft(draftKey, draftRef.current)
     }
-  }, [threadId])
+  }, [draftKey])
 
   // Signature exactly as the server will append it (custom template rendered,
   // or the Bokito default with avatar).
@@ -309,7 +387,7 @@ export default function MailComposer({
     // Clear the stored draft up front so the unmount flush after a
     // successful send cannot write the sent text back as a leftover draft.
     suppressPersistRef.current = true
-    clearStoredMailDraft(threadId)
+    clearStoredMailDraft(draftKey)
     try {
       await onSend({
         bodyText: body.trim(),
@@ -319,6 +397,7 @@ export default function MailComposer({
         subject: subject.trim() || undefined,
         attachments: attachments.length ? attachments : undefined,
         channelAccountId: selectedChannelAccountId || undefined,
+        fromAddress: selectedMailbox?.address || undefined,
         mode: intent.mode,
         sourceMessageId: intent.sourceMessageId,
         quotedHtml: intent.quotedHtml || undefined,
@@ -326,7 +405,7 @@ export default function MailComposer({
     } catch (err) {
       // The mail did not go out: keep the draft.
       suppressPersistRef.current = false
-      if (draftRef.current) writeStoredMailDraft(threadId, draftRef.current)
+      if (draftRef.current) writeStoredMailDraft(draftKey, draftRef.current)
       toast.error(formatApiErrorMessage(err, t('composer.sendError')))
     } finally {
       setSending(false)
@@ -341,6 +420,7 @@ export default function MailComposer({
     }
     if (e.key === 'Escape') {
       e.preventDefault()
+      e.stopPropagation()
       onCancel()
     }
   }
@@ -353,13 +433,18 @@ export default function MailComposer({
     'min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none'
 
   return (
-    <div className="relative shrink-0 bg-bg px-4 pb-4 pt-1">
+    <div className={variant === 'thread' ? 'relative shrink-0 bg-bg px-4 pb-4 pt-1' : undefined}>
+      {variant === 'thread' ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-full z-10 h-12 bg-gradient-to-t from-bg from-20% to-transparent"
+        />
+      ) : null}
       <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-full z-10 h-12 bg-gradient-to-t from-bg from-20% to-transparent"
-      />
-      <div
-        className={cn(CHAT_COLUMN_CLASS, 'overflow-hidden transition-[height] duration-300 ease-out')}
+        className={cn(
+          variant === 'thread' && CHAT_COLUMN_CLASS,
+          'overflow-hidden transition-[height] duration-300 ease-out',
+        )}
         style={{ height: expanded ? 'min(62vh, 640px)' : '148px' }}
         onKeyDown={onKeyDown}
       >
@@ -451,17 +536,47 @@ export default function MailComposer({
           </div>
 
           {/* Recipients + subject */}
-          <div className={fieldRow}>
+          <div className={cn(fieldRow, 'relative')}>
             <span className={fieldLabel}>{t('compose.to')}</span>
             <input
               ref={toFieldRef}
               type="text"
               value={to}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={(e) => {
+                setTo(e.target.value)
+                setToSuggestOpen(true)
+              }}
+              onFocus={() => setToSuggestOpen(true)}
+              onBlur={() => window.setTimeout(() => setToSuggestOpen(false), 120)}
               placeholder={t('compose.toPlaceholder')}
               className={fieldInput}
               data-testid="mail-composer-to"
             />
+            {toSuggestOpen && toSuggestions.length ? (
+              <div className="absolute left-14 right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
+                <div className="max-h-56 overflow-y-auto p-1">
+                  {toSuggestions.map((s) => (
+                    <button
+                      key={s.address}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        pickToSuggestion(s.address)
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-bg-hover/60"
+                    >
+                      <UserIcon size={12} className="shrink-0 text-text-muted" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate-fade text-xs text-text-primary">{s.label}</span>
+                        {s.label !== s.address ? (
+                          <span className="block truncate-fade text-2xs text-text-muted">{s.address}</span>
+                        ) : null}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => setCcBccOpen((open) => !open)}
@@ -579,15 +694,17 @@ export default function MailComposer({
               className="hidden"
               onChange={(e) => void onPickFiles(e.target.files)}
             />
-            <ComposerWriteAssist
-              threadId={threadId}
-              body={body}
-              disabled={busy}
-              onApply={(text) => {
-                setBody(text)
-                requestAnimationFrame(() => textareaRef.current?.focus())
-              }}
-            />
+            {threadId ? (
+              <ComposerWriteAssist
+                threadId={threadId}
+                body={body}
+                disabled={busy}
+                onApply={(text) => {
+                  setBody(text)
+                  requestAnimationFrame(() => textareaRef.current?.focus())
+                }}
+              />
+            ) : null}
             {dictation.supported ? (
               <DictationMicButton
                 listening={dictation.listening}

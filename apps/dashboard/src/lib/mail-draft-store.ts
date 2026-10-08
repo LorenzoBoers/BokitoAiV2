@@ -9,10 +9,10 @@
  */
 
 import type { MessageAttachment } from './inbox-api'
-import type { MailDraftMode } from './mail-reply'
+import type { MailComposerMode } from './mail-reply'
 
 export type StoredMailDraft = {
-  mode: MailDraftMode
+  mode: MailComposerMode
   /** Message the draft replies to / forwards; used to rebuild the intent. */
   sourceMessageId: string
   to: string
@@ -28,7 +28,7 @@ export type StoredMailDraft = {
 
 export const mailDraftStorageKey = (threadId: string) => `inbox.mailDraft.${threadId}`
 
-const MODES: readonly MailDraftMode[] = ['reply', 'reply_all', 'forward']
+const MODES: readonly MailComposerMode[] = ['reply', 'reply_all', 'forward', 'new']
 
 /** A draft is only worth keeping when there is something to send. */
 export function mailDraftHasContent(
@@ -49,12 +49,12 @@ export function readStoredMailDraft(
       !parsed ||
       typeof parsed.body !== 'string' ||
       typeof parsed.sourceMessageId !== 'string' ||
-      !MODES.includes(parsed.mode as MailDraftMode)
+      !MODES.includes(parsed.mode as MailComposerMode)
     ) {
       return null
     }
     const draft: StoredMailDraft = {
-      mode: parsed.mode as MailDraftMode,
+      mode: parsed.mode as MailComposerMode,
       sourceMessageId: parsed.sourceMessageId,
       to: typeof parsed.to === 'string' ? parsed.to : '',
       cc: typeof parsed.cc === 'string' ? parsed.cc : '',

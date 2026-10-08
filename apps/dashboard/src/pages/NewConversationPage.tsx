@@ -23,10 +23,14 @@ import { agentRoleLabel } from '../lib/agent-role-label'
 import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, channelPath } from '../lib/messages-paths'
 import { ComposerCard } from '../components/ui/ComposerCard'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { canComposeToAddress } from '../lib/compose-intent'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { isSendableMailbox, sendNewEmail } from '../lib/email-api'
+import MailComposer, {
+  type MailRecipientSuggestion,
+  type MailSendPayload,
+} from '../components/inbox/MailComposer'
+import type { MailComposerIntent } from '../lib/mail-reply'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
@@ -85,13 +89,9 @@ export default function NewConversationPage() {
   const [agentPickerOpen, setAgentPickerOpen] = useState(false)
   const [agentQuery, setAgentQuery] = useState('')
   const [toAddress, setToAddress] = useState(toParam)
-  const [toQuery, setToQuery] = useState('')
-  const [toPickerOpen, setToPickerOpen] = useState(false)
-  const [subject, setSubject] = useState(subjectParam)
   const [connectionId, setConnectionId] = useState<number | null>(
     connectionParam ? Number(connectionParam) || null : readLocalOutboundConnectionId(),
   )
-  const [rememberFrom, setRememberFrom] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(memberParam || null)
@@ -132,7 +132,6 @@ export default function NewConversationPage() {
   })
   const composerRef = mention.textareaRef
   const agentPickerRef = useRef<HTMLDivElement>(null)
-  const toPickerRef = useRef<HTMLDivElement>(null)
 
   const setIntent = useCallback(
     (next: Intent | null, extra?: Record<string, string>) => {
@@ -232,56 +231,53 @@ export default function NewConversationPage() {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      if (agentPickerOpen || toPickerOpen) {
+      if (agentPickerOpen) {
         setAgentPickerOpen(false)
-        setToPickerOpen(false)
         return
       }
-      if (mention.raw.trim() || toAddress.trim() || subject.trim()) return
+      // Email intents: the mail composer handles Esc itself (and autosaves
+      // its draft); this listener only fires when it is not focused.
+      if (mention.raw.trim() && intent === 'agent') return
       event.preventDefault()
       if (intent) setIntent(null)
       else navigate(lastInboxPath())
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [agentPickerOpen, toPickerOpen, mention.raw, toAddress, subject, intent, setIntent, navigate])
+  }, [agentPickerOpen, mention.raw, intent, setIntent, navigate])
 
   useEffect(() => {
-    if (!agentPickerOpen && !toPickerOpen) return
+    if (!agentPickerOpen) return
     const onClick = (e: MouseEvent) => {
       if (agentPickerRef.current && !agentPickerRef.current.contains(e.target as Node)) {
         setAgentPickerOpen(false)
       }
-      if (toPickerRef.current && !toPickerRef.current.contains(e.target as Node)) {
-        setToPickerOpen(false)
-      }
     }
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
-  }, [agentPickerOpen, toPickerOpen])
+  }, [agentPickerOpen])
 
   const filteredAgents = useMemo(() => {
     const q = agentQuery.trim().toLowerCase()
     return targets.filter((row) => !q || row.name.toLowerCase().includes(q))
   }, [targets, agentQuery])
 
-  const matchingContacts = useMemo(() => {
-    const q = (toPickerOpen ? toQuery : toAddress).trim().toLowerCase()
-    return contacts
-      .filter((contact) => canComposeToAddress(contact.channel, contact.address))
-      .filter((contact) => {
-        if (!q) return true
-        return `${contact.displayName} ${contact.address}`.toLowerCase().includes(q)
-      })
-      .slice(0, 8)
-  }, [contacts, toAddress, toQuery, toPickerOpen])
-
-  const directEmailQuery = useMemo(() => {
-    const q = (toPickerOpen ? toQuery : toAddress).trim()
-    if (!canComposeToAddress('email', q)) return null
-    const exists = contacts.some((c) => c.address.trim().toLowerCase() === q.toLowerCase())
-    return exists ? null : q
-  }, [toAddress, toQuery, toPickerOpen, contacts])
+  // Contact typeahead inside the mail composer's To field.
+  const recipientSuggestions = useMemo<MailRecipientSuggestion[]>(
+    () =>
+      contacts
+        .filter((contact) => canComposeToAddress(contact.channel, contact.address))
+        .map((contact) => ({
+          label:
+            humanizeContactName(
+              contact.displayName,
+              contact.address,
+              t('contactPanel.widgetVisitor'),
+            ) || contact.address,
+          address: contact.address,
+        })),
+    [contacts, t],
+  )
 
   const chooseAgent = (target: ChatTarget) => {
     writeLastChatTarget(target.id)
@@ -291,39 +287,13 @@ export default function NewConversationPage() {
     composerRef.current?.focus()
   }
 
-  const chooseContactAddress = (address: string) => {
-    setToAddress(address.trim())
-    setToQuery('')
-    setToPickerOpen(false)
-    composerRef.current?.focus()
-  }
-
   const chooseTeammate = (memberId: string, email: string) => {
     setSelectedMemberId(memberId)
     setToAddress(email)
     setIntent('teammate', { member: memberId, to: email })
   }
 
-  const onFromChange = (nextId: number) => {
-    setConnectionId(nextId)
-    if (rememberFrom && token) {
-      void saveOutboundConnectionId(token, nextId).catch(() => {
-        /* keep local */
-      })
-    } else {
-      // Session-only switch for this draft; still keep local paint for next open
-      // unless the user unchecked remember — then only update local when they send.
-    }
-  }
-
-  const canSendContact =
-    canSendEmail &&
-    connectionId != null &&
-    canComposeToAddress('email', toAddress) &&
-    mention.raw.trim().length > 0
-
   const canSendAgent = Boolean(selectedAgent && mention.raw.trim())
-  const canSendTeammate = canSendContact
 
   const startAgent = useCallback(async () => {
     const content = mention.raw.trim()
@@ -345,33 +315,42 @@ export default function NewConversationPage() {
     }
   }, [mention.raw, token, selectedAgent, sending, navigate, refreshSessions, t])
 
-  const startOutboundEmail = useCallback(async () => {
-    const content = mention.raw.trim()
-    const to = toAddress.trim()
-    if (!token || !canComposeToAddress('email', to) || !content || connectionId == null || sending) return
-    setSending(true)
-    setError(null)
-    try {
-      if (rememberFrom) {
-        void saveOutboundConnectionId(token, connectionId).catch(() => undefined)
+  // Send from the embedded mail composer: creates the thread and delivers
+  // the mail in one call, then opens the new conversation.
+  const handleMailSend = useCallback(
+    async (payload: MailSendPayload) => {
+      if (!token || sending) return
+      setSending(true)
+      setError(null)
+      try {
+        // Map the chosen From mailbox back to its numeric connection id.
+        const fromEmail = (payload.fromAddress || '').trim().toLowerCase()
+        const connection =
+          sendableMailboxes.find((c) => c.mailboxEmail.trim().toLowerCase() === fromEmail) ??
+          sendableMailboxes.find((c) => c.id === connectionId) ??
+          sendableMailboxes[0]
+        if (!connection) throw new Error(t('newConversation.connectMailbox'))
+        void saveOutboundConnectionId(token, connection.id).catch(() => undefined)
+        const result = await sendNewEmail(token, {
+          toAddresses: payload.to,
+          subject: payload.subject?.trim() || t('compose.noSubject'),
+          bodyText: payload.bodyText,
+          cc: payload.cc,
+          bcc: payload.bcc,
+          attachments: payload.attachments,
+          connectionId: connection.id,
+        })
+        navigate(channelPath(`email:${connection.id}`, { threadId: result.threadId }))
+      } finally {
+        setSending(false)
       }
-      const result = await sendNewEmail(token, {
-        toAddresses: to,
-        subject: subject.trim() || t('compose.noSubject'),
-        bodyText: content,
-        connectionId,
-      })
-      navigate(channelPath(`email:${connectionId}`, { threadId: result.threadId }))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('newConversation.startError'))
-      setSending(false)
-    }
-  }, [mention.raw, toAddress, token, connectionId, sending, rememberFrom, subject, navigate, t])
+    },
+    [token, sending, sendableMailboxes, connectionId, navigate, t],
+  )
 
   const start = useCallback(async () => {
     if (intent === 'agent') return startAgent()
-    if (intent === 'contact' || intent === 'teammate') return startOutboundEmail()
-  }, [intent, startAgent, startOutboundEmail])
+  }, [intent, startAgent])
 
   useEffect(() => {
     if (!autoSendRequested.current || intent !== 'agent') return
@@ -385,6 +364,25 @@ export default function NewConversationPage() {
   }
 
   const noAgents = !loadingTargets && targets.length === 0 && intent === 'agent'
+
+  // Intent for the embedded mail composer; the recipient follows deeplinks
+  // (?to=) and teammate chips, the subject follows ?subject=.
+  const mailIntent = useMemo<MailComposerIntent>(
+    () => ({
+      mode: 'new',
+      sourceMessageId: '',
+      to: toAddress,
+      cc: '',
+      subject: subjectParam,
+      quotedHtml: '',
+      quotedPreview: '',
+    }),
+    [toAddress, subjectParam],
+  )
+  const defaultFromAddress = useMemo(
+    () => sendableMailboxes.find((c) => c.id === connectionId)?.mailboxEmail ?? null,
+    [sendableMailboxes, connectionId],
+  )
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -486,137 +484,32 @@ export default function NewConversationPage() {
                     })}
                   </div>
                 </div>
-              ) : (
-                <div ref={toPickerRef} className="relative">
-                  <div className="panel flex items-center gap-2 px-3 py-2">
-                    <span className="text-xs font-medium text-text-muted">{t('newConversation.to')}</span>
-                    {toPickerOpen ? (
-                      <input
-                        value={toQuery}
-                        onChange={(e) => setToQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            if (matchingContacts[0]) chooseContactAddress(matchingContacts[0].address)
-                            else if (directEmailQuery) chooseContactAddress(directEmailQuery)
-                          }
-                          if (e.key === 'Escape') setToPickerOpen(false)
-                        }}
-                        placeholder={t('newConversation.searchContacts')}
-                        className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
-                        autoFocus
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setToQuery(toAddress)
-                          setToPickerOpen(true)
-                        }}
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                      >
-                        {toAddress ? (
-                          <span className="truncate-fade text-sm text-text-primary">{toAddress}</span>
-                        ) : (
-                          <span className="text-sm text-text-muted">{t('newConversation.chooseContact')}</span>
-                        )}
-                        <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
-                      </button>
-                    )}
-                  </div>
-                  {toPickerOpen ? (
-                    <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
-                      <div className="max-h-[280px] overflow-y-auto p-1">
-                        {matchingContacts.map((contact) => (
-                          <button
-                            key={contact.id}
-                            type="button"
-                            onClick={() => chooseContactAddress(contact.address)}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
-                          >
-                            <User size={14} className="shrink-0 text-text-muted" />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate-fade text-sm text-text-primary">
-                                {humanizeContactName(
-                                  contact.displayName,
-                                  contact.address,
-                                  t('contactPanel.widgetVisitor'),
-                                ) || contact.address}
-                              </span>
-                              <span className="block text-2xs text-text-muted">{contact.address}</span>
-                            </span>
-                          </button>
-                        ))}
-                        {directEmailQuery ? (
-                          <button
-                            type="button"
-                            onClick={() => chooseContactAddress(directEmailQuery)}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
-                          >
-                            <Mail size={14} className="shrink-0 text-text-muted" />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate-fade text-sm text-text-primary">
-                                {t('newConversation.emailAddressDirect', { address: directEmailQuery })}
-                              </span>
-                              <span className="block text-2xs text-text-muted">
-                                {t('newConversation.emailAddressDirectHint')}
-                              </span>
-                            </span>
-                          </button>
-                        ) : null}
-                        {!matchingContacts.length && !directEmailQuery ? (
-                          <p className="px-3 py-2.5 text-xs text-text-muted">{t('newConversation.noMatches')}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              )}
+              ) : null}
 
-              <div className="panel flex flex-wrap items-center gap-2 px-3 py-2">
-                <span className="text-xs font-medium text-text-muted">{t('newConversation.from')}</span>
-                {!canSendEmail ? (
-                  <Link to="/settings/channels" className="text-sm font-medium text-accent hover:underline">
+              {!canSendEmail ? (
+                <p className="text-xs text-text-muted">
+                  {t('newConversation.connectMailboxHint')}{' '}
+                  <Link to="/settings/channels" className="font-medium text-accent hover:underline">
                     {t('newConversation.connectMailbox')}
                   </Link>
-                ) : sendableMailboxes.length === 1 ? (
-                  <span className="truncate-fade text-sm text-text-primary">{sendableMailboxes[0].mailboxEmail}</span>
-                ) : (
-                  <Select
-                    value={connectionId != null ? String(connectionId) : undefined}
-                    onValueChange={(value) => onFromChange(Number(value))}
-                  >
-                    <SelectTrigger className="h-8 min-w-0 flex-1 text-sm" aria-label={t('newConversation.from')}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sendableMailboxes.map((c) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.mailboxEmail}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {canSendEmail && sendableMailboxes.length > 1 ? (
-                  <label className="ml-auto flex items-center gap-1.5 text-xs text-text-muted">
-                    <input
-                      type="checkbox"
-                      checked={rememberFrom}
-                      onChange={(e) => setRememberFrom(e.target.checked)}
-                      className="rounded border-border"
-                    />
-                    {t('newConversation.rememberFrom')}
-                  </label>
-                ) : null}
-              </div>
-
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder={t('newConversation.subjectPlaceholder')}
-                className="w-full rounded-lg border border-border/60 bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
-              />
+                </p>
+              ) : (
+                <>
+                  {error ? <p className="px-1 text-xs text-status-error">{error}</p> : null}
+                  <p className="px-1 text-xs text-text-muted">{t('newConversation.draftHint')}</p>
+                  <MailComposer
+                    intent={mailIntent}
+                    draftKey="new"
+                    defaultFromAddress={defaultFromAddress}
+                    recipientSuggestions={recipientSuggestions}
+                    initialBody={bodyParam}
+                    variant="page"
+                    saving={sending}
+                    onSend={handleMailSend}
+                    onCancel={() => setIntent(null)}
+                  />
+                </>
+              )}
             </div>
           ) : null}
 
@@ -712,7 +605,7 @@ export default function NewConversationPage() {
             </div>
           ) : null}
 
-          {intent && !(intent === 'agent' && noAgents) ? (
+          {intent === 'agent' && !noAgents ? (
             <div className="mt-6">
               {error ? (
                 <div className="mb-2 flex items-center gap-2 px-1">
@@ -731,8 +624,8 @@ export default function NewConversationPage() {
               <p className="mb-2 px-1 text-xs text-text-muted">{t('newConversation.draftHint')}</p>
               <ComposerCard
                 ref={composerRef}
-                mode={intent === 'agent' ? 'chat' : 'email'}
-                tone={intent === 'agent' ? 'ai' : 'default'}
+                mode="chat"
+                tone="ai"
                 value={mention.display}
                 onChange={(e) =>
                   mention.onChange(
@@ -759,21 +652,16 @@ export default function NewConversationPage() {
                   ) : null
                 }
                 placeholder={
-                  intent === 'agent'
-                    ? selectedAgent
-                      ? t('newConversation.messageName', { name: selectedAgent.name })
-                      : t('newConversation.chooseAndType')
-                    : t('newConversation.writeMessage')
+                  selectedAgent
+                    ? t('newConversation.messageName', { name: selectedAgent.name })
+                    : t('newConversation.chooseAndType')
                 }
                 className="border-border/60 bg-bg-surface"
               >
                 <button
                   type="button"
                   onClick={() => void start()}
-                  disabled={
-                    sending ||
-                    (intent === 'agent' ? !canSendAgent : intent === 'teammate' ? !canSendTeammate : !canSendContact)
-                  }
+                  disabled={sending || !canSendAgent}
                   title={t('newConversation.send')}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
                 >

@@ -10,6 +10,12 @@ import type { InboxMessage } from './inbox-api'
 
 export type MailDraftMode = 'reply' | 'reply_all' | 'forward'
 
+/** Composer modes: the reply intents plus a brand-new outbound mail. */
+export type MailComposerMode = MailDraftMode | 'new'
+
+/** Intent the mail composer renders; `new` has no source message or quote. */
+export type MailComposerIntent = Omit<MailDraftIntent, 'mode'> & { mode: MailComposerMode }
+
 export type MailDraftIntent = {
   mode: MailDraftMode
   sourceMessageId: string
