@@ -2499,10 +2499,12 @@ async def reply_to_thread(
         from app.channels import deliver_outbound
         from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
-        # Manual replies are sent as the operator: their signature (mailbox
-        # signature as fallback) is appended server-side.
         signature_html = await resolve_signature_html(
-            session, tenant_id, send_as="user", user_id=user_id
+            session,
+            tenant_id,
+            send_as="user",
+            user_id=user_id,
+            channel_account_id=signal.channel_account_id,
         )
         from_display_name = await resolve_from_display_name(
             session, tenant_id, send_as="user", user_id=user_id
@@ -2847,6 +2849,7 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
             send_as=send_as,
             user_id=message.author_user_id,
             agent_id=message.author_agent_id or signal.agent_id,
+            channel_account_id=signal.channel_account_id,
         )
         from_display_name = await resolve_from_display_name(
             session,
@@ -3380,7 +3383,18 @@ async def resolve_message_decision(
             ),
         )
     )
-    if answer and user_id:
+    # Suggested-reply cards already leave an outbound email (or escalate event).
+    # Recording the button label ("Send") as a chat bubble clutters the timeline.
+    decision_title = (decision_row.title if decision_row else "") or ""
+    chosen_action_types = {
+        str(o.get("action_type") or "")
+        for o in options_list
+        if isinstance(o, dict) and str(o.get("id")) in set(chosen_ids)
+    }
+    skip_decision_chat = decision_title in REPLY_SUGGESTION_TITLES or bool(
+        chosen_action_types & {"send_reply", "draft", "escalate"}
+    )
+    if answer and user_id and not skip_decision_chat:
         sig_result = await session.execute(
             select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
         )

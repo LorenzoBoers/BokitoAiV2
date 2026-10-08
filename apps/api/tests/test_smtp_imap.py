@@ -174,6 +174,22 @@ def test_find_sent_mailbox_prefers_sent_flag():
     assert smtp_imap._find_sent_mailbox(client) == "Sent"
 
 
+def test_find_sent_mailbox_unquoted_hostinger_style():
+    """Hostinger LIST leaves INBOX.Sent unquoted; delimiter must not win."""
+    client = MagicMock()
+    client.list.return_value = (
+        "OK",
+        [
+            b'(\\HasNoChildren) "." INBOX',
+            b'(\\HasNoChildren \\Sent) "." INBOX.Sent',
+            b'(\\HasNoChildren) "." INBOX.Drafts',
+        ],
+    )
+    assert smtp_imap._find_sent_mailbox(client) == "INBOX.Sent"
+    assert smtp_imap._parse_list_mailbox('(\\HasNoChildren \\Sent) "." INBOX.Sent') == "INBOX.Sent"
+    assert smtp_imap._parse_list_mailbox('(\\Sent) "/" "Sent"') == "Sent"
+
+
 def test_append_to_sent_uses_seen_flag():
     client = MagicMock()
     client.list.return_value = ("OK", [b'(\\Sent) "/" "Sent"'])

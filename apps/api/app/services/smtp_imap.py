@@ -12,6 +12,7 @@ import email
 import email.policy
 import imaplib
 import logging
+import re
 import smtplib
 import ssl
 from datetime import datetime, timezone
@@ -19,6 +20,12 @@ from email.header import decode_header, make_header
 from email.message import EmailMessage
 from email.utils import formataddr, parsedate_to_datetime, parseaddr
 from typing import Any
+
+# IMAP LIST body: (flags) "delimiter" mailbox — mailbox may be quoted or an atom.
+_LIST_MAILBOX_RE = re.compile(
+    r"^\([^)]*\)\s+(?:\"([^\"]*)\"|NIL)\s+(?:\"([^\"]*)\"|(\S+))\s*$",
+    re.IGNORECASE,
+)
 
 from app.models.channel import ChannelAccount
 from app.services.crypto import get_connection_credentials
@@ -453,6 +460,30 @@ def _build_outbound_message(
     return msg
 
 
+def _parse_list_mailbox(line: str) -> str | None:
+    """Extract the mailbox name from one IMAP LIST response line.
+
+    Hostinger and similar servers often leave the mailbox unquoted
+    (``(\\Sent) "." INBOX.Sent``). The previous parser took the hierarchy
+    delimiter (``.``) as the name via ``rsplit('"', 2)``.
+    """
+    s = line.strip()
+    if s.upper().startswith("* LIST"):
+        s = s[6:].strip()
+    match = _LIST_MAILBOX_RE.match(s)
+    if match:
+        name = match.group(2) if match.group(2) is not None else match.group(3)
+        if name and name not in (".", "/"):
+            return name
+        return None
+    quoted = re.findall(r'"([^"]*)"', s)
+    if quoted:
+        name = quoted[-1]
+        if name and name not in (".", "/"):
+            return name
+    return None
+
+
 def _find_sent_mailbox(client: imaplib.IMAP4) -> str | None:
     """IMAP mailbox that holds Sent mail (\\Sent flag, else common names)."""
     try:
@@ -461,21 +492,26 @@ def _find_sent_mailbox(client: imaplib.IMAP4) -> str | None:
         return None
     if typ != "OK" or not data:
         return None
+    flagged: list[str] = []
     candidates: list[str] = []
     for raw in data:
         line = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
-        # LIST (\HasNoChildren \Sent) "/" "Sent"
+        name = _parse_list_mailbox(line)
+        if not name:
+            continue
         if "\\Sent" in line or "\\sent" in line.lower():
-            # Last quoted token is the mailbox name.
-            parts = line.rsplit('"', 2)
-            if len(parts) >= 2 and parts[-2]:
-                return parts[-2]
-        lower = line.lower()
-        for name in ("sent", "sent items", "sent messages", "inbox.sent", "[gmail]/sent mail"):
-            if f'"{name}"' in lower:
-                # Preserve the server's casing from the quoted name.
-                start = lower.rfind(f'"{name}"')
-                candidates.append(line[start + 1 : start + 1 + len(name)])
+            flagged.append(name)
+        lower = name.lower()
+        if lower in {
+            "sent",
+            "sent items",
+            "sent messages",
+            "inbox.sent",
+            "[gmail]/sent mail",
+        }:
+            candidates.append(name)
+    if flagged:
+        return flagged[0]
     for preferred in ("Sent", "Sent Items", "INBOX.Sent", "[Gmail]/Sent Mail"):
         for hit in candidates:
             if hit.lower() == preferred.lower():

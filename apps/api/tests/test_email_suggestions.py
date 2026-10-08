@@ -184,6 +184,17 @@ async def test_resolve_send_option_with_edited_body(client: AsyncClient, session
     assert decision.status == "approved"
     assert decision.chosen_option_id == "send"
 
+    # Approving must not leave a junk "Send" bubble in the customer timeline.
+    junk = (
+        await session_override.execute(
+            select(SignalMessage).where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.body_text == "Send",
+            )
+        )
+    ).scalars().all()
+    assert junk == []
+
 
 @pytest.mark.asyncio
 async def test_resolve_escalate_sets_manual(client: AsyncClient, session_override):
