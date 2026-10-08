@@ -122,7 +122,16 @@ async def append_signal_chat_message(
     session.add(message)
     signal.last_message_at = now
     signal.updated_at = now
-    if role == "user" and signal.channel != "assistant" and signal.status in ("pending", "closed"):
+    meta = metadata or {}
+    # Operator answers on decision cards are role=user but not customer mail.
+    # Approving "Close thread" must not reopen the signal we just closed.
+    is_decision_response = bool(meta.get("decision_response"))
+    if (
+        role == "user"
+        and signal.channel != "assistant"
+        and signal.status in ("pending", "closed")
+        and not is_decision_response
+    ):
         # A customer reply wakes a snoozed thread and reopens a closed one,
         # matching the email inbound path in services/signals.py. Personal
         # assistant threads are excluded: there the "user" is the operator.
