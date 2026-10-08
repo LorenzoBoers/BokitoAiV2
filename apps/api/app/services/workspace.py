@@ -1045,22 +1045,28 @@ async def build_workspace_context(
             )
         ).scalars().all()
         rendered: list[str] = []
-        for example in examples:
-            messages = (
+        if examples:
+            example_ids = [example.id for example in examples]
+            all_messages = (
                 await session.execute(
                     select(SignalMessage)
-                    .where(SignalMessage.signal_id == example.id)
+                    .where(SignalMessage.signal_id.in_(example_ids))
                     .order_by(SignalMessage.created_at)
-                    .limit(12)
                 )
             ).scalars().all()
-            turns = [
-                f"{'Customer' if m.direction == 'inbound' else 'Team'}: {m.body_text[:500]}"
-                for m in messages
-                if m.body_text.strip() and m.kind not in ("internal_note", "system_event")
-            ]
-            if turns:
-                rendered.append(f"### {example.subject}\n" + "\n".join(turns))
+            by_signal: dict = {eid: [] for eid in example_ids}
+            for msg in all_messages:
+                bucket = by_signal.get(msg.signal_id)
+                if bucket is not None and len(bucket) < 12:
+                    bucket.append(msg)
+            for example in examples:
+                turns = [
+                    f"{'Customer' if m.direction == 'inbound' else 'Team'}: {m.body_text[:500]}"
+                    for m in by_signal.get(example.id, [])
+                    if m.body_text.strip() and m.kind not in ("internal_note", "system_event")
+                ]
+                if turns:
+                    rendered.append(f"### {example.subject}\n" + "\n".join(turns))
         if rendered:
             parts.append("## Approved examples\n" + "\n\n".join(rendered))
     except Exception:

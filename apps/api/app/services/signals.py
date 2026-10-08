@@ -345,6 +345,36 @@ async def get_signal_detail(
     }
 
 
+async def get_triage_context(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID
+) -> dict[str, str]:
+    """Slim load for inbound triage: subject/from + newest message body only.
+
+    Avoids loading the full message history and event trail that
+    ``get_signal_detail`` builds for the operator UI.
+    """
+    result = await session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    msg_result = await session.execute(
+        select(SignalMessage)
+        .where(SignalMessage.signal_id == signal_id)
+        .order_by(SignalMessage.created_at.desc())
+        .limit(1)
+    )
+    last = msg_result.scalar_one_or_none()
+    body = message_plain_text(last) if last else ""
+    subject = signal.subject or ""
+    return {
+        "subject": subject,
+        "contact_email": signal.contact_email or "",
+        "body": body or subject,
+    }
+
+
 async def create_inbound_signal(
     session: AsyncSession,
     tenant_id: UUID,

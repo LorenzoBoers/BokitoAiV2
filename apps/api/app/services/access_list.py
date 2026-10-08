@@ -44,23 +44,34 @@ async def user_principal(
     return Principal("user", str(user_id), teams, unrestricted=role in UNRESTRICTED_ROLES)
 
 
-async def agent_principal(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> Principal:
+async def agent_principals(
+    session: AsyncSession, tenant_id: UUID, agent_ids: Sequence[UUID]
+) -> dict[UUID, Principal]:
+    """Team memberships for many agents in one query."""
     from app.models.team import TeamMember
 
-    teams = {
-        str(t)
-        for t in (
-            await session.execute(
-                select(TeamMember.team_id).where(
-                    TeamMember.tenant_id == tenant_id,
-                    TeamMember.member_kind == "agent",
-                    TeamMember.agent_id == agent_id,
-                )
-            )
-        ).scalars().all()
+    unique = list(dict.fromkeys(agent_ids))
+    if not unique:
+        return {}
+    by_agent: dict[UUID, set[str]] = {aid: set() for aid in unique}
+    rows = await session.execute(
+        select(TeamMember.agent_id, TeamMember.team_id).where(
+            TeamMember.tenant_id == tenant_id,
+            TeamMember.member_kind == "agent",
+            TeamMember.agent_id.in_(unique),
+        )
+    )
+    for agent_id, team_id in rows.all():
+        if agent_id in by_agent:
+            by_agent[agent_id].add(str(team_id))
+    return {
+        aid: Principal("agent", str(aid), teams | {TEAM_KIND_AGENTS})
+        for aid, teams in by_agent.items()
     }
-    teams.add(TEAM_KIND_AGENTS)
-    return Principal("agent", str(agent_id), teams)
+
+
+async def agent_principal(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> Principal:
+    return (await agent_principals(session, tenant_id, [agent_id]))[agent_id]
 
 
 def normalize_entries(raw: Any, levels: Sequence[str]) -> list[dict[str, str]] | None:

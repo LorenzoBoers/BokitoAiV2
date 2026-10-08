@@ -25,6 +25,9 @@ _NON_WORK_TOOLS = frozenset(
         "send_reply",
         "send_message",
         "create_decision_request",
+        "propose_action",
+        "attach_items",
+        "list_tags",
         "handoff_to_human",
         "resolve_decision",
     }

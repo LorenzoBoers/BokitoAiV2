@@ -44,7 +44,7 @@ async def collect_tenant_snapshot(
     from app.models.notification import DecisionRequest
     from app.models.orchestration import AgentTask
     from app.models.project import Project
-    from app.models.signal import Signal
+    from app.models.signal import Signal, SignalTag
     from app.models.trigger import Trigger
 
     agents_rows = (
@@ -228,10 +228,28 @@ async def collect_tenant_snapshot(
         if rows:
             module_connections[module.slug] = rows
 
+    tag_rows = (
+        await session.execute(
+            select(SignalTag)
+            .where(SignalTag.tenant_id == tenant_id)
+            .order_by(SignalTag.name)
+            .limit(40)
+        )
+    ).scalars().all()
+    tags = [
+        {
+            "id": str(tag.id),
+            "name": tag.name,
+            "kind": "action_tag" if tag.workstream_id else "tag",
+        }
+        for tag in tag_rows
+    ]
+
     return {
         "agents": agents,
         "projects": projects,
         "triggers": triggers,
+        "tags": tags,
         "open_decisions": int(open_decisions or 0),
         "running_tasks": int(running_tasks or 0),
         "open_internal_threads": int(open_internal_threads or 0),
@@ -295,6 +313,24 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
         lines.append("Projects: " + "; ".join(bits))
     else:
         lines.append("Projects: none")
+
+    tags = snapshot.get("tags") or []
+    if tags:
+        bits = []
+        for tag in tags[:20]:
+            name = str(tag.get("name") or "").strip()
+            if not name:
+                continue
+            kind = "actietag" if tag.get("kind") == "action_tag" else "tag"
+            bits.append(f"#{name} ({kind})")
+        if bits:
+            lines.append(
+                "Tags: "
+                + "; ".join(bits)
+                + " — call list_tags for the full list; do not invent tags from search."
+            )
+    else:
+        lines.append("Tags: none — call list_tags before claiming there are no tags.")
 
     triggers = snapshot.get("triggers") or []
     if triggers:

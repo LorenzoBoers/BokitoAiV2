@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -30,25 +30,29 @@ import { ModuleProposalBlock } from './ModuleProposalBlock'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
 import { composeDefaultSignatureHtml, plainTextToSignatureHtml, withAgentDisclaimer } from '../../lib/default-signature'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
-import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
+import { isModuleSetupAction } from '../../lib/integration-setup-url'
+import {
+  decisionOptionLabelKey,
+  isPrimaryDecisionOption,
+  isRejectDecisionOption,
+  parseDecisionOptions,
+  type DecisionOption,
+} from '../../lib/decision-options'
+import { useDecisionResolve } from './useDecisionResolve'
+import { DecisionTextAnswer } from './ProposalActions'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
 import { useCorrectionChat } from '../../lib/correction-chat'
 import { apiPost } from '../../lib/api'
-import { learnFromDecision, type LearnChoice } from '../../lib/agent-rules-api'
 import { appRoutes } from '../../api/routes'
 import {
   patchThread,
-  resolveThreadDecision,
-  updateInboxRule,
   type InboxEvent,
   type InboxMessage,
-  type InboxRuleSuggestion,
   type ReplySendAs,
   type ThreadId,
 } from '../../lib/inbox-api'
-import { bulkUpdateSignalThreads } from '../../lib/signals-api'
 import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib/reply-send-as'
 import { useAuth } from '../../context/AuthContext'
 import { listAgents } from '../../lib/agents-api'
@@ -59,16 +63,6 @@ import { AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ChatMessageBubble } from './ChatBubble'
-
-type DecisionOption = {
-  id: string
-  label: string
-  action_type?: string
-  payload?: Record<string, unknown>
-  input_type?: 'text'
-  input_placeholder?: string
-  learn?: { tool: string; reason: string; ruleText: string }
-}
 
 type Props = {
   message: InboxMessage
@@ -144,36 +138,7 @@ function isDecisionResolved(message: InboxMessage, events: InboxEvent[]): boolea
 function extractOptions(message: InboxMessage): DecisionOption[] {
   const decision = message.payload?.decision
   if (!decision || typeof decision !== 'object') return []
-  const options = (decision as { options?: unknown }).options
-  if (!Array.isArray(options)) return []
-  return options
-    .map((row): DecisionOption | null => {
-      if (!row || typeof row !== 'object') return null
-      const raw = row as Record<string, unknown>
-      const id = typeof raw.id === 'string' ? raw.id : ''
-      if (!id) return null
-      return {
-        id,
-        label: typeof raw.label === 'string' ? raw.label : id,
-        action_type: typeof raw.action_type === 'string' ? raw.action_type : undefined,
-        payload:
-          raw.payload && typeof raw.payload === 'object'
-            ? (raw.payload as Record<string, unknown>)
-            : undefined,
-        input_type: raw.input_type === 'text' ? 'text' : undefined,
-        input_placeholder:
-          typeof raw.input_placeholder === 'string' ? raw.input_placeholder : undefined,
-        learn:
-          raw.learn && typeof raw.learn === 'object'
-            ? {
-                tool: String((raw.learn as Record<string, unknown>).tool ?? ''),
-                reason: String((raw.learn as Record<string, unknown>).reason ?? ''),
-                ruleText: String((raw.learn as Record<string, unknown>).rule_text ?? ''),
-              }
-            : undefined,
-      }
-    })
-    .filter((o): o is DecisionOption => o !== null)
+  return parseDecisionOptions((decision as { options?: unknown }).options)
 }
 
 /**
@@ -300,59 +265,6 @@ export function replyProposalFromMessage(
   return { decisionMessageId: String(message.id), body, subject }
 }
 
-/**
- * Known option ids/action types get a translated button label so the card
- * follows the user's platform language; unknown (agent-authored) options
- * keep the label the agent wrote.
- */
-function optionLabelKey(option: DecisionOption): string | null {
-  // Queue proposals: approve reads as the action it performs.
-  if (option.action_type === 'create_queue_item') {
-    if (option.id === 'approve') return 'addToQueue'
-  }
-  const byId: Record<string, string> = {
-    send: 'send',
-    edit: 'edit',
-    escalate: 'escalate',
-    close: 'closeThread',
-    create_task: 'createTask',
-    look_at: 'createTask',
-    keep_open: 'keepOpen',
-    approve: 'approve',
-    reject: 'reject',
-    later: 'later',
-    defer: 'defer',
-    enable: 'turnOn',
-    connect: 'connectPackage',
-  }
-  if (byId[option.id]) return byId[option.id]
-  // Remap known action_types only for canonical single-purpose options.
-  // Agent-authored multi-choice cards often share action_type "escalate"
-  // (human takeover) while carrying distinct labels — never overwrite those.
-  const byAction: Record<string, string> = {
-    send_reply: 'send',
-    send_email: 'send',
-    draft: 'edit',
-    close_thread: 'closeThread',
-    create_task: 'createTask',
-    look_at: 'createTask',
-    create_queue_item: 'addToQueue',
-    approve: 'approve',
-    defer: 'keepOpen',
-    reject: 'reject',
-    enable_module: 'turnOn',
-    setup_integration: 'connectPackage',
-    add_module_source: 'addSource',
-  }
-  if (option.action_type && byAction[option.action_type]) {
-    // Keep a distinctive agent label when present (non-empty and not just the id).
-    const label = (option.label || '').trim()
-    if (label && label !== option.id) return null
-    return byAction[option.action_type]
-  }
-  return null
-}
-
 export default function DecisionRequestMessage({
   message,
   threadId,
@@ -370,8 +282,6 @@ export default function DecisionRequestMessage({
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
-  const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
   const [sentiment, setSentiment] = useState<'up' | 'down' | null>(null)
   const { startCorrection, starting: correctionStarting } = useCorrectionChat()
   const [agentSignatureHtml, setAgentSignatureHtml] = useState('')
@@ -394,15 +304,56 @@ export default function DecisionRequestMessage({
       toast.error(t('decisionCard.feedbackError'))
     }
   }
-  const [error, setError] = useState<string | null>(null)
-  const [textOptionId, setTextOptionId] = useState<string | null>(null)
-  const [responseText, setResponseText] = useState('')
-  const [ruleSuggestion, setRuleSuggestion] = useState<InboxRuleSuggestion | null>(null)
-  const [ruleBusy, setRuleBusy] = useState(false)
-  const [learned, setLearned] = useState<LearnChoice | null>(null)
-  const [learnBusy, setLearnBusy] = useState(false)
   const resolved = isDecisionResolved(message, events)
+  const {
+    busy,
+    setBusy,
+    error,
+    setError,
+    resolve,
+    chooseOption,
+    textOptionId,
+    responseText,
+    setResponseText,
+    submitText,
+    cancelText,
+    teach,
+    learned,
+    learnBusy,
+    ruleSuggestion,
+    setRuleSuggestion,
+    ruleBusy,
+    activateRule,
+  } = useDecisionResolve({
+    threadId,
+    cardMessageId: message.id,
+    decisionId: message.decisionId ? String(message.decisionId) : null,
+    resolved,
+    onResolved,
+  })
   const options = useMemo(() => extractOptions(message), [message])
+  const decisionMeta = (message.payload?.decision as Record<string, unknown> | undefined) ?? undefined
+  const chatQuestion =
+    typeof decisionMeta?.question === 'string' ? decisionMeta.question.trim() : ''
+  const multiSelect = decisionMeta?.selection === 'multiple'
+  const [picked, setPicked] = useState<string[]>([])
+  const approveOptionId =
+    options.find((o) => o.learn)?.id ??
+    options.find((o) => isPrimaryDecisionOption(o) && o.action_type && o.action_type !== 'reject')?.id ??
+    'approve'
+  const isChatAsk =
+    !isReplyProposal(options) &&
+    !options.some((o) =>
+      ['close_thread', 'create_queue_item', 'accept_platform_change', 'send_reply', 'send_email'].includes(
+        o.action_type || '',
+      ),
+    ) &&
+    (Boolean(chatQuestion) ||
+      options.some(
+        (o) =>
+          Boolean(o.learn) ||
+          (Boolean(o.action_type) && !['reject', 'defer', 'escalate'].includes(o.action_type || '')),
+      ))
   const integrationProvider = useMemo(() => integrationProviderFromOptions(options), [options])
   const integrationBrand = useMemo(
     () => (integrationProvider ? resolveProviderBrand(integrationProvider) : null),
@@ -480,24 +431,6 @@ export default function DecisionRequestMessage({
     options.some((o) => o.action_type === 'create_queue_item')
   const internalNote = useMemo(() => internalNoteFromOptions(options), [options])
   const learnFrom = useMemo(() => options.find((o) => o.learn)?.learn ?? null, [options])
-
-  async function teach(choice: LearnChoice) {
-    if (!message.decisionId || learnBusy) return
-    setLearnBusy(true)
-    try {
-      const result = await learnFromDecision(String(message.decisionId), choice)
-      setLearned(choice)
-      toast.success(
-        result.status === 'collected'
-          ? t('decisionCard.learn.collected')
-          : t('decisionCard.learn.proposed'),
-      )
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('decisionCard.learn.error'))
-    } finally {
-      setLearnBusy(false)
-    }
-  }
   const moduleProposal = useMemo(() => moduleProposalFromOptions(options), [options])
 
   // Sender identity for the approved reply: the operator's last choice wins,
@@ -594,83 +527,6 @@ export default function DecisionRequestMessage({
     rememberSendAs(value)
   }
 
-  async function resolve(
-    action: 'approve' | 'defer' | 'reject',
-    optionId?: string,
-    bodyOverride?: string,
-    successLabel?: string,
-    answerText?: string,
-    sendAsOverride?: ReplySendAs,
-    info?: { closed?: boolean },
-    messages?: string[],
-  ) {
-    if (!token || resolved) return
-    setBusy(true)
-    setError(null)
-    try {
-      const result = await resolveThreadDecision(token, threadId, message.id, action, {
-        optionId,
-        body: messages ? undefined : bodyOverride,
-        messages,
-        responseText: answerText,
-        sendAs: sendAsOverride,
-      })
-      const toastLabel =
-        successLabel ??
-        (action === 'approve'
-          ? t('decisionCard.toastApproved')
-          : action === 'defer'
-            ? t('decisionCard.toastDeferredSnoozed')
-            : t('decisionCard.toastRejected'))
-      if (action === 'defer') {
-        // Park-until-date retired: keep the thread in Open and mark unread.
-        await patchThread(token, threadId, { status: 'open', snoozedUntil: null })
-        await bulkUpdateSignalThreads(token, [String(threadId)], 'unread')
-      }
-      toast.success(toastLabel, {
-        action: result.taskId
-          ? {
-              label: t('decisionCard.openAgenda'),
-              onClick: () => navigate('/agenda'),
-            }
-          : undefined,
-      })
-      // Learning loop: after repeated identical choices the platform proposes
-      // a per-sender rule (or reports it already activated itself).
-      const suggestion = result.ruleSuggestion
-      if (suggestion?.autoPromoted) {
-        toast.info(
-          t('decisionCard.rulePrompt.autoPromoted', {
-            sender: suggestion.label || suggestion.matchValue,
-          }),
-        )
-      } else if (suggestion?.readyToActivate) {
-        setRuleSuggestion(suggestion)
-      }
-      onResolved?.(
-        info?.closed || optionId === 'close' || optionId === 'close_thread' ? { closed: true } : undefined,
-      )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('decisionCard.resolveError'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function activateRule() {
-    if (!token || !ruleSuggestion) return
-    setRuleBusy(true)
-    try {
-      await updateInboxRule(token, ruleSuggestion.id, { status: 'active' })
-      toast.success(t('decisionCard.rulePrompt.activated'))
-      setRuleSuggestion(null)
-    } catch {
-      toast.error(t('decisionCard.rulePrompt.error'))
-    } finally {
-      setRuleBusy(false)
-    }
-  }
-
   async function closeThreadInline() {
     if (!token) return
     setBusy(true)
@@ -686,70 +542,25 @@ export default function DecisionRequestMessage({
     }
   }
 
-  async function onOptionClick(option: DecisionOption) {
-    if (option.input_type === 'text') {
-      setTextOptionId((current) => (current === option.id ? null : option.id))
-      return
-    }
-    if (isModuleSetupAction(option.action_type)) {
-      const provider =
-        typeof option.payload?.provider === 'string' ? option.payload.provider.trim() : ''
-      const moduleSlug =
-        typeof option.payload?.module === 'string' ? option.payload.module.trim() : ''
-      await resolve('approve', option.id)
-      navigate(setupIntegrationHref({ module: moduleSlug, provider }))
-      return
-    }
-    if (option.action_type === 'close_thread') {
-      await resolve('approve', option.id, undefined, t('decisionCard.toastClosed'), undefined, undefined, {
-        closed: true,
-      })
-      return
-    }
-    if (option.action_type === 'create_task' || option.action_type === 'look_at') {
-      await resolve('approve', option.id, undefined, t('decisionCard.toastTaskCreated'))
-      return
-    }
-    if (option.action_type === 'create_queue_item') {
-      await resolve('approve', option.id, undefined, t('decisionCard.toastQueueAdded'))
-      return
-    }
-    if (option.id === 'edit' || option.action_type === 'draft') {
-      onEditDraft?.({
-        // In the composer a blank line separates bubbles again.
-        body: editedBubbles.length ? editedBubbles.join('\n\n') : draftBody,
-        subject: typeof option.payload?.subject === 'string' ? option.payload.subject : undefined,
-        decisionMessageId: String(message.id),
-        sendAs,
-      })
-      return
-    }
-    if (option.id === 'send' || option.action_type === 'send_reply' || option.action_type === 'send_email') {
-      await resolve(
-        'approve',
-        option.id,
-        draftBody,
-        t('decisionCard.toastSent'),
-        undefined,
-        sendAs,
-        undefined,
-        editedBubbles.length ? editedBubbles : undefined,
-      )
-      return
-    }
-    if (option.id === 'escalate' || option.action_type === 'escalate') {
-      await resolve('reject', option.id, undefined, t('decisionCard.toastEscalated'))
-      return
-    }
-    if (option.id === 'reject' || option.action_type === 'reject') {
-      await resolve('reject', option.id, undefined, t('decisionCard.toastRejected'))
-      return
-    }
-    if (option.id === 'later' || option.action_type === 'defer') {
-      await resolve('defer', option.id)
-      return
-    }
-    await resolve('approve', option.id)
+  function onOptionClick(option: DecisionOption) {
+    return chooseOption(option, {
+      onEdit: (edit) =>
+        onEditDraft?.({
+          // In the composer a blank line separates bubbles again.
+          body: editedBubbles.length ? editedBubbles.join('\n\n') : draftBody,
+          subject: typeof edit.payload?.subject === 'string' ? edit.payload.subject : undefined,
+          decisionMessageId: String(message.id),
+          sendAs,
+        }),
+      onSend: (send) =>
+        resolve('approve', {
+          optionId: send.id,
+          body: draftBody,
+          successLabel: t('decisionCard.toastSent'),
+          sendAs,
+          messages: editedBubbles.length ? editedBubbles : undefined,
+        }),
+    })
   }
 
   const agentAvatar = (
@@ -833,33 +644,41 @@ export default function DecisionRequestMessage({
       variant={resolved ? 'external' : 'agent'}
       body={
         <>
-        <div className="mb-1 flex items-center gap-2">
-          {isActionSuggestion ? (
-            <BellOff className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : AI_TEXT_CLASS)} aria-hidden />
-          ) : (
-            <AiMark size={14} className={resolved ? 'text-text-muted' : undefined} />
-          )}
-          <span
-            className={cn(
-              'text-xs font-semibold ',
-              resolved ? 'text-text-muted' : AI_TEXT_CLASS,
+        {!isChatAsk ? (
+          <div className="mb-1 flex items-center gap-2">
+            {isActionSuggestion ? (
+              <BellOff className={cn('h-3.5 w-3.5', resolved ? 'text-text-muted' : AI_TEXT_CLASS)} aria-hidden />
+            ) : (
+              <AiMark size={14} className={resolved ? 'text-text-muted' : undefined} />
             )}
-          >
-            {isQueueProposal
-              ? t('decisionCard.titleQueueProposal')
-              : isActionSuggestion
-                ? t('decisionCard.titleNoReply')
-                : isSuggestion
-                  ? t('decisionCard.titleSuggestedReply')
-                  : t('decision.waitForOk')}
-          </span>
-          {resolved ? (
+            <span
+              className={cn(
+                'text-xs font-semibold ',
+                resolved ? 'text-text-muted' : AI_TEXT_CLASS,
+              )}
+            >
+              {isQueueProposal
+                ? t('decisionCard.titleQueueProposal')
+                : isActionSuggestion
+                  ? t('decisionCard.titleNoReply')
+                  : isSuggestion
+                    ? t('decisionCard.titleSuggestedReply')
+                    : t('decision.waitForOk')}
+            </span>
+            {resolved ? (
+              <span className="rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                {t('decisionCard.resolved')}
+              </span>
+            ) : null}
+          </div>
+        ) : resolved ? (
+          <div className="mb-1">
             <span className="rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
               {t('decisionCard.resolved')}
             </span>
-          ) : null}
-        </div>
-        {decisionSource ? (
+          </div>
+        ) : null}
+        {decisionSource && !isChatAsk ? (
           <p className="mb-1.5 text-xs text-text-muted">
             {t('decisionCard.source.prefix', { defaultValue: 'From' })}{' '}
             <Link
@@ -872,7 +691,7 @@ export default function DecisionRequestMessage({
             </Link>
           </p>
         ) : null}
-        {!resolved && addresseeName ? (
+        {!resolved && addresseeName && !isChatAsk ? (
           <p className="mb-1.5 text-xs text-text-muted" data-testid="decision-addressee">
             {t('decisionCard.askedTo', { name: addresseeName })}
           </p>
@@ -885,7 +704,7 @@ export default function DecisionRequestMessage({
             {t('decisionCard.customerWroteAgain')}
           </p>
         ) : null}
-        {message.decisionId ? (
+        {message.decisionId && !isChatAsk ? (
           <details className="mb-1.5 group/tech">
             <summary className="cursor-pointer list-none text-2xs font-medium text-text-muted/80 hover:text-text-muted [&::-webkit-details-marker]:hidden">
               {t('decisionCard.technical', { defaultValue: 'Technical' })}
@@ -920,7 +739,13 @@ export default function DecisionRequestMessage({
           </>
         ) : (
           <>
-            {displaySubject ? (
+            {displaySubject &&
+            !(
+              isChatAsk &&
+              (displaySubject === draftBody ||
+                displaySubject === chatQuestion ||
+                draftBody === chatQuestion)
+            ) ? (
               <h3 className="flex items-center gap-2 text-sm font-medium text-text-heading">
                 {integrationBrand ? (
                   <IntegrationHostLogo
@@ -937,8 +762,15 @@ export default function DecisionRequestMessage({
                 {displaySubject}
               </h3>
             ) : null}
-            <div className="mt-2 overflow-hidden rounded-lg border border-border/60 bg-bg-elevated">
-              <div className="px-3 py-2">
+            <div
+              className={cn(
+                'mt-2 overflow-hidden',
+                isChatAsk
+                  ? ''
+                  : 'rounded-lg border border-border/60 bg-bg-elevated',
+              )}
+            >
+              <div className={cn(isChatAsk ? 'py-0.5' : 'px-3 py-2')}>
                 {suggestedBubbles.length ? (
                   <BubbleDrafts
                     bubbles={bubbles}
@@ -946,7 +778,9 @@ export default function DecisionRequestMessage({
                     onChange={setBubbles}
                   />
                 ) : (
-                  <p className="whitespace-pre-wrap text-sm text-text-primary">{draftBody}</p>
+                  <p className="whitespace-pre-wrap text-sm text-text-primary">
+                    {chatQuestion || draftBody}
+                  </p>
                 )}
               </div>
               {!resolved && isSuggestion ? (
@@ -1026,30 +860,62 @@ export default function DecisionRequestMessage({
             {options.length > 0 ? (
               <>
                 {options.map((option) => {
-                  const primary =
-                    option.id === 'send' ||
-                    option.id === 'approve' ||
-                    option.action_type === 'send_reply' ||
-                    option.action_type === 'send_email' ||
-                    option.action_type === 'close_thread' ||
-                    option.action_type === 'approve' ||
-                    isModuleSetupAction(option.action_type)
+                  const primary = isPrimaryDecisionOption(option)
                   const quiet = option.action_type === 'defer' && isActionSuggestion
                   const activeText = option.input_type === 'text' && textOptionId === option.id
-                  const labelKey = optionLabelKey(option)
+                  const labelKey = decisionOptionLabelKey(option)
+                  const selected = multiSelect && picked.includes(option.id)
                   return (
                     <Button
                       key={option.id}
                       type="button"
                       size="sm"
-                      variant={primary ? 'ai' : quiet ? 'ghost' : activeText ? 'outline' : 'secondary'}
+                      variant={
+                        selected
+                          ? 'ai'
+                          : primary
+                            ? 'ai'
+                            : quiet
+                              ? 'ghost'
+                              : activeText
+                                ? 'outline'
+                                : 'secondary'
+                      }
                       disabled={busy}
-                      onClick={() => void onOptionClick(option)}
+                      aria-pressed={multiSelect && !isRejectDecisionOption(option) ? selected : undefined}
+                      onClick={() => {
+                        if (multiSelect && !isRejectDecisionOption(option)) {
+                          setPicked((prev) =>
+                            prev.includes(option.id)
+                              ? prev.filter((id) => id !== option.id)
+                              : [...prev, option.id],
+                          )
+                          return
+                        }
+                        void onOptionClick(option)
+                      }}
                     >
                       {labelKey ? t(`decisionCard.options.${labelKey}`) : option.label}
                     </Button>
                   )
                 })}
+                {multiSelect ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ai"
+                    disabled={busy || picked.length === 0}
+                    onClick={() =>
+                      void resolve('approve', {
+                        optionId: picked[0],
+                        optionIds: picked,
+                        successLabel: t('proposal.confirmed'),
+                      })
+                    }
+                  >
+                    {t('proposal.confirm')}
+                  </Button>
+                ) : null}
                 {isSuggestion ? (
                   <Button
                     type="button"
@@ -1091,71 +957,45 @@ export default function DecisionRequestMessage({
           </div>
         ) : null}
         {!resolved && learnFrom && message.decisionId ? (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="decision-learn">
-            <span className="text-2xs font-medium text-text-muted">{t('decisionCard.learn.label')}</span>
+          <div
+            className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted"
+            data-testid="decision-learn"
+          >
+            <span className="font-medium text-text-secondary">{t('decisionCard.learn.label')}</span>
             {learned ? (
-              <span className="text-2xs text-text-secondary">{t(`decisionCard.learn.done.${learned}`)}</span>
+              <span className="text-text-secondary">{t(`decisionCard.learn.done.${learned}`)}</span>
             ) : (
-              (['allow', 'ask', 'unsure'] as const).map((choice) => (
-                <Button
-                  key={choice}
+              <>
+                <button
                   type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-xs text-text-secondary"
                   disabled={learnBusy || busy}
-                  onClick={() => void teach(choice)}
+                  className="text-accent hover:underline disabled:opacity-50"
+                  onClick={() => void teach('allow', { approveOptionId })}
                 >
-                  {t(`decisionCard.learn.${choice}`)}
-                </Button>
-              ))
+                  {t('decisionCard.learn.allow')}
+                </button>
+                <button
+                  type="button"
+                  disabled={learnBusy || busy}
+                  className="text-accent hover:underline disabled:opacity-50"
+                  onClick={() => void teach('ask')}
+                >
+                  {t('decisionCard.learn.ask')}
+                </button>
+              </>
             )}
           </div>
         ) : null}
         {!resolved && textOptionId ? (
-          <div className="mt-3 space-y-2">
-            <textarea
-              value={responseText}
-              onChange={(e) => setResponseText(e.target.value)}
-              rows={3}
-              autoFocus
-              placeholder={
-                options.find((o) => o.id === textOptionId)?.input_placeholder ??
-                t('decisionCard.answerPlaceholder')
-              }
-              className="w-full resize-y rounded-lg border border-border bg-bg-surface px-3 py-2 text-sm text-text-primary outline-none focus:border-accent/60"
-            />
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy || !responseText.trim()}
-                onClick={() =>
-                  void resolve(
-                    'approve',
-                    textOptionId,
-                    undefined,
-                    t('decisionCard.toastAnswerSubmitted'),
-                    responseText,
-                  )
-                }
-              >
-                {t('decisionCard.submitAnswer')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => {
-                  setTextOptionId(null)
-                  setResponseText('')
-                }}
-              >
-                {t('decisionCard.cancel')}
-              </Button>
-            </div>
-          </div>
+          <DecisionTextAnswer
+            className="mt-3"
+            value={responseText}
+            onChange={setResponseText}
+            placeholder={options.find((o) => o.id === textOptionId)?.input_placeholder}
+            busy={busy}
+            onSubmit={() => void submitText()}
+            onCancel={cancelText}
+          />
         ) : null}
         {ruleSuggestion ? (
           <div className="mt-3 rounded-lg border border-ai/25 bg-ai/5 px-3 py-2.5">

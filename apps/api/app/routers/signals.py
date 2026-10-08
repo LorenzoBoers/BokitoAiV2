@@ -106,6 +106,8 @@ class NotePatchBody(BaseModel):
 class ResolveBody(BaseModel):
     action: str
     option_id: str | None = None
+    # Multi-select proposals: all chosen option ids (option_id stays the primary).
+    option_ids: list[str] | None = None
     body: str | None = None
     body_text: str | None = None
     body_html: str | None = None
@@ -1201,6 +1203,7 @@ async def resolve_decision(
         message_id,
         action=body.action,
         option_id=body.option_id,
+        option_ids=body.option_ids,
         body=body.body or body.body_text,
         body_html=body.body_html,
         subject=body.subject,

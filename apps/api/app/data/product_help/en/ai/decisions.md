@@ -22,9 +22,23 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 2. Select a thread (the first match opens automatically) and scroll to the decision card. It shows the proposed action and why the agent stopped.
 3. When nothing waits on you, Decisions shows an empty state with links back to the inbox and Agents.
 
+## Approve an agent proposal in the chat
+
+When you ask an agent to do something that needs your OK, its last message asks the question and the buttons sit right under that message. Agents can also show objects without asking — tags as inline chips in the text, and showcase cards under the prose — and only raise buttons when they need an answer.
+
+![An agent proposal with a Bin item and buttons under the message](/api/docs/assets/decisions/inline-proposal.png)
+*The item the agent wants to restore sits inside its message; the buttons sit under it.*
+
+1. Read the agent's message. Tags such as `#klacht` (action tag) and `#storing` (tag) appear as chips in the text. Objects the proposal is about show under it as showcase cards: a conversation, Bin item, agenda item, file, image, teammate, agent, connection, module, help article, message, flow, project or contact. With an open proposal, select a card to choose that option; without a proposal, select a card to open it.
+2. Choose a button under the message, for example **Approve** or an agent-written label. That choice applies **this time**. When the agent allows several picks, select the options (or cards) you want and choose **Confirm**. **Reject** declines. A choice that needs text opens a small field; type the answer and choose **Submit answer**.
+3. On a chat with the agent, a plain **Yes** / **No** (or **Ja** / **Nee**) in **Ask** does the same as the matching Ja/Nee buttons when exactly one open card is that kind of choice. Multi-select and text answers still need the buttons. Several Ja/Nee cards at once also stay button-only.
+4. When the action can teach the agent, a **Next time** line offers **You may do this yourself from now on** or **Always ask** (also under the more menu). That proposes a rule; it does not replace approving this card.
+5. After you answer, your reply appears as your own bubble with the chosen label and any selected showcase cards. On chats with an agent, a short confirm follows when a tool already ran (for example `#tag is deleted`); Soft Yes with no other open cards lets the agent continue in the thread. The buttons fold into a short *Answered · time* line. A proposal the agent replaced with a newer one reads *Replaced by a newer proposal*.
+6. While the agent is still working, *Preparing proposal...* shows that buttons are on the way.
+
 ## Approve, edit or decline
 
-1. Read the proposal in context of the conversation.
+1. Read the proposal in context of the conversation. Reply drafts on customer conversations, check-ins and scheduled wakes keep their own card in the thread.
 2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **What next** or **Keep open**. Suggested-reply cards from [AI handling](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
 3. A suggested chat reply can hold several short messages. The card lists them as **Message 1**, **Message 2** and so on. Choose **Remove message** on one you do not want, or **Edit** to rewrite them as one text; a blank line starts a new message. **Send** delivers them in order.
 4. Hover an agent message: icons next to the bubble mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent. Hover an icon to see its label. Escalate sets the conversation to Manual and assigns you.
@@ -40,7 +54,7 @@ When a check-in or agent asked the same question many times (for example *Set up
 
 ## Teach the agent for next time
 
-1. On a card that asks before an action, the row **Next time:** offers three buttons.
+1. On a card that asks before an action, the row **Next time:** offers three buttons. Under an agent's message, the same choices sit in the **More options** menu next to the buttons.
 2. **You may do this yourself from now on** proposes a rule that lets the agent do this on its own. **Always ask** proposes a rule that keeps asking. Both arrive as a card in the same conversation; confirm it there. Only an owner or admin can confirm a rule that lets an agent act on its own.
 3. **Not sure yet** keeps the case as an example. After a few examples the agent proposes a rule from them.
 4. Rules show on the agent under **Rules** (see [Agents](/docs/ai/agents)).

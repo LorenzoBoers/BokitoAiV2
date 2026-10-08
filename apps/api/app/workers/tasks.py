@@ -1,6 +1,8 @@
 import json
 import os
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from arq import create_pool, cron
@@ -17,6 +19,17 @@ from app.services.orchestration.runner import run_agent_task_segment
 
 settings = get_settings()
 
+
+@dataclass
+class InboundPreflight:
+    """Shared interpret + reply verdicts for one inbound message."""
+
+    msg: SignalMessage | None
+    sender_address: str
+    auto_headers: Any
+    classification: dict[str, Any]
+    is_member: bool
+
 # Suggest mode is research-only: the agent may read the knowledge base and
 # query connected MCP integrations, and raise inline decisions — but it can
 # never send, write, or mutate anything. create_queue_item is the one
@@ -25,12 +38,16 @@ settings = get_settings()
 SUGGEST_MODE_TOOLS = frozenset(
     {
         "search_index",
+        "web_search",
         "search_product_help",
         "list_docs",
         "read_doc",
         "get_tenant_overview",
         "call_mcp_tool",
         "create_decision_request",
+        "propose_action",
+        "attach_items",
+        "list_tags",
         "list_projects",
         "list_queue_items",
         "list_project_docs",
@@ -66,13 +83,13 @@ async def startup(ctx):
     await init_db()
 
 
-async def _interpret_inbound_message(session, tenant_id: UUID, signal: Signal) -> None:
-    """Classify the newest inbound message before the reply path runs.
+async def _inbound_preflight(
+    session, tenant_id: UUID, signal: Signal
+) -> InboundPreflight:
+    """Load newest inbound + automated/member checks once per job."""
+    from app.services.automated_mail import classify_automated_email
+    from app.services.workspace_members import find_member_by_email
 
-    Cheap deterministic noise (no inbound message, automated mail, a teammate
-    writing into a shared inbox) is skipped so the LLM is not spent on it; the
-    reply path reaches the same verdict a few lines later.
-    """
     msg = (
         await session.execute(
             select(SignalMessage)
@@ -82,21 +99,50 @@ async def _interpret_inbound_message(session, tenant_id: UUID, signal: Signal) -
         )
     ).scalar_one_or_none()
     if msg is None:
-        return
-
-    from app.services.automated_mail import classify_automated_email
-    from app.services.workspace_members import find_member_by_email
-
+        return InboundPreflight(
+            msg=None,
+            sender_address="",
+            auto_headers=None,
+            classification={"automated": False, "reason": ""},
+            is_member=False,
+        )
     try:
         msg_meta = json.loads(msg.metadata_json or "{}")
     except json.JSONDecodeError:
         msg_meta = {}
     sender = msg.from_address or signal.contact_email or ""
     headers = msg_meta.get("auto_headers") if isinstance(msg_meta, dict) else None
-    if classify_automated_email(sender, headers=headers, subject=signal.subject or "")["automated"]:
-        return
-    if msg.author_user_id or await find_member_by_email(session, tenant_id, sender):
-        return
+    classification = classify_automated_email(
+        sender, headers=headers, subject=signal.subject or ""
+    )
+    is_member = bool(
+        msg.author_user_id or await find_member_by_email(session, tenant_id, sender)
+    )
+    return InboundPreflight(
+        msg=msg,
+        sender_address=sender,
+        auto_headers=headers,
+        classification=classification,
+        is_member=is_member,
+    )
+
+
+async def _interpret_inbound_message(
+    session, tenant_id: UUID, signal: Signal
+) -> InboundPreflight:
+    """Classify the newest inbound message before the reply path runs.
+
+    Cheap deterministic noise (no inbound message, automated mail, a teammate
+    writing into a shared inbox) is skipped so the LLM is not spent on it.
+    Returns the preflight so the reply path reuses the same verdicts.
+    """
+    preflight = await _inbound_preflight(session, tenant_id, signal)
+    if (
+        preflight.msg is None
+        or preflight.classification.get("automated")
+        or preflight.is_member
+    ):
+        return preflight
 
     from app.services.interpretation import interpret_inbound
 
@@ -104,6 +150,7 @@ async def _interpret_inbound_message(session, tenant_id: UUID, signal: Signal) -
     # apply_triage commits its own changes; refresh so the reply path below
     # reads the interpreted thread (priority, project, summary).
     await session.refresh(signal)
+    return preflight
 
 
 async def release_workspace_block(session, tenant, *, exclude_signal_id: str = "") -> int:
@@ -176,12 +223,14 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         # INTERPRETATION runs first, on every inbound message: category, intent,
         # and typed signals (Cases) exist before any reply path decides what to
         # do — and still happen when AI is paused or replies are off.
-        await _interpret_inbound_message(session, UUID(tenant_id), signal)
+        preflight = await _interpret_inbound_message(session, UUID(tenant_id), signal)
         if signal.superseded_by_id:
             # Triage split the new request off: answer it where it now lives.
             newer = await session.get(Signal, signal.superseded_by_id)
             if newer is not None:
                 signal = newer
+                # New thread: reload newest inbound (do not re-run interpret).
+                preflight = await _inbound_preflight(session, UUID(tenant_id), signal)
 
         if ai_handling.is_held(signal):
             return {"skipped": True, "reason": "ai_handling_manual"}
@@ -197,12 +246,13 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             signal.channel in ("email", "slack", "whatsapp")
             and account is not None
         ):
-            from app.services.channel_registry import account_can_send, resolve_channel
+            from app.services.channel_registry import can_send, resolve_channel
             from app.services.inbound_agent import acknowledge_channel_not_ready
             from app.services.routing import resolve_agent_for_signal
 
-            if not account_can_send(account, tenant=tenant):
-                row = resolve_channel(account, tenant=tenant)
+            # Resolve once: account_can_send would call resolve_channel again.
+            row = resolve_channel(account, tenant=tenant)
+            if not can_send(row):
                 agent = await resolve_agent_for_signal(session, signal)
                 delivery = await acknowledge_channel_not_ready(
                     session,
@@ -226,24 +276,14 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             session, tenant, signal, handling, contact=contact
         )
 
-        msg_result = await session.execute(
-            select(SignalMessage)
-            .where(SignalMessage.signal_id == signal.id, SignalMessage.direction == "inbound")
-            .order_by(SignalMessage.created_at.desc())
-            .limit(1)
-        )
-        msg = msg_result.scalar_one_or_none()
+        msg = preflight.msg
         if not msg:
             return {"skipped": True, "reason": "no inbound message"}
 
         from app.services.routing import resolve_agent_for_signal
 
-        try:
-            msg_meta = json.loads(msg.metadata_json or "{}")
-        except json.JSONDecodeError:
-            msg_meta = {}
-        auto_headers = msg_meta.get("auto_headers") if isinstance(msg_meta, dict) else None
-        sender_address = msg.from_address or signal.contact_email or ""
+        auto_headers = preflight.auto_headers
+        sender_address = preflight.sender_address
 
         # Learned inbox rules first: when the tenant already decided what to do
         # with this sender (auto-close, auto-task, skip AI) the rule handles the
@@ -265,22 +305,16 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         # Inbound from a workspace member (teammate wrote into a shared inbox):
         # never draft a customer reply to an operator.
-        from app.services.workspace_members import find_member_by_email
-
-        if msg.author_user_id or await find_member_by_email(
-            session, UUID(tenant_id), sender_address
-        ):
+        if preflight.is_member:
             return {"skipped": True, "reason": "workspace_member"}
 
         # Automated / no-reply mail (system notifications, newsletters, bounces):
         # never draft a reply. Note it on the timeline without an awaiting
         # decision card — tip cards flooded the attention queue on busy mailboxes.
-        from app.services.automated_mail import classify_automated_email, clip_with_ellipsis
+        from app.services.automated_mail import clip_with_ellipsis
 
-        classification = classify_automated_email(
-            sender_address, headers=auto_headers, subject=signal.subject or ""
-        )
-        if classification["automated"]:
+        classification = preflight.classification
+        if classification.get("automated"):
             from app.services.inbound_agent import acknowledge_automated_mail
 
             agent = await resolve_agent_for_signal(session, signal)
@@ -291,7 +325,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 signal,
                 agent,
                 summary=preview or signal.subject or "Automated notification; no reply needed.",
-                reason=classification["reason"],
+                reason=classification.get("reason") or "",
             )
             session.add(
                 SignalEvent(

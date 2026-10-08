@@ -188,8 +188,165 @@ export type InboxMessage = {
   hasActivity?: boolean
   /** Agent turn this bubble belongs to (live stream id). */
   turnId?: string | null
+  /** Approval the agent attached to this bubble (buttons render under it). */
+  proposal?: MessageProposal | null
+  /** Showcase cards on any agent bubble (with or without a proposal). */
+  items?: ProposalItem[]
+  /** Operator answer bubble posted after resolving a decision. */
+  decisionResponse?: boolean
+  decisionResponseDecisionId?: string | null
+  /** On a decision card: the agent bubble that shows it inline. */
+  attachedToMessageId?: string | null
   receivedAt: string | null
   createdAt: string
+}
+
+export type ProposalItemType =
+  | 'conversation'
+  | 'trash_entry'
+  | 'trigger'
+  | 'file'
+  | 'image'
+  | 'user'
+  | 'agent'
+  | 'tag'
+  | 'flow'
+  | 'project'
+  | 'contact'
+  | 'integration'
+  | 'marketplace'
+  | 'module'
+  | 'help_doc'
+  | 'message'
+
+/** Snapshot of an object shown as a showcase card (or on a proposal). */
+export type ProposalItem = {
+  type: ProposalItemType
+  id: string
+  title: string
+  subtitle: string
+  kind?: string | null
+  name?: string | null
+  imageUrl?: string | null
+  url?: string | null
+  path?: string | null
+  provider?: string | null
+  slug?: string | null
+  signalId?: string | null
+  messageId?: string | null
+  at?: string | null
+  deletedAt?: string | null
+  missing?: boolean
+}
+
+export type MessageProposal = {
+  decisionId: string
+  /** The decision card message; the resolve endpoint is keyed on it. */
+  cardMessageId: string | null
+  status: string
+  question: string | null
+  selection: 'single' | 'multiple'
+  options: unknown[]
+  items: ProposalItem[]
+  chosenOptionId: string | null
+  chosenOptionIds: string[]
+  resolvedAt: string | null
+  resolvedBy: string | null
+}
+
+const PROPOSAL_ITEM_TYPES = new Set<ProposalItemType>([
+  'conversation',
+  'trash_entry',
+  'trigger',
+  'file',
+  'image',
+  'user',
+  'agent',
+  'tag',
+  'flow',
+  'project',
+  'contact',
+  'integration',
+  'marketplace',
+  'module',
+  'help_doc',
+  'message',
+])
+
+export function normalizeProposalItem(row: unknown): ProposalItem | null {
+  if (!row || typeof row !== 'object') return null
+  const raw = row as Record<string, unknown>
+  const type = asString(raw.type) as ProposalItemType
+  if (!PROPOSAL_ITEM_TYPES.has(type)) return null
+  return {
+    type,
+    id: asString(raw.id),
+    title: asString(raw.title),
+    subtitle: asString(raw.subtitle),
+    kind: asNullableString(raw.kind),
+    name: asNullableString(raw.name),
+    imageUrl: asNullableString(raw.image_url),
+    url: asNullableString(raw.url),
+    path: asNullableString(raw.path),
+    provider: asNullableString(raw.provider),
+    slug: asNullableString(raw.slug),
+    signalId: asNullableString(raw.signal_id),
+    messageId: asNullableString(raw.message_id),
+    at: asNullableString(raw.at),
+    deletedAt: asNullableString(raw.deleted_at),
+    missing: raw.missing === true,
+  }
+}
+
+function normalizeItemList(value: unknown): ProposalItem[] {
+  if (!Array.isArray(value)) return []
+  return value.map(normalizeProposalItem).filter((i): i is ProposalItem => i !== null)
+}
+
+/** `proposal` / `items` / `attachedToMessageId` from a serialized message payload. */
+export function messageProposalFields(
+  payload: unknown,
+): Pick<
+  InboxMessage,
+  'proposal' | 'attachedToMessageId' | 'items' | 'decisionResponse' | 'decisionResponseDecisionId'
+> {
+  const raw = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
+  const items = normalizeItemList(raw.items ?? raw.decision_response_items)
+  return {
+    proposal: normalizeProposal(raw.proposal),
+    attachedToMessageId: asNullableString(raw.attached_to_message_id),
+    items: items.length ? items : undefined,
+    decisionResponse: raw.decision_response === true,
+    decisionResponseDecisionId: asNullableString(raw.decision_response_decision_id ?? raw.decision_id),
+  }
+}
+
+export function normalizeProposal(value: unknown): MessageProposal | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const decisionId = asString(raw.decision_id)
+  if (!decisionId) return null
+  const selection = asString(raw.selection) === 'multiple' ? 'multiple' : 'single'
+  const chosenIds = Array.isArray(raw.chosen_option_ids)
+    ? raw.chosen_option_ids.map((x) => String(x)).filter(Boolean)
+    : []
+  const chosenOptionId = asNullableString(raw.chosen_option_id)
+  if (chosenOptionId && !chosenIds.length) {
+    chosenIds.push(...chosenOptionId.split(',').filter(Boolean))
+  }
+  return {
+    decisionId,
+    cardMessageId: asNullableString(raw.message_id),
+    status: asString(raw.status) || 'missing',
+    question: asNullableString(raw.question),
+    selection,
+    options: Array.isArray(raw.options) ? raw.options : [],
+    items: normalizeItemList(raw.items),
+    chosenOptionId: chosenIds[0] ?? chosenOptionId,
+    chosenOptionIds: chosenIds,
+    resolvedAt: asNullableString(raw.resolved_at),
+    resolvedBy: asNullableString(raw.resolved_by),
+  }
 }
 
 export type InboxEvent = {
@@ -599,6 +756,7 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     payload,
     myFeedback: normalizeMyFeedback(raw),
     ...normalizeMessageActivity(raw),
+    ...messageProposalFields(payload),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asTimestampString(raw.created_at),
   }
@@ -885,6 +1043,7 @@ export async function resolveThreadDecision(
   action: 'approve' | 'defer' | 'reject',
   opts?: {
     optionId?: string
+    optionIds?: string[]
     body?: string
     bodyHtml?: string
     subject?: string

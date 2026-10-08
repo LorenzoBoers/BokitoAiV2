@@ -30,19 +30,36 @@ def test_clean_message_preview_van_marker():
 
 
 def test_rewrite_cid_urls_maps_bracketed_and_plain_ids():
-    html = '<img src="cid:img001@foo"><img src=\'cid:<logo@bar>\'>'
+    html = '<img src="cid:img001@foo"><img src=\'cid:<logo@bar>\'><img src=cid:bare@x>'
     out = rewrite_cid_urls(
         html,
         {
             "img001@foo": "https://app.example/u/a.png",
             "logo@bar": "https://app.example/u/b.png",
+            "bare@x": "https://app.example/u/c.png",
         },
     )
     assert 'src="https://app.example/u/a.png"' in out
     assert "src='https://app.example/u/b.png'" in out
+    assert 'src="https://app.example/u/c.png"' in out
     assert "cid:" not in out
 
 
 def test_normalize_content_id_strips_brackets():
     assert normalize_content_id("<abc@x>") == "abc@x"
     assert normalize_content_id(" abc@x ") == "abc@x"
+
+
+def test_promote_html_body_rescues_mislabeled_plain_part():
+    from app.services.email_sync import promote_html_body
+
+    raw = (
+        "<!DOCTYPE html><html><head><style><!-- * {box-sizing:border-box} --></style>"
+        "</head><body><!--[if mso]><xml></xml><![endif]-->"
+        "<p>Your verification code is 123456</p></body></html>"
+    )
+    text, html = promote_html_body(raw, "")
+    assert html.startswith("<!DOCTYPE html>")
+    assert "verification code is 123456" in text
+    assert "box-sizing" not in text
+    assert "<!--[if mso]" not in text

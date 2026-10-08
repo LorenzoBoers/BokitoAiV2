@@ -263,5 +263,51 @@ async def test_schedule_agent_reply_returns_before_generate(monkeypatch):
     monkeypatch.setattr("app.db.session.async_session_factory", _Factory())
     threads_svc._schedule_agent_reply(tenant_id, uuid4(), signal_id)
     assert "generate_done" not in calls
-    await asyncio.wait_for(finished.wait(), timeout=2.0)
+    await asyncio.wait_for(finished.wait(), timeout=3.0)
     assert calls == ["generate_start", "generate_done"]
+
+
+@pytest.mark.asyncio
+async def test_schedule_agent_reply_coalesces_bursts(monkeypatch):
+    """Stacked Ja/Nee must not spawn one agent turn per click."""
+    import asyncio
+
+    finished = asyncio.Event()
+    calls: list[str] = []
+    tenant_id = uuid4()
+    signal_id = uuid4()
+    user_id = uuid4()
+
+    async def fake_generate(*_args, **_kwargs):
+        calls.append("generate")
+        finished.set()
+
+    monkeypatch.setattr(threads_svc, "_generate_agent_reply", fake_generate)
+
+    class _FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def get(self, *_a, **_k):
+            class _Sig:
+                pass
+
+            sig = _Sig()
+            sig.tenant_id = tenant_id
+            return sig
+
+    class _Factory:
+        def __call__(self):
+            return _FakeSession()
+
+    monkeypatch.setattr("app.db.session.async_session_factory", _Factory())
+    monkeypatch.setattr(threads_svc, "_AGENT_REPLY_COALESCE_S", 0.05)
+    threads_svc._schedule_agent_reply(tenant_id, user_id, signal_id)
+    threads_svc._schedule_agent_reply(tenant_id, user_id, signal_id)
+    threads_svc._schedule_agent_reply(tenant_id, user_id, signal_id)
+    await asyncio.wait_for(finished.wait(), timeout=2.0)
+    await asyncio.sleep(0.08)
+    assert calls == ["generate"]

@@ -109,6 +109,64 @@ async def test_triage_signal_mock_llm(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
+async def test_get_triage_context_uses_newest_message_only(session_override):
+    from app.models.signal import SignalMessage
+    from app.services.signals import create_inbound_signal, get_triage_context
+
+    tenant = Tenant(slug="triage-ctx", name="Triage Ctx")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+    signal = await create_inbound_signal(
+        session_override,
+        tenant.id,
+        channel="email",
+        source="mock",
+        subject="Thread subject",
+        body_text="First body",
+        contact_email="a@example.com",
+    )
+    session_override.add(
+        SignalMessage(
+            signal_id=signal.id,
+            tenant_id=tenant.id,
+            direction="inbound",
+            role="customer",
+            body_text="Newest body",
+            body_preview="Newest body",
+        )
+    )
+    await session_override.commit()
+
+    ctx = await get_triage_context(session_override, tenant.id, signal.id)
+    assert ctx["subject"] == "Thread subject"
+    assert ctx["contact_email"] == "a@example.com"
+    assert ctx["body"] == "Newest body"
+
+
+def test_category_catalog_lines_from_rows_skips_disabled_ai():
+    from app.models.signal import SignalTag
+    from app.services.tickets import category_catalog_lines_from_rows
+
+    on = SignalTag(name="support", description="Help requests", ai_auto_tag=True)
+    off = SignalTag(name="spam", description="Junk", ai_auto_tag=False)
+    assert category_catalog_lines_from_rows([on, off]) == ["#support - Help requests"]
+
+
+def test_ai_catalog_lines_from_rows_free_tags_only():
+    from app.models.signal import SignalTag
+    from app.services.signal_tags import ai_catalog_lines_from_rows
+    from uuid import uuid4
+
+    free = SignalTag(name="vip", description="Priority", ai_auto_tag=True)
+    category = SignalTag(
+        name="klacht", description="Complaint", ai_auto_tag=True, workstream_id=uuid4()
+    )
+    muted = SignalTag(name="quiet", description="Off", ai_auto_tag=False)
+    assert ai_catalog_lines_from_rows([free, category, muted]) == ["vip - Priority"]
+
+
+@pytest.mark.asyncio
 async def test_email_connection_id_filter(client: AsyncClient, session_override):
     from app.models.auth import Tenant, user_numeric_id
     from app.models.channel import ChannelAccount

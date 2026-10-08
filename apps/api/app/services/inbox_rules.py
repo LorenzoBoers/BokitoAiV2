@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.learning import InboxRule
@@ -158,6 +158,35 @@ async def _rule_by_key(
     return result.scalars().first()
 
 
+async def _active_rules_for_keys(
+    session: AsyncSession,
+    tenant_id: UUID,
+    keys: list[tuple[str, str]],
+    *,
+    tag_only: bool = False,
+) -> list[InboxRule]:
+    """Load active rules for many (match_type, match_value) pairs in one query."""
+    if not keys:
+        return []
+    key_clause = or_(
+        *[
+            (InboxRule.match_type == match_type) & (InboxRule.match_value == match_value)
+            for match_type, match_value in keys
+        ]
+    )
+    stmt = select(InboxRule).where(
+        InboxRule.tenant_id == tenant_id,
+        InboxRule.status == "active",
+        InboxRule.deleted_at.is_(None),
+        key_clause,
+    )
+    if tag_only:
+        stmt = stmt.where(InboxRule.action == "tag")
+    else:
+        stmt = stmt.where(InboxRule.action.notin_(_PASS_THROUGH_ACTIONS))
+    return list((await session.execute(stmt)).scalars().all())
+
+
 async def find_matching_rule(
     session: AsyncSession,
     tenant_id: UUID,
@@ -168,20 +197,11 @@ async def find_matching_rule(
     keys = sender_keys(from_address, headers)
     if not keys:
         return None
+    rows = await _active_rules_for_keys(session, tenant_id, keys, tag_only=False)
     for match_type, match_value in keys:
-        result = await session.execute(
-            select(InboxRule).where(
-                InboxRule.tenant_id == tenant_id,
-                InboxRule.match_type == match_type,
-                InboxRule.match_value == match_value,
-                InboxRule.status == "active",
-                InboxRule.action.notin_(_PASS_THROUGH_ACTIONS),
-                InboxRule.deleted_at.is_(None),
-            )
-        )
-        rule = result.scalars().first()
-        if rule:
-            return rule
+        for rule in rows:
+            if rule.match_type == match_type and rule.match_value == match_value:
+                return rule
     return None
 
 
@@ -195,20 +215,19 @@ async def find_tag_rules(
     keys = sender_keys(from_address, headers)
     if not keys:
         return []
-    rules: list[InboxRule] = []
+    rows = await _active_rules_for_keys(session, tenant_id, keys, tag_only=True)
+    out: list[InboxRule] = []
+    seen: set[UUID] = set()
     for match_type, match_value in keys:
-        result = await session.execute(
-            select(InboxRule).where(
-                InboxRule.tenant_id == tenant_id,
-                InboxRule.match_type == match_type,
-                InboxRule.match_value == match_value,
-                InboxRule.status == "active",
-                InboxRule.action == "tag",
-                InboxRule.deleted_at.is_(None),
-            )
-        )
-        rules.extend(result.scalars().all())
-    return rules
+        for rule in rows:
+            if (
+                rule.match_type == match_type
+                and rule.match_value == match_value
+                and rule.id not in seen
+            ):
+                out.append(rule)
+                seen.add(rule.id)
+    return out
 
 
 async def record_rule_hit(session: AsyncSession, rule: InboxRule) -> None:

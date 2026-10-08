@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import Tenant
 from app.services.channel_ai import inbox_policy
-from app.services.signals import apply_triage, get_signal_detail
+from app.services.signals import apply_triage, get_triage_context
 
 logger = logging.getLogger(__name__)
 
@@ -121,9 +121,8 @@ async def _record_unknown_signal(
 
 
 async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> dict:
-    detail = await get_signal_detail(session, tenant_id, signal_id)
-    messages = detail.get("messages") or []
-    body = messages[-1]["body_text"] if messages else detail.get("subject", "")
+    ctx = await get_triage_context(session, tenant_id, signal_id)
+    body = ctx["body"]
 
     tenant = await session.get(Tenant, tenant_id)
     threshold = inbox_policy(tenant)["certainty_threshold"]
@@ -136,14 +135,22 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         resolved.provider_type, resolved.api_key, resolved.base_url or None
     )
     from app.services.agent.style import PLAIN_STYLE, strip_emoji
-    from app.services.signal_tags import ai_catalog_lines
-    from app.services.tickets import category_catalog_lines, list_categories
+    from app.services.signal_tags import (
+        ai_catalog_lines_from_rows,
+        registry_rows,
+    )
+    from app.services.tickets import category_catalog_lines_from_rows
 
     # Curated vocabulary: AI may only pick hashtags the workspace has, reading
-    # each description as guidance. It never invents one.
-    categories = await list_categories(session, tenant_id)
-    category_hints = await category_catalog_lines(session, tenant_id)
-    tag_hints = await ai_catalog_lines(session, tenant_id)
+    # each description as guidance. It never invents one. One registry load
+    # feeds category hints, free-tag hints, and the post-LLM allow-set.
+    all_tags = await registry_rows(session, tenant_id)
+    categories = sorted(
+        [row for row in all_tags if row.workstream_id is not None],
+        key=lambda row: (row.sort_order, row.name),
+    )
+    category_hints = category_catalog_lines_from_rows(categories)
+    tag_hints = ai_catalog_lines_from_rows(all_tags)
     vocabulary_line = (
         '"ticket_category":"at most one category hashtag that clearly applies, ONLY from '
         "this list, or empty: " + "; ".join(category_hints) + '",'
@@ -175,7 +182,7 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         "recurring that no hashtag above covers. Never invent a hashtag; "
         "leave unknown_signal out for small talk, thanks, or one-off questions.\n"
         f"{PLAIN_STYLE}\n\n"
-        f"Subject: {detail.get('subject')}\nFrom: {detail.get('contact_email')}\n\n{body}"
+        f"Subject: {ctx['subject']}\nFrom: {ctx['contact_email']}\n\n{body}"
     )
     response = await llm.chat(
         [{"role": "user", "content": prompt}], tools=None, model=resolved.model_id
@@ -197,7 +204,7 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
             "category": "other",
             "urgency": 50,
             "impact": 40,
-            "summary": detail.get("subject", "Inbound signal"),
+            "summary": ctx["subject"] or "Inbound signal",
             "certainty": 50,
             "priority": "normal",
         }
@@ -246,11 +253,11 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
 
     certain = certainty >= threshold * 10
     if suggested_tags and certain:
-        from app.services.signal_tags import add_signal_tags, registry_rows
+        from app.services.signal_tags import add_signal_tags
 
         allowed = {
             row.name
-            for row in await registry_rows(session, tenant_id)
+            for row in all_tags
             if row.workstream_id is None and bool(row.ai_auto_tag)
         }
         applyable = [name for name in suggested_tags if normalize_tag(name) in allowed]

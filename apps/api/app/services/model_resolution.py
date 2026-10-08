@@ -181,13 +181,18 @@ async def _resolve_bokito_backing(
     keys, so a workspace that brought its own key keeps paying its own
     provider; otherwise the first candidate with a platform key is used.
     Without any key the primary backing is returned in mock mode.
+
+    Catalog rows are loaded in one query; secret lookups are memoized per
+    provider so a Mistral-only chain does not decrypt the same key N times.
     """
     await bokito_models.refresh_routes(session)
     candidates = bokito_models.backing_candidates(slug)
     primary_slug = candidates[0]
+    by_slug = await catalog_svc.get_models_by_slugs(session, candidates)
+    key_cache: dict[str, tuple[str, str]] = {}
     packed_candidates: list[tuple] = []
     for candidate_slug in candidates:
-        backing = await catalog_svc.get_model(session, candidate_slug)
+        backing = by_slug.get(candidate_slug)
         if backing is None or bokito_models.is_bokito_provider(backing.provider):
             provider = infer_provider(candidate_slug) or _FALLBACK_CHAT[1]
             model_id = candidate_slug
@@ -197,7 +202,11 @@ async def _resolve_bokito_backing(
             model_id = backing.model_id or backing.slug
             in_cents = backing.input_cost_per_mtok_cents
             out_cents = backing.output_cost_per_mtok_cents
-        api_key, key_source = await _resolve_platform_key(session, tenant_id, provider)
+        if provider not in key_cache:
+            key_cache[provider] = await _resolve_platform_key(
+                session, tenant_id, provider
+            )
+        api_key, key_source = key_cache[provider]
         fallback_from = "" if candidate_slug == primary_slug else primary_slug
         packed_candidates.append(
             (provider, model_id, in_cents, out_cents, api_key, key_source, fallback_from)

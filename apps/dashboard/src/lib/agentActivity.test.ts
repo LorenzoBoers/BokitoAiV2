@@ -8,12 +8,56 @@ import {
   groupProvider,
   groupSummary,
   isVisibleActivity,
+  itemLabel,
   liveBlocks,
   normalizeActivity,
   normalizeMessageActivity,
+  shouldShowWaitingTurn,
+  turnPreparesProposal,
   turnSaved,
+  webSearchFavicon,
+  webSearchHost,
+  webSearchQuery,
   type ActivityItem,
 } from './agentActivity'
+
+describe('turnPreparesProposal', () => {
+  it('is true while an active turn has a proposing tool call', () => {
+    const turn = {
+      ...EMPTY_TURN,
+      active: true,
+      entries: [
+        {
+          type: 'activity' as const,
+          item: normalizeActivity([{ id: 'x', kind: 'work', tool: 'restore_trash_item', proposes: true }])[0],
+        },
+      ],
+    }
+    expect(turnPreparesProposal(turn)).toBe(true)
+    expect(turnPreparesProposal({ ...turn, active: false })).toBe(false)
+    expect(turnPreparesProposal({ ...turn, entries: [] })).toBe(false)
+  })
+
+  it('hides the waiting brain while a proposal is preparing', () => {
+    const turn = {
+      ...EMPTY_TURN,
+      active: true,
+      entries: [
+        {
+          type: 'activity' as const,
+          item: normalizeActivity([{ id: 'x', kind: 'work', tool: 'propose_action', proposes: true }])[0],
+        },
+      ],
+    }
+    expect(shouldShowWaitingTurn(turn, { lastRunning: false, lastIsSpeech: false })).toBe(false)
+    expect(
+      shouldShowWaitingTurn(
+        { ...EMPTY_TURN, active: true },
+        { lastRunning: false, lastIsSpeech: false },
+      ),
+    ).toBe(true)
+  })
+})
 
 const t = ((key: string, opts?: Record<string, unknown>) =>
   opts ? `${key}:${JSON.stringify({ ...opts, ns: undefined })}` : key) as unknown as TFunction
@@ -164,6 +208,34 @@ describe('applyTurnEvent', () => {
     expect(second.streamId).toBe('s2')
     expect(second.entries).toHaveLength(1)
     expect(applyTurnEvent(second, 'agent.turn', { stream_id: 's1', phase: 'end' })).toBe(second)
+  })
+})
+
+describe('web_search activity', () => {
+  it('prefers host + favicon from results over the raw query', () => {
+    const row = item('s', 'work', 0, 1000, {
+      tool: 'web_search',
+      label: 'Search: bokito ai',
+      input: { query: 'bokito ai' },
+      result: {
+        results: [{ host: 'bokito.ai', favicon_url: 'https://icons.example/b.png' }],
+      },
+    })
+    expect(webSearchQuery(row)).toBe('bokito ai')
+    expect(webSearchHost(row)).toBe('bokito.ai')
+    expect(webSearchFavicon(row)).toBe('https://icons.example/b.png')
+    expect(itemLabel(row, t)).toBe('bokito.ai')
+  })
+
+  it('pulls a host from site: or a bare domain in the query while running', () => {
+    const row = item('s', 'work', 0, null, {
+      tool: 'web_search',
+      status: 'running',
+      input: { query: 'site:chargecars.nl laadpas prijs' },
+    })
+    expect(webSearchHost(row)).toBe('chargecars.nl')
+    expect(webSearchFavicon(row)).toContain('chargecars.nl')
+    expect(itemLabel(row, t)).toBe('chargecars.nl')
   })
 })
 

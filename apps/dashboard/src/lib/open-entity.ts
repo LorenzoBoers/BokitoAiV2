@@ -20,6 +20,15 @@ export type EntityRef =
   | { type: 'project'; id: string }
   | { type: 'work_item'; id?: string | null; projectId?: string | null }
   | { type: 'contact'; id: string }
+  | { type: 'tag'; name: string }
+  | { type: 'flow'; id: string }
+  | { type: 'file'; url?: string | null; signalId?: string | null; messageId?: string | null }
+  | { type: 'trash_entry'; id?: string | null }
+  | { type: 'user'; id?: string | null }
+  | { type: 'integration'; id?: string | null; provider?: string | null }
+  | { type: 'marketplace'; slug: string }
+  | { type: 'module'; slug: string }
+  | { type: 'help_doc'; path: string }
   | { type: 'platform_change'; id?: string | null }
   | { type: 'notification'; kind: string; payload: Record<string, unknown> }
 
@@ -58,6 +67,28 @@ export function openEntityPath(ref: EntityRef): string | null {
       return ref.projectId ? `/projects/${enc(ref.projectId)}` : '/agenda'
     case 'contact':
       return `/contacts/${enc(ref.id)}`
+    case 'tag':
+      return `/communication/tag/${enc(ref.name.replace(/^#/, ''))}`
+    case 'flow':
+      return `/workstreams/${enc(ref.id)}`
+    case 'file':
+      if (ref.url) return ref.url
+      if (ref.signalId) return openEntityPath({ type: 'signal', id: ref.signalId, messageId: ref.messageId })
+      return inboxPath('all')
+    case 'trash_entry':
+      return '/settings/bin'
+    case 'user':
+      return '/team'
+    case 'integration':
+      return ref.provider ? `/connections?provider=${enc(ref.provider)}` : '/connections'
+    case 'marketplace':
+      return `/connections?marketplace=${enc(ref.slug)}`
+    case 'module':
+      return `/connections/${enc(ref.slug)}`
+    case 'help_doc': {
+      const path = ref.path.replace(/^\/?docs\//, '').replace(/^\//, '')
+      return `/docs/${path}`
+    }
     case 'platform_change':
       return '/settings/govern?tab=drafts'
     case 'notification':

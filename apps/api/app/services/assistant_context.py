@@ -32,11 +32,12 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
     from sqlalchemy import select
 
     from app.models.orchestra import Workstream
-    from app.services.tickets import list_categories, project_choices
+    from app.services.tickets import list_categories, project_choices_by_workstream
 
     categories = await list_categories(session, tenant_id)
     if not categories:
         return ""
+    shown = categories[:MAX_CATEGORY_MAP_LINES]
     ws_names = dict(
         (
             await session.execute(
@@ -44,9 +45,16 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
             )
         ).all()
     )
+    by_ws = await project_choices_by_workstream(
+        session,
+        tenant_id,
+        [tag.workstream_id for tag in shown if tag.workstream_id is not None],
+    )
     lines: list[str] = []
-    for tag in categories[:MAX_CATEGORY_MAP_LINES]:
-        projects = [p["name"] for p in await project_choices(session, tenant_id, tag)]
+    for tag in shown:
+        projects = [
+            p["name"] for p in by_ws.get(tag.workstream_id, [])
+        ] if tag.workstream_id else []
         where = ", ".join(projects) + ", or no project" if projects else "no project"
         lines.append(f"#{tag.name} -> playbook {ws_names.get(tag.workstream_id, '?')}; projects: {where}")
     return (

@@ -239,18 +239,27 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
                     payload = part.get_payload(decode=True) or b""
                     charset = part.get_content_charset() or "utf-8"
                     body_html = payload.decode(charset, errors="replace")
-            elif "attachment" in disp or part.get_filename():
+            elif (
+                "attachment" in disp
+                or part.get_filename()
+                or (part.get("Content-ID") and ctype.startswith("image/"))
+                or (disp.startswith("inline") and not ctype.startswith("text/"))
+            ):
                 payload = part.get_payload(decode=True) or b""
                 if not payload or len(payload) > MAX_ATTACHMENT_BYTES:
                     continue
+                content_id = (part.get("Content-ID") or "").strip().strip("<>").strip()
                 # Attachments are re-fetched/stored by sync hydrate if needed;
                 # for IMAP we inline-store metadata and let sync persist bytes.
                 attachments.append(
                     {
-                        "filename": part.get_filename() or "file",
+                        "filename": part.get_filename()
+                        or (f"inline-{content_id[:24]}" if content_id else "file"),
                         "mime": ctype or "application/octet-stream",
                         "size": len(payload),
                         "data": payload,
+                        "content_id": content_id or None,
+                        "inline": "inline" in disp or bool(content_id),
                     }
                 )
     else:
@@ -268,12 +277,25 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
         else:
             body_text = content
 
+    # Mislabelled HTML in the text/plain part (common with some ESPs).
+    if not body_html and body_text:
+        sample = body_text.lstrip()[:200].lower()
+        if (
+            sample.startswith("<!doctype html")
+            or sample.startswith("<html")
+            or "<!--[if mso]" in sample
+        ):
+            body_html = body_text
+            body_text = ""
+
     if not body_text and body_html:
         # Local strip — avoid importing email_sync (circular with fetch wiring).
         import re
 
-        body_text = re.sub(r"<[^>]+>", " ", body_html)
-        body_text = re.sub(r"\s+", " ", body_text).strip()
+        stripped = re.sub(r"(?is)<(style|script|head|title)[^>]*>.*?</\1>", " ", body_html)
+        stripped = re.sub(r"(?s)<!--.*?-->", " ", stripped)
+        stripped = re.sub(r"<[^>]+>", " ", stripped)
+        body_text = re.sub(r"\s+", " ", stripped).strip()
 
     external_id = rfc_id or f"imap-uid-{uid}"
     thread_id = (

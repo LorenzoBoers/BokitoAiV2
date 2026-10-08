@@ -75,6 +75,7 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     # Understand the platform and this workspace.
     "search_product_help",
     "search_index",
+    "web_search",
     "search_repo",
     "list_docs",
     "read_doc",
@@ -108,6 +109,10 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "propose_module_source",
     "suggest_inbox_rule",
     "create_decision_request",
+    "propose_action",
+    "attach_items",
+    "list_tags",
+    "delete_tag",
     "create_queue_item",
     "update_queue_item_status",
     "link_queue_item_to_doc",

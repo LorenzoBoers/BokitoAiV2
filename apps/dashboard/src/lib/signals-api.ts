@@ -9,7 +9,7 @@ import {
   appScopedGet,
   buildAuthHeaders,
 } from './api'
-import { normalizeDelivery, normalizeMyFeedback, normalizeThreadRow } from './inbox-api'
+import { messageProposalFields, normalizeDelivery, normalizeMyFeedback, normalizeThreadRow } from './inbox-api'
 import { normalizeMessageActivity, type ActivityItem } from './agentActivity'
 import { normalizeAiHandling } from './ai-handling'
 import { plainChatText } from './chatText'
@@ -98,6 +98,7 @@ export function normalizeSignalMessage(row: unknown): InboxMessage | null {
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
     myFeedback: normalizeMyFeedback(raw),
     ...normalizeMessageActivity(raw),
+    ...messageProposalFields(raw.payload),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asString(raw.created_at),
   }
@@ -851,6 +852,7 @@ export async function resolveSignalDecision(
   action: 'approve' | 'defer' | 'reject',
   opts?: {
     optionId?: string
+    optionIds?: string[]
     body?: string
     bodyHtml?: string
     subject?: string
@@ -865,6 +867,7 @@ export async function resolveSignalDecision(
     action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'deferred'
   const payload: Record<string, unknown> = { action: backendAction }
   if (opts?.optionId) payload.option_id = opts.optionId
+  if (opts?.optionIds?.length) payload.option_ids = opts.optionIds
   if (opts?.body != null) {
     payload.body = opts.body
     payload.body_text = opts.body
@@ -1254,10 +1257,13 @@ export async function bokitoStreamMessage(
   options?: {
     /** What the operator is looking at (route + entity), for the in-app assistant. */
     pageContext?: string
+    /** Uploaded files / pasted images for multimodal turns. */
+    attachments?: unknown[]
   },
 ): Promise<string> {
   const payload: Record<string, unknown> = { content }
   if (options?.pageContext) payload.page_context = options.pageContext
+  if (options?.attachments?.length) payload.attachments = options.attachments
   const res = await fetch(
     `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
     {
@@ -1278,6 +1284,7 @@ export async function bokitoStreamMessage(
   let buffer = ''
   let finalText = ''
   let eventName = ''
+  let sawDone = false
 
   const handleEvent = (name: string, data: string) => {
     try {
@@ -1287,6 +1294,7 @@ export async function bokitoStreamMessage(
       } else if (name === 'delta' && payload.text) {
         onDelta(payload.text)
       } else if (name === 'done') {
+        sawDone = true
         finalText = payload.text ?? finalText
       }
     } catch {
@@ -1310,6 +1318,15 @@ export async function bokitoStreamMessage(
         eventName = ''
       }
       idx = buffer.indexOf('\n')
+    }
+  }
+  // Dropped SSE (proxy/idle) without a done frame leaves the server run
+  // locked; clear it so the next Send is not stuck on agent_busy.
+  if (!sawDone && !signal?.aborted) {
+    try {
+      await bokitoCancelConversation(token, conversationId)
+    } catch {
+      /* best-effort */
     }
   }
   return finalText

@@ -431,7 +431,8 @@
     "writing": "Typt...",
     "note": "Notitie",
     "action": "Actie",
-    "failed": "Mislukt"
+    "failed": "Mislukt",
+    "webSearch": "Zoekt op {{query}}"
   },
   "mockAgent": {
     "replyBody": "Tijdelijk antwoord over {{topic}}."
@@ -534,6 +535,7 @@
     "closeError": "Kon AI-gesprek niet afsluiten.",
     "sendError": "Kon niet naar de AI sturen.",
     "busyError": "De AI is nog bezig. Wacht of druk op Stop.",
+    "stop": "Stop",
     "replyCopied": "Antwoord gekopieerd naar de composer",
     "switchedAgent": "Gewisseld naar {{name}}"
   },
@@ -1386,5 +1388,57 @@
     "fileError": "Kon deze actietag niet vastleggen.",
     "createError": "Kon deze tag niet maken.",
     "busy": "Bezig…"
+  },
+  "proposal": {
+    "itemType": {
+      "conversation": "Gesprek",
+      "trash_entry": "Item in prullenbak",
+      "trigger": "Agenda-item",
+      "file": "Bestand",
+      "image": "Afbeelding",
+      "user": "Teamlid",
+      "agent": "Agent",
+      "tag": "Hashtag",
+      "flow": "Flow",
+      "project": "Project",
+      "contact": "Contact",
+      "integration": "Koppeling",
+      "marketplace": "Marketplace",
+      "module": "Module",
+      "help_doc": "Hulp-artikel",
+      "message": "Bericht"
+    },
+    "binKind": {
+      "conversation": "Gesprek",
+      "contact": "Contact",
+      "company": "Organisatie",
+      "project": "Project",
+      "canvas": "Canvas",
+      "knowledge": "Kennis",
+      "playbook": "Flow",
+      "trigger": "Agenda-item",
+      "team": "Team",
+      "inbox_rule": "Inboxregel",
+      "saved_reply": "Opgeslagen antwoord",
+      "project_resource": "Projectbron",
+      "queue_item": "Wachtrij-item"
+    },
+    "itemMissing": "Niet meer beschikbaar",
+    "deletedOn": "verwijderd {{date}}",
+    "more": "Meer opties",
+    "preparing": "Voorstel klaarzetten...",
+    "confirm": "Bevestigen",
+    "confirmed": "Bevestigd",
+    "status": {
+      "approved": "Goedgekeurd",
+      "approvedBy": "Goedgekeurd door {{name}}",
+      "answered": "Beantwoord",
+      "chosen": "Gekozen: {{option}}",
+      "rejected": "Afgewezen",
+      "rejectedBy": "Afgewezen door {{name}}",
+      "superseded": "Vervangen door nieuwer voorstel",
+      "missing": "Voorstel niet meer beschikbaar",
+      "setAside": "Opzijgezet"
+    }
   }
 }

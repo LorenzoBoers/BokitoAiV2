@@ -26,6 +26,34 @@ TO_TARGET_SCHEMA = {
     ),
 }
 
+PROPOSAL_ITEMS_SCHEMA = {
+    "type": "array",
+    "description": (
+        "Showcase cards inside your message (EntityRow previews). Prefer #name "
+        "for tags in prose. Types: conversation | trash_entry | trigger | file | "
+        "image | user | agent | tag | flow | project | contact | integration | "
+        "marketplace | module | help_doc | message. Pass id (tag: name; file: "
+        "message_id + name/index; image: https url in url or id; "
+        "marketplace/module/help_doc: slug or path). "
+        "Example: items:[{type:\"project\", id:\"<project_id>\"}] or "
+        "[{type:\"image\", url:\"https://…\", title:\"…\"}]."
+    ),
+    "items": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string"},
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "url": {"type": "string"},
+            "image_url": {"type": "string"},
+            "title": {"type": "string"},
+            "message_id": {"type": "string"},
+            "index": {"type": "integer"},
+        },
+        "required": ["type"],
+    },
+}
+
 
 async def _get_tenant(ctx: ToolContext) -> Tenant:
     result = await ctx.session.execute(select(Tenant).where(Tenant.id == ctx.tenant_id))
@@ -42,6 +70,16 @@ async def _search_index(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         ctx.session, ctx.tenant_id, tool_input.get("query", ""), tool_input.get("top_k", 8)
     )
     return {"results": results}
+
+
+async def _web_search(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.web_search import brave_search
+
+    return await brave_search(
+        str(tool_input.get("query") or ""),
+        count=int(tool_input.get("count") or 5),
+        kind=str(tool_input.get("kind") or "web"),
+    )
 
 
 async def _search_product_help(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -1150,6 +1188,15 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         if run_row:
             task_uuid = run_row.task_id
 
+    from app.services.proposal_items import resolve_items
+
+    raw_items = tool_input.get("items")
+    items = await resolve_items(ctx.session, ctx.tenant_id, raw_items if isinstance(raw_items, list) else None)
+    question = strip_emoji(str(tool_input.get("question") or "")).strip() or None
+    selection = str(tool_input.get("selection") or "single").strip().lower()
+    if selection not in ("single", "multiple"):
+        selection = "single"
+    asker_id = ctx.agent.id if ctx.agent else None
     decision, _ = await create_decision(
         ctx.session,
         ctx.tenant_id,
@@ -1157,16 +1204,24 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         summary=tool_input.get("summary", ""),
         options=tool_input.get("options", []),
         user_id=ctx.user_id,
-        agent_id=ctx.agent.id if ctx.agent else None,
+        agent_id=asker_id,
         signal_id=target_signal_id,
         project_id=project_uuid,
         agent_task_id=task_uuid,
         run_id=ctx.run_id,
-        notification_payload=tool_input,
+        source_id=str(asker_id) if asker_id else None,
+        notification_payload={k: v for k, v in tool_input.items() if k != "items"},
         to=await parse_target(ctx.session, ctx.tenant_id, tool_input.get("to")),
+        items=items,
+        question=question,
+        selection=selection,
     )
     await ctx.session.commit()
-    return {"decision_request_id": str(decision.id), "status": "awaiting_human"}
+    result: dict[str, Any] = {"decision_request_id": str(decision.id), "status": "awaiting_human"}
+    missing = [item for item in items if item.get("missing")]
+    if missing:
+        result["missing_items"] = [{"type": i["type"], "id": i["id"]} for i in missing]
+    return result
 
 
 PROPOSAL_COOLDOWN_DAYS = 7
@@ -1686,6 +1741,41 @@ register_tool(
         handler=_search_index,
         mutating=False,
         gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="web_search",
+        description=(
+            "Search the open web (Brave Search). Use for current facts, news, or "
+            "public pages outside this workspace. kind=web returns titles, urls, "
+            "snippets; kind=images returns image urls. To show images in chat, "
+            "call attach_items with type image and each result's image_url. "
+            "Prefer search_index / search_product_help for Bokito and workspace data."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"},
+                "count": {
+                    "type": "integer",
+                    "description": "Number of results (1-10, default 5)",
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": ["web", "images"],
+                    "description": "web (default) or images",
+                },
+            },
+            "required": ["query"],
+        },
+        handler=_web_search,
+        mutating=False,
+        gated=False,
+        audience="both",
+        display_name="Web search",
     )
 )
 
@@ -2326,7 +2416,10 @@ register_tool(
             "takes over with no outbound mail. Outside a conversation (check-ins, "
             "scheduled wakes) pass thread_subject so the card lands on the thread "
             "it concerns; a card without a thread needs at least one option that "
-            "runs a platform tool, otherwise report the observation instead."
+            "runs a platform tool, otherwise report the observation instead. "
+            "In a chat, the options appear as buttons under your last message; "
+            "pass items (type + id from tool results) so the objects show as "
+            "previews inside the message — never paste ids or dump titles in text."
         ),
         category="messaging",
         input_schema={
@@ -2334,6 +2427,19 @@ register_tool(
             "properties": {
                 "title": {"type": "string"},
                 "summary": {"type": "string"},
+                "question": {
+                    "type": "string",
+                    "description": (
+                        "Short question shown above the buttons when your message "
+                        "does not already ask it."
+                    ),
+                },
+                "items": PROPOSAL_ITEMS_SCHEMA,
+                "selection": {
+                    "type": "string",
+                    "enum": ["single", "multiple"],
+                    "description": "single (default) or multiple picks before Confirm.",
+                },
                 "signal_id": {"type": "string"},
                 "thread_subject": {
                     "type": "string",
@@ -2358,6 +2464,7 @@ register_tool(
                                 "description": "Ask for a free-text answer when this option is chosen.",
                             },
                             "input_placeholder": {"type": "string"},
+                            "item_ref": {"type": "object"},
                         },
                     },
                 },
@@ -2367,6 +2474,294 @@ register_tool(
         handler=_create_decision_request,
         gated=False,
         audience="both",
+    )
+)
+
+
+def _learn_blob(ctx: ToolContext, tool_name: str) -> dict[str, Any] | None:
+    if ctx.agent is None or not tool_name:
+        return None
+    return {
+        "tool": tool_name,
+        "agent_id": str(ctx.agent.id),
+        "reason": "",
+        "rule_text": "",
+    }
+
+
+async def _propose_action(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.tools.registry import get_tool_spec
+
+    question = str(tool_input.get("question") or "").strip()
+    action = str(tool_input.get("action") or "").strip()
+    if not question:
+        return {"ok": False, "code": "missing_question", "message": "Pass the question to ask."}
+    if action and get_tool_spec(action) is None:
+        return {"ok": False, "code": "unknown_action", "message": f"No platform tool named {action}."}
+    options: list[dict[str, Any]] = []
+    if action:
+        approve_opt: dict[str, Any] = {
+            "id": "approve",
+            "label": str(tool_input.get("approve_label") or "Approve"),
+            "action_type": action,
+            "payload": tool_input.get("payload") or {},
+        }
+        learn = _learn_blob(ctx, action)
+        if learn:
+            approve_opt["learn"] = learn
+        options.append(approve_opt)
+    for extra in tool_input.get("options") or []:
+        if isinstance(extra, dict) and extra.get("id") and extra.get("label"):
+            row = dict(extra)
+            action_type = str(row.get("action_type") or "").strip()
+            if (
+                action_type
+                and action_type not in ("reject", "defer", "escalate")
+                and get_tool_spec(action_type) is not None
+                and "learn" not in row
+            ):
+                learn = _learn_blob(ctx, action_type)
+                if learn:
+                    row["learn"] = learn
+            options.append(row)
+    if not options:
+        return {
+            "ok": False,
+            "code": "no_options",
+            "message": "Pass action (the tool to run on approve) or at least one option.",
+        }
+    if not any(o.get("id") == "reject" for o in options):
+        options.append({"id": "reject", "label": str(tool_input.get("reject_label") or "Reject"), "action_type": "reject"})
+    return await _create_decision_request(
+        ctx,
+        {
+            "title": str(tool_input.get("title") or question)[:200],
+            "summary": str(tool_input.get("summary") or ""),
+            "question": question,
+            "items": tool_input.get("items") or [],
+            "options": options,
+            "signal_id": tool_input.get("signal_id"),
+            "selection": tool_input.get("selection") or "single",
+        },
+    )
+
+
+register_tool(
+    ToolSpec(
+        name="propose_action",
+        description=(
+            "End your chat message with an inline proposal when you need an answer. "
+            "Write a short question (use #tags and [docs](/docs/…) inline; never paste "
+            "ids). Pass items for showcase previews, selection single or multiple, and "
+            "options (option.id may match an item id so clicking the preview chooses "
+            "it). For destructive work (e.g. delete_tag), pass action + payload so "
+            "Approve runs that tool; do not invent soft Yes labels without action. "
+            "Buttons appear under your message. To only show objects without asking, "
+            "use attach_items instead."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "Short question, e.g. 'Restore this item?'"},
+                "action": {"type": "string", "description": "Platform tool to run when approved"},
+                "payload": {"type": "object", "description": "Input for that tool"},
+                "items": PROPOSAL_ITEMS_SCHEMA,
+                "selection": {
+                    "type": "string",
+                    "enum": ["single", "multiple"],
+                    "description": "single (default) or multiple — operator can pick several options then Confirm.",
+                },
+                "approve_label": {"type": "string"},
+                "reject_label": {"type": "string"},
+                "title": {"type": "string"},
+                "summary": {"type": "string"},
+                "signal_id": {"type": "string"},
+                "options": {
+                    "type": "array",
+                    "description": "Choices. Set id to an item id to link a showcase row to that option.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "label": {"type": "string"},
+                            "action_type": {"type": "string"},
+                            "payload": {"type": "object"},
+                            "input_type": {"type": "string", "enum": ["text"]},
+                            "input_placeholder": {"type": "string"},
+                            "item_ref": {
+                                "type": "object",
+                                "description": "Optional {type,id} linking this option to a showcase item.",
+                            },
+                        },
+                    },
+                },
+            },
+            "required": ["question"],
+        },
+        handler=_propose_action,
+        gated=False,
+        audience="both",
+    )
+)
+
+
+async def _attach_items(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.proposal_items import resolve_items, stash_attach_items
+
+    items = await resolve_items(
+        ctx.session, ctx.tenant_id, tool_input.get("items") if isinstance(tool_input.get("items"), list) else None
+    )
+    stash_attach_items(ctx.signal_id, items)
+    missing = [i for i in items if i.get("missing")]
+    result: dict[str, Any] = {"ok": True, "attached": len(items), "items": items}
+    if missing:
+        result["missing_items"] = [{"type": i["type"], "id": i["id"]} for i in missing]
+    return result
+
+
+register_tool(
+    ToolSpec(
+        name="attach_items",
+        description=(
+            "Show platform objects as showcase cards inside your last chat message "
+            "without asking for approval. Pass items [{type, id}]. Types: conversation, "
+            "trash_entry, trigger, file, image, user, agent, tag, flow, project, contact, "
+            "integration, marketplace, module, help_doc, message. For remote images pass "
+            "type image with url (https). For tags in prose use #name instead. "
+            "Use propose_action when you need the operator to choose."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {"items": PROPOSAL_ITEMS_SCHEMA},
+            "required": ["items"],
+        },
+        handler=_attach_items,
+        gated=False,
+        mutating=False,
+        audience="both",
+    )
+)
+
+
+async def _list_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.models.signal import SignalTag
+
+    rows = (
+        await ctx.session.execute(
+            select(SignalTag)
+            .where(SignalTag.tenant_id == ctx.tenant_id)
+            .order_by(SignalTag.name.asc())
+        )
+    ).scalars().all()
+    kind_filter = str(tool_input.get("kind") or "all").strip().lower()
+    tags: list[dict[str, Any]] = []
+    for row in rows:
+        is_action = bool(row.workstream_id)
+        kind = "action_tag" if is_action else "tag"
+        if kind_filter == "action" and not is_action:
+            continue
+        if kind_filter in ("free", "tag") and is_action:
+            continue
+        tags.append(
+            {
+                "id": str(row.id),
+                "name": row.name,
+                "kind": kind,
+                "description": row.description or "",
+                "workstream_id": str(row.workstream_id) if row.workstream_id else None,
+                "markup": f"#[[{row.name}]]({'action_tag' if is_action else 'tag'}:{row.id})",
+            }
+        )
+    return {"tags": tags, "count": len(tags)}
+
+
+async def _delete_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from sqlalchemy import func
+
+    from app.models.signal import SignalTag
+    from app.services.signal_tags import delete_tag
+
+    raw_id = tool_input.get("id")
+    name = str(tool_input.get("name") or "").strip().lstrip("#").lower()
+    row = None
+    if raw_id:
+        try:
+            tag_id = UUID(str(raw_id))
+        except (TypeError, ValueError):
+            return {"error": "invalid_id", "message": "id must be a tag UUID"}
+        row = (
+            await ctx.session.execute(
+                select(SignalTag).where(SignalTag.id == tag_id, SignalTag.tenant_id == ctx.tenant_id)
+            )
+        ).scalar_one_or_none()
+    elif name:
+        row = (
+            await ctx.session.execute(
+                select(SignalTag)
+                .where(SignalTag.tenant_id == ctx.tenant_id, func.lower(SignalTag.name) == name)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+    else:
+        return {"error": "missing_tag", "message": "Pass id or name of the tag to delete."}
+    if row is None:
+        return {"error": "not_found", "message": "Tag not found in this workspace."}
+    tag_name = row.name
+    tag_id = row.id
+    await delete_tag(ctx.session, ctx.tenant_id, tag_id, commit=False)
+    return {"ok": True, "deleted": True, "id": str(tag_id), "name": tag_name}
+
+
+register_tool(
+    ToolSpec(
+        name="list_tags",
+        description=(
+            "List workspace tags: free tags and action tags (ticket flows). "
+            "Use #name in chat for inline chips, or attach_items with type tag. "
+            "Returns id, name, kind (tag|action_tag), description, and markup."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": ["all", "free", "action"],
+                    "description": "Filter: all (default), free, or action.",
+                },
+            },
+        },
+        handler=_list_tags,
+        gated=False,
+        mutating=False,
+        audience="both",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="delete_tag",
+        description=(
+            "Permanently delete a workspace tag (free tag or action tag) and unlink "
+            "it from every conversation. Prefer propose_action with action=delete_tag "
+            "and payload {name} or {id} so the operator approves first. Do not invent "
+            "soft Yes/No options without this action."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "description": "Tag UUID"},
+                "name": {"type": "string", "description": "Tag name without #"},
+            },
+        },
+        handler=_delete_tag,
+        gated=True,
+        mutating=True,
+        audience="both",
+        display_name="Delete tag",
     )
 )
 
@@ -4241,8 +4636,11 @@ register_tool(
     ToolSpec(
         name="restore_trash_item",
         description=(
-            "Restore an item from the workspace Bin. Restoring a child while "
-            "the parent is still in the Bin fails until the parent is restored."
+            "Restore an item from the workspace Bin. This is consequential: "
+            "calling it raises an Approve/Reject card for the operator — do not "
+            "only ask in chat whether to restore; call this tool with the item "
+            "id so they can approve. Restoring a child while the parent is "
+            "still in the Bin fails until the parent is restored."
         ),
         category="workspace",
         input_schema={

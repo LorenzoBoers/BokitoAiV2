@@ -271,6 +271,16 @@ class _HtmlTextExtractor(HTMLParser):
         self._parts: list[str] = []
         self._skip_depth = 0
 
+    def handle_comment(self, data: str) -> None:
+        # Drop HTML / MSO conditional comments so they never leak into previews.
+        return
+
+    def handle_decl(self, decl: str) -> None:
+        return
+
+    def handle_pi(self, data: str) -> None:
+        return
+
     def handle_data(self, data: str) -> None:
         if data and not self._skip_depth:
             self._parts.append(data)
@@ -289,10 +299,18 @@ class _HtmlTextExtractor(HTMLParser):
         if tag in ("p", "div", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6"):
             self._parts.append("\n")
 
+    def unknown_decl(self, data: str) -> None:
+        # IE conditional leftovers like `[if !mso]` / `[endif]`.
+        return
+
     def get_text(self) -> str:
         text = "".join(self._parts)
         text = re.sub(r"[ \t]+\n", "\n", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
+        # Downlevel-revealed markers that leaked as literal text.
+        text = re.sub(r"<!--\s*\[if[^\]]*\]\s*(?:><!-->)?", " ", text, flags=re.I)
+        text = re.sub(r"<!\[endif\]\s*-*>?", " ", text, flags=re.I)
+        text = re.sub(r"<!\[if[^\]]*\]>", " ", text, flags=re.I)
         return text.strip()
 
 
@@ -301,6 +319,11 @@ def html_to_text(html: str) -> str:
     raw = (html or "").strip()
     if not raw:
         return ""
+    # Drop HTML comments (covers `<!--[if !mso]><!-->` openers). Do not use a
+    # greedy if…endif span — downlevel-revealed blocks wrap real visible copy.
+    raw = re.sub(r"<!--.*?-->", " ", raw, flags=re.S)
+    raw = re.sub(r"<!\[endif\]\s*-*>?", " ", raw, flags=re.I)
+    raw = re.sub(r"<!\[if[^\]]*\]>", " ", raw, flags=re.I)
     parser = _HtmlTextExtractor()
     try:
         parser.feed(raw)
@@ -415,16 +438,17 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
     if "<" in from_raw and ">" in from_raw:
         name = from_raw.split("<")[0].strip().strip('"')
         address = from_raw.split("<")[1].split(">")[0].strip()
-    body_html = _extract_gmail_html(payload)
+    body_html, html_attachment_id = _extract_gmail_html(payload)
     # Fallback order matters: HTML-only mail (most support desks) has no
     # text/plain part, and Gmail's `snippet` is ~200 chars — agents reading a
     # snippet think the email was cut off mid-sentence. Convert the HTML body
     # to text before ever falling back to the snippet.
-    body_text = (
-        _extract_gmail_body(payload)
-        or html_to_text(body_html)
-        or msg.get("snippet", "")
-    )
+    body_text, text_attachment_id = _extract_gmail_body(payload)
+    if not body_text and body_html:
+        body_text = html_to_text(body_html)
+    if not body_text:
+        body_text = msg.get("snippet", "") or ""
+    body_text, body_html = promote_html_body(body_text, body_html)
     attachments = _extract_gmail_attachments(payload)
     received_at: datetime | None = None
     try:
@@ -454,41 +478,61 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
         "in_reply_to": headers.get("in-reply-to", ""),
         "references": headers.get("references", ""),
         "auto_headers": {k: headers[k] for k in _AUTO_HEADER_KEYS if headers.get(k)},
+        # Large Gmail parts omit body.data and only expose attachmentId.
+        "_gmail_html_attachment_id": html_attachment_id,
+        "_gmail_text_attachment_id": text_attachment_id,
     }
 
 
-def _extract_gmail_body(payload: dict[str, Any]) -> str:
-    """Depth-first search for the first text/plain part; decode base64url."""
+def _decode_gmail_body_data(data: str | None) -> str:
+    if not data:
+        return ""
+    try:
+        return base64.urlsafe_b64decode(data + "===").decode("utf-8", "replace")
+    except Exception:
+        return ""
+
+
+def _extract_gmail_body(payload: dict[str, Any]) -> tuple[str, str | None]:
+    """Depth-first search for the first text/plain part; decode base64url.
+
+    Returns ``(text, attachment_id)`` — attachment_id is set when Gmail omits
+    inline ``body.data`` for large parts (fetch via messages.attachments.get).
+    """
     mime = payload.get("mimeType", "")
-    body = payload.get("body", {})
+    body = payload.get("body", {}) or {}
     data = body.get("data")
-    if mime == "text/plain" and data:
-        try:
-            return base64.urlsafe_b64decode(data + "===").decode("utf-8", "replace")
-        except Exception:
-            return ""
-    for part in payload.get("parts", []) or []:
-        text = _extract_gmail_body(part)
+    attachment_id = body.get("attachmentId")
+    if mime == "text/plain":
+        text = _decode_gmail_body_data(data)
         if text:
-            return text
-    return ""
+            return text, None
+        if attachment_id:
+            return "", str(attachment_id)
+    for part in payload.get("parts", []) or []:
+        text, aid = _extract_gmail_body(part)
+        if text or aid:
+            return text, aid
+    return "", None
 
 
-def _extract_gmail_html(payload: dict[str, Any]) -> str:
+def _extract_gmail_html(payload: dict[str, Any]) -> tuple[str, str | None]:
     """Depth-first search for the first text/html part; decode base64url."""
     mime = payload.get("mimeType", "")
-    body = payload.get("body", {})
+    body = payload.get("body", {}) or {}
     data = body.get("data")
-    if mime == "text/html" and data:
-        try:
-            return base64.urlsafe_b64decode(data + "===").decode("utf-8", "replace")
-        except Exception:
-            return ""
-    for part in payload.get("parts", []) or []:
-        html = _extract_gmail_html(part)
+    attachment_id = body.get("attachmentId")
+    if mime == "text/html":
+        html = _decode_gmail_body_data(data)
         if html:
-            return html
-    return ""
+            return html, None
+        if attachment_id:
+            return "", str(attachment_id)
+    for part in payload.get("parts", []) or []:
+        html, aid = _extract_gmail_html(part)
+        if html or aid:
+            return html, aid
+    return "", None
 
 
 def _gmail_part_header(part: dict[str, Any], name: str) -> str:
@@ -507,17 +551,67 @@ def rewrite_cid_urls(html: str, cid_to_url: dict[str, str]) -> str:
     """Replace cid: references in email HTML with hosted attachment URLs."""
     if not html or not cid_to_url:
         return html
-    lookup = {normalize_content_id(k): v for k, v in cid_to_url.items() if k and v}
+    lookup = {
+        normalize_content_id(k).lower(): v for k, v in cid_to_url.items() if k and v
+    }
 
-    def repl(match: re.Match[str]) -> str:
+    def repl_quoted(match: re.Match[str]) -> str:
         quote = match.group(1)
-        key = normalize_content_id(match.group(2))
+        key = normalize_content_id(match.group(2)).lower()
         url = lookup.get(key)
         if not url:
             return match.group(0)
         return f"src={quote}{url}{quote}"
 
-    return re.sub(r"""src=(["'])cid:([^"']+)\1""", repl, html, flags=re.IGNORECASE)
+    def repl_bare(match: re.Match[str]) -> str:
+        key = normalize_content_id(match.group(1)).lower()
+        url = lookup.get(key)
+        if not url:
+            return match.group(0)
+        return f'src="{url}"'
+
+    # Quoted first so ids like cid:<logo@bar> keep the brackets inside quotes.
+    out = re.sub(
+        r"""(?:src|background)\s*=\s*(["'])cid:(.*?)\1""",
+        repl_quoted,
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    return re.sub(
+        r"""(?:src|background)\s*=\s*cid:([^\s>]+)""",
+        repl_bare,
+        out,
+        flags=re.IGNORECASE,
+    )
+
+
+def looks_like_html(value: str) -> bool:
+    """True when a supposedly plain body is actually HTML source."""
+    raw = (value or "").strip()
+    if len(raw) < 32:
+        return False
+    lower = raw[:200].lower()
+    if lower.startswith("<!doctype html") or lower.startswith("<html"):
+        return True
+    if "<!--[if mso]" in lower or "<!--[if !mso]" in lower:
+        return True
+    if re.search(r"<(?:table|style|head|body|div|p|img|a)\b", raw, re.I) and re.search(
+        r"</(?:table|style|head|body|div|p|a)>", raw, re.I
+    ):
+        return True
+    return False
+
+
+def promote_html_body(body_text: str, body_html: str) -> tuple[str, str]:
+    """If HTML landed in the text part, move it to body_html and derive text."""
+    html = (body_html or "").strip()
+    text = body_text or ""
+    if html:
+        return text, html
+    if looks_like_html(text):
+        html = text.strip()
+        return html_to_text(html) or text, html
+    return text, html
 
 
 def _extract_gmail_attachments(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -587,6 +681,7 @@ def _parse_graph_message(msg: dict[str, Any]) -> dict[str, Any] | None:
         body_text = html_to_text(body_content) or preview
     else:
         body_text = body_content or preview
+    body_text, body_html = promote_html_body(body_text or "", body_html or "")
     return {
         "from_address": sender.get("address", ""),
         "from_name": sender.get("name", ""),
@@ -648,6 +743,24 @@ async def _enrich_graph_rfc_headers(
     return parsed
 
 
+async def _gmail_fetch_part_data(
+    client: httpx.AsyncClient, token: str, mid: str, attachment_id: str
+) -> str:
+    """Fetch a large Gmail body part that was returned as attachmentId only."""
+    resp = await client.get(
+        GMAIL_ATTACHMENT_URL.format(mid=mid, aid=attachment_id),
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    if resp.status_code != 200:
+        return ""
+    try:
+        return base64.urlsafe_b64decode((resp.json().get("data") or "") + "===").decode(
+            "utf-8", "replace"
+        )
+    except Exception:
+        return ""
+
+
 async def _gmail_get_message(client: httpx.AsyncClient, token: str, mid: str) -> dict[str, Any]:
     detail = await client.get(
         GMAIL_MSG_URL.format(id=mid),
@@ -655,7 +768,26 @@ async def _gmail_get_message(client: httpx.AsyncClient, token: str, mid: str) ->
         headers={"Authorization": f"Bearer {token}"},
     )
     detail.raise_for_status()
-    return _parse_gmail_message(detail.json())
+    parsed = _parse_gmail_message(detail.json())
+    # Large messages omit body.data; hydrate text/html parts by attachment id.
+    html_aid = parsed.pop("_gmail_html_attachment_id", None)
+    text_aid = parsed.pop("_gmail_text_attachment_id", None)
+    if html_aid and not parsed.get("body_html"):
+        html = await _gmail_fetch_part_data(client, token, mid, str(html_aid))
+        if html:
+            parsed["body_html"] = html
+            if not parsed.get("body_text") or looks_like_html(str(parsed.get("body_text") or "")):
+                parsed["body_text"] = html_to_text(html) or parsed.get("body_text") or ""
+    if text_aid and not parsed.get("body_text"):
+        text = await _gmail_fetch_part_data(client, token, mid, str(text_aid))
+        if text:
+            parsed["body_text"] = text
+    body_text, body_html = promote_html_body(
+        str(parsed.get("body_text") or ""), str(parsed.get("body_html") or "")
+    )
+    parsed["body_text"] = body_text
+    parsed["body_html"] = body_html
+    return parsed
 
 
 async def _gmail_hydrate_bodies(token: str, message_ids: list[str]) -> list[dict[str, Any]]:
@@ -897,21 +1029,32 @@ async def _hydrate_smtp_imap_attachments(
     if not raw_attachments:
         return
     hydrated: list[dict[str, Any]] = []
+    cid_map: dict[str, str] = {}
     for att in raw_attachments:
         data = att.get("data")
         if not data or not isinstance(data, (bytes, bytearray)):
             continue
         if len(data) > MAX_ATTACHMENT_BYTES:
             continue
+        content_id = normalize_content_id(str(att.get("content_id") or ""))
         stored = await _store_attachment(
             tenant_id,
-            filename=str(att.get("filename") or "file"),
+            filename=str(
+                att.get("filename")
+                or (f"inline-{content_id[:24]}.bin" if content_id else "file")
+            ),
             mime=str(att.get("mime") or "application/octet-stream"),
             data=bytes(data),
         )
         if stored:
+            if content_id:
+                stored["content_id"] = content_id
+                stored["inline"] = bool(att.get("inline", True))
+                cid_map[content_id] = str(stored.get("url") or "")
             hydrated.append(stored)
     item["attachments"] = hydrated
+    if cid_map and item.get("body_html"):
+        item["body_html"] = rewrite_cid_urls(str(item.get("body_html") or ""), cid_map)
 
 
 async def _store_attachment(

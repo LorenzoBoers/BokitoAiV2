@@ -43,6 +43,21 @@ describe('parseChatInline', () => {
     expect(nodes.find((n) => n.type === 'mention' && n.name === 'Ann')).toBeTruthy()
   })
 
+  it('parses bare and structured tags plus status pills', () => {
+    const nodes = parseChatInline('Tags #klacht and #storing, #[[klacht]](action_tag:1), [Open](status:open)', {
+      tags: { klacht: 'action_tag', storing: 'tag' },
+    })
+    const tags = nodes.filter((n) => n.type === 'tag')
+    expect(tags).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'tag', name: 'klacht', kind: 'action_tag' }),
+        expect.objectContaining({ type: 'tag', name: 'storing', kind: 'tag' }),
+        expect.objectContaining({ type: 'tag', name: 'klacht', kind: 'action_tag', id: '1' }),
+      ]),
+    )
+    expect(nodes.find((n) => n.type === 'status' && n.key === 'open')).toBeTruthy()
+  })
+
   it('styles an open marker at the tail only while streaming', () => {
     expect(kinds(parseChatInline('Hi **bol', { streaming: true }))).toEqual(['text', 'bold'])
     expect(parseChatInline('Hi **bol')).toEqual([{ type: 'text', text: 'Hi **bol' }])

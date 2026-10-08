@@ -1,18 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AlertCircle, Brain, ChevronDown, ChevronRight, CircleDot, UserRound, Wrench } from 'lucide-react'
+import { AlertCircle, Brain, ChevronDown, ChevronRight, CircleDot, Globe, UserRound, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
 import {
   formatDuration,
   groupActivity,
   groupLiveLabel,
-  groupProvider,
   groupSummary,
   isHandoffTool,
   isKnowledgeTool,
   isVisibleActivity,
   itemDurationMs,
   itemLabel,
+  webSearchFavicon,
+  webSearchHost,
   type ActivityGroup,
   type ActivityItem,
   type ActivityKind,
@@ -35,6 +36,92 @@ function ProviderLogo({ provider, size }: { provider: string; size: number }) {
   )
 }
 
+function SiteFavicon({ src, size }: { src: string; size: number }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) return null
+  return (
+    <img
+      src={src}
+      alt=""
+      style={{ width: size, height: size }}
+      className="shrink-0 rounded-[2px] object-contain"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
+/**
+ * Web search lead: animated globe, then site favicon when known.
+ * Label text (host / "Searching for …") is rendered by the caller.
+ */
+function WebSearchLead({
+  item,
+  size = 12,
+  live = false,
+}: {
+  item: ActivityItem
+  size?: number
+  live?: boolean
+}) {
+  const running = live || item.status === 'running'
+  const favicon = webSearchFavicon(item)
+  const host = webSearchHost(item)
+  return (
+    <span aria-hidden className="inline-flex shrink-0 items-center gap-0.5">
+      <span
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center',
+          running && 'activity-live-icon',
+        )}
+      >
+        <Globe size={size} className="shrink-0" />
+      </span>
+      {host && favicon ? <SiteFavicon src={favicon} size={size} /> : null}
+    </span>
+  )
+}
+
+const GROUP_ICON_MAX = 6
+
+/** Inline icons for every action in a group (globe+favicon for web search). */
+function GroupIconStrip({
+  items,
+  size = 12,
+  liveLast = false,
+}: {
+  items: ActivityItem[]
+  size?: number
+  liveLast?: boolean
+}) {
+  if (!items.length) return null
+  const shown = items.slice(0, GROUP_ICON_MAX)
+  const overflow = items.length - shown.length
+  return (
+    <span aria-hidden className="inline-flex shrink-0 items-center gap-0.5">
+      {shown.map((item, index) => {
+        const live = liveLast && index === shown.length - 1
+        if (item.tool === 'web_search') {
+          return <WebSearchLead key={item.id} item={item} size={size} live={live} />
+        }
+        return (
+          <ActivityIcon
+            key={item.id}
+            kind={item.kind}
+            tool={item.tool}
+            provider={item.provider}
+            size={size}
+            live={live}
+          />
+        )
+      })}
+      {overflow > 0 ? (
+        <span className="pl-0.5 text-2xs tabular-nums text-text-muted">+{overflow}</span>
+      ) : null}
+    </span>
+  )
+}
+
 /** Kind icon: Brain for thinking, the integration logo or a wrench for work. */
 export function ActivityIcon({
   kind,
@@ -51,6 +138,7 @@ export function ActivityIcon({
 }) {
   let icon
   if (kind === 'think') icon = <Brain size={size} className="shrink-0" />
+  else if (tool === 'web_search') icon = <Globe size={size} className="shrink-0" />
   else if (kind === 'other') {
     icon = isHandoffTool(tool) ? (
       <UserRound size={size} className="shrink-0" />
@@ -99,7 +187,11 @@ function ItemRow({ item }: { item: ActivityItem }) {
           detail ? 'hover:text-text-primary' : 'cursor-default',
         )}
       >
-        <ActivityIcon kind={item.kind} tool={item.tool} provider={item.provider} size={12} />
+        {item.tool === 'web_search' ? (
+          <WebSearchLead item={item} size={12} />
+        ) : (
+          <ActivityIcon kind={item.kind} tool={item.tool} provider={item.provider} size={12} />
+        )}
         <span className="min-w-0 truncate-fade">{itemLabel(item, t)}</span>
         {item.status === 'error' ? (
           <AlertCircle size={11} className="shrink-0 text-status-error" aria-label={t('activity.failed')} />
@@ -209,8 +301,6 @@ export function ActivityGroupLine({
   const { t } = useTranslation('communication')
   const [expanded, setExpanded] = useState(false)
   const current = group.items[group.items.length - 1]
-  const provider = group.kind === 'work' ? groupProvider(group) : ''
-  const sharedTool = group.items.every((i) => i.tool === current?.tool) ? current?.tool : ''
   const hasError = group.items.some((i) => i.status === 'error')
 
   if (live && group.kind === 'think') {
@@ -221,7 +311,7 @@ export function ActivityGroupLine({
     const label = groupLiveLabel(group, t)
     return (
       <div className="flex min-w-0 items-center gap-2 py-0.5 text-sm" role="status" aria-live="polite">
-        <ActivityIcon kind={group.kind} tool={current?.tool} provider={current?.provider} size={14} live />
+        <GroupIconStrip items={group.items} size={14} liveLast />
         <span key={current?.id} className="activity-live-label min-w-0 truncate-fade font-medium">
           <span className="thinking-shimmer-text">{label}</span>
         </span>
@@ -253,7 +343,7 @@ export function ActivityGroupLine({
         aria-expanded={expanded}
         className="group flex min-w-0 items-center gap-1.5 py-0.5 text-left text-xs text-text-muted hover:text-text-secondary"
       >
-        <ActivityIcon kind={group.kind} tool={sharedTool} provider={provider} size={12} />
+        <GroupIconStrip items={group.items} size={12} />
         <span className="min-w-0 truncate-fade">{groupSummary(group, t)}</span>
         {hasError ? <AlertCircle size={11} className="shrink-0 text-status-error" /> : null}
         {expanded ? (

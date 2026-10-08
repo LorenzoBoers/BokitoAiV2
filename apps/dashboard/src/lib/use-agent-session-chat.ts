@@ -20,6 +20,11 @@ export type SessionStreamState = {
   optimisticUsers: ChatMessage[]
 }
 
+type PendingPart = {
+  text: string
+  attachments?: unknown[]
+}
+
 const SETTLE_MS = 400
 /** Flush batched text deltas at most this often (avoids setState per chunk). */
 const FLUSH_MS = 64
@@ -41,10 +46,12 @@ export function useAiChatStream(token: string | null) {
   const streamingRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
   const sessionIdRef = useRef<string | null>(null)
-  const pendingPartsRef = useRef<string[]>([])
+  const pendingPartsRef = useRef<PendingPart[]>([])
   const flushTimerRef = useRef<number | null>(null)
   const onFinishedRef = useRef<(() => void | Promise<void>) | undefined>(undefined)
-  const runStreamRef = useRef<(sessionId: string, text: string) => Promise<void>>(async () => {})
+  const runStreamRef = useRef<
+    (sessionId: string, text: string, attachments?: unknown[]) => Promise<void>
+  >(async () => {})
 
   // Batched SSE text — mirrored into React on a timer, not per token.
   const pendingDeltaRef = useRef({ text: '', thinking: '' })
@@ -100,6 +107,19 @@ export function useAiChatStream(token: string | null) {
     }
   }, [token])
 
+  const takePending = (): { text: string; attachments?: unknown[] } | null => {
+    const parts = pendingPartsRef.current
+    if (!parts.length) return null
+    pendingPartsRef.current = []
+    const text = parts
+      .map((p) => p.text.trim())
+      .filter(Boolean)
+      .join('\n\n')
+    const attachments = [...parts].reverse().find((p) => p.attachments?.length)?.attachments
+    if (!text && !attachments?.length) return null
+    return { text: text || ' ', attachments }
+  }
+
   const scheduleFlush = useCallback((sessionId: string) => {
     clearFlushTimer()
     flushTimerRef.current = window.setTimeout(() => {
@@ -108,16 +128,15 @@ export function useAiChatStream(token: string | null) {
         scheduleFlush(sessionId)
         return
       }
-      const parts = pendingPartsRef.current.map((p) => p.trim()).filter(Boolean)
-      if (!parts.length) return
-      pendingPartsRef.current = []
-      void runStreamRef.current(sessionId, parts.join('\n\n'))
+      const next = takePending()
+      if (!next) return
+      void runStreamRef.current(sessionId, next.text, next.attachments)
     }, SETTLE_MS)
   }, [])
 
   const runStream = useCallback(
-    async (sessionId: string, text: string) => {
-      if (!token || !text.trim()) return
+    async (sessionId: string, text: string, attachments?: unknown[]) => {
+      if (!token || (!text.trim() && !attachments?.length)) return
       sessionIdRef.current = sessionId
       streamingRef.current = true
       clearDeltaFlush()
@@ -134,7 +153,7 @@ export function useAiChatStream(token: string | null) {
         await bokitoStreamMessage(
           token,
           sessionId,
-          text,
+          text.trim() || ' ',
           (delta) => {
             pendingDeltaRef.current.text += delta
             scheduleDeltaFlush()
@@ -144,6 +163,7 @@ export function useAiChatStream(token: string | null) {
             pendingDeltaRef.current.thinking += thinkingDelta
             scheduleDeltaFlush()
           },
+          attachments?.length ? { attachments } : undefined,
         )
       } catch (err) {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
@@ -190,17 +210,20 @@ export function useAiChatStream(token: string | null) {
       text: string,
       opts?: {
         onFinished?: () => void | Promise<void>
+        attachments?: unknown[]
       },
     ) => {
-      if (!token || !text.trim()) return false
+      const trimmed = text.trim()
+      const attachments = opts?.attachments?.length ? opts.attachments : undefined
+      if (!token || (!trimmed && !attachments?.length)) return false
       onFinishedRef.current = opts?.onFinished
       sessionIdRef.current = sessionId
-      const trimmed = text.trim()
       const optimistic: ChatMessage = {
         id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         role: 'user',
-        content: trimmed,
+        content: trimmed || ' ',
         created_at: new Date().toISOString(),
+        attachments: attachments ?? undefined,
       }
       setStream((prev) => ({
         ...prev,
@@ -208,7 +231,7 @@ export function useAiChatStream(token: string | null) {
         active: true,
       }))
 
-      pendingPartsRef.current.push(trimmed)
+      pendingPartsRef.current.push({ text: trimmed || ' ', attachments })
 
       if (streamingRef.current) {
         abortRef.current?.abort()
@@ -218,9 +241,9 @@ export function useAiChatStream(token: string | null) {
       }
 
       clearFlushTimer()
-      const parts = pendingPartsRef.current.map((p) => p.trim()).filter(Boolean)
-      pendingPartsRef.current = []
-      await runStream(sessionId, parts.join('\n\n'))
+      const next = takePending()
+      if (!next) return false
+      await runStream(sessionId, next.text, next.attachments)
       return true
     },
     [token, scheduleFlush, runStream],

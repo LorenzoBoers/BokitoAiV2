@@ -28,6 +28,7 @@ import type {
   ThreadDetail as ThreadDetailType,
   ThreadId,
 } from '../../lib/inbox-api'
+import type { ChatTagMap } from '../../lib/chatText'
 import type { ChatMessage } from '../../lib/signals-api'
 import type { LiveTurn } from '../../lib/agentActivity'
 import {
@@ -62,7 +63,11 @@ export type TimelineRow =
   | { kind: 'session'; id: string; time: string; session: ThreadSession }
 
 /** Events the timeline never shows: a card or system_event message already says it. */
-function isHiddenEvent(eventType: string, payload?: Record<string, unknown> | null): boolean {
+function isHiddenEvent(
+  eventType: string,
+  payload?: Record<string, unknown> | null,
+  answeredDecisionIds?: Set<string>,
+): boolean {
   if (
     eventType === 'replied' ||
     eventType === 'note_added' ||
@@ -73,6 +78,15 @@ function isHiddenEvent(eventType: string, payload?: Record<string, unknown> | nu
     eventType === 'suggestion_created' ||
     eventType === 'contact_linked' ||
     eventType === 'contact_unlinked'
+  ) {
+    return true
+  }
+  // Operator reply bubble already carries the answer — skip the status pill.
+  if (
+    eventType.startsWith('decision_') &&
+    answeredDecisionIds &&
+    typeof payload?.decision_id === 'string' &&
+    answeredDecisionIds.has(payload.decision_id)
   ) {
     return true
   }
@@ -124,15 +138,26 @@ export function buildTimelineRows(
   locale?: string,
 ): TimelineRow[] {
   if (!detail) return []
+  // A card shown inline under its agent bubble does not render a second time.
+  const inlineHosts = new Set(
+    detail.messages.filter((m) => m.proposal).map((m) => String(m.id)),
+  )
+  const answeredDecisionIds = new Set(
+    detail.messages
+      .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
+      .map((m) => String(m.decisionResponseDecisionId)),
+  )
   const entries: TimelineEntry[] = [
-    ...detail.messages.map((m) => ({
+    ...detail.messages
+      .filter((m) => !(m.attachedToMessageId && inlineHosts.has(m.attachedToMessageId)))
+      .map((m) => ({
       kind: 'message' as const,
       time: m.receivedAt ?? m.createdAt,
       id: `m-${m.id}`,
       data: m,
     })),
     ...detail.events
-      .filter((e) => !isHiddenEvent(e.eventType, e.payload))
+      .filter((e) => !isHiddenEvent(e.eventType, e.payload, answeredDecisionIds))
       .map((e) => ({ kind: 'event' as const, time: e.createdAt, id: `e-${e.id}`, data: e })),
     ...(detail.sessions ?? []).map((s) => ({
       kind: 'session' as const,
@@ -312,6 +337,8 @@ type Props = {
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
   agentAvatarImageUrl?: string | null
+  /** Tag name -> kind for #chips in agent/operator bubbles. */
+  chatTags?: ChatTagMap
   events: InboxEvent[]
   noteActions?: NoteActions
   /** Deep-linked card (`?message=`): highlighted and scrolled into view. */
@@ -327,7 +354,7 @@ type Props = {
   agentStreaming: boolean
   /** Live agent turn inside the active session (gateway activity). */
   sessionTurn?: LiveTurn
-  onRefresh: () => void
+  onRefresh: (quiet?: boolean) => void
   onUseSessionAsReply: (text: string) => void
   onDecisionResolved?: (info?: { closed?: boolean }) => void
   onEditDraft: (draft: {
@@ -383,6 +410,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     agentAvatarIcon,
     agentAvatarColor,
     agentAvatarImageUrl,
+    chatTags,
     events,
     noteActions,
     focusedMessageId,
@@ -720,6 +748,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             membersById={membersById}
             noteActions={noteActions}
             stack={stack}
+            onProposalResolved={onDecisionResolved}
+            chatTags={chatTags}
           />
         )}
       </div>

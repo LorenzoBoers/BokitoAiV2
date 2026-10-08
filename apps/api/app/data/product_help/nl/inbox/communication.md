@@ -53,7 +53,7 @@ Een persoon als eigenaar houdt het gesprek vast: agents maken dan alleen concept
 
 1. Open een gesprek. Onder de tijdlijn toont de composer een mode-chip: **Antwoord aan {naam}**, **Vraag {agent}** en **Notitie**.
 2. **Antwoord** gaat naar de klant op hetzelfde kanaal. De placeholder herinnert je eraan dat de klant dit ziet. Op e-mail stuurt **Ctrl+Enter**; op chat stuurt Enter.
-3. **Vraag** praat alleen met de AI op dit gesprek (of start een AI check-in). De klant ziet niets. De composer-omlijning wordt paars. Switchen naar Vraag of een agent @-vermelden opent nog geen metagesprek tot je verstuurt. **Annuleren** op een leeg metagesprek haalt het weg. Tijdens streamen staat **Stop** klaar.
+3. **Vraag** praat alleen met de AI op dit gesprek (of start een AI check-in). De klant ziet niets. De composer-omlijning wordt paars. Switchen naar Vraag of een agent @-vermelden opent nog geen metagesprek tot je verstuurt. **Annuleren** op een leeg metagesprek haalt het weg. Tijdens streamen staat **Stop** klaar. Plak een screenshot of afbeelding in de composer (of gebruik de paperclip) zodat de AI die op die beurt kan zien.
 4. **Notitie** is alleen voor het team. De omlijning is grijs. Gebruik die voor overdracht en context die de workspace niet mag verlaten.
 5. Op een AI-gesprek (`assistant`) of een AI check-in ontbreekt Antwoord — alleen Vraag en Notitie blijven, met **Notitie** na **Vraag**. Slash-commando's en `@`-mentions blijven werken.
 
@@ -76,7 +76,7 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 ![Agentbeurt met activiteitsregels tussen chatberichten](/api/docs/assets/communication/agent-turn.png)
 *Regels voor nadenken en werken staan tussen de berichten van de agent en klappen in als ze klaar zijn.*
 
-1. Terwijl de agent nadenkt, staat er een regel met een brein-icoon: **Nadenken**, met een lopende tijd. Deelt het model zijn redenering, klik dan op de regel om die live mee te lezen. Korte berichten slaan het nadenken over. Terwijl hij werkt, toont de regel de huidige actie met het logo van de integratie (of een kennis- of moersleutelicoon); elke nieuwe actie vervangt de vorige.
+1. Terwijl de agent nadenkt, staat er een regel met een brein-icoon: **Nadenken**, met een lopende tijd. Deelt het model zijn redenering, klik dan op de regel om die live mee te lezen. Korte berichten slaan het nadenken over. Terwijl hij werkt, toont de regel de huidige actie met het logo van de integratie (of een kennis- of moersleutelicoon); elke nieuwe actie vervangt de vorige. Een zoekopdracht op het web leest **Zoekt op …** met het favicon van de site zodra er resultaten zijn.
 2. Wisselt de agent van nadenken naar werken (of terug), dan klapt de regel in tot **Nagedacht voor 3s** of **Gewerkt voor 12s · 4 acties**. Klik erop om elke actie met invoer en resultaat te zien. **Nagedacht voor** staat er alleen als er een redenering te lezen is.
 3. **Typt...** betekent dat de agent zijn volgende bericht schrijft. Een lege regel in het antwoord start een nieuw bericht, dus een beurt komt binnen als maximaal vijf korte wolkjes. E-mail blijft één gestructureerd bericht.
 4. Agentberichten gebruiken alleen chatopmaak: vet, cursief, doorgehaald en links. Koppen en tabellen worden gewone regels.

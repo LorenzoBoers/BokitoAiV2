@@ -1,9 +1,14 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
-import { liveBlocks, type LiveTurn } from '../../lib/agentActivity'
+import {
+  liveBlocks,
+  shouldShowWaitingTurn,
+  turnPreparesProposal,
+  type LiveTurn,
+} from '../../lib/agentActivity'
 import { splitChatMessages } from '../../lib/chatMessages'
-import { Sparkles } from 'lucide-react'
+import { ListChecks, Sparkles } from 'lucide-react'
 import { IconTile } from '../ui/icon-tile'
 import ActivityTrail, { ActivityIcon } from './ActivityTrail'
 import ChatText from './ChatText'
@@ -65,10 +70,14 @@ export default function AgentTurnLive({
   const last = blocks[blocks.length - 1]
   const lastRunning =
     last?.type === 'activity' && last.items.some((i) => i.status === 'running')
-  const waiting = turn.active && !lastRunning && last?.type !== 'speech'
+  const preparing = turnPreparesProposal(turn)
+  const waiting = shouldShowWaitingTurn(turn, {
+    lastRunning,
+    lastIsSpeech: last?.type === 'speech',
+  })
 
   return (
-    <div className="flex items-start gap-2.5">
+    <div className="msg-bubble-enter flex items-start gap-2.5">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center">
         {avatar ?? <IconTile icon={Sparkles} tone="ai" size="md" className="h-7 w-7" />}
       </span>
@@ -84,6 +93,19 @@ export default function AgentTurnLive({
             />
           ),
         )}
+        {preparing ? (
+          <div
+            className="flex h-7 min-w-0 items-center gap-2 text-xs text-text-muted"
+            role="status"
+            aria-live="polite"
+            data-testid="proposal-preparing"
+          >
+            <ListChecks size={14} className="text-ai-ink" aria-hidden />
+            <span className="activity-live-label">
+              <span className="thinking-shimmer-text">{t('proposal.preparing')}</span>
+            </span>
+          </div>
+        ) : null}
         {waiting ? (
           <div className="flex h-7 min-w-0 items-center gap-2 text-sm" role="status" aria-live="polite">
             <ActivityIcon kind="think" size={14} live />

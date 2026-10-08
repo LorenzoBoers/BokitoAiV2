@@ -461,4 +461,129 @@ async def test_wait_for_ok_card_sits_after_the_tool_bubble(client: AsyncClient, 
     await session_override.refresh(card)
     first, second = bubbles
     assert first.received_at < card.received_at < second.received_at
+    # The proposal rides on the turn's last bubble; the card points back to it.
+    assert json.loads(second.metadata_json)["proposal"]["decision_id"] == str(decision.id)
+    assert "proposal" not in json.loads(first.metadata_json)
+    assert json.loads(card.metadata_json)["attached_to_message_id"] == str(second.id)
+
+    from app.models.auth import Membership
+    from app.services.signal_threads import get_thread
+
+    member = (
+        await session_override.execute(select(Membership).where(Membership.tenant_id == tenant.id))
+    ).scalars().first()
+    thread = await get_thread(session_override, tenant.id, member.user_id, signal.id)
+    rows = {row["id"]: row for row in thread["messages"]}
+    proposal = rows[str(second.id)]["payload"]["proposal"]
+    assert proposal["status"] == "awaiting_human"
+    assert rows[str(card.id)]["payload"]["attached_to_message_id"] == str(second.id)
+
+
+@pytest.mark.asyncio
+async def test_customer_thread_keeps_the_standalone_card(client: AsyncClient, session_override):
+    from app.services.agent.turn_persist import persist_agent_turn
+
+    await _login(client)
+    tenant, agent = await _tenant_agent(session_override)
+    signal = Signal(tenant_id=tenant.id, channel="whatsapp", source="test", subject="Order", status="open")
+    session_override.add(signal)
+    await session_override.flush()
+    decision = DecisionRequest(tenant_id=tenant.id, title="Refund", summary="Wait")
+    session_override.add(decision)
+    await session_override.flush()
+    card = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant.id,
+        kind="decision_request",
+        role="assistant",
+        body_text="Refund",
+        decision_id=decision.id,
+    )
+    session_override.add(card)
+    await session_override.commit()
+    bubbles = await persist_agent_turn(
+        session_override,
+        signal,
+        segments=[
+            {
+                "id": "s1",
+                "text": "I asked a colleague.",
+                "activity": [_work("refund", result={"decision_request_id": str(decision.id)})],
+            }
+        ],
+        reply_mode=CHAT,
+        author_agent_id=agent.id,
+    )
+    await session_override.commit()
+    assert "proposal" not in json.loads(bubbles[-1].metadata_json or "{}")
+    assert "attached_to_message_id" not in json.loads(card.metadata_json or "{}")
+
+
+@pytest.mark.asyncio
+async def test_place_turn_decisions_does_not_drag_old_cards_into_new_turn(
+    client: AsyncClient, session_override
+):
+    """Regression: an approved Bin restore card must not jump into a later turn."""
+    from datetime import datetime, timedelta
+
+    from app.models.notification import DecisionRequest
+    from app.services.agent.reply_mode import CHAT
+    from app.services.agent.turn_persist import persist_agent_turn
+
+    await _login(client)
+    tenant, agent = await _tenant_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id, channel="assistant", source="test", subject="Bin again", status="open"
+    )
+    session_override.add(signal)
+    await session_override.flush()
+
+    old_time = datetime.utcnow() - timedelta(hours=4)
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        title="Approve: Restore trash item",
+        summary="The agent wants to restore trash item.\n- Id: old-item",
+        status="approved",
+        resolved_at=old_time + timedelta(minutes=10),
+    )
+    session_override.add(decision)
+    await session_override.flush()
+    # Simulate the old bug: received_at already dragged into "now".
+    dragged = datetime.utcnow()
+    card = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant.id,
+        kind="decision_request",
+        role="assistant",
+        body_text=decision.summary,
+        decision_id=decision.id,
+        created_at=old_time,
+        received_at=dragged,
+    )
+    session_override.add(card)
+    await session_override.commit()
+
+    bubbles = await persist_agent_turn(
+        session_override,
+        signal,
+        segments=[
+            {
+                "id": "s1",
+                "text": "Hier is een willekeurig item uit de prullenbak:",
+                "activity": [_work("list", result={"items": [{"id": "new-item"}]})],
+            },
+            {"id": "s2", "text": "Wil je deze terugzetten?", "activity": []},
+        ],
+        reply_mode=CHAT,
+        author_agent_id=agent.id,
+    )
+    await session_override.commit()
+    await session_override.refresh(card)
+
+    # Healed back to created_at — not sitting between the new bubbles.
+    assert card.received_at == card.created_at
+    assert card.received_at < bubbles[0].received_at
+    # The old card stays with its own turn: no proposal on the new bubbles.
+    assert all("proposal" not in json.loads(b.metadata_json or "{}") for b in bubbles)
+    assert "attached_to_message_id" not in json.loads(card.metadata_json or "{}")
 

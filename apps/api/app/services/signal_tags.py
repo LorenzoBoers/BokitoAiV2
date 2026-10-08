@@ -93,20 +93,27 @@ async def allowed_tag_names(
     return names[:limit] if limit else names
 
 
+def ai_catalog_lines_from_rows(
+    rows: list[SignalTag], *, limit: int = AI_CATALOG_LIMIT
+) -> list[str]:
+    """`name - when to use it` lines from already-loaded registry rows."""
+    lines: list[str] = []
+    free = [
+        row for row in rows if row.workstream_id is None and bool(row.ai_auto_tag)
+    ]
+    for row in free[:limit]:
+        description = (row.description or "").strip()
+        lines.append(f"{row.name} - {description}" if description else row.name)
+    return lines
+
+
 async def ai_catalog_lines(
     session: AsyncSession, tenant_id: UUID, *, limit: int = AI_CATALOG_LIMIT
 ) -> list[str]:
     """`name - when to use it` lines for an agent prompt (free tags only)."""
-    lines: list[str] = []
-    rows = [
-        row
-        for row in await registry_rows(session, tenant_id)
-        if row.workstream_id is None and bool(row.ai_auto_tag)
-    ]
-    for row in rows[:limit]:
-        description = (row.description or "").strip()
-        lines.append(f"{row.name} - {description}" if description else row.name)
-    return lines
+    return ai_catalog_lines_from_rows(
+        await registry_rows(session, tenant_id), limit=limit
+    )
 
 
 async def tags_by_signal(

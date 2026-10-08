@@ -5,7 +5,11 @@ from app.models.auth import Tenant
 from app.models.agent import Agent
 from app.services import platform_secrets, tenant_secrets
 from app.services.agent.llm import OpenAILLMProvider
-from app.services.model_catalog import get_default_model, seed_model_catalog
+from app.services.model_catalog import (
+    get_default_model,
+    get_models_by_slugs,
+    seed_model_catalog,
+)
 from app.services.model_resolution import compute_costs, record_usage, resolve_model_call
 
 
@@ -30,6 +34,33 @@ async def test_seed_and_default_model(session_override):
     await seed_model_catalog(session_override)
     again = await get_default_model(session_override, "chat")
     assert again.slug == "bokito-ai-3-1"
+
+
+@pytest.mark.asyncio
+async def test_get_models_by_slugs_batches(session_override):
+    await seed_model_catalog(session_override)
+    rows = await get_models_by_slugs(
+        session_override,
+        ["mistral-medium-latest", "mistral-small-latest", "missing-slug"],
+    )
+    assert set(rows) == {"mistral-medium-latest", "mistral-small-latest"}
+    assert rows["mistral-medium-latest"].provider == "mistral"
+
+
+@pytest.mark.asyncio
+async def test_markup_multiplier_caches_db_fallback(session_override, monkeypatch):
+    from app.config import get_settings
+    from app.services import model_catalog as catalog_svc
+
+    monkeypatch.setattr(get_settings(), "token_markup_multiplier", 0)
+    catalog_svc._markup_cache = None
+    await catalog_svc.set_markup_multiplier(session_override, 1.5)
+    assert catalog_svc._markup_cache == 1.5
+    assert await catalog_svc.get_markup_multiplier(session_override) == 1.5
+    # Warm cache is returned without re-reading when env is unset.
+    catalog_svc._markup_cache = 9.9
+    assert await catalog_svc.get_markup_multiplier(session_override) == 9.9
+    catalog_svc._markup_cache = None
 
 
 @pytest.mark.asyncio

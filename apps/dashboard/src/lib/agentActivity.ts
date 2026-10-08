@@ -32,6 +32,8 @@ export type ActivityItem = {
   text?: string
   /** Think items in list payloads: the text exists but loads on expand. */
   hasText?: boolean
+  /** The call raises an approval that lands under the agent's message. */
+  proposes?: boolean
 }
 
 export type ActivityGroup = {
@@ -86,7 +88,26 @@ export function normalizeActivityItem(raw: unknown): ActivityItem | null {
   if (r.result !== undefined) item.result = r.result
   if (typeof r.text === 'string') item.text = r.text
   if (typeof r.has_text === 'boolean') item.hasText = r.has_text
+  if (r.proposes === true) item.proposes = true
   return item
+}
+
+/** A running turn already called a tool that ends in an inline approval. */
+export function turnPreparesProposal(turn: LiveTurn): boolean {
+  return turn.active && turn.entries.some((e) => e.type === 'activity' && e.item.proposes === true)
+}
+
+/**
+ * Idle gap while the model decides: show Thinking, but never on top of
+ * "Preparing proposal…" (that flash looked like a stray brain/cloud).
+ */
+export function shouldShowWaitingTurn(
+  turn: LiveTurn,
+  opts: { lastRunning: boolean; lastIsSpeech: boolean },
+): boolean {
+  if (!turn.active || opts.lastRunning || opts.lastIsSpeech) return false
+  if (turnPreparesProposal(turn)) return false
+  return true
 }
 
 /**
@@ -183,10 +204,81 @@ export function formatDuration(durationMs: number): string {
   return `${minutes}m ${String(seconds % 60).padStart(2, '0')}s`
 }
 
+/** Query string from a web_search activity item (input or Search: label). */
+export function webSearchQuery(item: ActivityItem): string {
+  const input = item.input
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    const q = (input as Record<string, unknown>).query
+    if (typeof q === 'string' && q.trim()) return q.trim()
+  }
+  const label = item.label || ''
+  const match = /^Search:\s*(.+)$/i.exec(label)
+  return match?.[1]?.trim() || ''
+}
+
+const HOST_RE =
+  /(?:^|\s)(?:site:)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?:\/|\s|$)/i
+
+/** Hostname for a web_search item: first hit, else a domain mentioned in the query. */
+export function webSearchHost(item: ActivityItem): string {
+  const result = item.result
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const rows = (result as Record<string, unknown>).results
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        if (!row || typeof row !== 'object') continue
+        const host = String((row as Record<string, unknown>).host || '')
+          .trim()
+          .replace(/^www\./i, '')
+        if (host) return host
+        const url = String((row as Record<string, unknown>).url || '').trim()
+        if (url) {
+          try {
+            const fromUrl = new URL(url).hostname.replace(/^www\./i, '')
+            if (fromUrl) return fromUrl
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
+  }
+  const query = webSearchQuery(item)
+  const match = HOST_RE.exec(query)
+  return match?.[1]?.toLowerCase().replace(/^www\./i, '') || ''
+}
+
+/** Favicon URL from the first hit or a Google s2 icon for the known host. */
+export function webSearchFavicon(item: ActivityItem): string {
+  const result = item.result
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const rows = (result as Record<string, unknown>).results
+    if (Array.isArray(rows) && rows.length) {
+      const first = rows[0]
+      if (first && typeof first === 'object') {
+        const url = (first as Record<string, unknown>).favicon_url
+        if (typeof url === 'string' && url) return url
+      }
+    }
+  }
+  const host = webSearchHost(item)
+  return host ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32` : ''
+}
+
 /** Line for one action: its label, or a kind fallback. */
 export function itemLabel(item: ActivityItem, t: TFunction): string {
   if (item.kind === 'think') return t('activity.thinking', { ns: 'communication' })
   if (item.label === 'note') return item.text?.trim() || t('activity.note', { ns: 'communication' })
+  if (item.tool === 'web_search') {
+    const host = webSearchHost(item)
+    if (host) return host
+    const query = webSearchQuery(item)
+    return t('activity.webSearch', {
+      ns: 'communication',
+      query: query || '…',
+      defaultValue: query ? `Searching for ${query}` : 'Searching the web',
+    })
+  }
   return item.label || item.tool || t('activity.action', { ns: 'communication' })
 }
 

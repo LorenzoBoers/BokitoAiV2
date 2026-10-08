@@ -31,11 +31,24 @@ KIND_THINK = "think"
 KIND_WORK = "work"
 KIND_OTHER = "other"
 
+def _raises_proposal(name: str) -> bool:
+    """Tools whose call ends in an approval the operator answers inline."""
+    if name in ("propose_action", "create_decision_request"):
+        return True
+    from app.tools.registry import get_tool_spec
+
+    spec = get_tool_spec(name)
+    return bool(spec and getattr(spec, "consequential", False))
+
+
 # Tools that hand the conversation to a person or wait on one: "other" kind.
 _OTHER_TOOLS = frozenset(
     {
         "handoff_to_human",
         "create_decision_request",
+        "propose_action",
+        "attach_items",
+        "list_tags",
         "request_callback",
         "request_customer_verify",
         "delegate_to_agent",
@@ -59,6 +72,37 @@ def _compact(value: Any) -> Any:
     if len(text) <= _MAX_PAYLOAD_CHARS:
         return value
     return f"{text[:_MAX_PAYLOAD_CHARS]}..."
+
+
+def _activity_result(tool: str, result: Any) -> Any:
+    """Keep activity payloads small but keep fields the UI needs (e.g. favicons)."""
+    if tool == "web_search" and isinstance(result, dict):
+        rows: list[dict[str, Any]] = []
+        for row in result.get("results") or []:
+            if not isinstance(row, dict):
+                continue
+            rows.append(
+                {
+                    "host": str(row.get("host") or "")[:120],
+                    "favicon_url": str(row.get("favicon_url") or "")[:240],
+                    "title": str(row.get("title") or "")[:80],
+                    "url": str(row.get("url") or "")[:240],
+                }
+            )
+            if len(rows) >= 3:
+                break
+        slim: dict[str, Any] = {
+            "query": str(result.get("query") or "")[:200],
+            "kind": str(result.get("kind") or "web")[:20],
+            "count": result.get("count") if isinstance(result.get("count"), int) else len(rows),
+            "results": rows,
+        }
+        if result.get("error"):
+            slim["error"] = str(result.get("error"))[:120]
+            if result.get("message"):
+                slim["message"] = str(result.get("message"))[:200]
+        return slim
+    return _compact(result)
 
 
 def _is_error(result: Any) -> bool:
@@ -184,14 +228,20 @@ class TurnRecorder:
             "status": "running",
             "input": _compact(tool_input),
         }
+        if _raises_proposal(name):
+            item["proposes"] = True
         self._pending.append(item)
         await self._emit("agent.activity", {"phase": "start", "item": self._public(item)})
         return item
 
     async def tool_end(self, item: dict[str, Any], result: Any) -> None:
+        from app.services.agent.turn_persist import decision_ids_from_result
+
         item["ended_at"] = _now()
         item["status"] = "error" if _is_error(result) else "ok"
-        item["result"] = _compact(result)
+        if decision_ids_from_result(result):
+            item["proposes"] = True
+        item["result"] = _activity_result(str(item.get("tool") or ""), result)
         await self._emit("agent.activity", {"phase": "end", "item": self._public(item)})
 
     # -- finish -------------------------------------------------------------

@@ -359,6 +359,75 @@ def serialize_thread(
     return payload
 
 
+def message_proposal_ids(messages: list[SignalMessage]) -> dict[UUID, UUID]:
+    """Message id -> decision id for agent bubbles that carry a proposal."""
+    found: dict[UUID, UUID] = {}
+    for message in messages:
+        if message.decision_id or '"proposal"' not in (message.metadata_json or ""):
+            continue
+        try:
+            meta = json.loads(message.metadata_json or "{}")
+            found[message.id] = UUID(str(meta["proposal"]["decision_id"]))
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            continue
+    return found
+
+
+async def _user_display_names(session: AsyncSession, user_ids: list[UUID]) -> dict[UUID, str]:
+    ids = list({uid for uid in user_ids if uid})
+    if not ids:
+        return {}
+    from app.models.auth import User
+
+    rows = await session.execute(select(User).where(User.id.in_(ids)))
+    return {u.id: (u.display_name or u.email) for u in rows.scalars().all()}
+
+
+def proposal_payload(
+    proposal_meta: dict[str, Any],
+    decision: DecisionRequest | None,
+    *,
+    resolved_by_name: str | None = None,
+) -> dict[str, Any]:
+    """The proposal an agent bubble carries: its decision's live state plus the
+    item snapshot taken when the agent raised it."""
+    selection = str(proposal_meta.get("selection") or "single").lower()
+    if selection not in ("single", "multiple"):
+        selection = "single"
+    out: dict[str, Any] = {
+        "decision_id": str(proposal_meta["decision_id"]),
+        "items": proposal_meta.get("items") if isinstance(proposal_meta.get("items"), list) else [],
+        "question": str(proposal_meta.get("question") or "") or None,
+        "selection": selection,
+        "status": "missing",
+        "options": [],
+    }
+    if decision is None:
+        return out
+    try:
+        options = json.loads(decision.options_json or "[]")
+    except json.JSONDecodeError:
+        options = []
+    # Multi-select stores ids as "a,b,c" in chosen_option_id.
+    raw_chosen = str(decision.chosen_option_id or "")
+    chosen_ids = [part for part in raw_chosen.split(",") if part] if raw_chosen else []
+    out.update(
+        {
+            "status": decision.status,
+            "message_id": str(decision.message_id) if decision.message_id else None,
+            "title": decision.title,
+            "summary": decision.summary,
+            "options": options if isinstance(options, list) else [],
+            "chosen_option_id": chosen_ids[0] if chosen_ids else decision.chosen_option_id,
+            "chosen_option_ids": chosen_ids,
+            "resolved_at": _iso(decision.resolved_at),
+            "resolved_by": resolved_by_name,
+            "addressee": addressee_payload(decision),
+        }
+    )
+    return out
+
+
 def serialize_message(
     message: SignalMessage,
     *,
@@ -366,6 +435,8 @@ def serialize_message(
     include_html: bool = True,
     include_trace: bool = True,
     channel: str | None = None,
+    proposal_decision: DecisionRequest | None = None,
+    proposal_resolved_by: str | None = None,
 ) -> dict[str, Any]:
     """Serialize a message for the timeline.
 
@@ -412,6 +483,30 @@ def serialize_message(
             payload["decision"]["based_on_message_id"] = str(meta["based_on_message_id"])
         if meta.get("superseded_by_signal_id"):
             payload["decision"]["superseded_by_signal_id"] = str(meta["superseded_by_signal_id"])
+        if isinstance(meta.get("proposal_items"), list):
+            payload["decision"]["items"] = meta["proposal_items"]
+        if meta.get("question"):
+            payload["decision"]["question"] = str(meta["question"])
+        if str(meta.get("selection") or "").lower() in ("single", "multiple"):
+            payload["decision"]["selection"] = str(meta["selection"]).lower()
+    if message.decision_id and meta.get("attached_to_message_id"):
+        payload["attached_to_message_id"] = str(meta["attached_to_message_id"])
+    if isinstance(meta.get("items"), list):
+        payload["items"] = meta["items"]
+    if meta.get("decision_response"):
+        payload["decision_response"] = True
+        if meta.get("decision_id"):
+            payload["decision_response_decision_id"] = str(meta["decision_id"])
+        if isinstance(meta.get("items"), list):
+            payload["decision_response_items"] = meta["items"]
+    proposal_meta = meta.get("proposal")
+    if isinstance(proposal_meta, dict) and proposal_meta.get("decision_id"):
+        # Bubble-level items are the source of truth for showcases.
+        if isinstance(meta.get("items"), list) and meta["items"]:
+            proposal_meta = {**proposal_meta, "items": meta["items"]}
+        payload["proposal"] = proposal_payload(
+            proposal_meta, proposal_decision, resolved_by_name=proposal_resolved_by
+        )
     from app.services.agent.turn_persist import message_activity
 
     activity = message_activity(meta, detail=include_trace)
@@ -816,6 +911,34 @@ def _exists_message_kind(tenant_id: UUID, kind: str):
     )
 
 
+def _exists_open_decision(*, tip_cards: bool = False):
+    """EXISTS predicate: this Signal has an awaiting decision (or tip card).
+
+    Mirrors ``_open_decision_filters`` without materializing every matching
+    signal id for the tenant into Python.
+    """
+    from app.services.automated_mail import NO_REPLY_DECISION_TITLE
+
+    title_clause = (
+        DecisionRequest.title == NO_REPLY_DECISION_TITLE
+        if tip_cards
+        else DecisionRequest.title != NO_REPLY_DECISION_TITLE
+    )
+    return (
+        select(SignalMessage.id)
+        .join(DecisionRequest, DecisionRequest.id == SignalMessage.decision_id)
+        .where(
+            SignalMessage.signal_id == Signal.id,
+            Signal.channel != "assistant",
+            Signal.status.notin_(("closed", "spam")),
+            SignalMessage.kind == "decision_request",
+            DecisionRequest.status == "awaiting_human",
+            title_clause,
+        )
+        .exists()
+    )
+
+
 def _exists_outbound_message(tenant_id: UUID):
     """EXISTS predicate: this Signal has at least one outbound message."""
     return (
@@ -1017,11 +1140,7 @@ async def list_threads(
         else:
             query = query.where(Signal.id.is_(None))
     elif view == "awaiting_decision":
-        open_dec = await _signals_with_open_decisions(session, tenant_id)
-        if open_dec:
-            query = query.where(Signal.id.in_(open_dec))
-        else:
-            query = query.where(Signal.id.is_(None))
+        query = query.where(_exists_open_decision())
     elif view == "updates":
         query = query.where(_exists_message_kind(tenant_id, "status_update"))
     elif view == "results":
@@ -1072,8 +1191,7 @@ async def list_threads(
     if needs_reply:
         query = query.where(_needs_reply_predicate(tenant_id))
     if needs_decision:
-        open_dec = await _signals_with_open_decisions(session, tenant_id)
-        query = query.where(Signal.id.in_(open_dec) if open_dec else Signal.id.is_(None))
+        query = query.where(_exists_open_decision())
 
     if search:
         like = f"%{search}%"
@@ -1315,6 +1433,8 @@ async def get_thread(
     messages = list(reversed(newest_first[:page_size]))
 
     decision_ids = [m.decision_id for m in messages if m.decision_id]
+    proposal_ids = message_proposal_ids(messages)
+    decision_ids.extend(proposal_ids.values())
     decisions_by_id: dict[UUID, DecisionRequest] = {}
     if decision_ids:
         dr = await session.execute(
@@ -1324,6 +1444,14 @@ async def get_thread(
             )
         )
         decisions_by_id = {d.id: d for d in dr.scalars().all()}
+    resolver_names = await _user_display_names(
+        session,
+        [
+            d.resolved_by_user_id
+            for did in proposal_ids.values()
+            if (d := decisions_by_id.get(did)) and d.resolved_by_user_id
+        ],
+    )
 
     # Events in the same time window as the message page (plus any events
     # after the newest message when this is the live tail). Cap so a noisy
@@ -1375,12 +1503,19 @@ async def get_thread(
     include_html = (signal.channel or "").lower() == "email"
     serialized_messages = []
     for m in messages:
+        proposal_decision = decisions_by_id.get(proposal_ids[m.id]) if m.id in proposal_ids else None
         row = serialize_message(
             m,
             decision=decisions_by_id.get(m.decision_id) if m.decision_id else None,
             include_html=include_html,
             include_trace=False,
             channel=signal.channel,
+            proposal_decision=proposal_decision,
+            proposal_resolved_by=(
+                resolver_names.get(proposal_decision.resolved_by_user_id)
+                if proposal_decision and proposal_decision.resolved_by_user_id
+                else None
+            ),
         )
         fb = feedback_by_subject.get(str(m.id))
         if fb:
@@ -1501,12 +1636,27 @@ async def get_message(
         decision = await session.get(DecisionRequest, message.decision_id)
         if decision and decision.tenant_id != tenant_id:
             decision = None
+    proposal_decision = None
+    proposal_id = message_proposal_ids([message]).get(message.id)
+    if proposal_id:
+        proposal_decision = await session.get(DecisionRequest, proposal_id)
+        if proposal_decision and proposal_decision.tenant_id != tenant_id:
+            proposal_decision = None
+    resolver_names = await _user_display_names(
+        session, [proposal_decision.resolved_by_user_id] if proposal_decision else []
+    )
     return serialize_message(
         message,
         decision=decision,
         include_html=True,
         include_trace=True,
         channel=signal.channel,
+        proposal_decision=proposal_decision,
+        proposal_resolved_by=(
+            resolver_names.get(proposal_decision.resolved_by_user_id)
+            if proposal_decision and proposal_decision.resolved_by_user_id
+            else None
+        ),
     )
 
 
@@ -2782,6 +2932,11 @@ async def notify_mentions(
     return targets
 
 
+# Rapid Ja/Nee on stacked proposals would otherwise spawn one agent turn each.
+_AGENT_REPLY_COALESCE_S = 1.25
+_pending_agent_replies: dict[UUID, Any] = {}
+
+
 def _schedule_agent_reply(
     tenant_id: UUID,
     user_id: UUID,
@@ -2789,12 +2944,30 @@ def _schedule_agent_reply(
     *,
     attachments: list[dict] | None = None,
 ) -> None:
-    """Fire-and-forget agent reply on a fresh DB session (does not block HTTP)."""
+    """Fire-and-forget agent reply on a fresh DB session (does not block HTTP).
+
+    Multiple schedules for the same thread within ``_AGENT_REPLY_COALESCE_S``
+    collapse into one wake (latest attachments win).
+    """
     import asyncio
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        logger.warning("No running loop to schedule agent reply for %s", signal_id)
+        return
+
+    existing = _pending_agent_replies.pop(signal_id, None)
+    if existing is not None:
+        try:
+            existing.cancel()
+        except Exception:
+            pass
 
     async def _run() -> None:
         from app.db.session import async_session_factory
 
+        _pending_agent_replies.pop(signal_id, None)
         async with async_session_factory() as bg_session:
             signal = await bg_session.get(Signal, signal_id)
             if not signal or signal.tenant_id != tenant_id:
@@ -2807,19 +2980,17 @@ def _schedule_agent_reply(
                 attachments=attachments,
             )
 
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        logger.warning("No running loop to schedule agent reply for %s", signal_id)
-        return
-    task = loop.create_task(_run())
-    task.add_done_callback(
-        lambda t: logger.exception(
-            "Background agent reply failed for %s", signal_id, exc_info=t.exception()
+    def _fire() -> None:
+        task = loop.create_task(_run())
+        task.add_done_callback(
+            lambda t: logger.exception(
+                "Background agent reply failed for %s", signal_id, exc_info=t.exception()
+            )
+            if not t.cancelled() and t.exception()
+            else None
         )
-        if t.exception()
-        else None
-    )
+
+    _pending_agent_replies[signal_id] = loop.call_later(_AGENT_REPLY_COALESCE_S, _fire)
 
 
 async def _generate_agent_reply(
@@ -2960,6 +3131,7 @@ async def resolve_message_decision(
     *,
     action: str,
     option_id: str | None = None,
+    option_ids: list[str] | None = None,
     body: str | None = None,
     body_html: str | None = None,
     subject: str | None = None,
@@ -2974,6 +3146,10 @@ async def resolve_message_decision(
 
     if send_as is not None and send_as not in ("user", "agent"):
         raise HTTPException(status_code=400, detail="send_as must be 'user' or 'agent'")
+    chosen_ids = [str(x) for x in (option_ids or []) if str(x).strip()]
+    if option_id and str(option_id) not in chosen_ids:
+        chosen_ids.insert(0, str(option_id))
+    primary_option_id = chosen_ids[0] if chosen_ids else option_id
 
     msg_result = await session.execute(
         select(SignalMessage).where(
@@ -3030,7 +3206,7 @@ async def resolve_message_decision(
                     option
                     for option in options
                     if isinstance(option, dict)
-                    and (not option_id or str(option.get("id")) == option_id)
+                    and (not primary_option_id or str(option.get("id")) == primary_option_id)
                 ),
                 None,
             )
@@ -3053,18 +3229,89 @@ async def resolve_message_decision(
                 )
             )
 
+    from app.models.notification import DecisionRequest
+
     await resolve_decision_message(
         session,
         tenant_id,
         message.decision_id,
         action=action,
         user_id=user_id,
-        option_id=option_id,
+        option_id=primary_option_id,
         payload_override=payload_override or None,
     )
-    # Single source of truth for resolution: the SignalEvent below (rendered as a
-    # subtle divider) plus the decision's own status. No extra chat message —
-    # except a free-text answer, which is real content the thread must keep.
+    decision_row = await session.get(DecisionRequest, message.decision_id)
+    if decision_row and len(chosen_ids) > 1:
+        decision_row.chosen_option_id = ",".join(chosen_ids)
+        session.add(decision_row)
+
+    try:
+        options_list = json.loads((decision_row.options_json if decision_row else None) or "[]")
+    except json.JSONDecodeError:
+        options_list = []
+    if not isinstance(options_list, list):
+        options_list = []
+    label_by_id = {
+        str(o.get("id")): str(o.get("label") or o.get("id") or "")
+        for o in options_list
+        if isinstance(o, dict) and o.get("id")
+    }
+    option_labels = [label_by_id.get(oid, oid) for oid in chosen_ids] if chosen_ids else []
+    answer = (response_text or "").strip()
+    if not answer:
+        if option_labels:
+            answer = ", ".join(option_labels)
+        elif action in ("rejected", "reject"):
+            answer = "Reject"
+        elif action in ("approved", "approve"):
+            answer = "Approve"
+
+    # Showcase items for the chosen options (id match or item_ref).
+    reply_items: list[dict[str, Any]] = []
+    try:
+        card_meta = json.loads(message.metadata_json or "{}")
+    except json.JSONDecodeError:
+        card_meta = {}
+    snapshots = card_meta.get("proposal_items") if isinstance(card_meta, dict) else None
+    if not isinstance(snapshots, list):
+        snapshots = []
+    # Inline proposals store items on the host bubble (metadata.items).
+    if not snapshots and isinstance(card_meta, dict):
+        host_id = card_meta.get("attached_to_message_id")
+        try:
+            host_uuid = UUID(str(host_id)) if host_id else None
+        except (TypeError, ValueError):
+            host_uuid = None
+        if host_uuid:
+            host = await session.get(SignalMessage, host_uuid)
+            if host and host.tenant_id == tenant_id:
+                try:
+                    host_meta = json.loads(host.metadata_json or "{}")
+                except json.JSONDecodeError:
+                    host_meta = {}
+                host_items = host_meta.get("items") if isinstance(host_meta, dict) else None
+                if isinstance(host_items, list):
+                    snapshots = host_items
+    for oid in chosen_ids:
+        opt = next((o for o in options_list if isinstance(o, dict) and str(o.get("id")) == oid), None)
+        ref = opt.get("item_ref") if isinstance(opt, dict) else None
+        match = None
+        if isinstance(ref, dict):
+            match = next(
+                (
+                    s
+                    for s in snapshots
+                    if isinstance(s, dict)
+                    and s.get("type") == ref.get("type")
+                    and str(s.get("id")) == str(ref.get("id") or "")
+                ),
+                None,
+            )
+        if match is None:
+            match = next((s for s in snapshots if isinstance(s, dict) and str(s.get("id")) == oid), None)
+        if match:
+            reply_items.append(match)
+
     session.add(
         SignalEvent(
             signal_id=signal_id,
@@ -3076,15 +3323,17 @@ async def resolve_message_decision(
                 {
                     "decision_id": str(message.decision_id),
                     "action": action,
-                    "option_id": option_id,
+                    "option_id": primary_option_id,
+                    "option_ids": chosen_ids,
+                    "option_labels": option_labels,
                     "response_text": (response_text or "").strip() or None,
                     "via": source,
+                    "has_reply_message": bool(answer and user_id),
                 }
             ),
         )
     )
-    answer = (response_text or "").strip()
-    if answer:
+    if answer and user_id:
         sig_result = await session.execute(
             select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
         )
@@ -3101,7 +3350,10 @@ async def resolve_message_decision(
                 metadata={
                     "decision_id": str(message.decision_id),
                     "decision_response": True,
-                    "option_id": option_id,
+                    "decision_action": action,
+                    "option_id": primary_option_id,
+                    "option_ids": chosen_ids,
+                    "items": reply_items,
                 },
             )
 
@@ -3109,9 +3361,9 @@ async def resolve_message_decision(
     # per-sender inbox rule (close / task). Consistent choices surface an
     # inline "always do this" suggestion; autonomous tenants auto-promote.
     rule_suggestion = None
-    if user_id and action in ("approved", "approve") and option_id in ("close", "create_task", "look_at"):
+    if user_id and action in ("approved", "approve") and primary_option_id in ("close", "create_task", "look_at"):
         rule_suggestion = await _record_no_reply_outcome(
-            session, tenant_id, user_id, signal_id, message.decision_id, option_id
+            session, tenant_id, user_id, signal_id, message.decision_id, primary_option_id
         )
 
     # Approving one draft dismisses leftover sibling suggestion cards.
@@ -3124,7 +3376,8 @@ async def resolve_message_decision(
 
     # Approving "create a task" / legacy look_at creates a human AgentTask.
     created_task_id: str | None = None
-    if user_id and action in ("approved", "approve") and option_id in ("create_task", "look_at"):
+    continue_signal: Signal | None = None
+    if user_id and action in ("approved", "approve") and primary_option_id in ("create_task", "look_at"):
         from datetime import timedelta
 
         from app.services.orchestration.dispatcher import create_agent_task
@@ -3155,13 +3408,136 @@ async def resolve_message_decision(
             )
             created_task_id = str(task.id)
 
+    # Chat / Ask threads: after Ja/Nee the operator bubble is not enough —
+    # wake the agent so it confirms (and finishes work if the option had no tool).
+    continue_signal: Signal | None = None
+    if (
+        user_id
+        and answer
+        and action in ("approved", "approve", "rejected", "reject")
+    ):
+        sig_result = await session.execute(
+            select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
+        )
+        continue_signal = sig_result.scalar_one_or_none()
+        if continue_signal and _should_continue_chat_after_decision(continue_signal):
+            # Pin the asking agent when the thread has none (Ask / soft chats).
+            if not continue_signal.agent_id:
+                asker = message.author_agent_id
+                if asker is None and decision_row and decision_row.source_type == "agent":
+                    try:
+                        asker = UUID(str(decision_row.source_id)) if decision_row.source_id else None
+                    except (TypeError, ValueError):
+                        asker = None
+                if asker is not None:
+                    continue_signal.agent_id = asker
+                    session.add(continue_signal)
+
+    await session.commit()
+
+    if user_id and continue_signal is not None and _should_continue_chat_after_decision(continue_signal):
+        from app.tools.registry import get_tool_spec
+
+        chosen_opt = next(
+            (
+                o
+                for o in options_list
+                if isinstance(o, dict) and str(o.get("id")) == str(primary_option_id or "")
+            ),
+            None,
+        )
+        action_type = ""
+        if isinstance(chosen_opt, dict):
+            action_type = str(chosen_opt.get("action_type") or "").strip()
+        tool_ran = bool(
+            action in ("approved", "approve")
+            and action_type
+            and action_type not in ("reject", "defer", "acknowledge")
+            and get_tool_spec(action_type) is not None
+        )
+        # Tool already executed on Approve: a short confirm is clearer than an
+        # LLM wake that re-lists tags and proposes the same delete again.
+        # Soft Yes also stays quiet when other proposals are still open — waking
+        # then stacks new asks on top of unresolved cards.
+        other_open = 0
+        if message.decision_id is not None:
+            other_open = len(
+                (
+                    await session.execute(
+                        select(DecisionRequest.id).where(
+                            DecisionRequest.signal_id == continue_signal.id,
+                            DecisionRequest.status == "awaiting_human",
+                            DecisionRequest.id != message.decision_id,
+                        )
+                    )
+                ).scalars().all()
+            )
+        if tool_ran or action in ("rejected", "reject") or other_open > 0:
+            confirm = _decision_confirm_text(
+                action=action,
+                action_type=action_type,
+                option=chosen_opt if isinstance(chosen_opt, dict) else None,
+                option_labels=option_labels,
+            )
+            asker = continue_signal.agent_id or message.author_agent_id
+            from app.services.assistant_threads import append_signal_chat_message
+
+            await append_signal_chat_message(
+                session,
+                continue_signal,
+                role="assistant",
+                content=confirm,
+                author_agent_id=asker,
+                metadata={"decision_confirm": True, "decision_id": str(message.decision_id)},
+            )
+            await session.commit()
+        else:
+            # Soft Yes (no tool), sole open card: let the agent answer conversationally.
+            from app.config import get_settings
+
+            if get_settings().bokito_mock_execution:
+                await _generate_agent_reply(session, tenant_id, user_id, continue_signal)
+            else:
+                _schedule_agent_reply(tenant_id, user_id, continue_signal.id)
+
     return {
         "ok": True,
         "action": action,
-        "option_id": option_id,
+        "option_id": primary_option_id or option_id,
+        "option_ids": chosen_ids,
         "rule_suggestion": rule_suggestion,
         "task_id": created_task_id,
     }
+
+
+def _should_continue_chat_after_decision(signal: Signal) -> bool:
+    """Assistant, internal, and Ask/meta chats should keep talking after a decision."""
+    if signal.channel in ("assistant", "internal"):
+        return True
+    return signal.source in ("agent_session", "chat", "personal")
+
+
+def _decision_confirm_text(
+    *,
+    action: str,
+    action_type: str,
+    option: dict[str, Any] | None,
+    option_labels: list[str],
+) -> str:
+    """Short in-thread confirm after Ja/Nee — no LLM round-trip."""
+    payload = option.get("payload") if isinstance(option, dict) else None
+    if not isinstance(payload, dict):
+        payload = {}
+    name = str(payload.get("name") or payload.get("tag") or "").strip().lstrip("#")
+    if action in ("rejected", "reject"):
+        if name:
+            return f"Oké, #{name} blijft staan."
+        return "Oké."
+    if action_type == "delete_tag" and name:
+        return f"#{name} is verwijderd."
+    if option_labels:
+        return f"Gedaan: {option_labels[0]}."
+    return "Gedaan."
 
 
 async def _record_no_reply_outcome(

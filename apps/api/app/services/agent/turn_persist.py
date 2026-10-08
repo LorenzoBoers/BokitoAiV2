@@ -12,6 +12,7 @@ activity note so the team can still see it.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -19,7 +20,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.signal import Signal, SignalMessage
+from app.models.signal import Signal, SignalMessage, is_internal_channel
 from app.services.agent.reply_mode import CHAT, MAX_CHAT_MESSAGES, split_chat_messages
 
 
@@ -209,7 +210,7 @@ async def touch_agent_activity(session: AsyncSession, agent_id: UUID | None) -> 
         session.add(agent)
 
 
-def _decision_ids_from_result(result: Any) -> set[str]:
+def decision_ids_from_result(result: Any) -> set[str]:
     found: set[str] = set()
     if isinstance(result, dict):
         for key in ("decision_request_id", "decision_id"):
@@ -218,7 +219,7 @@ def _decision_ids_from_result(result: Any) -> set[str]:
                 found.add(str(val))
         for nested in result.values():
             if isinstance(nested, dict):
-                found |= _decision_ids_from_result(nested)
+                found |= decision_ids_from_result(nested)
     return found
 
 
@@ -227,7 +228,7 @@ def decision_ids_in_activity(meta: dict[str, Any]) -> set[str]:
     for key in ("activity", "activity_after"):
         for item in meta.get(key) or []:
             if isinstance(item, dict):
-                found |= _decision_ids_from_result(item.get("result"))
+                found |= decision_ids_from_result(item.get("result"))
     return found
 
 
@@ -252,6 +253,11 @@ async def place_turn_decisions(
 
     ``create_decision`` writes the card at tool time; bubbles persist later, so
     without this the card sorts between the user message and the agent work.
+
+    Only cards whose decision id appears in **this** turn's activity are moved.
+    A previous fallback relocated every older card with ``received_at <= first
+    bubble``, which dragged already-approved decisions into later turns and
+    showed them as "Afgehandeld" between new bubbles.
     """
     if not turn_messages:
         return
@@ -266,6 +272,7 @@ async def place_turn_decisions(
     if not cards:
         return
     first_time = _message_time(turn_messages[0])
+    last_time = _message_time(turn_messages[-1])
     later_times = [_message_time(row) for row in turn_messages[1:]]
     anchors: dict[str, datetime] = {}
     for bubble in turn_messages:
@@ -276,18 +283,134 @@ async def place_turn_decisions(
         stamp = _message_time(bubble)
         for did in decision_ids_in_activity(meta if isinstance(meta, dict) else {}):
             anchors[did] = stamp
+    turn_window_start = first_time - timedelta(seconds=2)
+    turn_window_end = last_time + timedelta(seconds=2)
     for card in cards:
         did = str(card.decision_id) if card.decision_id else str(card.id)
         current = _message_time(card)
         if did in anchors:
             anchor = anchors[did]
-        elif current <= first_time:
-            # Mid-turn card with no id on activity: sit after the first bubble.
-            anchor = first_time
-        else:
+            before = next((t for t in later_times if t > anchor), None)
+            card.received_at = _stamp_after(anchor, before=before)
             continue
-        before = next((t for t in later_times if t > anchor), None)
-        card.received_at = _stamp_after(anchor, before=before)
+        # Heal cards an older bug dragged into a later turn: snap back to
+        # created_at when the stamp clearly does not belong to this turn's work.
+        created = card.created_at
+        if (
+            created is not None
+            and current is not None
+            and (current - created).total_seconds() > 300
+            and turn_window_start <= current <= turn_window_end
+        ):
+            card.received_at = created
+    if is_internal_channel(signal.channel or ""):
+        _attach_proposal(turn_messages[-1], [c for c in cards if c.decision_id and str(c.decision_id) in anchors])
+    _attach_showcase_items(signal.id, turn_messages[-1])
+
+
+def _json_meta(row: SignalMessage) -> dict[str, Any]:
+    try:
+        meta = json.loads(row.metadata_json or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _merge_items(*groups: list[Any] | None) -> list[dict[str, Any]]:
+    from app.services.proposal_items import MAX_ITEMS
+
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[Any, Any]] = set()
+    for group in groups:
+        for item in group or []:
+            if not isinstance(item, dict):
+                continue
+            key = (item.get("type"), item.get("id"))
+            if item.get("id") and key in seen:
+                continue
+            seen.add(key)
+            out.append(item)
+            if len(out) >= MAX_ITEMS:
+                return out
+    return out
+
+
+def _attach_showcase_items(signal_id: Any, last_bubble: SignalMessage) -> None:
+    """Write pending attach_items (and proposal items) onto the last bubble."""
+    from app.services.proposal_items import take_attach_items
+
+    bubble_meta = _json_meta(last_bubble)
+    proposal = bubble_meta.get("proposal") if isinstance(bubble_meta.get("proposal"), dict) else {}
+    pending = take_attach_items(signal_id)
+    proposal_items = proposal.get("items") if isinstance(proposal.get("items"), list) else []
+    existing = bubble_meta.get("items") if isinstance(bubble_meta.get("items"), list) else []
+    items = _merge_items(existing, pending, proposal_items)
+    if not items:
+        return
+    bubble_meta["items"] = items
+    if proposal:
+        # Items live once on the bubble; keep decision_id / question / selection.
+        proposal = {k: v for k, v in proposal.items() if k != "items"}
+        proposal["items"] = items
+        bubble_meta["proposal"] = proposal
+    last_bubble.metadata_json = json.dumps(bubble_meta, default=str)
+
+
+_CHOICE_ECHO = re.compile(
+    r"(?:\n\s*)+(?:Kies hieronder|Choose below|Pick one)\s*:?\s*"
+    r"(?:\n\s*[-*•]\s+.+)+\s*$",
+    re.IGNORECASE,
+)
+
+
+def strip_choice_echo(text: str) -> str:
+    """Remove 'Kies hieronder / - Ja / - Nee' tails — buttons already show them."""
+    cleaned = _CHOICE_ECHO.sub("", text or "").rstrip()
+    # Drop a bubble that is only the choice list.
+    if re.fullmatch(
+        r"(?:Kies hieronder|Choose below|Pick one)\s*:?\s*(?:\n\s*[-*•]\s+.+)+",
+        cleaned,
+        flags=re.IGNORECASE,
+    ):
+        return ""
+    return cleaned
+
+
+def _attach_proposal(last_bubble: SignalMessage, turn_cards: list[SignalMessage]) -> None:
+    """The newest card raised in this turn becomes the proposal on the turn's
+    last bubble: its buttons render under that message instead of as a
+    separate card. Customer-facing threads keep the card, since the bubble
+    there is addressed to the customer, not to the operator."""
+    if not turn_cards:
+        return
+    card = max(turn_cards, key=lambda c: c.created_at or datetime.min)
+    card_meta = _json_meta(card)
+    bubble_meta = _json_meta(last_bubble)
+    proposal: dict[str, Any] = {"decision_id": str(card.decision_id)}
+    if card_meta.get("proposal_items"):
+        proposal["items"] = card_meta["proposal_items"]
+    if card_meta.get("question"):
+        proposal["question"] = card_meta["question"]
+    selection = str(card_meta.get("selection") or "single").lower()
+    if selection in ("single", "multiple"):
+        proposal["selection"] = selection
+    bubble_meta["proposal"] = proposal
+    items = _merge_items(
+        bubble_meta.get("items") if isinstance(bubble_meta.get("items"), list) else [],
+        proposal.get("items") if isinstance(proposal.get("items"), list) else [],
+    )
+    if items:
+        bubble_meta["items"] = items
+        proposal["items"] = items
+        bubble_meta["proposal"] = proposal
+    # Buttons carry the choices — do not also keep them as prose bullets.
+    stripped = strip_choice_echo(last_bubble.body_text or "")
+    if stripped != (last_bubble.body_text or ""):
+        last_bubble.body_text = stripped
+        last_bubble.body_preview = (stripped[:200] if stripped else last_bubble.body_preview)
+    last_bubble.metadata_json = json.dumps(bubble_meta, default=str)
+    card_meta["attached_to_message_id"] = str(last_bubble.id)
+    card.metadata_json = json.dumps(card_meta, default=str)
 
 
 async def persist_agent_turn(
@@ -309,6 +432,7 @@ async def persist_agent_turn(
     thinking) on the last; ``append_to_last`` extends the last bubble's text.
     Caller commits."""
     from app.services.assistant_threads import append_signal_chat_message
+    from app.services.agent.style import strip_emoji
 
     planned = plan_turn_messages(segments, reply_mode, fallback_text=fallback_text)
     if append_to_last:
@@ -330,11 +454,13 @@ async def persist_agent_turn(
             meta["bubble_index"] = index
         if index == len(planned) - 1 and final_metadata:
             meta.update(final_metadata)
+        # AI speech only — never strip operator/customer content here.
+        speech = strip_emoji(bubble["text"] or "") or (bubble["text"] or "")
         msg = await append_signal_chat_message(
             session,
             signal,
             role="assistant",
-            content=bubble["text"],
+            content=speech,
             author_agent_id=author_agent_id,
             metadata=meta,
         )

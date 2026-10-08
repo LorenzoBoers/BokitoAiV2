@@ -184,15 +184,17 @@ export function resolveComposerSurface(
 
   if (channel === 'internal' || channel === 'assistant') {
     const name = threadCounterpartyName(thread)
-    // Open decisions: prefer a neutral note so Approve/Reject stays primary
-    // (do not push the operator into "Message Platform PO").
+    // Soft answers ("Ja") go through Ask; hide the recipient chip so the
+    // buttons stay the visual primary while the composer stays ready for text.
     const awaitingDecision = Boolean(thread.hasOpenDecision)
-    const teamRoom = thread.owner?.kind === 'team' || thread.turn?.kind === 'team'
+    // Only ownership marks a team room. turn.kind === 'team' means "humans'
+    // turn" (e.g. an open decision) and must not switch Ask → Note.
+    const teamRoom = thread.owner?.kind === 'team'
     return {
       channel,
       // No customer sits on the other side: every line is either for the AI
       // or for the team. Team rooms start on a note so members talk to each other.
-      defaultMode: awaitingDecision || teamRoom ? 'note' : 'ask',
+      defaultMode: teamRoom ? 'note' : 'ask',
       modes: ['ask', 'note'],
       replyLabel: channel === 'assistant' ? 'Chat' : 'Message',
       replyTargetName: name,

@@ -496,6 +496,25 @@ async def test_category_map_lists_categories(client: AsyncClient, session_overri
     block = await category_map_block(session_override, tenant.id)
     assert "#storing" in block
 
+
+@pytest.mark.asyncio
+async def test_project_choices_by_workstream_batches(client: AsyncClient, session_override):
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    acme = await _project(session_override, tenant.id, "Acme")
+    beta = await _project(session_override, tenant.id, "Beta")
+    a = await _category(client, headers, "alpha", project_ids=[str(acme.id)])
+    b = await _category(client, headers, "bravo", project_ids=[str(acme.id), str(beta.id)])
+    from app.services.tickets import project_choices_by_workstream
+
+    by_ws = await project_choices_by_workstream(
+        session_override,
+        tenant.id,
+        [UUID(a["workstream_id"]), UUID(b["workstream_id"])],
+    )
+    assert by_ws[UUID(a["workstream_id"])] == [{"id": str(acme.id), "name": "Acme"}]
+    assert [p["name"] for p in by_ws[UUID(b["workstream_id"])]] == ["Acme", "Beta"]
+
 @pytest.mark.asyncio
 async def test_category_list_carries_project_choices_and_counts(client: AsyncClient, session_override):
     headers = await _login(client)

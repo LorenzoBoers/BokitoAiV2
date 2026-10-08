@@ -431,7 +431,8 @@
     "writing": "Typing...",
     "note": "Note",
     "action": "Action",
-    "failed": "Failed"
+    "failed": "Failed",
+    "webSearch": "Searching for {{query}}"
   },
   "mockAgent": {
     "replyBody": "Placeholder reply about {{topic}}."
@@ -534,6 +535,7 @@
     "closeError": "Could not end the AI chat.",
     "sendError": "Could not send to the AI.",
     "busyError": "The AI is still replying. Wait or press Stop.",
+    "stop": "Stop",
     "replyCopied": "Answer copied to the reply composer",
     "switchedAgent": "Switched to {{name}}"
   },
@@ -1386,5 +1388,57 @@
     "fileError": "Could not file this action tag.",
     "createError": "Could not create this tag.",
     "busy": "Saving…"
+  },
+  "proposal": {
+    "itemType": {
+      "conversation": "Conversation",
+      "trash_entry": "Bin item",
+      "trigger": "Agenda item",
+      "file": "File",
+      "image": "Image",
+      "user": "Teammate",
+      "agent": "Agent",
+      "tag": "Hashtag",
+      "flow": "Flow",
+      "project": "Project",
+      "contact": "Contact",
+      "integration": "Connection",
+      "marketplace": "Marketplace",
+      "module": "Module",
+      "help_doc": "Help article",
+      "message": "Message"
+    },
+    "binKind": {
+      "conversation": "Conversation",
+      "contact": "Contact",
+      "company": "Organization",
+      "project": "Project",
+      "canvas": "Canvas",
+      "knowledge": "Knowledge",
+      "playbook": "Flow",
+      "trigger": "Agenda item",
+      "team": "Team",
+      "inbox_rule": "Inbox rule",
+      "saved_reply": "Saved reply",
+      "project_resource": "Project resource",
+      "queue_item": "Queue item"
+    },
+    "itemMissing": "No longer available",
+    "deletedOn": "deleted {{date}}",
+    "more": "More options",
+    "preparing": "Preparing proposal...",
+    "confirm": "Confirm",
+    "confirmed": "Confirmed",
+    "status": {
+      "approved": "Approved",
+      "approvedBy": "Approved by {{name}}",
+      "answered": "Answered",
+      "chosen": "Chose: {{option}}",
+      "rejected": "Declined",
+      "rejectedBy": "Declined by {{name}}",
+      "superseded": "Replaced by a newer proposal",
+      "missing": "Proposal no longer available",
+      "setAside": "Set aside"
+    }
   }
 }

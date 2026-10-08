@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import re
 import time
 from typing import Any, AsyncGenerator
 from uuid import UUID
@@ -117,6 +118,10 @@ class AgentLoop:
         self._user_role_override = user_role
         self._user_role_cached: str | None = None
         self._user_role_resolved = False
+        # One Tenant / reachability load per turn (prompt + tool gating share it).
+        self._tenant_cached = None
+        self._tenant_resolved = False
+        self._reachable_cached: bool | None = None
         self.enable_chat_thinking = enable_chat_thinking
         self.llm = get_llm_provider()
         # Set during run_chat once the model call is resolved (drives metering).
@@ -146,6 +151,45 @@ class AgentLoop:
         self.thinking_text = ""
         self.thinking_ms = 0
         self.thinking_budget = 0
+        # One soft nudge per turn when the model announces work but emits no tools.
+        self._continue_nudged = False
+
+    # Phrases that mean "I will do X next" without having called a tool yet.
+    _WORK_ANNOUNCE_RE = re.compile(
+        r"(?i)\b("
+        r"even kijken|ik ga |laat me |ik zoek|ik kijk|ik pak|"
+        r"i(?:'| a)?m going to|let me |i(?:'| wi)?ll |looking up|checking |"
+        r"i will |going to (?:look|check|list|find|create|file|open)"
+        r")\b"
+    )
+
+    def _looks_like_work_announce(self, text: str) -> bool:
+        cleaned = (text or "").strip()
+        if len(cleaned) < 12 or len(cleaned) > 400:
+            return False
+        if not self._WORK_ANNOUNCE_RE.search(cleaned):
+            return False
+        # Finished answers usually end with a period after substance; keep it
+        # loose — the nudge is cheap and only runs once.
+        return True
+
+    def _append_continue_nudge(
+        self,
+        llm_messages: list[dict[str, Any]],
+        assistant_content: list[dict[str, Any]],
+    ) -> None:
+        """Ask the model to follow through after a plan-only reply."""
+        self._continue_nudged = True
+        llm_messages.append({"role": "assistant", "content": assistant_content})
+        llm_messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "Continue now. Call the tools you need and finish the work. "
+                    "Do not only announce what you will do."
+                ),
+            }
+        )
 
     def _resolve_thinking_budget(self) -> int:
         """This turn's reasoning budget (see ``reasoning_policy``).
@@ -291,6 +335,10 @@ class AgentLoop:
         from app.tools.registry import tool_presentation
 
         shown = tool_presentation(name)
+        if name == "web_search" and isinstance(tool_input, dict):
+            query = str(tool_input.get("query") or "").strip()
+            if query:
+                shown["label"] = f"Search: {query}"
         if name == "call_mcp_tool" and isinstance(tool_input, dict):
             server = str(tool_input.get("server_name") or "")
             inner = str(tool_input.get("tool_name") or "")
@@ -362,26 +410,26 @@ class AgentLoop:
         self._user_role_resolved = True
         return self._user_role_cached
 
+    async def _get_tenant(self):
+        """Tenant row for this loop, loaded at most once."""
+        if self._tenant_resolved:
+            return self._tenant_cached
+        from app.models.auth import Tenant
+
+        self._tenant_cached = await self.session.get(Tenant, self.tenant_id)
+        self._tenant_resolved = True
+        return self._tenant_cached
+
     async def _operator_context(self) -> str:
         """Tell the model who is chatting — an internal operator, not a customer."""
         if not self.user_id:
             return ""
-        from sqlalchemy import select
-
-        from app.models.auth import Membership, User
+        from app.models.auth import User
 
         user = await self.session.get(User, self.user_id)
         if not user:
             return ""
-        membership = (
-            await self.session.execute(
-                select(Membership).where(
-                    Membership.tenant_id == self.tenant_id,
-                    Membership.user_id == user.id,
-                )
-            )
-        ).scalar_one_or_none()
-        role = membership.role if membership else "member"
+        role = await self._session_user_role() or "member"
         name = (user.display_name or "").strip() or user.email
         return (
             "## Current operator\n"
@@ -405,11 +453,10 @@ class AgentLoop:
             if hits:
                 rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
             if self.trust != "external":
-                from app.models.auth import Tenant
                 from app.services.language import resolve_workspace_language
                 from app.services.product_help import search_product_help
 
-                tenant = await self.session.get(Tenant, self.tenant_id)
+                tenant = await self._get_tenant()
                 help_lang = resolve_workspace_language(tenant)
                 if help_lang not in ("en", "nl"):
                     help_lang = get_settings().platform_default_language
@@ -426,8 +473,9 @@ class AgentLoop:
         default_prompt = (
             "You are the Bokito AI OS assistant. "
             "You have introspection tools (get_tenant_overview, list_recent_activity, "
-            "list_tasks, list_threads, get_usage_summary) and a Tenant snapshot in context — "
-            "use them before saying you lack information about the tenant, projects, or activity."
+            "list_tasks, list_threads, list_tags, get_usage_summary) and a Tenant snapshot "
+            "in context — use them before saying you lack information about the tenant, "
+            "projects, tags, or activity."
         )
         base = self.agent.system_prompt if self.agent and self.agent.system_prompt else default_prompt
         parts = [base]
@@ -437,8 +485,10 @@ class AgentLoop:
         if self.agent and self.agent.system_prompt:
             parts.append(
                 "## Introspection\n"
-                "Before claiming you lack information, call get_tenant_overview or "
-                "list_recent_activity. Strategy and project docs may require read_doc."
+                "Before claiming you lack information, call get_tenant_overview, "
+                "list_tags (for hashtags / action tags), or list_recent_activity. "
+                "Do not infer which tags exist from search_index or conversation text. "
+                "Strategy and project docs may require read_doc."
             )
         if rag_context:
             parts.append(f"## Relevant context\n{rag_context}")
@@ -507,10 +557,9 @@ class AgentLoop:
         from app.services.agent.style import identity_for_bokito_slug, style_for_reply_mode
 
         parts.append(style_for_reply_mode(await self._resolve_reply_mode()))
-        from app.models.auth import Tenant
         from app.services.language import language_rules_for_trust
 
-        tenant_for_lang = await self.session.get(Tenant, self.tenant_id)
+        tenant_for_lang = await self._get_tenant()
         parts.append(language_rules_for_trust(self.trust, tenant_for_lang))
         if self.agent is not None and self.trust != "external":
             from app.services.agent_rules import all_rules, when_to_ask_prompt
@@ -526,21 +575,21 @@ class AgentLoop:
     async def _team_reachable(self) -> bool:
         if self.trust != "external":
             return True
-        from app.models.auth import Tenant
+        if self._reachable_cached is not None:
+            return self._reachable_cached
         from app.services.livechat_compat import team_is_reachable
 
-        tenant = (
-            await self.session.execute(select(Tenant).where(Tenant.id == self.tenant_id))
-        ).scalar_one_or_none()
+        tenant = await self._get_tenant()
         if tenant is None:
+            self._reachable_cached = True
             return True
-        return await team_is_reachable(self.session, tenant)
+        self._reachable_cached = await team_is_reachable(self.session, tenant)
+        return self._reachable_cached
 
     async def _whatsapp_handover_on(self) -> bool:
-        from app.models.auth import Tenant
         from app.services.whatsapp_handover import handover_target
 
-        tenant = await self.session.get(Tenant, self.tenant_id)
+        tenant = await self._get_tenant()
         account, _ = await handover_target(self.session, tenant)
         return account is not None
 
@@ -962,6 +1011,7 @@ class AgentLoop:
         turn = self._new_turn()
         self.thinking_budget = self._resolve_thinking_budget()
         max_tokens = self._resolve_max_tokens()
+        self._continue_nudged = False
         started = time.monotonic()
 
         for loop_idx in range(self.max_loops):
@@ -977,20 +1027,34 @@ class AgentLoop:
                     self.thinking_text += str(block["thinking"])
                     await turn.thinking(str(block["thinking"]))
 
-            tool_uses = [b for b in response["content"] if b.get("type") == "tool_use"]
-            text_blocks = [b["text"] for b in response["content"] if b.get("type") == "text"]
+            content = response.get("content") or []
+            tool_uses = [b for b in content if b.get("type") == "tool_use"]
+            text_blocks = [b["text"] for b in content if b.get("type") == "text"]
             if text_blocks:
                 turn.set_speech_text("\n".join(text_blocks))
 
-            if not tool_uses or response.get("stop_reason") == "end_turn":
-                break
+            # Always run tools when the model emitted them — some providers
+            # incorrectly label tool turns as end_turn.
+            if tool_uses:
+                if await self._is_cancelled():
+                    break
+                llm_messages.append({"role": "assistant", "content": content})
+                tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
+                llm_messages.append({"role": "user", "content": tool_results})
+                continue
 
-            if await self._is_cancelled():
-                break
-
-            llm_messages.append({"role": "assistant", "content": response["content"]})
-            tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
-            llm_messages.append({"role": "user", "content": tool_results})
+            joined = "\n".join(text_blocks)
+            if (
+                not self._continue_nudged
+                and self._looks_like_work_announce(joined)
+                and loop_idx + 1 < self.max_loops
+            ):
+                self._append_continue_nudge(
+                    llm_messages,
+                    content or [{"type": "text", "text": joined}],
+                )
+                continue
+            break
 
         await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
@@ -1017,6 +1081,7 @@ class AgentLoop:
         stream_id = turn.stream_id
         self.thinking_budget = self._resolve_thinking_budget()
         max_tokens = self._resolve_max_tokens()
+        self._continue_nudged = False
         started = time.monotonic()
         await turn.start()
 
@@ -1066,16 +1131,30 @@ class AgentLoop:
             if text_blocks and not streamed_text:
                 turn.set_speech_text("\n".join(text_blocks))
 
-            if not tool_uses or stop_reason == "end_turn":
-                break
+            if tool_uses:
+                if await self._is_cancelled():
+                    cancelled = True
+                    break
+                llm_messages.append({"role": "assistant", "content": response_content})
+                tool_results = await self._execute_tool_loop(
+                    llm_messages, tool_uses, stream_id=stream_id
+                )
+                llm_messages.append({"role": "user", "content": tool_results})
+                continue
 
-            if await self._is_cancelled():
-                cancelled = True
-                break
-
-            llm_messages.append({"role": "assistant", "content": response_content})
-            tool_results = await self._execute_tool_loop(llm_messages, tool_uses, stream_id=stream_id)
-            llm_messages.append({"role": "user", "content": tool_results})
+            joined = "\n".join(text_blocks) if text_blocks else turn.final_text
+            if (
+                not cancelled
+                and not self._continue_nudged
+                and self._looks_like_work_announce(joined or "")
+                and loop_idx + 1 < self.max_loops
+            ):
+                assistant_content = response_content or [
+                    {"type": "text", "text": joined or ""}
+                ]
+                self._append_continue_nudge(llm_messages, assistant_content)
+                continue
+            break
 
         await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)

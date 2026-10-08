@@ -144,7 +144,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.showRecipient).toBe(false)
   })
 
-  it('defaults internal threads with an open decision to a neutral note', () => {
+  it('keeps ask as default with an open decision so soft Ja works', () => {
     const surface = resolveComposerSurface(
       thread({
         channel: 'internal',
@@ -154,7 +154,22 @@ describe('resolveComposerSurface (whatsapp)', () => {
       }),
     )
     expect(surface.channel).toBe('internal')
-    expect(surface.defaultMode).toBe('note')
+    expect(surface.defaultMode).toBe('ask')
+    expect(surface.showRecipient).toBe(false)
+  })
+
+  it('does not treat turn.kind=team as a team room (still Ask)', () => {
+    const surface = resolveComposerSurface(
+      thread({
+        channel: 'assistant',
+        folder: 'assistant',
+        agentName: 'Bokito Assistant',
+        hasOpenDecision: true,
+        turn: { kind: 'team', userId: null, agentId: null, teamId: 'tm-1' },
+        owner: { kind: 'agent', userId: null, agentId: 'ag-1', teamId: null },
+      }),
+    )
+    expect(surface.defaultMode).toBe('ask')
     expect(surface.showRecipient).toBe(false)
   })
 

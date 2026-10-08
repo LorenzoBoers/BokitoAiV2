@@ -53,7 +53,7 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 
 1. Open a conversation. Under the timeline the composer shows a mode chip: **Reply to {name}**, **Ask {agent}**, and **Note**.
 2. **Reply** goes to the customer on the same channel they used. Placeholder text reminds you they will see it. On email, **Ctrl+Enter** sends; on chat, Enter sends.
-3. **Ask** talks only with the AI on this conversation (or starts an AI check-in). The customer sees nothing. The composer outline turns purple. Switching to Ask or mentioning an agent does not open a meta conversation until you send. **Cancel** on an empty meta conversation removes it. A **Stop** control appears while the AI streams.
+3. **Ask** talks only with the AI on this conversation (or starts an AI check-in). The customer sees nothing. The composer outline turns purple. Switching to Ask or mentioning an agent does not open a meta conversation until you send. **Cancel** on an empty meta conversation removes it. A **Stop** control appears while the AI streams. Paste a screenshot or image into the composer (or use the paperclip) so the AI can see it on that turn.
 4. **Note** is team-only. The composer outline is gray. Use it for handoffs and context that must not leave the workspace.
 5. On an AI chat (`assistant` channel) or an AI check-in, Reply is hidden — only Ask and Note stay, with **Note** after **Ask**. Slash verbs and `@` mentions still work.
 
@@ -76,7 +76,7 @@ An agent turn reads like a chat: a few short messages, with one line between the
 ![Agent turn with activity lines between chat messages](/api/docs/assets/communication/agent-turn.png)
 *Thinking and working lines sit between the agent's messages and fold up when done.*
 
-1. While the agent thinks, a line with a brain icon reads **Thinking** with a running time. When the model shares its reasoning, click the line to read it as it streams. Short messages skip reasoning. While it works, the line shows the current action with the integration logo (or a knowledge or wrench icon); each new action replaces the previous one.
+1. While the agent thinks, a line with a brain icon reads **Thinking** with a running time. When the model shares its reasoning, click the line to read it as it streams. Short messages skip reasoning. While it works, the line shows the current action with the integration logo (or a knowledge or wrench icon); each new action replaces the previous one. A web search reads **Searching for …** with the site favicon when results arrive.
 2. When the agent switches from thinking to working (or back), the line folds into **Thought for 3s** or **Worked for 12s · 4 actions**. Click it to see each action, its input and its result. **Thought for** only shows when there is reasoning to read.
 3. **Typing...** means the agent is writing its next message. A blank line in its answer starts a new message, so a turn arrives as up to five short bubbles. Email stays one structured message.
 4. Agent messages use chat formatting only: bold, italic, strikethrough and links. Headings and tables become plain lines.

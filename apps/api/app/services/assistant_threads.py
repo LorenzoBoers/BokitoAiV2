@@ -296,6 +296,25 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
         body = message_plain_text(m)
         if not body:
             continue
+        # Operator Ja/Nee bubbles: tell the model the choice already applied so
+        # the continue-after-decision wake confirms instead of re-doing the work.
+        try:
+            meta = json.loads(m.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if isinstance(meta, dict) and meta.get("decision_response"):
+            act = str(meta.get("decision_action") or "approve").lower()
+            if act in ("reject", "rejected"):
+                body = (
+                    f"{body}\n\n[System] The operator declined this proposal. "
+                    "Acknowledge briefly. Do not re-propose the same action unless they ask."
+                )
+            else:
+                body = (
+                    f"{body}\n\n[System] The operator approved this choice. Any linked "
+                    "tool already ran. Confirm the outcome in one short message — do not "
+                    "re-run the tool or ask again which item to change."
+                )
         history.append({"role": role, "content": body})
 
     signal = await session.get(Signal, signal_id)

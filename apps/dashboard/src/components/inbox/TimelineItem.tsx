@@ -16,8 +16,17 @@ import { useTranslation } from 'react-i18next'
 import { formatAppTime } from '../../lib/app-locale'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
-import type { InboxEvent, InboxMessage, InboxMember, MessageAttachment, ThreadId } from '../../lib/inbox-api'
+import type {
+  InboxEvent,
+  InboxMessage,
+  InboxMember,
+  MessageAttachment,
+  ProposalItem,
+  ThreadId,
+} from '../../lib/inbox-api'
 import { asMessageAttachments, getMessage } from '../../lib/inbox-api'
+import type { ChatTagMap } from '../../lib/chatText'
+import { optionIdForProposalItem, stripChoiceEcho } from '../../lib/decision-options'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
 import { AI_PILL_CLASS, AiMark } from '../ai/AiMark'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
@@ -40,6 +49,8 @@ import { WorkbenchJobCard } from './WorkbenchJobCard'
 import { inboxPath } from '../../lib/messages-paths'
 import { stageLabel, type TicketStageKind } from '../../lib/tickets-api'
 import { SplitConversationAction } from './SplitConversationAction'
+import { ProposalItemList } from './ProposalItemPreview'
+import { ProposalActions } from './ProposalActions'
 
 type MessageLayout = 'chat' | 'email'
 
@@ -70,6 +81,10 @@ type MessageItemProps = {
   agentAvatarImageUrl?: string | null
   /** WhatsApp-style group position among consecutive same-author bubbles. */
   stack?: BubbleStack
+  /** An inline agent proposal on this bubble was answered. */
+  onProposalResolved?: (info?: { closed?: boolean }) => void
+  /** Tag name -> kind for bare #name chips in ChatText. */
+  chatTags?: ChatTagMap
 }
 
 type EventItemProps = {
@@ -1249,10 +1264,14 @@ export function MessageTimelineItem({
   agentAvatarColor,
   agentAvatarImageUrl,
   stack = 'single',
+  onProposalResolved,
+  chatTags,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { user, token } = useAuth()
+  const [proposalPicked, setProposalPicked] = useState<string[]>([])
+  const chooseOptionRef = useRef<((optionId: string) => void) | null>(null)
   const [enriched, setEnriched] = useState<Pick<
     InboxMessage,
     'bodyHtml' | 'hasHtml' | 'activity' | 'activityAfter' | 'activityDetail'
@@ -1402,14 +1421,19 @@ export function MessageTimelineItem({
     (message.bodyHtml
       ? htmlToPlainPreview(message.bodyHtml)
       : '')
-  const displayBody = translateMockAgentBody(plainBody, t)
+  const displayBody = translateMockAgentBody(
+    message.proposal ? stripChoiceEcho(plainBody) : plainBody,
+    t,
+  )
   // Prefer HTML whenever we have it (or the plain body is mislabelled HTML).
-  // Mock translations still force the plain path so i18n placeholders work.
+  // Only force plain when a mock/placeholder body was actually rewritten —
+  // translateMockAgentBody().trim() alone must not hide real email HTML.
   const htmlSource =
     (message.bodyHtml && message.bodyHtml.trim()) ||
     (looksLikeEmailHtml(message.bodyText) ? message.bodyText!.trim() : '') ||
     ''
-  const usePlainBody = displayBody !== plainBody || !htmlSource
+  const mockPlainOverride = isMockAgentBody(plainBody) && displayBody !== plainBody
+  const usePlainBody = !htmlSource || mockPlainOverride
 
   const bubbleBody = editingNote ? (
     <div className="space-y-1.5">
@@ -1448,7 +1472,7 @@ export function MessageTimelineItem({
           <span>{t('timeline.events.emailContent')}</span>
         </div>
       ) : (
-        <ChatText content={displayBody} />
+        <ChatText content={displayBody} tags={chatTags} />
       )}
       <MessageAttachments attachments={attachmentItems.filter((a) => !a.inline)} />
     </div>
@@ -1727,16 +1751,48 @@ export function MessageTimelineItem({
         {t('timeline.ccLine', { recipients: message.cc })}
       </div>
     ) : null
+  const proposal = isAgentMessage && threadId ? message.proposal ?? null : null
+  const showcaseItems: ProposalItem[] =
+    message.items?.length
+      ? message.items
+      : proposal?.items?.length
+        ? proposal.items
+        : []
+  const proposalOpen =
+    !!proposal && (proposal.status === 'awaiting_human' || proposal.status === 'pending')
+  const proposalMulti = proposal?.selection === 'multiple'
+  const onShowcaseSelect =
+    proposalOpen && proposal
+      ? (item: ProposalItem) => {
+          const optionId = optionIdForProposalItem(item, proposal.options)
+          if (!optionId) return
+          chooseOptionRef.current?.(optionId)
+        }
+      : undefined
+  const proposalBody = proposal && !displayBody.trim() && proposal.question ? (
+    <ChatText content={proposal.question} tags={chatTags} />
+  ) : (
+    bubbleBody
+  )
   const bubbleBodyWithMeta =
-    ccLine || selfStatusLine || provenanceLine ? (
+    ccLine || selfStatusLine || provenanceLine || showcaseItems.length ? (
       <div>
         {selfStatusLine}
         {provenanceLine}
         {ccLine}
-        {bubbleBody}
+        {proposalBody}
+        {showcaseItems.length ? (
+          <ProposalItemList
+            items={showcaseItems}
+            onSelect={onShowcaseSelect}
+            selectedIds={
+              proposalOpen && proposalMulti ? new Set(proposalPicked) : undefined
+            }
+          />
+        ) : null}
       </div>
     ) : (
-      bubbleBody
+      proposalBody
     )
 
   const sentAt = message.receivedAt ?? message.createdAt
@@ -1814,19 +1870,34 @@ export function MessageTimelineItem({
     />
   ) : null
 
+  const traceIndent = isOwn ? 'ml-auto' : 'ml-9'
+  const proposalActions =
+    proposal && threadId ? (
+      <div className={cn(traceIndent, 'mb-1')}>
+        <ProposalActions
+          proposal={proposal}
+          threadId={threadId}
+          onResolved={onProposalResolved}
+          picked={proposalPicked}
+          setPicked={setProposalPicked}
+          chooseOptionRef={chooseOptionRef}
+        />
+      </div>
+    ) : null
+
   const activityBefore = message.activity ?? []
   const activityAfter = message.activityAfter ?? []
   if (activityBefore.length === 0 && activityAfter.length === 0) {
-    if (!workbenchCard) return bubble
+    if (!workbenchCard && !proposalActions) return bubble
     return (
       <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
         <div className="w-full">{bubble}</div>
+        {proposalActions}
         {workbenchCard}
       </div>
     )
   }
 
-  const traceIndent = isOwn ? 'ml-auto' : 'ml-9'
   const loadDetail = message.activityDetail ? undefined : () => void ensureFullMessage()
   return (
     <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
@@ -1834,6 +1905,7 @@ export function MessageTimelineItem({
         <ActivityTrail items={activityBefore} onExpand={loadDetail} className={traceIndent} />
       ) : null}
       <div className="w-full">{bubble}</div>
+      {proposalActions}
       {activityAfter.length > 0 ? (
         <ActivityTrail items={activityAfter} onExpand={loadDetail} className={traceIndent} />
       ) : null}

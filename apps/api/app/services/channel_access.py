@@ -153,10 +153,30 @@ async def can_handle_account(
 
 async def agent_can_handle(session: AsyncSession, account: ChannelAccount | None, agent_id: UUID) -> bool:
     """Whether an agent may act on a channel's conversations. No channel: allowed."""
-    if account is None:
+    if account is None or is_default_access(account):
         return True
     principal = await agent_principal(session, account.tenant_id, agent_id)
     return access_level(account, principal) == "handle"
+
+
+async def agents_that_can_handle(
+    session: AsyncSession,
+    account: ChannelAccount | None,
+    agent_ids: list[UUID],
+) -> set[UUID]:
+    """Which of ``agent_ids`` may handle the channel (one membership query)."""
+    if not agent_ids:
+        return set()
+    if account is None or is_default_access(account):
+        return set(agent_ids)
+    from app.services.access_list import agent_principals
+
+    principals = await agent_principals(session, account.tenant_id, agent_ids)
+    return {
+        aid
+        for aid, principal in principals.items()
+        if access_level(account, principal) == "handle"
+    }
 
 
 async def handler_user_ids(session: AsyncSession, account: ChannelAccount) -> set[UUID] | None:

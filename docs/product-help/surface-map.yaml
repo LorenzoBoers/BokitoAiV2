@@ -275,6 +275,10 @@ decisions:
     - /communication/decisions/t/:threadId
   code_globs:
     - apps/dashboard/src/components/inbox/DecisionRequestMessage.tsx
+    - apps/dashboard/src/components/inbox/ProposalActions.tsx
+    - apps/dashboard/src/components/inbox/ProposalItemPreview.tsx
+    - apps/dashboard/src/components/inbox/useDecisionResolve.ts
+    - apps/api/app/services/proposal_items.py
     - apps/dashboard/src/components/inbox/MessagesHubNav.tsx
     - apps/dashboard/src/lib/messages-paths.ts
     - apps/dashboard/src/lib/hub-list-filters.ts
@@ -286,6 +290,7 @@ decisions:
     - apps/api/app/routers/notifications.py
   screenshots:
     - approve
+    - inline-proposal
 
 knowledge:
   section: ai

@@ -290,6 +290,9 @@ async def append_decision_to_signal(
     agent_id: UUID | None = None,
     project_id: UUID | None = None,
     signal_id: UUID | None = None,
+    items: list[dict[str, Any]] | None = None,
+    question: str | None = None,
+    selection: str | None = None,
 ) -> SignalMessage:
     agent_name = "Agent"
     if agent_id:
@@ -298,6 +301,14 @@ async def append_decision_to_signal(
         ).scalar_one_or_none()
         if agent_row:
             agent_name = agent_row.name
+    card_meta: dict[str, Any] = {}
+    if items:
+        card_meta["proposal_items"] = items
+    if question and question.strip():
+        card_meta["question"] = question.strip()[:500]
+    sel = str(selection or "single").strip().lower()
+    if sel in ("single", "multiple"):
+        card_meta["selection"] = sel
 
     signal = await get_or_create_internal_thread(
         session,
@@ -326,6 +337,7 @@ async def append_decision_to_signal(
         or (decision.title or "")[:200],
         decision_id=decision.id,
         received_at=datetime.utcnow(),
+        metadata_json=json.dumps(card_meta, default=str) if card_meta else "{}",
     )
     session.add(message)
     await session.flush()
@@ -429,6 +441,9 @@ async def create_decision(
     notification_payload: dict[str, Any] | None = None,
     notification_title: str | None = None,
     to: dict[str, Any] | None = None,
+    items: list[dict[str, Any]] | None = None,
+    question: str | None = None,
+    selection: str | None = None,
 ) -> tuple[DecisionRequest, SignalMessage]:
     """The single write path for human decisions.
 
@@ -500,6 +515,9 @@ async def create_decision(
         agent_id=agent_id,
         project_id=project_id,
         signal_id=signal_id,
+        items=items,
+        question=question,
+        selection=selection,
     )
     # The thread and the card only exist after the append, so the bell payload
     # is completed here rather than trusting each caller to guess the ids.

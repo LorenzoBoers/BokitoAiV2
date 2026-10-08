@@ -154,7 +154,7 @@ async def test_decision_free_text_answer_recorded(client: AsyncClient, session_o
 
 
 @pytest.mark.asyncio
-async def test_decision_resolution_without_text_adds_no_message(
+async def test_decision_resolution_posts_operator_bubble_with_option_label(
     client: AsyncClient, session_override
 ):
     headers = await _auth_headers(client)
@@ -214,7 +214,12 @@ async def test_decision_resolution_without_text_adds_no_message(
             select(SignalMessage).where(SignalMessage.signal_id == signal.id)
         )
     ).scalars().all()
-    assert len(after) == len(before)
+    assert len(after) == len(before) + 1
+    reply = next(m for m in after if m.id not in {b.id for b in before})
+    assert reply.body_text == "Yes"
+    meta = json.loads(reply.metadata_json or "{}")
+    assert meta.get("decision_response") is True
+    assert meta.get("option_id") == "yes"
 
 
 # ── Phase 3: MCP install, discovery, snapshot, mock accounting ───

@@ -22,9 +22,23 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 2. Selecteer een gesprek (de eerste match opent automatisch) en scroll naar de keuzekaart. Die toont de voorgestelde actie en waarom de agent stopte.
 3. Als niets op jou wacht, toont Beslissingen een lege staat met links terug naar de inbox en Agents.
 
+## Een voorstel van een agent in de chat goedkeuren
+
+Vraag je een agent iets te doen waar jouw OK voor nodig is, dan stelt zijn laatste bericht de vraag en staan de knoppen direct onder dat bericht. Agents kunnen objecten ook tonen zonder te vragen — tags als chips in de tekst, en showcase-kaarten onder de zin — en zetten alleen knoppen neer als ze een antwoord nodig hebben.
+
+![Een voorstel van een agent met een item uit de prullenbak en knoppen onder het bericht](/api/docs/assets/decisions/inline-proposal.png)
+*Het item dat de agent wil terugzetten staat in zijn bericht; de knoppen staan eronder.*
+
+1. Lees het bericht van de agent. Tags zoals `#klacht` (actietag) en `#storing` (tag) staan als chips in de tekst. Objecten waar het voorstel over gaat, staan eronder als showcase-kaarten: een gesprek, item in de prullenbak, agenda-item, bestand, afbeelding, teamlid, agent, koppeling, module, hulp-artikel, bericht, flow, project of contact. Bij een open voorstel kiest een kaart die optie; zonder voorstel opent de kaart het object.
+2. Kies een knop onder het bericht, bijvoorbeeld **Goedkeuren** of een label dat de agent schreef. Die keuze geldt **deze keer**. Mag je meerdere keuzes maken, selecteer dan de opties (of kaarten) en kies **Bevestigen**. **Afwijzen** zegt nee. Een keuze die tekst vraagt opent een klein veld; typ je antwoord en kies **Antwoord versturen**.
+3. In een chat met de agent doet een gewoon **Ja** / **Nee** in **Vraag** hetzelfde als de bijbehorende Ja/Nee-knoppen wanneer precies één open kaart dat soort keuze is. Multi-select en tekstantwoorden blijven via de knoppen. Meerdere Ja/Nee-kaarten tegelijk ook.
+4. Als de actie de agent kan leren, staat onder de knoppen **Volgende keer:** met **Dit mag je voortaan zelf** of **Altijd vragen** (ook in het meer-menu). Dat stelt een regel voor; het vervangt goedkeuren van deze kaart niet.
+5. Na je antwoord verschijnt jouw reply als eigen bubbel met het gekozen label en eventuele showcase-kaarten. In chats met een agent volgt een korte bevestiging als een tool al liep (bijvoorbeeld `#tag is verwijderd`); Soft Ja zonder andere open kaarten laat de agent verdergaan in het gesprek. De knoppen vouwen in tot een korte regel *Beantwoord · tijd*. Een voorstel dat de agent door een nieuwer verving, toont *Vervangen door nieuwer voorstel*.
+6. Zolang de agent nog bezig is, laat *Voorstel klaarzetten...* zien dat er knoppen aankomen.
+
 ## Goedkeuren, bewerken of afwijzen
 
-1. Lees het voorstel in de context van het gesprek.
+1. Lees het voorstel in de context van het gesprek. Conceptantwoorden in klantgesprekken, check-ins en geplande wake-ups houden hun eigen kaart in het gesprek.
 2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Wat nu** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
 3. Een voorgesteld chatantwoord kan uit meerdere korte berichten bestaan. De kaart toont ze als **Bericht 1**, **Bericht 2** enzovoort. Kies **Bericht verwijderen** bij een bericht dat je niet wilt, of **Bewerken** om ze als één tekst te herschrijven; een lege regel start een nieuw bericht. **Versturen** levert ze op volgorde af.
 4. Hover over een agentbericht: naast de bubbel verschijnen iconen voor **Klopt** of **Niet nuttig**, en het tekstballon-icoon (**Corrigeer dit**) leert de agent. Hover een icoon voor het label. Escaleren zet het gesprek op Handmatig en wijst jou toe.
@@ -40,7 +54,7 @@ Wanneer een check-in of agent dezelfde vraag vaak heeft gesteld (bijvoorbeeld *G
 
 ## Leer de agent voor de volgende keer
 
-1. Op een kaart die vraagt voor een actie biedt de rij **Volgende keer:** drie knoppen.
+1. Op een kaart die vraagt voor een actie biedt de rij **Volgende keer:** drie knoppen. Onder een agentbericht staan dezelfde keuzes in het menu **Meer opties** naast de knoppen.
 2. **Dit mag je voortaan zelf** stelt een regel voor waarmee de agent dit zelf doet. **Altijd vragen** stelt een regel voor die blijft vragen. Beide komen als kaart in hetzelfde gesprek; bevestig die daar. Alleen een eigenaar of beheerder kan een regel bevestigen waarmee een agent zelf handelt.
 3. **Weet ik nog niet** bewaart het geval als voorbeeld. Na een paar voorbeelden stelt de agent er zelf een regel uit voor.
 4. Regels staan op de agent onder **Regels** (zie [Agents](/docs/ai/agents)).

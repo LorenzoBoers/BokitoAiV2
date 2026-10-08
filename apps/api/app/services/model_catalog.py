@@ -295,6 +295,19 @@ async def get_model(session: AsyncSession, slug_or_model_id: str) -> ModelCatalo
     return result.scalar_one_or_none()
 
 
+async def get_models_by_slugs(
+    session: AsyncSession, slugs: list[str]
+) -> dict[str, ModelCatalog]:
+    """Load many catalog rows by slug in one query (order not preserved)."""
+    unique = [s for s in dict.fromkeys(slugs) if s]
+    if not unique:
+        return {}
+    result = await session.execute(
+        select(ModelCatalog).where(ModelCatalog.slug.in_(unique))
+    )
+    return {row.slug: row for row in result.scalars().all()}
+
+
 async def get_default_model(session: AsyncSession, kind: str) -> ModelCatalog | None:
     flag = ModelCatalog.is_default_chat if kind == "chat" else ModelCatalog.is_default_embedding
     result = await session.execute(
@@ -310,31 +323,42 @@ async def get_default_model(session: AsyncSession, kind: str) -> ModelCatalog | 
     return models[0] if models else None
 
 
+# Process-local cache for the DB-backed markup fallback. Env always wins and
+# skips the cache; ``set_markup_multiplier`` refreshes it on write.
+_markup_cache: float | None = None
+
+
 async def get_markup_multiplier(session: AsyncSession) -> float:
     """Customer list-price multiplier for platform-key (billable) usage.
 
     Prefer ``TOKEN_MARKUP_MULTIPLIER`` env. Fall back to the legacy
     ``platform_settings`` row for older installs, then ``DEFAULT_MARKUP``.
     """
+    global _markup_cache
     from app.config import get_settings
 
     env_value = float(get_settings().token_markup_multiplier or 0)
     if env_value >= 1.0:
         return env_value
+    if _markup_cache is not None:
+        return _markup_cache
 
     result = await session.execute(
         select(PlatformSetting).where(PlatformSetting.key == MARKUP_SETTING_KEY)
     )
     row = result.scalar_one_or_none()
     if not row or not row.value:
-        return DEFAULT_MARKUP
+        _markup_cache = DEFAULT_MARKUP
+        return _markup_cache
     try:
-        return max(1.0, float(row.value))
+        _markup_cache = max(1.0, float(row.value))
     except ValueError:
-        return DEFAULT_MARKUP
+        _markup_cache = DEFAULT_MARKUP
+    return _markup_cache
 
 
 async def set_markup_multiplier(session: AsyncSession, value: float) -> float:
+    global _markup_cache
     from datetime import datetime
 
     value = max(1.0, float(value))
@@ -348,6 +372,7 @@ async def set_markup_multiplier(session: AsyncSession, value: float) -> float:
     else:
         session.add(PlatformSetting(key=MARKUP_SETTING_KEY, value=str(value)))
     await session.commit()
+    _markup_cache = value
     return value
 
 

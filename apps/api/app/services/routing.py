@@ -54,7 +54,7 @@ async def resolve_agent_for_channel(
                 .limit(1)
             )
         ).scalars().first()
-    from app.services.channel_access import agent_can_handle
+    from app.services.channel_access import agent_can_handle, agents_that_can_handle
 
     if account and account.default_agent_id:
         selected = await _agent_by_id(session, tenant_id, account.default_agent_id)
@@ -71,8 +71,12 @@ async def resolve_agent_for_channel(
         )
         .order_by(Agent.is_lead.desc(), Agent.created_at)
     )
-    for candidate in result.scalars().all():
-        if await agent_can_handle(session, account, candidate.id):
+    candidates = list(result.scalars().all())
+    allowed = await agents_that_can_handle(
+        session, account, [c.id for c in candidates]
+    )
+    for candidate in candidates:
+        if candidate.id in allowed:
             return candidate
     return None
 

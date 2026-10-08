@@ -642,6 +642,23 @@ def test_html_to_text_skips_style_script_and_head():
     assert "If this was you, no action is needed." in text
 
 
+def test_html_to_text_strips_mso_conditionals():
+    from app.services.email_sync import html_to_text
+
+    html = (
+        "<html><body>"
+        "<!--[if !mso]><!-->"
+        "<!--[if false]><!-->"
+        "<p>Je krijgt deze e-mail omdat je Inloggen met Google hebt gebruikt.</p>"
+        "<![endif]-->"
+        "</body></html>"
+    )
+    text = html_to_text(html)
+    assert "<!--[if" not in text
+    assert "<![endif]" not in text
+    assert "Inloggen met Google" in text
+
+
 # --- Sent items: a colleague's reply from their own mailbox -------------------
 
 

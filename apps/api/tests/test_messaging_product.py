@@ -308,7 +308,9 @@ def test_gmail_html_and_attachment_extraction():
             },
         ],
     }
-    assert email_sync._extract_gmail_html(payload) == "<p>HTML</p>"
+    html, html_aid = email_sync._extract_gmail_html(payload)
+    assert html == "<p>HTML</p>"
+    assert html_aid is None
     attachments = email_sync._extract_gmail_attachments(payload)
     assert len(attachments) == 1
     assert attachments[0]["filename"] == "invoice.pdf"

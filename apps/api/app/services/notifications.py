@@ -28,6 +28,60 @@ class DecisionActionError(HTTPException):
         )
 
 
+def _payload_fingerprint(action_type: str, payload: dict[str, Any]) -> str:
+    """Stable key so two delete_tag asks for the same tag match."""
+    bits = [action_type]
+    for key in ("id", "name", "tag", "tag_id", "tag_name"):
+        val = payload.get(key)
+        if val is not None and str(val).strip():
+            bits.append(f"{key}:{str(val).strip().lstrip('#').lower()}")
+    return "|".join(bits)
+
+
+async def _defer_duplicate_action_asks(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    *,
+    action_type: str,
+    payload: dict[str, Any],
+    except_decision_id: UUID,
+) -> None:
+    """After Ja runs a tool, close leftover open asks for the same action."""
+    fingerprint = _payload_fingerprint(action_type, payload)
+    if fingerprint == action_type:
+        return
+    rows = (
+        await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.signal_id == signal_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.id != except_decision_id,
+            )
+        )
+    ).scalars().all()
+    now = datetime.utcnow()
+    for row in rows:
+        try:
+            options = json.loads(row.options_json or "[]")
+        except json.JSONDecodeError:
+            options = []
+        for opt in options:
+            if not isinstance(opt, dict):
+                continue
+            if str(opt.get("action_type") or "") != action_type:
+                continue
+            other = opt.get("payload") if isinstance(opt.get("payload"), dict) else {}
+            if _payload_fingerprint(action_type, other) != fingerprint:
+                continue
+            row.status = "deferred"
+            row.chosen_option_id = "superseded"
+            row.resolved_at = now
+            session.add(row)
+            break
+
+
 async def _count_rule_verdict(
     session: AsyncSession, tenant_id: UUID, options: list[dict[str, Any]], action: str
 ) -> None:
@@ -319,45 +373,65 @@ async def resolve_decision(
             from app.tools import execute_tool
             from app.tools.registry import get_tool_spec
 
-            # Agent-authored options sometimes invent action_type labels
-            # ("acknowledge", "call_customer", …). Only run registered tools;
-            # unknown types resolve as human-owned choices without a 422.
-            if get_tool_spec(action_type) is not None:
-                if decision.signal_id and "signal_id" not in payload:
-                    payload["signal_id"] = str(decision.signal_id)
-
-                tool_result = await execute_tool(
-                    session,
-                    tenant_id,
-                    user_id,
+            # Soft choices omit action_type. Invented labels like "remove_tag"
+            # used to resolve as success while nothing ran — reopen with error.
+            if get_tool_spec(action_type) is None:
+                decision.status = "awaiting_human"
+                decision.chosen_option_id = None
+                decision.resolved_at = None
+                await session.commit()
+                raise DecisionActionError(
                     action_type,
-                    payload,
-                    signal_id=decision.signal_id,
-                    approved=True,
+                    (
+                        f"Unknown action '{action_type}'. The agent must propose a "
+                        "real platform tool (e.g. delete_tag) so Approve can run it."
+                    ),
                 )
-                failed = isinstance(tool_result, dict) and bool(tool_result.get("error"))
-                await record_audit(
+
+            if decision.signal_id and "signal_id" not in payload:
+                payload["signal_id"] = str(decision.signal_id)
+
+            tool_result = await execute_tool(
+                session,
+                tenant_id,
+                user_id,
+                action_type,
+                payload,
+                signal_id=decision.signal_id,
+                approved=True,
+            )
+            failed = isinstance(tool_result, dict) and bool(tool_result.get("error"))
+            await record_audit(
+                session,
+                tenant_id,
+                action=f"decision:execute:{action_type}",
+                actor_type="user" if user_id else "system",
+                actor_id=str(user_id) if user_id else "",
+                resource_type="decision",
+                resource_id=str(decision.id),
+                outcome="error" if failed else "executed",
+                summary=f"Executed approved action {action_type}",
+                payload=payload,
+                after=tool_result if isinstance(tool_result, dict) else None,
+            )
+            if failed:
+                # The action never happened: reopen the card so the operator
+                # can retry, and tell the caller why instead of pretending
+                # the reply was sent.
+                decision.status = "awaiting_human"
+                decision.chosen_option_id = None
+                decision.resolved_at = None
+                await session.commit()
+                raise DecisionActionError(action_type, str(tool_result.get("error")))
+            if decision.signal_id:
+                await _defer_duplicate_action_asks(
                     session,
                     tenant_id,
-                    action=f"decision:execute:{action_type}",
-                    actor_type="user" if user_id else "system",
-                    actor_id=str(user_id) if user_id else "",
-                    resource_type="decision",
-                    resource_id=str(decision.id),
-                    outcome="error" if failed else "executed",
-                    summary=f"Executed approved action {action_type}",
-                    payload=payload,
-                    after=tool_result if isinstance(tool_result, dict) else None,
+                    decision.signal_id,
+                    action_type=action_type,
+                    payload=payload if isinstance(payload, dict) else {},
+                    except_decision_id=decision.id,
                 )
-                if failed:
-                    # The action never happened: reopen the card so the operator
-                    # can retry, and tell the caller why instead of pretending
-                    # the reply was sent.
-                    decision.status = "awaiting_human"
-                    decision.chosen_option_id = None
-                    decision.resolved_at = None
-                    await session.commit()
-                    raise DecisionActionError(action_type, str(tool_result.get("error")))
 
     # Resolution is reflected on the decision itself (status + chosen option) and
     # via the `decision_{action}` SignalEvent written by the resolve endpoint; no

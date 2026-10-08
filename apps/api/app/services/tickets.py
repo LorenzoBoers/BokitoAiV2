@@ -606,15 +606,20 @@ async def install_tag_template(
     return row
 
 
-async def category_catalog_lines(session: AsyncSession, tenant_id: UUID) -> list[str]:
-    """`#name - when to use it` lines for the triage prompt."""
+def category_catalog_lines_from_rows(rows: list[SignalTag]) -> list[str]:
+    """`#name - when to use it` lines from already-loaded category rows."""
     lines: list[str] = []
-    for row in await list_categories(session, tenant_id):
+    for row in rows:
         if not bool(row.ai_auto_tag):
             continue
         description = (row.description or "").strip()
         lines.append(f"#{row.name} - {description}" if description else f"#{row.name}")
     return lines
+
+
+async def category_catalog_lines(session: AsyncSession, tenant_id: UUID) -> list[str]:
+    """`#name - when to use it` lines for the triage prompt."""
+    return category_catalog_lines_from_rows(await list_categories(session, tenant_id))
 
 
 # ---------------------------------------------------------------------------
@@ -636,22 +641,38 @@ async def playbook_project_ids(
     return list(rows.scalars().all())
 
 
+async def project_choices_by_workstream(
+    session: AsyncSession, tenant_id: UUID, workstream_ids: list[UUID]
+) -> dict[UUID, list[dict[str, Any]]]:
+    """Projects per playbook in one query (names ordered)."""
+    unique = list(dict.fromkeys(wid for wid in workstream_ids if wid is not None))
+    if not unique:
+        return {}
+    rows = await session.execute(
+        select(WorkstreamProject.workstream_id, Project.id, Project.name)
+        .join(Project, Project.id == WorkstreamProject.project_id)
+        .where(
+            WorkstreamProject.tenant_id == tenant_id,
+            WorkstreamProject.workstream_id.in_(unique),
+        )
+        .order_by(Project.name)
+    )
+    out: dict[UUID, list[dict[str, Any]]] = {wid: [] for wid in unique}
+    for ws_id, pid, name in rows.all():
+        out.setdefault(ws_id, []).append({"id": str(pid), "name": name})
+    return out
+
+
 async def project_choices(
     session: AsyncSession, tenant_id: UUID, tag: SignalTag
 ) -> list[dict[str, Any]]:
     """The projects a ticket of this category may be filed on (plus No project)."""
     if tag.workstream_id is None:
         return []
-    rows = await session.execute(
-        select(Project.id, Project.name)
-        .join(WorkstreamProject, WorkstreamProject.project_id == Project.id)
-        .where(
-            WorkstreamProject.tenant_id == tenant_id,
-            WorkstreamProject.workstream_id == tag.workstream_id,
-        )
-        .order_by(Project.name)
+    by_ws = await project_choices_by_workstream(
+        session, tenant_id, [tag.workstream_id]
     )
-    return [{"id": str(pid), "name": name} for pid, name in rows.all()]
+    return by_ws.get(tag.workstream_id, [])
 
 
 async def _validate_project(

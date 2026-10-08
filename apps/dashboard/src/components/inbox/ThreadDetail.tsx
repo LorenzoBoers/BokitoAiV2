@@ -7,12 +7,14 @@ import {
   createInboxRule,
   listInboxMembers,
   patchThread,
+  resolveThreadDecision,
   type ThreadDetail as ThreadDetailType,
   type PatchThreadInput,
   type InboxMember,
   type ThreadId,
   type MessageAttachment,
 } from '../../lib/inbox-api'
+import { parseDecisionOptions, pickSoftDecisionTarget } from '../../lib/decision-options'
 import { getContactThreads, updateContact } from '../../lib/contacts-api'
 import {
   humanizeContactName,
@@ -44,6 +46,8 @@ import { HandledExternallyDialog } from './HandledExternallyForm'
 import ReplyComposer from './ReplyComposer'
 import ThreadHeader from './ThreadHeader'
 import ThreadTimeline, { buildTimelineRows, type ThreadTimelineHandle } from './ThreadTimeline'
+import type { ChatTagMap } from '../../lib/chatText'
+import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
 import { InboxThreadSkeleton } from '../ui/skeleton'
@@ -61,7 +65,6 @@ import AgentTurnLive from './AgentTurnLive'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { textOnlyTurn, turnHasContent, turnSaved } from '../../lib/agentActivity'
-import { resolveThreadDecision } from '../../lib/inbox-api'
 import {
   bokitoListMessages,
   closeAgentSession,
@@ -112,7 +115,8 @@ type Props = {
   onDeleteNote?: (messageId: string) => Promise<void>
   /** Mark the open thread as unread again (return-to-queue workflow). */
   onMarkUnread?: () => void | Promise<void>
-  onRefresh: () => void
+  /** Pass `true` for a quiet refetch (no loading spinner / no blank thread). */
+  onRefresh: (quiet?: boolean) => void
   /** True when older history exists above the current message window. */
   hasOlder?: boolean
   loadingOlder?: boolean
@@ -374,10 +378,77 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     }
   }, [token, t])
 
+  const isAssistantThread = (detail?.thread.channel ?? '') === 'assistant'
+
+  // While an assistant turn streams, splice optimistic operator bubbles into
+  // the timeline so Send never blanks the thread waiting on a hard refresh.
+  const timelineDetail = useMemo(() => {
+    if (!detail || !isAssistantThread) return detail
+    const optimistic = sessionStream.optimisticUsers
+    if (!optimistic.length) return detail
+    // Assistant chats store the operator as inbound; match body text so the
+    // optimistic bubble does not sit next to the persisted copy.
+    const existingBodies = new Set(
+      detail.messages.map((m) => (m.bodyText || '').trim()).filter(Boolean),
+    )
+    const extras = optimistic
+      .filter((m) => m.content.trim() && !existingBodies.has(m.content.trim()))
+      .map(
+        (m) =>
+          ({
+            id: m.id,
+            threadId: detail.thread.id,
+            connectionId: null,
+            kind: 'user_message',
+            direction: 'outbound',
+            fromAddress: '',
+            toAddresses: '',
+            subject: '',
+            bodyPreview: m.content.slice(0, 200),
+            bodyText: m.content,
+            bodyHtml: null,
+            graphMessageId: '',
+            inReplyTo: null,
+            authorUserId: user?.id ?? null,
+            isRead: true,
+            sendStatus: null,
+            attachments: null,
+            receivedAt: m.created_at,
+            createdAt: m.created_at,
+          }) as ThreadDetailType['messages'][number],
+      )
+    if (!extras.length) return detail
+    return { ...detail, messages: [...detail.messages, ...extras] }
+  }, [detail, isAssistantThread, sessionStream.optimisticUsers, user?.id])
+
   const rows = useMemo(
-    () => buildTimelineRows(detail, t, i18n.language),
-    [detail, t, i18n.language],
+    () => buildTimelineRows(timelineDetail, t, i18n.language),
+    [timelineDetail, t, i18n.language],
   )
+
+  const { nav: workspaceNav } = useCommunicationNav()
+  const chatTags = useMemo((): ChatTagMap => {
+    const map: ChatTagMap = {}
+    // Workspace rail first so #klacht is accent even when this thread has no ticket.
+    for (const row of workspaceNav.tags) {
+      const key = row.name.trim().toLowerCase()
+      if (key) map[key] = 'tag'
+    }
+    for (const row of workspaceNav.ticketTags) {
+      const key = row.name.trim().toLowerCase()
+      if (key) map[key] = 'action_tag'
+    }
+    const thread = detail?.thread
+    if (thread) {
+      for (const name of thread.tags ?? []) {
+        const key = name.trim().toLowerCase()
+        if (key && !map[key]) map[key] = 'tag'
+      }
+      const action = thread.ticket?.name?.trim().toLowerCase()
+      if (action) map[action] = 'action_tag'
+    }
+    return map
+  }, [detail?.thread, workspaceNav.tags, workspaceNav.ticketTags])
 
   const latestMessageRowId = useMemo(() => {
     for (let i = rows.length - 1; i >= 0; i -= 1) {
@@ -782,10 +853,50 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [])
 
   const handleAgentMessage = useCallback(
-    async (bodyText: string): Promise<boolean> => {
+    async (bodyText: string, attachments?: MessageAttachment[]): Promise<boolean> => {
       if (!token || !threadIdString) return false
       const text = stripMentionMarkup(bodyText).trim()
-      if (!text) return false
+      if (!text && !attachments?.length) return false
+      // Soft "Ja"/"Nee" in Ask resolves the sole binary open proposal — same as buttons.
+      // Multi/text cards may stay open; several binary Ja/Nee cards stay button-only.
+      if (text && !attachments?.length && detail) {
+        const openCards: { messageId: string; options: ReturnType<typeof parseDecisionOptions> }[] = []
+        for (const m of detail.messages) {
+          if (m.kind === 'decision_request' && decisionCardOpen(m, detail.events) === true) {
+            const raw = (m.payload?.decision as { options?: unknown } | undefined)?.options
+            openCards.push({ messageId: String(m.id), options: parseDecisionOptions(raw) })
+            continue
+          }
+          const proposal = m.proposal
+          if (
+            proposal &&
+            proposal.cardMessageId &&
+            (proposal.status === 'awaiting_human' || proposal.status === 'pending')
+          ) {
+            openCards.push({
+              messageId: proposal.cardMessageId,
+              options: parseDecisionOptions(proposal.options),
+            })
+          }
+        }
+        const target = pickSoftDecisionTarget(text, openCards)
+        if (target) {
+          try {
+            await resolveThreadDecision(
+              token,
+              threadIdString,
+              target.messageId,
+              target.soft.kind === 'approve' ? 'approve' : 'reject',
+              { optionId: target.soft.optionId },
+            )
+            onRefresh(true)
+            window.setTimeout(() => pinToBottom('smooth'), 120)
+            return true
+          } catch {
+            // Fall through to a normal Ask turn.
+          }
+        }
+      }
       const isAssistant = (detail?.thread.channel ?? '') === 'assistant'
       let sessionId = isAssistant ? threadIdString : activeSessionId
       const wantedAgentId = askAgentId ?? detail?.thread.agentId ?? null
@@ -801,31 +912,39 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           return false
         }
         if (!sessionId) return false
-        onRefresh()
+        onRefresh(true)
       }
       if (!sessionId) return false
       try {
-        const sendPromise = sendAgentSessionMessage(sessionId, text, {
+        const sendPromise = sendAgentSessionMessage(sessionId, text || ' ', {
+          attachments,
           onFinished: async () => {
             if (!isAssistant) await loadSessionMessages(sessionId)
-            onRefresh()
+            // Quiet: keep bubbles on screen; never flash the thread skeleton.
+            onRefresh(true)
             window.setTimeout(() => pinToBottom('smooth'), 120)
           },
         })
         // Show the operator's own message right away, not only after the reply.
         pinToBottom('smooth')
-        if (isAssistant) {
-          window.setTimeout(() => onRefresh(), 280)
-        }
         return (await sendPromise) !== false
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''
         if (msg === 'agent_busy') {
-          toast.error(t('aiChat.busyError', { defaultValue: 'The AI is still replying. Wait or press Stop.' }))
+          // Clear a ghost lock from a dropped stream, then the operator can retry.
+          void stopAgentSessionStream().finally(() => {
+            toast.error(t('aiChat.busyError', { defaultValue: 'The AI is still replying. Wait or press Stop.' }), {
+              action: {
+                label: t('aiChat.stop', { defaultValue: 'Stop' }),
+                onClick: () => void stopAgentSessionStream(),
+              },
+            })
+          })
         } else {
           toast.error(t('aiChat.sendError', { defaultValue: 'Could not send to the AI.' }))
         }
         if (!isAssistant) await loadSessionMessages(sessionId)
+        onRefresh(true)
         return false
       }
     },
@@ -835,9 +954,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       activeSessionId,
       activeSession?.agentId,
       askAgentId,
-      detail?.thread.agentId,
-      detail?.thread.channel,
+      detail,
       sendAgentSessionMessage,
+      stopAgentSessionStream,
       loadSessionMessages,
       onRefresh,
       pinToBottom,
@@ -885,14 +1004,23 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     if (liveTurn.ended && liveTurnSaved) resetLiveTurn()
   }, [liveTurn.ended, liveTurnSaved, resetLiveTurn])
 
-  const isAssistantThread = (detail?.thread.channel ?? '') === 'assistant'
   const threadLiveTurn = useMemo(() => {
+    // Gateway turn (thinking + tools + speech) is the rich path when connected.
     if (!liveTurnSaved && turnHasContent(liveTurn)) return liveTurn
-    // Assistant replies stream over HTTP too; show that text if the gateway is quiet.
-    if (isAssistantThread && agentStreaming) return textOnlyTurn(sessionStream.text)
+    // SSE fallback while the agent is working — show a live bubble even before
+    // the first token, so the operator sees that work started.
+    if (isAssistantThread && agentStreaming) {
+      return textOnlyTurn(sessionStream.text || sessionStream.thinking || '')
+    }
     return null
-  }, [liveTurn, liveTurnSaved, isAssistantThread, agentStreaming, sessionStream.text])
-
+  }, [
+    liveTurn,
+    liveTurnSaved,
+    isAssistantThread,
+    agentStreaming,
+    sessionStream.text,
+    sessionStream.thinking,
+  ])
 
   // Pulse avatar corners as soon as this thread sees a live turn / Ask stream.
   // The API also broadcasts agent.status; this covers the same browser before
@@ -1067,7 +1195,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           </p>
           <p className="text-xs text-text-muted max-w-md break-words">{error}</p>
         </div>
-        <Button size="sm" variant="secondary" onClick={onRefresh} className="gap-1.5">
+        <Button size="sm" variant="secondary" onClick={() => onRefresh()} className="gap-1.5">
           <RefreshCw size={13} />
           {t('threadChrome.tryAgain')}
         </Button>
@@ -1165,6 +1293,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           agentAvatarIcon={thread.agentAvatarIcon}
           agentAvatarColor={thread.agentAvatarColor}
           agentAvatarImageUrl={thread.agentAvatarImageUrl}
+          chatTags={chatTags}
           events={detail.events}
           noteActions={
             onUpdateNote && onDeleteNote

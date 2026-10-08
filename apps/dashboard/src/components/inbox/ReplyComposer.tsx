@@ -63,7 +63,10 @@ type Props = {
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   /** Send into the active agent meta session (no customer delivery). */
   /** Resolve `false` when nothing was sent, so the text goes back into the editor. */
-  onAgentMessage?: (bodyText: string) => Promise<boolean | void>
+  onAgentMessage?: (
+    bodyText: string,
+    attachments?: MessageAttachment[],
+  ) => Promise<boolean | void>
   /** Abort the in-flight agent stream (Stop). */
   onStopAgent?: () => void
   /** True while an agent reply is streaming — blocks Send/Enter. */
@@ -548,9 +551,12 @@ export default function ReplyComposer({
         setAttachments([])
         let sent: boolean | void = false
         try {
-          sent = await onAgentMessage(text)
+          sent = await onAgentMessage(text, payload)
         } finally {
-          if (sent === false) setBody((current) => (current.trim() ? current : text))
+          if (sent === false) {
+            setBody((current) => (current.trim() ? current : text))
+            if (payload?.length) setAttachments(payload)
+          }
         }
         requestAnimationFrame(() => textareaRef.current?.focus())
         return
@@ -581,12 +587,13 @@ export default function ReplyComposer({
     }
   }
 
-  const onPickFiles = async (files: FileList | null) => {
-    if (!files?.length || !token) return
+  const onPickFiles = async (files: FileList | File[] | null) => {
+    const list = files ? Array.from(files) : []
+    if (!list.length || !token) return
     setUploading(true)
     try {
       const uploaded: MessageAttachment[] = []
-      for (const file of Array.from(files)) {
+      for (const file of list) {
         const att = await uploadAttachment(token, file)
         uploaded.push(att)
       }
@@ -597,6 +604,21 @@ export default function ReplyComposer({
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items
+    if (!items?.length || !token) return
+    const images: File[] = []
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) images.push(file)
+      }
+    }
+    if (!images.length) return
+    // Keep pasted text; only consume image files from the clipboard.
+    void onPickFiles(images)
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -961,6 +983,7 @@ export default function ReplyComposer({
             }
           }}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           onClick={(e) => {
             const el = e.currentTarget
             refreshMentionState(el.value, el.selectionStart ?? el.value.length)

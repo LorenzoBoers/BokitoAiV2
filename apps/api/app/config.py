@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     mistral_api_key: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    # Brave Search API (agent web_search tool). Empty = tool returns not_configured.
+    brave_search_api_key: str = ""
     # JSON {tier slug: [catalog slug, ...]} overriding the backing chain per
     # Bokito tier. The staff setting (PUT /api/staff/bokito-backings) wins.
     bokito_backings: str = ""

@@ -441,6 +441,8 @@ async def _create_policy_decision(
         summary = f"{summary}\n\nAsked because of rule: {rule_text}".strip()
     elif reason == "low_certainty":
         summary = f"{summary}\n\nAsked because the agent was not sure enough.".strip()
+    from app.services.proposal_items import policy_item_refs
+
     spec = get_tool_spec("create_decision_request")
     return await spec.handler(
         ctx,
@@ -449,5 +451,6 @@ async def _create_policy_decision(
             "summary": summary,
             "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
             "options": options,
+            "items": policy_item_refs(tool_name, tool_input, current_signal_id=ctx.signal_id),
         },
     )
