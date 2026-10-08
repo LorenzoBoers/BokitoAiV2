@@ -274,7 +274,6 @@ async def test_deliver_outbound_forward_overrides_recipient(session_override: As
 @pytest.mark.asyncio
 async def test_reply_endpoint_forward_stores_recipients(client: AsyncClient, session_override: AsyncSession):
     headers = await _login(client)
-    from app.models.auth import User
 
     tenant = (
         (await session_override.execute(select(Tenant).where(Tenant.slug == "test")))
