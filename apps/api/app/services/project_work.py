@@ -332,6 +332,158 @@ async def get_queue_item_detail(
     return serialize_work_item(item, view="queue", links=links.get(item.id, []))
 
 
+async def _matching_action_tag_for_project(
+    session: AsyncSession,
+    tenant_id: UUID,
+    project_id: UUID,
+    kind: str,
+):
+    """Action tag whose name matches ``kind`` and whose flow is on this project."""
+    from sqlalchemy import func
+
+    from app.models.orchestra import WorkstreamProject
+    from app.models.signal import SignalTag
+
+    tag = (
+        await session.execute(
+            select(SignalTag).where(
+                SignalTag.tenant_id == tenant_id,
+                func.lower(SignalTag.name) == kind.strip().lower(),
+                SignalTag.workstream_id.is_not(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if tag is None or tag.workstream_id is None:
+        return None
+    linked = (
+        await session.execute(
+            select(WorkstreamProject).where(
+                WorkstreamProject.tenant_id == tenant_id,
+                WorkstreamProject.workstream_id == tag.workstream_id,
+                WorkstreamProject.project_id == project_id,
+            )
+        )
+    ).scalar_one_or_none()
+    return tag if linked is not None else None
+
+
+async def _file_board_ticket_for_queue_item(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    project_id: UUID,
+    kind: str,
+    title: str,
+    body: str,
+    created_by_type: str,
+    created_by_id: str,
+    origin_signal_id: UUID | None = None,
+) -> UUID | None:
+    """Spawn a filed ticket conversation on the project's flow board.
+
+    Project home shows flow boards (Signal tickets), not the legacy AgentTask
+    queue tab. When ``kind`` matches an action tag linked to the project
+    (e.g. bug → #bug), open a *new* conversation for that issue and file it.
+
+    The reporting chat (``origin_signal_id``) stays intact — this is not a
+    customer ``split_conversation`` (those set ``superseded_by_id`` and refuse
+    assistant channels). Each call is one ticket; call again per distinct issue.
+    """
+    tag = await _matching_action_tag_for_project(session, tenant_id, project_id, kind)
+    if tag is None:
+        return None
+
+    from app.services.assistant_threads import append_signal_chat_message
+    from app.services.signal_decisions import get_or_create_internal_thread
+    from app.services.tickets import file_ticket
+
+    agent_id = None
+    if created_by_type == "agent" and created_by_id:
+        try:
+            agent_id = UUID(created_by_id)
+        except ValueError:
+            agent_id = None
+
+    ticket_signal = await get_or_create_internal_thread(
+        session,
+        tenant_id,
+        project_id=project_id,
+        subject=title.strip() or kind,
+        contact_name=kind.capitalize(),
+        agent_id=agent_id,
+    )
+    # Lineage only — never mark the origin chat superseded.
+    if origin_signal_id and ticket_signal.parent_signal_id is None:
+        ticket_signal.parent_signal_id = origin_signal_id
+        session.add(ticket_signal)
+
+    note = (body or "").strip() or title.strip()
+    if note:
+        await append_signal_chat_message(
+            session,
+            ticket_signal,
+            role="assistant",
+            content=note,
+            author_agent_id=agent_id,
+            metadata={"queue_item_seed": True, "kind": kind},
+        )
+
+    # Actor operator + certainty 10 → open ticket on the board (not proposed).
+    await file_ticket(
+        session,
+        tenant_id,
+        signal_id=ticket_signal.id,
+        tag_id=tag.id,
+        project_id=project_id,
+        project_chosen=True,
+        summary=(body or "")[:500],
+        certainty=10,
+        actor="operator",
+        created_by_type=created_by_type,
+        created_by_id=created_by_id,
+        agent_id=agent_id,
+    )
+
+    if origin_signal_id:
+        session.add(
+            SignalEvent(
+                signal_id=origin_signal_id,
+                tenant_id=tenant_id,
+                event_type="ticket_spawned",
+                actor_type=created_by_type,
+                actor_id=created_by_id,
+                payload_json=json.dumps(
+                    {
+                        "ticket_signal_id": str(ticket_signal.id),
+                        "kind": kind,
+                        "title": title.strip()[:200],
+                        "tag": tag.name,
+                        "project_id": str(project_id),
+                    }
+                ),
+            )
+        )
+        session.add(
+            SignalEvent(
+                signal_id=ticket_signal.id,
+                tenant_id=tenant_id,
+                event_type="ticket_spawned_from",
+                actor_type=created_by_type,
+                actor_id=created_by_id,
+                payload_json=json.dumps(
+                    {
+                        "origin_signal_id": str(origin_signal_id),
+                        "kind": kind,
+                        "title": title.strip()[:200],
+                    }
+                ),
+            )
+        )
+        await session.flush()
+
+    return ticket_signal.id
+
+
 async def create_queue_item(
     session: AsyncSession,
     tenant_id: UUID,
@@ -348,7 +500,11 @@ async def create_queue_item(
     created_by_id: str = "",
     commit: bool = True,
 ) -> AgentTask:
-    """Create a queue task; auto-accepts when the workspace posture is autonomous."""
+    """Create a queue task; auto-accepts when the workspace posture is autonomous.
+
+    When ``kind`` matches a project flow action tag (bug/feature), also opens a
+    ticket conversation on that board so Project home and #tag nav show it.
+    """
     if kind not in QUEUE_ITEM_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
     if priority not in TASK_PRIORITIES:
@@ -391,6 +547,30 @@ async def create_queue_item(
     session.add(item)
     await session.flush()
 
+    ticket_signal_id = await _file_board_ticket_for_queue_item(
+        session,
+        tenant_id,
+        project_id=project_id,
+        kind=kind,
+        title=item.title,
+        body=body,
+        created_by_type=created_by_type,
+        created_by_id=created_by_id,
+        origin_signal_id=signal_id,
+    )
+    if ticket_signal_id is not None:
+        try:
+            meta = json.loads(item.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        meta["ticket_signal_id"] = str(ticket_signal_id)
+        item.metadata_json = json.dumps(meta)
+        # Board ticket is already open — skip the proposed accept gate.
+        item.status = "queued"
+        session.add(item)
+
     from app.services.audit import record_audit
 
     await record_audit(
@@ -402,7 +582,11 @@ async def create_queue_item(
         resource_type="queue_item",
         resource_id=str(item.id),
         summary=f"Queue item '{item.title}' ({kind}) created for project {project.name}",
-        payload={"origin_type": origin_type, "signal_id": str(signal_id) if signal_id else None},
+        payload={
+            "origin_type": origin_type,
+            "signal_id": str(signal_id) if signal_id else None,
+            "ticket_signal_id": str(ticket_signal_id) if ticket_signal_id else None,
+        },
         commit=False,
     )
     if signal_id:
@@ -419,6 +603,7 @@ async def create_queue_item(
                         "project_id": str(project_id),
                         "title": item.title,
                         "kind": kind,
+                        "ticket_signal_id": str(ticket_signal_id) if ticket_signal_id else None,
                     }
                 ),
             )
@@ -432,7 +617,7 @@ async def create_queue_item(
     if commit:
         await session.commit()
         await session.refresh(item)
-    if auto:
+    if auto and item.status == "proposed":
         # Workspace Autonomous posture skips the human accept gate.
         await transition_queue_item(
             session,

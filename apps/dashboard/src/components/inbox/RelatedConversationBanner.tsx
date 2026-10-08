@@ -9,12 +9,15 @@ import { ChannelGlyph, channelKind } from '../ui/ChannelGlyph'
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 /**
- * The related conversation worth showing above the composer: the newest one
- * with activity in the last week. Older history stays in the contact panel.
+ * The related conversation worth showing above the composer: prefer a recent
+ * thread on another channel (the original cross-channel warning). Same-channel
+ * siblings (other email threads with the same person) stay in the contact
+ * panel — linking those from the composer looked like "the wrong email".
  */
 export function pickRelatedConversation(
   rows: RelatedConversation[] | undefined,
   now = Date.now(),
+  currentChannel?: string | null,
 ): RelatedConversation | null {
   if (!rows || rows.length === 0) return null
   const recent = rows
@@ -24,6 +27,13 @@ export function pickRelatedConversation(
       return Number.isFinite(at) && now - at <= RECENT_WINDOW_MS
     })
     .sort((a, b) => new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime())
+  if (recent.length === 0) return null
+  const current = (currentChannel || '').trim().toLowerCase()
+  if (current) {
+    const cross = recent.find((row) => (row.channel || '').trim().toLowerCase() !== current)
+    if (cross) return cross
+    return null
+  }
   return recent[0] ?? null
 }
 
@@ -31,24 +41,27 @@ type Props = {
   rows: RelatedConversation[] | undefined
   /** Name of the person, for the sentence. */
   contactName?: string | null
+  /** Channel of the open thread — same-channel siblings are not bannered. */
+  currentChannel?: string | null
 }
 
 /**
  * "The customer also wrote 2 hours ago via WhatsApp" above the composer, so
  * nobody answers an email that was already settled in another channel.
  */
-export default function RelatedConversationBanner({ rows, contactName }: Props) {
+export default function RelatedConversationBanner({ rows, contactName, currentChannel }: Props) {
   const { t } = useTranslation('communication')
-  const related = pickRelatedConversation(rows)
+  const related = pickRelatedConversation(rows, Date.now(), currentChannel)
   if (!related) return null
   const kind = channelKind(related.channel)
   const channelLabel = t(`composer.channel.${kind}`, { defaultValue: related.channel })
   const name = (contactName || '').trim() || t('relatedConversation.customer')
   const when = related.lastMessageAt ? timeAgo(related.lastMessageAt, t) : ''
+  const subject = (related.subject || '').trim()
   const sentence =
     related.lastMessageDirection === 'outbound'
-      ? t('relatedConversation.weReplied', { channel: channelLabel, when })
-      : t('relatedConversation.customerWrote', { name, channel: channelLabel, when })
+      ? t('relatedConversation.weReplied', { channel: channelLabel, when, subject })
+      : t('relatedConversation.customerWrote', { name, channel: channelLabel, when, subject })
   return (
     <div
       className="relative z-20 mx-auto mb-1.5 flex w-full max-w-3xl items-center gap-2 rounded-md border border-border/50 bg-bg-elevated px-2.5 py-1.5 text-xs text-text-secondary"
@@ -57,6 +70,12 @@ export default function RelatedConversationBanner({ rows, contactName }: Props) 
       <ChannelGlyph channel={related.channel} size={13} className="shrink-0" />
       <span className="min-w-0 flex-1 truncate-fade">
         {sentence}
+        {subject ? (
+          <span className="text-text-muted">
+            {' '}
+            ({subject})
+          </span>
+        ) : null}
         {related.hasOpenProposal ? ` ${t('relatedConversation.openProposalThere')}` : ''}
       </span>
       <Link

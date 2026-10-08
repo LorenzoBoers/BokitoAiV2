@@ -1369,6 +1369,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         <RelatedConversationBanner
           rows={detail.relatedConversations}
           contactName={thread.contactName}
+          currentChannel={thread.channel}
         />
       ) : null}
       {composerSurface ? (

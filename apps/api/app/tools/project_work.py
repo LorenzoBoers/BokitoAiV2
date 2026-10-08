@@ -9,6 +9,7 @@ mutating directly.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -131,6 +132,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
         )
 
     from app.services.project_work import create_queue_item
+    from app.services.proposal_items import stash_attach_items
 
     item = await create_queue_item(
         ctx.session,
@@ -145,7 +147,23 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
         created_by_type="agent" if ctx.agent else "user",
         created_by_id=str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
     )
-    return {"queue_item": serialize_work_item(item, view="queue"), "status": "created"}
+    try:
+        meta = json.loads(item.metadata_json or "{}")
+    except json.JSONDecodeError:
+        meta = {}
+    ticket_signal_id = (
+        str(meta.get("ticket_signal_id") or "") if isinstance(meta, dict) else ""
+    )
+    showcase: list[dict[str, Any]] = []
+    if ticket_signal_id:
+        showcase = [{"type": "conversation", "id": ticket_signal_id}]
+        stash_attach_items(ctx.signal_id, showcase)
+    return {
+        "queue_item": serialize_work_item(item, view="queue"),
+        "status": "created",
+        "ticket_signal_id": ticket_signal_id or None,
+        "items": showcase,
+    }
 
 
 async def _list_queue_items(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -404,10 +422,13 @@ register_tool(
     ToolSpec(
         name="create_queue_item",
         description=(
-            "Add an implementation request (feature, bug, task, idea, risk) to a "
-            "project's queue. Use this when a conversation reveals an opportunity, "
-            "bug, or request that the project should pick up. Under 'ask' policy "
-            "this renders an inline proposal card for the human."
+            "Turn one distinct issue from this chat into project work. Call once "
+            "per issue (three bugs → three calls). This chat stays the reporting "
+            "thread; each call spawns a child conversation, files it as a ticket "
+            "when kind matches an action tag on the project (bug → #bug, feature → "
+            "#feature), and showcases that ticket in your reply. Do not use "
+            "split_conversation on assistant chats — that tool is for customer "
+            "threads only. Under 'ask' policy this renders an inline proposal card."
         ),
         category="projects",
         input_schema={

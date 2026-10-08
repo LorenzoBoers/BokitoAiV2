@@ -157,6 +157,89 @@ async def test_queue_item_lifecycle_and_audit(client: AsyncClient, session_overr
 
 
 @pytest.mark.asyncio
+async def test_queue_item_bug_files_ticket_on_project_board(client: AsyncClient, session_override):
+    """bug/feature with a matching action tag must appear on the project flow board."""
+    import json
+
+    from app.models.orchestra import Workstream, WorkstreamProject
+    from app.models.signal import SignalTag
+
+    tenant = await _tenant(session_override)
+    project = await _project(session_override, tenant.id, "board-bugs")
+    ws = Workstream(
+        tenant_id=tenant.id,
+        name="bug",
+        stages_json=json.dumps(
+            [{"key": "open", "label": "Open", "kind": "open"}, {"key": "done", "label": "Done", "kind": "done"}]
+        ),
+    )
+    session_override.add(ws)
+    await session_override.flush()
+    tag = SignalTag(
+        tenant_id=tenant.id,
+        name="bug",
+        workstream_id=ws.id,
+        create_mode="auto",
+        auto_threshold=5,
+    )
+    session_override.add(tag)
+    session_override.add(
+        WorkstreamProject(
+            tenant_id=tenant.id,
+            workstream_id=ws.id,
+            project_id=project.id,
+            is_default=True,
+        )
+    )
+    await session_override.commit()
+
+    chat = Signal(tenant_id=tenant.id, channel="assistant", subject="Support chat")
+    session_override.add(chat)
+    await session_override.commit()
+
+    item = await svc.create_queue_item(
+        session_override,
+        tenant.id,
+        project.id,
+        kind="bug",
+        title="API unavailable on reply",
+        body="Sandra sees a red API error when sending.",
+        origin_type="conversation",
+        signal_id=chat.id,
+        created_by_type="agent",
+    )
+    assert item.status == "queued"
+    meta = json.loads(item.metadata_json or "{}")
+    ticket_id = meta.get("ticket_signal_id")
+    assert ticket_id
+    from uuid import UUID
+
+    ticket = await session_override.get(Signal, UUID(ticket_id))
+    assert ticket is not None
+    assert ticket.ticket_tag_id == tag.id
+    assert ticket.project_id == project.id
+    assert ticket.ticket_status == "open"
+    assert ticket.subject == "API unavailable on reply"
+    # Reporting chat stays; child points back (no superseded_by on the parent).
+    assert ticket.parent_signal_id == chat.id
+    await session_override.refresh(chat)
+    assert chat.superseded_by_id is None
+    assert chat.ticket_tag_id is None
+
+    from app.services.tickets import project_board
+
+    rows = await project_board(session_override, tenant.id, project.id)
+    assert ticket_id in json.dumps(rows)
+
+    events = (
+        await session_override.execute(
+            select(SignalEvent).where(SignalEvent.signal_id == chat.id)
+        )
+    ).scalars().all()
+    assert any(e.event_type == "ticket_spawned" for e in events)
+
+
+@pytest.mark.asyncio
 async def test_autonomous_workspace_auto_accepts_queue_item(client: AsyncClient, session_override, monkeypatch):
     tenant = await _tenant(session_override)
     tenant.settings_json = '{"autonomy_posture":"autonomous"}'

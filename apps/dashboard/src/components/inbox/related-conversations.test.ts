@@ -40,6 +40,16 @@ describe('pickRelatedConversation', () => {
     expect(pickRelatedConversation(rows, NOW)?.id).toBe('b')
   })
 
+  it('prefers another channel and skips same-channel email siblings', () => {
+    const rows = [
+      related({ id: 'other-mail', channel: 'email', lastMessageAt: hoursAgo(1) }),
+      related({ id: 'wa', channel: 'whatsapp', lastMessageAt: hoursAgo(3) }),
+    ]
+    expect(pickRelatedConversation(rows, NOW, 'email')?.id).toBe('wa')
+    expect(pickRelatedConversation(rows, NOW, 'email')?.channel).toBe('whatsapp')
+    expect(pickRelatedConversation([rows[0]], NOW, 'email')).toBeNull()
+  })
+
   it('returns null without recent activity', () => {
     expect(pickRelatedConversation(undefined, NOW)).toBeNull()
     expect(pickRelatedConversation([], NOW)).toBeNull()
