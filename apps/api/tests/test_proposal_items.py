@@ -20,8 +20,6 @@ from app.models.signal import Signal, SignalMessage, SignalTag
 from app.models.trash import TrashEntry
 from app.models.trigger import Trigger
 from app.services.proposal_items import (
-    MAX_ITEMS,
-    normalize_item_type,
     policy_item_refs,
     resolve_items,
     stash_attach_items,
@@ -179,8 +177,6 @@ async def test_restore_policy_decision_carries_the_trash_entry(client: AsyncClie
 
 
 def test_attach_items_stash_and_take_roundtrip():
-    from app.services.proposal_items import stash_attach_items, take_attach_items
-
     signal_id = uuid4()
     stash_attach_items(
         signal_id,

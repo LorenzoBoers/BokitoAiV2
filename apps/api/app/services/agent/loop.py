@@ -1093,7 +1093,6 @@ class AgentLoop:
             await self._log_event("think", f"Loop {loop_idx + 1}")
 
             response_content: list[dict[str, Any]] = []
-            stop_reason = "end_turn"
             streamed_text = False
 
             async for event in self._llm_stream(llm_messages, max_tokens):
@@ -1117,7 +1116,6 @@ class AgentLoop:
                     tokens["input_tokens"] += usage.get("input_tokens", 0)
                     tokens["output_tokens"] += usage.get("output_tokens", 0)
                     response_content = event.get("content") or []
-                    stop_reason = event.get("stop_reason", "end_turn")
                     if not self.thinking_text:
                         for block in response_content:
                             if block.get("type") == "thinking" and block.get("thinking"):

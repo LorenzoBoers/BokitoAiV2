@@ -230,7 +230,6 @@ async def test_stale_chat_run_is_reclaimed_before_busy(client: AsyncClient, sess
 
     from app.models.agent import Agent, AgentRun
     from app.models.auth import Tenant
-    from app.models.signal import Signal
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
     login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})

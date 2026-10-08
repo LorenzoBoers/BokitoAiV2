@@ -20,9 +20,6 @@ from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
-# Chat streams that die without finalize leave AgentRun=running and block Send.
-CHAT_BUSY_STALE = timedelta(seconds=90)
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -37,7 +34,6 @@ from app.models.signal import Signal, SignalMessage
 from app.services.agent.loop import AgentLoop
 from app.services.ai_handling import is_held
 from app.services.assistant_context import page_context_block
-from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
 from app.services.assistant_threads import (
     append_signal_chat_message,
     serialize_chat_message,
@@ -49,11 +45,14 @@ from app.services.personal_agents import (
     get_user_preference,
     resolve_chat_target,
 )
+from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
 
 router = APIRouter(tags=["signals"])
 logger = logging.getLogger(__name__)
 
 ASSISTANT_CHANNELS = ("assistant", "widget")
+# Chat streams that die without finalize leave AgentRun=running and block Send.
+CHAT_BUSY_STALE = timedelta(seconds=90)
 
 
 def _apply_intent_title_once(signal: Signal, content: str) -> None:

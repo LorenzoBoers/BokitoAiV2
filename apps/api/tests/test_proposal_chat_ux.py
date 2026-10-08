@@ -41,7 +41,7 @@ async def _login(client: AsyncClient) -> dict[str, str]:
 
 @pytest.mark.asyncio
 async def test_unknown_action_type_reopens_decision(client: AsyncClient, session_override):
-    headers = await _login(client)
+    await _login(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     user_id = None
     signal = Signal(tenant_id=tenant.id, channel="assistant", source="chat", subject="UX")
