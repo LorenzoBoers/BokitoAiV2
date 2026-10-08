@@ -21,16 +21,16 @@ from email.message import EmailMessage
 from email.utils import formataddr, parsedate_to_datetime, parseaddr
 from typing import Any
 
+from app.models.channel import ChannelAccount
+from app.services.crypto import get_connection_credentials
+
+logger = logging.getLogger(__name__)
+
 # IMAP LIST body: (flags) "delimiter" mailbox — mailbox may be quoted or an atom.
 _LIST_MAILBOX_RE = re.compile(
     r"^\([^)]*\)\s+(?:\"([^\"]*)\"|NIL)\s+(?:\"([^\"]*)\"|(\S+))\s*$",
     re.IGNORECASE,
 )
-
-from app.models.channel import ChannelAccount
-from app.services.crypto import get_connection_credentials
-
-logger = logging.getLogger(__name__)
 
 PROVIDER = "smtp_imap"
 INBOX_FOLDER_ID = "inbox"
