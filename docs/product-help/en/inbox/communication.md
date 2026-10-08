@@ -61,6 +61,9 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 
 Email conversations answer like a mail client: every received mail carries its own reply buttons, and the composer grows into a full mail view when you use them.
 
+![Mail composer opened from a Reply bubble action](/api/docs/assets/communication/mail-reply.png)
+*Reply on a mail bubble grows the composer into a mail view: recipients, subject, signature and quoted history.*
+
 1. Open an email conversation. On a received mail, hover the bubble and choose **Reply** (left arrow), **Reply all** (double arrow — shown only when more people were on the mail) or **Forward** (right arrow) in its action row.
 2. The composer at the bottom grows into a mail view, with a mini thread view above it. **To** is prefilled from the mail you clicked (empty on a forward), **CC/BCC** opens extra recipient fields, and the subject is editable — `Re:` or `Fwd:` is set for you. **From** switches mailboxes when more than one can send.
 3. Write your message. Your signature sits under the input exactly as it will be sent. The three dots below it expand the quoted mail history that goes along. AI write help, dictation and the attachment button stay available.

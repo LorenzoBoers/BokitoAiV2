@@ -61,6 +61,9 @@ Een persoon als eigenaar houdt het gesprek vast: agents maken dan alleen concept
 
 E-mailgesprekken antwoorden zoals een mailclient: elke ontvangen mail draagt eigen antwoordknoppen, en de composer groeit naar een volledige mailweergave zodra je ze gebruikt.
 
+![Mailcomposer geopend via Beantwoorden op een mailwolk](/api/docs/assets/communication/mail-reply.png)
+*Beantwoorden op een mailwolk laat de composer groeien naar een mailweergave: ontvangers, onderwerp, handtekening en geciteerde geschiedenis.*
+
 1. Open een e-mailgesprek. Beweeg over een ontvangen mail en kies in de actierij **Beantwoorden** (pijl naar links), **Allen beantwoorden** (dubbele pijl — alleen zichtbaar wanneer meer mensen op de mail stonden) of **Doorsturen** (pijl naar rechts).
 2. De composer onderin groeit naar een mailweergave, met daarboven een mini-weergave van de thread. **Aan** is vooringevuld vanuit de mail die je aanklikte (leeg bij doorsturen), **CC/BCC** opent extra ontvangervelden en het onderwerp is bewerkbaar — `Re:` of `Fwd:` staat al klaar. **Van** wisselt van mailbox wanneer er meer dan één kan versturen.
 3. Schrijf je bericht. Je handtekening staat onder de invoer, precies zoals die meegaat. De drie puntjes eronder klappen de geciteerde mailgeschiedenis uit die wordt meegestuurd. AI-schrijfhulp, dicteren en de bijlageknop blijven beschikbaar.

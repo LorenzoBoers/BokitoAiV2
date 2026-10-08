@@ -37,6 +37,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/communication/inbox/open", "communication", "agent-turn"),
     ("/communication/inbox/open", "communication", "hashtags"),
     ("/communication/inbox/open", "communication", "stale-draft"),
+    ("/communication/inbox/open", "communication", "mail-reply"),
     ("/settings/action-tags", "categories", "catalog"),
     ("/communication/tag/klacht/all", "categories", "ticket-panel"),
     ("/communication/runs/all", "agent-runs", "runs-list"),
@@ -108,6 +109,26 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ],
     ("communication", "agent-turn"): [
         ("click", 'main [role="button"][tabindex="0"]:has-text("Bokito Assistant")'),
+    ],
+    # Mail-native composer: open the first mailbox channel, pick an email
+    # thread with inbound mail, then start Reply from the bubble actions.
+    ("communication", "mail-reply"): [
+        ("click", '[data-section="channels"] button.nav-row'),
+        (
+            "click",
+            'main [role="button"][tabindex="0"]:has-text("Sanne de Vries"), '
+            'main [role="button"][tabindex="0"]:has-text("Harold"), '
+            'main [role="button"][tabindex="0"]',
+        ),
+        # The bubble actions are hover-revealed; a programmatic click on the
+        # newest mail's Reply button avoids hit-testing the hidden overlay.
+        (
+            "eval",
+            "(() => { const btns = document.querySelectorAll("
+            "'button[aria-label=\"Beantwoorden\"], button[aria-label=\"Reply\"]');"
+            " const b = btns[btns.length - 1]; if (b) b.click(); })()",
+        ),
+        ("wait", '[data-testid="mail-composer-body"]'),
     ],
     ("communication", "hashtags"): [
         ("click", '[data-section="hashtags"] button.nav-row'),
@@ -209,10 +230,13 @@ def main() -> int:
         page.wait_for_url(lambda url: "/login" not in url, timeout=45000)
         page.wait_for_timeout(1500)
 
+        # BOKITO_DOCS_ONLY accepts article slugs ("communication") and single
+        # shots ("communication/mail-reply") so one recapture cannot clobber
+        # the other screenshots of that article.
         only = {s.strip() for s in os.environ.get("BOKITO_DOCS_ONLY", "").split(",") if s.strip()}
         last_url = ""
         for path, slug, name in SHOTS:
-            if only and slug not in only:
+            if only and slug not in only and f"{slug}/{name}" not in only:
                 continue
             dest = ASSETS / slug
             dest.mkdir(parents=True, exist_ok=True)

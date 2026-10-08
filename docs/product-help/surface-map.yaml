@@ -152,6 +152,7 @@ communication:
     - open-queue
     - thread-composer
     - composer-modes
+    - mail-reply
     - handling-picker
     - agent-turn
     - hashtags
