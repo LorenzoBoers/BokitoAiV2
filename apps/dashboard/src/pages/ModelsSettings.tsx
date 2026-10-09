@@ -28,7 +28,7 @@ import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
 import { Switch } from '../components/ui/switch'
 import { ModelIcon, ModelOptionLabel } from '../components/ui/ModelIcon'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { DEFAULT_BRAND_COLOR, DEFAULT_BRAND_MARK } from '../lib/tenant-branding'
+import { DEFAULT_BRAND_MARK } from '../lib/tenant-branding'
 import { providerTypeLabel } from '../lib/model-label'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import {
@@ -339,14 +339,11 @@ export default function ModelsSettings() {
       <section className="panel space-y-3 px-4 py-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <span
+            <img
+              src={DEFAULT_BRAND_MARK}
+              alt=""
               aria-hidden
-              className="mt-0.5 h-8 w-8 shrink-0"
-              style={{
-                backgroundColor: DEFAULT_BRAND_COLOR,
-                WebkitMask: `url(${DEFAULT_BRAND_MARK}) center / contain no-repeat`,
-                mask: `url(${DEFAULT_BRAND_MARK}) center / contain no-repeat`,
-              }}
+              className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-contain"
             />
             <div className="min-w-0 space-y-0.5">
               <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>

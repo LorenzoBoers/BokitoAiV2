@@ -1351,7 +1351,7 @@
     },
     {
       "slug": "dropbox_mcp",
-      "static_id": "dropbox",
+      "static_id": "dropbox-mcp",
       "host_slug": "dropbox",
       "name": "Dropbox",
       "description": "Dropbox files and folders.",

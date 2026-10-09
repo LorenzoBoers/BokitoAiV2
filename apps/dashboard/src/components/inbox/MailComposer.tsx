@@ -12,6 +12,7 @@
  * thread shows a draft chip to continue it. Sending clears the draft.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Check,
@@ -20,6 +21,7 @@ import {
   Mail,
   MoreHorizontal,
   Paperclip,
+  PenLine,
   Reply,
   ReplyAll,
   Send,
@@ -41,12 +43,20 @@ import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { listChannels, type ChannelRow } from '../../lib/channels-api'
+import {
+  getConnectionSignature,
+  listEmailConnections,
+  type SignatureSource,
+} from '../../lib/email-api'
 import { canComposeToAddress } from '../../lib/compose-intent'
 import { humanizeContactName } from '../../lib/contact-label'
 import { listContacts } from '../../lib/contacts-api'
 import type { Provider } from '../../lib/email-oauth'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
-import { previewSignatureHtml, type SignatureIdentityVars } from '../../lib/default-signature'
+import {
+  previewOutboundSignatureHtml,
+  type SignatureIdentityVars,
+} from '../../lib/default-signature'
 import {
   clearStoredMailDraft,
   mailDraftHasContent,
@@ -526,8 +536,54 @@ export default function MailComposer({
     }
   }, [draftKey])
 
-  // Signature exactly as the server will append it (custom template rendered,
-  // or the Bokito default with avatar).
+  // Signature preview matches server resolve for the selected From mailbox.
+  const [mailboxSignatureHtml, setMailboxSignatureHtml] = useState('')
+  const [signatureSource, setSignatureSource] = useState<SignatureSource>('mailbox')
+  const [connectionIdByChannel, setConnectionIdByChannel] = useState<Record<string, number>>({})
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void listEmailConnections(token)
+      .then((rows) => {
+        if (cancelled) return
+        const map: Record<string, number> = {}
+        for (const row of rows) {
+          if (row.uuid) map[row.uuid] = row.id
+        }
+        setConnectionIdByChannel(map)
+      })
+      .catch(() => {
+        if (!cancelled) setConnectionIdByChannel({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+  useEffect(() => {
+    if (!token || !selectedChannelAccountId) {
+      setMailboxSignatureHtml('')
+      setSignatureSource('mailbox')
+      return
+    }
+    const connectionId = connectionIdByChannel[selectedChannelAccountId]
+    if (connectionId == null) return
+    let cancelled = false
+    void getConnectionSignature(token, connectionId)
+      .then((cfg) => {
+        if (cancelled) return
+        setMailboxSignatureHtml(cfg.signatureHtml)
+        setSignatureSource(cfg.signatureSource)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMailboxSignatureHtml('')
+          setSignatureSource('mailbox')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, selectedChannelAccountId, connectionIdByChannel])
   const signatureIdentity = useMemo<SignatureIdentityVars>(
     () => ({
       name: user?.name || user?.email || '',
@@ -540,9 +596,18 @@ export default function MailComposer({
     [user?.name, user?.email, user?.jobTitle, user?.tenant?.name, user?.avatarUrl, user?.signatureUrl, i18n.language],
   )
   const signatureHtml = useMemo(
-    () => previewSignatureHtml(user?.emailSignatureHtml, signatureIdentity),
-    [user?.emailSignatureHtml, signatureIdentity],
+    () =>
+      previewOutboundSignatureHtml({
+        source: signatureSource,
+        mailboxHtml: mailboxSignatureHtml,
+        personalHtml: user?.emailSignatureHtml,
+        identity: signatureIdentity,
+      }),
+    [signatureSource, mailboxSignatureHtml, user?.emailSignatureHtml, signatureIdentity],
   )
+  const signatureSettingsHref = selectedChannelAccountId
+    ? `/settings/channels/${selectedChannelAccountId}?edit=signature`
+    : '/settings/channels'
 
   const dictationInterimRef = useRef('')
   const [dictationInterim, setDictationInterim] = useState('')
@@ -836,9 +901,17 @@ export default function MailComposer({
 
             {/* Signature sits under the input, like the mail that goes out. */}
             <div className="border-t border-border/40 px-3 py-2">
-              <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-text-muted">
-                {t('mailComposer.signature')}
-              </p>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="text-2xs text-text-muted">{t('mailComposer.signature')}</p>
+                <Link
+                  to={signatureSettingsHref}
+                  className="inline-flex items-center gap-1 text-2xs text-text-muted underline-offset-2 hover:text-text-secondary hover:underline"
+                  title={t('mailComposer.signatureEditChannelHint')}
+                >
+                  <PenLine size={11} className="shrink-0" aria-hidden />
+                  {t('mailComposer.signatureEditChannel')}
+                </Link>
+              </div>
               <div
                 className="signature-preview pointer-events-none max-h-28 overflow-hidden rounded-lg border border-border/40 bg-bg-input/30 px-2.5 py-1.5 text-sm [&_img]:inline-block"
                 dangerouslySetInnerHTML={{ __html: signatureHtml }}

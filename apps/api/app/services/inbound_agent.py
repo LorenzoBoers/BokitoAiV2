@@ -994,7 +994,11 @@ async def persist_inbound_agent_reply(
         # Auto mode sends carry the agent identity: agent signature, with the
         # mailbox signature as fallback.
         signature_html = await resolve_signature_html(
-            session, tenant_id, send_as="agent", agent_id=agent.id
+            session,
+            tenant_id,
+            send_as="agent",
+            agent_id=agent.id,
+            channel_account_id=signal.channel_account_id,
         )
         from_display_name = await resolve_from_display_name(
             session, tenant_id, send_as="agent", agent_id=agent.id

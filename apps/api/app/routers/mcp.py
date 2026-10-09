@@ -52,7 +52,7 @@ def _server_info() -> dict[str, Any]:
         "websiteUrl": f"{app}/docs/developers/mcp-endpoint",
         "icons": [
             {
-                "src": f"{app}/bokito-logo.svg",
+                "src": f"{app}/bokito-logo.png",
                 "mimeType": "image/svg+xml",
                 "sizes": ["any"],
             }

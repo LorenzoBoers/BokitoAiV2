@@ -1,8 +1,16 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FilterChip, FilterChipRow } from '../ui/filter-chip'
 import type { IntegrationKindFilter } from '../../lib/integration-kind-url'
 
-const SEGMENTS: IntegrationKindFilter[] = ['all', 'inbox', 'calendar', 'app', 'mcp', 'repository']
+const INTEGRATION_SEGMENTS: IntegrationKindFilter[] = [
+  'all',
+  'inbox',
+  'calendar',
+  'app',
+  'mcp',
+  'repository',
+]
 
 export type IntegrationKindCounts = Partial<Record<IntegrationKindFilter, number>>
 
@@ -11,6 +19,8 @@ type IntegrationKindNavProps = {
   onChange: (value: IntegrationKindFilter) => void
   counts?: IntegrationKindCounts
   className?: string
+  /** Marketplace only: chip that shows domain presets (Banking, Accounting, …). */
+  includeModules?: boolean
 }
 
 function segmentLabelKey(segment: IntegrationKindFilter): string {
@@ -18,8 +28,21 @@ function segmentLabelKey(segment: IntegrationKindFilter): string {
   return `integrations.filters.${segment}`
 }
 
-export function IntegrationKindNav({ value, onChange, counts, className }: IntegrationKindNavProps) {
+export function IntegrationKindNav({
+  value,
+  onChange,
+  counts,
+  className,
+  includeModules = false,
+}: IntegrationKindNavProps) {
   const { t } = useTranslation('nav')
+  const segments = useMemo(
+    () =>
+      includeModules
+        ? (['all', 'modules', ...INTEGRATION_SEGMENTS.slice(1)] as IntegrationKindFilter[])
+        : INTEGRATION_SEGMENTS,
+    [includeModules],
+  )
 
   return (
     <FilterChipRow
@@ -27,7 +50,7 @@ export function IntegrationKindNav({ value, onChange, counts, className }: Integ
       role="group"
       aria-label={t('integrations.kindNav.label', { defaultValue: 'Integration type' })}
     >
-      {SEGMENTS.map((segment) => {
+      {segments.map((segment) => {
         const count = counts?.[segment]
         return (
           <FilterChip

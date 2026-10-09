@@ -79,7 +79,7 @@ def serialize_provider_row(row: IntegrationCatalogProvider) -> dict[str, Any]:
 
 
 async def ensure_seeded(session: AsyncSession) -> None:
-    """Insert missing hosts/providers from JSON. Never overwrite existing rows."""
+    """Insert missing hosts/providers from JSON. Repair colliding static_ids."""
     existing_hosts = {
         row[0]
         for row in (
@@ -94,6 +94,27 @@ async def ensure_seeded(session: AsyncSession) -> None:
     }
     added = False
     now = datetime.utcnow()
+
+    # Repair static_id when JSON changed (e.g. dropbox_mcp must not claim "dropbox").
+    catalog_by_slug = {
+        str(prov.get("slug") or "").strip(): prov
+        for prov in catalog_providers()
+        if str(prov.get("slug") or "").strip()
+    }
+    if existing_providers:
+        result = await session.execute(
+            select(IntegrationCatalogProvider).where(
+                IntegrationCatalogProvider.slug.in_(list(catalog_by_slug.keys()))
+            )
+        )
+        for row in result.scalars().all():
+            seed = catalog_by_slug.get(row.slug) or {}
+            wanted = str(seed.get("static_id") or row.slug).strip() or row.slug
+            if row.static_id == wanted:
+                continue
+            row.static_id = wanted
+            row.updated_at = now
+            added = True
     for host in catalog_hosts():
         slug = str(host.get("slug") or "").strip()
         if not slug or slug in existing_hosts:

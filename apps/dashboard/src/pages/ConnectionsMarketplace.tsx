@@ -206,9 +206,10 @@ export default function ConnectionsMarketplace() {
   )
 
   /**
-   * Modules stay visible with the catalog. Kind chips only reshape integrations.
+   * Modules only on All or the Modules chip — not under Agenda/Apps/Tools/…
    */
   const visibleModules = useMemo(() => {
+    if (kindFilter !== 'all' && kindFilter !== 'modules') return []
     const q = search.trim().toLowerCase()
     const filtered = !q
       ? [...modules]
@@ -227,7 +228,7 @@ export default function ConnectionsMarketplace() {
       const bName = t(`integrations.modules.${b.slug}.name`, { defaultValue: b.name })
       return aName.localeCompare(bName)
     })
-  }, [modules, search, t])
+  }, [kindFilter, modules, search, t])
 
   return (
     <PageContent width="xl">
@@ -257,7 +258,11 @@ export default function ConnectionsMarketplace() {
 
       <div className="mb-6 flex flex-col gap-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <IntegrationKindNav value={kindFilter} onChange={setKindFilter} />
+          <IntegrationKindNav
+            value={kindFilter}
+            onChange={setKindFilter}
+            includeModules
+          />
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative w-full sm:w-72">
               <Search

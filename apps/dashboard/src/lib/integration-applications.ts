@@ -216,9 +216,13 @@ export function buildIntegrationApplications(
   for (const { integration, connectionCount } of rows) {
     const provider = findProvider(integration)
     const hostSlug = hostSlugForOffer(integration, provider)
-    const kind = integration.kind ?? resolveIntegrationKind(provider?.slug ?? integration.id, provider?.capabilities)
+    // Capabilities on the live provider row win — never trust a stale static kind.
+    const kind = resolveIntegrationKind(
+      provider?.slug ?? integration.id,
+      provider?.capabilities ?? undefined,
+    )
     const offer: IntegrationOffer = {
-      integration,
+      integration: integration.kind === kind ? integration : { ...integration, kind },
       provider,
       registry: getRegistryEntryByStaticId(integration.id),
       connectionCount,
@@ -311,30 +315,38 @@ export function localizeOfferDescription(
   })
 }
 
+/** Authoritative lane for filtering — re-derived so stale offer.kind cannot leak. */
+export function effectiveOfferKind(offer: IntegrationOffer): IntegrationKind {
+  return resolveIntegrationKind(
+    offer.provider?.slug ?? offer.integration.id,
+    offer.provider?.capabilities ?? undefined,
+  )
+}
+
 export function filterOfferRows(
   rows: ApplicationOfferRow[],
-  kind: IntegrationKind | 'all',
+  kind: IntegrationKind | 'all' | 'modules',
   query: string,
   t: TranslateFn,
 ): ApplicationOfferRow[] {
+  // Marketplace Modules chip lists presets only — no integration cards.
+  if (kind === 'modules') return []
   let list = rows
   if (kind !== 'all') {
-    list = list.filter((row) => row.offer.kind === kind)
+    list = list.filter((row) => effectiveOfferKind(row.offer) === kind)
   }
   const q = query.trim().toLowerCase()
   if (q) {
     list = list.filter((row) => {
       const copy = localizeOfferCopy(row.offer, t)
       const host = localizeApplication(row.application, t)
-      const kindLabel = t(`integrations.kind.${row.offer.kind}`, {
-        defaultValue: row.offer.kind,
-      })
+      // Match name/description/host only — not kind labels. Typing "Agenda"
+      // must not pull every calendar-tagged card when searching under Apps.
       return (
         copy.name.toLowerCase().includes(q) ||
         copy.description.toLowerCase().includes(q) ||
         host.name.toLowerCase().includes(q) ||
-        row.offer.integration.name.toLowerCase().includes(q) ||
-        kindLabel.toLowerCase().includes(q)
+        row.offer.integration.name.toLowerCase().includes(q)
       )
     })
   }

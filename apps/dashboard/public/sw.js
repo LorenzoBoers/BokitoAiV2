@@ -37,8 +37,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Bokito'
   const options = {
     body: data.body || '',
-    icon: '/bokito-logo.svg',
-    badge: '/bokito-logo.svg',
+    icon: '/bokito-logo.png',
+    badge: '/bokito-logo.png',
     data: { url: targetUrlFromPayload(data) },
   }
   // Collapse repeat pushes for the same thread/decision into one notification.

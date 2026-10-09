@@ -4,7 +4,7 @@
  */
 
 export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: string }> = {
-  bokito: { logoUrl: '/bokito-logo.svg' },
+  bokito: { logoUrl: '/bokito-logo.png' },
   github: { logoUrl: '/brands/logo-github.svg' },
   microsoft: { logoUrl: '/brands/logo-microsoft.svg' },
   outlook: { logoUrl: '/brands/logo-outlook.svg' },

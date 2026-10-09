@@ -36,7 +36,7 @@ function FixButton({
     return (
       <Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.setPaused(row, false)}>
         <Play size={13} />
-        {t('channelsPage.resume')}
+        {t('channelsPage.turnOn')}
       </Button>
     )
   }

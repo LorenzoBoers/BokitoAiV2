@@ -159,6 +159,8 @@ export type InboxMessage = {
   toAddresses: string
   /** Comma-separated CC recipients on outbound email, if any. */
   cc?: string | null
+  /** Comma-separated BCC recipients on outbound email, if any. */
+  bcc?: string | null
   /** Inbound To header (comma-separated) — feeds reply-all recipient lists. */
   toHeader?: string | null
   /** reply | reply_all | forward on outbound mail started from a bubble. */
@@ -756,6 +758,7 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     fromAddress: asString(raw.from_address),
     toAddresses: asString(raw.to_addresses),
     cc: asNullableString(raw.cc),
+    bcc: asNullableString(raw.bcc),
     toHeader: asNullableString(raw.to_header),
     replyMode: asNullableString(raw.reply_mode),
     subject: asString(raw.subject),

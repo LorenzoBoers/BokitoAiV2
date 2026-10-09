@@ -1,8 +1,8 @@
 ---
 title: Connect channels
 intro: Bring customer mail and other inboxes into Communication.
-description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and pause, archive or delete a channel.
-keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, pause channel, archive channel, restore channel, delete channel, archive automated mail, newsletters, sync errors
+description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and turn off, disconnect or delete a channel.
+keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, turn off channel, disconnect channel, restore channel, delete channel, archive automated mail, newsletters, sync errors
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
@@ -80,24 +80,24 @@ Do not screenshot or copy OAuth secrets from connected accounts.
 
 Setup, Connections, Channels and the reply composer all use the same channel status. A calendar login alone does not count as a send-ready mailbox — Connections then shows that the agenda is synced while mail is not ready yet.
 
-1. Look at the state on the right of the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Paused**, **Error** or **Archived**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
-2. When a channel needs a human, the row shows one repair button next to the state: **Reconnect**, **Retry sync** or **Resume**. A yellow notice above the list counts channels that still need setup, and the first of them opens automatically.
+1. Look at the state on the right of the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Off**, **Error** or **Disconnected**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
+2. When a channel needs a human, the row shows one repair button next to the state: **Reconnect**, **Retry sync** or **Turn on**. A yellow notice above the list counts channels that still need setup, and the first of them opens automatically.
 3. Click the row and read **Status**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
 4. For a mailbox, **History** in the **Mailbox** section is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
-5. A mailbox that fails 50 syncs in a row pauses itself instead of retrying forever. The row reads **Paused**, **Sync errors** shows the reason, and an alert lands in Communication. Fix the sign-in or server and choose **Resume**; a successful sync clears the counter.
+5. A mailbox that fails 50 syncs in a row turns itself off instead of retrying forever. The row reads **Off**, **Sync errors** shows the reason, and an alert lands in Communication. Fix the sign-in or server and choose **Turn on**; a successful sync clears the counter.
 
-## Pause or archive a channel
+## Turn off or disconnect a channel
 
 1. Click the channel row and scroll to **Manage**.
-2. Choose **Pause** next to **Pause channel** for a short break. A paused channel receives and sends nothing new; conversations and settings stay. A paused mailbox also stops being the primary sender. Choose **Resume** to receive and send again.
-3. Choose **Archive** next to **Archive channel** when you stop using the channel. Sync and sending stop, and Bokito forgets the sign-in. The website chat can be archived only when the workspace has another one.
-4. The row moves to the bottom of the list and reads **Archived**. Its conversations stay in Communication, and **Access** on the channel page still decides who sees them.
-5. Choose **Restore** to bring the channel back as **Paused**, then reconnect or resume it. Connecting the same mailbox again through **Add channel** also takes it out of the archive.
+2. Under **Receiving and sending**, turn the switch off for a short break. Nothing new arrives or goes out; the sign-in stays so you can turn it back on in one click. A mailbox that is off also stops being the primary sender.
+3. Choose **Disconnect** when you stop using the channel. Sync and sending stop, and Bokito forgets the sign-in. The website chat can be disconnected only when the workspace has another one.
+4. The row moves to the bottom of the list and reads **Disconnected**. Its conversations stay in Communication, and **Access** on the channel page still decides who sees them.
+5. Choose **Bring back** to return the channel as **Off**, then reconnect the account or turn receiving on. Connecting the same mailbox again through **Add channel** also clears the disconnect.
 
 ## Delete a channel with all its data
 
-1. Archive the channel first. A channel that still has conversations cannot be deleted directly.
-2. Open the archived channel and choose **Delete permanently** next to **Delete with all data** under **Manage**.
+1. Disconnect the channel first. A channel that still has conversations cannot be deleted directly.
+2. Open the disconnected channel and choose **Delete permanently** next to **Delete with all data** under **Manage**.
 3. The dialog shows how many conversations go with it. Type the channel address or name to confirm, then choose **Delete permanently**.
 4. The channel and every conversation it brought in are deleted, including messages and attachments. They do not go to the Bin and cannot be restored.
 
@@ -105,7 +105,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 
 ## Set a signature and default agent
 
-1. Click a mailbox or Bokito address row, then choose **Edit** next to **Signature**. Outbound mail from that address appends it when the sender has no personal signature. Personal signatures (Profile) and agent signatures take priority; placeholders such as `{{name}}` fill at send time. After send, Communication shows that same signature in the thread bubble (what the customer received).
+1. Click a mailbox or Bokito address row. Under **Signature source**, choose **Mailbox signature** (one shared template for everyone, with placeholders such as `{{name}}` filled from the sender) or **Each person's signature** (uses **Profile**). With mailbox source, choose **Edit** next to **Signature** to set the template. In the editor, open **Preview** and use **Preview as** to check the template as yourself, another teammate, an agent, or sample data. Placeholders fill from that profile; a photo only appears if the template includes `{{avatar}}` (template **With profile photo**) and the person has a public https photo. If the template is empty, or the source is each person, Bokito uses the personal signature, then the Bokito default. Agent sends still use the agent signature. After send, Communication shows that same signature in the thread bubble (what the customer received).
 2. Under **General**, pick an **Owner team** for new conversations until someone takes them, and an **AI agent** for AI handling. Without an agent, the workspace default agent handles new threads.
 3. Choose **Access** to open the access matrix. Toggle **View** and **Handle** per team, person and agent. Handle means reply, take conversations and receive them; View is read only. Teams cover their members — a person with no own grant still follows **All people**. Owners and admins always handle every channel.
 4. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.

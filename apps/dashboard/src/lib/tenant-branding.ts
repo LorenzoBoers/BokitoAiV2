@@ -13,20 +13,24 @@ import {
   type Rgb,
 } from '@bokito/shared'
 
-export const DEFAULT_BRAND_MARK = '/bokito-logo.svg'
+/** Full-color circular mark (mint + charcoal) — works on dark and light UI. */
+export const DEFAULT_BRAND_MARK = '/bokito-logo.png'
 const DEFAULT_FAVICON = DEFAULT_BRAND_MARK
 
-/** Recolor the single-fill platform mark for the current shell theme. */
-export const BOKITO_MARK_FILTER_DARK =
-  'brightness(0) saturate(100%) invert(98%) sepia(2%) saturate(1312%) hue-rotate(188deg) brightness(112%) contrast(93%)'
-export const BOKITO_MARK_FILTER_LIGHT =
-  'brightness(0) saturate(100%) invert(20%) sepia(4%) saturate(300%) hue-rotate(20deg) brightness(95%) contrast(90%)'
+/**
+ * @deprecated The platform mark is full-color; do not recolor with CSS filters.
+ * Kept as no-ops so older imports compile until call sites drop them.
+ */
+export const BOKITO_MARK_FILTER_DARK = 'none'
+export const BOKITO_MARK_FILTER_LIGHT = 'none'
 
 export function isPlatformBrandMark(url: string | null | undefined): boolean {
   if (!url) return true
   const trimmed = url.trim().split('?')[0]?.replace(/\/+$/, '') ?? ''
   return (
     trimmed === DEFAULT_BRAND_MARK
+    || trimmed.endsWith('/bokito-logo.png')
+    || trimmed.endsWith('bokito-logo.png')
     || trimmed.endsWith('/bokito-logo.svg')
     || trimmed.endsWith('bokito-logo.svg')
     || trimmed.endsWith('/bokito-logo-in-circel.svg')

@@ -2,8 +2,7 @@ import { LayoutGrid, LogOut, Settings } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import { useTheme } from '../../context/ThemeContext'
-import { BOKITO_MARK_FILTER_DARK, BOKITO_MARK_FILTER_LIGHT } from '../../lib/tenant-branding'
+import { DEFAULT_BRAND_MARK } from '../../lib/tenant-branding'
 import { UserAvatar } from '../ui/UserAvatar'
 
 function navItemClass(isActive: boolean) {
@@ -17,7 +16,6 @@ function navItemClass(isActive: boolean) {
 export default function WorkspaceHubNav() {
   const { t } = useTranslation('workspaces')
   const { user, logout } = useAuth()
-  const { isDark } = useTheme()
   const displayName = user?.name || t('account.sidebar.fallbackName')
   const email = user?.email || t('account.sidebar.fallbackEmail')
 
@@ -25,10 +23,9 @@ export default function WorkspaceHubNav() {
     <aside className="flex h-full w-[220px] shrink-0 flex-col px-4 py-4">
       <div className="flex items-center gap-2.5 px-3 pb-4">
         <img
-          src="/bokito-logo.svg"
+          src={DEFAULT_BRAND_MARK}
           alt="Bokito"
-          className="h-6 w-6 opacity-90"
-          style={{ filter: isDark ? BOKITO_MARK_FILTER_DARK : BOKITO_MARK_FILTER_LIGHT }}
+          className="h-6 w-6 rounded-full object-contain"
         />
         <span className="text-lg font-semibold text-text-heading">Bokito portal</span>
       </div>

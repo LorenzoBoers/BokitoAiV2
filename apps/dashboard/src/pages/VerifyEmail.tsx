@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+﻿import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, AlertCircle, Mail, Loader2 } from 'lucide-react'
@@ -176,7 +176,7 @@ function AuthShell({
       <div className="relative w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img
-            src="/bokito-logo-in-circel.svg"
+            src="/bokito-logo.png"
             alt="Bokito.ai"
             className="w-12 h-12 mb-3"
             onError={(event) => {

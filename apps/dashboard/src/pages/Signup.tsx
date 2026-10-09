@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from 'react';
+﻿import { useState, FormEvent, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -130,7 +130,7 @@ export default function Signup() {
       <div className="relative w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img
-            src="/bokito-logo-in-circel.svg"
+            src="/bokito-logo.png"
             alt="Bokito.ai"
             className="w-12 h-12 mb-3"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

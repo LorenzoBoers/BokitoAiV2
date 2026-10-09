@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -13,6 +13,9 @@ import {
   type ChannelKind,
   type ChannelRow,
 } from '../../lib/channels-api'
+import { useAuth } from '../../context/AuthContext'
+import { useMailboxConnections } from '../../hooks/useMailboxConnections'
+import { getConnectionSignature, type SignatureSource } from '../../lib/email-api'
 import type { ChannelActions } from './channel-actions'
 
 type KindSettingsProps = {
@@ -48,14 +51,66 @@ function CopyAddress({ address }: { address: string }) {
   )
 }
 
-function SignatureSetting({ row, actions }: KindSettingsProps) {
+function SignatureSetting({ row, busy, actions }: KindSettingsProps) {
   const { t } = useTranslation('nav')
+  const { token } = useAuth()
+  const { connections } = useMailboxConnections()
+  const [source, setSource] = useState<SignatureSource>('mailbox')
+
+  useEffect(() => {
+    if (!token) return
+    const match = connections.find((connection) => connection.uuid === row.id)
+    if (!match) return
+    let cancelled = false
+    void getConnectionSignature(token, match.id)
+      .then((cfg) => {
+        if (!cancelled) setSource(cfg.signatureSource)
+      })
+      .catch(() => {
+        /* keep default */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, connections, row.id])
+
   return (
-    <ChannelSetting label={t('channelsPage.signature')} hint={t('channelsPage.signatureHint')}>
-      <Button variant="secondary" size="sm" onClick={() => actions.editSignature(row)}>
-        {t('channelsPage.edit')}
-      </Button>
-    </ChannelSetting>
+    <>
+      <ChannelSetting
+        label={t('channelsPage.signatureSource')}
+        hint={t('channelsPage.signatureSourceHint')}
+      >
+        <Select
+          value={source}
+          disabled={busy}
+          onValueChange={(value) => {
+            const next: SignatureSource = value === 'sender' ? 'sender' : 'mailbox'
+            setSource(next)
+            actions.setSignatureSource(row, next)
+          }}
+        >
+          <SelectTrigger className="h-8 w-auto min-w-[11rem] text-xs" aria-label={t('channelsPage.signatureSource')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mailbox">{t('channelsPage.signatureSourceMailbox')}</SelectItem>
+            <SelectItem value="sender">{t('channelsPage.signatureSourceSender')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </ChannelSetting>
+      <ChannelSetting
+        label={t('channelsPage.signature')}
+        hint={
+          source === 'sender'
+            ? t('channelsPage.signatureHintSender')
+            : t('channelsPage.signatureHint')
+        }
+      >
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.editSignature(row)}>
+          {t('channelsPage.edit')}
+        </Button>
+      </ChannelSetting>
+    </>
   )
 }
 

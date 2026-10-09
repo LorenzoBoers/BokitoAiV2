@@ -58,7 +58,7 @@ Om de beurt en minst open geven alleen werk aan mensen die beschikbaar zijn en a
 
 ## Persoonlijke instellingen blijven persoonlijk
 
-Iedereen heeft **Profiel** en **Notificaties**. Op Profiel kies je **Startpagina**, **Weergave**, taal en een persoonlijke **E-mailhandtekening**. Op Notificaties kies je per niveau wat je bereikt: **Nu** (een gesprek of vraag voor jou, een vermelding, een klant die op een mens wacht), **Later** (systeemmeldingen zoals een mislukte run of een Govern-voorstel, nooit als push) en **Overzicht** (teamactiviteit en afgeronde runs, ingeklapt in de bel en als dagelijkse e-mail). Gesprekken die jou nodig hebben staan in **Voor jou** in Communicatie; de bel houdt alleen systeemmeldingen.
+Iedereen heeft **Profiel** en **Notificaties**. Op Profiel kies je **Startpagina**, **Weergave**, taal en optioneel een persoonlijke **E-mailhandtekening** (terugval wanneer een mailbox ieders eigen handtekening gebruikt). Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**. Op Notificaties kies je per niveau wat je bereikt: **Nu** (een gesprek of vraag voor jou, een vermelding, een klant die op een mens wacht), **Later** (systeemmeldingen zoals een mislukte run of een Govern-voorstel, nooit als push) en **Overzicht** (teamactiviteit en afgeronde runs, ingeklapt in de bel en als dagelijkse e-mail). Gesprekken die jou nodig hebben staan in **Voor jou** in Communicatie; de bel houdt alleen systeemmeldingen.
 
 ## Wat nu
 

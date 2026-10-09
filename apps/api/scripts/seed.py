@@ -68,7 +68,7 @@ async def seed() -> None:
             tenant = Tenant(
                 slug="bokito",
                 name="Bokito",
-                logo_url="/bokito-logo.svg",
+                logo_url="/bokito-logo.png",
                 settings_json=serialize_settings(default_tenant_settings()),
             )
             session.add(tenant)

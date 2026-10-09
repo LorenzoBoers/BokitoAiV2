@@ -247,8 +247,8 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
     identity = (user.display_name or user.email).strip()
     assert identity in resolved
 
-    # Agent signature only: used for agent identity (with Bokito disclaimer),
-    # and as fallback for user identity (no disclaimer).
+    # Agent signature only: used for agent identity (with Bokito disclaimer).
+    # User send without a mailbox template uses personal / dynamic default.
     agent.settings_json = json.dumps({"email_signature_html": "<p>Team Bokito</p>"})
     session_override.add(agent)
     await session_override.flush()
@@ -262,18 +262,49 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
     resolved = await resolve_signature_html(
         session_override, tenant.id, send_as="user", user_id=user.id, agent_id=agent.id
     )
-    assert resolved == "<p>Team Bokito</p>"
+    assert resolved is not None
+    assert "Team Bokito" not in resolved
+    assert identity in resolved
 
-    # User signature wins for user identity; agent identity keeps its own + disclaimer.
+    # Mailbox template wins for user send when source=mailbox.
+    from app.services.signatures import set_mailbox_signature
+
+    set_mailbox_signature(
+        account,
+        signature_html="<p>Groet, Mailbox</p>",
+        signature_source="mailbox",
+    )
+    session_override.add(account)
+    await session_override.flush()
+    resolved = await resolve_signature_html(
+        session_override,
+        tenant.id,
+        send_as="user",
+        user_id=user.id,
+        agent_id=agent.id,
+        channel_account=account,
+    )
+    assert resolved == "<p>Groet, Mailbox</p>"
+
+    # Personal signature when source=sender (mailbox template ignored).
     user_settings = json.loads(user.settings_json or "{}")
     user_settings["email_signature_html"] = "<p>Groet, Test User</p>"
     user.settings_json = json.dumps(user_settings)
     session_override.add(user)
+    set_mailbox_signature(account, signature_source="sender")
+    session_override.add(account)
     await session_override.flush()
     resolved = await resolve_signature_html(
-        session_override, tenant.id, send_as="user", user_id=user.id, agent_id=agent.id
+        session_override,
+        tenant.id,
+        send_as="user",
+        user_id=user.id,
+        agent_id=agent.id,
+        channel_account=account,
     )
     assert resolved == "<p>Groet, Test User</p>"
+
+    # Agent identity keeps its own + disclaimer.
     resolved = await resolve_signature_html(
         session_override, tenant.id, send_as="agent", user_id=user.id, agent_id=agent.id
     )
@@ -283,47 +314,51 @@ async def test_signature_precedence_user_agent_mailbox(client, session_override)
 
     # Exactly one signature in the outgoing HTML: the override replaces the
     # mailbox signature instead of stacking on it.
-    mailbox_settings = json.loads(account.settings_json or "{}")
-    mailbox_settings["signature_html"] = "<p>Mailbox sig</p>"
-    account.settings_json = json.dumps(mailbox_settings)
-    out_html = _append_signature("<p>Body</p>", account, override="<p>Groet, Test User</p>")
-    assert out_html.count("Groet, Test User") == 1
-    assert "Mailbox sig" not in out_html
+    out_html = _append_signature("<p>Body</p>", account, override="<p>Groet, Mailbox</p>")
+    assert out_html.count("Groet, Mailbox") == 1
     # Without an identity signature the mailbox fallback applies.
     out_html = _append_signature("<p>Body</p>", account, override=None)
-    assert "Mailbox sig" in out_html
+    assert "Mailbox sig" in out_html or "Groet, Mailbox" in out_html
     # Empty override means "already signed" — do not fall back to mailbox.
     out_html = _append_signature("<p>Body</p>", account, override="")
     assert out_html == "<p>Body</p>"
-    assert "Mailbox sig" not in out_html
 
 
 # ── settings endpoints ───────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_profile_signature_roundtrip(client):
+async def test_mailbox_signature_roundtrip(client, session_override):
     headers = await _auth_headers(client)
-    saved = await client.patch(
-        "/api/auth/profile",
+    _, _, account = await _seeded(session_override)
+    from app.models.auth import user_numeric_id
+
+    conn_id = user_numeric_id(account.id)
+    saved = await client.put(
+        f"/api/email/connections/{conn_id}/signature",
         headers=headers,
-        json={"email_signature_html": "<p>Met vriendelijke groet,<br>Test</p>"},
+        json={
+            "signature_html": "<p>Met vriendelijke groet,<br>Mailbox</p>",
+            "signature_source": "mailbox",
+        },
     )
     assert saved.status_code == 200
-    me = await client.get("/api/auth/me", headers=headers)
-    assert me.status_code == 200
-    assert (
-        me.json()["user"]["email_signature_html"]
-        == "<p>Met vriendelijke groet,<br>Test</p>"
+    assert saved.json()["signature_html"] == "<p>Met vriendelijke groet,<br>Mailbox</p>"
+    assert saved.json()["signature_source"] == "mailbox"
+    loaded = await client.get(
+        f"/api/email/connections/{conn_id}/signature", headers=headers
     )
+    assert loaded.status_code == 200
+    assert loaded.json()["signature_source"] == "mailbox"
 
-    # Clearing removes it.
-    cleared = await client.patch(
-        "/api/auth/profile", headers=headers, json={"email_signature_html": ""}
+    source_only = await client.put(
+        f"/api/email/connections/{conn_id}/signature",
+        headers=headers,
+        json={"signature_source": "sender"},
     )
-    assert cleared.status_code == 200
-    me = await client.get("/api/auth/me", headers=headers)
-    assert me.json()["user"]["email_signature_html"] == ""
+    assert source_only.status_code == 200
+    assert source_only.json()["signature_source"] == "sender"
+    assert "Mailbox" in source_only.json()["signature_html"]
 
 
 @pytest.mark.asyncio

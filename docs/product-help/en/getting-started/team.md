@@ -58,7 +58,7 @@ Round robin and least open only hand work to people who are available and agents
 
 ## Personal settings stay personal
 
-Each person has **Profile** and **Notifications**. On Profile they set **Start page**, **Appearance**, language and a personal **Email signature**. On Notifications they choose what reaches them per tier: **Now** (a conversation or question for you, a mention, a customer waiting for a person), **Later** (system notices such as a failed run or a Govern proposal, never as push) and **Digest** (team activity and finished runs, collapsed in the bell and sent as a daily email). Conversations that need you land in **For you** in Communication; the bell keeps system notices only.
+Each person has **Profile** and **Notifications**. On Profile they set **Start page**, **Appearance**, language and an optional personal **Email signature** (fallback when a mailbox uses each person's signature). Shared mailbox signatures are under **Settings** → **Channels**. On Notifications they choose what reaches them per tier: **Now** (a conversation or question for you, a mention, a customer waiting for a person), **Later** (system notices such as a failed run or a Govern proposal, never as push) and **Digest** (team activity and finished runs, collapsed in the bell and sent as a daily email). Conversations that need you land in **For you** in Communication; the bell keeps system notices only.
 
 ## What to do next
 

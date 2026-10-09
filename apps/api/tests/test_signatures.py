@@ -42,7 +42,7 @@ def test_render_aliases_function_to_job_title():
     assert "Engineer" in out
 
 
-def test_compose_default_has_avatar_and_identity():
+def test_compose_default_is_text_only():
     html = compose_default_signature_html(
         name="Lorenzo",
         email="lorenzo@bokito.ai",
@@ -55,9 +55,26 @@ def test_compose_default_has_avatar_and_identity():
     assert "Founder" in html
     assert "Bokito" in html
     assert "lorenzo@bokito.ai" in html
-    assert "border-radius:50%" in html
-    assert "data:image/svg+xml" in html
     assert "border-left:2px solid" in html
+    assert "<img" not in html
+    assert "data:image" not in html
+
+
+def test_avatar_placeholder_only_uses_https_photo():
+    from app.services.signatures import avatar_placeholder_html, render_signature_template
+
+    assert avatar_placeholder_html(avatar_url=None, name="Ada") == ""
+    assert avatar_placeholder_html(avatar_url="data:image/svg+xml;base64,abc", name="Ada") == ""
+    img = avatar_placeholder_html(avatar_url="https://cdn.example.com/a.jpg", name="Ada")
+    assert "<img" in img
+    assert "https://cdn.example.com/a.jpg" in img
+    rendered = render_signature_template(
+        "<p>{{avatar}}</p><p>{{name}}</p>",
+        {"name": "Ada", "email": "", "job_title": "", "company": "", "phone": "", "website": "", "address": "", "closing": "Hi"},
+        avatar_url="https://cdn.example.com/a.jpg",
+    )
+    assert "<img" in rendered
+    assert "Ada" in rendered
 
 
 @pytest.mark.asyncio
@@ -133,6 +150,7 @@ async def test_resolve_default_uses_modern_layout(client, session_override):
         session_override, tenant.id, send_as="user", user_id=user.id, agent_id=agent.id
     )
     assert resolved is not None
-    assert "border-radius:50%" in resolved
+    assert "<img" not in resolved
+    assert "border-left:2px solid" in resolved
     identity = (user.display_name or user.email).strip()
     assert identity in resolved

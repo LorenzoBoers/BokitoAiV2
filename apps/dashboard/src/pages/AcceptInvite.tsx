@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, FormEvent, ChangeEvent } from 'react';
+﻿import { useEffect, useRef, useState, FormEvent, ChangeEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Camera, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -195,7 +195,7 @@ export default function AcceptInvite() {
       <div className="relative w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img
-            src="/bokito-logo-in-circel.svg"
+            src="/bokito-logo.png"
             alt="Bokito.ai"
             className="w-12 h-12 mb-3"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

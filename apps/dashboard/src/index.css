@@ -179,6 +179,27 @@
   }
 
   /*
+   * Dashboard preview of outbound email signatures. Wire HTML keeps light-mode
+   * inline colors for recipients; here we override those inks in dark UI so
+   * "Met vriendelijke groet" and the name stay readable.
+   */
+  .signature-preview {
+    color: rgb(var(--color-text-secondary));
+  }
+  :root:not([data-theme='light']) .signature-preview :where(p, div, span, td, th, strong, b, em, li, font) {
+    color: rgb(var(--color-text-secondary)) !important;
+  }
+  :root:not([data-theme='light']) .signature-preview :where([style*='font-weight:600'], [style*='font-weight: 600'], strong, b) {
+    color: rgb(var(--color-text-heading)) !important;
+  }
+  :root:not([data-theme='light']) .signature-preview :where(a) {
+    color: rgb(var(--color-accent-ink)) !important;
+  }
+  :root:not([data-theme='light']) .signature-preview :where(td) {
+    border-left-color: rgb(var(--color-border)) !important;
+  }
+
+  /*
    * Rail / section-nav row. Compact (28px), neutral active state: background
    * step + heading ink. Never an accent tint; icons stay monochrome.
    */

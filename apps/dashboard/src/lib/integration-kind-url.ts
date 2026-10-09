@@ -1,8 +1,9 @@
 import type { IntegrationKind } from './integration-kind'
 
-export type IntegrationKindFilter = 'all' | IntegrationKind
+/** Marketplace/hub kind chips. `modules` is marketplace-only (domain presets). */
+export type IntegrationKindFilter = 'all' | 'modules' | IntegrationKind
 
-const KIND_PARAMS = new Set(['all', 'inbox', 'repository', 'mcp', 'calendar', 'app'])
+const KIND_PARAMS = new Set(['all', 'modules', 'inbox', 'repository', 'mcp', 'calendar', 'app'])
 
 export function parseKindFilter(value: string | null): IntegrationKindFilter {
   if (value && KIND_PARAMS.has(value)) {
@@ -13,6 +14,11 @@ export function parseKindFilter(value: string | null): IntegrationKindFilter {
 
 export function kindFilterToParam(kind: IntegrationKindFilter): string | null {
   return kind === 'all' ? null : kind
+}
+
+/** Connections hub has no Modules chip — map a stale URL/storage value. */
+export function coerceHubKindFilter(kind: IntegrationKindFilter): Exclude<IntegrationKindFilter, 'modules'> {
+  return kind === 'modules' ? 'all' : kind
 }
 
 export function marketplacePathWithKind(kind: IntegrationKindFilter): string {

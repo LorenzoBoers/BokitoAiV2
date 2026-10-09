@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  openMailRowIds,
   resolveTimelineLanding,
   trailingUnreadInboundIds,
   type TimelineRow,
@@ -96,6 +97,28 @@ describe('resolveTimelineLanding', () => {
       align: 'center',
       pinToBottom: false,
     })
+  })
+})
+
+describe('openMailRowIds', () => {
+  it('keeps the newest mail and the newest inbound mail open', () => {
+    const rows = [msg('1', 'inbound'), msg('2', 'outbound'), msg('3', 'inbound'), msg('4', 'outbound')]
+    expect([...openMailRowIds(rows)].sort()).toEqual(['m-3', 'm-4'])
+  })
+
+  it('opens only the newest mail when it is inbound', () => {
+    const rows = [msg('1', 'inbound'), msg('2', 'outbound'), msg('3', 'inbound')]
+    expect([...openMailRowIds(rows)]).toEqual(['m-3'])
+  })
+
+  it('ignores notes, decisions and system events', () => {
+    const rows = [
+      msg('1', 'inbound'),
+      msg('2', 'outbound'),
+      msg('3', 'internal', 'internal_note'),
+      msg('4', 'outbound', 'decision_request'),
+    ]
+    expect([...openMailRowIds(rows)].sort()).toEqual(['m-1', 'm-2'])
   })
 })
 

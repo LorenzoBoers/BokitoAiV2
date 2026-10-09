@@ -22,6 +22,7 @@ import IntegrationsTabs from '../components/shell/IntegrationsTabs'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import {
+  coerceHubKindFilter,
   parseKindFilter,
   kindFilterToParam,
   readLastIntegrationKind,
@@ -66,7 +67,9 @@ export default function ConnectionsHub() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const kindFromUrl = searchParams.get('kind')
-  const kindFilter = kindFromUrl == null ? readLastIntegrationKind() : parseKindFilter(kindFromUrl)
+  const kindFilter = coerceHubKindFilter(
+    kindFromUrl == null ? readLastIntegrationKind() : parseKindFilter(kindFromUrl),
+  )
   const [query, setQuery] = useState('')
 
   const { loading, loadError, mcpRows, connections, counts, refresh } = useConnectedIntegrationsSummary()

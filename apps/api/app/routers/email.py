@@ -302,10 +302,12 @@ async def send_email(
     attachments = [a for a in (body.attachments or []) if isinstance(a, dict)]
     from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
-    # Composed mail is sent as the authoring user: their signature applies
-    # (mailbox signature as fallback).
     signature_html = await resolve_signature_html(
-        session, auth.tenant.id, send_as="user", user_id=auth.user.id
+        session,
+        auth.tenant.id,
+        send_as="user",
+        user_id=auth.user.id,
+        channel_account=account,
     )
     from_display_name = await resolve_from_display_name(
         session, auth.tenant.id, send_as="user", user_id=auth.user.id
@@ -470,10 +472,38 @@ async def save_signature(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.services.signatures import (
+        MAX_SIGNATURE_LENGTH,
+        SIGNATURE_SOURCES,
+        mailbox_signature_html,
+        mailbox_signature_source,
+        set_mailbox_signature,
+    )
+
     account = await _require_account(session, auth.tenant.id, connection_id)
-    signature_html = str(body.get("signature_html", ""))
-    await _save_account_settings(session, account, {"signature_html": signature_html})
-    return {"ok": True, "signature_html": signature_html}
+    auth.require_role("owner", "admin")
+    html_arg: str | None = None
+    source_arg: str | None = None
+    if "signature_html" in body:
+        raw = str(body.get("signature_html") or "")
+        if len(raw) > MAX_SIGNATURE_LENGTH:
+            raise HTTPException(status_code=400, detail=f"Signature too long (max {MAX_SIGNATURE_LENGTH})")
+        html_arg = raw
+    if "signature_source" in body:
+        source = str(body.get("signature_source") or "").strip().lower()
+        if source not in SIGNATURE_SOURCES:
+            raise HTTPException(status_code=400, detail="signature_source must be mailbox or sender")
+        source_arg = source
+    if html_arg is None and source_arg is None:
+        raise HTTPException(status_code=400, detail="Provide signature_html and/or signature_source")
+    set_mailbox_signature(account, signature_html=html_arg, signature_source=source_arg)
+    session.add(account)
+    await session.commit()
+    return {
+        "ok": True,
+        "signature_html": mailbox_signature_html(account),
+        "signature_source": mailbox_signature_source(account),
+    }
 
 
 @router.get("/connections/{connection_id}/signature")
@@ -482,8 +512,13 @@ async def get_signature(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    from app.services.signatures import mailbox_signature_html, mailbox_signature_source
+
     account = await _require_account(session, auth.tenant.id, connection_id)
-    return {"signature_html": _load_settings(account).get("signature_html") or ""}
+    return {
+        "signature_html": mailbox_signature_html(account),
+        "signature_source": mailbox_signature_source(account),
+    }
 
 
 class FolderSelection(BaseModel):

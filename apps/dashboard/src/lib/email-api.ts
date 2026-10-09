@@ -270,16 +270,49 @@ export async function updateMailboxSettings(
   await apiPut(integrationsRoutes.email.connections.mailboxSettings(connectionId), payload, token)
 }
 
-export async function getConnectionSignature(token: string, connectionId: number): Promise<string> {
-  const payload = await apiGet<{ signature_html?: string; signatureHtml?: string }>(
-    integrationsRoutes.email.connections.signature(connectionId),
-    token,
-  )
-  return asString(payload.signature_html ?? payload.signatureHtml)
+export type SignatureSource = 'mailbox' | 'sender'
+
+export type ConnectionSignature = {
+  signatureHtml: string
+  signatureSource: SignatureSource
 }
 
-export async function saveConnectionSignature(token: string, connectionId: number, signatureHtml: string): Promise<void> {
-  await apiPut(integrationsRoutes.email.connections.signature(connectionId), { signature_html: signatureHtml }, token)
+function asSignatureSource(value: unknown): SignatureSource {
+  return value === 'sender' ? 'sender' : 'mailbox'
+}
+
+export async function getConnectionSignature(
+  token: string,
+  connectionId: number,
+): Promise<ConnectionSignature> {
+  const payload = await apiGet<{
+    signature_html?: string
+    signatureHtml?: string
+    signature_source?: string
+    signatureSource?: string
+  }>(integrationsRoutes.email.connections.signature(connectionId), token)
+  return {
+    signatureHtml: asString(payload.signature_html ?? payload.signatureHtml),
+    signatureSource: asSignatureSource(payload.signature_source ?? payload.signatureSource),
+  }
+}
+
+export async function saveConnectionSignature(
+  token: string,
+  connectionId: number,
+  input: { signatureHtml?: string; signatureSource?: SignatureSource },
+): Promise<ConnectionSignature> {
+  const body: Record<string, string> = {}
+  if (input.signatureHtml !== undefined) body.signature_html = input.signatureHtml
+  if (input.signatureSource !== undefined) body.signature_source = input.signatureSource
+  const payload = await apiPut<{
+    signature_html?: string
+    signature_source?: string
+  }>(integrationsRoutes.email.connections.signature(connectionId), body, token)
+  return {
+    signatureHtml: asString(payload.signature_html),
+    signatureSource: asSignatureSource(payload.signature_source),
+  }
 }
 
 const MAILBOX_REPLY_LANGUAGES: MailboxReplyLanguage[] = ['auto', 'nl', 'en', 'de', 'fr', 'es']

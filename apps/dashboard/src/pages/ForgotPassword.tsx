@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
@@ -55,7 +55,7 @@ export default function ForgotPassword() {
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <img
-              src="/bokito-logo-in-circel.svg"
+              src="/bokito-logo.png"
               alt="Bokito.ai"
               className="w-12 h-12 mb-3"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -131,7 +131,7 @@ export default function ForgotPassword() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <img
-            src="/bokito-logo-in-circel.svg"
+            src="/bokito-logo.png"
             alt="Bokito.ai"
             className="w-12 h-12 mb-3"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

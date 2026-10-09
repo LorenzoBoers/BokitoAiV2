@@ -2500,7 +2500,11 @@ async def reply_to_thread(
         from app.services.signatures import resolve_from_display_name, resolve_signature_html
 
         signature_html = await resolve_signature_html(
-            session, tenant_id, send_as="user", user_id=user_id
+            session,
+            tenant_id,
+            send_as="user",
+            user_id=user_id,
+            channel_account_id=signal.channel_account_id,
         )
         from_display_name = await resolve_from_display_name(
             session, tenant_id, send_as="user", user_id=user_id
@@ -2845,6 +2849,7 @@ async def deliver_due_outbound_messages(session: AsyncSession) -> int:
             send_as=send_as,
             user_id=message.author_user_id,
             agent_id=message.author_agent_id or signal.agent_id,
+            channel_account_id=signal.channel_account_id,
         )
         from_display_name = await resolve_from_display_name(
             session,

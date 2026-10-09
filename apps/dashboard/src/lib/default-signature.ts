@@ -20,7 +20,6 @@ const CLOSINGS: Record<string, string> = {
 }
 
 const BOKITO_SITE = 'https://bokito.ai'
-const AVATAR_COLOR = '#4652f2'
 
 const PLACEHOLDER_ALIASES: Record<string, string> = {
   function: 'job_title',
@@ -50,31 +49,12 @@ export type SignatureIdentityVars = {
   language?: string | null
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (!parts.length) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return `${parts[0][0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase()
-}
-
-function initialsAvatarDataUri(name: string, color = AVATAR_COLOR): string {
-  const label = escapeHtml(initials(name))
-  const fill = escapeHtml(color)
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">` +
-    `<circle cx="48" cy="48" r="48" fill="${fill}"/>` +
-    `<text x="48" y="52" text-anchor="middle" dominant-baseline="middle" ` +
-    `fill="#ffffff" font-family="system-ui,-apple-system,Segoe UI,sans-serif" ` +
-    `font-size="36" font-weight="600">${label}</text></svg>`
-  // btoa expects Latin1; initials are ASCII-safe.
-  return `data:image/svg+xml;base64,${btoa(svg)}`
-}
-
-function resolveAvatarUrl(url: string | null | undefined, name: string): string {
+/** HTTPS photo only — SVG data URIs break in most mail clients. */
+function photoAvatarUrl(url: string | null | undefined): string | null {
   const raw = (url || '').trim()
-  if (raw.startsWith('data:image/') && raw.length <= 120_000) return raw
-  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) return raw
-  return initialsAvatarDataUri(name)
+  if (!raw || raw.startsWith('data:')) return null
+  if (raw.startsWith('https://') || raw.startsWith('http://')) return raw
+  return null
 }
 
 function roundAvatarImgHtml(url: string, name: string, size = 48): string {
@@ -84,6 +64,12 @@ function roundAvatarImgHtml(url: string, name: string, size = 48): string {
     `style="border-radius:50%;display:block;width:${size}px;height:${size}px;` +
     `object-fit:cover;border:0" />`
   )
+}
+
+function avatarPlaceholderHtml(url: string | null | undefined, name: string, size = 48): string {
+  const photo = photoAvatarUrl(url)
+  if (!photo) return ''
+  return roundAvatarImgHtml(photo, name, size)
 }
 
 export function signatureIdentityMap(opts: SignatureIdentityVars): Record<string, string> {
@@ -123,12 +109,14 @@ export function renderSignatureTemplate(
 ): string {
   const raw = (templateHtml || '').trim()
   if (!raw) return ''
-  const map =
-    'jobTitle' in vars || 'avatarUrl' in vars || 'language' in vars
-      ? signatureIdentityMap(vars as SignatureIdentityVars)
-      : (vars as Record<string, string>)
+  const isIdentity = 'jobTitle' in vars || 'avatarUrl' in vars || 'language' in vars
+  const identity = isIdentity ? (vars as SignatureIdentityVars) : null
+  const map = identity ? signatureIdentityMap(identity) : (vars as Record<string, string>)
   const rendered = raw.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => {
     const canonical = PLACEHOLDER_ALIASES[key.toLowerCase()] ?? key.toLowerCase()
+    if (canonical === 'avatar') {
+      return avatarPlaceholderHtml(identity?.avatarUrl, map.name || '')
+    }
     const value = map[canonical] ?? map[key] ?? ''
     return escapeHtml(String(value))
   })
@@ -166,15 +154,8 @@ export function withAgentDisclaimer(signatureHtml: string, language?: string | n
   return body ? `${body}${disclaimer}` : disclaimer
 }
 
-/** Modern default: closing + round avatar left, name / role / contacts right. */
-export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string {
-  const vars = signatureIdentityMap(opts)
+function signatureDetailBits(vars: Record<string, string>): string {
   const display = vars.name
-  const langRaw = (opts.language || 'nl').trim().toLowerCase().slice(0, 2)
-  const closing = CLOSINGS[langRaw] || CLOSINGS.en
-  const avatarSrc = resolveAvatarUrl(opts.avatarUrl, display)
-  const avatar = roundAvatarImgHtml(avatarSrc, display, 48)
-
   const detailBits: string[] = [
     `<div style="font-weight:600;color:#111827;font-size:14px;line-height:1.35">${escapeHtml(display)}</div>`,
   ]
@@ -188,7 +169,6 @@ export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string
       `<div style="color:#6b7280;font-size:13px;line-height:1.35;margin-top:1px">${escapeHtml(vars.company)}</div>`,
     )
   }
-
   const contactParts: string[] = []
   if (vars.email && vars.email.toLowerCase() !== display.toLowerCase()) {
     const addr = escapeHtml(vars.email)
@@ -216,16 +196,39 @@ export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string
         `</div>`,
     )
   }
+  return detailBits.join('')
+}
 
+/** Text-only default: closing + name / role / company / contacts (no avatar image). */
+export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string {
+  const vars = signatureIdentityMap(opts)
+  const langRaw = (opts.language || 'nl').trim().toLowerCase().slice(0, 2)
+  const closing = CLOSINGS[langRaw] || CLOSINGS.en
   return (
     `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` +
     `font-size:14px;line-height:1.45;color:#1f2937">` +
     `<p style="margin:0 0 14px 0">${escapeHtml(closing)},</p>` +
+    `<div style="padding-left:14px;border-left:2px solid #e5e7eb">${signatureDetailBits(vars)}</div>` +
+    `</div>`
+  )
+}
+
+/**
+ * Optional photo layout. Template HTML uses ``{{avatar}}`` so the photo is
+ * filled at send/preview from the profile URL (https only).
+ */
+export function composeAvatarSignatureTemplateHtml(): string {
+  return (
+    `<p style="margin:0 0 14px 0">{{closing}},</p>` +
     `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse">` +
     `<tr>` +
-    `<td style="vertical-align:top;padding:0 14px 0 0">${avatar}</td>` +
-    `<td style="vertical-align:top;padding:0 0 0 14px;border-left:2px solid #e5e7eb">${detailBits.join('')}</td>` +
-    `</tr></table></div>`
+    `<td style="vertical-align:top;padding:0 14px 0 0">{{avatar}}</td>` +
+    `<td style="vertical-align:top;padding:0 0 0 14px;border-left:2px solid #e5e7eb">` +
+    `<div style="font-weight:600;color:#111827;font-size:14px;line-height:1.35">{{name}}</div>` +
+    `<div style="color:#6b7280;font-size:13px;line-height:1.35;margin-top:2px">{{function}}</div>` +
+    `<div style="color:#6b7280;font-size:13px;line-height:1.35;margin-top:1px">{{company}}</div>` +
+    `<div style="margin-top:8px;font-size:12px;line-height:1.5;color:#4b5563">{{email}}</div>` +
+    `</td></tr></table>`
   )
 }
 
@@ -237,4 +240,18 @@ export function previewSignatureHtml(
   const custom = (templateHtml || '').trim()
   if (custom) return renderSignatureTemplate(custom, identity)
   return composeDefaultSignatureHtml(identity)
+}
+
+/** Preview matching server resolve for human sends from a mailbox. */
+export function previewOutboundSignatureHtml(opts: {
+  source: 'mailbox' | 'sender'
+  mailboxHtml: string | null | undefined
+  personalHtml: string | null | undefined
+  identity: SignatureIdentityVars
+}): string {
+  if (opts.source === 'mailbox') {
+    const mailbox = (opts.mailboxHtml || '').trim()
+    if (mailbox) return renderSignatureTemplate(mailbox, opts.identity)
+  }
+  return previewSignatureHtml(opts.personalHtml, opts.identity)
 }

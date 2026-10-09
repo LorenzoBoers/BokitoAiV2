@@ -3,10 +3,14 @@
 One coherent model:
 - A reply is sent "as" an identity: a user (human approved / manual reply) or
   an agent (auto mode, or explicitly chosen at approval time).
-- Exactly one signature is appended server-side, resolved by identity:
-  user signature -> agent signature -> dynamic default from identity +
-  workspace language -> mailbox ``signature_html`` fallback
-  (the mailbox fallback lives in ``app.channels.email._append_signature``).
+- Exactly one signature is appended server-side:
+  - **Agent send:** agent custom → dynamic default (+ Bokito disclaimer).
+  - **User send:** per-mailbox ``signature_source`` on the ChannelAccount:
+    - ``mailbox`` — mailbox ``signature_html`` template (placeholders from
+      the sender); if empty → personal user template → dynamic default.
+    - ``sender`` — personal user template → dynamic default (ignore mailbox).
+  Default source is ``mailbox``. Personal templates live on the user profile;
+  mailbox templates are edited under Settings → Channels.
 - Custom HTML may include ``{{name}}``, ``{{company}}``, ``{{function}}``,
   ``{{email}}``, ``{{phone}}``, ``{{website}}``, ``{{address}}`` placeholders.
   These are substituted at send/preview time from the active identity.
@@ -18,8 +22,9 @@ One coherent model:
   link to https://bokito.ai (disclaimer + light branding).
 - The model never writes its own sign-off (stripped by
   ``services/suggestion_format.py``), so signatures can never stack.
-- Defaults are composed at send/preview time — not persisted — so they stay
-  in sync with name, role, company, avatar, and language.
+- Defaults are text-only (no avatar image) and composed at send/preview time —
+  not persisted — so they stay in sync with name, role, company, and language.
+  Photo layout is opt-in via ``{{avatar}}`` (https profile photo only).
 """
 
 from __future__ import annotations
@@ -35,6 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.auth import Tenant, User
+from app.models.channel import ChannelAccount
 from app.services.language import normalize_platform_language, resolve_workspace_language
 
 SEND_AS_CHOICES = ("user", "agent")
@@ -51,6 +57,14 @@ REPLY_SEND_AS_KEY = "reply_send_as"
 SIGNATURE_PHONE_KEY = "signature_phone"
 SIGNATURE_WEBSITE_KEY = "signature_website"
 SIGNATURE_ADDRESS_KEY = "signature_address"
+
+# ChannelAccount.settings_json: who supplies the signature for human sends.
+MAILBOX_SIGNATURE_HTML_KEY = "signature_html"
+SIGNATURE_SOURCE_KEY = "signature_source"
+SIGNATURE_SOURCE_MAILBOX = "mailbox"
+SIGNATURE_SOURCE_SENDER = "sender"
+SIGNATURE_SOURCES = frozenset({SIGNATURE_SOURCE_MAILBOX, SIGNATURE_SOURCE_SENDER})
+DEFAULT_SIGNATURE_SOURCE = SIGNATURE_SOURCE_MAILBOX
 
 _CLOSINGS = {
     "nl": "Met vriendelijke groet",
@@ -191,6 +205,62 @@ def tenant_reply_send_as(tenant: Tenant) -> str:
     return value if value in SEND_AS_CHOICES else DEFAULT_SEND_AS
 
 
+def mailbox_signature_html(account: ChannelAccount | None) -> str:
+    """Raw mailbox template from ChannelAccount settings."""
+    if account is None:
+        return ""
+    return str(_settings(account.settings_json).get(MAILBOX_SIGNATURE_HTML_KEY) or "").strip()
+
+
+def mailbox_signature_source(account: ChannelAccount | None) -> str:
+    """``mailbox`` (shared template) or ``sender`` (personal). Default mailbox."""
+    if account is None:
+        return SIGNATURE_SOURCE_SENDER
+    raw = str(_settings(account.settings_json).get(SIGNATURE_SOURCE_KEY) or "").strip().lower()
+    return raw if raw in SIGNATURE_SOURCES else DEFAULT_SIGNATURE_SOURCE
+
+
+def set_mailbox_signature(
+    account: ChannelAccount,
+    *,
+    signature_html: str | None = None,
+    signature_source: str | None = None,
+) -> None:
+    """Persist mailbox template and/or source policy on the channel account."""
+    settings = _settings(account.settings_json)
+    if signature_html is not None:
+        cleaned = (signature_html or "").strip()
+        if cleaned:
+            settings[MAILBOX_SIGNATURE_HTML_KEY] = cleaned[:MAX_SIGNATURE_LENGTH]
+        else:
+            settings.pop(MAILBOX_SIGNATURE_HTML_KEY, None)
+    if signature_source is not None:
+        source = (signature_source or "").strip().lower()
+        if source in SIGNATURE_SOURCES:
+            settings[SIGNATURE_SOURCE_KEY] = source
+        else:
+            settings.pop(SIGNATURE_SOURCE_KEY, None)
+    account.settings_json = json.dumps(settings)
+
+
+def tenant_signature_html(tenant: Tenant | None) -> str:
+    """Legacy workspace template (no longer used in resolve; kept for reads)."""
+    if tenant is None:
+        return ""
+    return str(_settings(tenant.settings_json).get(SIGNATURE_KEY) or "").strip()
+
+
+def set_tenant_signature_html(tenant: Tenant, signature: str) -> None:
+    """Legacy persist for workspace template (prefer mailbox signatures)."""
+    settings = _settings(tenant.settings_json)
+    cleaned = (signature or "").strip()
+    if cleaned:
+        settings[SIGNATURE_KEY] = cleaned[:MAX_SIGNATURE_LENGTH]
+    else:
+        settings.pop(SIGNATURE_KEY, None)
+    tenant.settings_json = json.dumps(settings)
+
+
 def bokito_agent_disclaimer_html(language: str | None = None) -> str:
     """Subtle AI-agent disclaimer + Bokito branding under agent signatures."""
     lang = normalize_platform_language(language)
@@ -319,11 +389,17 @@ def _cleanup_after_render(html_body: str) -> str:
     return out.strip()
 
 
-def render_signature_template(template_html: str, variables: dict[str, str]) -> str:
+def render_signature_template(
+    template_html: str,
+    variables: dict[str, str],
+    *,
+    avatar_url: str | None = None,
+) -> str:
     """Substitute ``{{placeholders}}`` and tidy empty contact lines.
 
     Unknown keys resolve to empty string so templates never leak raw tokens
-    into customer mail. Values are HTML-escaped.
+    into customer mail. Values are HTML-escaped. ``{{avatar}}`` injects a safe
+    photo ``<img>`` when ``avatar_url`` is a usable http(s) URL; otherwise empty.
     """
     raw = (template_html or "").strip()
     if not raw:
@@ -332,6 +408,11 @@ def render_signature_template(template_html: str, variables: dict[str, str]) -> 
     def repl(match: re.Match[str]) -> str:
         key = match.group(1).strip().lower()
         canonical = _PLACEHOLDER_ALIASES.get(key, key)
+        if canonical == "avatar":
+            return avatar_placeholder_html(
+                avatar_url=avatar_url,
+                name=str(variables.get("name") or ""),
+            )
         value = variables.get(canonical, variables.get(key, ""))
         return html.escape(str(value or ""))
 
@@ -339,39 +420,35 @@ def render_signature_template(template_html: str, variables: dict[str, str]) -> 
     return _cleanup_after_render(rendered)
 
 
-def compose_default_signature_html(
-    *,
-    name: str,
-    email: str | None = None,
-    job_title: str | None = None,
-    company: str | None = None,
-    phone: str | None = None,
-    website: str | None = None,
-    address: str | None = None,
-    language: str | None = None,
-    avatar_url: str | None = None,
-) -> str:
-    """Modern default: closing + round avatar left, identity/contact right.
+def photo_avatar_url_for_email(url: str | None) -> str | None:
+    """HTTPS (or absolute) photo URL safe for mail clients — never SVG data URIs.
 
-    Not persisted — callers treat this as the effective signature when the
-    user/agent has not configured a custom one.
+    Many clients strip or break ``data:image/svg+xml`` and relative paths, so the
+    default signature stays text-only; photo is opt-in via ``{{avatar}}``.
     """
-    vars_ = signature_identity_vars(
-        name=name,
-        email=email,
-        job_title=job_title,
-        company=company,
-        phone=phone,
-        website=website,
-        address=address,
-        language=language,
-    )
+    raw = (url or "").strip()
+    if not raw or raw.startswith("data:"):
+        return None
+    if raw.startswith("https://") or raw.startswith("http://"):
+        return raw
+    from app.services.agent_avatar import absolutize_avatar_url
+
+    absolute = absolutize_avatar_url(raw)
+    if absolute and (absolute.startswith("https://") or absolute.startswith("http://")):
+        return absolute
+    return None
+
+
+def avatar_placeholder_html(*, avatar_url: str | None, name: str, size: int = 48) -> str:
+    """Safe ``<img>`` for ``{{avatar}}``, or empty when no usable photo."""
+    photo = photo_avatar_url_for_email(avatar_url)
+    if not photo:
+        return ""
+    return round_avatar_img_html(url=photo, name=name, size=size)
+
+
+def _signature_detail_bits(vars_: dict[str, str]) -> str:
     display = vars_["name"]
-    closing = vars_["closing"]
-
-    avatar_src = resolve_avatar_url_for_email(avatar_url, name=display)
-    avatar = round_avatar_img_html(url=avatar_src, name=display, size=48)
-
     detail_bits: list[str] = [
         f'<div style="font-weight:600;color:#111827;font-size:14px;line-height:1.35">'
         f"{html.escape(display)}</div>"
@@ -413,8 +490,88 @@ def compose_default_signature_html(
             + '<span style="color:#d1d5db"> · </span>'.join(contact_parts)
             + "</div>"
         )
+    return "".join(detail_bits)
 
-    details = "".join(detail_bits)
+
+def compose_default_signature_html(
+    *,
+    name: str,
+    email: str | None = None,
+    job_title: str | None = None,
+    company: str | None = None,
+    phone: str | None = None,
+    website: str | None = None,
+    address: str | None = None,
+    language: str | None = None,
+    avatar_url: str | None = None,
+) -> str:
+    """Text-only default: closing + name / role / company / contacts.
+
+    No avatar image — SVG data URIs and many hosted photos break in mail
+    clients. Opt in with a custom template that includes ``{{avatar}}``.
+    ``avatar_url`` is accepted for API compatibility but unused here.
+    """
+    del avatar_url  # unused in text default
+    vars_ = signature_identity_vars(
+        name=name,
+        email=email,
+        job_title=job_title,
+        company=company,
+        phone=phone,
+        website=website,
+        address=address,
+        language=language,
+    )
+    closing = vars_["closing"]
+    details = _signature_detail_bits(vars_)
+    return (
+        f'<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;'
+        f'font-size:14px;line-height:1.45;color:#1f2937">'
+        f'<p style="margin:0 0 14px 0">{html.escape(closing)},</p>'
+        f'<div style="padding-left:14px;border-left:2px solid #e5e7eb">{details}</div>'
+        f"</div>"
+    )
+
+
+def compose_avatar_signature_html(
+    *,
+    name: str,
+    email: str | None = None,
+    job_title: str | None = None,
+    company: str | None = None,
+    phone: str | None = None,
+    website: str | None = None,
+    address: str | None = None,
+    language: str | None = None,
+    avatar_url: str | None = None,
+) -> str:
+    """Optional layout with photo left + details right; falls back to text default."""
+    photo = photo_avatar_url_for_email(avatar_url)
+    if not photo:
+        return compose_default_signature_html(
+            name=name,
+            email=email,
+            job_title=job_title,
+            company=company,
+            phone=phone,
+            website=website,
+            address=address,
+            language=language,
+        )
+    vars_ = signature_identity_vars(
+        name=name,
+        email=email,
+        job_title=job_title,
+        company=company,
+        phone=phone,
+        website=website,
+        address=address,
+        language=language,
+    )
+    display = vars_["name"]
+    closing = vars_["closing"]
+    avatar = round_avatar_img_html(url=photo, name=display, size=48)
+    details = _signature_detail_bits(vars_)
     return (
         f'<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;'
         f'font-size:14px;line-height:1.45;color:#1f2937">'
@@ -479,12 +636,14 @@ async def resolve_signature_html(
     send_as: str,
     user_id: UUID | None = None,
     agent_id: UUID | None = None,
+    channel_account: ChannelAccount | None = None,
+    channel_account_id: UUID | None = None,
 ) -> str | None:
     """Resolve the one signature for this send.
 
-    Chain: identity custom HTML (placeholders rendered) → other-identity custom
-    → dynamic modern default from the active identity → ``None`` so the email
-    adapter can use the mailbox ``signature_html``.
+    Agent send: agent custom → dynamic default (+ disclaimer).
+    User send: mailbox template when source=mailbox → personal → default.
+    When source=sender (or no channel): personal → default.
 
     Agent-identity sends always include the Bokito powered-by disclaimer.
     """
@@ -493,6 +652,17 @@ async def resolve_signature_html(
     ).scalar_one_or_none()
     language = resolve_workspace_language(tenant)
     company = tenant_company_name(tenant)
+
+    account = channel_account
+    if account is None and channel_account_id is not None:
+        account = (
+            await session.execute(
+                select(ChannelAccount).where(
+                    ChannelAccount.id == channel_account_id,
+                    ChannelAccount.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
 
     user: User | None = None
     if user_id:
@@ -525,20 +695,34 @@ async def resolve_signature_html(
         language=language,
     )
 
-    if send_as == "user" and user:
-        signature = user_signature_html(user)
-        if signature:
-            return render_signature_template(signature, user_vars)
-
-    if agent:
+    if send_as == "agent" and agent:
+        agent_avatar = _agent_avatar_url(agent)
         signature = agent_signature_html(agent)
         if signature:
-            rendered = render_signature_template(signature, agent_vars if send_as == "agent" else user_vars)
-            if send_as == "agent":
-                return with_agent_disclaimer(rendered, language=language)
-            return rendered
+            rendered = render_signature_template(
+                signature, agent_vars, avatar_url=agent_avatar
+            )
+            return with_agent_disclaimer(rendered, language=language)
+        body = compose_default_signature_html(
+            name=agent.name or "Assistant",
+            company=company,
+            language=language,
+        )
+        return with_agent_disclaimer(body, language=language)
 
     if send_as == "user" and user:
+        source = mailbox_signature_source(account)
+        if source == SIGNATURE_SOURCE_MAILBOX:
+            mailbox_template = mailbox_signature_html(account)
+            if mailbox_template:
+                return render_signature_template(
+                    mailbox_template, user_vars, avatar_url=user.avatar_url
+                )
+        personal = user_signature_html(user)
+        if personal:
+            return render_signature_template(
+                personal, user_vars, avatar_url=user.avatar_url
+            )
         return compose_default_signature_html(
             name=user.display_name or user.email,
             email=user.email,
@@ -548,18 +732,6 @@ async def resolve_signature_html(
             website=user_extras.get("website"),
             address=user_extras.get("address"),
             language=language,
-            avatar_url=user.avatar_url,
         )
-
-    if agent:
-        body = compose_default_signature_html(
-            name=agent.name or "Assistant",
-            company=company,
-            language=language,
-            avatar_url=_agent_avatar_url(agent),
-        )
-        if send_as == "agent":
-            return with_agent_disclaimer(body, language=language)
-        return body
 
     return None

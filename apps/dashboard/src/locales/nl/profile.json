@@ -9,7 +9,7 @@
     "email": "E-mailadres",
     "fullName": "Volledige naam",
     "jobTitle": "Functietitel",
-    "jobTitlePlaceholder": "bijv. Product Manager",
+    "jobTitlePlaceholder": "Functie",
     "descriptionLabel": "Bio",
     "descriptionPlaceholder": "Een korte bio of omschrijving",
     "saveChanges": "Wijzigingen opslaan",
@@ -21,14 +21,14 @@
   },
   "signature": {
     "title": "E-mailhandtekening",
-    "description": "Wordt automatisch toegevoegd aan antwoorden die je zelf verstuurt of goedkeurt. Placeholders zoals {{name}} en {{company}} worden bij verzenden vanuit je profiel ingevuld.",
-    "empty": "Bokito-standaard: ronde avatar, je naam, rol en contactgegevens.",
+    "description": "Gebruikt wanneer een mailbox op ieders eigen handtekening staat, of wanneer die mailbox geen gedeelde template heeft. Placeholders zoals {{name}} en {{company}} worden bij verzenden vanuit je profiel ingevuld.",
+    "empty": "Bokito-tekststandaard: afsluiting, je naam, rol en contactgegevens.",
     "usingDefault": "Bokito-standaard",
     "add": "Handtekening aanpassen",
     "edit": "Handtekening bewerken",
     "saved": "Handtekening opgeslagen",
     "saveError": "Handtekening opslaan is niet gelukt.",
-    "editorContext": "Je persoonlijke handtekening, gebruikt wanneer een antwoord als jou wordt verstuurd. Laat leeg voor de Bokito-standaard met avatar."
+    "editorContext": "Je persoonlijke handtekening. Gebruikt als de mailboxbron ieders eigen handtekening is, of als de mailbox-template leeg is. Laat leeg voor de Bokito-tekststandaard."
   },
   "language": {
     "title": "Taal",

@@ -24,7 +24,7 @@ describe('default-signature', () => {
     expect(html).not.toContain('T:')
   })
 
-  it('composes a modern default with round avatar', () => {
+  it('composes a text-only default without avatar image', () => {
     const html = composeDefaultSignatureHtml({
       name: 'Lorenzo',
       email: 'lorenzo@bokito.ai',
@@ -35,8 +35,25 @@ describe('default-signature', () => {
     expect(html).toContain('Met vriendelijke groet')
     expect(html).toContain('Lorenzo')
     expect(html).toContain('Founder')
-    expect(html).toContain('border-radius:50%')
-    expect(html).toContain('data:image/svg+xml')
+    expect(html).toContain('border-left:2px solid')
+    expect(html).not.toContain('<img')
+    expect(html).not.toContain('data:image')
+  })
+
+  it('renders {{avatar}} only for https photos', () => {
+    const withPhoto = renderSignatureTemplate('<p>{{avatar}}</p><p>{{name}}</p>', {
+      name: 'Ada',
+      avatarUrl: 'https://cdn.example.com/a.jpg',
+      language: 'en',
+    })
+    expect(withPhoto).toContain('<img')
+    expect(withPhoto).toContain('https://cdn.example.com/a.jpg')
+    const without = renderSignatureTemplate('<p>{{avatar}}</p>', {
+      name: 'Ada',
+      avatarUrl: 'data:image/svg+xml;base64,abc',
+      language: 'en',
+    })
+    expect(without).not.toContain('<img')
   })
 
   it('preview uses default when template is empty', () => {

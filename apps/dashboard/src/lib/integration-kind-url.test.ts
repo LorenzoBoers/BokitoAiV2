@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  coerceHubKindFilter,
   connectedPathWithKind,
   legacyModulesPath,
   marketplacePathWithKind,
@@ -10,7 +11,15 @@ describe('parseKindFilter', () => {
   it('accepts known kinds and defaults to all', () => {
     expect(parseKindFilter('mcp')).toBe('mcp')
     expect(parseKindFilter('app')).toBe('app')
+    expect(parseKindFilter('modules')).toBe('modules')
     expect(parseKindFilter('nope')).toBe('all')
+  })
+})
+
+describe('coerceHubKindFilter', () => {
+  it('maps marketplace Modules chip away on the Connections hub', () => {
+    expect(coerceHubKindFilter('modules')).toBe('all')
+    expect(coerceHubKindFilter('calendar')).toBe('calendar')
   })
 })
 

@@ -52,6 +52,39 @@ async def get_ai_language(
     }
 
 
+class EmailSignatureUpdate(BaseModel):
+    email_signature_html: str | None = None
+
+
+@router.get("/settings/email-signature")
+async def get_email_signature(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Workspace email signature template (placeholders filled per sender)."""
+    from app.services.signatures import tenant_signature_html
+
+    return {"email_signature_html": tenant_signature_html(auth.tenant)}
+
+
+@router.put("/settings/email-signature")
+async def update_email_signature(
+    body: EmailSignatureUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.signatures import MAX_SIGNATURE_LENGTH, set_tenant_signature_html, tenant_signature_html
+
+    auth.require_role("owner", "admin")
+    raw = body.email_signature_html if body.email_signature_html is not None else ""
+    if len(raw) > MAX_SIGNATURE_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Signature too long (max {MAX_SIGNATURE_LENGTH})")
+    tenant = auth.tenant
+    set_tenant_signature_html(tenant, raw)
+    session.add(tenant)
+    await session.commit()
+    return {"email_signature_html": tenant_signature_html(tenant)}
+
+
 @router.put("/settings/ai-language")
 async def update_ai_language(
     body: AiLanguageUpdate,

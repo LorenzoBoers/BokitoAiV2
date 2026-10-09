@@ -57,17 +57,29 @@ Een persoon als eigenaar houdt het gesprek vast: agents maken dan alleen concept
 4. **Notitie** is alleen voor het team. De omlijning is grijs. Gebruik die voor overdracht en context die de workspace niet mag verlaten.
 5. Op een AI-gesprek (`assistant`) of een AI check-in ontbreekt Antwoord — alleen Vraag en Notitie blijven, met **Notitie** na **Vraag**. Slash-commando's en `@`-mentions blijven werken.
 
+## Een e-mailgesprek lezen
+
+Chatberichten zijn wolkjes; een e-mail is een document en staat daarom als mailkaart op neutraal papier. Wie de mail stuurde zie je aan de envelopband bovenin en aan de kant waar de kaart hangt, net als bij chatwolkjes.
+
+![Een ontvangen mailkaart en een AI-mailkaart in een e-mailgesprek](/api/docs/assets/communication/mail-card.png)
+*Elke mail is een kaart: de envelopband noemt afzender en ontvangers, de inhoud is de mail zoals die verstuurd is.*
+
+1. Open een e-mailgesprek. Ontvangen mail hangt links met de contactavatar; mail die jij stuurde hangt rechts met een groene band; mail van een agent draagt een chip **AI** en een paarse band. De inhoud staat altijd op wit, zodat handtekeningen, citaten en afbeeldingen eruitzien zoals in de mailclient.
+2. De band leest **Afzender · aan jou, +1**. Klik erop om **Van**, **Aan**, **CC** en **BCC** volledig te tonen; klik nogmaals om ze weer in te klappen. De tijd staat rechts, met een vinkje zodra de mail weg is.
+3. Oudere mail klapt in tot de band met de eerste regel van de inhoud. De nieuwste mail en de nieuwste ontvangen mail blijven open. Klik op een ingeklapte band om die mail te openen.
+4. Hover een kaart voor de acties: **Beantwoorden**, **Allen beantwoorden** en **Doorsturen** op ontvangen mail; **Doorsturen** en **Tekst kopiëren** op mail van jou, een collega of een agent.
+
 ## Een e-mail beantwoorden, allen beantwoorden of doorsturen
 
 E-mailgesprekken antwoorden zoals een mailclient: elke ontvangen mail draagt eigen antwoordknoppen, en de composer groeit naar een volledige mailweergave zodra je ze gebruikt.
 
-![Mailcomposer geopend via Beantwoorden op een mailwolk](/api/docs/assets/communication/mail-reply.png)
-*Beantwoorden op een mailwolk laat de composer groeien naar een mailweergave: ontvangers, onderwerp, handtekening en geciteerde geschiedenis.*
+![Mailcomposer geopend via Beantwoorden op een mailkaart](/api/docs/assets/communication/mail-reply.png)
+*Beantwoorden op een mailkaart laat de composer groeien naar een mailweergave: ontvangers, onderwerp, handtekening en geciteerde geschiedenis.*
 
-1. Open een e-mailgesprek. Beweeg over een ontvangen mail en kies in de actierij **Beantwoorden** (pijl naar links), **Allen beantwoorden** (dubbele pijl — alleen zichtbaar wanneer meer mensen op de mail stonden) of **Doorsturen** (pijl naar rechts).
+1. Open een e-mailgesprek. Beweeg over een ontvangen mailkaart en kies in de actierij **Beantwoorden** (pijl naar links), **Allen beantwoorden** (dubbele pijl — alleen zichtbaar wanneer meer mensen op de mail stonden) of **Doorsturen** (pijl naar rechts).
 2. De composer onderin groeit naar een mailweergave, met daarboven een mini-weergave van de thread. **Aan** is vooringevuld vanuit de mail die je aanklikte (leeg bij doorsturen), **CC/BCC** opent extra ontvangervelden en het onderwerp is bewerkbaar — `Re:` of `Fwd:` staat al klaar. **Van** wisselt van mailbox wanneer er meer dan één kan versturen.
 3. Schrijf je bericht. Je handtekening staat onder de invoer, precies zoals die meegaat. De drie puntjes eronder klappen de geciteerde mailgeschiedenis uit die wordt meegestuurd. AI-schrijfhulp, dicteren en de bijlageknop blijven beschikbaar.
-4. Verstuur met de knop of **Ctrl+Enter**. De mail landt in de tijdlijn als een uitklapbare mailwolk met alleen jouw bericht, en de composer keert terug naar zijn normale formaat. Een korte melding biedt **Ongedaan maken**; kies je die, dan gaat de mail niet weg en komt je tekst terug als mailconcept.
+4. Verstuur met de knop of **Ctrl+Enter**. De mail landt in de tijdlijn als mailkaart aan de rechterkant met alleen jouw bericht, en de composer keert terug naar zijn normale formaat. Een korte melding biedt **Ongedaan maken**; kies je die, dan gaat de mail niet weg en komt je tekst terug als mailconcept.
 5. **Esc** of de **X** in de hoek sluit de mailweergave zonder te versturen. Je concept wordt automatisch bewaard — een chip **Mailconcept** boven de composer biedt **Verder schrijven** of verwijdert het via het prullenbak-icoon. Het concept overleeft threadwissels en herladen; versturen ruimt het op.
 
 ## Zie en wijzig wat de AI doet

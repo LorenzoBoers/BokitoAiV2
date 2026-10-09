@@ -1,8 +1,8 @@
 ---
 title: Kanalen koppelen
 intro: Breng klantmail en andere inboxen naar Communicatie.
-description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP of WhatsApp, lees de status en controles per kanaal, en pauzeer, archiveer of verwijder een kanaal.
-keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening, kanaal pauzeren, kanaal archiveren, kanaal herstellen, kanaal verwijderen, automatische mail archiveren, nieuwsbrieven, syncfouten
+description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP of WhatsApp, lees de status en controles per kanaal, en zet een kanaal uit, koppel het los of verwijder het.
+keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening, kanaal uitzetten, kanaal loskoppelen, kanaal terugzetten, kanaal verwijderen, automatische mail archiveren, nieuwsbrieven, syncfouten
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
@@ -80,24 +80,24 @@ Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 
 Setupgids, Koppelingen, Kanalen en de reply-composer gebruiken dezelfde kanaalstatus. Alleen een agenda-login telt niet als verzendklare mailbox — Koppelingen toont dan dat de agenda gesynchroniseerd is terwijl mail nog niet klaar is.
 
-1. Bekijk de status rechts op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Gepauzeerd**, **Fout** of **Gearchiveerd**. **Verbinden** hoort alleen tijdens een installatie die nog loopt — na een geslaagde koppeling zie je **Actief**.
-2. Heeft een kanaal een mens nodig, dan toont de rij één herstelknop naast de status: **Opnieuw koppelen**, **Sync opnieuw proberen** of **Hervatten**. Een gele melding boven de lijst telt de kanalen die nog niet klaar zijn, en de eerste daarvan gaat vanzelf open.
+1. Bekijk de status rechts op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Uit**, **Fout** of **Ontkoppeld**. **Verbinden** hoort alleen tijdens een installatie die nog loopt — na een geslaagde koppeling zie je **Actief**.
+2. Heeft een kanaal een mens nodig, dan toont de rij één herstelknop naast de status: **Opnieuw koppelen**, **Sync opnieuw proberen** of **Aanzetten**. Een gele melding boven de lijst telt de kanalen die nog niet klaar zijn, en de eerste daarvan gaat vanzelf open.
 3. Klik op de rij en lees **Status**. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
 4. Bij een mailbox staat **Geschiedenis** in de sectie **Mailbox** voor latere backfills na opnieuw koppelen. Hoe ver terug bij de eerste installatie kies je tijdens **Kanaal toevoegen**.
-5. Een mailbox die 50 keer achter elkaar niet kan synchroniseren pauzeert zichzelf in plaats van eindeloos opnieuw te proberen. De rij toont **Gepauzeerd**, **Syncfouten** toont de reden en er komt een melding in Communicatie. Herstel de aanmelding of server en kies **Hervatten**; een geslaagde sync zet de teller op nul.
+5. Een mailbox die 50 keer achter elkaar niet kan synchroniseren zet zichzelf uit in plaats van eindeloos opnieuw te proberen. De rij toont **Uit**, **Syncfouten** toont de reden en er komt een melding in Communicatie. Herstel de aanmelding of server en kies **Aanzetten**; een geslaagde sync zet de teller op nul.
 
-## Pauzeer of archiveer een kanaal
+## Zet een kanaal uit of koppel het los
 
 1. Klik op de kanaalrij en scroll naar **Beheer**.
-2. Kies **Pauzeren** naast **Kanaal pauzeren** voor een korte onderbreking. Een gepauzeerd kanaal ontvangt en verstuurt niets nieuws; gesprekken en instellingen blijven bewaard. Een gepauzeerde mailbox is ook geen primaire afzender meer. Kies **Hervatten** om weer te ontvangen en te verzenden.
-3. Kies **Archiveren** naast **Kanaal archiveren** als je het kanaal niet meer gebruikt. Synchroniseren en verzenden stoppen, en Bokito vergeet de inlog. De websitechat kun je alleen archiveren als de workspace er nog een heeft.
-4. De rij zakt naar onderen in de lijst en toont **Gearchiveerd**. De gesprekken blijven in Communicatie, en **Toegang** op de kanaalpagina bepaalt nog steeds wie ze ziet.
-5. Kies **Herstellen** om het kanaal terug te zetten als **Gepauzeerd**, en koppel of hervat het daarna. Dezelfde mailbox opnieuw koppelen via **Kanaal toevoegen** haalt het ook uit het archief.
+2. Zet onder **Ontvangen en verzenden** de schakelaar uit voor een korte pauze. Er komt en gaat niets nieuws; de inlog blijft staan zodat je het met één klik weer aanzet. Een uitgezette mailbox is ook geen primaire afzender meer.
+3. Kies **Loskoppelen** als je het kanaal niet meer gebruikt. Synchroniseren en verzenden stoppen, en Bokito vergeet de inlog. De websitechat kun je alleen loskoppelen als de workspace er nog een heeft.
+4. De rij zakt naar onderen in de lijst en toont **Ontkoppeld**. De gesprekken blijven in Communicatie, en **Toegang** op de kanaalpagina bepaalt nog steeds wie ze ziet.
+5. Kies **Terugzetten** om het kanaal terug te zetten als **Uit**, en koppel het account opnieuw of zet ontvangen aan. Dezelfde mailbox opnieuw koppelen via **Kanaal toevoegen** wist de ontkoppeling ook.
 
 ## Verwijder een kanaal met alle data
 
-1. Archiveer het kanaal eerst. Een kanaal met gesprekken kun je niet direct verwijderen.
-2. Open het gearchiveerde kanaal en kies **Definitief verwijderen** naast **Verwijderen met alle data** onder **Beheer**.
+1. Koppel het kanaal eerst los. Een kanaal met gesprekken kun je niet direct verwijderen.
+2. Open het ontkoppelde kanaal en kies **Definitief verwijderen** naast **Verwijderen met alle data** onder **Beheer**.
 3. Het venster toont hoeveel gesprekken meegaan. Typ het adres of de naam van het kanaal om te bevestigen en kies **Definitief verwijderen**.
 4. Het kanaal en elk gesprek dat via dit kanaal binnenkwam worden verwijderd, inclusief berichten en bijlagen. Ze gaan niet naar de Prullenbak en zijn niet terug te halen.
 
@@ -105,7 +105,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 
 ## Zet een handtekening en standaardagent
 
-1. Klik op de rij van een mailbox of Bokito-adres en kies **Wijzigen** naast **Handtekening**. Uitgaande mail vanaf dat adres voegt die toe wanneer de afzender geen persoonlijke handtekening heeft. Persoonlijke handtekeningen (Profiel) en agenthandtekeningen gaan voor; placeholders zoals `{{name}}` worden bij verzenden ingevuld. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
+1. Klik op de rij van een mailbox of Bokito-adres. Onder **Handtekeningbron** kies je **Mailbox-handtekening** (één gedeelde template voor iedereen; placeholders zoals `{{name}}` worden per afzender ingevuld) of **Ieders eigen handtekening** (via **Profiel**). Bij mailboxbron kies je **Wijzigen** naast **Handtekening** voor de template. In de editor open je **Voorbeeld** en kies je met **Voorbeeld als** jezelf, een teamlid, een agent of voorbeeldgegevens. Placeholders komen uit dat profiel; een foto verschijnt alleen als de template `{{avatar}}` bevat (template **Met profielfoto**) en die persoon een publieke https-foto heeft. Is de template leeg, of staat de bron op ieders eigen, dan gebruikt Bokito de persoonlijke handtekening en daarna de Bokito-standaard. Agent-sends blijven de agenthandtekening gebruiken. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
 2. Kies onder **Algemeen** een **Eigenaar-team** voor nieuwe gesprekken tot iemand ze oppakt, en een **AI-agent** voor AI-afhandeling. Zonder agent behandelt de standaardagent van de werkruimte nieuwe gesprekken.
 3. Kies **Toegang** om de toegangsmatrix te openen. Zet **Zien** en **Afhandelen** per team, persoon en agent aan of uit. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Teams dekken hun leden — iemand zonder eigen toekenning volgt nog steeds **Alle mensen**. Eigenaren en beheerders handelen altijd elk kanaal af.
 4. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.

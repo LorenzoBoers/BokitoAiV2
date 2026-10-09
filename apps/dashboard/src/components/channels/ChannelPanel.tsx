@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
-import { Archive, ArchiveRestore, Pause, Play, Trash2 } from 'lucide-react'
+import { ArchiveRestore, Trash2, Unplug } from 'lucide-react'
 import { Button } from '../ui/button'
+import { Switch } from '../ui/switch'
 import AgentBindingPicker from '../settings/AgentBindingPicker'
 import { useAuth } from '../../context/AuthContext'
 import { AccessPicker } from '../access/AccessPicker'
@@ -18,9 +19,9 @@ import type { ChannelActions } from './channel-actions'
 
 /**
  * The same four sections for every channel: what works (Status), how
- * conversations are handled (General), what only this kind has, and pause,
- * archive, restore or delete (Manage). An archived channel keeps only its
- * name and access.
+ * conversations are handled (General), what only this kind has, and Manage
+ * (turn off, disconnect, bring back, delete). A disconnected channel keeps
+ * only its name and access — same pattern as Front / Help Scout inboxes.
  */
 export default function ChannelPanel({
   row,
@@ -119,23 +120,23 @@ export default function ChannelPanel({
         <ChannelSection title={t('channelsPage.section.manage')}>
           {canPause ? (
             <ChannelSetting
-              label={row.isEnabled ? t('channelsPage.pauseTitle') : t('channelsPage.resumeTitle')}
-              hint={row.isEnabled ? t('channelsPage.pauseHint') : t('channelsPage.resumeHint')}
+              label={t('channelsPage.receivingTitle')}
+              hint={t('channelsPage.receivingHint')}
             >
-              <Button
-                variant="secondary"
-                size="sm"
+              <Switch
+                checked={row.isEnabled}
                 disabled={busy}
-                onClick={() => actions.setPaused(row, row.isEnabled)}
+                onCheckedChange={(on) => actions.setPaused(row, !on)}
                 data-testid="channel-pause-toggle"
-              >
-                {row.isEnabled ? <Pause size={13} /> : <Play size={13} />}
-                {row.isEnabled ? t('channelsPage.pause') : t('channelsPage.resume')}
-              </Button>
+                aria-label={t('channelsPage.receivingTitle')}
+              />
             </ChannelSetting>
           ) : null}
           {canArchive ? (
-            <ChannelSetting label={t('channelsPage.archiveTitle')} hint={t('channelsPage.archiveHint')}>
+            <ChannelSetting
+              label={t('channelsPage.disconnectTitle')}
+              hint={t('channelsPage.disconnectHint')}
+            >
               <Button
                 variant="secondary"
                 size="sm"
@@ -143,8 +144,8 @@ export default function ChannelPanel({
                 onClick={() => actions.archive(row)}
                 data-testid="channel-archive"
               >
-                <Archive size={13} />
-                {t('channelsPage.archive')}
+                <Unplug size={13} />
+                {t('channelsPage.disconnect')}
               </Button>
             </ChannelSetting>
           ) : null}

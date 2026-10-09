@@ -21,7 +21,7 @@ settings = get_settings()
 
 def _is_platform_mark(url: str) -> bool:
     path = url.split("?", 1)[0].rstrip("/")
-    return path.endswith("bokito-logo.svg")
+    return path.endswith("bokito-logo.svg") or path.endswith("bokito-logo.png")
 
 
 def _asset_url(value: Any) -> str:

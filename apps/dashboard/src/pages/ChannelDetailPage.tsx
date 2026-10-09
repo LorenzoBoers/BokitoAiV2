@@ -25,7 +25,11 @@ import {
   syncChannel,
   type ChannelRow,
 } from '../lib/channels-api'
-import { getConnectionSignature, saveConnectionSignature } from '../lib/email-api'
+import {
+  getConnectionSignature,
+  saveConnectionSignature,
+  type SignatureSource,
+} from '../lib/email-api'
 import { listMailboxFolders, saveMailboxFolders, type MailboxFolder } from '../lib/inbox-api'
 import { cn } from '../lib/utils'
 import type { AssistantSection } from '../lib/assistant-settings-path'
@@ -64,6 +68,7 @@ export default function ChannelDetailPage() {
 
   const [signatureTarget, setSignatureTarget] = useState<MailboxTarget | null>(null)
   const [signatureHtml, setSignatureHtml] = useState('')
+  const [signatureSource, setSignatureSourceState] = useState<SignatureSource>('mailbox')
   const [folderTarget, setFolderTarget] = useState<MailboxTarget | null>(null)
   const [folders, setFolders] = useState<MailboxFolder[]>([])
   const [foldersLoading, setFoldersLoading] = useState(false)
@@ -208,17 +213,48 @@ export default function ChannelDetailPage() {
           return
         }
         void getConnectionSignature(token, target.connectionId)
-          .then((html) => {
-            setSignatureHtml(html)
+          .then((cfg) => {
+            setSignatureHtml(cfg.signatureHtml)
+            setSignatureSourceState(cfg.signatureSource)
             setSignatureTarget(target)
           })
           .catch(() => toast.error(t('channelsPage.signatureLoadError')))
+      },
+      setSignatureSource: (channel, source) => {
+        const target = mailboxTarget(channel)
+        if (!token || !target) {
+          toast.error(t('channelsPage.signatureSaveError'))
+          return
+        }
+        void saveConnectionSignature(token, target.connectionId, { signatureSource: source })
+          .then((cfg) => {
+            setSignatureSourceState(cfg.signatureSource)
+            toast.success(t('channelsPage.signatureSourceSaved'))
+          })
+          .catch(() => toast.error(t('channelsPage.signatureSaveError')))
       },
       aiHandlingChanged: (channel, next) => apply({ ...channel, aiHandling: next }),
       accessChanged: () => void load(),
     }),
     [token, t, apply, mailboxTarget, load],
   )
+
+  // Deep-link from the mail composer: open the signature editor.
+  useEffect(() => {
+    if (!row || searchParams.get('edit') !== 'signature') return
+    const target = mailboxTarget(row)
+    if (!target || !token) return
+    void getConnectionSignature(token, target.connectionId)
+      .then((cfg) => {
+        setSignatureHtml(cfg.signatureHtml)
+        setSignatureSourceState(cfg.signatureSource)
+        setSignatureTarget(target)
+        const params = new URLSearchParams(searchParams)
+        params.delete('edit')
+        setSearchParams(params, { replace: true })
+      })
+      .catch(() => toast.error(t('channelsPage.signatureLoadError')))
+  }, [row, searchParams, mailboxTarget, token, t, setSearchParams])
 
   const setTab = (next: WidgetTab) => {
     const params = new URLSearchParams(searchParams)
@@ -499,7 +535,10 @@ export default function ChannelDetailPage() {
           initialSignature={signatureHtml}
           onSave={(signature) => {
             if (!token) return
-            void saveConnectionSignature(token, signatureTarget.connectionId, signature).then(() => {
+            void saveConnectionSignature(token, signatureTarget.connectionId, {
+              signatureHtml: signature,
+              signatureSource,
+            }).then(() => {
               setSignatureTarget(null)
               void refreshConnections()
             })

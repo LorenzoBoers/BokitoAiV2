@@ -459,7 +459,6 @@ export function ProfileSettingsContent() {
     patchLocalUser({ jobTitle: next || null })
   }, [token, patchLocalUser])
 
-  // Personal email signature: appended to replies sent as this user.
   const [signatureEditorOpen, setSignatureEditorOpen] = useState(false)
   const signatureIdentity = useMemo<SignatureIdentityVars>(
     () => ({
@@ -648,7 +647,7 @@ export function ProfileSettingsContent() {
         </Card>
       </Section>
 
-      {/* ── Email signature ── */}
+      {/* ── Email signature (personal fallback) ── */}
       <Section title={t('profile:signature.title')} description={t('profile:signature.description')}>
         <Card>
           <div className="flex items-center justify-between gap-4 py-3.5 pr-4">
@@ -657,7 +656,7 @@ export function ProfileSettingsContent() {
                 <p className="mb-2 text-xs font-medium text-text-muted">{t('profile:signature.usingDefault')}</p>
               )}
               <div
-                className="max-h-36 overflow-hidden text-sm text-text-secondary [&_img]:inline-block"
+                className="signature-preview max-h-36 overflow-hidden text-sm [&_img]:inline-block"
                 dangerouslySetInnerHTML={{ __html: signaturePreviewHtml }}
               />
             </div>
@@ -681,14 +680,11 @@ export function ProfileSettingsContent() {
           contextLabel={t('profile:signature.editorContext')}
           identity={signatureIdentity}
         />
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        <p className="mt-2 text-xs text-text-muted">
           <Link to="/settings/channels" className="font-medium text-accent hover:underline">
             {t('profile:links.openMailboxSignatures')}
           </Link>
-          <Link to="/settings/notifications" className="font-medium text-accent hover:underline">
-            {t('profile:links.openNotifications')}
-          </Link>
-        </div>
+        </p>
       </Section>
 
       {/* ── Language ── */}

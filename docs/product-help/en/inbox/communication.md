@@ -57,17 +57,29 @@ A person owner holds the conversation: agents only draft. Handing it to an agent
 4. **Note** is team-only. The composer outline is gray. Use it for handoffs and context that must not leave the workspace.
 5. On an AI chat (`assistant` channel) or an AI check-in, Reply is hidden — only Ask and Note stay, with **Note** after **Ask**. Slash verbs and `@` mentions still work.
 
+## Read an email thread
+
+Chat messages are bubbles; an email is a document, so it renders as a mail card on neutral paper. Who sent it shows in the envelope band on top and in the side the card hangs on, the same way chat bubbles do.
+
+![An inbound mail card and an AI mail card in an email conversation](/api/docs/assets/communication/mail-card.png)
+*Every mail is a card: the envelope band names the sender and recipients, the body is the mail as it was sent.*
+
+1. Open an email conversation. Received mail hangs left with the contact avatar; mail you sent hangs right with a green band; mail an agent sent carries an **AI** chip and a purple band. The body always sits on white, so signatures, quotes and images look as they did in the mail client.
+2. The band reads **Sender · to you, +1**. Click it to show **From**, **To**, **CC** and **BCC** in full; click again to fold them away. The time sits on the right, with a check once the mail went out.
+3. Older mail folds to its band with the first line of the body. The newest mail and the newest received mail stay open. Click a folded band to open that mail.
+4. Hover a card for its actions: **Reply**, **Reply all** and **Forward** on received mail; **Forward** and **Copy text** on mail sent by you, a colleague or an agent.
+
 ## Reply, reply all or forward an email
 
 Email conversations answer like a mail client: every received mail carries its own reply buttons, and the composer grows into a full mail view when you use them.
 
-![Mail composer opened from a Reply bubble action](/api/docs/assets/communication/mail-reply.png)
-*Reply on a mail bubble grows the composer into a mail view: recipients, subject, signature and quoted history.*
+![Mail composer opened from a Reply card action](/api/docs/assets/communication/mail-reply.png)
+*Reply on a mail card grows the composer into a mail view: recipients, subject, signature and quoted history.*
 
-1. Open an email conversation. On a received mail, hover the bubble and choose **Reply** (left arrow), **Reply all** (double arrow — shown only when more people were on the mail) or **Forward** (right arrow) in its action row.
+1. Open an email conversation. On a received mail, hover the card and choose **Reply** (left arrow), **Reply all** (double arrow — shown only when more people were on the mail) or **Forward** (right arrow) in its action row.
 2. The composer at the bottom grows into a mail view, with a mini thread view above it. **To** is prefilled from the mail you clicked (empty on a forward), **CC/BCC** opens extra recipient fields, and the subject is editable — `Re:` or `Fwd:` is set for you. **From** switches mailboxes when more than one can send.
 3. Write your message. Your signature sits under the input exactly as it will be sent. The three dots below it expand the quoted mail history that goes along. AI write help, dictation and the attachment button stay available.
-4. Send with the button or **Ctrl+Enter**. The mail lands in the timeline as an expandable mail bubble with only your message, and the composer returns to its normal size. A short toast offers **Undo**; choosing it keeps the mail from going out and puts your text back as a mail draft.
+4. Send with the button or **Ctrl+Enter**. The mail lands in the timeline as a mail card on the right with only your message, and the composer returns to its normal size. A short toast offers **Undo**; choosing it keeps the mail from going out and puts your text back as a mail draft.
 5. **Esc** or the **X** in the corner closes the mail view without sending. Your draft is saved automatically — a **Mail draft** chip above the composer offers **Continue writing** or discards it with the bin icon. The draft survives thread switches and reloads; sending clears it.
 
 ## See and change what the AI does

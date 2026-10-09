@@ -31,15 +31,18 @@ function providerToIntegration(
 ): Integration {
   const status: IntegrationStatus =
     p.status === 'coming_soon' ? 'coming_soon' : count > 0 ? 'connected' : 'available'
-  const id = staticRow?.id ?? p.slug
+  // Prefer slug→staticId map (unique per provider). Never inherit another
+  // provider's static id/kind — that duplicated Dropbox under the wrong lane.
+  const id = SLUG_TO_STATIC_ID[p.slug] ?? p.slug
   const brand = resolveProviderBrand(p.slug, p.host ?? null, p.logo_meta, p.name)
+  const kind = resolveIntegrationKind(p.slug, p.capabilities)
   const base: Integration = {
     id,
     name: p.name,
     description: p.description || staticRow?.description || '',
     category: staticRow?.category ?? 'Productivity',
     status,
-    kind: staticRow?.kind ?? resolveIntegrationKind(p.slug, p.capabilities),
+    kind,
     color: brand.color,
     initials: brand.initials,
     logoUrl: brand.logoUrl,
@@ -87,7 +90,11 @@ export function useIntegrationCatalog() {
   const findProviderForIntegration = useCallback(
     (integration: Integration): IntegrationProviderRow | undefined => {
       const slug = integrationIdToPlatformSlug(integration.id)
-      return providers.find((p) => p.slug === slug || SLUG_TO_STATIC_ID[p.slug] === integration.id)
+      return (
+        providers.find((p) => p.slug === slug) ||
+        providers.find((p) => p.slug === integration.id) ||
+        providers.find((p) => SLUG_TO_STATIC_ID[p.slug] === integration.id)
+      )
     },
     [providers],
   )
@@ -121,13 +128,29 @@ export function useIntegrationCatalog() {
       const staticById = new Map(INTEGRATIONS.map((i) => [i.id, i]))
       // API is source of truth (includes DB-backed remote MCP presets).
       const liveProviders = p
-      const fromApi: Integration[] = liveProviders.map((row) => {
+      const hostsWithNativeOffer = new Set(
+        liveProviders
+          .filter((row) => row.capabilities?.mcp_tools !== true)
+          .map((row) => row.host?.slug)
+          .filter((slug): slug is string => Boolean(slug)),
+      )
+      // Hide empty remote-MCP placeholders when the same host already has a
+      // native/OAuth offer (e.g. core Dropbox documents + dropbox_mcp stub).
+      const catalogProviders = liveProviders.filter((row) => {
+        const emptyRemoteMcp =
+          row.capabilities?.mcp_tools === true &&
+          row.status === 'coming_soon' &&
+          !String(row.mcp_remote_url || '').trim()
+        const hostSlug = row.host?.slug
+        return !(emptyRemoteMcp && hostSlug && hostsWithNativeOffer.has(hostSlug))
+      })
+      const fromApi: Integration[] = catalogProviders.map((row) => {
         const count = connectionCountForProvider(row, connection_counts)
         const staticId = SLUG_TO_STATIC_ID[row.slug] ?? row.slug
         return providerToIntegration(row, count, staticById.get(staticId))
       })
       const coveredStaticIds = new Set(
-        liveProviders.map((row) => SLUG_TO_STATIC_ID[row.slug] ?? row.slug),
+        catalogProviders.map((row) => SLUG_TO_STATIC_ID[row.slug] ?? row.slug),
       )
       const missingStatic = INTEGRATIONS.filter((i) => !coveredStaticIds.has(i.id)).map((i) => ({
         ...i,

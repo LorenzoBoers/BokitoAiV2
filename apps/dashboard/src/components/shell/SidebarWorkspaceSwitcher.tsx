@@ -1,11 +1,10 @@
 import { Building2, Check, ChevronsUpDown, LayoutGrid, Gauge } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useTheme } from '../../context/ThemeContext'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { buildControlPlaneUrl } from '../../lib/host-routing'
 import { REPORTS_PATH } from '../../lib/navigation'
-import { DEFAULT_BRAND_MARK, resolveBrandIconUrl, workspaceBrandName, BOKITO_MARK_FILTER_DARK, BOKITO_MARK_FILTER_LIGHT } from '../../lib/tenant-branding'
+import { DEFAULT_BRAND_MARK, resolveBrandIconUrl, workspaceBrandName } from '../../lib/tenant-branding'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,19 +45,15 @@ type SidebarWorkspaceSwitcherProps = {
  */
 export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: SidebarWorkspaceSwitcherProps) {
   const { t } = useTranslation('nav')
-  const { isDark } = useTheme()
   const navigate = useNavigate()
   const goToWorkspacesHub = useGoToWorkspacesHub()
   const { currentWorkspace, workspaces, switchWorkspace } = useWorkspace()
   const brandName = workspaceBrandName(currentWorkspace)
   const brandIconUrl = resolveBrandIconUrl(currentWorkspace)
   const markSrc = brandIconUrl || DEFAULT_BRAND_MARK
-  const markStyle = brandIconUrl
-    ? undefined
-    : { filter: isDark ? BOKITO_MARK_FILTER_DARK : BOKITO_MARK_FILTER_LIGHT }
 
   const mark = (
-    <img src={markSrc} alt="" className="h-5 w-5 shrink-0 rounded object-contain" style={markStyle} />
+    <img src={markSrc} alt="" className="h-5 w-5 shrink-0 rounded-full object-contain" />
   )
 
   if (!currentWorkspace) {

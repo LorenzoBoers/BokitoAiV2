@@ -17,6 +17,7 @@ export type ChannelActions = {
   setArchiveAutomatedMail: (row: ChannelRow, enabled: boolean) => void
   editFolders: (row: ChannelRow) => void
   editSignature: (row: ChannelRow) => void
+  setSignatureSource: (row: ChannelRow, source: 'mailbox' | 'sender') => void
   aiHandlingChanged: (row: ChannelRow, next: AiHandling | null) => void
   accessChanged: (row: ChannelRow) => void
 }

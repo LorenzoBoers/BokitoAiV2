@@ -99,6 +99,11 @@ describe('flattenApplicationOffers', () => {
     expect(inbox[0].offer.kind).toBe('inbox')
     const all = filterOfferRows(flattenApplicationOffers([makeApp()]), 'all', 'calendar', t)
     expect(all.map((row) => row.offer.integration.id)).toEqual(['google-calendar'])
+    expect(filterOfferRows(flattenApplicationOffers([makeApp()]), 'modules', '', t)).toEqual([])
+    // Kind-label text must not widen search (badge "Communicatie" ≠ name/description).
+    expect(filterOfferRows(flattenApplicationOffers([makeApp()]), 'all', 'Communicatie', t)).toEqual(
+      [],
+    )
 
     const mixed = makeApp()
     mixed.offers.push({

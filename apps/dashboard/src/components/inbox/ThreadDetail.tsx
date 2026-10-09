@@ -1471,6 +1471,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           contactPhone={thread.contactPhone}
           agentName={thread.agentName}
           agentId={thread.agentId}
+          channelAccountId={thread.channelAccountId ?? null}
           agentAvatarKind={thread.agentAvatarKind}
           agentAvatarIcon={thread.agentAvatarIcon}
           agentAvatarColor={thread.agentAvatarColor}

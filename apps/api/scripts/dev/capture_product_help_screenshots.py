@@ -37,6 +37,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/communication/inbox/open", "communication", "agent-turn"),
     ("/communication/inbox/open", "communication", "hashtags"),
     ("/communication/inbox/open", "communication", "stale-draft"),
+    ("/communication/inbox/open", "communication", "mail-card"),
     ("/communication/inbox/open", "communication", "mail-reply"),
     ("/settings/action-tags", "categories", "catalog"),
     ("/communication/tag/klacht/all", "categories", "ticket-panel"),
@@ -110,8 +111,20 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ("communication", "agent-turn"): [
         ("click", 'main [role="button"][tabindex="0"]:has-text("Bokito Assistant")'),
     ],
+    # Mail cards: open the first mailbox channel and an email thread with
+    # inbound mail; the newest mail and the newest received mail are open.
+    ("communication", "mail-card"): [
+        ("click", '[data-section="channels"] button.nav-row'),
+        (
+            "click",
+            'main [role="button"][tabindex="0"]:has-text("Sanne de Vries"), '
+            'main [role="button"][tabindex="0"]:has-text("Mail Klant"), '
+            'main [role="button"][tabindex="0"]',
+        ),
+        ("wait", '[data-testid="mail-card"]'),
+    ],
     # Mail-native composer: open the first mailbox channel, pick an email
-    # thread with inbound mail, then start Reply from the bubble actions.
+    # thread with inbound mail, then start Reply from the card actions.
     ("communication", "mail-reply"): [
         ("click", '[data-section="channels"] button.nav-row'),
         (
@@ -120,14 +133,10 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
             'main [role="button"][tabindex="0"]:has-text("Harold"), '
             'main [role="button"][tabindex="0"]',
         ),
-        # The bubble actions are hover-revealed; a programmatic click on the
-        # newest mail's Reply button avoids hit-testing the hidden overlay.
-        (
-            "eval",
-            "(() => { const btns = document.querySelectorAll("
-            "'button[aria-label=\"Beantwoorden\"], button[aria-label=\"Reply\"]');"
-            " const b = btns[btns.length - 1]; if (b) b.click(); })()",
-        ),
+        # The card toolbar mounts on hover (portal); hover the newest
+        # inbound card first, then click its Reply button.
+        ("hover", '[data-testid="mail-card"][data-tone="external"] >> nth=-1'),
+        ("click", 'button[aria-label="Beantwoorden"], button[aria-label="Reply"]'),
         ("wait", '[data-testid="mail-composer-body"]'),
     ],
     ("communication", "hashtags"): [
@@ -258,6 +267,8 @@ def main() -> int:
                             target = page.locator(selector).first
                             if action == "click":
                                 target.click(timeout=5000)
+                            elif action == "hover":
+                                target.hover(timeout=5000)
                             elif action == "wait":
                                 target.wait_for(state="visible", timeout=10000)
                             else:

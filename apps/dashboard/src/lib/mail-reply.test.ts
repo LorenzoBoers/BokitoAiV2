@@ -3,6 +3,7 @@ import {
   buildMailDraftIntent,
   buildQuotedHtml,
   canReplyAll,
+  formatAddressListDisplay,
   forwardSubject,
   parseAddressList,
   replySubject,
@@ -39,6 +40,17 @@ describe('mail-reply', () => {
   it('parses name-addr and bare headers', () => {
     expect(parseAddressList('Harold <h@x.nl>, b@y.nl')).toEqual(['h@x.nl', 'b@y.nl'])
     expect(parseAddressList('')).toEqual([])
+  })
+
+  it('parses JSON-array address headers and formats for display', () => {
+    const raw = '["lorenzo_boers@outlook.com", "yolorenzo123@gmail.com"]'
+    expect(parseAddressList(raw)).toEqual([
+      'lorenzo_boers@outlook.com',
+      'yolorenzo123@gmail.com',
+    ])
+    expect(formatAddressListDisplay(raw)).toBe(
+      'lorenzo_boers@outlook.com, yolorenzo123@gmail.com',
+    )
   })
 
   it('builds subjects', () => {

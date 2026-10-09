@@ -46,6 +46,18 @@
   "deleteError": "Could not delete the workspace.",
   "languageSaveError": "Language changed for this session, but could not be saved to your account.",
   "deleteDemoNotice": "Workspace would be deleted now (demo)",
+  "signature": {
+    "title": "Email signature",
+    "description": "Workspace signature for replies teammates send or approve. Placeholders such as {{name}} and {{company}} fill from the sender.",
+    "usingDefault": "Bokito default",
+    "add": "Customize signature",
+    "edit": "Edit signature",
+    "saved": "Workspace signature saved",
+    "saveError": "Could not save the signature.",
+    "loadError": "Could not load the signature.",
+    "editorContext": "Workspace signature used when someone sends as themselves. Leave empty for the Bokito default with avatar.",
+    "mailboxHint": "Each mailbox can still set its own fallback signature."
+  },
   "brandingLabel": "Branding",
   "brandingCardTitle": "Organization branding",
   "brandingCardDescription": "Manage logo, colors and branding",

@@ -363,6 +363,7 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         send_as=send_as,
         user_id=ctx.user_id,
         agent_id=identity_agent_id,
+        channel_account_id=signal.channel_account_id,
     )
     from_display_name = await resolve_from_display_name(
         ctx.session,

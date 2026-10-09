@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from 'react';
+﻿import { useState, FormEvent, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { TwoFactorRequiredError, WorkspaceRequiredError, useAuth } from '../context/AuthContext';
@@ -236,7 +236,7 @@ export default function Login() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <img
-            src="/bokito-logo-in-circel.svg"
+            src="/bokito-logo.png"
             alt="Bokito.ai"
             className="w-12 h-12 mb-3"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

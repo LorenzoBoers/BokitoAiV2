@@ -16,7 +16,7 @@ The quickstart gets you running. This guide gets you configured. Open **Settings
 ![Workspace general settings](/api/docs/assets/setup-guide/workspace.png)
 *Set the name, logo and language first.*
 
-1. Open **Settings**, then **General**. Set **Workspace name** and choose **Save settings**. Language is personal (Dutch or English) and lives under **Profile & security**, not here. **Platform support** decides whether Bokito support may open this workspace. Owners delete the workspace in the **Danger zone** at the bottom of this page (type the workspace name to confirm).
+1. Open **Settings**, then **General**. Set **Workspace name** and choose **Save settings**. Language is personal (Dutch or English) and lives under **Profile & security**, not here. Email signatures are set per mailbox under **Channels** (shared template or each person's signature); personal fallbacks live on **Profile**. **Platform support** decides whether Bokito support may open this workspace. Owners delete the workspace in the **Danger zone** at the bottom of this page (type the workspace name to confirm).
 2. Open **Branding**. Set **Name**, **Logo**, **Favicon**, **Brand color** and **Workspace subdomain**, then **Save changes**. They carry into the [website widget](/docs/inbox/widget) and outbound mail. **Brand color** takes a hex value such as `#32BF8E`. The preview under it shows the button and link in light and dark. Bokito keeps the hue and adjusts lightness so button text (white or dark) stays readable. White, grey and black give a neutral style: dark buttons in light mode, light buttons in dark mode.
 3. Do branding before anything customer-facing goes live so drafts and the launcher already look like you.
 

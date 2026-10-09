@@ -39,7 +39,7 @@ Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).
 
-Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel is **Startpagina** **Communicatie** (standaard) of **Overview**; **Weergave** is **Licht**, **Donker** of **Systeem**; **E-mailhandtekening** wordt meegestuurd wanneer jij als jezelf verstuurt of goedkeurt. Laat die leeg voor de Bokito-standaard (ronde avatar, naam, rol, contactgegevens), of gebruik placeholders zoals `{{name}}` en `{{company}}` die bij verzenden vanuit je profiel worden ingevuld. Ze veranderen niet hoe het team klanten beantwoordt.
+Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel is **Startpagina** **Communicatie** (standaard) of **Overview**; **Weergave** is **Licht**, **Donker** of **Systeem**; een persoonlijke **E-mailhandtekening** is de terugval wanneer een mailbox ieders eigen handtekening gebruikt of geen gedeelde template heeft. Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**.
 
 ## Gebruik het commandopalet
 

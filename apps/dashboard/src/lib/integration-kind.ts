@@ -46,16 +46,40 @@ function normalizeSlug(slugOrId: string): string {
   return slugOrId.trim().toLowerCase()
 }
 
+function capEnabled(
+  capabilities: Record<string, boolean | string[] | undefined> | undefined,
+  key: string,
+): boolean {
+  return capabilities?.[key] === true
+}
+
+/**
+ * Marketplace / hub lane for a provider. Capabilities win over slug lists so
+ * new catalog rows do not need a frontend allowlist edit to filter correctly.
+ */
 export function resolveIntegrationKind(
   slugOrId: string,
   capabilities?: Record<string, boolean | string[] | undefined>,
 ): IntegrationKind {
   const slug = normalizeSlug(slugOrId)
-  if (capabilities?.calendar === true) return 'calendar'
-  if (capabilities?.mcp_tools === true || capabilities?.remote_mcp === true) return 'mcp'
-  if (capabilities?.accounting === true || APP_SLUGS.has(slug)) return 'app'
-  if (capabilities?.inbox_sync === true) return 'inbox'
-  if (capabilities?.repo_index === true) return 'repository'
+  if (capEnabled(capabilities, 'calendar')) return 'calendar'
+  if (capEnabled(capabilities, 'inbox_sync') || capEnabled(capabilities, 'email')) return 'inbox'
+  if (capEnabled(capabilities, 'repo_index') || capEnabled(capabilities, 'repository')) {
+    return 'repository'
+  }
+  // MCP tools beat module flags (KING has mcp_tools + accounting).
+  if (capEnabled(capabilities, 'mcp_tools') || capEnabled(capabilities, 'remote_mcp')) {
+    return 'mcp'
+  }
+  if (
+    capEnabled(capabilities, 'accounting') ||
+    capEnabled(capabilities, 'banking') ||
+    capEnabled(capabilities, 'investing') ||
+    capEnabled(capabilities, 'documents') ||
+    APP_SLUGS.has(slug)
+  ) {
+    return 'app'
+  }
   if (CALENDAR_SLUGS.has(slug) || slug.includes('calendar')) return 'calendar'
   if (MCP_SLUGS.has(slug) || slug.includes('mcp')) return 'mcp'
   if (REPOSITORY_SLUGS.has(slug)) return 'repository'

@@ -30,16 +30,48 @@ export type MailDraftIntent = {
   quotedPreview: string
 }
 
-/** Extract bare lowercase addresses from "Name <a@b>" / comma-separated headers. */
+/** Extract bare lowercase addresses from "Name <a@b>" / comma-separated / JSON-array headers. */
 export function parseAddressList(raw: string | null | undefined): string[] {
   if (!raw) return []
+  const trimmed = raw.trim()
+  if (!trimmed) return []
+  let source = trimmed
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown
+      if (Array.isArray(parsed)) {
+        source = parsed.map((item) => String(item).trim()).filter(Boolean).join(', ')
+      }
+    } catch {
+      // Fall through to comma-separated parsing.
+    }
+  }
   const out: string[] = []
-  for (const part of raw.split(',')) {
+  for (const part of source.split(',')) {
     const match = part.match(/<([^<>\s]+@[^<>\s]+)>/) || part.match(/([^\s,;"<>]+@[^\s,;"<>]+)/)
     const addr = match?.[1]?.trim().toLowerCase()
     if (addr && !out.includes(addr)) out.push(addr)
   }
   return out
+}
+
+/** Human-readable recipient line (comma-separated; JSON arrays normalized). */
+export function formatAddressListDisplay(raw: string | null | undefined): string {
+  const parsed = parseAddressList(raw)
+  if (parsed.length) return parsed.join(', ')
+  const trimmed = (raw || '').trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsedJson = JSON.parse(trimmed) as unknown
+      if (Array.isArray(parsedJson)) {
+        return parsedJson.map((item) => String(item).trim()).filter(Boolean).join(', ')
+      }
+    } catch {
+      // keep raw
+    }
+  }
+  return trimmed
 }
 
 function excludeOwn(addresses: string[], ownAddresses: string[]): string[] {

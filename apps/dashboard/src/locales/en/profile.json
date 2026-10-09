@@ -9,7 +9,7 @@
     "email": "Email address",
     "fullName": "Full name",
     "jobTitle": "Job title",
-    "jobTitlePlaceholder": "e.g. Product Manager",
+    "jobTitlePlaceholder": "Title",
     "descriptionLabel": "Bio",
     "descriptionPlaceholder": "A short bio or role",
     "saveChanges": "Save changes",
@@ -21,14 +21,14 @@
   },
   "signature": {
     "title": "Email signature",
-    "description": "Appended automatically to replies you send or approve as yourself. Placeholders such as {{name}} and {{company}} fill from your profile at send time.",
-    "empty": "Using the Bokito default: round avatar, your name, role and contact details.",
+    "description": "Used when a mailbox is set to each person's signature, or when that mailbox has no shared template. Placeholders such as {{name}} and {{company}} fill from your profile at send time.",
+    "empty": "Using the Bokito text default: closing, your name, role and contact details.",
     "usingDefault": "Bokito default",
     "add": "Customize signature",
     "edit": "Edit signature",
     "saved": "Signature saved",
     "saveError": "Could not save the signature.",
-    "editorContext": "Your personal signature, used when a reply is sent as you. Leave empty for the Bokito default with avatar."
+    "editorContext": "Your personal signature. Used when the mailbox source is “each person's signature”, or when the mailbox template is empty. Leave empty for the Bokito text default."
   },
   "language": {
     "title": "Language",

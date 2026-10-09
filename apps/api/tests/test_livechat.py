@@ -145,7 +145,7 @@ def test_theme_inherits_branding_mark():
     no_favicon = Tenant(slug="demo", name="Demo", logo_url="https://cdn.example/logo.png", settings_json="{}")
     assert livechat_theme_from_tenant(no_favicon)["widget_favicon_url"] == "https://cdn.example/logo.png"
 
-    platform = Tenant(slug="bokito", name="Bokito", logo_url="/bokito-logo.svg", settings_json="{}")
+    platform = Tenant(slug="bokito", name="Bokito", logo_url="/bokito-logo.png", settings_json="{}")
     assert livechat_theme_from_tenant(platform)["widget_favicon_url"] == ""
 
 

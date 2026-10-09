@@ -39,7 +39,7 @@ At the bottom of the rail, **Organization** groups the workspace itself:
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
-Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, **Start page** is **Messages** (default) or **Overview**; **Appearance** is **Light**, **Dark** or **System**; **Email signature** is appended when you send or approve as yourself. Leave it empty for the Bokito default (round avatar, name, role, contacts), or use placeholders such as `{{name}}` and `{{company}}` that fill from your profile at send time. They do not change how the team answers customers.
+Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, **Start page** is **Messages** (default) or **Overview**; **Appearance** is **Light**, **Dark** or **System**; a personal **Email signature** is the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
 
 ## Use the command palette
 

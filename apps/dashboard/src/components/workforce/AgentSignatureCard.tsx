@@ -184,7 +184,7 @@ export function AgentSignatureCard({
             {t('workforce.agents.signaturePreview')}
           </p>
           <div
-            className="mt-1.5 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-sm leading-relaxed text-text-secondary [&_a]:underline [&_p]:my-0.5"
+            className="signature-preview mt-1.5 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-sm leading-relaxed [&_a]:underline [&_p]:my-0.5"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
           {sendAs === 'agent' ? (

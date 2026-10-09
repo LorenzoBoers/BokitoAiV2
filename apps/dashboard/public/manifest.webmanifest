@@ -9,9 +9,9 @@
   "theme_color": "#0c0e12",
   "icons": [
     {
-      "src": "/bokito-logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/bokito-logo.png",
+      "sizes": "780x780",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

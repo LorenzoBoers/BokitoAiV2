@@ -46,6 +46,18 @@
   "deleteError": "Kon de workspace niet verwijderen.",
   "languageSaveError": "Taal is voor deze sessie gewijzigd, maar kon niet op je account worden opgeslagen.",
   "deleteDemoNotice": "Workspace zou nu worden verwijderd (demo)",
+  "signature": {
+    "title": "E-mailhandtekening",
+    "description": "Workspace-handtekening voor antwoorden die iemand uit dit team verstuurt of goedkeurt. Placeholders zoals {{name}} en {{company}} worden per afzender ingevuld.",
+    "usingDefault": "Bokito-standaard",
+    "add": "Handtekening aanpassen",
+    "edit": "Handtekening bewerken",
+    "saved": "Workspace-handtekening opgeslagen",
+    "saveError": "Handtekening opslaan is niet gelukt.",
+    "loadError": "Handtekening laden is niet gelukt.",
+    "editorContext": "Workspace-handtekening. Wordt gebruikt wanneer iemand als zichzelf mailt. Laat leeg voor de Bokito-standaard met avatar.",
+    "mailboxHint": "Per mailbox kun je een aparte fallback-handtekening zetten."
+  },
   "brandingLabel": "Branding",
   "brandingCardTitle": "Organisatiebranding",
   "brandingCardDescription": "Beheer logo, kleuren en branding",

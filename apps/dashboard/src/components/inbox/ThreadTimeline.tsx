@@ -262,6 +262,33 @@ function isSkippableLandingMessage(message: InboxMessage): boolean {
   )
 }
 
+function isMailDocument(message: InboxMessage): boolean {
+  return message.direction !== 'internal' && !isSkippableLandingMessage(message)
+}
+
+/**
+ * Mail rows that open unfolded: the newest mail and the newest inbound mail
+ * (question + answer stay readable); everything older folds to its envelope.
+ */
+export function openMailRowIds(rows: TimelineRow[]): Set<string> {
+  const open = new Set<string>()
+  let sawLatest = false
+  let sawInbound = false
+  for (let i = rows.length - 1; i >= 0 && !(sawLatest && sawInbound); i -= 1) {
+    const row = rows[i]
+    if (row.kind !== 'message' || !isMailDocument(row.data)) continue
+    if (!sawLatest) {
+      open.add(row.id)
+      sawLatest = true
+    }
+    if (!sawInbound && row.data.direction === 'inbound') {
+      open.add(row.id)
+      sawInbound = true
+    }
+  }
+  return open
+}
+
 /**
  * Inbound messages at the end of the thread that made it unread. Thread-level
  * unread has no per-message cursor, so we take the trailing inbound cluster
@@ -334,6 +361,8 @@ type Props = {
   contactPhone?: string
   agentName?: string | null
   agentId?: string | null
+  /** Bound mailbox for signature preview on decision cards. */
+  channelAccountId?: string | null
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
@@ -418,6 +447,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     contactPhone,
     agentName,
     agentId,
+    channelAccountId = null,
     agentAvatarKind,
     agentAvatarIcon,
     agentAvatarColor,
@@ -460,6 +490,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   /** Programmatic land may keep snapping until this instant, unless the user scrolls. */
   const settleUntilRef = useRef(0)
   const bubbleStacks = useMemo(() => stacksForRows(rows), [rows])
+  const openMailIds = useMemo(
+    () => (messageLayout === 'email' ? openMailRowIds(rows) : null),
+    [rows, messageLayout],
+  )
   const virtuosoData = useMemo<VirtuosoRow[]>(() => {
     const extra: VirtuosoRow[] = []
     if (liveTrace) extra.push({ kind: 'live', id: '__live__' })
@@ -735,6 +769,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             events={events}
             agentName={agentName}
             agentId={agentId}
+            channelAccountId={channelAccountId}
             agentAvatarKind={agentAvatarKind}
             agentAvatarIcon={agentAvatarIcon}
             agentAvatarColor={agentAvatarColor}
@@ -766,6 +801,13 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             chatTags={chatTags}
             onMailAction={onMailAction}
             mailOwnAddresses={mailOwnAddresses}
+            mailCollapsedByDefault={
+              openMailIds != null &&
+              !focused &&
+              !unreadFlash &&
+              isMailDocument(message) &&
+              !openMailIds.has(row.id)
+            }
           />
         )}
       </div>

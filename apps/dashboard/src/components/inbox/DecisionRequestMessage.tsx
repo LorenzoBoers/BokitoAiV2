@@ -28,7 +28,17 @@ import { useTeams } from '../../hooks/useTeams'
 import { moduleProposalFromOptions } from '../../lib/module-proposal'
 import { ModuleProposalBlock } from './ModuleProposalBlock'
 import { formatDecisionExcerpt } from '../../lib/decision-excerpt'
-import { composeDefaultSignatureHtml, plainTextToSignatureHtml, withAgentDisclaimer } from '../../lib/default-signature'
+import {
+  composeDefaultSignatureHtml,
+  plainTextToSignatureHtml,
+  previewOutboundSignatureHtml,
+  withAgentDisclaimer,
+} from '../../lib/default-signature'
+import {
+  getConnectionSignature,
+  listEmailConnections,
+  type SignatureSource,
+} from '../../lib/email-api'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
 import { isModuleSetupAction } from '../../lib/integration-setup-url'
 import {
@@ -79,6 +89,8 @@ type Props = {
   agentName?: string | null
   /** Agent id for loading the send-as signature preview. */
   agentId?: string | null
+  /** ChannelAccount UUID for mailbox signature resolve on user send-as. */
+  channelAccountId?: string | null
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
@@ -273,6 +285,7 @@ export default function DecisionRequestMessage({
   onEditDraft,
   agentName,
   agentId,
+  channelAccountId = null,
   agentAvatarKind,
   agentAvatarIcon,
   agentAvatarColor,
@@ -461,6 +474,37 @@ export default function DecisionRequestMessage({
     return typeof fromPayload === 'string' ? fromPayload : null
   }, [agentId, message.payload?.agent_id])
 
+  const [mailboxSignatureHtml, setMailboxSignatureHtml] = useState('')
+  const [signatureSource, setSignatureSource] = useState<SignatureSource>('sender')
+  useEffect(() => {
+    if (!token || !channelAccountId) {
+      setMailboxSignatureHtml('')
+      setSignatureSource('sender')
+      return
+    }
+    let cancelled = false
+    void listEmailConnections(token)
+      .then((rows) => {
+        const match = rows.find((row) => row.uuid === channelAccountId)
+        if (!match || cancelled) return null
+        return getConnectionSignature(token, match.id)
+      })
+      .then((cfg) => {
+        if (cancelled || !cfg) return
+        setMailboxSignatureHtml(cfg.signatureHtml)
+        setSignatureSource(cfg.signatureSource)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMailboxSignatureHtml('')
+          setSignatureSource('sender')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token, channelAccountId])
+
   useEffect(() => {
     if (!resolvedAgentId) {
       setAgentSignatureHtml('')
@@ -498,26 +542,45 @@ export default function DecisionRequestMessage({
     }
   }, [resolvedAgentId])
 
+  const userIdentity = {
+    name: user?.name || user?.email || '',
+    email: user?.email ?? null,
+    jobTitle: user?.jobTitle ?? null,
+    company: user?.tenant?.name,
+    language: i18n.language,
+  }
+  const userSignatureHtml =
+    sendAs === 'user'
+      ? previewOutboundSignatureHtml({
+          source: channelAccountId ? signatureSource : 'sender',
+          mailboxHtml: mailboxSignatureHtml,
+          personalHtml: user?.emailSignatureHtml,
+          identity: userIdentity,
+        })
+      : ''
   const customSignatureHtml =
-    sendAs === 'user' ? (user?.emailSignatureHtml ?? '').trim() : agentSignatureHtml.trim()
+    sendAs === 'user'
+      ? (channelAccountId && signatureSource === 'mailbox' && mailboxSignatureHtml.trim()
+          ? mailboxSignatureHtml.trim()
+          : (user?.emailSignatureHtml ?? '').trim())
+      : agentSignatureHtml.trim()
   const baseSignatureHtml =
-    customSignatureHtml ||
-    composeDefaultSignatureHtml({
-      name:
-        sendAs === 'user'
-          ? user?.name || user?.email || ''
-          : agentDisplayName || agentName || t('decisionCard.sendAs.agentFallback'),
-      email: sendAs === 'user' ? user?.email : null,
-      jobTitle: sendAs === 'user' ? user?.jobTitle : null,
-      company: user?.tenant?.name,
-      language: i18n.language,
-    })
+    sendAs === 'user'
+      ? userSignatureHtml
+      : customSignatureHtml ||
+        composeDefaultSignatureHtml({
+          name: agentDisplayName || agentName || t('decisionCard.sendAs.agentFallback'),
+          company: user?.tenant?.name,
+          language: i18n.language,
+        })
   const signatureHtml =
     sendAs === 'agent' ? withAgentDisclaimer(baseSignatureHtml, i18n.language) : baseSignatureHtml
   const signatureIsDefault = !customSignatureHtml
   const signatureSettingsPath =
     sendAs === 'user'
-      ? '/settings/profile'
+      ? channelAccountId
+        ? `/settings/channels/${channelAccountId}?edit=signature`
+        : '/settings/profile'
       : resolvedAgentId
         ? `/agents/${resolvedAgentId}`
         : '/agents'
@@ -832,7 +895,7 @@ export default function DecisionRequestMessage({
                     </Link>
                   </div>
                   <div
-                    className="prose prose-sm max-w-none text-xs text-text-secondary dark:prose-invert [&_a]:text-accent"
+                    className="signature-preview prose prose-sm max-w-none text-xs [&_a]:underline"
                     dangerouslySetInnerHTML={{ __html: signatureHtml }}
                   />
                 </div>

@@ -22,6 +22,7 @@ describe('resolveBrandIconUrl', () => {
       'https://cdn.example/fav.png',
     )
     expect(resolveBrandIconUrl({ logo: 'https://cdn.example/logo.png' })).toBe('https://cdn.example/logo.png')
+    expect(resolveBrandIconUrl({ logo: '/bokito-logo.png' })).toBeNull()
     expect(resolveBrandIconUrl({ logo: '/bokito-logo.svg' })).toBeNull()
     expect(resolveBrandIconUrl({})).toBeNull()
   })
@@ -32,7 +33,7 @@ describe('workspaceBrandName', () => {
     expect(workspaceBrandName({ name: 'Bourgondiënadvies' })).toBe('Bourgondiënadvies')
     expect(workspaceBrandName({ name: '  ' })).toBe('Bokito')
     expect(workspaceBrandName(null)).toBe('Bokito')
-    expect(DEFAULT_BRAND_MARK).toBe('/bokito-logo.svg')
+    expect(DEFAULT_BRAND_MARK).toBe('/bokito-logo.png')
   })
 })
 

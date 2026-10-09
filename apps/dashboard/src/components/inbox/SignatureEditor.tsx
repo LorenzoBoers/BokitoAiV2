@@ -14,8 +14,21 @@ import {
 import * as Dialog from '@radix-ui/react-dialog';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { useAuth } from '../../context/AuthContext';
+import { useAgents } from '../../hooks/useAgents';
+import { useMembers } from '../../hooks/useMembers';
+import {
+  composeAvatarSignatureTemplateHtml,
   composeDefaultSignatureHtml,
   renderSignatureTemplate,
   type SignatureIdentityVars,
@@ -30,7 +43,7 @@ interface SignatureEditorProps {
   mailboxEmail?: string;
   /** Overrides the "for mailbox X" line (e.g. "Your personal signature"). */
   contextLabel?: string;
-  /** Real identity for Preview; falls back to sample data when omitted. */
+  /** Seed identity for Preview (defaults to the signed-in user). */
   identity?: SignatureIdentityVars | null;
 }
 
@@ -45,6 +58,8 @@ const SAMPLE_IDENTITY: SignatureIdentityVars = {
   language: 'en',
 };
 
+type PreviewPersonaId = 'me' | 'sample' | `user:${string}` | `agent:${string}`;
+
 export default function SignatureEditor({
   open,
   onOpenChange,
@@ -55,28 +70,84 @@ export default function SignatureEditor({
   identity = null,
 }: SignatureEditorProps) {
   const { t, i18n } = useTranslation('communication');
+  const { user } = useAuth();
+  const { members } = useMembers();
+  const { agents } = useAgents();
   const [signature, setSignature] = useState(initialSignature);
   const [activeTab, setActiveTab] = useState<'edit' | 'html' | 'preview'>('edit');
+  const [previewPersona, setPreviewPersona] = useState<PreviewPersonaId>('me');
   const editorRef = useRef<HTMLDivElement | null>(null);
   // Latest HTML for the callback ref below, so the visual editor always mounts
   // with current content without re-running the ref on every keystroke.
   const signatureRef = useRef(signature);
   signatureRef.current = signature;
 
+  const meIdentity = useMemo<SignatureIdentityVars>(
+    () =>
+      identity ?? {
+        name: user?.name || user?.email || '',
+        email: user?.email || mailboxEmail || '',
+        jobTitle: user?.jobTitle || '',
+        company: user?.tenant?.name || '',
+        avatarUrl: user?.avatarUrl || user?.signatureUrl || null,
+        language: i18n.language?.slice(0, 2) || 'nl',
+      },
+    [
+      identity,
+      user?.name,
+      user?.email,
+      user?.jobTitle,
+      user?.tenant?.name,
+      user?.avatarUrl,
+      user?.signatureUrl,
+      mailboxEmail,
+      i18n.language,
+    ],
+  );
+
   const previewIdentity = useMemo<SignatureIdentityVars>(() => {
-    const base = identity
-      ? {
-          ...identity,
-          language: identity.language || i18n.language?.slice(0, 2) || 'nl',
-          email: identity.email || mailboxEmail || SAMPLE_IDENTITY.email,
-        }
-      : {
-          ...SAMPLE_IDENTITY,
-          email: mailboxEmail || SAMPLE_IDENTITY.email,
-          language: i18n.language?.slice(0, 2) || 'en',
+    const lang = i18n.language?.slice(0, 2) || 'nl';
+    if (previewPersona === 'sample') {
+      return {
+        ...SAMPLE_IDENTITY,
+        email: mailboxEmail || SAMPLE_IDENTITY.email,
+        language: lang,
+      };
+    }
+    if (previewPersona.startsWith('user:')) {
+      const id = previewPersona.slice('user:'.length);
+      const member = members.find((row) => row.uuid === id);
+      if (member) {
+        return {
+          name: member.name || member.email,
+          email: member.email || mailboxEmail || '',
+          jobTitle: '',
+          company: user?.tenant?.name || '',
+          avatarUrl: member.avatarUrl,
+          language: lang,
         };
-    return base;
-  }, [identity, mailboxEmail, i18n.language]);
+      }
+    }
+    if (previewPersona.startsWith('agent:')) {
+      const id = previewPersona.slice('agent:'.length);
+      const agent = agents.find((row) => String(row.id) === id);
+      if (agent) {
+        return {
+          name: agent.name || 'Agent',
+          email: mailboxEmail || '',
+          jobTitle: '',
+          company: user?.tenant?.name || '',
+          avatarUrl: agent.avatar_image_url || null,
+          language: lang,
+        };
+      }
+    }
+    return {
+      ...meIdentity,
+      language: meIdentity.language || lang,
+      email: meIdentity.email || mailboxEmail || '',
+    };
+  }, [previewPersona, members, agents, meIdentity, mailboxEmail, user?.tenant?.name, i18n.language]);
 
   const defaultTemplates = useMemo(() => {
     const emailToken = mailboxEmail || '{{email}}';
@@ -92,6 +163,10 @@ export default function SignatureEditor({
           `<div style="color:#6b7280;font-size:13px">{{company}}</div>` +
           `<div style="margin-top:8px;font-size:12px;color:#4b5563;line-height:1.5">` +
           `${emailToken}<br>{{phone}}<br>{{website}}</div></div>`,
+      },
+      {
+        name: t('signatureEditor.templateWithPhoto'),
+        html: composeAvatarSignatureTemplateHtml(),
       },
       {
         name: t('signatureEditor.templateStandard'),
@@ -113,6 +188,7 @@ export default function SignatureEditor({
     if (open) {
       setSignature(initialSignature);
       setActiveTab('edit');
+      setPreviewPersona('me');
     }
   }, [open, initialSignature]);
 
@@ -336,13 +412,56 @@ export default function SignatureEditor({
               </TabsContent>
 
               <TabsContent value="preview" className="space-y-4">
-                <div className="border border-border rounded-md p-4 bg-white text-black min-h-[200px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-xs font-medium text-text-muted" htmlFor="signature-preview-as">
+                    {t('signatureEditor.previewAs')}
+                  </label>
+                  <Select
+                    value={previewPersona}
+                    onValueChange={(value) => setPreviewPersona(value as PreviewPersonaId)}
+                  >
+                    <SelectTrigger
+                      id="signature-preview-as"
+                      className="h-8 w-auto min-w-[14rem] text-xs"
+                      aria-label={t('signatureEditor.previewAs')}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="me">{t('signatureEditor.previewAsMe')}</SelectItem>
+                        <SelectItem value="sample">{t('signatureEditor.previewAsSample')}</SelectItem>
+                      </SelectGroup>
+                      {members.length ? (
+                        <SelectGroup>
+                          <SelectLabel>{t('signatureEditor.previewAsPeople')}</SelectLabel>
+                          {members.map((member) => (
+                            <SelectItem key={member.uuid} value={`user:${member.uuid}`}>
+                              {member.name || member.email}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ) : null}
+                      {agents.length ? (
+                        <SelectGroup>
+                          <SelectLabel>{t('signatureEditor.previewAsAgents')}</SelectLabel>
+                          {agents.map((agent) => (
+                            <SelectItem key={String(agent.id)} value={`agent:${agent.id}`}>
+                              {agent.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ) : null}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="signature-preview min-h-[200px] rounded-md border border-border bg-bg-elevated p-4 text-sm">
                   <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 </div>
                 <p className="text-xs text-text-muted">
-                  {identity
-                    ? t('signatureEditor.previewHintIdentity')
-                    : t('signatureEditor.previewHint')}
+                  {previewPersona === 'sample'
+                    ? t('signatureEditor.previewHint')
+                    : t('signatureEditor.previewHintIdentity')}
                 </p>
               </TabsContent>
             </Tabs>

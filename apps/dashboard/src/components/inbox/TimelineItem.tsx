@@ -45,7 +45,13 @@ import ChatText from './ChatText'
 import ActivityTrail from './ActivityTrail'
 import { isCustomerChannel } from '../../lib/chatMessages'
 import { authorizeUploadUrls } from '../../lib/email-upload-auth'
-import { canReplyAll, type MailDraftMode } from '../../lib/mail-reply'
+import {
+  canReplyAll,
+  formatAddressListDisplay,
+  parseAddressList,
+  type MailDraftMode,
+} from '../../lib/mail-reply'
+import { MailMessageCard, type EnvelopeRow, type MailCardTone } from './MailMessageCard'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
 import { inboxPath } from '../../lib/messages-paths'
@@ -91,6 +97,8 @@ type MessageItemProps = {
   onMailAction?: (message: InboxMessage, mode: MailDraftMode) => void
   /** Our mailbox address(es); hides Reply all when nobody else was copied. */
   mailOwnAddresses?: string[]
+  /** Older mail in an email thread opens folded to its envelope band. */
+  mailCollapsedByDefault?: boolean
 }
 
 type EventItemProps = {
@@ -1161,40 +1169,6 @@ function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
   )
 }
 
-// Email-style block for inbound external mail: full width, left-aligned,
-// flat card — HTML newsletters and long mails need the horizontal room.
-function EmailMessageBlock({
-  avatar,
-  header,
-  body,
-  meta,
-  actions,
-}: {
-  avatar: ReactNode
-  header: ReactNode
-  body: ReactNode
-  meta?: ReactNode
-  actions?: ReactNode
-}) {
-  return (
-    <div className="msg-bubble-enter group/bubble flex w-full items-start gap-2">
-      <span className="flex w-7 shrink-0 justify-center">{avatar}</span>
-      <div className="relative w-full min-w-0 rounded-[18px] rounded-tl-[6px] bg-bg-surface px-3.5 py-2.5 text-base leading-relaxed text-text-primary ring-1 ring-inset ring-border/60">
-        {header}
-        {body}
-        {meta ? (
-          <div className="mt-1 flex justify-end text-2xs leading-none text-text-muted tabular-nums">{meta}</div>
-        ) : null}
-        {actions ? (
-          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-0.5 rounded-lg bg-bg-surface/95 p-0.5 opacity-0 shadow-sm ring-1 ring-border/50 transition-opacity group-hover/bubble:pointer-events-auto group-hover/bubble:opacity-100">
-            {actions}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 // Thumbs up/down on agent replies. Votes feed the learning loop
 // (`POST /api/messages/{id}/feedback`) and drive the Usage "Avg feedback" metric.
 // The correct-interpretation action opens a chat with the responsible agent,
@@ -1325,11 +1299,15 @@ export function MessageTimelineItem({
   chatTags,
   onMailAction,
   mailOwnAddresses,
+  mailCollapsedByDefault = false,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { user, token } = useAuth()
   const [proposalPicked, setProposalPicked] = useState<string[]>([])
+  // Initial fold only; once a reader opens an older mail it stays open, and a
+  // mail that was the newest when it mounted does not fold when a reply lands.
+  const [mailCollapsed, setMailCollapsed] = useState(mailCollapsedByDefault)
   const chooseOptionRef = useRef<((optionId: string) => void) | null>(null)
   const [enriched, setEnriched] = useState<Pick<
     InboxMessage,
@@ -1675,6 +1653,7 @@ export function MessageTimelineItem({
         />
       )
     }
+    // Own outbound email renders as a mail card; the envelope band carries the header.
     return null
   })()
 
@@ -1771,17 +1750,7 @@ export function MessageTimelineItem({
         </div>
       )
     }
-    // Email (and other customer channels): a quiet check once the provider
-    // accepted the send. The bubble itself is accent-coloured, so the label
-    // uses the bubble foreground — status-green on green is unreadable.
-    if (isCustomerChannel(channel) && message.sendStatus === 'sent') {
-      return (
-        <div className="mb-1 flex min-w-0 items-center gap-1 text-2xs font-medium text-accent-fg/80">
-          <Check size={12} className="shrink-0" aria-hidden />
-          <span>{t('timeline.sentOk')}</span>
-        </div>
-      )
-    }
+    // Successful sends: checkmark next to the timestamp (see timeMeta), not a label here.
     return null
   })()
 
@@ -1810,18 +1779,76 @@ export function MessageTimelineItem({
       />
     ) : null
 
-  // Email threads: inbound external mail keeps the full-width card (HTML
-  // newsletters need the room); everything else uses the chat bubble model so
-  // your own replies land on the right there too.
-  const useFullWidthEmailCard = layout === 'email' && authorKind === 'external' && !isInternal
-
-  // Outbound email: show CC recipients so the sender can verify who was copied.
-  const ccLine =
-    layout === 'email' && message.cc ? (
-      <div className="mb-1 truncate-fade text-2xs text-text-muted" title={message.cc}>
-        {t('timeline.ccLine', { recipients: message.cc })}
-      </div>
-    ) : null
+  // Email threads: every external-facing mail is a document on neutral paper
+  // (MailMessageCard). Author and recipients live in the envelope band, so the
+  // bubble header and CC line are not used here.
+  const isMailCard = layout === 'email' && !isInternal
+  const mailTone: MailCardTone =
+    authorKind === 'self'
+      ? 'self'
+      : authorKind === 'agent'
+        ? 'agent'
+        : authorKind === 'teammate'
+          ? 'team'
+          : 'external'
+  const mailFromName =
+    authorKind === 'external'
+      ? inboundName
+      : authorKind === 'agent'
+        ? agentName || t('timeline.aiAgent')
+        : authorKind === 'self'
+          ? t('timeline.events.you')
+          : authorName
+  const mailFromAddress =
+    authorKind === 'external'
+      ? inboundEmail
+      : (message.fromAddress || (authorKind === 'self' ? user?.email : authorEmail) || '').trim()
+  const mailToRaw = isInbound ? message.toHeader || message.toAddresses : message.toAddresses
+  const envelopeRows: EnvelopeRow[] = (() => {
+    const rows: EnvelopeRow[] = []
+    if (mailFromAddress) {
+      rows.push({
+        key: 'from',
+        label: t('timeline.envelope.from'),
+        value:
+          mailFromName && mailFromName !== mailFromAddress
+            ? `${mailFromName} <${mailFromAddress}>`
+            : mailFromAddress,
+      })
+    }
+    const to = formatAddressListDisplay(mailToRaw)
+    const cc = formatAddressListDisplay(message.cc)
+    const bcc = formatAddressListDisplay(message.bcc)
+    if (to) rows.push({ key: 'to', label: t('timeline.toLabel'), value: to })
+    if (cc) rows.push({ key: 'cc', label: t('timeline.ccLabel'), value: cc })
+    if (bcc) rows.push({ key: 'bcc', label: t('timeline.bccLabel'), value: bcc })
+    return rows
+  })()
+  // "to you, +1": first recipient (or "you" when it is one of our addresses) plus a count.
+  const envelopeSummary = (() => {
+    const own = new Set(
+      [...(mailOwnAddresses ?? []), user?.email ?? '']
+        .map((a) => a.trim().toLowerCase())
+        .filter(Boolean),
+    )
+    const toList = parseAddressList(mailToRaw)
+    const extra = parseAddressList(message.cc).length + parseAddressList(message.bcc).length
+    if (!toList.length) {
+      return authorKind === 'external' && inboundEmail && inboundEmail !== inboundName
+        ? inboundEmail
+        : null
+    }
+    const first = own.has(toList[0]) ? t('timeline.envelope.you') : toList[0]
+    const rest = toList.length - 1 + extra
+    return rest > 0
+      ? t('timeline.envelope.toMore', { recipient: first, count: rest })
+      : t('timeline.envelope.to', { recipient: first })
+  })()
+  const mailPreview = displayBody
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean)
+    ?.slice(0, 160)
   const proposal = isAgentMessage && threadId ? message.proposal ?? null : null
   const showcaseItems: ProposalItem[] =
     message.items?.length
@@ -1846,11 +1873,10 @@ export function MessageTimelineItem({
     bubbleBody
   )
   const bubbleBodyWithMeta =
-    ccLine || selfStatusLine || provenanceLine || showcaseItems.length ? (
+    selfStatusLine || provenanceLine || showcaseItems.length ? (
       <div>
         {selfStatusLine}
         {provenanceLine}
-        {ccLine}
         {proposalBody}
         {showcaseItems.length ? (
           <ProposalItemList
@@ -1867,10 +1893,27 @@ export function MessageTimelineItem({
     )
 
   const sentAt = message.receivedAt ?? message.createdAt
+  const showSentCheck =
+    authorKind === 'self' &&
+    !isInternal &&
+    isCustomerChannel(channel) &&
+    message.sendStatus === 'sent'
   const timeMeta = sentAt ? (
-    <time dateTime={sentAt} title={new Date(sentAt).toLocaleString(i18n.language)}>
-      {formatHourMinute(sentAt, i18n.language)}
-    </time>
+    <span className="inline-flex items-center gap-1">
+      {showSentCheck ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex" aria-label={t('timeline.sentOk')}>
+              <Check size={11} className="shrink-0" aria-hidden />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">{t('timeline.sentOk')}</TooltipContent>
+        </Tooltip>
+      ) : null}
+      <time dateTime={sentAt} title={new Date(sentAt).toLocaleString(i18n.language)}>
+        {formatHourMinute(sentAt, i18n.language)}
+      </time>
+    </span>
   ) : null
 
   const copyAction =
@@ -1891,20 +1934,25 @@ export function MessageTimelineItem({
     isInbound && authorKind === 'external' && threadId && typeof message.id === 'string' && isCustomerChannel(channel) ? (
       <SplitConversationAction threadId={String(threadId)} messageId={message.id} />
     ) : null
-  // Mail-client actions on inbound email cards: Reply, Reply all, Forward.
+  // Mail-client actions: Reply / Reply all / Forward on inbound external mail,
+  // Forward only on mail we or a colleague sent.
   const mailActions =
-    layout === 'email' && isInbound && authorKind === 'external' && onMailAction && !isInternal ? (
+    isMailCard && onMailAction ? (
       <>
-        <BubbleAction label={t('timeline.replyMail')} onClick={() => onMailAction(message, 'reply')}>
-          <Reply size={12} />
-        </BubbleAction>
-        {canReplyAll(message, mailOwnAddresses ?? []) ? (
-          <BubbleAction
-            label={t('timeline.replyAllMail')}
-            onClick={() => onMailAction(message, 'reply_all')}
-          >
-            <ReplyAll size={12} />
-          </BubbleAction>
+        {isInbound && authorKind === 'external' ? (
+          <>
+            <BubbleAction label={t('timeline.replyMail')} onClick={() => onMailAction(message, 'reply')}>
+              <Reply size={12} />
+            </BubbleAction>
+            {canReplyAll(message, mailOwnAddresses ?? []) ? (
+              <BubbleAction
+                label={t('timeline.replyAllMail')}
+                onClick={() => onMailAction(message, 'reply_all')}
+              >
+                <ReplyAll size={12} />
+              </BubbleAction>
+            ) : null}
+          </>
         ) : null}
         <BubbleAction label={t('timeline.forwardMail')} onClick={() => onMailAction(message, 'forward')}>
           <Forward size={12} />
@@ -1922,13 +1970,29 @@ export function MessageTimelineItem({
       </>
     ) : null
 
-  const bubble = useFullWidthEmailCard ? (
-    <EmailMessageBlock
-      avatar={contactAvatar}
-      header={inboundHeader}
+  const bubble = isMailCard ? (
+    <MailMessageCard
+      side={side}
+      tone={mailTone}
+      avatar={avatar}
+      senderName={mailFromName}
+      senderChip={
+        authorKind === 'agent' ? (
+          <RoleChip kind="ai" />
+        ) : authorKind === 'teammate' ? (
+          <RoleChip kind="team" />
+        ) : undefined
+      }
+      summary={envelopeSummary}
+      envelopeRows={envelopeRows}
+      envelopeAria={t('timeline.envelope.details')}
       body={bubbleBodyWithMeta}
       meta={timeMeta}
       actions={actions}
+      collapsed={mailCollapsed}
+      onToggleCollapsed={() => setMailCollapsed(false)}
+      preview={mailPreview}
+      expandAria={t('timeline.envelope.openMail')}
     />
   ) : (
     <ChatMessageBubble
