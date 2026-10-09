@@ -99,6 +99,7 @@ async def test_new_signal_message_publishes_via_safety_net(
     async def fake_publish_new(tenant_id, signal_id, message_id):
         calls.append(message_id)
 
+    monkeypatch.setenv("BOKITO_ENTITY_PUBLISH_SAFETY_NET", "1")
     monkeypatch.setattr(entity_events, "_publish_new_message", fake_publish_new)
     tenant = await _tenant(session_override)
     signal = Signal(
