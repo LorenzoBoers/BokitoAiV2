@@ -115,9 +115,23 @@ async def _inbound_preflight(
     classification = classify_automated_email(
         sender, headers=headers, subject=signal.subject or ""
     )
-    is_member = bool(
-        msg.author_user_id or await find_member_by_email(session, tenant_id, sender)
-    )
+    # Prefer live membership lookup. A stale author_user_id can remain on a
+    # message ingested before the sender was deactivated; that must not keep
+    # skipping AI once Membership.is_active is false.
+    is_member = bool(await find_member_by_email(session, tenant_id, sender))
+    if not is_member and msg.author_user_id:
+        from app.models.auth import Membership
+
+        active = (
+            await session.execute(
+                select(Membership.id).where(
+                    Membership.tenant_id == tenant_id,
+                    Membership.user_id == msg.author_user_id,
+                    Membership.is_active.is_(True),
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        is_member = active is not None
     return InboundPreflight(
         msg=msg,
         sender_address=sender,
