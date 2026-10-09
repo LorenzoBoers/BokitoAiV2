@@ -69,8 +69,11 @@ export function BubbleHeader({
 }
 
 /**
- * Hover actions next to a bubble. Rendered in a portal so the timeline
- * scroller cannot clip them against the composer at the bottom.
+ * Hover actions for a bubble. Portaled so the timeline scroller cannot clip
+ * them. Sits just above the bubble on its hanging side (left/right) so day
+ * pills and other centered markers stay clear. Scroll dismisses it
+ * immediately — following recycled Virtuoso rows feels laggy and leaves
+ * ghost tooltips on the wrong messages.
  */
 export function BubbleHoverToolbar({
   open,
@@ -78,6 +81,7 @@ export function BubbleHoverToolbar({
   side,
   onEnter,
   onLeave,
+  onDismiss,
   children,
 }: {
   open: boolean
@@ -85,6 +89,8 @@ export function BubbleHoverToolbar({
   side: 'left' | 'right'
   onEnter: () => void
   onLeave: () => void
+  /** Immediate close (no hover grace). Used on scroll. */
+  onDismiss?: () => void
   children: ReactNode
 }) {
   const toolbarRef = useRef<HTMLDivElement>(null)
@@ -97,14 +103,15 @@ export function BubbleHoverToolbar({
     const rect = bubble.getBoundingClientRect()
     const size = bar.getBoundingClientRect()
     const gap = 6
-    let left = side === 'right' ? rect.left - size.width - gap : rect.right + gap
-    let top = rect.top + 4
+    // Flush to the author side of the bubble — not centered — so sticky day
+    // pills in the middle of the column stay visible.
+    let left = side === 'right' ? rect.right - size.width : rect.left
+    let top = rect.top - size.height - gap
     const maxLeft = window.innerWidth - size.width - 8
-    const maxTop = window.innerHeight - size.height - 8
     if (left > maxLeft) left = maxLeft
     if (left < 8) left = 8
-    if (top > maxTop) top = maxTop
-    if (top < 8) top = 8
+    // Not enough room above (composer / top chrome): fall back just below.
+    if (top < 8) top = Math.min(rect.bottom + gap, window.innerHeight - size.height - 8)
     setPos({ top, left })
   }, [anchorRef, side])
 
@@ -116,13 +123,17 @@ export function BubbleHoverToolbar({
     place()
     const raf = window.requestAnimationFrame(place)
     window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
+    const onScroll = () => {
+      setPos(null)
+      ;(onDismiss ?? onLeave)()
+    }
+    window.addEventListener('scroll', onScroll, true)
     return () => {
       window.cancelAnimationFrame(raf)
       window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('scroll', onScroll, true)
     }
-  }, [open, place])
+  }, [open, place, onDismiss, onLeave])
 
   if (!open || typeof document === 'undefined') return null
   return createPortal(
@@ -214,6 +225,11 @@ export function ChatMessageBubble({
     if (hideTimer.current) window.clearTimeout(hideTimer.current)
     hideTimer.current = window.setTimeout(() => setActionsOpen(false), 140)
   }, [])
+  const dismissActions = useCallback(() => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current)
+    hideTimer.current = 0
+    setActionsOpen(false)
+  }, [])
   useEffect(() => () => {
     if (hideTimer.current) window.clearTimeout(hideTimer.current)
   }, [])
@@ -266,6 +282,7 @@ export function ChatMessageBubble({
       side={side}
       onEnter={showActions}
       onLeave={hideActions}
+      onDismiss={dismissActions}
     >
       {actions}
     </BubbleHoverToolbar>

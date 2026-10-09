@@ -306,7 +306,13 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
             session.add(trigger)
             await session.flush()
             loop = AgentLoop(
-                session, signal.tenant_id, None, agent=agent, run=run, tool_signal_id=signal.id
+                session,
+                signal.tenant_id,
+                None,
+                agent=agent,
+                run=run,
+                signal_id=signal.id,
+                tool_signal_id=signal.id,
             )
             text, _tokens = await loop.run_chat([{"role": "user", "content": _brief(signal, tag, stage)}])
             run.status = "completed"

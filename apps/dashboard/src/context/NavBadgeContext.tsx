@@ -128,9 +128,11 @@ export function NavBadgeProvider({ children }: { children: ReactNode }) {
     }
     const unsubThreads = onGatewayEvent('threads', scheduleHttpRefresh)
     const unsubDecisions = onGatewayEvent('decisions', scheduleHttpRefresh)
+    const unsubNotifications = onGatewayEvent('notifications', scheduleHttpRefresh)
     return () => {
       unsubThreads()
       unsubDecisions()
+      unsubNotifications()
       if (debounceTimer !== null) window.clearTimeout(debounceTimer)
     }
   }, [token, refresh])

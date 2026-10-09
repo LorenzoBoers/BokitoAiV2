@@ -2236,7 +2236,8 @@
     "newProject": "Nieuw project",
     "connectMailbox": "Mailbox koppelen",
     "openSetupGuide": "Setupgids openen",
-    "openHelp": "Hulp openen",
+    "openHelp": "Support openen",
+    "openBokitoHelp": "Hulp openen (Bokito)",
     "switchToLight": "Schakel naar lichte modus",
     "switchToDark": "Schakel naar donkere modus",
     "ariaDialog": "Commandopalet",
@@ -2288,6 +2289,8 @@
     "profile": "Profiel",
     "settings": "Instellingen",
     "help": "Hulp",
+    "helpHint": "Open Bokito voor hulp bij deze pagina",
+    "support": "Support",
     "notifications": "Notificaties",
     "workspaces": "Workspaces",
     "resumeSetup": "Setupgids hervatten",
@@ -4700,7 +4703,7 @@
       "govern": "AI en controle",
       "advanced": "Geavanceerd",
       "data": "Data",
-      "help": "Hulp"
+      "help": "Support"
     },
     "links": {
       "profile": "Profiel",
@@ -4708,7 +4711,7 @@
       "myAssistant": "Mijn assistent",
       "notifications": "Notificaties",
       "setupGuide": "Setupgids",
-      "help": "Hulp",
+      "help": "Support",
       "inbox": "Mailboxen",
       "emailMessages": "Kanalen",
       "chatWidget": "Chatwidget",

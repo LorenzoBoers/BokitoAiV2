@@ -2,7 +2,7 @@ import React, { createContext, useContext, useCallback, useEffect, useMemo } fro
 import { appRoutes } from '../api/routes/app.routes';
 import { apiGet, apiPost } from '../lib/api';
 import type { GatewayEvent } from '../lib/gateway';
-import { applyLive, listLive, seedLive, useLiveList } from '../lib/live-store';
+import { applyLive, listLive, onLiveReconnect, seedLive, useLiveList } from '../lib/live-store';
 import { useAuth } from './AuthContext';
 
 const TABLE = 'notification';
@@ -121,6 +121,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Events published while the socket was down never reach ingestNotification.
+  useEffect(() => {
+    if (!token) return;
+    return onLiveReconnect(() => {
+      void refresh();
+    });
+  }, [token, refresh]);
 
   const markAsRead = useCallback(
     (id: string) => {

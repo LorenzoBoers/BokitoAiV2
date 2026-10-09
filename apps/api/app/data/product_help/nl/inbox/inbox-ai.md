@@ -9,7 +9,7 @@ related: communication,contacts,channels,govern,autonomy,agents
 
 # AI-afhandeling instellen
 
-AI-afhandeling is een instelling met drie modi: **Autonoom** (AI antwoordt zelf), **Geassisteerd** (AI stelt antwoorden en acties voor, een mens verstuurt) en **Handmatig** (AI blijft stil). Je stelt het een keer in voor de workspace en alleen opnieuw waar een kanaal, een contact of een enkel gesprek moet afwijken — de meest specifieke instelling wint.
+AI-afhandeling is een instelling met drie modi: **Autonoom** (AI antwoordt zelf), **Geassisteerd** (AI stelt antwoorden en acties voor, een mens verstuurt) en **Handmatig** (geen concept of verzenden naar de klant; de gekoppelde kanaalagent mag het gesprek nog wel lezen, samenvatting en prioriteit zetten, en tags of tickets vastleggen). Je stelt het een keer in voor de workspace en alleen opnieuw waar een kanaal, een contact of een enkel gesprek moet afwijken — de meest specifieke instelling wint. Zonder **AI-agent** op het kanaal is er geen inbound-interpretatie of antwoord.
 
 Overal zie je dezelfde iconen: een bliksem voor Autonoom en een pen voor Geassisteerd (beide paars), en een hand voor Handmatig (grijs). [Govern](/docs/govern/govern) bepaalt het plafond: niets daaronder kan autonomer zijn dan Govern toestaat. Elke agent heeft ook een eigen plafond (zie [Agents](/docs/ai/agents)): een gesprek dat de agent afhandelt komt daar nooit boven, en de keuzelijst laat dat zien.
 

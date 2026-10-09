@@ -81,25 +81,96 @@ async def resolve_agent_for_channel(
     return None
 
 
+async def _pinned_company_agent(session: AsyncSession, signal: Signal) -> Agent | None:
+    """Thread-level company pin when the agent may handle this channel."""
+    if not signal.agent_id:
+        return None
+    from app.services.channel_access import agent_can_handle
+
+    pinned = await _agent_by_id(session, signal.tenant_id, signal.agent_id)
+    if not pinned or pinned.kind != "company":
+        return None
+    account = (
+        await session.get(ChannelAccount, signal.channel_account_id)
+        if signal.channel_account_id
+        else None
+    )
+    if await agent_can_handle(session, account, pinned.id):
+        return pinned
+    return None
+
+
+async def resolve_channel_default_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    channel_account_id: UUID | None = None,
+    channel: str = "",
+) -> Agent | None:
+    """Only the channel account's explicit default agent (no lead / Front desk fallback)."""
+    account: ChannelAccount | None = None
+    if channel_account_id:
+        account = (
+            await session.execute(
+                select(ChannelAccount).where(
+                    ChannelAccount.id == channel_account_id,
+                    ChannelAccount.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+    elif channel:
+        account = (
+            await session.execute(
+                select(ChannelAccount)
+                .where(
+                    ChannelAccount.tenant_id == tenant_id,
+                    ChannelAccount.channel == channel,
+                )
+                .order_by(ChannelAccount.created_at)
+                .limit(1)
+            )
+        ).scalars().first()
+    if not account or not account.default_agent_id:
+        return None
+    from app.services.channel_access import agent_can_handle
+
+    selected = await _agent_by_id(session, tenant_id, account.default_agent_id)
+    if selected and await agent_can_handle(session, account, selected.id):
+        return selected
+    return None
+
+
+async def resolve_inbound_agent_for_signal(
+    session: AsyncSession, signal: Signal
+) -> Agent | None:
+    """Agent for automatic inbound AI: thread pin or explicit channel default only.
+
+    Lead / Front desk fallback is intentionally omitted so a channel without a
+    linked agent gets no interpretation and no reply. Manual "Bring in an agent"
+    still uses ``resolve_agent_for_signal`` / ``resolve_agent_for_channel``.
+    """
+    pinned = await _pinned_company_agent(session, signal)
+    if pinned is not None:
+        return pinned
+    return await resolve_channel_default_agent(
+        session,
+        signal.tenant_id,
+        channel_account_id=signal.channel_account_id,
+        channel=signal.channel or "",
+    )
+
+
 async def resolve_agent_for_signal(session: AsyncSession, signal: Signal) -> Agent | None:
-    """Agent for this thread: a thread-level pin wins, else channel default.
+    """Agent for this thread: a thread-level pin wins, else channel default (+ fallback).
 
     ``Signal.agent_id`` is the handling agent of that one conversation (set
     when an agent takes it over, or when it raised the thread). Honouring it
-    keeps a conversation with the agent that has been in it.
+    keeps a conversation with the agent that has been in it. Prefer
+    ``resolve_inbound_agent_for_signal`` for the inbound worker.
     """
-    from app.services.channel_access import agent_can_handle
-
-    if signal.agent_id:
-        pinned = await _agent_by_id(session, signal.tenant_id, signal.agent_id)
-        if pinned and pinned.kind == "company":
-            account = (
-                await session.get(ChannelAccount, signal.channel_account_id)
-                if signal.channel_account_id
-                else None
-            )
-            if await agent_can_handle(session, account, pinned.id):
-                return pinned
+    pinned = await _pinned_company_agent(session, signal)
+    if pinned is not None:
+        return pinned
 
     return await resolve_agent_for_channel(
         session,

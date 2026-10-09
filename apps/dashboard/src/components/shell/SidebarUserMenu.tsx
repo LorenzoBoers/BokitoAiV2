@@ -160,7 +160,7 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => go('/settings/help')}>
           <CircleHelp size={14} className="mr-2 shrink-0 text-text-muted" aria-hidden />
-          {t('topbar.help')}
+          {t('topbar.support')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>{t('theme.label', { defaultValue: 'Theme' })}</DropdownMenuLabel>

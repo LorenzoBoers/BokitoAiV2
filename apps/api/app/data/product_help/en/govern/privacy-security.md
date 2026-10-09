@@ -45,7 +45,7 @@ Owners and admins manage retention, data region, and data subject requests under
 
 Operator deletes (conversations, projects, canvases, knowledge, contacts, playbooks, triggers, teams, rules) move to the **Bin**, not straight to gone. Agent deactivate and mailbox archive stay outside the Bin.
 
-1. Open **Settings**. At the bottom of the sidebar, above **Help**, choose **Bin**.
+1. Open **Settings**. At the bottom of the sidebar, above **Support**, choose **Bin**.
 2. Filter by type or search the title. Each row shows who deleted it and **Purge on** the date it will be removed.
 3. Choose **Restore** to bring the item and its children back. If a slug is taken, Bokito appends `-restored`. Each row shows who deleted the item and when it will be purged.
 4. Choose **Delete permanently** for one item, or **Empty Bin** (type `empty`) to purge all. The footer states how many days items are kept (platform default 60).

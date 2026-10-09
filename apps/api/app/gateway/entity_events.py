@@ -9,6 +9,10 @@ Rows changed in one commit are coalesced per ``(entity, id)``. Calendar sync
 can touch hundreds of events, so calendar collapses to one tenant-level event.
 Agent runtime churn (status, current activity) already streams as
 ``agent.status`` and is not repeated here.
+
+New ``SignalMessage`` rows also enqueue a post-commit ``publish_signal_message``
+so writers that forget an explicit publish still reach the gateway. Clients
+upsert by message id, so an explicit publish plus this safety net is harmless.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 _PENDING_KEY = "bokito_entity_events"
 _HINTS_KEY = "bokito_entity_hints"
+_PENDING_MESSAGES_KEY = "bokito_pending_messages"
 
 _AGENT_RUNTIME_FIELDS = frozenset(
     {
@@ -123,11 +128,26 @@ def _record(session: Session, obj: Any, op: str) -> None:
     pending[(str(tenant_id), entity, key_id)] = op
 
 
+def _record_message(session: Session, obj: Any) -> None:
+    from app.models.signal import SignalMessage
+
+    if not isinstance(obj, SignalMessage):
+        return
+    message_id = getattr(obj, "id", None)
+    signal_id = getattr(obj, "signal_id", None)
+    tenant_id = getattr(obj, "tenant_id", None)
+    if not message_id or not signal_id or tenant_id is None:
+        return
+    pending: set[tuple[str, str, str]] = session.info.setdefault(_PENDING_MESSAGES_KEY, set())
+    pending.add((str(tenant_id), str(signal_id), str(message_id)))
+
+
 @event.listens_for(Session, "after_flush")
 def _collect(session: Session, flush_context: Any) -> None:  # noqa: ARG001
     try:
         for obj in session.new:
             _record(session, obj, "created")
+            _record_message(session, obj)
         for obj in session.dirty:
             if session.is_modified(obj, include_collections=False):
                 _record(session, obj, "updated")
@@ -141,7 +161,8 @@ def _collect(session: Session, flush_context: Any) -> None:  # noqa: ARG001
 def _flush_events(session: Session) -> None:
     pending: dict[tuple[str, str, str | None], str] = session.info.pop(_PENDING_KEY, {}) or {}
     hints: dict[str, dict[str, Any]] = session.info.pop(_HINTS_KEY, {}) or {}
-    if not pending:
+    pending_messages: set[tuple[str, str, str]] = session.info.pop(_PENDING_MESSAGES_KEY, set()) or set()
+    if not pending and not pending_messages:
         return
     try:
         loop = asyncio.get_running_loop()
@@ -157,6 +178,8 @@ def _flush_events(session: Session) -> None:
             signal_ids.add(row["signal_id"])
     for signal_id in signal_ids:
         loop.create_task(_publish_thread_row(signal_id))
+    for tenant_id, signal_id, message_id in pending_messages:
+        loop.create_task(_publish_new_message(tenant_id, signal_id, message_id))
 
 
 async def _publish_thread_row(signal_id: str) -> None:
@@ -176,10 +199,34 @@ async def _publish_thread_row(signal_id: str) -> None:
         logger.exception("thread row publish failed for %s", signal_id)
 
 
+async def _publish_new_message(tenant_id: str, signal_id: str, message_id: str) -> None:
+    """Safety net: a committed SignalMessage always reaches the gateway."""
+    from uuid import UUID
+
+    from app.db.session import async_session_factory
+    from app.gateway.publish import publish_signal_message
+    from app.models.signal import Signal, SignalMessage
+
+    try:
+        async with async_session_factory() as session:
+            signal = await session.get(Signal, UUID(signal_id))
+            message = await session.get(SignalMessage, UUID(message_id))
+        if (
+            signal is not None
+            and message is not None
+            and str(signal.tenant_id) == tenant_id
+            and str(message.signal_id) == signal_id
+        ):
+            await publish_signal_message(signal, message)
+    except Exception:  # noqa: BLE001 — live events never break a write
+        logger.exception("signal message publish failed for %s", message_id)
+
+
 @event.listens_for(Session, "after_rollback")
 def _drop_events(session: Session) -> None:
     session.info.pop(_PENDING_KEY, None)
     session.info.pop(_HINTS_KEY, None)
+    session.info.pop(_PENDING_MESSAGES_KEY, None)
 
 
 def install() -> None:

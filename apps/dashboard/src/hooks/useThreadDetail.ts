@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { onGatewayEvent } from '../lib/gateway'
+import { onGatewayEvent, onGatewayStatus, type GatewayStatus } from '../lib/gateway'
 import {
   extractLiveMessage,
   extractLiveThreadRow,
@@ -211,7 +211,9 @@ export function useThreadDetail(
       if (
         event.event === 'message.delta' ||
         event.event === 'agent.thinking' ||
-        event.event === 'agent.step'
+        event.event === 'agent.step' ||
+        event.event === 'agent.activity' ||
+        event.event === 'agent.turn'
       ) {
         return
       }
@@ -278,6 +280,30 @@ export function useThreadDetail(
       unsub()
       if (quietTimer != null) window.clearTimeout(quietTimer)
     }
+  }, [token, threadId, fetchDetail])
+
+  // Quiet reconcile after tab focus and gateway reconnect (same pattern as useThreads).
+  useEffect(() => {
+    if (!token || !threadId) return
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void fetchDetail(true)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [token, threadId, fetchDetail])
+
+  useEffect(() => {
+    if (!token || !threadId) return
+    let sawDisconnect = false
+    const unsubscribe = onGatewayStatus((status: GatewayStatus) => {
+      if (status === 'disconnected') {
+        sawDisconnect = true
+      } else if (status === 'connected' && sawDisconnect) {
+        sawDisconnect = false
+        void fetchDetail(true)
+      }
+    })
+    return () => unsubscribe()
   }, [token, threadId, fetchDetail])
 
   // Derive isPinned client-side from the shared pinnedIds list. The detail

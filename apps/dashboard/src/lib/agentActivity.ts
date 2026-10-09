@@ -44,7 +44,14 @@ export type ActivityGroup = {
   durationMs: number
 }
 
-const KNOWLEDGE_TOOLS = new Set(['search_index', 'list_docs', 'read_doc', 'write_doc', 'search_product_help'])
+const KNOWLEDGE_TOOLS = new Set([
+  'search_index',
+  'list_docs',
+  'read_doc',
+  'write_doc',
+  'search_product_help',
+  'record_thread_read',
+])
 const HANDOFF_TOOLS = new Set(['handoff_to_human', 'request_callback'])
 
 export function isKnowledgeTool(tool?: string | null): boolean {

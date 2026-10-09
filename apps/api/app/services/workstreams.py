@@ -950,7 +950,14 @@ async def _execute_agent_step(
     else:
         from app.services.agent.loop import AgentLoop
 
-        loop = AgentLoop(session, tenant_id, None, runtime_agent, agent_run)
+        loop = AgentLoop(
+            session,
+            tenant_id,
+            None,
+            runtime_agent,
+            agent_run,
+            signal_id=run.signal_id,
+        )
         loop.usage_scope = "workstream"
         loop.usage_call_type = "workstream"
         text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])

@@ -387,6 +387,9 @@ async def acknowledge_channel_not_ready(
         )
     )
     await session.commit()
+    from app.gateway.publish import publish_thread_update
+
+    await publish_thread_update(signal)
     return {
         "suggestion": False,
         "kind": "channel_not_ready",

@@ -2,9 +2,9 @@
  * Host bridge to the mounted `bokito-chat` element.
  *
  * The dashboard never renders its own chat surface for the personal helper:
- * anything that wants to open Bokito (the Messages rail, a Workspaces card)
- * hands the request to the one widget instance mounted by
- * `PersonalAssistantWidget`.
+ * anything that wants to open Bokito (the Messages rail, a Workspaces card,
+ * the topbar Help button) hands the request to the one widget instance
+ * mounted by `PersonalAssistantWidget`.
  */
 
 type BokitoChatElement = HTMLElement & {
@@ -14,9 +14,22 @@ type BokitoChatElement = HTMLElement & {
 }
 
 let mounted: BokitoChatElement | null = null
+/** Open request that arrived before the custom element finished mounting. */
+let pendingOpen = false
+
+function showAndOpen(el: BokitoChatElement): void {
+  // Communication may hide the host while a thread composer is on screen;
+  // force-open from Help must still show the panel.
+  el.style.display = ''
+  el.open?.()
+}
 
 export function registerAssistantWidget(element: HTMLElement | null): void {
   mounted = element as BokitoChatElement | null
+  if (mounted && pendingOpen) {
+    pendingOpen = false
+    showAndOpen(mounted)
+  }
 }
 
 /** Whether a widget is mounted and can take an open request right now. */
@@ -32,18 +45,25 @@ export function assistantLauncherRect(): DOMRect | null {
   return rect.width > 0 && rect.height > 0 ? rect : null
 }
 
+/** Open the Bokito helper panel (works even when the FAB is hidden on Communication). */
 export function openAssistant(): void {
-  mounted?.open?.()
+  if (!mounted) {
+    pendingOpen = true
+    return
+  }
+  showAndOpen(mounted)
 }
 
 export function openAssistantThread(conversationId: string): void {
   if (!mounted) return
+  mounted.style.display = ''
   if (mounted.openThread) void mounted.openThread(conversationId)
   else mounted.open?.()
 }
 
 export function startAssistantThread(): void {
   if (!mounted) return
+  mounted.style.display = ''
   if (mounted.startThread) void mounted.startThread()
   else mounted.open?.()
 }

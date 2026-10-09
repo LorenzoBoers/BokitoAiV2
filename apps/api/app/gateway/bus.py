@@ -46,11 +46,21 @@ class EventBus:
     # -- lifecycle --
 
     async def start(self) -> None:
-        """Begin listening for envelopes from other processes (web workers)."""
+        """Begin listening for envelopes from other processes (web workers).
+
+        Production refuses to boot without Redis: ARQ workers and multi-process
+        web deployments otherwise drop live events that never reach WS clients.
+        Dev and tests keep the in-process fallback.
+        """
         if self._reader_task is not None:
             return
         redis = await self._get_redis()
         if redis is None:
+            if get_settings().is_production:
+                raise RuntimeError(
+                    "Redis is required for the gateway event bus in production "
+                    f"(REDIS_URL unreachable: {get_settings().redis_url!r})."
+                )
             return
         self._reader_task = asyncio.create_task(self._reader_loop())
 

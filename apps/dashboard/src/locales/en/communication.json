@@ -1242,7 +1242,10 @@
       "agentReplied": "AI replied",
       "suggestionCreated": "AI drafted a suggestion",
       "decisionCreated": "AI asked for a decision",
-      "triaged": "AI triaged this conversation",
+      "triaged": "Read this conversation",
+      "triagedSummary": "{{summary}}",
+      "triagedSummaryDetail": "{{summary}} · {{detail}}",
+      "triagedBy": "{{name}} read this conversation",
       "splitIn": "Split from an earlier conversation",
       "splitOut": "New request moved to its own conversation",
       "splitOutCategory": "New request moved to its own conversation: {{category}}",
@@ -1305,7 +1308,11 @@
     "thisConversation": "This conversation",
     "priority": "Priority",
     "lookAgain": "Look again",
-    "plan": "Plan"
+    "plan": "Plan",
+    "reread": "Re-read",
+    "rereadHint": "Ask the channel agent to read this conversation again",
+    "rereadQueued": "Agent will re-read this conversation",
+    "rereadFailed": "Could not queue a re-read"
   },
   "actions": {
     "takeoverError": "Could not change AI replies.",

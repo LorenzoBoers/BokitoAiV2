@@ -1,11 +1,12 @@
 """Inbound worker preflight is shared between interpret and reply paths."""
 
 import pytest
-from sqlalchemy import select
+from datetime import datetime, timezone
 
-from app.models.auth import Tenant
+from app.models.auth import Membership, Tenant, User
 from app.models.signal import Signal, SignalMessage
-from app.workers.tasks import _inbound_preflight, _interpret_inbound_message
+from app.services.auth import hash_password
+from app.workers.tasks import _inbound_preflight
 
 
 @pytest.mark.asyncio
@@ -43,24 +44,14 @@ async def test_inbound_preflight_marks_automated_mail(session_override):
     assert preflight.msg is not None
     assert preflight.classification.get("automated") is True
     assert preflight.is_member is False
-
-    # Interpret must skip the LLM for automated mail and still return preflight.
-    again = await _interpret_inbound_message(session_override, tenant.id, signal)
-    assert again.classification.get("automated") is True
-    row = (
-        await session_override.execute(select(Signal).where(Signal.id == signal.id))
-    ).scalar_one()
-    assert row.triaged_at is None
+    # Interpretation is the channel agent's job; automated mail never gets a
+    # silent platform triage pass before the worker skip.
+    assert signal.triaged_at is None
 
 
 @pytest.mark.asyncio
 async def test_inbound_preflight_ignores_stale_author_after_deactivation(session_override):
     """Messages stamped with author_user_id before deactivation must get AI again."""
-    from datetime import datetime, timezone
-
-    from app.models.auth import Membership, User
-    from app.services.auth import hash_password
-
     tenant = Tenant(slug="preflight-ex-member", name="Preflight Ex")
     user = User(
         email="ex@example.com",

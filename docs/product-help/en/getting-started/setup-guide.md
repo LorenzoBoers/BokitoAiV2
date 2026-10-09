@@ -9,7 +9,7 @@ related: quickstart,channels,team,agents,autonomy
 
 # Workspace setup guide
 
-The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Help**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). Owners first finish the first-run wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**), then the product tour. After that, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, Govern, numbers on Overview).
+The quickstart gets you running. This guide gets you configured. Open **Settings**, then **Support**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). Owners first finish the first-run wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**), then the product tour. After that, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, Govern, numbers on Overview).
 
 ## Workspace basics and branding
 
@@ -47,7 +47,7 @@ New workspaces seed a daily **platform check-in** that starts **paused**. When y
 
 ## Follow the live checklist
 
-On first login, owners complete the **first-run wizard**, then the product tour. After that, Communication shows **Continue setup**. The same activation steps live under **Settings** → **Help** → **Setup guide**:
+On first login, owners complete the **first-run wizard**, then the product tour. After that, Communication shows **Continue setup**. The same activation steps live under **Settings** → **Support** → **Setup guide**:
 
 1. **Finish first-run setup** — the wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**).
 2. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Channels**, not the module marketplace. See [Channels](/docs/inbox/channels).

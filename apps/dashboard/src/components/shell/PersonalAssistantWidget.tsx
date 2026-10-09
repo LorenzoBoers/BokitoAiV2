@@ -29,7 +29,8 @@ function describePage(pathname: string, search: string): string {
  * The launcher sits bottom-right — exactly where an open conversation puts
  * its send controls. Hide it while a thread or the new-conversation composer
  * is on screen so it never covers a Send button; it returns on every other
- * page (lists, Overview, settings, ...).
+ * page (lists, Overview, settings, ...). Topbar Help force-opens the panel
+ * even while the launcher is hidden.
  */
 function launcherHiddenFor(pathname: string): boolean {
   if (!pathname.startsWith('/communication')) return false
@@ -57,6 +58,8 @@ export default function PersonalAssistantWidget() {
   const { i18n } = useTranslation()
   const { pathname, search } = useLocation()
   const widgetRef = useRef<HTMLElement | null>(null)
+  /** True while the panel was force-opened (e.g. topbar Help on Communication). */
+  const forceOpenRef = useRef(false)
 
   const tenantSlug = currentWorkspace?.slug ?? ''
   const workspaceId = currentWorkspace?.id != null ? String(currentWorkspace.id) : ''
@@ -67,6 +70,16 @@ export default function PersonalAssistantWidget() {
     if (!token) return
     let cancelled = false
     let el: HTMLElement | null = null
+    const onPanel = (event: Event) => {
+      const open = Boolean((event as CustomEvent<{ open?: boolean }>).detail?.open)
+      forceOpenRef.current = open
+      if (!el) return
+      if (open) {
+        el.style.display = ''
+        return
+      }
+      if (launcherHiddenFor(window.location.pathname)) el.style.display = 'none'
+    }
     void ensureChatWidgetScript()
       .then(() => {
         if (cancelled) return
@@ -90,6 +103,7 @@ export default function PersonalAssistantWidget() {
         }
         el.setAttribute('data-theme', currentTheme())
         if (launcherHiddenFor(window.location.pathname)) el.style.display = 'none'
+        el.addEventListener('bokito:panel', onPanel)
         document.body.appendChild(el)
         widgetRef.current = el
         registerAssistantWidget(el)
@@ -103,8 +117,10 @@ export default function PersonalAssistantWidget() {
       })
     return () => {
       cancelled = true
+      forceOpenRef.current = false
       widgetRef.current = null
       registerAssistantWidget(null)
+      el?.removeEventListener('bokito:panel', onPanel)
       el?.remove()
     }
     // Remounting on a workspace switch is intentional: the helper answers
@@ -120,6 +136,7 @@ export default function PersonalAssistantWidget() {
     const el = widgetRef.current
     if (!el) return
     el.dataset.pageContext = describePage(pathname, search)
+    if (forceOpenRef.current) return
     el.style.display = launcherHiddenFor(pathname) ? 'none' : ''
   }, [pathname, search])
 

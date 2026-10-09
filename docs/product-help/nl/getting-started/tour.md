@@ -35,7 +35,7 @@ Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 - **Workforce** — de mensen, de agents en de teams die ze vormen, met wie nu beschikbaar is. Zie [Workforce](/docs/getting-started/team).
 - **Koppelingen** — marketplace-installaties, partnerlogins en tools. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Integraties](/docs/integrations/integrations).
-- **Instellingen** — gegroepeerd als Persoonlijk, Organisatie, Communicatie (**Kanalen**, **Chatwidget**, **AI-afhandeling**, **Actietags**), AI en controle (**Govern**, **Modellen**, **Data en privacy**) en Geavanceerd (**Voor ontwikkelaars**). **Hulp** staat onderaan en opent setupgids, producttour, documentatie, API-reference en support. Zie [Actietags en tickets](/docs/ai/categories).
+- **Instellingen** — gegroepeerd als Persoonlijk, Organisatie, Communicatie (**Kanalen**, **Chatwidget**, **AI-afhandeling**, **Actietags**), AI en controle (**Govern**, **Modellen**, **Data en privacy**) en Geavanceerd (**Voor ontwikkelaars**). **Support** staat onderaan en opent setupgids, producttour, documentatie, API-reference en contactopties. Zie [Actietags en tickets](/docs/ai/categories).
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).
 
@@ -45,20 +45,20 @@ Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen
 
 1. Druk `Ctrl+K` (Windows) of `Cmd+K` (Mac) vanaf elke ingelogde pagina.
 2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Communicatie-wachtrijen**, **Kennis** en **Instellingen**.
-3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Agent openen**, **Draaiboek openen**, **Project openen**, **Kennis openen**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen** en **Hulp openen**.
+3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Agent openen**, **Draaiboek openen**, **Project openen**, **Kennis openen**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Mailbox koppelen**, **Setupgids openen**, **Hulp openen (Bokito)** en **Support openen**.
 4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
 Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen, niet om inboxfilters te zetten.
 
 ## Vraag Bokito
 
-1. Kies de Bokito-knop rechtsonder op elke pagina.
+1. Kies **Hulp** in de topbalk (naast **Aan de slag** zolang onboarding niet klaar is), of de Bokito-knop rechtsonder op pagina's waar de launcher zichtbaar is. Op Communicatie met een open gesprek blijft de hoek-launcher verborgen zodat die Send niet bedekt; gebruik dan **Hulp** in de topbalk om het paneel geforceerd te openen.
 2. Typ je vraag. Bokito weet welke pagina je bekijkt, dus "wat betekent deze status?" werkt zonder uit te leggen waar je bent.
 3. Het gesprek draait met jouw eigen rechten, en Bokito geeft echt werk door aan de agents van de workspace. Zie [Bokito, je assistent](/docs/getting-started/assistant).
 
 ## Twee andere snelkoppelingen
 
-Het accountmenu biedt **Profiel**, **Instellingen**, **Workspaces** en **Hulp**. Onderaan herhaalt het de supportregel `environment · tenant-slug · Live`. **Hulp** (`/settings/help`) linkt naar de setupgids, producttour, `/docs`, `/docs/api` en support (e-mail of praat met de assistent). De openbare site is `/docs` (geen login). In-app Learn blijft op `/learn` voor paginabanners.
+Het accountmenu biedt **Profiel**, **Instellingen**, **Workspaces** en **Support**. Onderaan herhaalt het de supportregel `environment · tenant-slug · Live`. **Support** (`/settings/help`) linkt naar de setupgids, producttour, `/docs`, `/docs/api` en contactopties. De openbare site is `/docs` (geen login). In-app Learn blijft op `/learn` voor paginabanners.
 
 ## Wat nu
 

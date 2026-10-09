@@ -190,7 +190,14 @@ async def _execute_agent_segment(
     )
 
     messages = [*checkpoint_messages, {"role": "user", "content": prompt}]
-    loop = AgentLoop(session, tenant_id, task.created_by, runtime_agent, run)
+    loop = AgentLoop(
+        session,
+        tenant_id,
+        task.created_by,
+        runtime_agent,
+        run,
+        signal_id=task.signal_id,
+    )
     loop.usage_scope = "orchestration"
     loop.usage_call_type = "orchestration"
     text, tokens = await loop.run_chat(messages)

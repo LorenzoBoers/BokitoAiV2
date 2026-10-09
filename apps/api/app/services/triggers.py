@@ -562,7 +562,14 @@ async def fire_trigger(
 
         await promote_run_to_task(session, run, title=trigger.name)
 
-    loop = AgentLoop(session, trigger.tenant_id, None, agent=agent, run=run)
+    loop = AgentLoop(
+        session,
+        trigger.tenant_id,
+        None,
+        agent=agent,
+        run=run,
+        signal_id=trigger.signal_id,
+    )
     try:
         text, _tokens = await loop.run_chat([{"role": "user", "content": prompt}])
     except Exception as exc:

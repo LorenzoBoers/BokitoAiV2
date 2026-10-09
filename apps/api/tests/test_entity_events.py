@@ -87,6 +87,47 @@ async def test_agent_runtime_churn_is_not_an_entity_event(session_override: Asyn
 
 
 @pytest.mark.asyncio
+async def test_new_signal_message_publishes_via_safety_net(
+    session_override: AsyncSession, monkeypatch
+):
+    """Writers that only commit a SignalMessage still enqueue a gateway publish."""
+    import app.gateway.entity_events as entity_events
+    from app.models.signal import Signal, SignalMessage
+
+    calls: list[str] = []
+
+    async def fake_publish_new(tenant_id, signal_id, message_id):
+        calls.append(message_id)
+
+    monkeypatch.setattr(entity_events, "_publish_new_message", fake_publish_new)
+    tenant = await _tenant(session_override)
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="outlook",
+        subject="Safety net",
+        contact_email="k@x.nl",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    message = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant.id,
+        kind="user_message",
+        direction="inbound",
+        role="user",
+        body_text="Hello live",
+        body_preview="Hello live",
+        created_at=datetime.utcnow(),
+    )
+    session_override.add(message)
+    await session_override.commit()
+    await asyncio.sleep(0)
+    assert str(message.id) in calls
+
+
+@pytest.mark.asyncio
 async def test_team_member_change_publishes_its_team(session_override: AsyncSession, monkeypatch):
     from app.models.team import Team, TeamMember
 

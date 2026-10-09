@@ -66,6 +66,8 @@ export const appRoutes = {
     threadHandledExternally: (threadId: string) => `/signals/${threadId}/handled-externally`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
+    /** Re-queue inbound agent read (record_thread_read + reply when allowed). */
+    threadTriage: (threadId: string) => `/signals/${threadId}/triage`,
     threadAgentCandidates: (threadId: string) => `/signals/${threadId}/agent-candidates`,
     threadAssignees: (threadId: string) => `/signals/${threadId}/assignees`,
     threadSessions: (threadId: string) => `/signals/${threadId}/sessions`,

@@ -2029,6 +2029,7 @@ async def set_read(
         await mark_conversation_read(session, tenant_id, user_id, signal_id)
     await session.commit()
     await session.refresh(signal)
+    await publish_thread_update(signal)
     pinned = await _pinned_ids(session, tenant_id, user_id)
     return serialize_thread(signal, is_pinned=signal_id in pinned, user_num=user_num)
 

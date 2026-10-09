@@ -67,12 +67,27 @@ Rollback: `POST /api/govern/changes/{id}/rollback` (or `/restore`) reverts accep
 
 All live data flows over one WebSocket endpoint: `GET /api/ws` (`app/gateway/`).
 
-- **Protocol:** client `connect` / `sub` / `unsub` / `ping`; server `connected` / `sub_ok` / `event` / `pong`. Event frames: `{type: "event", event, topics, data, ts}` with event one of `message`, `thread`, `agent.run`, `decision`, `notification`, `presence`.
-- **Topics:** `threads`, `runs`, `decisions`, `notifications`, `presence` (operator-wide), `run:<id>`, `signal:<id>` (scoped). Widget principals may only subscribe to their own `signal:<id>` threads (Contact / owner check).
+- **Protocol:** client `connect` / `sub` / `unsub` / `ping`; server `connected` / `sub_ok` / `event` / `pong`. Event frames: `{type: "event", event, topics, data, ts}` with event one of `message`, `thread`, `agent.turn`, `agent.activity`, `agent.thinking`, `message.delta`, `agent.run`, `agent.status`, `decision`, `notification`, `presence`, `entity.changed`, `conversation`.
+- **Topics:** `threads`, `runs`, `decisions`, `notifications`, `presence`, `agents`, `entities` (operator-wide), `run:<id>`, `signal:<id>` (scoped). Widget principals may only subscribe to their own `signal:<id>` threads (Contact / owner check).
 - **Auth:** dashboard JWT or widget session token via `?access_token=` or a `connect` frame; `device` identifies the client surface.
-- **Fanout:** in-process + Redis pub/sub (`bokito:gateway:events`) so ARQ workers and multiple web workers reach WS clients; degrades to single-process without Redis.
-- **Publishers:** `app/gateway/publish.py` — called from signal services (messages, thread updates, triage), decision creation/resolution, run event logging, and notification creation.
-- **Clients:** dashboard `lib/gateway.ts` (reconnecting singleton; LiveWorkLog, NavBadgeContext, useThreads), chat widget `RealtimeClient`. The orchestration run-events SSE endpoint was removed; `POST .../stream-chat` fetch-SSE remains only for in-flight token streaming of a reply.
+- **Fanout:** in-process + Redis pub/sub (`bokito:gateway:events`) so ARQ workers and multiple web workers reach WS clients. **Production requires Redis** (startup fails if `REDIS_URL` is missing, localhost, or unreachable). Dev/tests keep the in-process fallback.
+- **Publishers:** `app/gateway/publish.py` — called from signal services (messages, thread updates, triage), decision creation/resolution, run event logging, notification creation, and agent turn streaming. `entity_events.py` adds a post-commit safety net for new `SignalMessage` rows and tracked entity writes.
+- **Clients:** dashboard `lib/gateway.ts` (reconnecting singleton; LiveWorkLog, NavBadgeContext, useThreads, useThreadDetail), chat widget `RealtimeClient`. The orchestration run-events SSE endpoint was removed; `POST .../stream-chat` fetch-SSE remains only for in-flight token streaming of a reply (gateway fans out the same turn to other subscribers).
+
+### Publish matrix
+
+| Domain change | Helper | Topics | Event |
+|---|---|---|---|
+| New `SignalMessage` (any author/channel) | `publish_signal_message` (+ entity_events safety net) | `threads`, `signal:{id}` | `message` |
+| Thread metadata (status, assignee, unread, tags, AI handling) | `publish_thread_update` | `threads`, `signal:{id}` (+ `conversation` for widget) | `thread` / `conversation` |
+| Agent turn stream (tools, thinking, speech) | `publish_turn_event` via `TurnRecorder` | `signal:{id}` | `agent.turn`, `agent.activity`, `agent.thinking`, `message.delta` |
+| Agent run log / status | `publish_run_event` | `runs`, `run:{id}` | `agent.run` |
+| Decision created / resolved | `publish_decision` | `decisions`, `threads`, `signal:{id}` | `decision` |
+| Bell notification | `publish_notification` | `notifications` | `notification` |
+| Member / agent presence | `publish_presence` / `publish_agent_status` | `presence`, `agents` | `presence` / `agent.status` |
+| Trigger, ticket, tag, project, agent, … | `publish_entity` (entity_events hooks) | `entities` | `entity.changed` |
+
+Contract: after commit of anything operators see, call the matching helper (or rely on the `SignalMessage` / entity safety nets). Clients upsert by id; duplicate publishes are harmless.
 
 ## Messages hub (Signal-first)
 

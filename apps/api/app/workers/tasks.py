@@ -30,11 +30,9 @@ class InboundPreflight:
     classification: dict[str, Any]
     is_member: bool
 
-# Suggest mode is research-only: the agent may read the knowledge base and
-# query connected MCP integrations, and raise inline decisions — but it can
-# never send, write, or mutate anything. create_queue_item is the one
-# exception: under "ask" policy it renders an inline proposal card, so
-# conversations can still feed project queues in suggest mode.
+# Assisted inbound: research + thread read + gated contact/ticket tools +
+# inline decisions. create_queue_item under "ask" still renders a proposal card.
+# Sending / platform mutations stay off this list.
 SUGGEST_MODE_TOOLS = frozenset(
     {
         "search_index",
@@ -48,10 +46,39 @@ SUGGEST_MODE_TOOLS = frozenset(
         "propose_action",
         "attach_items",
         "list_tags",
+        "list_categories",
         "list_projects",
         "list_queue_items",
         "list_project_docs",
         "create_queue_item",
+        "record_thread_read",
+        "set_thread_tags",
+        "file_ticket",
+        "get_ticket",
+        "get_contact",
+        "list_contacts",
+        "upsert_contact",
+        "link_conversation_contact",
+    }
+)
+
+# Manual AI handling: the channel agent may read and file, never draft or send.
+MANUAL_READ_TOOLS = frozenset(
+    {
+        "record_thread_read",
+        "set_thread_tags",
+        "file_ticket",
+        "list_tags",
+        "list_categories",
+        "get_ticket",
+        "get_contact",
+        "list_contacts",
+        "upsert_contact",
+        "link_conversation_contact",
+        "search_index",
+        "list_docs",
+        "read_doc",
+        "split_conversation",
     }
 )
 
@@ -141,32 +168,6 @@ async def _inbound_preflight(
     )
 
 
-async def _interpret_inbound_message(
-    session, tenant_id: UUID, signal: Signal
-) -> InboundPreflight:
-    """Classify the newest inbound message before the reply path runs.
-
-    Cheap deterministic noise (no inbound message, automated mail, a teammate
-    writing into a shared inbox) is skipped so the LLM is not spent on it.
-    Returns the preflight so the reply path reuses the same verdicts.
-    """
-    preflight = await _inbound_preflight(session, tenant_id, signal)
-    if (
-        preflight.msg is None
-        or preflight.classification.get("automated")
-        or preflight.is_member
-    ):
-        return preflight
-
-    from app.services.interpretation import interpret_inbound
-
-    await interpret_inbound(session, tenant_id, signal.id)
-    # apply_triage commits its own changes; refresh so the reply path below
-    # reads the interpreted thread (priority, project, summary).
-    await session.refresh(signal)
-    return preflight
-
-
 async def release_workspace_block(session, tenant, *, exclude_signal_id: str = "") -> int:
     """Clear a recorded LLM block and re-queue the threads deferred under it.
 
@@ -234,67 +235,23 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             await session.commit()
             return {"skipped": True, "reason": f"blocked:{blocked.get('kind')}", "deferred": True}
 
-        # INTERPRETATION runs first, on every inbound message: category, intent,
-        # and typed signals (Cases) exist before any reply path decides what to
-        # do — and still happen when AI is paused or replies are off.
-        preflight = await _interpret_inbound_message(session, UUID(tenant_id), signal)
+        # Preflight only (no LLM). Interpretation is the channel agent's job.
+        preflight = await _inbound_preflight(session, UUID(tenant_id), signal)
         if signal.superseded_by_id:
-            # Triage split the new request off: answer it where it now lives.
             newer = await session.get(Signal, signal.superseded_by_id)
             if newer is not None:
                 signal = newer
-                # New thread: reload newest inbound (do not re-run interpret).
                 preflight = await _inbound_preflight(session, UUID(tenant_id), signal)
 
-        if ai_handling.is_held(signal):
-            return {"skipped": True, "reason": "ai_handling_manual"}
+        from app.services.routing import resolve_inbound_agent_for_signal
 
         account, contact = await ai_handling.load_layers(session, UUID(tenant_id), signal)
         if signal.channel == "email" and account is None:
-            # Mailbox disconnected: suggesting or sending replies that can
-            # never be delivered would be misleading.
             return {"skipped": True, "reason": "mailbox_disconnected"}
-        # Match the composer: never draft/auto-send when the bound channel
-        # cannot deliver (setup_required / action_required / paused).
-        if (
-            signal.channel in ("email", "slack", "whatsapp")
-            and account is not None
-        ):
-            from app.services.channel_registry import can_send, resolve_channel
-            from app.services.inbound_agent import acknowledge_channel_not_ready
-            from app.services.routing import resolve_agent_for_signal
-
-            # Resolve once: account_can_send would call resolve_channel again.
-            row = resolve_channel(account, tenant=tenant)
-            if not can_send(row):
-                agent = await resolve_agent_for_signal(session, signal)
-                delivery = await acknowledge_channel_not_ready(
-                    session,
-                    UUID(tenant_id),
-                    signal,
-                    agent,
-                    state=str(row.get("state") or ""),
-                    state_reason=str(row.get("state_reason") or ""),
-                )
-                return {
-                    "processed": True,
-                    "signal_id": signal_id,
-                    "delivery": delivery,
-                    "skipped_ai": True,
-                    "reason": "channel_not_ready",
-                }
-        handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal)
-        if handling.effective == "manual":
-            return {"skipped": True, "reason": "ai_handling_manual"}
-        run_mode, _downgrade = await ai_handling.apply_safeguards(
-            session, tenant, signal, handling, contact=contact
-        )
 
         msg = preflight.msg
         if not msg:
             return {"skipped": True, "reason": "no inbound message"}
-
-        from app.services.routing import resolve_agent_for_signal
 
         auto_headers = preflight.auto_headers
         sender_address = preflight.sender_address
@@ -317,21 +274,16 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
             return {"processed": True, "signal_id": signal_id, "delivery": outcome}
 
-        # Inbound from a workspace member (teammate wrote into a shared inbox):
-        # never draft a customer reply to an operator.
         if preflight.is_member:
             return {"skipped": True, "reason": "workspace_member"}
 
-        # Automated / no-reply mail (system notifications, newsletters, bounces):
-        # never draft a reply. Note it on the timeline without an awaiting
-        # decision card — tip cards flooded the attention queue on busy mailboxes.
         from app.services.automated_mail import clip_with_ellipsis
 
         classification = preflight.classification
         if classification.get("automated"):
             from app.services.inbound_agent import acknowledge_automated_mail
 
-            agent = await resolve_agent_for_signal(session, signal)
+            agent = await resolve_inbound_agent_for_signal(session, signal)
             preview = clip_with_ellipsis(msg.body_preview or msg.body_text or "")
             delivery = await acknowledge_automated_mail(
                 session,
@@ -356,14 +308,44 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             await session.commit()
             return {"processed": True, "signal_id": signal_id, "delivery": delivery}
 
-        agent = await resolve_agent_for_signal(session, signal)
+        # Explicit channel agent (or thread pin) only — no lead/Front desk fallback.
+        agent = await resolve_inbound_agent_for_signal(session, signal)
         if not agent:
-            return {"skipped": True, "reason": "no agent"}
-        agent_handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal, agent=agent)
-        if agent_handling.effective == "manual":
-            return {"skipped": True, "reason": "agent_manual"}
-        if agent_handling.effective == "assisted":
-            run_mode = "assisted"
+            return {"skipped": True, "reason": "no_channel_agent"}
+
+        # Match the composer: never draft/auto-send when the bound channel
+        # cannot deliver. Still allow a read-only agent turn below when Manual.
+        channel_not_ready = False
+        channel_state = ""
+        channel_state_reason = ""
+        if (
+            signal.channel in ("email", "slack", "whatsapp")
+            and account is not None
+        ):
+            from app.services.channel_registry import can_send, resolve_channel
+
+            row = resolve_channel(account, tenant=tenant)
+            if not can_send(row):
+                channel_not_ready = True
+                channel_state = str(row.get("state") or "")
+                channel_state_reason = str(row.get("state_reason") or "")
+
+        handling = ai_handling.resolve_ai_handling(
+            tenant, account, contact, signal, agent=agent
+        )
+        # Manual / held: agent still reads (summary, tags, ticket); no draft.
+        read_only = (
+            ai_handling.is_held(signal)
+            or handling.effective == "manual"
+            or channel_not_ready
+        )
+        run_mode = "assisted"
+        if not read_only:
+            run_mode, _downgrade = await ai_handling.apply_safeguards(
+                session, tenant, signal, handling, contact=contact
+            )
+            if handling.effective == "assisted":
+                run_mode = "assisted"
 
         run = AgentRun(
             tenant_id=UUID(tenant_id),
@@ -438,8 +420,31 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         except Exception:  # noqa: BLE001 — context enrichment must never block replies
             related_context = ""
 
-        if run_mode == "assisted":
-            # Assisted: read-only research tools + inline decisions.
+        read_contract = (
+            "0. Always read first: call get_contact when a contact is linked, use "
+            "search_index / read_doc for relevant knowledge, then call "
+            "record_thread_read once with a one-sentence summary, certainty 0-100, "
+            "priority, and optional ticket_category / free tags from the catalog "
+            "(list_categories / list_tags). When you learn a lasting fact about the "
+            "person, update them with upsert_contact (notes or fields).\n"
+        )
+
+        if read_only:
+            loop.tools = [t for t in loop.tools if t["name"] in MANUAL_READ_TOOLS]
+            prompt = (
+                f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
+                f"Subject: {signal.subject}\n\n{msg_text}\n\n"
+                "AI handling is Manual (or the channel cannot send): interpret only. "
+                "Do not draft a customer reply and do not create a Send decision.\n"
+                f"{read_contract}"
+                "After record_thread_read (and any tags/ticket/contact updates), "
+                "return exactly: Done.\n"
+                f"{language_rules}"
+                f"{project_context}"
+                f"{related_context}"
+            )
+        elif run_mode == "assisted":
+            # Assisted: research + thread read + inline decisions.
             # The final reply text becomes a DecisionRequest via
             # create_reply_suggestion — the agent can never send directly.
             loop.tools = [t for t in loop.tools if assisted_tool_allowed(t["name"])]
@@ -459,7 +464,8 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 f"Subject: {signal.subject}\n\n{msg_text}\n\n"
                 "You are preparing a response for a human teammate to review; "
                 "nothing you produce is sent automatically.\n"
-                "1. Research first: use search_index / read_doc for workspace knowledge, "
+                f"{read_contract}"
+                "1. Research: use search_index / read_doc for workspace knowledge, "
                 "search_product_help for how Bokito itself works, "
                 f"{module_hint}"
                 "and call_mcp_tool only for other connected MCP servers "
@@ -506,6 +512,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
                 f"Subject: {signal.subject}\n\n{msg_text}\n\n"
                 "Reply directly to the customer; your final message is delivered as-is. "
+                f"{read_contract}"
                 "Use tools for operational actions, or create_decision_request "
                 "with multiple choice options when human input is required. "
                 "If the message is an automated notification that needs no reply "
@@ -587,6 +594,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         from app.services.automated_mail import extract_no_reply_summary
         from app.services.inbound_agent import (
+            acknowledge_channel_not_ready,
             create_action_suggestion,
             create_human_attention_suggestion,
             looks_like_empty_agent_ack,
@@ -610,10 +618,31 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 .limit(1)
             )
         ).first()
-        stale = newer_inbound is not None and run_mode == "assisted" and not agent_created_decision
+        stale = (
+            newer_inbound is not None
+            and not read_only
+            and run_mode == "assisted"
+            and not agent_created_decision
+        )
 
         no_reply_summary = extract_no_reply_summary(reply_text)
-        if stale:
+        if read_only:
+            if channel_not_ready:
+                delivery = await acknowledge_channel_not_ready(
+                    session,
+                    UUID(tenant_id),
+                    signal,
+                    agent,
+                    state=channel_state,
+                    state_reason=channel_state_reason,
+                )
+            else:
+                delivery = {
+                    "read_only": True,
+                    "delivery": "interpreted",
+                    "reason": "ai_handling_manual",
+                }
+        elif stale:
             session.add(
                 SignalEvent(
                     signal_id=signal.id,

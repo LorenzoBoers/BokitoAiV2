@@ -261,8 +261,10 @@ def validate_production_settings(settings: "Settings") -> list[str]:
         errors.append(
             "META_APP_SECRET and WHATSAPP_VERIFY_TOKEN must both be set (or both empty)."
         )
-    redis = (settings.redis_url or "").lower()
-    if "localhost" in redis or "127.0.0.1" in redis:
+    redis = (settings.redis_url or "").strip().lower()
+    if not redis:
+        errors.append("REDIS_URL must be set in production (gateway fanout + ARQ).")
+    elif "localhost" in redis or "127.0.0.1" in redis:
         errors.append("REDIS_URL must not point at localhost in production.")
     if settings.storage_backend == "s3":
         missing_s3 = [

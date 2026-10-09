@@ -62,6 +62,13 @@ def test_prod_validation_rejects_mock_execution():
     assert any("BOKITO_MOCK_EXECUTION" in e for e in errors)
 
 
+def test_prod_validation_requires_redis_url():
+    errors = validate_production_settings(_prod_settings(redis_url=""))
+    assert any("REDIS_URL" in e for e in errors)
+    errors = validate_production_settings(_prod_settings(redis_url="redis://127.0.0.1:6379/0"))
+    assert any("localhost" in e or "REDIS_URL" in e for e in errors)
+
+
 # --- Mock MCP refusal in prod ---------------------------------------------------
 
 

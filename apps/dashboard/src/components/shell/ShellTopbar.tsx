@@ -1,8 +1,9 @@
-import { Menu, Search, Sparkles } from 'lucide-react'
+import { CircleHelp, Menu, Search, Sparkles } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
+import { openAssistant } from '../../lib/personal-assistant-widget'
 import { PageGuideLink } from '../layout/PageGuideLink'
 import StaffTenantBar from '../layout/StaffTenantBar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
@@ -92,6 +93,27 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
           </button>
         </Tip>
       ) : null}
+
+      <Tip label={t('topbar.helpHint')}>
+        <button
+          type="button"
+          onClick={() => openAssistant()}
+          className="hidden h-7 items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
+        >
+          <CircleHelp size={12} className="text-accent" />
+          <span>{t('topbar.help')}</span>
+        </button>
+      </Tip>
+      <Tip label={t('topbar.helpHint')}>
+        <button
+          type="button"
+          onClick={() => openAssistant()}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary md:hidden"
+          aria-label={t('topbar.help')}
+        >
+          <CircleHelp size={14} />
+        </button>
+      </Tip>
 
       {/* Command palette trigger — conversation search lives in the thread list. */}
       <Tip label={t('topbar.openPalette')}>

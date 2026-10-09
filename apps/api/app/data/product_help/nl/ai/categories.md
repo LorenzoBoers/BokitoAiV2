@@ -11,7 +11,7 @@ related: workstreams,communication,channels,projects,widget
 
 Een actietag is een tag met een flow. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat, op een van de projecten van de flow of op geen project.
 
-Elk inkomend bericht wordt tegen de actietags gelezen voordat er een antwoord wordt opgesteld, ook als de AI-afhandeling op Handmatig staat. Een zekere lezing legt het ticket vast, een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije tags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
+Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend bericht (samenvatting, prioriteit, tags en tickets) in één run. Bij AI-afhandeling **Handmatig** leest de agent nog wel en mag die tags of tickets vastleggen, maar er komt geen conceptantwoord naar de klant. Zonder kanaalagent is er geen AI-lezing. Een zekere lezing legt het ticket vast, een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije tags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
 
 ## Een tag tot actietag maken
 

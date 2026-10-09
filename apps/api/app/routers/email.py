@@ -363,6 +363,10 @@ async def send_email(
     signal.updated_at = now
     await session.commit()
     await session.refresh(msg)
+    from app.gateway.publish import publish_signal_message, publish_thread_update
+
+    await publish_signal_message(signal, msg)
+    await publish_thread_update(signal)
     return {
         "ok": True,
         "id": str(msg.id),

@@ -800,6 +800,82 @@ async def _mark_handled_externally(ctx: ToolContext, tool_input: dict[str, Any])
     }
 
 
+async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Persist the agent's inbound read: summary, priority, certainty, tags, ticket."""
+    from app.services.interpretation import apply_thread_read
+    from app.services.signals import get_triage_context, message_plain_text
+    from app.models.signal import SignalMessage
+
+    signal_id = ctx.signal_id
+    raw_signal = tool_input.get("signal_id")
+    if raw_signal:
+        try:
+            signal_id = UUID(str(raw_signal))
+        except ValueError:
+            return {"error": "signal_id must be an id"}
+    if not signal_id:
+        return {"error": "signal_id required"}
+
+    summary = str(tool_input.get("summary") or "").strip()
+    if not summary:
+        return {"error": "summary is required (one sentence)"}
+
+    body_quote = ""
+    try:
+        ctx_row = await get_triage_context(ctx.session, ctx.tenant_id, signal_id)
+        body_quote = str(ctx_row.get("body") or "")[:200]
+    except Exception:  # noqa: BLE001
+        msg = (
+            await ctx.session.execute(
+                select(SignalMessage)
+                .where(
+                    SignalMessage.signal_id == signal_id,
+                    SignalMessage.direction == "inbound",
+                )
+                .order_by(SignalMessage.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if msg is not None:
+            body_quote = message_plain_text(msg)[:200]
+
+    unknown = tool_input.get("unknown_signal")
+    tags = tool_input.get("tags")
+    if not isinstance(tags, list):
+        tags = None
+
+    try:
+        result = await apply_thread_read(
+            ctx.session,
+            ctx.tenant_id,
+            signal_id,
+            summary=summary,
+            certainty=int(tool_input.get("certainty") or 50),
+            category=str(tool_input.get("category") or "other"),
+            urgency=int(tool_input.get("urgency") or 50),
+            impact=int(tool_input.get("impact") or 40),
+            priority=str(tool_input.get("priority") or "normal"),
+            intent=str(tool_input.get("intent") or "") or None,
+            sentiment=str(tool_input.get("sentiment") or "") or None,
+            ticket_category=str(tool_input.get("ticket_category") or ""),
+            tags=tags,
+            unknown_signal=unknown if isinstance(unknown, dict) else None,
+            agent_id=ctx.agent.id if ctx.agent else None,
+            agent_name=str(getattr(ctx.agent, "name", "") or "") if ctx.agent else None,
+            body_quote=body_quote,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+    return {
+        "ok": True,
+        "signal_id": str(signal_id),
+        "summary": result.get("summary"),
+        "priority": result.get("priority"),
+        "certainty": result.get("certainty"),
+        "category": result.get("category"),
+    }
+
+
 async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Add tags to a signal thread from the tenant's tag registry.
 
@@ -2190,6 +2266,54 @@ register_tool(
             "required": ["channel"],
         },
         handler=_mark_handled_externally,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="record_thread_read",
+        description=(
+            "Record your read of the newest inbound message: one-sentence summary, "
+            "priority (normal|high|urgent), certainty 0-100, urgency/impact 0-100, "
+            "coarse category (support|sales|billing|other), optional intent/sentiment, "
+            "optional ticket_category (one action-tag hashtag from list_categories), "
+            "optional free tags from the catalog, and optional unknown_signal when no "
+            "hashtag fits. Call this once early on every inbound turn before drafting. "
+            "Low certainty keeps priority at normal and only proposes tickets."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "summary": {"type": "string"},
+                "certainty": {"type": "integer"},
+                "priority": {"type": "string", "enum": ["normal", "high", "urgent"]},
+                "urgency": {"type": "integer"},
+                "impact": {"type": "integer"},
+                "category": {
+                    "type": "string",
+                    "enum": ["support", "sales", "billing", "other"],
+                },
+                "intent": {"type": "string"},
+                "sentiment": {"type": "string"},
+                "ticket_category": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "unknown_signal": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "sentence": {"type": "string"},
+                        "quote": {"type": "string"},
+                    },
+                },
+            },
+            "required": ["summary", "certainty"],
+        },
+        handler=_record_thread_read,
+        mutating=True,
+        gated=False,
+        display_name="Read conversation",
     )
 )
 

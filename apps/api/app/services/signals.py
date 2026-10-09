@@ -622,12 +622,16 @@ async def apply_triage(
     priority: Optional[str] = None,
     intent: Optional[str] = None,
     sentiment: Optional[str] = None,
+    agent_id: Optional[UUID] = None,
+    agent_name: Optional[str] = None,
+    tags_applied: Optional[list[str]] = None,
+    ticket_tag: Optional[str] = None,
+    extra_payload: Optional[dict] = None,
 ) -> Signal:
-    """Persist triage scores on the thread.
+    """Persist thread-read scores from the channel agent (or legacy triage).
 
-    Intent classification files the conversation's ticket (see
-    `interpretation.triage_signal`). Priority, urgency, sentiment and the
-    other scores stay on the conversation.
+    Priority, urgency, sentiment and the other scores stay on the conversation.
+    Ticket filing and free tags are applied by the caller (``record_thread_read``).
     """
     result = await session.execute(
         select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
@@ -647,21 +651,33 @@ async def apply_triage(
         signal.sentiment = sentiment
     if priority:
         signal.priority = priority
+    payload: dict = {
+        "category": category,
+        "urgency": urgency,
+        "impact": impact,
+        "certainty": certainty,
+        "intent": intent,
+        "summary": summary,
+        "priority": priority,
+    }
+    if agent_id is not None:
+        payload["agent_id"] = str(agent_id)
+    if agent_name:
+        payload["agent_name"] = agent_name
+    if tags_applied:
+        payload["tags_applied"] = list(tags_applied)
+    if ticket_tag:
+        payload["ticket_tag"] = ticket_tag
+    if extra_payload:
+        payload.update(extra_payload)
     session.add(
         SignalEvent(
             signal_id=signal.id,
             tenant_id=tenant_id,
             event_type="triaged",
             actor_type="agent",
-            payload_json=json.dumps(
-                {
-                    "category": category,
-                    "urgency": urgency,
-                    "impact": impact,
-                    "certainty": certainty,
-                    "intent": intent,
-                }
-            ),
+            actor_id=str(agent_id) if agent_id else "",
+            payload_json=json.dumps(payload),
         )
     )
     await session.commit()

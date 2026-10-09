@@ -13,7 +13,7 @@ Bokito is your own assistant inside the platform. It is not one of the workspace
 
 ## Ask about the page you are on
 
-1. Choose the Bokito button in the bottom-right corner of any page — including the Workspaces hub and Account on the Bokito portal. Bokito always carries its own mark; your profile photo sits top right in the chat, so you can see which account you are chatting from.
+1. Choose **Help** in the top bar, or the Bokito button in the bottom-right on pages where the launcher is shown — including the Workspaces hub and Account on the Bokito portal. On Communication with an open thread the corner launcher stays hidden; use top-bar **Help** to open the panel. Bokito always carries its own mark; your profile photo sits top right in the chat, so you can see which account you are chatting from.
 2. Ask your question. Bokito receives the screen you are viewing (for example the Workspaces hub when you are choosing a workspace), so "what does this status mean?" works without explaining where you are.
 3. Answers are grounded in the product help. Bokito links to the article it used, so you can read the full page.
 

@@ -11,7 +11,7 @@ related: workstreams,communication,channels,projects,widget
 
 An action tag is a tag with a flow. A conversation carries at most one action tag: filing it makes the conversation a ticket that moves through that flow's stages, on one of the flow's projects or on no project.
 
-Every inbound message is read against the action tags before a reply is drafted, also when AI handling is set to Manual. A certain read files the ticket, an unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free tags stay next to the action tag for grouping; see [Communication](/docs/inbox/communication).
+When a channel has an **AI agent** linked, that agent reads each inbound message (summary, priority, tags and tickets) in one run. Under **Manual** AI handling the agent still reads and may file tags or tickets, but it does not draft a customer reply. Without a channel agent there is no AI read. A certain read files the ticket, an unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free tags stay next to the action tag for grouping; see [Communication](/docs/inbox/communication).
 
 ## Make a tag an action tag
 

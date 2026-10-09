@@ -1,4 +1,4 @@
-import { Check, Copy, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { BookOpen, Check, Copy, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -907,7 +907,42 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   agent_replied: (t) => t('timeline.events.agentReplied'),
   suggestion_created: (t) => t('timeline.events.suggestionCreated'),
   decision_created: (t) => t('timeline.events.decisionCreated'),
-  triaged: (t) => t('timeline.events.triaged'),
+  triaged: (t, p) => {
+    const summary = typeof p.summary === 'string' ? p.summary.trim() : ''
+    const agent = typeof p.agent_name === 'string' ? p.agent_name.trim() : ''
+    const extras: string[] = []
+    if (typeof p.priority === 'string' && p.priority && p.priority !== 'normal') {
+      extras.push(String(p.priority))
+    }
+    if (typeof p.ticket_tag === 'string' && p.ticket_tag) {
+      extras.push(`#${p.ticket_tag}`)
+    }
+    if (Array.isArray(p.tags_applied) && p.tags_applied.length > 0) {
+      extras.push(
+        p.tags_applied
+          .filter((tag): tag is string => typeof tag === 'string' && tag.length > 0)
+          .map((tag) => `#${tag}`)
+          .join(' '),
+      )
+    }
+    const detail = extras.length ? extras.join(' · ') : ''
+    if (summary) {
+      return detail
+        ? t('timeline.events.triagedSummaryDetail', {
+            summary,
+            detail,
+            defaultValue: '{{summary}} · {{detail}}',
+          })
+        : t('timeline.events.triagedSummary', {
+            summary,
+            defaultValue: '{{summary}}',
+          })
+    }
+    if (agent) {
+      return t('timeline.events.triagedBy', { name: agent, defaultValue: '{{name}} read this conversation' })
+    }
+    return t('timeline.events.triaged')
+  },
   category_set: (t, p) => {
     const category = String(p.category ?? '')
     if (p.proposed) return t('timeline.events.categoryProposed', { category })
@@ -1015,6 +1050,7 @@ function eventPresentation(
   }
   if (eventType === 'decision_approved') return { ai: true, icon: <Check size={10} /> }
   if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={10} /> }
+  if (eventType === 'triaged') return { ai: true, icon: <BookOpen size={10} /> }
   if (AI_EVENT_TYPES.has(eventType) || (eventType && eventType.startsWith('decision_'))) {
     return { ai: true, icon: <AiMark size={10} /> }
   }

@@ -9,8 +9,8 @@ import { BubbleHoverToolbar } from './ChatBubble'
  * Chat bubbles encode the author with a solid fill; an email is a document
  * with its own typography, signature and images, so its body always sits on
  * neutral paper. The author shows in the envelope band on top (accent for
- * you, AI tint for agents, neutral for everyone else) and in the side the
- * card hangs on — the same grammar the chat bubbles use.
+ * you, AI tint for agents, neutral for everyone else) and in a tightened
+ * top corner on the side the card hangs from — same grammar as chat bubbles.
  */
 
 export type MailCardTone = 'self' | 'agent' | 'team' | 'external'
@@ -62,7 +62,7 @@ export function MailMessageCard({
   body: ReactNode
   /** Time + delivery state, right side of the band. */
   meta?: ReactNode
-  /** Hover toolbar beside the card. */
+  /** Hover toolbar above the card. */
   actions?: ReactNode
   /** Older mail folds to its band; click re-opens it. */
   collapsed?: boolean
@@ -84,6 +84,11 @@ export function MailMessageCard({
   const hideActions = useCallback(() => {
     if (hideTimer.current) window.clearTimeout(hideTimer.current)
     hideTimer.current = window.setTimeout(() => setActionsOpen(false), 140)
+  }, [])
+  const dismissActions = useCallback(() => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current)
+    hideTimer.current = 0
+    setActionsOpen(false)
   }, [])
   useEffect(
     () => () => {
@@ -159,7 +164,10 @@ export function MailMessageCard({
         data-tone={tone}
         data-collapsed={collapsed || undefined}
         className={cn(
+          // Same grammar as chat: round outer corners, tighten the corner that
+          // faces the author so the card "hangs" from that side.
           'relative w-full min-w-0 max-w-[min(100%,42.5rem)] overflow-hidden rounded-[14px] bg-bg-surface text-text-primary ring-1 ring-inset shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
+          isRight ? 'rounded-tr-[4px]' : 'rounded-tl-[4px]',
           CARD_TONE[tone],
         )}
       >
@@ -188,6 +196,7 @@ export function MailMessageCard({
           side={side}
           onEnter={showActions}
           onLeave={hideActions}
+          onDismiss={dismissActions}
         >
           {actions}
         </BubbleHoverToolbar>

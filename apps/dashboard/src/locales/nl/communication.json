@@ -1242,7 +1242,10 @@
       "agentReplied": "AI heeft geantwoord",
       "suggestionCreated": "AI heeft een suggestie opgesteld",
       "decisionCreated": "AI vroeg om een beslissing",
-      "triaged": "AI heeft dit gesprek getriageerd",
+      "triaged": "Heeft dit gesprek gelezen",
+      "triagedSummary": "{{summary}}",
+      "triagedSummaryDetail": "{{summary}} · {{detail}}",
+      "triagedBy": "{{name}} heeft dit gesprek gelezen",
       "splitIn": "Afgesplitst van een eerder gesprek",
       "splitOut": "Nieuwe vraag verplaatst naar een eigen gesprek",
       "splitOutCategory": "Nieuwe vraag verplaatst naar een eigen gesprek: {{category}}",
@@ -1305,7 +1308,11 @@
     "thisConversation": "Dit gesprek",
     "priority": "Prioriteit",
     "lookAgain": "Opnieuw kijken",
-    "plan": "Plannen"
+    "plan": "Plannen",
+    "reread": "Opnieuw lezen",
+    "rereadHint": "Laat de kanaalagent dit gesprek opnieuw lezen",
+    "rereadQueued": "De agent leest dit gesprek opnieuw",
+    "rereadFailed": "Opnieuw lezen kon niet worden gestart"
   },
   "actions": {
     "takeoverError": "Kon AI-antwoorden niet wijzigen.",

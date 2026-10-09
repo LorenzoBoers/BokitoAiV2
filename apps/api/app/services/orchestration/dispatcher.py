@@ -137,22 +137,29 @@ async def create_agent_task(
         should_note = bool(description) and not (
             is_human and origin in ("conversation", "case", "decision")
         )
+    note_message = None
     if should_note and description:
         from app.models.signal import SignalMessage
 
-        session.add(
-            SignalMessage(
-                signal_id=signal_id,
-                tenant_id=tenant_id,
-                direction="internal",
-                kind="system_note",
-                body_text=description,
-                author_name="System",
-            )
+        note_message = SignalMessage(
+            signal_id=signal_id,
+            tenant_id=tenant_id,
+            direction="internal",
+            kind="system_note",
+            body_text=description,
+            author_name="System",
         )
+        session.add(note_message)
 
     await session.commit()
     await session.refresh(task)
+    if note_message is not None:
+        from app.gateway.publish import publish_signal_message
+        from app.models.signal import Signal
+
+        signal = await session.get(Signal, signal_id)
+        if signal is not None:
+            await publish_signal_message(signal, note_message)
 
     if auto_start and not is_human and not is_dormant:
         from app.services.orchestration.queue import enqueue_agent_task_segment

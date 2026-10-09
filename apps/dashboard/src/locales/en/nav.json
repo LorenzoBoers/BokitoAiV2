@@ -2236,7 +2236,8 @@
     "newProject": "New project",
     "connectMailbox": "Connect mailbox",
     "openSetupGuide": "Open setup guide",
-    "openHelp": "Open help",
+    "openHelp": "Open support",
+    "openBokitoHelp": "Open help (Bokito)",
     "switchToLight": "Switch to light mode",
     "switchToDark": "Switch to dark mode",
     "ariaDialog": "Command palette",
@@ -2288,6 +2289,8 @@
     "profile": "Profile",
     "settings": "Settings",
     "help": "Help",
+    "helpHint": "Open Bokito for help with this page",
+    "support": "Support",
     "notifications": "Notifications",
     "workspaces": "Workspaces",
     "resumeSetup": "Resume setup guide",
@@ -4700,7 +4703,7 @@
       "govern": "AI and control",
       "advanced": "Advanced",
       "data": "Data",
-      "help": "Help"
+      "help": "Support"
     },
     "links": {
       "profile": "Profile",
@@ -4708,7 +4711,7 @@
       "myAssistant": "My assistant",
       "notifications": "Notifications",
       "setupGuide": "Setup guide",
-      "help": "Help",
+      "help": "Support",
       "inbox": "Email and channels",
       "emailMessages": "Channels",
       "chatWidget": "Chat widget",

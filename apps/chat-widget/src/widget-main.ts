@@ -318,12 +318,60 @@ class RealtimeClient {
 }
 
 /**
- * Map a gateway `message` event frame onto the legacy widget realtime shape
+ * Map gateway frames onto the legacy widget realtime shape
  * (`{ event_type, object }`) so the existing render pipeline keeps working.
+ *
+ * Live agent turns use `agent.activity` / `agent.turn` / `message.delta`
+ * (see apps/api/app/services/agent/turn.py). Legacy `tool_started` frames
+ * are no longer published; map activity items onto those UI events instead.
  */
 function gatewayFrameToWidgetEvent(frame) {
-  if (frame?.event !== 'message') return null;
-  const m = frame.data?.message || {};
+  const event = frame?.event;
+  const data = frame?.data || {};
+
+  if (event === 'message.delta') {
+    const delta = data.delta || '';
+    if (!delta) return null;
+    return {
+      event_type: 'streaming_delta',
+      object: {
+        delta,
+        message_id: data.segment_id || data.stream_id || null,
+        created_at: data.ts || new Date().toISOString(),
+      },
+    };
+  }
+
+  if (event === 'agent.activity') {
+    const item = data.item || {};
+    const tool = item.tool || item.label || '';
+    if (!tool) return null;
+    if (data.phase === 'start') {
+      return {
+        event_type: 'tool_started',
+        object: { tool_name: tool, label: item.label || tool },
+      };
+    }
+    if (data.phase === 'end') {
+      const errored = item.status === 'error' || item.status === 'failed';
+      return {
+        event_type: errored ? 'tool_error' : 'tool_completed',
+        object: {
+          tool_name: tool,
+          duration_ms: item.duration_ms,
+        },
+      };
+    }
+    return null;
+  }
+
+  if (event === 'agent.turn') {
+    // Start/end bookends: the thinking UI is driven by activity + deltas.
+    return null;
+  }
+
+  if (event !== 'message') return null;
+  const m = data.message || {};
   // AI assistant reply.
   if (m.role === 'assistant') {
     return {
@@ -2324,6 +2372,11 @@ class BokitoChatWidget extends HTMLElement {
       return;
     }
     this.#sm.transition('home');
+    this.dispatchEvent(new CustomEvent('bokito:panel', {
+      bubbles: true,
+      composed: true,
+      detail: { open: true },
+    }));
   }
 
   #getLauncherSize() {
@@ -5727,6 +5780,11 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#isPreviewEmbedded()) return;
     this.#playSound('close');
     this.#sm.transition('idle');
+    this.dispatchEvent(new CustomEvent('bokito:panel', {
+      bubbles: true,
+      composed: true,
+      detail: { open: false },
+    }));
   }
 
   #showSettings() {

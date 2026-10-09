@@ -17,12 +17,14 @@ import {
   Moon,
   Settings,
   Shield,
+  Sparkles,
   SquarePen,
   User,
   UserPlus,
   Users,
   Workflow,
 } from 'lucide-react'
+import { openAssistant } from '../../lib/personal-assistant-widget'
 import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -304,6 +306,13 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         group: t('palette.groupActions'),
         icon: Settings,
         run: () => navigate('/settings/setup'),
+      },
+      {
+        id: 'action-bokito-help',
+        label: t('palette.openBokitoHelp'),
+        group: t('palette.groupActions'),
+        icon: Sparkles,
+        run: () => openAssistant(),
       },
       {
         id: 'action-help',

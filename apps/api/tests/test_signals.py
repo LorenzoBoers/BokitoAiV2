@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from app.models.auth import Tenant
 from app.models.signal import Signal, SignalMessage
-from app.services.interpretation import triage_signal
+from app.services.interpretation import apply_thread_read
 from app.services.platform_access import agent_has_scope, effective_scopes
 from app.models.agent import Agent
 
@@ -87,7 +87,7 @@ def test_normalize_email_subject():
 
 
 @pytest.mark.asyncio
-async def test_triage_signal_mock_llm(client: AsyncClient, session_override):
+async def test_apply_thread_read_persists_scores(client: AsyncClient, session_override):
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     from app.services.signals import create_inbound_signal
 
@@ -99,13 +99,22 @@ async def test_triage_signal_mock_llm(client: AsyncClient, session_override):
         subject="Urgent invoice issue",
         body_text="Our invoice is wrong and we need this fixed today",
     )
-    result = await triage_signal(session_override, tenant.id, signal.id)
+    result = await apply_thread_read(
+        session_override,
+        tenant.id,
+        signal.id,
+        summary="Billing issue needs a fix today",
+        certainty=80,
+        category="billing",
+        priority="high",
+    )
     assert result.get("category")
     assert result.get("summary")
     row = (
         await session_override.execute(select(Signal).where(Signal.id == signal.id))
     ).scalar_one()
     assert row.triaged_at is not None
+    assert row.summary == "Billing issue needs a fix today"
 
 
 @pytest.mark.asyncio

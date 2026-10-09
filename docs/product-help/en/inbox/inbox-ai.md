@@ -9,7 +9,7 @@ related: communication,contacts,channels,govern,autonomy,agents
 
 # Set AI handling
 
-AI handling is one setting with three modes: **Autonomous** (AI answers on its own), **Assisted** (AI drafts replies and suggests actions, a person sends) and **Manual** (AI stays quiet). You set it once for the workspace and only set it again where a channel, a contact or a single conversation should differ — the most specific setting wins.
+AI handling is one setting with three modes: **Autonomous** (AI answers on its own), **Assisted** (AI drafts replies and suggests actions, a person sends) and **Manual** (no customer draft or send; the linked channel agent may still read the thread, set summary and priority, and file tags or tickets). You set it once for the workspace and only set it again where a channel, a contact or a single conversation should differ — the most specific setting wins. Without an **AI agent** on the channel there is no inbound interpretation or reply.
 
 The same icons appear everywhere: a lightning bolt for Autonomous and a pen for Assisted (both purple), and a hand for Manual (gray). [Govern](/docs/govern/govern) sets the ceiling: nothing below it can be more autonomous than Govern allows. Each agent has its own ceiling too (see [Agents](/docs/ai/agents)): a conversation the agent handles never runs above it, and the picker says so.
 

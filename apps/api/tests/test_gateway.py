@@ -264,3 +264,113 @@ def test_websocket_connect_frame_auth():
             connected = ws.receive_json()
             assert connected["type"] == "connected"
             assert connected["session"]["device"] == "mobile"
+
+
+async def test_set_read_publishes_thread_update(client, session_override, monkeypatch):
+    """Mark-read must fan out so other operators see the unread badge drop."""
+    from app.models.auth import Tenant, User
+    from app.models.signal import Signal
+    from app.services import signal_threads as svc
+    from sqlalchemy import select
+
+    calls: list[str] = []
+
+    async def fake_publish(signal, **_kwargs):
+        calls.append(str(signal.id))
+
+    monkeypatch.setattr(svc, "publish_thread_update", fake_publish)
+
+    tenant = (await session_override.execute(select(Tenant))).scalars().first()
+    user = (await session_override.execute(select(User))).scalars().first()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="outlook",
+        subject="Unread mail",
+        contact_email="k@x.nl",
+        has_unread=True,
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    row = await svc.set_read(
+        session_override,
+        tenant.id,
+        user.id,
+        1,
+        signal.id,
+        read=True,
+    )
+    assert row is not None
+    assert row["has_unread"] is False
+    assert calls == [str(signal.id)]
+
+
+async def test_send_email_publishes_message_and_thread(client, session_override, monkeypatch):
+    """Outbound compose must push the new message so open threads update live."""
+    from types import SimpleNamespace
+
+    from app.models.auth import Tenant, User
+    from app.models.channel import ChannelAccount
+    from app.models.signal import Signal
+    from app.routers import email as email_router
+    from sqlalchemy import select
+
+    published: list[tuple[str, str]] = []
+
+    async def fake_message(signal, message, **_kwargs):
+        published.append(("message", str(message.id)))
+
+    async def fake_thread(signal, **_kwargs):
+        published.append(("thread", str(signal.id)))
+
+    monkeypatch.setattr("app.gateway.publish.publish_signal_message", fake_message)
+    monkeypatch.setattr("app.gateway.publish.publish_thread_update", fake_thread)
+
+    tenant = (await session_override.execute(select(Tenant))).scalars().first()
+    user = (await session_override.execute(select(User))).scalars().first()
+    account = (
+        await session_override.execute(
+            select(ChannelAccount).where(
+                ChannelAccount.tenant_id == tenant.id,
+                ChannelAccount.channel == "email",
+            )
+        )
+    ).scalars().first()
+    if account is None:
+        account = ChannelAccount(
+            tenant_id=tenant.id,
+            channel="email",
+            address="desk@test.local",
+            provider="mock",
+            credentials_json='{"mock": true}',
+            is_enabled=True,
+        )
+        session_override.add(account)
+        await session_override.commit()
+        await session_override.refresh(account)
+
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source=account.provider,
+        subject="Compose reply",
+        contact_email="k@x.nl",
+        channel_account_id=account.id,
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    auth = SimpleNamespace(tenant=tenant, user=user)
+    body = email_router.SendEmailRequest(
+        body_text="Thanks for the update.",
+        thread_id=signal.id,
+    )
+    result = await email_router.send_email(body, auth, session_override)
+    assert result["ok"] is True
+    assert ("message", result["id"]) in published
+    assert ("thread", str(signal.id)) in published

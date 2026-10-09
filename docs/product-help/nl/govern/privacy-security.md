@@ -45,7 +45,7 @@ Owners en admins beheren bewaartermijnen, dataregio en verzoeken van betrokkenen
 
 Operator-verwijderingen (gesprekken, projecten, canvassen, kennis, contacten, draaiboeken, triggers, teams, regels) gaan naar de **Prullenbak**, niet meteen weg. Agent deactiveren en mailbox archiveren blijven buiten de Prullenbak.
 
-1. Open **Instellingen**. Onderaan de zijbalk, boven **Hulp**, kies **Prullenbak**.
+1. Open **Instellingen**. Onderaan de zijbalk, boven **Support**, kies **Prullenbak**.
 2. Filter op type of zoek op titel. Elke rij toont wie het verwijderde en **Weg op** de datum waarop het verdwijnt.
 3. Kies **Herstellen** om het item en de kinderen terug te zetten. Als de slug al bestaat, voegt Bokito `-restored` toe. Elke rij toont wie het verwijderde en wanneer het verdwijnt.
 4. Kies **Definitief verwijderen** voor één item, of **Prullenbak legen** (typ `leeg`) om alles te purgen. De voettekst noemt hoe veel dagen items blijven (platformstandaard 60).

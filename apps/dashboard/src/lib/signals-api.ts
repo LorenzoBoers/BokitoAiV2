@@ -595,6 +595,11 @@ export async function invokeSignalAgent(
   return result
 }
 
+/** Ask the channel agent to re-read the thread (inbound worker queue). */
+export async function queueThreadTriage(token: string, threadId: string): Promise<void> {
+  await apiPost<Record<string, unknown>>(appRoutes.signals.threadTriage(threadId), {}, token)
+}
+
 // ---------------------------------------------------------------------------
 // Inbox rules (learned per-sender automation)
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ related: quickstart,channels,team,agents,autonomy
 
 # Workspace-setupgids
 
-De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen**, daarna **Hulp**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). Owners ronden eerst de eerste-setupwizard af (**Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal**), daarna de producttour. Daarna volgt de gids dezelfde activatiestappen als de eerste-keer-kaart, en een rustige lijst **Later** (branding, team, modules, projecten, Govern, cijfers op Overview).
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Open **Instellingen**, daarna **Support**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). Owners ronden eerst de eerste-setupwizard af (**Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal**), daarna de producttour. Daarna volgt de gids dezelfde activatiestappen als de eerste-keer-kaart, en een rustige lijst **Later** (branding, team, modules, projecten, Govern, cijfers op Overview).
 
 ## Workspace-basics en branding
 
@@ -47,7 +47,7 @@ Nieuwe workspaces krijgen een dagelijkse **platform-check-in** die **gepauzeerd*
 
 ## Volg de live checklist
 
-Bij de eerste login ronden owners de **eerste-setupwizard** af, daarna de producttour. Daarna toont Communicatie **Ga verder met setup**. Dezelfde activatiestappen staan onder **Instellingen** → **Hulp** → **Setupgids**:
+Bij de eerste login ronden owners de **eerste-setupwizard** af, daarna de producttour. Daarna toont Communicatie **Ga verder met setup**. Dezelfde activatiestappen staan onder **Instellingen** → **Support** → **Setupgids**:
 
 1. **Rond de eerste setup af** — de wizard (**Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal**).
 2. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **Kanalen**, niet via de module-marketplace. Zie [Kanalen](/docs/inbox/channels).

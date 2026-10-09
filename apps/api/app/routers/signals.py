@@ -17,7 +17,6 @@ from app.models.auth import user_numeric_id
 from app.routers.signal_chat import router as chat_router
 from app.services import signal_threads as svc
 from app.services.channel_access import handled_channel_account_ids, visible_channel_account_ids
-from app.services.interpretation import triage_signal
 from app.services.signals import create_inbound_signal, serialize_signal
 
 router = APIRouter(prefix="/signals", tags=["signals"])
@@ -1235,8 +1234,19 @@ async def triage_signal_endpoint(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    result = await triage_signal(session, auth.tenant.id, signal_id)
-    return result
+    """Re-queue inbound processing so the channel agent re-reads the thread.
+
+    Interpretation is no longer a separate LLM call; the linked channel agent
+    runs ``record_thread_read`` (and reply tools when AI handling allows).
+    """
+    from app.models.signal import Signal
+    from app.workers.tasks import enqueue_signal_processing
+
+    row = await session.get(Signal, signal_id)
+    if row is None or row.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    await enqueue_signal_processing(str(auth.tenant.id), str(signal_id))
+    return {"queued": True, "signal_id": str(signal_id)}
 
 
 class ContactLinkBody(BaseModel):
