@@ -38,6 +38,25 @@ def _reset_rate_limits():
 
 
 @pytest.fixture(autouse=True)
+def _fast_redis_enqueue(monkeypatch: pytest.MonkeyPatch):
+    """Do not connect to localhost Redis or spawn inline ARQ fallbacks in tests."""
+    from unittest.mock import AsyncMock
+
+    import app.workers.tasks as tasks
+
+    tasks._arq_pool = None
+    tasks._arq_pool_unavailable = True
+    monkeypatch.setattr(tasks, "enqueue_signal_processing", AsyncMock())
+    monkeypatch.setattr(tasks, "enqueue_repo_index", AsyncMock())
+    monkeypatch.setattr(tasks, "enqueue_webhook_delivery", AsyncMock())
+    if hasattr(tasks, "enqueue_module_source_index"):
+        monkeypatch.setattr(tasks, "enqueue_module_source_index", AsyncMock())
+    yield
+    tasks._arq_pool = None
+    tasks._arq_pool_unavailable = False
+
+
+@pytest.fixture(autouse=True)
 def _reset_model_routing():
     from app.services import bokito_models, provider_health
 

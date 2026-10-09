@@ -176,6 +176,13 @@ def _flush_events(session: Session) -> None:
         loop.create_task(publish_entity(tenant_id, entity=entity, id=entity_id, op=op, row=row))
         if row and row.get("signal_id"):
             signal_ids.add(row["signal_id"])
+    # Safety-net publishes open the process-global session factory. In pytest
+    # that is a different SQLite memory DB than the test override, so lookups
+    # always miss — and thousands of no-op tasks stall the suite.
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("BOKITO_MOCK_EXECUTION") == "true":
+        return
     for signal_id in signal_ids:
         loop.create_task(_publish_thread_row(signal_id))
     for tenant_id, signal_id, message_id in pending_messages:
