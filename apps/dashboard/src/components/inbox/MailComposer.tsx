@@ -3,9 +3,9 @@
  * Forward on an email bubble (or the Reply tab on an email thread). It grows
  * to roughly two thirds of the thread area — a mini thread view stays above —
  * and shows what mail clients show: real To/CC/BCC fields, an editable
- * subject, the sender signature under the input, and the quoted mail history
- * behind a 3-dots toggle. Bokito extras (AI write assist, dictation,
- * attachments) stay available.
+ * subject, the sender signature in the same letter scroll, and the quoted
+ * mail history behind a 3-dots toggle (expanded inline, not a nested pane).
+ * Bokito extras (AI write assist, dictation, attachments) stay available.
  *
  * Drafts autosave per conversation (`mail-draft-store`): closing the
  * composer, switching threads or reloading keeps the unsent mail, and the
@@ -104,8 +104,13 @@ type Props = {
   defaultFromAddress?: string | null
   /** Contact suggestions for To/CC/BCC; fetched from contacts when omitted. */
   recipientSuggestions?: MailRecipientSuggestion[]
-  /** Deeplinked body text; a restored draft body wins. */
+  /** Deeplinked body text; a restored draft body wins unless preferSeedBody. */
   initialBody?: string
+  /**
+   * The operator was already editing this text in the small composer.
+   * That body wins over a stored mail draft for this open.
+   */
+  preferSeedBody?: boolean
   /**
    * 'thread': grows out of the standard composer at the bottom of a thread.
    * 'page': static full-height card (New conversation page).
@@ -121,6 +126,38 @@ const MODE_META: Record<MailComposerMode, { icon: typeof Reply; labelKey: string
   reply_all: { icon: ReplyAll, labelKey: 'mailComposer.modeReplyAll' },
   forward: { icon: Forward, labelKey: 'mailComposer.modeForward' },
   new: { icon: Mail, labelKey: 'mailComposer.modeNew' },
+}
+
+function fitQuoteFrame(frame: HTMLIFrameElement) {
+  const doc = frame.contentDocument
+  if (!doc?.documentElement) return
+  const height = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0)
+  frame.style.height = `${height}px`
+}
+
+/** Quoted history stays sandboxed and grows with the letter instead of scrolling inside itself. */
+function QuotedMailFrame({ html, title }: { html: string; title: string }) {
+  const frameRef = useRef<HTMLIFrameElement>(null)
+  return (
+    <iframe
+      ref={frameRef}
+      sandbox="allow-same-origin"
+      scrolling="no"
+      srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;overflow:hidden;font:13px/1.45 -apple-system,'Segoe UI',sans-serif;color:#374151;overflow-wrap:break-word}img{max-width:100%;height:auto}</style></head><body>${html}</body></html>`}
+      title={title}
+      onLoad={() => {
+        const frame = frameRef.current
+        if (!frame) return
+        fitQuoteFrame(frame)
+        const doc = frame.contentDocument
+        if (!doc) return
+        for (const img of Array.from(doc.images)) {
+          if (!img.complete) img.addEventListener('load', () => fitQuoteFrame(frame), { once: true })
+        }
+      }}
+      className="mt-2 block w-full overflow-hidden border-0 bg-transparent"
+    />
+  )
 }
 
 const FIELD_ROW = 'flex items-center gap-2 border-b border-border/40 px-3 py-1.5 text-xs'
@@ -302,6 +339,7 @@ export default function MailComposer({
   defaultFromAddress,
   recipientSuggestions,
   initialBody,
+  preferSeedBody = false,
   variant = 'thread',
   saving,
   onSend,
@@ -320,7 +358,10 @@ export default function MailComposer({
     restoredDraft.mode === intent.mode &&
     restoredDraft.sourceMessageId === intent.sourceMessageId
 
-  const [body, setBody] = useState(() => restoredDraft?.body || initialBody || '')
+  const [body, setBody] = useState(() => {
+    if (preferSeedBody && (initialBody ?? '').trim()) return initialBody as string
+    return restoredDraft?.body || initialBody || ''
+  })
   const [to, setTo] = useState(() => {
     if (!restoredMatchesIntent) return intent.to
     if (intent.mode === 'new' && intent.to) return intent.to
@@ -899,28 +940,30 @@ export default function MailComposer({
               />
             </div>
 
-            {/* Signature sits under the input, like the mail that goes out. */}
-            <div className="border-t border-border/40 px-3 py-2">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="text-2xs text-text-muted">{t('mailComposer.signature')}</p>
-                <Link
-                  to={signatureSettingsHref}
-                  className="inline-flex items-center gap-1 text-2xs text-text-muted underline-offset-2 hover:text-text-secondary hover:underline"
-                  title={t('mailComposer.signatureEditChannelHint')}
-                >
-                  <PenLine size={11} className="shrink-0" aria-hidden />
-                  {t('mailComposer.signatureEditChannel')}
-                </Link>
+            {/* Signature is part of the letter: same scroll as the body, no clip. */}
+            {signatureHtml ? (
+              <div className="px-3 pb-2">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-2xs text-text-muted">{t('mailComposer.signature')}</p>
+                  <Link
+                    to={signatureSettingsHref}
+                    className="inline-flex items-center gap-1 text-2xs text-text-muted underline-offset-2 hover:text-text-secondary hover:underline"
+                    title={t('mailComposer.signatureEditChannelHint')}
+                  >
+                    <PenLine size={11} className="shrink-0" aria-hidden />
+                    {t('mailComposer.signatureEditChannel')}
+                  </Link>
+                </div>
+                <div
+                  className="signature-preview pointer-events-none text-sm [&_img]:inline-block [&_img]:max-w-full"
+                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                />
               </div>
-              <div
-                className="signature-preview pointer-events-none max-h-28 overflow-hidden rounded-lg border border-border/40 bg-bg-input/30 px-2.5 py-1.5 text-sm [&_img]:inline-block"
-                dangerouslySetInnerHTML={{ __html: signatureHtml }}
-              />
-            </div>
+            ) : null}
 
-            {/* 3-dots: expand the quoted mail history that is sent along. */}
+            {/* 3-dots: quoted history expands in this same letter scroll. */}
             {intent.quotedHtml ? (
-              <div className="border-t border-border/40 px-3 py-2">
+              <div className="px-3 pb-3">
                 <button
                   type="button"
                   onClick={() => setQuoteOpen((open) => !open)}
@@ -933,12 +976,7 @@ export default function MailComposer({
                   <MoreHorizontal size={13} />
                 </button>
                 {quoteOpen ? (
-                  <iframe
-                    sandbox=""
-                    srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:8px;font:13px/1.45 -apple-system,'Segoe UI',sans-serif;color:#374151;overflow-wrap:break-word}img{max-width:100%}</style></head><body>${intent.quotedHtml}</body></html>`}
-                    title={t('mailComposer.quoteTitle')}
-                    className="mt-2 h-48 w-full rounded-md border border-border/40 bg-white"
-                  />
+                  <QuotedMailFrame html={intent.quotedHtml} title={t('mailComposer.quoteTitle')} />
                 ) : intent.quotedPreview ? (
                   <p className="mt-1 truncate text-2xs text-text-muted">{intent.quotedPreview}</p>
                 ) : null}

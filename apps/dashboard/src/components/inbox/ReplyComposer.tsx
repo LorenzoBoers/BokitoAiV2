@@ -113,6 +113,11 @@ type Props = {
   isProposalOpen?: (decisionMessageId: string) => boolean | undefined
   /** Opens "Already handled outside Bokito" (send menu, customer threads only). */
   onHandledExternally?: () => void
+  /**
+   * Email reply with text already in the small composer: focusing that text
+   * opens the mail client with the same body. Notes and Ask stay here.
+   */
+  onPromoteEmailEdit?: (body: string) => void
 }
 
 const draftStorageKey = composerDraftStorageKey
@@ -163,6 +168,7 @@ export default function ReplyComposer({
   latestInboundMessageId = null,
   isProposalOpen,
   onHandledExternally,
+  onPromoteEmailEdit,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -987,6 +993,13 @@ export default function ReplyComposer({
           onClick={(e) => {
             const el = e.currentTarget
             refreshMentionState(el.value, el.selectionStart ?? el.value.length)
+          }}
+          onFocus={() => {
+            // A ready email draft stays in this composer until the operator
+            // puts the cursor in it; editing belongs in the mail client.
+            if (!onPromoteEmailEdit || !isReply || replyBlocked || dictation.listening) return
+            if (surface.channel !== 'email' || !body.trim()) return
+            onPromoteEmailEdit(body)
           }}
           onBlur={() => setMentionQuery(null)}
           highlighter={dictation.listening ? undefined : <MentionHighlight raw={body} />}

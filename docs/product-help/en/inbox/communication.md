@@ -78,7 +78,7 @@ Email conversations answer like a mail client: every received mail carries its o
 
 1. Open an email conversation. On a received mail, hover the card and choose **Reply** (left arrow), **Reply all** (double arrow — shown only when more people were on the mail) or **Forward** (right arrow) in its action row.
 2. The composer at the bottom grows into a mail view, with a mini thread view above it. **To** is prefilled from the mail you clicked (empty on a forward), **CC/BCC** opens extra recipient fields, and the subject is editable — `Re:` or `Fwd:` is set for you. **From** switches mailboxes when more than one can send.
-3. Write your message. Your signature sits under the input exactly as it will be sent. The three dots below it expand the quoted mail history that goes along. AI write help, dictation and the attachment button stay available.
+3. Write your message. Clicking into a ready draft in the small composer opens this mail view with that text. Your signature sits in the letter under your text, fully visible, the way it will be sent. The three dots expand the quoted mail history in that same scroll. AI write help, dictation and the attachment button stay available.
 4. Send with the button or **Ctrl+Enter**. The mail lands in the timeline as a mail card on the right with only your message, and the composer returns to its normal size. A short toast offers **Undo**; choosing it keeps the mail from going out and puts your text back as a mail draft.
 5. **Esc** or the **X** in the corner closes the mail view without sending. Your draft is saved automatically — a **Mail draft** chip above the composer offers **Continue writing** or discards it with the bin icon. The draft survives thread switches and reloads; sending clears it.
 

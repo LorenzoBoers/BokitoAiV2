@@ -209,6 +209,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // Mail-native composer: set when Reply / Reply all / Forward is clicked on
   // an email bubble (or the Reply tab on an email thread).
   const [mailDraft, setMailDraft] = useState<MailDraftIntent | null>(null)
+  // Body the operator was editing in the small composer when the mail client opened.
+  const [mailSeedBody, setMailSeedBody] = useState<string | null>(null)
   // Unsent mail draft persisted by the mail composer; shown as a chip above
   // the standard composer so the operator can pick the mail back up.
   const [storedMailDraft, setStoredMailDraft] = useState<StoredMailDraft | null>(null)
@@ -237,6 +239,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (agentStreamingRef.current) return
       // The draft lands in the standard composer; close the mail surface.
       setMailDraft(null)
+      setMailSeedBody(null)
       setComposerDraft(draft)
     },
     [],
@@ -643,6 +646,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   useEffect(() => {
     setComposerDraft(null)
     setMailDraft(null)
+    setMailSeedBody(null)
   }, [threadId])
 
   // The mail composer autosaves and flushes its draft on unmount; re-read
@@ -1046,6 +1050,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         setComposerMode('reply')
         return
       }
+      setMailSeedBody(null)
       setMailDraft(
         buildMailDraftIntent(message, draftMode, {
           ownAddresses: mailOwnAddresses,
@@ -1075,6 +1080,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     const source = detail.messages.find(
       (m) => String(m.id) === storedMailDraft.sourceMessageId,
     )
+    setMailSeedBody(null)
     if (source) {
       setMailDraft(
         buildMailDraftIntent(source, draftMode, {
@@ -1130,6 +1136,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         // Outbound-started thread without an inbound mail yet: mail goes
         // out through the mail composer too, just without quoted history.
         if (detail.thread.contactEmail) {
+          setMailSeedBody(null)
           setMailDraft({
             mode: 'reply',
             sourceMessageId: '',
@@ -1156,6 +1163,49 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     ],
   )
 
+  // Focusing a ready draft in the small email composer opens the mail client
+  // with that text, plus the same recipients and quote as Reply.
+  const handlePromoteEmailEdit = useCallback(
+    (body: string) => {
+      if (!detail || messageLayout !== 'email' || mailboxDisconnected) return
+      const text = body.trim()
+      if (!text) return
+      const source = [...detail.messages]
+        .reverse()
+        .find(
+          (m) =>
+            m.direction === 'inbound' && m.kind !== 'decision_request' && m.kind !== 'system_event',
+        )
+      setMailSeedBody(body)
+      if (source) {
+        setMailDraft(
+          buildMailDraftIntent(source, 'reply', {
+            ownAddresses: mailOwnAddresses,
+            contactEmail: detail.thread.contactEmail,
+            threadSubject: detail.thread.emailSubject,
+            language: i18n.language,
+            senderName: detail.thread.contactName || null,
+          }),
+        )
+        return
+      }
+      if (detail.thread.contactEmail) {
+        setMailDraft({
+          mode: 'reply',
+          sourceMessageId: '',
+          to: detail.thread.contactEmail,
+          cc: '',
+          subject: detail.thread.emailSubject || '',
+          quotedHtml: '',
+          quotedPreview: '',
+        })
+        return
+      }
+      setMailSeedBody(null)
+    },
+    [detail, messageLayout, mailboxDisconnected, mailOwnAddresses, i18n.language],
+  )
+
   // Send from the mail-native composer; afterwards the standard composer
   // returns and the sent mail lands in the timeline as an expandable bubble.
   const handleMailSend = useCallback(
@@ -1171,7 +1221,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         subject: payload.subject,
         quotedHtml: payload.quotedHtml,
       })
+      // Outbound mail parks the open suggestion. Drop the small-composer
+      // prefill so that draft does not reappear under the sent letter.
+      setComposerDraft(null)
       setMailDraft(null)
+      setMailSeedBody(null)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
     [onReply, scrollToBottom],
@@ -1605,9 +1659,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           threadId={String(thread.id)}
           draftKey={String(thread.id)}
           channelAccountId={thread.channelAccountId ?? null}
+          initialBody={mailSeedBody ?? undefined}
+          preferSeedBody={mailSeedBody != null}
           saving={saving}
           onSend={handleMailSend}
-          onCancel={() => setMailDraft(null)}
+          onCancel={() => {
+            setMailDraft(null)
+            setMailSeedBody(null)
+          }}
         />
       ) : composerSurface ? (
         <ReplyComposer
@@ -1685,6 +1744,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
           suggestedCc={suggestedCc}
           mentionExtras={mentionExtras}
+          onPromoteEmailEdit={messageLayout === 'email' ? handlePromoteEmailEdit : undefined}
           onHandledExternally={
             mode === 'customer' && thread.status !== 'closed' && thread.status !== 'spam'
               ? () => setHandledExternallyOpen(true)
