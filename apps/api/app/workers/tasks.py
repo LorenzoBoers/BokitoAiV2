@@ -1028,21 +1028,43 @@ class WorkerSettings:
 
 
 _arq_pool = None
+_arq_pool_unavailable = False
 
 
 async def _get_arq_pool():
-    """Reuse one ARQ Redis pool across enqueue helpers (API process lifespan)."""
-    global _arq_pool
+    """Reuse one ARQ Redis pool across enqueue helpers (API process lifespan).
+
+    When Redis is down, remember the failure so every enqueue does not spend
+    another multi-second retry loop (tests and local API without Redis).
+    """
+    global _arq_pool, _arq_pool_unavailable
+    if _arq_pool_unavailable:
+        raise RuntimeError("ARQ Redis unavailable")
     if _arq_pool is None:
-        _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+        from dataclasses import replace
+
+        # from_dsn defaults to 5 connect retries; that stalls pytest and MCP
+        # install when localhost Redis is not running.
+        redis_settings = replace(
+            RedisSettings.from_dsn(settings.redis_url),
+            conn_timeout=1,
+            conn_retries=0,
+            conn_retry_delay=0,
+        )
+        try:
+            _arq_pool = await create_pool(redis_settings)
+        except Exception:
+            _arq_pool_unavailable = True
+            raise
     return _arq_pool
 
 
 async def close_arq_pool() -> None:
-    global _arq_pool
+    global _arq_pool, _arq_pool_unavailable
     if _arq_pool is not None:
         await _arq_pool.close()
         _arq_pool = None
+    _arq_pool_unavailable = False
 
 
 async def enqueue_signal_processing(tenant_id: str, signal_id: str):
