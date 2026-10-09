@@ -108,6 +108,8 @@ interface User {
   /** Auth user UUID (`/auth/me` `id`); live rows such as notifications are keyed by it. */
   uuid?: string | null;
   name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   jobTitle: string | null;
   avatarUrl: string | null;
@@ -176,14 +178,20 @@ interface AuthContextValue {
   /** No-workspace state: create a new workspace and start a session. */
   setupCreateWorkspace: (setupToken: string, workspaceName: string) => Promise<string>;
   signup: (params: SignupParams) => Promise<string>;
-  acceptInvite: (params: { token: string; password: string; displayName?: string }) => Promise<string>;
+  acceptInvite: (params: {
+    token: string;
+    password: string;
+    firstName?: string;
+    lastName?: string;
+    displayName?: string;
+  }) => Promise<string>;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   hasPermission: (action: PermissionAction) => boolean;
   setUserRole: (role: UserRole) => void;
   refreshUser: () => Promise<void>;
-  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled' | 'hasPassword'>>) => void;
+  patchLocalUser: (patch: Partial<Pick<User, 'name' | 'firstName' | 'lastName' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled' | 'hasPassword'>>) => void;
   currentTenantRole: UserRole | null;
   hasTenantAccess: (tenantSubdomain: string) => boolean;
   isStaff: boolean;
@@ -327,10 +335,29 @@ function normalizeAuthUser(raw: unknown): User {
       '',
   );
 
+  let firstName = toString(
+    payload.first_name ?? payload.firstName ?? nestedUser.first_name ?? nestedUser.firstName,
+  );
+  let lastName = toString(
+    payload.last_name ?? payload.lastName ?? nestedUser.last_name ?? nestedUser.lastName,
+  );
+  const composedName = [firstName, lastName].filter(Boolean).join(' ').trim();
+  const displayName = toString(
+    payload.name ?? nestedUser.display_name ?? nestedUser.displayName,
+    composedName || 'Unknown user',
+  );
+  if (!firstName && !lastName && displayName && displayName !== 'Unknown user') {
+    const parts = displayName.trim().split(/\s+/);
+    firstName = parts[0] ?? '';
+    lastName = parts.slice(1).join(' ');
+  }
+
   return {
     id: toNumber(payload.numeric_id) ?? toNumber(payload.id) ?? 0,
     uuid: typeof payload.id === 'string' && payload.id.includes('-') ? payload.id : null,
-    name: toString(payload.name, 'Unknown user'),
+    name: displayName,
+    firstName,
+    lastName,
     email: toString(payload.email),
     jobTitle: typeof payload.job_title === 'string' && payload.job_title.trim() ? payload.job_title.trim() : null,
     avatarUrl: avatarUrl || null,
@@ -717,7 +744,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [applySession]);
 
   const acceptInvite = useCallback(
-    async (params: { token: string; password: string; displayName?: string }): Promise<string> => {
+    async (params: {
+      token: string;
+      password: string;
+      firstName?: string;
+      lastName?: string;
+      displayName?: string;
+    }): Promise<string> => {
       const data = await authAcceptInvite(params) as AuthTokens;
       const nextToken = applySession(data);
       try {
@@ -778,7 +811,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token]);
 
-  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled' | 'hasPassword'>>) => {
+  const patchLocalUser = useCallback((patch: Partial<Pick<User, 'name' | 'firstName' | 'lastName' | 'email' | 'jobTitle' | 'avatarUrl' | 'signatureUrl' | 'emailSignatureHtml' | 'emailVerified' | 'totpEnabled' | 'hasPassword'>>) => {
     setUser((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { Chart } from '../ui'
 import { cn } from '../../lib/utils'
 
 export function Stack({ children }: { children?: ReactNode }) {
@@ -164,11 +165,11 @@ export function Table({
 }
 
 export function BarChart(props: ChartProps) {
-  return <ChartBars {...props} kind="bar" />
+  return <ChartFrame {...props} kind="bar" />
 }
 
 export function LineChart(props: ChartProps) {
-  return <ChartBars {...props} kind="line" />
+  return <ChartFrame {...props} kind="line" />
 }
 
 type ChartProps = {
@@ -179,66 +180,19 @@ type ChartProps = {
   series: { name: string; points: { x: string; y: number }[] }[]
 }
 
-function ChartBars({ title, xLabel, yLabel, source, series, kind }: ChartProps & { kind: 'bar' | 'line' }) {
+function ChartFrame({ title, xLabel, yLabel, source, series, kind }: ChartProps & { kind: 'bar' | 'line' }) {
   const usable = series
     .map((row) => ({
       name: row.name,
-      points: row.points.filter((p) => p.x && Number.isFinite(p.y)),
+      points: row.points.filter((point) => point.x && Number.isFinite(point.y)),
     }))
     .filter((row) => row.points.length > 0)
   if (!title || usable.length === 0) return null
-  const ys = usable.flatMap((row) => row.points.map((p) => p.y))
-  const max = Math.max(1, ...ys)
-  const labels = usable[0]?.points.map((p) => p.x) ?? []
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-medium text-text-heading">{title}</h3>
-      <div className="flex h-36 items-end gap-2">
-        {kind === 'bar' ? (
-          labels.map((label, idx) => {
-            const value = usable[0]?.points[idx]?.y ?? 0
-            return (
-              <div key={`${label}-${idx}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                <div
-                  className="w-full max-w-[28px] rounded-sm bg-accent"
-                  style={{ height: `${Math.max(6, Math.round((value / max) * 112))}px` }}
-                  title={`${label}: ${value}`}
-                />
-                <span className="w-full truncate-fade text-center text-2xs text-text-muted">{label}</span>
-              </div>
-            )
-          })
-        ) : (
-          <svg viewBox="0 0 100 40" className="h-full w-full" aria-hidden>
-            {usable.map((row, sIdx) => {
-              const pts = row.points
-              const d = pts
-                .map((p, i) => {
-                  const x = pts.length === 1 ? 50 : (i / (pts.length - 1)) * 100
-                  const y = 38 - (p.y / max) * 34
-                  return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-                })
-                .join(' ')
-              return (
-                <path
-                  key={row.name}
-                  d={d}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  className={sIdx === 0 ? 'text-accent' : 'text-text-muted'}
-                />
-              )
-            })}
-          </svg>
-        )}
-      </div>
-      <p className="text-2xs text-text-muted">
-        {xLabel}
-        {xLabel && yLabel ? ' · ' : ''}
-        {yLabel}
-        {source ? ` · ${source}` : ''}
-      </p>
+      <Chart kind={kind} series={usable} xLabel={xLabel} yLabel={yLabel} height={144} ariaLabel={title} />
+      {source ? <p className="text-2xs text-text-muted">{source}</p> : null}
       {usable.length > 1 ? (
         <p className="text-2xs text-text-muted">{usable.map((row) => row.name).join(' · ')}</p>
       ) : null}

@@ -39,7 +39,7 @@ At the bottom of the rail, **Organization** groups the workspace itself:
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
-Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, **Start page** is **Messages** (default) or **Overview**; **Appearance** is **Light**, **Dark** or **System**; a personal **Email signature** is the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
+Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, set **First name** and **Last name** (used in greetings and email signatures), choose **Start page** as **Messages** (default) or **Overview**, **Appearance** as **Light**, **Dark** or **System**, and optionally a personal **Email signature** as the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
 
 ## Use the command palette
 
@@ -58,7 +58,7 @@ Communication search in the thread list searches conversations. The palette is f
 
 ## Two other shortcuts
 
-The account menu offers **Profile**, **Settings**, **Workspaces** and **Support**. The footer repeats the support line `environment · tenant-slug · Live`. **Support** (`/settings/help`) links to the setup guide, product tour, `/docs`, `/docs/api` and contact options. The public site is `/docs` (no login). In-app Learn remains at `/learn` for page banners.
+The account menu offers **Profile**, **Settings**, **Workspaces** and **Support**. The footer repeats the support line `environment · tenant-slug · Live · 1.2.01`. **Support** (`/settings/help`) links to the setup guide, product tour, `/docs`, `/docs/api` and contact options. The public site is `/docs` (no login). In-app Learn remains at `/learn` for page banners.
 
 ## What to do next
 

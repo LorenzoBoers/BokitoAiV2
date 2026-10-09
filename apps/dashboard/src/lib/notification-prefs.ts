@@ -19,16 +19,45 @@ export const TIER_ALLOWED: Record<NotificationTier, NotificationChannel[]> = {
   '3': ['inapp', 'email'],
 }
 
-export const CATEGORY_IDS = ['assigned-to-me', 'mentions', 'decisions', 'handoff', 'digest-weekly'] as const
+export const CATEGORY_IDS = [
+  'assigned-to-me',
+  'mentions',
+  'decisions',
+  'handoff',
+  'new-message',
+  'ops-run-failed',
+  'ops-channel-disconnect',
+  'billing-alerts',
+  'digest-weekly',
+] as const
 
-/** Channels a category row can switch; the weekly digest is email only. */
+/** Channels a category row can switch. Push stays on tier-1 events; the weekly digest is email only. */
 export const CATEGORY_ALLOWED: Record<string, NotificationChannel[]> = {
   'assigned-to-me': ['inapp', 'push', 'email'],
   mentions: ['inapp', 'push', 'email'],
   decisions: ['inapp', 'push', 'email'],
   handoff: ['inapp', 'push', 'email'],
+  'new-message': ['inapp', 'push', 'email'],
+  'ops-run-failed': ['inapp', 'email'],
+  'ops-channel-disconnect': ['inapp', 'email'],
+  'billing-alerts': ['inapp', 'push', 'email'],
   'digest-weekly': ['email'],
 }
+
+export type NotificationSectionId = 'conversations' | 'workspace' | 'digest'
+
+/** Event groups under the delivery tiers. Order is the settings matrix order. */
+export const NOTIFICATION_SECTIONS: { id: NotificationSectionId; rows: string[] }[] = [
+  {
+    id: 'conversations',
+    rows: ['assigned-to-me', 'mentions', 'decisions', 'handoff', 'new-message'],
+  },
+  {
+    id: 'workspace',
+    rows: ['ops-run-failed', 'ops-channel-disconnect', 'billing-alerts'],
+  },
+  { id: 'digest', rows: ['digest-weekly'] },
+]
 
 const on = (inapp: boolean, push: boolean, email: boolean): ChannelSwitches => ({ inapp, push, email })
 
@@ -40,6 +69,10 @@ export function defaultNotificationPrefs(): NotificationPrefs {
       { id: 'mentions', channels: on(true, true, false) },
       { id: 'decisions', channels: on(true, true, false) },
       { id: 'handoff', channels: on(true, true, false) },
+      { id: 'new-message', channels: on(false, false, false) },
+      { id: 'ops-run-failed', channels: on(true, false, true) },
+      { id: 'ops-channel-disconnect', channels: on(true, false, true) },
+      { id: 'billing-alerts', channels: on(true, true, true) },
       { id: 'digest-weekly', channels: on(false, false, false) },
     ],
   }
@@ -85,8 +118,79 @@ export function setCategoryChannel(
   channel: NotificationChannel,
   value: boolean,
 ): NotificationPrefs {
+  return setCategoryCells(prefs, [id], [channel], value)
+}
+
+function allowedFor(id: string, channel: NotificationChannel): boolean {
+  return (CATEGORY_ALLOWED[id] ?? []).includes(channel)
+}
+
+/** True when every allowed cell in these rows and channels is on. An empty set is off. */
+export function categoryCellsOn(
+  prefs: NotificationPrefs,
+  ids: string[],
+  channels: NotificationChannel[],
+): boolean {
+  const cells: boolean[] = []
+  for (const id of ids) {
+    const row = prefs.rows.find((item) => item.id === id)
+    if (!row) continue
+    for (const channel of channels) {
+      if (allowedFor(id, channel)) cells.push(row.channels[channel])
+    }
+  }
+  return cells.length > 0 && cells.every(Boolean)
+}
+
+/** Set every allowed cell. Channels a row cannot use stay as they are. */
+export function setCategoryCells(
+  prefs: NotificationPrefs,
+  ids: string[],
+  channels: NotificationChannel[],
+  value: boolean,
+): NotificationPrefs {
+  const wanted = new Set(ids)
   return {
     ...prefs,
-    rows: prefs.rows.map((row) => (row.id === id ? { ...row, channels: { ...row.channels, [channel]: value } } : row)),
+    rows: prefs.rows.map((row) => {
+      if (!wanted.has(row.id)) return row
+      const next = { ...row.channels }
+      for (const channel of channels) {
+        if (allowedFor(row.id, channel)) next[channel] = value
+      }
+      return { ...row, channels: next }
+    }),
   }
+}
+
+/** True when every allowed cell on these tiers and channels is on. */
+export function tierCellsOn(
+  prefs: NotificationPrefs,
+  tiers: NotificationTier[],
+  channels: NotificationChannel[],
+): boolean {
+  const cells: boolean[] = []
+  for (const tier of tiers) {
+    for (const channel of channels) {
+      if (TIER_ALLOWED[tier].includes(channel)) cells.push(prefs.tiers[tier][channel])
+    }
+  }
+  return cells.length > 0 && cells.every(Boolean)
+}
+
+export function setTierCells(
+  prefs: NotificationPrefs,
+  tiers: NotificationTier[],
+  channels: NotificationChannel[],
+  value: boolean,
+): NotificationPrefs {
+  const next = { ...prefs.tiers }
+  for (const tier of tiers) {
+    const row = { ...next[tier] }
+    for (const channel of channels) {
+      if (TIER_ALLOWED[tier].includes(channel)) row[channel] = value
+    }
+    next[tier] = row
+  }
+  return { ...prefs, tiers: next }
 }

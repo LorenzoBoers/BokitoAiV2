@@ -18,7 +18,12 @@ depends_on = None
 
 def upgrade() -> None:
     bind = op.get_bind()
-    columns = {c["name"] for c in sa.inspect(bind).get_columns("inbox_settings")}
+    inspector = sa.inspect(bind)
+    # Fresh databases never created this table (it lived only in the pre-baseline
+    # metadata). Later revisions drop it when present.
+    if not inspector.has_table("inbox_settings"):
+        return
+    columns = {c["name"] for c in inspector.get_columns("inbox_settings")}
     with op.batch_alter_table("inbox_settings") as batch:
         if "rules_text" in columns:
             batch.drop_column("rules_text")

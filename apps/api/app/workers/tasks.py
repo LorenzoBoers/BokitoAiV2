@@ -52,6 +52,8 @@ SUGGEST_MODE_TOOLS = frozenset(
         "list_project_docs",
         "create_queue_item",
         "record_thread_read",
+        "suggest_thread_reply",
+        "note_no_reply",
         "set_thread_tags",
         "file_ticket",
         "get_ticket",
@@ -470,37 +472,28 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 f"{module_hint}"
                 "and call_mcp_tool only for other connected MCP servers "
                 "when the question concerns records that live there.\n"
-                "2. Then do exactly one of the following:\n"
-                "   - Return the proposed reply body text (it becomes a suggestion card "
-                "the human can approve, edit, or escalate). The reply body must contain "
-                "ONLY the customer-facing text: start with the greeting (Hallo/Hoi/Hi), "
-                "no research preamble, no meta commentary about stubs or missing docs, "
-                "no notes about platform help, no dividers. Do NOT write a "
-                "sign-off or signature (no 'Met vriendelijke groet', no name) — the "
-                "system appends the sender's signature automatically. Anything meant "
-                "for your teammates (context, caveats, research notes) goes AFTER the "
-                "body on a new line starting with exactly: INTERNAL_NOTE: . "
-                "For customer email, never use relative /docs or /learn paths and never "
-                "leave markdown links like [label](/docs/...); paste the public_url from "
-                "search_product_help as plain text (full https://app.bokito.ai/docs/... "
-                "path including section, e.g. /docs/inbox/widget — never invent a short "
-                "/docs/{slug}). Prefer the help article over telling prospects to open "
-                "Instellingen; they may not have an account yet, or\n"
-                "   - When the human must choose between concrete alternatives, call "
-                "create_decision_request with clear multiple-choice options "
-                "(add an option with input_type \"text\" when a free-text answer is useful). "
-                "Give every option a distinct id and a distinct human-readable label. "
-                "Set each option's action_type to a real tool name only when approving "
-                "should run that tool. If an option should send a customer reply "
-                "(e.g. ask for clarification), use action_type \"send_reply\" with "
-                "payload.body_text set to that draft — do not use escalate for options "
-                "that send mail. Use escalate or acknowledge only for pure human "
-                "takeover (pause AI, no outbound). Then return exactly: Done.\n"
-                "   - If the message is an automated notification that needs no reply "
-                "(no-reply sender, newsletter, receipt, system alert), return exactly: "
-                "NO_REPLY_NEEDED: <one-line summary of what it says>. Return only that "
-                "single line: no analysis, reasoning or description of the mail before "
-                "or after it.\n"
+                "2. Then call exactly one tool and return exactly: Done.\n"
+                "   - suggest_thread_reply with body_text = the customer-facing draft "
+                "the human can approve, edit, or decline. The body must contain ONLY "
+                "that text: start with the greeting (Hallo/Hoi/Hi), no research "
+                "preamble, no meta commentary, no dividers. Do NOT write a sign-off "
+                "or signature — the system appends it. Teammate notes go in the same "
+                "body after a line that starts with exactly: INTERNAL_NOTE: . "
+                "For customer email, never use relative /docs or /learn paths; paste "
+                "the public_url from search_product_help as plain text "
+                "(full https://app.bokito.ai/docs/... path including section). "
+                "Prefer the help article over telling prospects to open Instellingen.\n"
+                "   - create_decision_request when the human must choose between "
+                "concrete alternatives (add an option with input_type \"text\" when a "
+                "free-text answer is useful). Give every option a distinct id and "
+                "label. Set action_type to a real tool name only when approving should "
+                "run that tool. A reply option uses action_type \"send_reply\" with "
+                "payload.body_text. Use escalate or acknowledge only for pure human "
+                "takeover.\n"
+                "   - note_no_reply with a one-line summary when the message is an "
+                "automated notification that needs no reply (no-reply sender, "
+                "newsletter, receipt, system alert).\n"
+                "Do not return the draft as your final message. The tool call is the action.\n"
                 f"{language_rules}"
                 f"{project_context}"
                 f"{related_context}"
@@ -588,9 +581,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         # If the agent already raised its own inline decision card during the
         # run, don't stack an automatic reply-suggestion card on top of it.
-        agent_created_decision = "create_decision_request" in (
-            loop.turn.tool_names() if loop.turn else []
-        )
+        tool_names = set(loop.turn.tool_names() if loop.turn else [])
+        agent_created_decision = "create_decision_request" in tool_names
+        agent_suggested_reply = "suggest_thread_reply" in tool_names
+        agent_noted_no_reply = "note_no_reply" in tool_names
 
         from app.services.automated_mail import extract_no_reply_summary
         from app.services.inbound_agent import (
@@ -623,6 +617,8 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             and not read_only
             and run_mode == "assisted"
             and not agent_created_decision
+            and not agent_suggested_reply
+            and not agent_noted_no_reply
         )
 
         no_reply_summary = extract_no_reply_summary(reply_text)
@@ -656,6 +652,19 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 )
             )
             delivery = {"skipped": True, "reason": "stale", "delivery": "skipped_stale"}
+        elif run_mode == "assisted" and (
+            agent_suggested_reply or agent_noted_no_reply or agent_created_decision
+        ):
+            # The channel agent already filed the action as a tool call.
+            delivery = {
+                "via": "agent_tool",
+                "delivery": (
+                    "no_reply_needed"
+                    if agent_noted_no_reply and not agent_suggested_reply
+                    else "pending_decision"
+                ),
+                "tools": sorted(tool_names),
+            }
         elif no_reply_summary is not None:
             # The model judged this an automated notification: suggest an
             # action (close / task / keep open) instead of sending a reply.

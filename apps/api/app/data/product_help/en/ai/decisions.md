@@ -68,7 +68,7 @@ Each question goes to one addressee: the person or team named in the agent's **A
 1. Choose the decision in the bell menu, or open the push notification on your phone. Both open Decisions on that thread and jump straight to the waiting card.
 2. Read the card's source line: it names where the request came from — a project queue, an agent run, or a proposed workspace change — and links to it.
 3. Answer in the thread. Assisted drafts still need a human send; only Autonomous conversations send on their own.
-4. Under **Settings**, then **Notifications**, open **Notify me about**. Turn **In-app**, **Email**, **Push** or **Slack** on per row — for example **When an agent needs your decision on an assigned conversation**, **When a customer asks for a human**, **When an agent run or trigger fails**, or budget alerts at 80% / 100%. Use **Pause in-app alerts**, **Restore recommended**, or **Preview a notification** when you are tuning the set. Push applies to this browser only; connect Slack under **Channels** before Slack toggles work.
+4. Under **Settings**, then **Notifications**, use the matrix. Each section (**Delivery**, **Conversations**, **Workspace**, **Digest**) has a master switch per column in the section header. A notice arrives only when both its tier and its event are on. Turn on **When a new message arrives on a conversation you or your team own** to hear about new mail. Turning **Push** on asks this browser for permission when needed; after sign-in Bokito can also offer a soft **Enable push** banner once.
 
 ## Hand work to a coding tool
 

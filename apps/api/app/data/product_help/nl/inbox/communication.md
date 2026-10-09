@@ -109,7 +109,7 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 
 ## Keur een AI-voorstel goed vanuit de composer
 
-1. Als de AI een antwoord voorstelt, verschijnt het concept in de composer. De tekst gloeit een paar seconden paars, zodat je ziet dat het gegenereerd is. In de tijdlijn staat alleen een korte regel: **AI stelde een antwoord voor**.
+1. Als de kanaalagent een antwoord voorstelt, verschijnt het concept in de composer. De tekst gloeit een paar seconden paars, zodat je ziet dat het gegenereerd is. In de tijdlijn staat die actie naast de avatar van die agent: **Antwoord voorgesteld**. Bovenaan de tijdlijn staat **Gesprek gestart door {naam}**.
 2. Pas de tekst zo nodig aan en kies **Versturen** (of het verstuurmenu voor sluiten / uitstellen). Versturen lost de beslissing op en levert het antwoord af.
 3. **Verwerpen** op de conceptbalk wijst het voorstel af zonder te versturen. Andere beslissingen (platform, module, agenda, afronding) blijven kaarten met de kop **Wacht op jouw OK** en gewone werkwoordknoppen — geen toolnamen in de copy.
 

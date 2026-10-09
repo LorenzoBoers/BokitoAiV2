@@ -557,7 +557,7 @@
   },
   "decision": {
     "waitForOk": "Waiting for your OK",
-    "compactProposal": "AI proposed a reply"
+    "compactProposal": "Suggested a reply"
   },
   "agentSession": {
     "launcher": "Bring in an agent",
@@ -1210,6 +1210,7 @@
     "events": {
       "threadCreated": "Thread created",
       "conversationStarted": "Conversation started",
+      "conversationStartedBy": "Conversation started by {{name}}",
       "assigned": "Assigned to {{name}}",
       "userFallback": "user {{id}}",
       "unassigned": "Assignment removed",
@@ -1361,7 +1362,7 @@
     "useDynamicDefault": "Bokito default (text)",
     "dynamicDefaultHint": "Empty signature uses the Bokito text default at send time: closing, name, role and contact details. For a photo, pick the “With profile photo” template (needs a profile photo URL).",
     "tipTitle": "Tip:",
-    "tipVariables": "Use variables like {{name}}, {{company}}, {{function}}, {{email}}, {{phone}}, {{website}}, {{closing}}, {{avatar}} for dynamic content.",
+    "tipVariables": "Use variables like {{name}}, {{first_name}}, {{last_name}}, {{company}}, {{function}}, {{email}}, {{phone}}, {{website}}, {{closing}}, {{avatar}} for dynamic content.",
     "tipReplaced": "These are replaced from your profile and workspace when sending. Empty fields (for example phone) drop their line. {{avatar}} only inserts a photo when a public https profile image is set.",
     "htmlAria": "Signature HTML source",
     "htmlHint1": "Edit or paste the raw HTML of your signature, for example one exported from a signature generator. Inline styles are kept as-is when sending.",

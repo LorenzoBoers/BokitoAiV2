@@ -116,8 +116,10 @@ function normalizeSignalEvent(row: unknown): InboxEvent | null {
     id,
     threadId,
     eventType: asString(raw.event_type),
+    actorType: raw.actor_type == null ? null : asString(raw.actor_type),
     actorUserId:
       raw.actor_user_id == null || raw.actor_user_id === 0 ? null : asNumber(raw.actor_user_id),
+    actorAgentId: raw.actor_agent_id == null ? null : asString(raw.actor_agent_id) || null,
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
     createdAt: asString(raw.created_at),
   }

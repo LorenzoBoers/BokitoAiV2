@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -12,17 +12,20 @@ import {
   bokitoGetBudget,
   bokitoGetCockpitSummary,
   bokitoGetUsageBreakdown,
+  bokitoGetUsageSeries,
   bokitoPatchBudget,
   type CockpitSummary,
   type SpendBudget,
   type SpendPeriodStatus,
   type UsageBreakdown,
+  type UsageSeriesPoint,
 } from '../lib/bokito-api'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Callout } from '../components/ui/callout'
 import { CapBar } from '../components/ui/cap-bar'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { SegmentedControl } from '../components/ui/segmented-control'
+import { Chart } from '../components/ui/chart'
 import { StatGrid, StatTile } from '../components/ui/stat-tile'
 import { formatAppTime } from '../lib/app-locale'
 import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
@@ -43,6 +46,64 @@ function formatUsd(micros: number, language?: string) {
   return formatAppUsdCents(micros / 10_000, language)
 }
 
+const usageRow = 'flex items-center justify-between gap-3 rounded-md px-3 py-2.5 text-sm'
+const usageLink = `${usageRow} transition-colors hover:bg-bg-hover/70`
+
+function UsageCard({
+  title,
+  hint,
+  extra,
+  children,
+}: {
+  title: string
+  hint?: string
+  extra?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="panel min-w-0 overflow-hidden">
+      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-text-heading">{title}</h2>
+          {hint ? <p className="mt-0.5 text-xs text-text-muted">{hint}</p> : null}
+        </div>
+        {extra ? <div className="shrink-0 pt-0.5 text-xs tabular-nums text-text-muted">{extra}</div> : null}
+      </div>
+      <div className="space-y-0.5 p-3">{children}</div>
+    </section>
+  )
+}
+
+function UsageSeriesChart({ points, days }: { points: UsageSeriesPoint[]; days: number }) {
+  const { t, i18n } = useTranslation('nav')
+  const fmt = (iso: string) => {
+    const date = new Date(`${iso}T12:00:00Z`)
+    return date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })
+  }
+  return (
+    <section className="panel mb-5 overflow-hidden">
+      <div className="border-b border-border/60 px-4 py-3">
+        <h2 className="text-base font-semibold text-text-heading">{t('usagePage.seriesTitle')}</h2>
+        <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.seriesHint')}</p>
+      </div>
+      <div className="p-4">
+        <Chart
+          kind="area"
+          height={180}
+          ariaLabel={t('usagePage.seriesAria', { days })}
+          emptyLabel={t('usagePage.seriesEmpty')}
+          series={[
+            {
+              name: t('usagePage.seriesName'),
+              points: points.map((point) => ({ x: fmt(point.date), y: point.tokens })),
+            },
+          ]}
+        />
+      </div>
+    </section>
+  )
+}
+
 export default function UsagePage() {
   const { t, i18n } = useTranslation('nav')
   const { token } = useAuth()
@@ -53,6 +114,7 @@ export default function UsagePage() {
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [summary, setSummary] = useState<CockpitSummary | null>(null)
   const [breakdown, setBreakdown] = useState<UsageBreakdown | null>(null)
+  const [series, setSeries] = useState<UsageSeriesPoint[] | null>(null)
   const [budget, setBudget] = useState<SpendBudget | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -84,11 +146,13 @@ export default function UsagePage() {
       bokitoGetCockpitSummary(token),
       bokitoGetUsageBreakdown(token, days),
       bokitoGetBudget(token),
+      bokitoGetUsageSeries(token, days),
     ])
-      .then(([s, b, bud]) => {
+      .then(([s, b, bud, ser]) => {
         setSummary(s)
         setBreakdown(b)
         setBudget(bud)
+        setSeries(ser.points)
         setRefreshedAt(new Date())
       })
       .catch((err) => setError(formatApiErrorMessage(err, t('usagePage.couldNotLoad'))))
@@ -306,10 +370,12 @@ export default function UsagePage() {
         <Callout tone="error" title={t('usagePage.budgetBlocked')} className="mb-4" />
       ) : null}
 
+      {series ? <UsageSeriesChart points={series} days={days} /> : null}
+
       {budget ? (
-        <div className="panel mb-5 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h3>
+        <section className="panel mb-5 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+            <h2 className="text-base font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h2>
             {capDraft ? null : (
               <button
                 type="button"
@@ -320,6 +386,7 @@ export default function UsagePage() {
               </button>
             )}
           </div>
+          <div className="p-4">
           <div className="grid gap-4 md:grid-cols-2">
             {capBar(t('usagePage.tokensToday'), budget.status.daily_tokens, num)}
             {capBar(t('usagePage.spendMonth'), budget.status.monthly_customer_micros, usd)}
@@ -381,7 +448,8 @@ export default function UsagePage() {
           <p className="mt-3 text-xs text-text-muted">
             {t('usagePage.capsHint')}
           </p>
-        </div>
+          </div>
+        </section>
       ) : null}
 
       <StatGrid className="grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
@@ -409,14 +477,10 @@ export default function UsagePage() {
 
       {breakdown ? (
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <div className="panel p-4">
-            <div className="mb-3 flex items-baseline justify-between">
-              <h3 className="text-sm font-semibold text-text-heading">{t('usagePage.byModel', { days: breakdown.days })}</h3>
-              <span className="text-xs text-text-muted">
-                {t('usagePage.billable', { amount: usd(breakdown.total_customer_cost_micros) })}
-              </span>
-            </div>
-            <div className="space-y-2">
+          <UsageCard
+            title={t('usagePage.byModel', { days: breakdown.days })}
+            extra={t('usagePage.billable', { amount: usd(breakdown.total_customer_cost_micros) })}
+          >
               {breakdown.by_model.length === 0 ? (
                 <div>
                   <p className="text-xs text-text-muted">{t('usagePage.noModelUsage')}</p>
@@ -440,7 +504,7 @@ export default function UsagePage() {
                   <Link
                     key={`${row.model}-${row.key_source}`}
                     to="/settings/models"
-                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
+                    className={usageLink}
                   >
                     <div className="flex min-w-0 items-start gap-2">
                       <ModelIcon slug={row.model} provider={row.provider} size={18} className="mt-0.5" />
@@ -463,12 +527,9 @@ export default function UsagePage() {
                   </Link>
                 ))
               )}
-            </div>
-          </div>
+          </UsageCard>
 
-          <div className="panel p-4">
-            <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byAgent', { days: breakdown.days })}</h3>
-            <div className="space-y-2">
+          <UsageCard title={t('usagePage.byAgent', { days: breakdown.days })}>
               {breakdown.by_agent.length === 0 ? (
                 <div>
                   <p className="text-xs text-text-muted">{t('usagePage.noAgentUsage')}</p>
@@ -501,26 +562,20 @@ export default function UsagePage() {
                     <Link
                       key={row.agent_id}
                       to={`/agents/${row.agent_id}`}
-                      className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
+                      className={usageLink}
                     >
                       {body}
                     </Link>
                   ) : (
-                    <div
-                      key="system"
-                      className="flex items-center justify-between gap-3 text-sm"
-                    >
+                    <div key="system" className={usageRow}>
                       {body}
                     </div>
                   )
                 })
               )}
-            </div>
-          </div>
+          </UsageCard>
 
-          <div className="panel p-4">
-            <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byUser', { days: breakdown.days })}</h3>
-            <div className="space-y-2">
+          <UsageCard title={t('usagePage.byUser', { days: breakdown.days })} hint={t('usagePage.userHint')}>
               {(breakdown.by_user ?? []).length === 0 ? (
                 <div>
                   <p className="text-xs text-text-muted">{t('usagePage.noUserUsage')}</p>
@@ -539,10 +594,7 @@ export default function UsagePage() {
                 </div>
               ) : (
                 (breakdown.by_user ?? []).map((row) => (
-                  <div
-                    key={row.user_id ?? 'system'}
-                    className="flex items-center justify-between gap-3 text-sm"
-                  >
+                  <div key={row.user_id ?? 'system'} className={usageRow}>
                     <p className="min-w-0 truncate-fade font-medium text-text-primary">
                       {isSystemUsageName(row.user_name) ? t('usagePage.systemUser') : row.user_name}
                     </p>
@@ -552,15 +604,9 @@ export default function UsagePage() {
                   </div>
                 ))
               )}
-            </div>
-            <p className="mt-3 text-xs text-text-muted">
-              {t('usagePage.userHint')}
-            </p>
-          </div>
+          </UsageCard>
 
-          <div className="panel p-4">
-            <h3 className="mb-3 text-sm font-semibold text-text-heading">{t('usagePage.byRegion', { days: breakdown.days })}</h3>
-            <div className="space-y-2">
+          <UsageCard title={t('usagePage.byRegion', { days: breakdown.days })} hint={t('usagePage.euShareHint')}>
               {(breakdown.by_region ?? []).length === 0 ? (
                 <p className="text-xs text-text-muted">{t('usagePage.noRegionUsage')}</p>
               ) : (
@@ -568,7 +614,7 @@ export default function UsagePage() {
                   <Link
                     key={row.region}
                     to="/settings/trust"
-                    className="flex items-center justify-between gap-3 rounded-md px-1 py-0.5 text-sm hover:bg-bg-hover/50"
+                    className={usageLink}
                   >
                     <RegionBadge region={row.region} />
                     <p className="shrink-0 text-xs text-text-muted">
@@ -577,9 +623,7 @@ export default function UsagePage() {
                   </Link>
                 ))
               )}
-            </div>
-            <p className="mt-3 text-xs text-text-muted">{t('usagePage.euShareHint')}</p>
-          </div>
+          </UsageCard>
         </div>
       ) : null}
 

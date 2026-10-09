@@ -29,6 +29,7 @@ from app.services.auth import (
     verify_refresh_token,
 )
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
+from app.services.user_names import apply_user_names, user_full_name
 from app.services.workspaces_portal import (
     allows_platform_support,
     apply_branding,
@@ -40,6 +41,24 @@ from app.services.workspaces_portal import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+
+def _apply_request_names(
+    user: User,
+    *,
+    first_name: str = "",
+    last_name: str = "",
+    display_name: str = "",
+    fallback: str = "",
+) -> None:
+    """Apply first/last (preferred) or legacy display_name onto a new User."""
+    first = (first_name or "").strip()
+    last = (last_name or "").strip()
+    if first or last:
+        apply_user_names(user, first_name=first, last_name=last)
+        return
+    full = (display_name or "").strip() or (fallback or "").strip()
+    apply_user_names(user, display_name=full)
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
@@ -65,6 +84,9 @@ class SignupRequest(BaseModel):
     password: str
     tenant_slug: str
     tenant_name: str
+    first_name: str = ""
+    last_name: str = ""
+    # Legacy full-name field; used when first/last are empty.
     display_name: str = ""
 
 
@@ -85,10 +107,16 @@ class InviteRequest(BaseModel):
 class AcceptInviteRequest(BaseModel):
     token: str
     password: str
+    first_name: str = ""
+    last_name: str = ""
+    # Legacy full-name field; used when first/last are empty.
     display_name: str = ""
 
 
 class ProfilePatchRequest(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    # Legacy full-name field; used when first/last are omitted.
     name: str | None = None
     email: EmailStr | None = None
     job_title: str | None = None
@@ -156,11 +184,14 @@ def _user_dict(
 ) -> dict:
     from app.services.signatures import user_signature_html
 
+    full_name = user_full_name(user)
     payload = {
         "id": str(user.id),
         "numeric_id": user_numeric_id(user.id),
         "email": user.email,
-        "display_name": user.display_name,
+        "first_name": user.first_name or "",
+        "last_name": user.last_name or "",
+        "display_name": full_name,
         "role": "admin" if is_staff else canonical_workspace_role(role),
         "is_staff": is_staff,
         "email_verified": user.email_verified,
@@ -174,7 +205,7 @@ def _user_dict(
         payload["impersonator"] = {
             "id": str(impersonator.id),
             "email": impersonator.email,
-            "display_name": impersonator.display_name or impersonator.email,
+            "display_name": user_full_name(impersonator) or impersonator.email,
         }
     return payload
 
@@ -200,7 +231,13 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     user = User(
         email=body.email,
         password_hash=hash_password(body.password),
-        display_name=body.display_name or body.email.split("@")[0],
+    )
+    _apply_request_names(
+        user,
+        first_name=body.first_name,
+        last_name=body.last_name,
+        display_name=body.display_name,
+        fallback=body.email.split("@")[0],
     )
     session.add(tenant)
     session.add(user)
@@ -269,7 +306,7 @@ async def _pending_invites_for_email(session: AsyncSession, email: str) -> list[
     names: dict[UUID, str] = {}
     if inviter_ids:
         users = await session.execute(select(User).where(User.id.in_(inviter_ids)))
-        names = {u.id: (u.display_name or u.email) for u in users.scalars().all()}
+        names = {u.id: (user_full_name(u) or u.email) for u in users.scalars().all()}
     return [
         {
             "id": str(invite.id),
@@ -298,7 +335,9 @@ async def _workspace_required_response(session: AsyncSession, user: User):
             "requires_workspace": True,
             "setup_token": create_workspace_setup_token(user.id),
             "email": user.email,
-            "display_name": user.display_name,
+            "display_name": user_full_name(user),
+            "first_name": user.first_name or "",
+            "last_name": user.last_name or "",
             "pending_invites": await _pending_invites_for_email(session, user.email),
         }
     )
@@ -844,7 +883,13 @@ async def accept_invite(
         user = User(
             email=invite.email,
             password_hash=hash_password(body.password),
-            display_name=body.display_name or invite.email.split("@")[0],
+        )
+        _apply_request_names(
+            user,
+            first_name=body.first_name,
+            last_name=body.last_name,
+            display_name=body.display_name,
+            fallback=invite.email.split("@")[0],
         )
         session.add(user)
         await session.flush()
@@ -1123,7 +1168,9 @@ def _me_payload(auth: AuthContext, memberships: list[dict], *, impersonator: Use
     impersonating = impersonator is not None
     payload = {
         "id": user_numeric_id(auth.user.id),
-        "name": auth.user.display_name or auth.user.email,
+        "name": user_full_name(auth.user) or auth.user.email,
+        "first_name": auth.user.first_name or "",
+        "last_name": auth.user.last_name or "",
         "email": auth.user.email,
         "email_verified": auth.user.email_verified,
         "totp_enabled": auth.user.totp_enabled,
@@ -1166,7 +1213,7 @@ def _me_payload(auth: AuthContext, memberships: list[dict], *, impersonator: Use
         payload["impersonator"] = {
             "id": str(impersonator.id),
             "email": impersonator.email,
-            "display_name": impersonator.display_name or impersonator.email,
+            "display_name": user_full_name(impersonator) or impersonator.email,
         }
     return payload
 
@@ -1214,8 +1261,14 @@ async def patch_profile(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     user = auth.user
-    if body.name is not None and body.name.strip():
-        user.display_name = body.name.strip()
+    if body.first_name is not None or body.last_name is not None:
+        apply_user_names(
+            user,
+            first_name=body.first_name,
+            last_name=body.last_name,
+        )
+    elif body.name is not None and body.name.strip():
+        apply_user_names(user, display_name=body.name.strip())
     if body.job_title is not None:
         user.job_title = body.job_title.strip()
     if body.onboarded or body.email_signature_html is not None:
@@ -1643,7 +1696,7 @@ async def delete_account(
 
     # Anonymize instead of hard delete: historical rows keep a valid FK.
     user.email = f"deleted-{user.id.hex[:12]}@deleted.invalid"
-    user.display_name = "Deleted user"
+    apply_user_names(user, first_name="Deleted", last_name="user")
     user.password_hash = hash_password(_secrets.token_urlsafe(24))
     user.avatar_url = None
     user.email_verified = False

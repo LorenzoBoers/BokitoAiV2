@@ -24,18 +24,24 @@ async def notification_channels(
 ) -> dict[str, bool]:
     """Stored switches for one category, without availability: ``inapp``, ``email``, ``push``.
 
-    ``digest-daily`` is the tier 3 email switch. Event categories combine the
-    tier 1 switch with the category row. Other ids (system notices) use tier 2.
+    ``digest-daily`` is the tier 3 email switch. A known category combines its
+    tier (see ``CATEGORY_TIER``) with the category row. Unknown ids use tier 2.
     Live delivery goes through ``services/notify.py``; this view serves the
     digest cron and Slack.
     """
-    from app.services.notify import TIER_DIGEST, TIER_LATER, TIER_NOW, load_prefs
+    from app.services.notify import CATEGORY_TIER, TIER_DIGEST, TIER_LATER, TIER_NOW, load_prefs
 
     prefs = await load_prefs(session, tenant_id, user_id)
     if category == "digest-daily":
         channels = {"inapp": False, "push": False, "email": prefs["tiers"][TIER_DIGEST]["email"]}
     elif category in prefs["categories"]:
-        tier = prefs["tiers"][TIER_NOW] if category != "digest-weekly" else {"inapp": True, "push": True, "email": True}
+        tier_key = CATEGORY_TIER.get(category, TIER_NOW)
+        # The weekly digest row is the switch itself; it does not also need tier 3.
+        tier = (
+            {"inapp": True, "push": True, "email": True}
+            if category == "digest-weekly"
+            else prefs["tiers"][tier_key]
+        )
         row = prefs["categories"][category]
         channels = {key: bool(tier.get(key) and row.get(key)) for key in ("inapp", "push", "email")}
     else:

@@ -39,7 +39,7 @@ Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).
 
-Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel is **Startpagina** **Communicatie** (standaard) of **Overview**; **Weergave** is **Licht**, **Donker** of **Systeem**; een persoonlijke **E-mailhandtekening** is de terugval wanneer een mailbox ieders eigen handtekening gebruikt of geen gedeelde template heeft. Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**.
+Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel vul je **Voornaam** en **Achternaam** in (gebruikt in begroetingen en e-mailhandtekeningen), kies je **Startpagina** als **Communicatie** (standaard) of **Overview**, **Weergave** als **Licht**, **Donker** of **Systeem**, en optioneel een persoonlijke **E-mailhandtekening** als terugval wanneer een mailbox ieders eigen handtekening gebruikt of geen gedeelde template heeft. Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**.
 
 ## Gebruik het commandopalet
 
@@ -58,7 +58,7 @@ Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen
 
 ## Twee andere snelkoppelingen
 
-Het accountmenu biedt **Profiel**, **Instellingen**, **Workspaces** en **Support**. Onderaan herhaalt het de supportregel `environment · tenant-slug · Live`. **Support** (`/settings/help`) linkt naar de setupgids, producttour, `/docs`, `/docs/api` en contactopties. De openbare site is `/docs` (geen login). In-app Learn blijft op `/learn` voor paginabanners.
+Het accountmenu biedt **Profiel**, **Instellingen**, **Workspaces** en **Support**. Onderaan herhaalt het de supportregel `environment · tenant-slug · Live · 1.2.01`. **Support** (`/settings/help`) linkt naar de setupgids, producttour, `/docs`, `/docs/api` en contactopties. De openbare site is `/docs` (geen login). In-app Learn blijft op `/learn` voor paginabanners.
 
 ## Wat nu
 

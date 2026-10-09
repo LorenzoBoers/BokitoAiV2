@@ -109,7 +109,7 @@ An agent turn reads like a chat: a few short messages, with one line between the
 
 ## Review an AI-suggested reply
 
-1. When the AI suggests a reply, the draft appears in the composer. The text glows purple for a couple of seconds so you can see it was generated. The timeline only shows a short line: **AI proposed a reply**.
+1. When the channel agent suggests a reply, the draft appears in the composer. The text glows purple for a couple of seconds so you can see it was generated. The timeline shows that action next to that agent's avatar: **Suggested a reply**. The first line of the timeline is **Conversation started by {name}**.
 2. Edit the text if needed, then **Send** (or use the send menu for close / snooze). Sending resolves the decision and delivers the reply.
 3. **Discard** on the restored-draft bar rejects the proposal without sending. Other decisions (platform, module, agenda, checkout) stay as cards titled **Waiting for your OK** with plain verb buttons — no tool names in the copy.
 

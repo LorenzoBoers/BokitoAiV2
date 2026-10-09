@@ -49,6 +49,9 @@ function chatWidgetDevPlugin() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const bokitoApiUrl = env.VITE_BOKITO_API_URL || 'http://127.0.0.1:8000'
+  // Set only on the VPS checkout behind https://dev.app.bokito.ai.
+  // Laptop dev leaves this empty and keeps HMR on 127.0.0.1.
+  const publicDevHost = (process.env.VITE_DEV_PUBLIC_HOST || env.VITE_DEV_PUBLIC_HOST || '').trim()
 
   const proxy: Record<string, object> = {
     '/api': {
@@ -92,6 +95,12 @@ export default defineConfig(({ mode }) => {
       port: 5174,
       host: '127.0.0.1',
       open: false,
+      ...(publicDevHost
+        ? {
+            allowedHosts: [publicDevHost],
+            hmr: { protocol: 'wss' as const, host: publicDevHost, clientPort: 443 },
+          }
+        : {}),
       proxy,
       fs: {
         allow: [path.resolve(__dirname), path.resolve(__dirname, '../api/app/data')],

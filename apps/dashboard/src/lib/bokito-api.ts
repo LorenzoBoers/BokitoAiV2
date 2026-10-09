@@ -196,6 +196,17 @@ export async function bokitoGetUsageBreakdown(token: string, days = 30) {
   return bokitoFetch<UsageBreakdown>(`${APP_API_BASE}${appRoutes.cockpit.usage(days)}`, token)
 }
 
+export type UsageSeriesPoint = { date: string; tokens: number }
+
+export type UsageTokenSeries = {
+  days: number
+  points: UsageSeriesPoint[]
+}
+
+export async function bokitoGetUsageSeries(token: string, days = 30) {
+  return bokitoFetch<UsageTokenSeries>(`${APP_API_BASE}${appRoutes.cockpit.usageSeries(days)}`, token)
+}
+
 export type SpendPeriodStatus = {
   used: number
   cap: number | null

@@ -42,6 +42,23 @@ def test_render_aliases_function_to_job_title():
     assert "Engineer" in out
 
 
+def test_first_and_last_name_placeholders():
+    vars_ = signature_identity_vars(
+        name="Ada Lovelace",
+        first_name="Ada",
+        last_name="Lovelace",
+        language="en",
+    )
+    assert vars_["first_name"] == "Ada"
+    assert vars_["last_name"] == "Lovelace"
+    out = render_signature_template(
+        "<p>{{first_name}} / {{voornaam}} / {{last_name}}</p>",
+        vars_,
+    )
+    assert out.count("Ada") == 2
+    assert "Lovelace" in out
+
+
 def test_compose_default_is_text_only():
     html = compose_default_signature_html(
         name="Lorenzo",

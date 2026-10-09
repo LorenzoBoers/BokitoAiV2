@@ -480,6 +480,9 @@ async def create_inbound_signal(
             tenant_id=tenant_id,
             event_type="signal_created",
             actor_type="system",
+            payload_json=json.dumps(
+                {"started_by": contact_name or contact_email or ""}
+            ),
         )
     )
     await session.commit()

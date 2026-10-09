@@ -11,7 +11,10 @@ local dev + tests  ->  git push master  ->  CI (ruff, pytest, build, e2e)
                                               ->  smoke test staging
                                               ->  auto deploy production (app.bokito.ai)
                                               ->  smoke test prod (rollback on failure)
+                                              ->  VERSION +0.0.01 on master and the dev checkout
 ```
+
+`VERSION` (repo root) is the release number baked into the dashboard (`VITE_APP_VERSION`). It starts at `1.2.01`. After production smoke passes, the workflow commits the next patch (`[skip ci]`) and writes the same number to `/opt/bokito-dev/VERSION`. The dev host then shows one patch ahead of the image production is running. Set `VERSION` to a larger number yourself before a deploy when the step should be more than `0.0.01`; the workflow still advances one patch after that release so dev stays ahead.
 
 ## GitHub setup (one-time)
 
@@ -124,6 +127,19 @@ The removed V1 scripts (`vps-redeploy.py`, `vps-finish-deploy.py`, `vps-update-e
 - `BOKITO_WORKER_API_KEY`
 - `WORKER_INBOUND_SECRET`
 - `BULL_BOARD_BASIC_AUTH` (Bull Board on the legacy worker plane)
+
+## Remote dev (`dev.app.bokito.ai`)
+
+Hot reload for Cursor Remote SSH. This is a third origin, separate from `staging.bokito.ai` (built image) and from `/opt/bokito` (production checkout).
+
+- DNS: `dev.app.bokito.ai` A record to the VPS, **DNS only** (grey cloud), so host Caddy can issue the certificate and Vite HMR websockets are not proxied by Cloudflare.
+- Host Caddy proxies that hostname to `127.0.0.1:5174` only. There is no extra browser password: an HTTP basic-auth gate retriggers on API calls and the Vite reload socket. Ports 5174 and the dev API are not published on `0.0.0.0`.
+- Checkout: `/opt/bokito-dev`. Database: compose project `bokito-dev` (`docker-compose.dev-remote.yml`), Postgres on `127.0.0.1:5433`, Redis on `127.0.0.1:6380`. A fresh database is created with `alembic upgrade 003_baseline` and then `alembic stamp head` (later revisions assume the old shape and fail on an empty database). Host port 8000 is already the trading API, so the dev API listens on `127.0.0.1:8010`.
+- Processes: systemd `bokito-dev-api` (`uvicorn --reload`), `bokito-dev-dashboard` (Vite), `bokito-dev-worker` (ARQ, no reload). Saving a file reloads the dashboard immediately and the API after uvicorn restarts. Restart the worker unit after worker-code changes.
+- AI is live (`LLM_MODE=live`) with the same platform model keys as production, on this server's own database. Transactional mail uses the production Resend key. Inbound webhooks stay on production (`hooks.bokito.ai`). Google, Microsoft and Moneybird OAuth need `https://dev.app.bokito.ai/api/integrations/oauth/callback` on the provider app before a real connect succeeds. Knowledge embeddings stay local until an OpenAI key is set.
+- Laptop SSH: host `bokito-dev` in `~/.ssh/config`, then Cursor Remote-SSH, folder `/opt/bokito-dev`.
+- **Agents:** when Cursor is open on the laptop checkout (not `/opt/bokito-dev`), sync feature changes to the VPS before treating work as visible on `dev.app.bokito.ai`. Project rule: `.cursor/rules/remote-dev-ssh.mdc`.
+- Vite HMR on that host only: `VITE_DEV_PUBLIC_HOST=dev.app.bokito.ai` (wss, client port 443). Leave it unset on a laptop so `127.0.0.1:5174` stays the same.
 
 ## Local development (unchanged)
 

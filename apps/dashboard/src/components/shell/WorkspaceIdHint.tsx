@@ -20,7 +20,7 @@ const DOT = (
   </span>
 )
 
-/** Quiet `environment · tenant-slug · websocket` line; deploy SHA when baked. */
+/** Quiet `environment · tenant-slug · websocket · version` line. */
 export default function WorkspaceIdHint({
   liveMarker = 'dot',
 }: {

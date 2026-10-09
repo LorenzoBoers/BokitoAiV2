@@ -49,13 +49,32 @@ TIER_ALLOWED: dict[int, tuple[str, ...]] = {
     TIER_DIGEST: ("inapp", "email"),
 }
 
-# Finer per-event switches, one click deeper in Notification settings.
+# Finer per-event switches. A notice is delivered only when both its tier
+# and its category allow the channel. New mail is off until the person opts in.
+# Workspace rows default email on so the Later email switch still reaches them.
 CATEGORY_DEFAULTS: dict[str, dict[str, bool]] = {
     "assigned-to-me": {"inapp": True, "push": True, "email": False},
     "mentions": {"inapp": True, "push": True, "email": False},
     "decisions": {"inapp": True, "push": True, "email": False},
     "handoff": {"inapp": True, "push": True, "email": False},
+    "new-message": {"inapp": False, "push": False, "email": False},
+    "ops-run-failed": {"inapp": True, "push": False, "email": True},
+    "ops-channel-disconnect": {"inapp": True, "push": False, "email": True},
+    "billing-alerts": {"inapp": True, "push": True, "email": True},
     "digest-weekly": {"inapp": False, "push": False, "email": False},
+}
+
+# Which tier a category rides when a caller only has the category id.
+CATEGORY_TIER: dict[str, int] = {
+    "assigned-to-me": TIER_NOW,
+    "mentions": TIER_NOW,
+    "decisions": TIER_NOW,
+    "handoff": TIER_NOW,
+    "new-message": TIER_NOW,
+    "ops-run-failed": TIER_LATER,
+    "ops-channel-disconnect": TIER_LATER,
+    "billing-alerts": TIER_NOW,
+    "digest-weekly": TIER_DIGEST,
 }
 
 
@@ -348,6 +367,61 @@ async def notify(
             text += f"\n\nOpen the conversation:\n{thread_link(signal_id)}"
         await send_notification_mail(session, user_id, subject=title[:200], text=text, tenant_id=tenant_id)
     return created
+
+
+async def notify_new_inbound(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Any,
+    *,
+    sender: str = "",
+    subject: str = "",
+    exclude: UUID | None = None,
+) -> list[Notification]:
+    """Tell the conversation's people that a new customer message arrived.
+
+    Off until someone turns on the ``new-message`` row. A user owner is told
+    alone; a team owner tells that team's people. An agent-owned conversation
+    stays quiet. The sender is skipped when they are a workspace member.
+    """
+    from app.models.auth import Tenant
+    from app.models.team import Team
+    from app.services.language import resolve_workspace_language
+    from app.services.teams import team_user_ids
+
+    if getattr(signal, "channel", "") in ("internal", "assistant"):
+        return []
+    if getattr(signal, "status", "") == "spam":
+        return []
+    kind = getattr(signal, "assignee_kind", "") or ""
+    recipients: list[UUID] = []
+    if kind == "user" and signal.assigned_user_id:
+        recipients = [signal.assigned_user_id]
+    elif kind == "team" and signal.assignee_team_id:
+        team = await session.get(Team, signal.assignee_team_id)
+        if team is not None and team.tenant_id == tenant_id:
+            recipients = await team_user_ids(session, team)
+    if not recipients:
+        return []
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    lang = resolve_workspace_language(tenant)
+    who = (sender or "").strip() or ("Iemand" if lang == "nl" else "Someone")
+    title = f"Nieuw bericht van {who}" if lang == "nl" else f"New message from {who}"
+    return await notify(
+        session,
+        tenant_id,
+        kind="new_message",
+        recipients=recipients,
+        title=title,
+        body=(subject or "")[:500],
+        tier=TIER_NOW,
+        category="new-message",
+        signal_id=signal.id,
+        payload={"channel": getattr(signal, "channel", "")},
+        exclude=exclude,
+    )
 
 
 async def mark_conversation_read(

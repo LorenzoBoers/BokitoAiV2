@@ -539,6 +539,43 @@ async def _suggest_thread_reply(ctx: ToolContext, tool_input: dict[str, Any]) ->
     }
 
 
+async def _note_no_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Record that an inbound message needs no customer reply.
+
+    Assisted inbound uses this instead of a magic final line. The operator
+    still gets the no-reply card on the thread.
+    """
+    from app.models.signal import Signal
+    from app.services.inbound_agent import create_action_suggestion
+
+    signal_id = _target_signal_id(ctx, tool_input)
+    if not signal_id:
+        return {"error": "signal_id required"}
+    if not ctx.agent:
+        return {"error": "Only an agent can note that no reply is needed"}
+    summary = str(tool_input.get("summary") or "").strip()
+    if not summary:
+        return {"error": "summary required"}
+
+    result = await ctx.session.execute(
+        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
+    )
+    signal = result.scalar_one_or_none()
+    if not signal:
+        return {"error": "Signal not found"}
+
+    outcome = await create_action_suggestion(
+        ctx.session,
+        ctx.tenant_id,
+        signal,
+        ctx.agent,
+        summary=summary,
+        reason="agent_judgement",
+        run_id=ctx.run_id,
+    )
+    return {"ok": True, "awaiting_approval": True, **outcome}
+
+
 async def _propose_session_checkout(
     ctx: ToolContext, tool_input: dict[str, Any]
 ) -> dict[str, Any]:
@@ -2047,6 +2084,32 @@ register_tool(
         },
         handler=_suggest_thread_reply,
         # Proposing to a human is the safe path; it never waits on approval.
+        gated=False,
+        audience="both",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="note_no_reply",
+        description=(
+            "The inbound message needs no customer reply (newsletter, receipt, "
+            "no-reply sender, system alert). Records that judgement on the "
+            "conversation for a teammate to confirm. Do not also draft a reply."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "summary": {
+                    "type": "string",
+                    "description": "One line: what the automated message says.",
+                },
+            },
+            "required": ["summary"],
+        },
+        handler=_note_no_reply,
         gated=False,
         audience="both",
     )

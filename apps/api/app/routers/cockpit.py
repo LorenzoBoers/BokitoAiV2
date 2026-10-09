@@ -12,6 +12,7 @@ from app.services.cockpit import (
     autonomy_trajectory,
     cockpit_summary,
     usage_breakdown,
+    usage_token_series,
 )
 from app.services.spend_guard import get_spend_config, get_spend_status, update_spend_config
 
@@ -43,6 +44,16 @@ async def usage(
     days: int = Query(30, ge=1, le=365),
 ):
     return await usage_breakdown(session, auth.tenant.id, days=days)
+
+
+@router.get("/usage/series")
+async def usage_series(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    days: int = Query(30, ge=1, le=365),
+):
+    """Daily token totals for the Overview AI-activity sparkline."""
+    return await usage_token_series(session, auth.tenant.id, days=days)
 
 
 @router.get("/trajectory")

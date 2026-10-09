@@ -47,7 +47,8 @@ export default function AcceptInvite() {
   const [infoError, setInfoError] = useState('');
   const [infoLoading, setInfoLoading] = useState(true);
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -56,7 +57,8 @@ export default function AcceptInvite() {
   // Welcome (onboarding) step shown after the invite is accepted.
   const [step, setStep] = useState<'form' | 'welcome'>('form');
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [welcomeName, setWelcomeName] = useState('');
+  const [welcomeFirstName, setWelcomeFirstName] = useState('');
+  const [welcomeLastName, setWelcomeLastName] = useState('');
   const [prefRows, setPrefRows] = useState<PrefRow[]>(DEFAULT_PREF_ROWS);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -94,14 +96,20 @@ export default function AcceptInvite() {
     }
     setIsLoading(true);
     try {
-      const accessToken = await acceptInvite({ token, password, displayName: name.trim() });
+      const accessToken = await acceptInvite({
+        token,
+        password,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      });
       try {
         await persistUiLanguage(accessToken, i18n.resolvedLanguage ?? i18n.language);
       } catch {
         // Language is already in localStorage; preference can be set later.
       }
       setSessionToken(accessToken);
-      setWelcomeName(name.trim() || (info?.email ? info.email.split('@')[0] : ''));
+      setWelcomeFirstName(firstName.trim() || (info?.email ? info.email.split('@')[0] : ''));
+      setWelcomeLastName(lastName.trim());
       setStep('welcome');
       setIsLoading(false);
     } catch (err: unknown) {
@@ -134,10 +142,14 @@ export default function AcceptInvite() {
     setFinishing(true);
     if (sessionToken) {
       try {
-        const trimmed = welcomeName.trim();
+        const first = welcomeFirstName.trim();
+        const last = welcomeLastName.trim();
         await apiPatchAuth(
           authRoutes.profile.patch,
-          { ...(!skip && trimmed ? { name: trimmed } : {}), onboarded: true },
+          {
+            ...(!skip && (first || last) ? { first_name: first, last_name: last } : {}),
+            onboarded: true,
+          },
           sessionToken,
         );
         if (!skip && avatarFile) {
@@ -231,24 +243,47 @@ export default function AcceptInvite() {
                   className="hidden"
                   onChange={handleAvatarPick}
                 />
-                <div className="min-w-0 flex-1">
-                  <label htmlFor="welcome-name" className="block text-sm font-medium text-text-secondary mb-1">
-                    {t('acceptInvitePage.displayName')}
-                  </label>
-                  <input
-                    id="welcome-name"
-                    type="text"
-                    value={welcomeName}
-                    onChange={(e) => setWelcomeName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void completeOnboarding(false);
-                      }
-                    }}
-                    className={inputClass}
-                    placeholder={t('acceptInvitePage.namePlaceholder')}
-                  />
+                <div className="min-w-0 flex-1 grid grid-cols-2 gap-2">
+                  <div>
+                    <label htmlFor="welcome-first-name" className="block text-sm font-medium text-text-secondary mb-1">
+                      {t('acceptInvitePage.firstName')}
+                    </label>
+                    <input
+                      id="welcome-first-name"
+                      type="text"
+                      autoComplete="given-name"
+                      value={welcomeFirstName}
+                      onChange={(e) => setWelcomeFirstName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void completeOnboarding(false);
+                        }
+                      }}
+                      className={inputClass}
+                      placeholder={t('acceptInvitePage.firstNamePlaceholder')}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="welcome-last-name" className="block text-sm font-medium text-text-secondary mb-1">
+                      {t('acceptInvitePage.lastName')}
+                    </label>
+                    <input
+                      id="welcome-last-name"
+                      type="text"
+                      autoComplete="family-name"
+                      value={welcomeLastName}
+                      onChange={(e) => setWelcomeLastName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void completeOnboarding(false);
+                        }
+                      }}
+                      className={inputClass}
+                      placeholder={t('acceptInvitePage.lastNamePlaceholder')}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -322,19 +357,35 @@ export default function AcceptInvite() {
               </p>
 
               {!info?.existing_user ? (
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-1.5">
-                    {t('acceptInvitePage.yourName')}
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    autoComplete="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={inputClass}
-                    placeholder={t('acceptInvitePage.namePlaceholder')}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="first-name" className="block text-sm font-medium text-text-secondary mb-1.5">
+                      {t('acceptInvitePage.firstName')}
+                    </label>
+                    <input
+                      id="first-name"
+                      type="text"
+                      autoComplete="given-name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className={inputClass}
+                      placeholder={t('acceptInvitePage.firstNamePlaceholder')}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="last-name" className="block text-sm font-medium text-text-secondary mb-1.5">
+                      {t('acceptInvitePage.lastName')}
+                    </label>
+                    <input
+                      id="last-name"
+                      type="text"
+                      autoComplete="family-name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className={inputClass}
+                      placeholder={t('acceptInvitePage.lastNamePlaceholder')}
+                    />
+                  </div>
                 </div>
               ) : null}
 

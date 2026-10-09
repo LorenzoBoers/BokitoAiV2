@@ -75,14 +75,14 @@ function Block({
 }) {
   return (
     <section
-      className="panel stagger-in min-w-0 p-4"
+      className="panel stagger-in min-w-0 overflow-hidden"
       style={{ '--stagger': index } as CSSProperties}
     >
-      <div>
+      <div className="border-b border-border/60 px-4 py-3">
         <h2 className="text-base font-semibold text-text-heading">{title}</h2>
         <p className="mt-0.5 text-xs text-text-muted">{hint}</p>
       </div>
-      <div className="mt-3 space-y-1.5">{children}</div>
+      <div className="space-y-1 p-3">{children}</div>
     </section>
   )
 }
@@ -314,6 +314,8 @@ export default function OverviewFourBlocks() {
     <div className="space-y-4">
       {error ? <p className="text-right text-xs text-status-warning">{copy.loadError}</p> : null}
 
+      <AiHandlingMetricsBlock />
+
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <Block title={copy.needs} hint={copy.needsHint} index={0}>
           {data.needsYou.length === 0 ? <EmptyRow>{copy.emptyNeeds}</EmptyRow> : data.needsYou.map((thread) => (
@@ -443,8 +445,6 @@ export default function OverviewFourBlocks() {
           </Link>
         </Block>
       </div>
-
-      <AiHandlingMetricsBlock />
     </div>
   )
 }

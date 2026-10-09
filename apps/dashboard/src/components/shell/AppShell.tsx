@@ -10,6 +10,7 @@ import CommandPalette from './CommandPalette'
 import { settingsLinkForPath } from './SettingsLayout'
 import ImpersonationBanner from '../layout/ImpersonationBanner'
 import MockAiBanner from './MockAiBanner'
+import PushSoftPrompt from './PushSoftPrompt'
 import VerifyEmailBanner from './VerifyEmailBanner'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
 import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
@@ -181,6 +182,7 @@ export default function AppShell() {
               <VerifyEmailBanner />
               <TwoFactorBanner />
               <MockAiBanner />
+              <PushSoftPrompt />
               <main className="min-h-0 flex-1">
                 {fullBleed ? (
                   <div

@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -80,6 +80,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Read release version
+        id: version
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push web image (staging)
         uses: docker/build-push-action@v6
         with:
@@ -90,7 +94,7 @@ jobs:
             ghcr.io/lorenzoboers/bokito-web:${{ needs.resolve-sha.outputs.sha }}-staging
             ghcr.io/lorenzoboers/bokito-web:master-staging
           build-args: |
-            VITE_APP_VERSION=${{ needs.resolve-sha.outputs.short_sha }}
+            VITE_APP_VERSION=${{ steps.version.outputs.version }}
             VITE_APP_CONTROL_PLANE_HOST=staging.bokito.ai
             VITE_TENANT_ROOT_DOMAIN=.bokito.ai
             VITE_PLATFORM_DEFAULT_LANGUAGE=nl
@@ -107,7 +111,7 @@ jobs:
             ghcr.io/lorenzoboers/bokito-web:${{ needs.resolve-sha.outputs.sha }}-prod
             ghcr.io/lorenzoboers/bokito-web:master-prod
           build-args: |
-            VITE_APP_VERSION=${{ needs.resolve-sha.outputs.short_sha }}
+            VITE_APP_VERSION=${{ steps.version.outputs.version }}
             VITE_APP_CONTROL_PLANE_HOST=app.bokito.ai
             VITE_TENANT_ROOT_DOMAIN=.bokito.ai
             VITE_PLATFORM_DEFAULT_LANGUAGE=nl
@@ -252,3 +256,58 @@ jobs:
             docker compose -p bokito --env-file .env.prod \
               -f docker-compose.deploy.yml -f docker-compose.vps.yml up -d
             echo "rollback_ok"
+
+  advance-dev-version:
+    needs: [resolve-sha, deploy-production]
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-sha.outputs.sha }}
+
+      - name: Version that production just shipped
+        id: shipped
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump one patch so dev stays ahead
+        id: bump
+        run: |
+          set -euo pipefail
+          current=$(tr -d '[:space:]' < VERSION)
+          if [ "$current" != "${{ steps.shipped.outputs.version }}" ]; then
+            echo "VERSION on master is ${current}; shipped ${{ steps.shipped.outputs.version }}. Not bumping."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 scripts/bump_release_version.py
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Commit the next dev version
+        if: steps.bump.outputs.pushed == 'true'
+        run: |
+          git add VERSION
+          git -c user.name="bokito-deploy" -c user.email="deploy@bokito.ai" \
+            commit -m "Advance dev version to ${{ steps.bump.outputs.version }} [skip ci]"
+          git push origin HEAD:master
+
+      - name: Write that version on the dev checkout
+        if: steps.bump.outputs.pushed == 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 2m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            if [ -f /opt/bokito-dev/VERSION ]; then
+              printf '%s\n' '${{ steps.bump.outputs.version }}' > /opt/bokito-dev/VERSION
+            fi

@@ -557,7 +557,7 @@
   },
   "decision": {
     "waitForOk": "Wacht op jouw OK",
-    "compactProposal": "AI stelde een antwoord voor"
+    "compactProposal": "Antwoord voorgesteld"
   },
   "agentSession": {
     "launcher": "Agent betrekken",
@@ -1210,6 +1210,7 @@
     "events": {
       "threadCreated": "Gesprek aangemaakt",
       "conversationStarted": "Gesprek gestart",
+      "conversationStartedBy": "Gesprek gestart door {{name}}",
       "assigned": "Toegewezen aan {{name}}",
       "userFallback": "gebruiker {{id}}",
       "unassigned": "Toewijzing verwijderd",
@@ -1361,7 +1362,7 @@
     "useDynamicDefault": "Bokito-standaard (tekst)",
     "dynamicDefaultHint": "Lege handtekening gebruikt bij verzenden de Bokito-tekststandaard: afsluiting, naam, rol en contactgegevens. Voor een foto kies je de template “Met profielfoto” (vereist een https-profielfoto).",
     "tipTitle": "Tip:",
-    "tipVariables": "Gebruik variabelen zoals {{name}}, {{company}}, {{function}}, {{email}}, {{phone}}, {{website}}, {{closing}}, {{avatar}} voor dynamische inhoud.",
+    "tipVariables": "Gebruik variabelen zoals {{name}}, {{first_name}}, {{last_name}}, {{company}}, {{function}}, {{email}}, {{phone}}, {{website}}, {{closing}}, {{avatar}} voor dynamische inhoud.",
     "tipReplaced": "Deze worden bij verzenden ingevuld vanuit je profiel en workspace. Lege velden (bijvoorbeeld telefoon) laten hun regel weg. {{avatar}} plaatst alleen een foto als er een publieke https-profielfoto is.",
     "htmlAria": "HTML-bron van handtekening",
     "htmlHint1": "Bewerk of plak de ruwe HTML van je handtekening, bijvoorbeeld geëxporteerd uit een handtekeninggenerator. Inline stijlen blijven behouden bij verzenden.",

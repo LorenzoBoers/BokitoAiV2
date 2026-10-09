@@ -628,13 +628,15 @@ export default function MailComposer({
   const signatureIdentity = useMemo<SignatureIdentityVars>(
     () => ({
       name: user?.name || user?.email || '',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
       email: user?.email ?? null,
       jobTitle: user?.jobTitle ?? null,
       company: user?.tenant?.name ?? null,
       avatarUrl: user?.avatarUrl || user?.signatureUrl || null,
       language: i18n.language,
     }),
-    [user?.name, user?.email, user?.jobTitle, user?.tenant?.name, user?.avatarUrl, user?.signatureUrl, i18n.language],
+    [user?.name, user?.firstName, user?.lastName, user?.email, user?.jobTitle, user?.tenant?.name, user?.avatarUrl, user?.signatureUrl, i18n.language],
   )
   const signatureHtml = useMemo(
     () =>

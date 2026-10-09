@@ -15,6 +15,7 @@ from app.db.session import async_session_factory, init_db
 from app.models.auth import Membership, Tenant, User
 from app.services.auth import hash_password
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
+from app.services.user_names import apply_user_names
 
 TRADER_EMAIL = "trader@staging.bokito.ai"
 TRADER_PASSWORD = "staging-trader-password"
@@ -43,8 +44,8 @@ async def seed_staging() -> None:
             user = User(
                 email=TRADER_EMAIL,
                 password_hash=hash_password(TRADER_PASSWORD),
-                display_name="Staging Trader",
             )
+            apply_user_names(user, display_name="Staging Trader")
             session.add(user)
             await session.flush()
 

@@ -68,7 +68,7 @@ Elke vraag gaat naar één geadresseerde: de persoon of het team in **Vragen ste
 1. Kies de beslissing in het belmenu, of open de pushmelding op je telefoon. Beide openen Beslissingen op dat gesprek en springen direct naar de wachtende kaart.
 2. Lees de bronregel op de kaart: die noemt waar de vraag vandaan komt — een projectqueue, een agentrun of een voorgestelde workspacewijziging — en linkt ernaartoe.
 3. Antwoord in het gesprek. Geassisteerde concepten hebben nog een menselijke verzending nodig; alleen autonome gesprekken versturen zelf.
-4. Onder **Instellingen**, daarna **Notificaties**, open **Meld me over**. Zet **In-app**, **E-mail**, **Push** of **Slack** per rij aan — bijvoorbeeld **Wanneer een agent je beslissing nodig heeft bij een toegewezen gesprek**, **Wanneer een klant een medewerker vraagt**, **Wanneer een agent-run of trigger faalt**, of budgetwaarschuwingen bij 80% / 100%. Gebruik **Pauzeer in-app meldingen**, **Herstel aanbevolen**, of **Bekijk een voorbeeld** wanneer je de set afstemt. Push geldt alleen voor deze browser; koppel Slack onder **Kanalen** voordat Slack-schakelaars werken.
+4. Onder **Instellingen**, daarna **Notificaties**, gebruik je de matrix. Elke sectie (**Aflevering**, **Gesprekken**, **Workspace**, **Overzicht**) heeft in de sectiekop een masterschakelaar per kolom. Een melding komt alleen aan als zowel het niveau als de gebeurtenis aan staat. Zet **Wanneer een nieuw bericht binnenkomt op een gesprek van jou of je team** aan om nieuwe mail te horen. **Push** aanzetten vraagt zo nodig om toestemming in deze browser; na inloggen kan Bokito eenmaal een zachte banner **Push aanzetten** tonen.
 
 ## Werk aan een codingtool geven
 

@@ -57,6 +57,14 @@ def test_away_lets_only_critical_tier_one_through():
     }
 
 
+def test_new_message_is_off_until_opt_in():
+    prefs = parse_prefs(None)
+    assert channels_for(prefs, tier=TIER_NOW, category="new-message", status=OFFLINE) == set()
+    prefs["categories"]["new-message"]["inapp"] = True
+    prefs["categories"]["new-message"]["push"] = True
+    assert channels_for(prefs, tier=TIER_NOW, category="new-message", status=OFFLINE) == {"inapp", "push"}
+
+
 def test_category_row_narrows_the_tier():
     prefs = parse_prefs('{"rows": [{"id": "mentions", "channels": {"inapp": true, "push": false}}]}')
     assert channels_for(prefs, tier=TIER_NOW, category="mentions", status=OFFLINE) == {"inapp"}

@@ -101,7 +101,18 @@ if (!(await confirm({ title: 'Delete key?', description: '...', destructive: tru
 
 <StatGrid><StatTile label="Tokens today" value="12.4k" hint="of 50k" /></StatGrid>
 <CapBar label="Daily tokens" value="12k / 50k" ratio={0.24} />
+
+<Chart
+  kind="bar"
+  series={[{ name: 'Shipped', points: [{ x: 'W1', y: 2 }, { x: 'W2', y: 5 }] }]}
+  xLabel="Week"
+  yLabel="Items"
+/>
 ```
+
+`Chart` (`bar`, `line`, `area`) is the only plot. `showAxes={false}` is the
+sparkline. Colors are `accent`, then `ai`, then muted. Canvas `BarChart` /
+`LineChart` and the Overview token sparkline both render this component.
 
 Badge tones: `neutral`, `accent`, `ai`, `success`, `warning`, `error`,
 `info`. Domain mapping lives in `lib/badge-tones.ts` (`statusTone`,

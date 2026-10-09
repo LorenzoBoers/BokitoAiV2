@@ -49,6 +49,8 @@ interface SignatureEditorProps {
 
 const SAMPLE_IDENTITY: SignatureIdentityVars = {
   name: 'Jane Doe',
+  firstName: 'Jane',
+  lastName: 'Doe',
   company: 'Acme Inc.',
   jobTitle: 'Support Lead',
   address: '123 Main Street, Springfield',
@@ -86,6 +88,8 @@ export default function SignatureEditor({
     () =>
       identity ?? {
         name: user?.name || user?.email || '',
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
         email: user?.email || mailboxEmail || '',
         jobTitle: user?.jobTitle || '',
         company: user?.tenant?.name || '',
@@ -95,6 +99,8 @@ export default function SignatureEditor({
     [
       identity,
       user?.name,
+      user?.firstName,
+      user?.lastName,
       user?.email,
       user?.jobTitle,
       user?.tenant?.name,

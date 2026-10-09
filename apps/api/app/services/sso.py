@@ -22,6 +22,7 @@ from app.services.tenant_bootstrap import (
     default_tenant_settings,
     serialize_settings,
 )
+from app.services.user_names import apply_user_names, user_full_name
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def _create_workspace_for(session: AsyncSession, user: User) -> Tenant:
     slug = await _unique_slug(session, _slug_base(user.email))
     tenant = Tenant(
         slug=slug,
-        name=user.display_name or slug,
+        name=user_full_name(user) or slug,
         settings_json=serialize_settings(default_tenant_settings()),
     )
     session.add(tenant)
@@ -75,8 +76,11 @@ async def provision_sso_user(
         user = User(
             email=email,
             password_hash="",
-            display_name=name.strip() or email.split("@")[0],
             email_verified=True,
+        )
+        apply_user_names(
+            user,
+            display_name=(name or "").strip() or email.split("@")[0],
         )
         session.add(user)
         await session.flush()

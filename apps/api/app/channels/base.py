@@ -9,6 +9,7 @@ only for approved contacts.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -21,6 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.signal_threads import clean_message_preview
+
+logger = logging.getLogger(__name__)
 
 # Outlook (and some relays) assign a new conversationId when a Gmail client
 # replies even though In-Reply-To/References are intact. Fall back to RFC
@@ -410,7 +413,13 @@ async def ingest_inbound(
                 tenant_id=tenant_id,
                 event_type="signal_created",
                 actor_type="system",
-                payload_json=json.dumps({"channel": inbound.channel, "source": inbound.source}),
+                payload_json=json.dumps(
+                    {
+                        "channel": inbound.channel,
+                        "source": inbound.source,
+                        "started_by": inbound.sender_name or inbound.sender_address or "",
+                    }
+                ),
             )
         )
         created = True
@@ -500,6 +509,21 @@ async def ingest_inbound(
     from app.gateway.publish import publish_signal_message
 
     await publish_signal_message(signal, message)
+
+    if is_newest and signal.status != "spam" and signal.channel not in ("internal", "assistant"):
+        try:
+            from app.services.notify import notify_new_inbound
+
+            await notify_new_inbound(
+                session,
+                tenant_id,
+                signal,
+                sender=inbound.sender_name or signal.contact_name or inbound.sender_address,
+                subject=inbound.subject or signal.subject or "",
+                exclude=member_hit[0].id if member_hit else None,
+            )
+        except Exception:
+            logger.exception("new-message notice failed for signal=%s", signal.id)
 
     if created:
         from app.services.webhooks import emit_webhook_event, signal_event_data
@@ -749,7 +773,12 @@ async def _ingest_outbound_copy(
                 event_type="signal_created",
                 actor_type="system",
                 payload_json=json.dumps(
-                    {"channel": inbound.channel, "source": inbound.source, "origin": "external_mailbox"}
+                    {
+                        "channel": inbound.channel,
+                        "source": inbound.source,
+                        "origin": "external_mailbox",
+                        "started_by": (contact.display_name if contact else "") or inbound.sender_address or "",
+                    }
                 ),
             )
         )

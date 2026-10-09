@@ -104,6 +104,10 @@
     },
     "metrics": {
       "hint": "Open gesprekken per modus, en resultaten over de afgelopen {{days}} dagen.",
+      "activityTitle": "AI-activiteit",
+      "activityHint": "Tokengebruik over de afgelopen {{days}} dagen, en open gesprekken in Autonoom en Geassisteerd.",
+      "chartAria": "Tokengebruik over de afgelopen {{days}} dagen",
+      "emptyChart": "Nog geen tokengebruik in deze periode.",
       "autonomousReplies": "Autonome antwoorden",
       "handoffRate": "Doorgegeven aan een persoon",
       "editRate": "Concepten aangepast voor verzenden"

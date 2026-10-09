@@ -24,7 +24,7 @@ from app.services.notify import TIER_LATER, TIER_NOW, notify
 
 logger = logging.getLogger(__name__)
 
-# System notice categories; they follow the tier switches, not a category row.
+# System notice categories. They also have a row in notification settings.
 OPS_RUN_FAILED = "ops-run-failed"
 OPS_CHANNEL_DISCONNECT = "ops-channel-disconnect"
 

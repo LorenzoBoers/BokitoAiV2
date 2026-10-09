@@ -191,6 +191,8 @@ export const appRoutes = {
     summary: '/cockpit/summary',
     activity: (params: URLSearchParams) => withQuery('/cockpit/activity', params),
     usage: (days: number) => withQuery('/cockpit/usage', new URLSearchParams({ days: String(days) })),
+    usageSeries: (days: number) =>
+      withQuery('/cockpit/usage/series', new URLSearchParams({ days: String(days) })),
     budget: '/cockpit/budget',
   },
 } as const

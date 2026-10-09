@@ -611,12 +611,15 @@ def serialize_event(event: SignalEvent, *, user_num_map: dict[UUID, int] | None 
             actor_num = user_num_map.get(UUID(event.actor_id))
         except ValueError:
             actor_num = None
+    actor_type = event.actor_type or "system"
     return {
         "id": str(event.id),
         "thread_id": str(event.signal_id),
         "signal_id": str(event.signal_id),
         "event_type": event.event_type,
+        "actor_type": actor_type,
         "actor_user_id": actor_num,
+        "actor_agent_id": event.actor_id if actor_type == "agent" and event.actor_id else None,
         "payload": json.loads(event.payload_json or "{}"),
         "created_at": _iso(event.created_at),
     }

@@ -14,7 +14,7 @@ export default function CockpitPage() {
   const { t, i18n } = useTranslation('nav')
   const { user } = useAuth()
   const { currentWorkspace } = useWorkspace()
-  const greetingName = greetingFirstName(user?.name)
+  const greetingName = greetingFirstName(user?.firstName || user?.name)
   const bucket = greetingBucket()
   const greetingKey = greetingName
     ? bucket === 'morning'

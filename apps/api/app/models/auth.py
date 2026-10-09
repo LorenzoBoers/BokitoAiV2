@@ -45,6 +45,9 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     # Empty string means passwordless (SSO-only) account.
     password_hash: str = ""
+    # Parts are the source of truth; display_name is the composed full name.
+    first_name: str = ""
+    last_name: str = ""
     display_name: str = ""
     job_title: str = ""
     avatar_url: Optional[str] = None

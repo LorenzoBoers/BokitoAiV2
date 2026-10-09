@@ -245,6 +245,44 @@ async def usage_breakdown(
     }
 
 
+async def usage_token_series(
+    session: AsyncSession, tenant_id: UUID, *, days: int = 30
+) -> dict[str, Any]:
+    """Daily token totals for the Overview AI-activity chart.
+
+    Returns every calendar day in the window (zeros included) so the chart
+    can render without gaps. Bucketing is done in Python so SQLite and
+    Postgres stay on the same path.
+    """
+    days = max(1, min(int(days), 365))
+    today = datetime.utcnow().date()
+    start = today - timedelta(days=days - 1)
+    since = datetime.combine(start, datetime.min.time())
+    buckets = {(start + timedelta(days=i)).isoformat(): 0 for i in range(days)}
+    rows = (
+        await session.execute(
+            select(
+                UsageLedger.created_at,
+                UsageLedger.tokens_in,
+                UsageLedger.tokens_out,
+            ).where(
+                UsageLedger.tenant_id == tenant_id,
+                UsageLedger.created_at >= since,
+            )
+        )
+    ).all()
+    for created, tokens_in, tokens_out in rows:
+        if created is None:
+            continue
+        day = created.date().isoformat() if hasattr(created, "date") else str(created)[:10]
+        if day in buckets:
+            buckets[day] += int(tokens_in or 0) + int(tokens_out or 0)
+    return {
+        "days": days,
+        "points": [{"date": day, "tokens": tokens} for day, tokens in buckets.items()],
+    }
+
+
 async def usage_by_region(
     session: AsyncSession, tenant_id: UUID, *, since: datetime
 ) -> dict[str, Any]:

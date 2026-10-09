@@ -359,7 +359,9 @@ export type InboxEvent = {
   id: ThreadId
   threadId: ThreadId
   eventType: string
+  actorType?: string | null
   actorUserId: number | null
+  actorAgentId?: string | null
   payload: Record<string, unknown>
   createdAt: string
 }

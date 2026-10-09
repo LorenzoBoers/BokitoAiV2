@@ -423,11 +423,21 @@ export function ProfileSettingsContent() {
     [token, ssoBusy, t, confirm],
   )
 
-  const saveName = useCallback(async (next: string) => {
+  const saveFirstName = useCallback(async (next: string) => {
     if (!token) return
-    await apiPatchAuth(authRoutes.profile.patch, { name: next }, token)
-    patchLocalUser({ name: next })
-  }, [token, patchLocalUser])
+    await apiPatchAuth(authRoutes.profile.patch, { first_name: next }, token)
+    const last = user?.lastName ?? ''
+    const composed = [next.trim(), last].filter(Boolean).join(' ').trim()
+    patchLocalUser({ firstName: next.trim(), name: composed || user?.email || next.trim() })
+  }, [token, patchLocalUser, user?.lastName, user?.email])
+
+  const saveLastName = useCallback(async (next: string) => {
+    if (!token) return
+    await apiPatchAuth(authRoutes.profile.patch, { last_name: next }, token)
+    const first = user?.firstName ?? ''
+    const composed = [first, next.trim()].filter(Boolean).join(' ').trim()
+    patchLocalUser({ lastName: next.trim(), name: composed || user?.email || next.trim() })
+  }, [token, patchLocalUser, user?.firstName, user?.email])
 
   const saveEmail = useCallback(async (next: string) => {
     if (!token) return
@@ -463,13 +473,15 @@ export function ProfileSettingsContent() {
   const signatureIdentity = useMemo<SignatureIdentityVars>(
     () => ({
       name: user?.name || user?.email || '',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
       email: user?.email || '',
       jobTitle: user?.jobTitle || '',
       company: user?.tenant?.name || '',
       avatarUrl: user?.avatarUrl || user?.signatureUrl || null,
       language: i18n.language?.slice(0, 2) || 'nl',
     }),
-    [user?.name, user?.email, user?.jobTitle, user?.tenant?.name, user?.avatarUrl, user?.signatureUrl, i18n.language],
+    [user?.name, user?.firstName, user?.lastName, user?.email, user?.jobTitle, user?.tenant?.name, user?.avatarUrl, user?.signatureUrl, i18n.language],
   )
   const signaturePreviewHtml = useMemo(
     () => previewSignatureHtml(user?.emailSignatureHtml, signatureIdentity),
@@ -630,11 +642,18 @@ export function ProfileSettingsContent() {
             </div>
           ) : null}
 
-          {/* Name */}
+          {/* First / last name */}
           <EditableField
-            label={t('profile:personalInformation.fullName')}
-            value={user?.name ?? ''}
-            onSave={saveName}
+            label={t('profile:personalInformation.firstName')}
+            value={user?.firstName ?? ''}
+            placeholder={t('profile:personalInformation.firstNamePlaceholder')}
+            onSave={saveFirstName}
+          />
+          <EditableField
+            label={t('profile:personalInformation.lastName')}
+            value={user?.lastName ?? ''}
+            placeholder={t('profile:personalInformation.lastNamePlaceholder')}
+            onSave={saveLastName}
           />
 
           {/* Job title */}

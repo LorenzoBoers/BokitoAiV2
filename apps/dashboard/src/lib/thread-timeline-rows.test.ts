@@ -64,4 +64,18 @@ describe('buildTimelineRows event clusters', () => {
       '4',
     ])
   })
+
+  it('pins conversation started above a later opening message time', () => {
+    const rows = buildTimelineRows(
+      detail([
+        event('assigned', '2026-10-04T12:00:00.000Z', 'assigned'),
+        event('start', '2026-10-04T15:00:00.000Z', 'signal_created'),
+      ]),
+      t,
+      'en',
+    )
+    const clusters = rows.filter((row) => row.kind === 'events')
+    const first = clusters[0]
+    expect(first?.kind === 'events' && first.events[0]?.id).toBe('start')
+  })
 })

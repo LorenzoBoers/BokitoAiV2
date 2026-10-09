@@ -49,6 +49,12 @@ export async function isWebPushServerConfigured(): Promise<boolean> {
   }
 }
 
+/** Current browser permission for the Notification API. */
+export function getNotificationPermission(): NotificationPermission | 'unsupported' {
+  if (!isWebPushSupported()) return 'unsupported'
+  return Notification.permission
+}
+
 /** Current browser subscription, if any (does not prompt). */
 export async function getCurrentPushSubscription(): Promise<PushSubscription | null> {
   if (!isWebPushSupported()) return null
@@ -57,21 +63,36 @@ export async function getCurrentPushSubscription(): Promise<PushSubscription | n
   return registration.pushManager.getSubscription()
 }
 
+/** True when this browser can already receive pushes (permission + endpoint). */
+export async function isDevicePushReady(): Promise<boolean> {
+  if (getNotificationPermission() !== 'granted') return false
+  return (await getCurrentPushSubscription()) != null
+}
+
 /**
  * Full enable flow: register SW, ask permission, subscribe with the server
  * VAPID key, and store the endpoint server-side. Throws with a readable
  * message when a step fails (caller shows it in the UI).
+ *
+ * Call only from a user gesture (toggle click or Enable button). Browsers
+ * suppress or ignore a bare permission request on page load.
  */
 export async function enableWebPush(token: string): Promise<void> {
   if (!isWebPushSupported()) {
     throw new Error('This browser does not support push notifications.')
+  }
+  if (Notification.permission === 'denied') {
+    throw new Error('Notification permission is blocked in this browser.')
   }
   const registration = (await registerServiceWorker()) ?? undefined
   if (!registration) {
     throw new Error('Could not register the notification service worker.')
   }
 
-  const permission = await Notification.requestPermission()
+  const permission =
+    Notification.permission === 'granted'
+      ? 'granted'
+      : await Notification.requestPermission()
   if (permission !== 'granted') {
     throw new Error('Notification permission was not granted.')
   }
@@ -89,6 +110,40 @@ export async function enableWebPush(token: string): Promise<void> {
     endpoint: subscription.endpoint,
     keys: (json.keys ?? {}) as Record<string, string>,
   })
+}
+
+/** Subscribe this browser when needed. No-op when already ready. */
+export async function ensureWebPush(token: string): Promise<boolean> {
+  if (await isDevicePushReady()) return true
+  await enableWebPush(token)
+  return true
+}
+
+const PUSH_SOFT_DISMISS_KEY = 'bokito-push-soft-dismissed'
+
+export function isPushSoftPromptDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(PUSH_SOFT_DISMISS_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function dismissPushSoftPrompt(): void {
+  try {
+    window.localStorage.setItem(PUSH_SOFT_DISMISS_KEY, '1')
+  } catch {
+    // Ignore private-mode storage failures.
+  }
+}
+
+/** Clear the soft-prompt dismiss so a later Push toggle can ask again. */
+export function reopenPushSoftPrompt(): void {
+  try {
+    window.localStorage.removeItem(PUSH_SOFT_DISMISS_KEY)
+  } catch {
+    // Ignore private-mode storage failures.
+  }
 }
 
 /** Unsubscribe this browser and remove the endpoint server-side. */

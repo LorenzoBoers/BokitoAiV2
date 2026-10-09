@@ -1,0 +1,30 @@
+---
+description: Local Cursor must ship code changes to /opt/bokito-dev via SSH so they appear on dev.app.bokito.ai
+alwaysApply: true
+---
+
+# Remote dev is the live workspace
+
+`https://dev.app.bokito.ai` runs from **`/opt/bokito-dev`** on the VPS (systemd hot reload). The laptop git checkout is **not** that runtime.
+
+## When this workspace is local (Windows path, not `/opt/bokito-dev`)
+
+1. **Prefer Cursor Remote-SSH** into host `bokito-dev`, folder `/opt/bokito-dev`, and edit there. That is the default for feature work.
+2. If the session is still on the laptop checkout: after every meaningful code change that operators should see on dev, **sync those files to the VPS before saying the work is done**. Do not leave changes only local when the user is validating on `dev.app.bokito.ai`.
+3. Sync over SSH host **`bokito-dev`** (or `root@31.97.45.44` with `$USERPROFILE\.ssh\hostinger_vps`). Target tree: `/opt/bokito-dev/...` matching repo paths.
+
+### Safe sync pattern
+
+- `scp` each file to `/tmp/...` with a **unique remote name** (never two sources named `auth.py` into the same folder — the second overwrites).
+- On the VPS: `cp` into the correct `/opt/bokito-dev/...` path; `sed -i 's/\r$//'` on Python files.
+- Schema changes: `cd /opt/bokito-dev/apps/api && set -a && . ./.env && set +a && ./.venv/bin/alembic upgrade head`.
+- Worker-only code: `systemctl restart bokito-dev-worker`. API/dashboard usually reload themselves.
+- Verify: `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8010/api/health` → `200`.
+
+### Do not
+
+- Assume laptop `npm run dev` / local uvicorn is what the user sees on `dev.app.bokito.ai`.
+- Touch `/opt/bokito` (production/staging checkout) or prod compose for routine feature work.
+- Commit or push solely to “get code onto dev” — hot-reload sync is enough; git remains for PR/master.
+
+Full setup notes: `docs/DEPLOY.md` → **Remote dev**.

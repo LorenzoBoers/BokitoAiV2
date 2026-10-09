@@ -11,9 +11,10 @@ One coherent model:
     - ``sender`` — personal user template → dynamic default (ignore mailbox).
   Default source is ``mailbox``. Personal templates live on the user profile;
   mailbox templates are edited under Settings → Channels.
-- Custom HTML may include ``{{name}}``, ``{{company}}``, ``{{function}}``,
-  ``{{email}}``, ``{{phone}}``, ``{{website}}``, ``{{address}}`` placeholders.
-  These are substituted at send/preview time from the active identity.
+- Custom HTML may include ``{{name}}``, ``{{first_name}}``, ``{{last_name}}``,
+  ``{{company}}``, ``{{function}}``, ``{{email}}``, ``{{phone}}``,
+  ``{{website}}``, ``{{address}}`` placeholders. These are substituted at
+  send/preview time from the active identity.
 - The visible From *display name* follows the same identity; the From
   *address* stays the connected mailbox (OAuth deliverability).
 - Agent signatures are plain text (converted to HTML at send time). Legacy
@@ -93,6 +94,13 @@ _PLACEHOLDER_ALIASES = {
     "web": "website",
     "url": "website",
     "addr": "address",
+    "firstname": "first_name",
+    "first": "first_name",
+    "voornaam": "first_name",
+    "lastname": "last_name",
+    "last": "last_name",
+    "surname": "last_name",
+    "achternaam": "last_name",
 }
 
 # Contact lines that become empty after substitution (e.g. "T: " / "E: ").
@@ -352,6 +360,8 @@ def signature_closing(language: str | None = None) -> str:
 def signature_identity_vars(
     *,
     name: str = "",
+    first_name: str | None = None,
+    last_name: str | None = None,
     email: str | None = None,
     job_title: str | None = None,
     company: str | None = None,
@@ -361,9 +371,22 @@ def signature_identity_vars(
     language: str | None = None,
 ) -> dict[str, str]:
     """Canonical placeholder map for templates and the default layout."""
-    display = (name or "").strip() or (email or "").strip() or "Team"
+    from app.services.user_names import compose_display_name, split_display_name
+
+    first = (first_name or "").strip()
+    last = (last_name or "").strip()
+    display = (
+        (name or "").strip()
+        or compose_display_name(first, last)
+        or (email or "").strip()
+        or "Team"
+    )
+    if not first and not last and display:
+        first, last = split_display_name(display)
     return {
         "name": display,
+        "first_name": first,
+        "last_name": last,
         "email": (email or "").strip(),
         "job_title": (job_title or "").strip(),
         "company": (company or "").strip(),
@@ -605,7 +628,9 @@ async def resolve_from_display_name(
             await session.execute(select(User).where(User.id == user_id))
         ).scalar_one_or_none()
         if user:
-            return (user.display_name or user.email or "").strip() or None
+            from app.services.user_names import user_full_name
+
+            return (user_full_name(user) or user.email or "").strip() or None
         return None
 
     if agent_id:
@@ -678,9 +703,13 @@ async def resolve_signature_html(
             )
         ).scalar_one_or_none()
 
+    from app.services.user_names import user_full_name
+
     user_extras = user_signature_extras(user)
     user_vars = signature_identity_vars(
-        name=(user.display_name or user.email) if user else "",
+        name=user_full_name(user) if user else "",
+        first_name=user.first_name if user else None,
+        last_name=user.last_name if user else None,
         email=user.email if user else None,
         job_title=user.job_title if user else None,
         company=company,
@@ -724,7 +753,7 @@ async def resolve_signature_html(
                 personal, user_vars, avatar_url=user.avatar_url
             )
         return compose_default_signature_html(
-            name=user.display_name or user.email,
+            name=user_full_name(user) or user.email,
             email=user.email,
             job_title=user.job_title,
             company=company,

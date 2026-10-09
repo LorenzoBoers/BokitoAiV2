@@ -104,6 +104,10 @@
     },
     "metrics": {
       "hint": "Open conversations by mode, and outcomes over the last {{days}} days.",
+      "activityTitle": "AI activity",
+      "activityHint": "Token use over the last {{days}} days, and open conversations in Autonomous and Assisted.",
+      "chartAria": "Token use over the last {{days}} days",
+      "emptyChart": "No token use in this period yet.",
       "autonomousReplies": "Autonomous replies",
       "handoffRate": "Handed to a person",
       "editRate": "Drafts edited before sending"

@@ -838,9 +838,29 @@ function ruleTargetSuffix(payload: Record<string, unknown>): string {
   return typeof payload.match_value === 'string' && payload.match_value ? ` (${payload.match_value})` : ''
 }
 
+const AGENT_SIDE_EVENT_TYPES = new Set([
+  'triaged',
+  'no_reply_noted',
+  'agent_invoked',
+  'agent_replied',
+])
+
+/** Actions the channel agent took: they sit next to that agent's avatar. */
+export function isAgentSideEvent(event: InboxEvent): boolean {
+  if (event.actorType === 'agent' || event.actorAgentId) return true
+  if (typeof event.payload?.agent_id === 'string' && event.payload.agent_id) return true
+  if (AGENT_SIDE_EVENT_TYPES.has(event.eventType)) return true
+  return event.eventType === 'category_set' && Boolean(event.payload?.proposed)
+}
+
 const EVENT_LABELS: Record<string, EventLabelFn> = {
   thread_created: (t) => t('timeline.events.threadCreated'),
-  signal_created: (t) => t('timeline.events.conversationStarted'),
+  signal_created: (t, p) => {
+    const name = typeof p.started_by === 'string' ? p.started_by.trim() : ''
+    return name
+      ? t('timeline.events.conversationStartedBy', { name })
+      : t('timeline.events.conversationStarted')
+  },
   assigned: (t, p, name) =>
     t('timeline.events.assigned', {
       name: name ?? t('timeline.events.userFallback', { id: String(p.assignee_id ?? '') }),
@@ -1102,19 +1122,26 @@ function EventPill({
   event,
   memberName,
   memberNameFor,
+  startedByName,
 }: {
   event: InboxEvent
   memberName?: string
   memberNameFor?: MemberNameResolver
+  /** Contact who opened the thread, when the event payload has no name yet. */
+  startedByName?: string | null
 }) {
   const { t, i18n } = useTranslation('communication')
   const { ai, icon } = eventPresentation(event.eventType, event.payload ?? {})
   const when = event.createdAt
     ? new Date(event.createdAt).toLocaleString(i18n.language)
     : undefined
+  const labelEvent =
+    event.eventType === 'signal_created' && startedByName && !event.payload?.started_by
+      ? { ...event, payload: { ...event.payload, started_by: startedByName } }
+      : event
   const pill = (
     <ActivityPill
-      label={eventLabel(event, t, memberName, memberNameFor)}
+      label={eventLabel(labelEvent, t, memberName, memberNameFor)}
       ai={ai}
       icon={icon}
       tip={when}
@@ -2120,33 +2147,87 @@ export function EventClusterTimelineItem({
   events,
   time,
   memberNameFor,
+  startedByName,
+  agentName,
+  agentId,
+  agentAvatarKind,
+  agentAvatarIcon,
+  agentAvatarColor,
+  agentAvatarImageUrl,
 }: {
   events: InboxEvent[]
   time?: string
   memberNameFor: MemberNameResolver
+  startedByName?: string | null
+  agentName?: string | null
+  agentId?: string | null
+  agentAvatarKind?: string | null
+  agentAvatarIcon?: string | null
+  agentAvatarColor?: string | null
+  agentAvatarImageUrl?: string | null
 }) {
   const { i18n } = useTranslation('communication')
   if (events.length === 0) return null
   const clock = time ? formatHourMinute(time, i18n.language) : ''
-  const pills =
-    events.length === 1 ? (
-      <EventTimelineItem
-        event={events[0]}
-        memberName={memberNameFor(events[0].actorUserId)}
-        memberNameFor={memberNameFor}
-      />
-    ) : (
-      <div className="flex flex-wrap items-center justify-center gap-1 py-0.5 px-2">
-        {events.map((event) => (
-          <EventPill
-            key={event.id}
-            event={event}
-            memberName={memberNameFor(event.actorUserId)}
-            memberNameFor={memberNameFor}
-          />
-        ))}
+  const agentSide = events.every(isAgentSideEvent)
+  const named =
+    events
+      .map((event) =>
+        typeof event.payload?.agent_name === 'string' ? event.payload.agent_name.trim() : '',
+      )
+      .find(Boolean) || agentName || ''
+  const avatarAgentId =
+    events.map((event) => event.actorAgentId).find(Boolean) ||
+    events
+      .map((event) =>
+        typeof event.payload?.agent_id === 'string' ? event.payload.agent_id : '',
+      )
+      .find(Boolean) ||
+    agentId ||
+    null
+  const pills = (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-1 py-0.5',
+        agentSide ? 'justify-start' : 'justify-center px-2',
+      )}
+    >
+      {events.map((event) => (
+        <EventPill
+          key={event.id}
+          event={event}
+          memberName={memberNameFor(event.actorUserId)}
+          memberNameFor={memberNameFor}
+          startedByName={startedByName}
+        />
+      ))}
+    </div>
+  )
+  if (agentSide) {
+    return (
+      <div className="flex items-start gap-2 py-0.5">
+        <AiAvatar
+          {...toAiAvatarProps(
+            {
+              name: named,
+              agentId: avatarAgentId,
+              agentAvatarKind,
+              agentAvatarIcon,
+              agentAvatarColor,
+              agentAvatarImageUrl,
+            },
+            named || 'Agent',
+          )}
+          size={28}
+          decorative
+        />
+        <div className="flex min-w-0 flex-col items-start gap-1 pt-0.5">
+          {named ? <span className="text-2xs font-medium text-text-secondary">{named}</span> : null}
+          {pills}
+        </div>
       </div>
     )
+  }
   if (!clock) return pills
   return (
     <div className="flex flex-col items-center gap-1">

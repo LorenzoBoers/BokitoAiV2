@@ -35,10 +35,19 @@ const PLACEHOLDER_ALIASES: Record<string, string> = {
   web: 'website',
   url: 'website',
   addr: 'address',
+  firstname: 'first_name',
+  first: 'first_name',
+  voornaam: 'first_name',
+  lastname: 'last_name',
+  last: 'last_name',
+  surname: 'last_name',
+  achternaam: 'last_name',
 }
 
 export type SignatureIdentityVars = {
   name: string
+  firstName?: string | null
+  lastName?: string | null
   email?: string | null
   jobTitle?: string | null
   company?: string | null
@@ -73,10 +82,20 @@ function avatarPlaceholderHtml(url: string | null | undefined, name: string, siz
 }
 
 export function signatureIdentityMap(opts: SignatureIdentityVars): Record<string, string> {
-  const display = (opts.name || '').trim() || (opts.email || '').trim() || 'Team'
+  let first = (opts.firstName || '').trim()
+  let last = (opts.lastName || '').trim()
+  const composed = [first, last].filter(Boolean).join(' ').trim()
+  const display = (opts.name || '').trim() || composed || (opts.email || '').trim() || 'Team'
+  if (!first && !last && display) {
+    const parts = display.split(/\s+/)
+    first = parts[0] ?? ''
+    last = parts.slice(1).join(' ')
+  }
   const langRaw = (opts.language || 'nl').trim().toLowerCase().slice(0, 2)
   return {
     name: display,
+    first_name: first,
+    last_name: last,
     email: (opts.email || '').trim(),
     job_title: (opts.jobTitle || '').trim(),
     company: (opts.company || '').trim(),

@@ -418,6 +418,8 @@ export type SignupParams = {
   password: string;
   tenantSlug: string;
   tenantName: string;
+  firstName?: string;
+  lastName?: string;
   displayName?: string;
 };
 
@@ -431,6 +433,8 @@ export async function authSignup(params: SignupParams): Promise<AuthSessionRespo
       password: params.password,
       tenant_slug: params.tenantSlug,
       tenant_name: params.tenantName,
+      first_name: params.firstName ?? '',
+      last_name: params.lastName ?? '',
       display_name: params.displayName ?? '',
     }),
   });
@@ -455,6 +459,8 @@ export async function authInviteInfo(inviteToken: string): Promise<InviteInfo> {
 export async function authAcceptInvite(params: {
   token: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
   displayName?: string;
 }): Promise<AuthSessionResponse> {
   const res = await fetchWithTimeout(buildAuthProxyUrl(authRoutes.proxy.acceptInvite), {
@@ -464,6 +470,8 @@ export async function authAcceptInvite(params: {
     body: JSON.stringify({
       token: params.token,
       password: params.password,
+      first_name: params.firstName ?? '',
+      last_name: params.lastName ?? '',
       display_name: params.displayName ?? '',
     }),
   });

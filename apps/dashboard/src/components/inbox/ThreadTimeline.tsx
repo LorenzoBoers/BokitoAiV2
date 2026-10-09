@@ -39,7 +39,7 @@ import {
 import { assignBubbleStacks, CHAT_COLUMN_CLASS, CHAT_STACK_GAP_MS } from '../../lib/chat-layout'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { cn } from '../../lib/utils'
-import { EventClusterTimelineItem, MessageTimelineItem } from './TimelineItem'
+import { EventClusterTimelineItem, MessageTimelineItem, isAgentSideEvent } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import AgentSessionCard from './AgentSessionCard'
 import type { NoteActions } from './TimelineItem'
@@ -78,7 +78,10 @@ function isHiddenEvent(
     eventType === 'decision_created' ||
     eventType === 'suggestion_created' ||
     eventType === 'contact_linked' ||
-    eventType === 'contact_unlinked'
+    eventType === 'contact_unlinked' ||
+    // The agent's own tool calls are the timeline. This pill is the worker
+    // closing the run, and it reads as a platform step rather than the agent.
+    eventType === 'agent_processed'
   ) {
     return true
   }
@@ -168,11 +171,26 @@ export function buildTimelineRows(
     })),
   ]
     .filter((entry) => !Number.isNaN(new Date(entry.time).getTime()))
-    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+
+  // "Conversation started" is the first action, above the opening message,
+  // even when ingest time is later than the mail's sent time.
+  const started = entries.filter(
+    (entry) => entry.kind === 'event' && entry.data.eventType === 'signal_created',
+  )
+  const rest = entries.filter((entry) => !started.includes(entry))
+  if (started.length && rest.length) {
+    const earliest = Math.min(...rest.map((entry) => new Date(entry.time).getTime()))
+    started.forEach((entry, index) => {
+      entry.time = new Date(earliest - (started.length - index)).toISOString()
+    })
+  }
+  const ordered = [...started, ...rest].sort(
+    (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime(),
+  )
 
   const rows: TimelineRow[] = []
   let dayKey: string | null = null
-  for (const entry of entries) {
+  for (const entry of ordered) {
     const date = new Date(entry.time)
     const key = makeDayKey(date)
     if (key !== dayKey) {
@@ -183,7 +201,11 @@ export function buildTimelineRows(
       const last = rows[rows.length - 1]
       if (last && last.kind === 'events') {
         const previous = last.events[last.events.length - 1]
-        if (previous && eventsShareCluster(previous.createdAt, entry.time)) {
+        if (
+          previous &&
+          eventsShareCluster(previous.createdAt, entry.time) &&
+          isAgentSideEvent(previous) === isAgentSideEvent(entry.data)
+        ) {
           last.events.push(entry.data)
           continue
         }
@@ -721,6 +743,13 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             events={row.events}
             time={row.time}
             memberNameFor={(userId) => (userId != null ? membersById[userId]?.name : undefined)}
+            startedByName={contactName}
+            agentName={agentName}
+            agentId={agentId}
+            agentAvatarKind={agentAvatarKind}
+            agentAvatarIcon={agentAvatarIcon}
+            agentAvatarColor={agentAvatarColor}
+            agentAvatarImageUrl={agentAvatarImageUrl}
           />
         </div>
       )

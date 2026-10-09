@@ -24,7 +24,8 @@ export default function Signup() {
   const { signup, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -97,7 +98,8 @@ export default function Signup() {
         password,
         tenantSlug: effectiveSlug,
         tenantName: companyName.trim() || effectiveSlug,
-        displayName: name.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
       });
       try {
         await persistUiLanguage(accessToken, i18n.resolvedLanguage ?? i18n.language);
@@ -141,20 +143,37 @@ export default function Signup() {
 
         <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-1.5">
-                {t('signupPage.yourName')}
-              </label>
-              <input
-                id="name"
-                type="text"
-                autoComplete="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass}
-                placeholder={t('signupPage.namePlaceholder')}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="first-name" className="block text-sm font-medium text-text-secondary mb-1.5">
+                  {t('signupPage.firstName')}
+                </label>
+                <input
+                  id="first-name"
+                  type="text"
+                  autoComplete="given-name"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className={inputClass}
+                  placeholder={t('signupPage.firstNamePlaceholder')}
+                />
+              </div>
+              <div>
+                <label htmlFor="last-name" className="block text-sm font-medium text-text-secondary mb-1.5">
+                  {t('signupPage.lastName')}
+                </label>
+                <input
+                  id="last-name"
+                  type="text"
+                  autoComplete="family-name"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className={inputClass}
+                  placeholder={t('signupPage.lastNamePlaceholder')}
+                />
+              </div>
             </div>
 
             <div>

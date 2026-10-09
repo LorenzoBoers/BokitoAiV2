@@ -20,6 +20,7 @@ from app.models.channel import ChannelAccount, Contact
 from app.models.integration import McpServer
 from app.models.project import Project
 from app.services.auth import hash_password
+from app.services.user_names import apply_user_names
 from app.services.workspace import get_doc_by_path, upsert_doc
 from app.services.tenant_bootstrap import bootstrap_tenant, default_tenant_settings, serialize_settings
 from app.services.workspaces_portal import parse_settings, save_settings
@@ -52,10 +53,10 @@ async def seed() -> None:
             staff = User(
                 email=STAFF_EMAIL,
                 password_hash=hash_password(TEST_PASSWORD),
-                display_name="Bokito Staff",
                 is_staff=True,
                 email_verified=True,
             )
+            apply_user_names(staff, display_name="Bokito Staff")
             session.add(staff)
         else:
             staff.email_verified = True
@@ -80,13 +81,13 @@ async def seed() -> None:
             user = User(
                 email=TEST_EMAIL,
                 password_hash=hash_password(TEST_PASSWORD),
-                display_name="Bokito Admin",
                 email_verified=True,
                 is_staff=True,
                 # Playwright e2e assertions use English copy; pin the UI
                 # language so the platform default (Dutch) does not apply.
                 settings_json=json.dumps({"ui_language": "en"}),
             )
+            apply_user_names(user, display_name="Bokito Admin")
             session.add(user)
             await session.flush()
         else:
@@ -113,9 +114,9 @@ async def seed() -> None:
             demo_user = User(
                 email=DEMO_EMAIL,
                 password_hash=hash_password(DEMO_PASSWORD),
-                display_name="Demo Owner",
                 email_verified=True,
             )
+            apply_user_names(demo_user, display_name="Demo Owner")
             session.add(demo_user)
             await session.flush()
             session.add(Membership(tenant_id=demo.id, user_id=demo_user.id, role="owner"))
@@ -301,9 +302,9 @@ async def _seed_autotrading_tenant(session) -> None:
         trader_user = User(
             email="trader@bokito.ai",
             password_hash=hash_password(TEST_PASSWORD),
-            display_name="Trading Operator",
             email_verified=True,
         )
+        apply_user_names(trader_user, display_name="Trading Operator")
         session.add(trader_user)
         await session.flush()
 
