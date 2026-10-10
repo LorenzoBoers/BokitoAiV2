@@ -97,6 +97,18 @@ def test_body_never_lost_when_cleaning_removes_everything():
     assert parts.body == raw  # falls back to the original text
 
 
+def test_note_only_sentinel_does_not_leak_into_body():
+    raw = (
+        "INTERNAL_NOTE: Samenvatting van de mail:\n"
+        "1. Pending puntjes bespreken\n"
+        "Actie: collega vragen om te reageren."
+    )
+    parts = split_suggestion(raw)
+    assert parts.body == ""
+    assert "Pending puntjes" in parts.internal_note
+    assert "INTERNAL_NOTE" not in parts.internal_note
+
+
 def test_question_line_is_not_treated_as_signoff_name():
     raw = "Hallo,\n\nKun je het factuurnummer doorgeven?\nDan zoek ik het direct op."
     parts = split_suggestion(raw)

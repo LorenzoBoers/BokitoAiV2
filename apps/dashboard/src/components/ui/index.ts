@@ -67,3 +67,6 @@ export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 
 // Identity
 export { IconTile, type IconTileTone } from './icon-tile'
+export { ChoiceSelect, type ChoiceGroup } from './ChoiceSelect'
+export { ChoiceMark, ChoiceOption, type ChoiceItem, type ChoiceKind } from './ChoiceOption'
+export { AgentSelect } from './AgentSelect'

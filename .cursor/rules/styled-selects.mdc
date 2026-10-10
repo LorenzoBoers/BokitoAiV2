@@ -31,6 +31,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 </Select>
 ```
 
+## Named things
+
+A select or dropdown of agents, people, teams, flows, projects, tags,
+calendars, channels, or connections uses `ChoiceSelect` (or `ChoiceOption`
+inside a `DropdownMenuItem`). `AgentSelect` is the agent-only wrapper.
+The row is mark then name: avatar, brand logo, workflow, folder, or `#`.
+
+Enums (mode, language, cadence, a count) stay a plain `Select` with text.
+
+```tsx
+import { ChoiceSelect } from '../ui/ChoiceSelect'
+
+<ChoiceSelect
+  aria-label={label}
+  value={value}
+  onValueChange={setValue}
+  groups={[
+    {
+      items: agents.map((agent) => ({
+        value: agent.id,
+        label: agent.name,
+        kind: 'agent',
+        agent,
+      })),
+    },
+  ]}
+/>
+```
+
 ## Do not
 
 - `<select className=...><option>...`

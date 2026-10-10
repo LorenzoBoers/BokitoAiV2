@@ -17,20 +17,13 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ChevronDown, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, GripVertical, Plus, Trash2, UserRound } from 'lucide-react'
 import { Button } from '../ui/button'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
+import type { ChoiceItem } from '../ui/ChoiceOption'
 import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
   checkupLabel,
   stageLabel,
@@ -77,7 +70,11 @@ function normalizeStage(stage: TicketStage): TicketStage {
   }
 }
 
-export type StageOwnerOption = { value: string; label: string; group: 'user' | 'agent' | 'team' }
+export type StageOwnerOption = {
+  value: string
+  label: string
+  group: 'user' | 'agent' | 'team'
+} & Pick<ChoiceItem, 'agent' | 'person' | 'team'>
 
 const CHECKUP_PRESETS = [0, 240, 1440, 2880, 10080]
 
@@ -110,36 +107,53 @@ function StageOwnerFields({
     <div className="space-y-2 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
       <div className="space-y-1">
         <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.owner')}</Label>
-        <Select
+        <ChoiceSelect
+          aria-label={t('workstreamsPage.stages.owner')}
+          triggerClassName="h-8 text-xs"
           value={ownerValue(stage.owner)}
           disabled={!canEdit}
           onValueChange={(value) => onUpdate({ owner: parseOwnerValue(value) })}
-        >
-          <SelectTrigger className="h-8 text-xs" aria-label={t('workstreamsPage.stages.owner')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="keep">{t('workstreamsPage.stages.ownerKeep')}</SelectItem>
-            {groups.map((group) => {
-              const rows = owners.filter((row) => row.group === group)
-              if (rows.length === 0) return null
-              return (
-                <SelectGroup key={group}>
-                  <SelectSeparator />
-                  <SelectLabel>{t(`workstreamsPage.stages.ownerGroups.${group}`)}</SelectLabel>
-                  {rows.map((row) => (
-                    <SelectItem key={row.value} value={row.value}>
-                      {row.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              )
-            })}
-            {stage.owner?.id && !owners.some((row) => row.value === ownerValue(stage.owner)) ? (
-              <SelectItem value={ownerValue(stage.owner)}>{t('workstreamsPage.stages.ownerUnknown')}</SelectItem>
-            ) : null}
-          </SelectContent>
-        </Select>
+          groups={[
+            {
+              items: [
+                {
+                  value: 'keep',
+                  label: t('workstreamsPage.stages.ownerKeep'),
+                  kind: 'icon',
+                  icon: UserRound,
+                },
+              ],
+            },
+            ...groups.map((group) => ({
+              label: t(`workstreamsPage.stages.ownerGroups.${group}`),
+              items: owners
+                .filter((row) => row.group === group)
+                .map(
+                  (row): ChoiceItem => ({
+                    value: row.value,
+                    label: row.label,
+                    kind: group === 'user' ? 'person' : group === 'agent' ? 'agent' : 'team',
+                    agent: row.agent,
+                    person: row.person,
+                    team: row.team,
+                  }),
+                ),
+            })),
+            ...(stage.owner?.id && !owners.some((row) => row.value === ownerValue(stage.owner))
+              ? [
+                  {
+                    items: [
+                      {
+                        value: ownerValue(stage.owner),
+                        label: t('workstreamsPage.stages.ownerUnknown'),
+                        kind: 'icon' as const,
+                      },
+                    ],
+                  },
+                ]
+              : []),
+          ]}
+        />
       </div>
       {stage.kind !== 'done' ? (
         <div className="space-y-1">
@@ -524,13 +538,26 @@ export function WorkstreamStagesCard({
   const boardRef = useRef<HTMLDivElement>(null)
   const { members } = useMembers()
   const { teams } = useTeams()
-  const [agents, setAgents] = useState<{ id: string; name: string }[]>([])
+  const [agents, setAgents] = useState<
+    { id: string; name: string; avatar_kind?: string | null; avatar_icon?: string | null; avatar_color?: string | null; avatar_image_url?: string | null }[]
+  >([])
 
   useEffect(() => {
     let cancelled = false
     listAgents()
       .then((rows) => {
-        if (!cancelled) setAgents(rows.map((row) => ({ id: row.id, name: row.name })))
+        if (!cancelled) {
+          setAgents(
+            rows.map((row) => ({
+              id: row.id,
+              name: row.name,
+              avatar_kind: row.avatar_kind,
+              avatar_icon: row.avatar_icon,
+              avatar_color: row.avatar_color,
+              avatar_image_url: row.avatar_image_url,
+            })),
+          )
+        }
       })
       .catch(() => undefined)
     return () => {
@@ -542,9 +569,24 @@ export function WorkstreamStagesCard({
     () => [
       ...members
         .filter((m) => m.uuid)
-        .map((m) => ({ value: `user:${m.uuid}`, label: m.name || m.email, group: 'user' as const })),
-      ...agents.map((a) => ({ value: `agent:${a.id}`, label: a.name, group: 'agent' as const })),
-      ...teams.map((team) => ({ value: `team:${team.id}`, label: team.name, group: 'team' as const })),
+        .map((m) => ({
+          value: `user:${m.uuid}`,
+          label: m.name || m.email,
+          group: 'user' as const,
+          person: { name: m.name || m.email, email: m.email, avatarUrl: m.avatarUrl },
+        })),
+      ...agents.map((agent) => ({
+        value: `agent:${agent.id}`,
+        label: agent.name,
+        group: 'agent' as const,
+        agent,
+      })),
+      ...teams.map((team) => ({
+        value: `team:${team.id}`,
+        label: team.name,
+        group: 'team' as const,
+        team,
+      })),
     ],
     [members, agents, teams],
   )

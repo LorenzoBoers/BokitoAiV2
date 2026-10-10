@@ -52,6 +52,7 @@ import { canComposeToAddress } from '../../lib/compose-intent'
 import { humanizeContactName } from '../../lib/contact-label'
 import { listContacts } from '../../lib/contacts-api'
 import type { Provider } from '../../lib/email-oauth'
+import { readLastMailboxChannelAccountId, writeLastMailboxChannelAccountId } from '../../lib/last-mailbox'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import {
   previewOutboundSignatureHtml,
@@ -469,6 +470,8 @@ export default function MailComposer({
             )
             if (match) return match.id
           }
+          const lastUsed = readLastMailboxChannelAccountId()
+          if (lastUsed && mailboxes.some((row) => row.id === lastUsed)) return lastUsed
           return mailboxes[0]?.id ?? null
         })
       })
@@ -652,6 +655,14 @@ export default function MailComposer({
     ? `/settings/channels/${selectedChannelAccountId}?edit=signature`
     : '/settings/channels'
 
+  /** Grow with the letter so body + signature share one scroll (no nested textarea bar). */
+  const fitBodyHeight = () => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = '0px'
+    el.style.height = `${Math.max(el.scrollHeight, 112)}px`
+  }
+
   const dictationInterimRef = useRef('')
   const [dictationInterim, setDictationInterim] = useState('')
   dictationInterimRef.current = dictationInterim
@@ -675,6 +686,10 @@ export default function MailComposer({
         ? `${body} ${dictationInterim}`
         : dictationInterim
       : body
+
+  useEffect(() => {
+    fitBodyHeight()
+  }, [composerValue, expanded])
 
   const onPickFiles = async (files: FileList | File[] | null) => {
     const list = files ? Array.from(files) : []
@@ -707,6 +722,7 @@ export default function MailComposer({
     suppressPersistRef.current = true
     clearStoredMailDraft(draftKey)
     try {
+      if (selectedChannelAccountId) writeLastMailboxChannelAccountId(selectedChannelAccountId)
       await onSend({
         bodyText: body.trim(),
         to: to.trim(),
@@ -810,7 +826,10 @@ export default function MailComposer({
                       <DropdownMenuItem
                         key={row.id}
                         className="gap-2 text-xs"
-                        onSelect={() => setSelectedChannelAccountId(row.id)}
+                        onSelect={() => {
+                          setSelectedChannelAccountId(row.id)
+                          writeLastMailboxChannelAccountId(row.id)
+                        }}
                       >
                         <ProviderLogo
                           provider={row.provider as Provider}
@@ -920,8 +939,8 @@ export default function MailComposer({
             />
           </div>
 
-          {/* Body */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {/* One letter scroll: body grows with text; signature + quote ride below. */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <textarea
               ref={textareaRef}
               value={composerValue}
@@ -929,10 +948,12 @@ export default function MailComposer({
               onChange={(e) => {
                 if (!dictation.listening) setBody(e.target.value)
               }}
+              onInput={fitBodyHeight}
               placeholder={
                 dictation.listening ? t('composer.dictationListening') : t('compose.bodyPlaceholder')
               }
-              className="min-h-[7rem] w-full flex-1 resize-none bg-transparent px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+              rows={4}
+              className="block w-full resize-none overflow-hidden bg-transparent px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
               data-testid="mail-composer-body"
             />
             <div className="px-3">
@@ -942,28 +963,29 @@ export default function MailComposer({
               />
             </div>
 
-            {/* Signature is part of the letter: same scroll as the body, no clip. */}
             {signatureHtml ? (
-              <div className="px-3 pb-2">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="text-2xs text-text-muted">{t('mailComposer.signature')}</p>
+              <div className="px-3 pb-2 pt-0.5">
+                <div
+                  className="group/sig relative rounded-md px-2 py-1.5 -mx-0.5 transition-colors hover:bg-bg-hover/80 focus-within:bg-bg-hover/80"
+                  data-testid="mail-composer-signature"
+                >
                   <Link
                     to={signatureSettingsHref}
-                    className="inline-flex items-center gap-1 text-2xs text-text-muted underline-offset-2 hover:text-text-secondary hover:underline"
+                    className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-surface px-1.5 py-0.5 text-2xs font-medium text-text-secondary opacity-0 shadow-sm transition-opacity hover:bg-bg-elevated hover:text-text-heading focus-visible:opacity-100 group-hover/sig:opacity-100"
                     title={t('mailComposer.signatureEditChannelHint')}
+                    aria-label={t('mailComposer.signatureEditChannel')}
                   >
                     <PenLine size={11} className="shrink-0" aria-hidden />
-                    {t('mailComposer.signatureEditChannel')}
+                    {t('mailComposer.signatureEdit')}
                   </Link>
+                  <div
+                    className="signature-preview pointer-events-none text-sm [&_img]:inline-block [&_img]:max-w-full"
+                    dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                  />
                 </div>
-                <div
-                  className="signature-preview pointer-events-none text-sm [&_img]:inline-block [&_img]:max-w-full"
-                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
-                />
               </div>
             ) : null}
 
-            {/* 3-dots: quoted history expands in this same letter scroll. */}
             {intent.quotedHtml ? (
               <div className="px-3 pb-3">
                 <button

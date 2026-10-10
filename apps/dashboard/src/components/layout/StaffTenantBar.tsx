@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Building2, Loader2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { listStaffTenants, type StaffTenantOption } from '../../lib/staff-api'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 
 export default function StaffTenantBar() {
   const { t } = useTranslation('nav')
@@ -71,23 +71,27 @@ export default function StaffTenantBar() {
       {loading ? (
         <Loader2 size={12} className="animate-spin text-text-muted" />
       ) : (
-        <Select
+        <ChoiceSelect
+          aria-label={t('staffBar.label')}
+          triggerClassName="h-6 min-w-[120px] max-w-[220px] gap-1 border-0 bg-transparent px-1.5 text-xs shadow-none"
           value={activeTenantId || undefined}
           onValueChange={(value) => void onTenantChange(value)}
           disabled={switching || tenants.length === 0}
-        >
-          <SelectTrigger className="h-6 min-w-[120px] max-w-[220px] gap-1 border-0 bg-transparent px-1.5 text-xs shadow-none focus:ring-0">
-            <SelectValue placeholder={label}>{label}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {tenants.map((tenant) => (
-              <SelectItem key={tenant.id} value={tenant.id} disabled={!tenant.supportAllowed}>
-                {tenant.name} ({tenant.slug})
-                {!tenant.supportAllowed ? ` — ${t('staffBar.locked')}` : ''}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder={label}
+          groups={[
+            {
+              items: tenants.map((tenant) => ({
+                value: tenant.id,
+                label: tenant.name,
+                kind: 'icon' as const,
+                disabled: !tenant.supportAllowed,
+                trailing: !tenant.supportAllowed ? (
+                  <span className="shrink-0 text-2xs text-text-muted">{t('staffBar.locked')}</span>
+                ) : undefined,
+              })),
+            },
+          ]}
+        />
       )}
       {switching ? <Loader2 size={12} className="animate-spin text-text-muted" /> : null}
       <Link

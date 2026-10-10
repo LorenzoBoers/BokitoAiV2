@@ -35,6 +35,8 @@ export function statusTone(status: string | null | undefined): BadgeTone {
     case 'waiting':
     case 'away':
     case 'invited':
+    case 'due':
+    case 'awaiting_human':
       return 'warning'
     case 'error':
     case 'failed':
@@ -45,6 +47,7 @@ export function statusTone(status: string | null | undefined): BadgeTone {
     case 'expired':
     case 'disconnected':
     case 'suspended':
+    case 'overdue':
       return 'error'
     case 'running':
     case 'working':
@@ -52,6 +55,8 @@ export function statusTone(status: string | null | undefined): BadgeTone {
     case 'processing':
     case 'syncing':
     case 'new':
+    case 'started':
+    case 'scheduled':
       return 'info'
     case 'standby':
     case 'agent':

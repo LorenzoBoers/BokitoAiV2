@@ -9,7 +9,7 @@ import { Button } from '../components/ui/button'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { Hashtag, HashtagMark } from '../components/ui/HashtagMark'
 import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/workstreams/FlowTicketBoard'
 import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
@@ -364,24 +364,33 @@ export default function WorkstreamDetail() {
                     <Hashtag name={tag.name} category />
                   </Link>
                 ) : canEdit ? (
-                  <Select value="" onValueChange={(value) => void bindTag(value)} disabled={bindingTag}>
-                    <SelectTrigger className="h-7 w-52 text-xs" aria-label={t('workstreamsPage.meta.bindTag')}>
-                      <SelectValue placeholder={t('workstreamsPage.meta.bindTag')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {freeTags.length === 0 ? (
-                        <SelectItem value="__none__" disabled>
-                          {t('workstreamsPage.meta.noFreeTags')}
-                        </SelectItem>
-                      ) : (
-                        freeTags.map((row) => (
-                          <SelectItem key={row.id} value={row.id}>
-                            #{row.name}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <ChoiceSelect
+                    aria-label={t('workstreamsPage.meta.bindTag')}
+                    placeholder={t('workstreamsPage.meta.bindTag')}
+                    triggerClassName="h-7 w-52 text-xs"
+                    value=""
+                    onValueChange={(value) => void bindTag(value)}
+                    disabled={bindingTag}
+                    groups={[
+                      {
+                        items:
+                          freeTags.length === 0
+                            ? [
+                                {
+                                  value: '__none__',
+                                  label: t('workstreamsPage.meta.noFreeTags'),
+                                  kind: 'tag',
+                                  disabled: true,
+                                },
+                              ]
+                            : freeTags.map((row) => ({
+                                value: row.id,
+                                label: row.name,
+                                kind: 'tag' as const,
+                              })),
+                      },
+                    ]}
+                  />
                 ) : (
                   <span className="italic">{t('workstreamsPage.meta.noActionTag')}</span>
                 )}

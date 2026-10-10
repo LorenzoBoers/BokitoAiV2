@@ -80,6 +80,7 @@
     "uploadError": "Could not upload attachment.",
     "tabNote": "Note",
     "tabReply": "Reply",
+    "tabReplyEmail": "Email",
     "tabReplyTo": "Reply to {{name}}",
     "tabAsk": "Ask {{name}}",
     "tabAgent": "{{name}}",
@@ -187,6 +188,7 @@
     "modeForward": "Forward",
     "modeNew": "New email",
     "signature": "Signature",
+    "signatureEdit": "Edit",
     "signatureEditChannel": "Edit mailbox signature",
     "signatureEditChannelHint": "Signatures are set per mailbox under Channels.",
     "quoteToggle": "Show the quoted mail history sent along",
@@ -560,7 +562,9 @@
   },
   "decision": {
     "waitForOk": "Waiting for your OK",
-    "compactProposal": "Suggested a reply"
+    "compactProposal": "Suggested a reply",
+    "takeOverDraft": "Use draft",
+    "draftInComposer": "In composer"
   },
   "agentSession": {
     "launcher": "Bring in an agent",
@@ -673,7 +677,25 @@
     "draftAgent": "Message an agent",
     "draftTeammate": "Message a teammate",
     "pickTitle": "What do you want to start?",
-    "pickHint": "Pick a type. The conversation only exists after you send.",
+    "pickHint": "Pick a channel. The conversation is created when you send, or right away when you log a ticket.",
+    "draftWhatsapp": "New WhatsApp message",
+    "draftTicket": "Internal ticket",
+    "intentWhatsapp": "WhatsApp",
+    "intentWhatsappHint": "Send a message from a connected WhatsApp number.",
+    "intentTicket": "Ticket",
+    "intentTicketHint": "Start an internal conversation already filed on an action tag in a flow, optionally in a project.",
+    "whatsappTo": "Number",
+    "whatsappToPlaceholder": "31612345678",
+    "whatsappBodyPlaceholder": "Write the WhatsApp message...",
+    "whatsappHint": "If a conversation with this number already exists, the message goes there.",
+    "chooseActionTag": "Choose an action tag",
+    "ticketSubjectPlaceholder": "What is this about?",
+    "ticketNote": "Note",
+    "ticketNotePlaceholder": "Context for the team. The customer does not see this.",
+    "ticketHint": "The conversation starts internally, already filed on the action tag you pick.",
+    "logTicket": "Log ticket",
+    "noActionTags": "No action tag yet. Attach a tag to a flow first.",
+    "openFlows": "Open Flows",
     "intentContact": "Contact",
     "intentContactHint": "Email a customer or external address from a mailbox.",
     "intentAgent": "Agent",
@@ -720,7 +742,7 @@
     "retry": "Try again",
     "openContacts": "Open Contacts",
     "intentEmail": "Email",
-    "intentEmailHint": "Write from a connected mailbox. The conversation exists after you send."
+    "intentEmailHint": "Write to a customer, teammate, or any address from a mailbox."
   },
   "threadChrome": {
     "hideDetails": "Hide details",
@@ -1195,6 +1217,7 @@
     "showFullMessage": "Show full message",
     "showLessMessage": "Show less",
     "notDelivered": "Not delivered",
+    "retrySend": "Try again",
     "deliveryFail": {
       "authExpired": "mailbox connection expired, reconnect it under Channels",
       "noMailbox": "no connected mailbox for this channel",

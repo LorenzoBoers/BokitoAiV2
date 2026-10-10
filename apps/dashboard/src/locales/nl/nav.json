@@ -1419,6 +1419,14 @@
     "workspaceIdCopied": "Gekopieerd voor support",
     "workspaceIdCopyFailed": "Kon niet kopiëren",
     "showSetupAgain": "Setupkaart tonen",
+    "recurringWake": {
+      "title": "Laat een agent voor je waken",
+      "body": "Een terugkerende taak houdt de workspace in de gaten en meldt alleen wat aandacht nodig heeft.",
+      "cta": "Taak instellen",
+      "promptDefault": "Bekijk de workspace. Meld alleen wat aandacht nodig heeft: gesprekken die vastzitten, beslissingen die wachten, en één concrete verbetering. Schrijf dat in je kanaal. Herhaal niets dat je al hebt gemeld.",
+      "taskName": "Workspace nalopen",
+      "dismiss": "Verbergen"
+    },
     "loadError": "Kon overzicht niet laden.",
     "partialLoadError": "Een deel van het overzicht kon niet worden geladen: {{items}}.",
     "conversations": "Gesprekken 7d",
@@ -2756,8 +2764,8 @@
       "languageDescription": "In welke taal de AI schrijft — voor klantantwoorden en voor toelichting aan je team.",
       "replyLanguageLabel": "Antwoordtaal",
       "replyLanguageHint": "Taal van voorgestelde klantantwoorden. Automatisch volgt de taal van het bericht van de klant. Individuele mailboxen kunnen dit hieronder overschrijven.",
-      "workspaceLanguageLabel": "Teamtaal",
-      "workspaceLanguageHint": "Taal van AI-samenvattingen en toelichtingen voor je team, zoals samenvattingen van no-reply-mails. Alleen workspace-breed.",
+      "workspaceLanguageLabel": "Werktaal van de organisatie",
+      "workspaceLanguageHint": "Taal waarin agents voor je team schrijven: antwoorden in operatorchats, samenvattingen, beslissingen, thinking en toolstappen. Ook onder Instellingen → Algemeen. Klantantwoorden volgen de antwoordtaal hierboven.",
       "sendAsLabel": "Goedgekeurde antwoorden versturen als",
       "sendAsHint": "Standaard afzenderidentiteit wanneer een teamlid een voorgesteld antwoord goedkeurt. Teamleden kunnen nog wisselen op de beslissingskaart; agents kunnen hun eigen standaard zetten onder Agents.",
       "sendAsUser": "Het goedkeurende teamlid",
@@ -5979,7 +5987,31 @@
     "inactive": "Inactief",
     "emptyTenants": "Geen tenants gevonden.",
     "emptyUsers": "Geen users gevonden.",
-    "emptyLogs": "Nog geen supporttoegang gelogd."
+    "emptyLogs": "Nog geen supporttoegang gelogd.",
+    "timeSaved": {
+      "title": "Actiegewichten (tijd bespaard)",
+      "hint": "Minuten per uitkomst op Overview. Handmatige antwoorden tellen alleen in het cirkeldiagram. Opgeslagen in platform_settings voor deze API-omgeving.",
+      "minutes": "Minuten",
+      "mode": "Modus",
+      "saved": "Telt als tijd bespaard",
+      "mixOnly": "Alleen mix-diagram",
+      "save": "Gewichten opslaan",
+      "saving": "Opslaan…",
+      "savedToast": "Actiegewichten opgeslagen.",
+      "loadError": "Kon actiegewichten niet laden.",
+      "saveError": "Kon actiegewichten niet opslaan.",
+      "actions": {
+        "autonomous_reply": "Autonoom antwoord verstuurd",
+        "assisted_draft_unchanged": "Geassisteerd concept ongewijzigd verstuurd",
+        "assisted_draft_edited": "Geassisteerd concept bewerkt en verstuurd",
+        "assisted_draft_human_continued": "Concept, mens ging verder",
+        "no_reply_triaged": "Geen antwoord genoteerd",
+        "no_reply_confirmed": "Geen antwoord bevestigd (sluiten)",
+        "ticket_filed_by_agent": "Ticket door agent vastgelegd",
+        "flow_run_completed": "Flow-run afgerond",
+        "manual_reply": "Handmatig antwoord"
+      }
+    }
   },
   "helpPublic": {
     "title": "Helpcentrum",

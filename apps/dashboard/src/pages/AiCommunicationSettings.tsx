@@ -799,7 +799,7 @@ export default function AiCommunicationSettings() {
                   languages={WORKSPACE_LANGUAGES}
                   onChange={(v) => {
                     setAiSettings((prev) =>
-                      prev ? { ...prev, workspaceLanguage: (v || 'en') as WorkspaceLanguage } : prev,
+                      prev ? { ...prev, workspaceLanguage: (v || 'nl') as WorkspaceLanguage } : prev,
                     )
                   }}
                 />

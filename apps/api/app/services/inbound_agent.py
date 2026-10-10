@@ -572,6 +572,27 @@ async def create_reply_suggestion(
         parts = split_suggestion(text)
         text = parts.body
         internal_note = parts.internal_note
+        if not text.strip():
+            # Model returned only a team note (or empty). Persist the note so
+            # operators still see the analysis; do not create a reply proposal
+            # that would put INTERNAL_NOTE: into the composer.
+            if internal_note:
+                session.add(
+                    SignalMessage(
+                        signal_id=signal.id,
+                        tenant_id=tenant_id,
+                        kind="internal_note",
+                        direction="internal",
+                        role="assistant",
+                        author_agent_id=agent.id,
+                        body_text=internal_note,
+                        body_preview=internal_note[:200],
+                        received_at=datetime.utcnow(),
+                    )
+                )
+                await session.commit()
+                return {"skipped": True, "reason": "note_only", "internal_note": True}
+            return {"skipped": True, "reason": "empty"}
         if looks_like_meta_draft(text):
             return {"skipped": True, "reason": "meta_draft"}
     # Customer drafts may cite /docs/... as in-app markdown; rewrite to
@@ -938,6 +959,24 @@ async def persist_inbound_agent_reply(
     # (no research preamble, no internal notes, no model-written sign-off).
     parts = split_suggestion(text)
     text = parts.body
+    if not text.strip():
+        if parts.internal_note:
+            session.add(
+                SignalMessage(
+                    signal_id=signal.id,
+                    tenant_id=tenant_id,
+                    kind="internal_note",
+                    direction="internal",
+                    role="assistant",
+                    author_agent_id=agent.id,
+                    body_text=parts.internal_note,
+                    body_preview=parts.internal_note[:200],
+                    received_at=datetime.utcnow(),
+                )
+            )
+            await session.commit()
+            return {"skipped": True, "reason": "note_only", "internal_note": True}
+        return {"skipped": True, "reason": "empty"}
     if looks_like_meta_draft(text):
         return {"skipped": True, "reason": "meta_draft"}
     disclosure = await _disclosure_line(session, tenant_id, signal)

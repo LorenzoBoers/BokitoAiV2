@@ -8,7 +8,7 @@ import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Hashtag } from '../ui/HashtagMark'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { TableRowsSkeleton } from '../ui/skeleton'
 import { flowTitle } from '../../lib/flow-title'
 import { useEntityRefresh } from '../../lib/live-store'
@@ -105,24 +105,26 @@ export function ProjectFlowBoards({
     <div className="space-y-5" data-testid="project-playbook-boards">
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Select value="" onValueChange={(value) => void setAttached(value, true)} disabled={busy !== null}>
-            <SelectTrigger className="h-8 w-56 text-xs" aria-label={t('projects.home.addFlow')}>
-              <SelectValue placeholder={t('projects.home.addFlow')} />
-            </SelectTrigger>
-            <SelectContent>
-              {available.length === 0 ? (
-                <SelectItem value="__none__" disabled>
-                  {t('projects.home.noFlowsToAdd')}
-                </SelectItem>
-              ) : (
-                available.map((flow) => (
-                  <SelectItem key={flow.id} value={flow.id}>
-                    #{flowTitle(flow)}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+          <ChoiceSelect
+            aria-label={t('projects.home.addFlow')}
+            placeholder={t('projects.home.addFlow')}
+            triggerClassName="h-8 w-56 text-xs"
+            value=""
+            onValueChange={(value) => void setAttached(value, true)}
+            disabled={busy !== null}
+            groups={[
+              {
+                items:
+                  available.length === 0
+                    ? [{ value: '__none__', label: t('projects.home.noFlowsToAdd'), kind: 'flow', disabled: true }]
+                    : available.map((flow) => ({
+                        value: flow.id,
+                        label: flowTitle(flow),
+                        kind: 'flow' as const,
+                      })),
+              },
+            ]}
+          />
           {busy ? <Loader2 size={14} className="animate-spin text-text-muted" /> : null}
         </div>
       ) : null}

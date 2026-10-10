@@ -60,7 +60,7 @@ import {
   saveChannelWidget,
   channelSettingsPath,
 } from '../lib/channels-api'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import AgentBindingPicker from '../components/settings/AgentBindingPicker'
 import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
@@ -830,7 +830,9 @@ function MessengerSettingsContent({
                               <span className="text-xs text-text-secondary">
                                 {t('messengerPage.whatsappHandover.channel')}
                               </span>
-                              <Select
+                              <ChoiceSelect
+                                aria-label={t('messengerPage.whatsappHandover.channel')}
+                                triggerClassName="h-8 text-xs"
                                 value={widgetBehaviour.whatsappHandover.accountId}
                                 onValueChange={(value) =>
                                   setWidgetBehaviour({
@@ -838,18 +840,17 @@ function MessengerSettingsContent({
                                     whatsappHandover: { ...widgetBehaviour.whatsappHandover, accountId: value },
                                   })
                                 }
-                              >
-                                <SelectTrigger className="h-8 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {whatsappAccounts.map((row) => (
-                                    <SelectItem key={row.id} value={row.id}>
-                                      {row.displayName || row.address}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                groups={[
+                                  {
+                                    items: whatsappAccounts.map((row) => ({
+                                      value: row.id,
+                                      label: row.displayName || row.address,
+                                      kind: 'icon' as const,
+                                      brandSlug: 'whatsapp',
+                                    })),
+                                  },
+                                ]}
+                              />
                             </label>
                             {!widgetBehaviour.whatsappHandover.numberKnown ? (
                               <label className="space-y-1">

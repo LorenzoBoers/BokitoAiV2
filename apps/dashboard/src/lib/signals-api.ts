@@ -393,6 +393,7 @@ export async function patchSignalThread(
   if (patch.snoozedUntil !== undefined) body.snoozed_until = patch.snoozedUntil
   if (patch.followUpAt !== undefined) body.follow_up_at = patch.followUpAt
   if (patch.followUpTitle !== undefined) body.follow_up_title = patch.followUpTitle
+  if (patch.channelAccountId !== undefined) body.channel_account_id = patch.channelAccountId
   const payload = await apiPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
   return normalizeThreadRow(payload)
 }
@@ -1228,6 +1229,40 @@ export async function bokitoCreateConversation(
     agent_name?: string
     agent_kind?: string
   }>(appRoutes.signals.conversations, body, token)
+}
+
+/** Start a WhatsApp message or an internal ticket thread. */
+export async function startConversation(
+  token: string,
+  body:
+    | { kind: 'whatsapp'; to: string; bodyText: string; channelAccountId?: string }
+    | {
+        kind: 'ticket'
+        tagId: string
+        subject: string
+        note?: string
+        projectId?: string | null
+        fields?: Record<string, string>
+      },
+): Promise<{ threadId: string; channel: string }> {
+  const payload: Record<string, unknown> =
+    body.kind === 'whatsapp'
+      ? {
+          kind: 'whatsapp',
+          to: body.to,
+          body_text: body.bodyText,
+          ...(body.channelAccountId ? { channel_account_id: body.channelAccountId } : {}),
+        }
+      : {
+          kind: 'ticket',
+          tag_id: body.tagId,
+          subject: body.subject,
+          note: body.note ?? '',
+          project_id: body.projectId ?? null,
+          ...(body.fields ? { fields: body.fields } : {}),
+        }
+  const res = await apiPost<{ thread_id?: string; channel?: string }>(appRoutes.signals.start, payload, token)
+  return { threadId: String(res.thread_id ?? ''), channel: String(res.channel ?? body.kind) }
 }
 
 export async function bokitoRenameConversation(token: string, conversationId: string, title: string) {

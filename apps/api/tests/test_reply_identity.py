@@ -118,6 +118,45 @@ async def test_suggestion_stores_clean_body_and_internal_note(client, session_ov
     assert len(notes) == 0
 
 
+@pytest.mark.asyncio
+async def test_note_only_suggestion_skips_proposal(client, session_override):
+    await _auth_headers(client)
+    tenant, agent, account = await _seeded(session_override)
+    signal = _email_signal(tenant, account, agent)
+    session_override.add(signal)
+    await session_override.flush()
+
+    result = await create_reply_suggestion(
+        session_override,
+        tenant.id,
+        signal,
+        agent,
+        reply_text=(
+            "INTERNAL_NOTE: Samenvatting van de mail.\n"
+            "1. Pending puntjes\n"
+            "Actie: collega vragen om te reageren."
+        ),
+    )
+    assert result.get("skipped") is True
+    assert result.get("reason") == "note_only"
+
+    notes = (
+        (
+            await session_override.execute(
+                select(SignalMessage).where(
+                    SignalMessage.signal_id == signal.id,
+                    SignalMessage.kind == "internal_note",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(notes) == 1
+    assert "Pending puntjes" in (notes[0].body_text or "")
+    assert "INTERNAL_NOTE" not in (notes[0].body_text or "")
+
+
 # ── send-as attribution on approval ──────────────────────────────
 
 

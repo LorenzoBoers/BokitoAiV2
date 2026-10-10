@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   BellOff,
   Bot,
+  ChevronDown,
   Copy,
   Loader2,
   MessageSquareWarning,
@@ -97,10 +98,12 @@ type Props = {
   agentAvatarColor?: string | null
   agentAvatarImageUrl?: string | null
   /**
-   * The draft already sits in the composer, so the timeline only notes that
-   * the AI proposed a reply instead of repeating the whole card.
+   * Show the compact agent-cloud pill (expand to read + take over) instead of
+   * the full decision card. Used for open reply proposals.
    */
   compactReplyProposal?: boolean
+  /** This draft is already loaded in the reply composer. */
+  activeInComposer?: boolean
   /** The customer wrote again after this proposal; the draft answers an older message. */
   outdated?: boolean
 }
@@ -168,6 +171,22 @@ function integrationProviderFromOptions(options: DecisionOption[]): string | nul
   return null
 }
 
+/**
+ * Drop an INTERNAL_NOTE: sentinel (and anything after it when a customer body
+ * precedes it). Note-only leaks keep the note text without the label so older
+ * bad proposals stay readable and take-overable.
+ */
+export function sanitizeProposalDraft(text: string): string {
+  const raw = (text || '').trim()
+  if (!raw) return ''
+  const re = /^[ \t>*_-]*INTERNAL_NOTE:\s*/im
+  const match = re.exec(raw)
+  if (!match || match.index === undefined) return raw
+  const before = raw.slice(0, match.index).trim()
+  if (before) return before
+  return raw.slice(match.index + match[0].length).trim()
+}
+
 function draftBodyFromOptions(options: DecisionOption[], fallback: string): string {
   const send = options.find((o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email')
   const payload = send?.payload
@@ -176,9 +195,9 @@ function draftBodyFromOptions(options: DecisionOption[], fallback: string): stri
       (typeof payload.body_text === 'string' && payload.body_text) ||
       (typeof payload.body === 'string' && payload.body) ||
       ''
-    if (body.trim()) return body
+    if (body.trim()) return sanitizeProposalDraft(body)
   }
-  return fallback
+  return sanitizeProposalDraft(fallback)
 }
 
 /** Chat bubbles of a reply suggestion (`payload.messages`); empty for one-message drafts. */
@@ -287,6 +306,7 @@ export default function DecisionRequestMessage({
   agentName,
   agentId,
   channelAccountId = null,
+  activeInComposer = false,
   agentAvatarKind,
   agentAvatarIcon,
   agentAvatarColor,
@@ -297,6 +317,7 @@ export default function DecisionRequestMessage({
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
   const [sentiment, setSentiment] = useState<'up' | 'down' | null>(null)
+  const [compactOpen, setCompactOpen] = useState(false)
   const { startCorrection, starting: correctionStarting } = useCorrectionChat()
   const [agentSignatureHtml, setAgentSignatureHtml] = useState('')
   const [agentDisplayName, setAgentDisplayName] = useState('')
@@ -645,17 +666,65 @@ export default function DecisionRequestMessage({
     />
   )
   if (asCompactProposal && !ruleSuggestion) {
+    const takeOver = () => {
+      const sendOpt = options.find(
+        (o) => o.id === 'send' || o.action_type === 'send_reply' || o.action_type === 'send_email',
+      )
+      onEditDraft?.({
+        body: editedBubbles.length ? editedBubbles.join('\n\n') : draftBody,
+        subject:
+          typeof sendOpt?.payload?.subject === 'string' ? sendOpt.payload.subject : undefined,
+        decisionMessageId: String(message.id),
+        sendAs,
+      })
+    }
     return (
       <ChatMessageBubble
         side="left"
         avatar={agentAvatar}
         variant="external"
         body={
-          <div className="flex min-w-0 items-center gap-2">
-            <AiMark size={12} className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
-              {t('decision.compactProposal')}
-            </span>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCompactOpen((open) => !open)}
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent/40"
+                aria-expanded={compactOpen}
+              >
+                <AiMark size={12} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
+                  {t('decision.compactProposal')}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={cn(
+                    'shrink-0 text-text-muted transition-transform',
+                    compactOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+              {onEditDraft ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activeInComposer ? 'ghost' : 'secondary'}
+                  className="h-7 shrink-0 px-2 text-xs"
+                  onClick={takeOver}
+                >
+                  {activeInComposer
+                    ? t('decision.draftInComposer')
+                    : t('decision.takeOverDraft')}
+                </Button>
+              ) : null}
+            </div>
+            {compactOpen ? (
+              <div className="rounded-md border border-border/60 bg-bg-surface/80 px-2.5 py-2">
+                <p className="whitespace-pre-wrap text-xs leading-relaxed text-text-secondary">
+                  {draftBody}
+                </p>
+              </div>
+            ) : null}
           </div>
         }
       />

@@ -24,6 +24,7 @@ import { cn } from '../../lib/utils'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { listChannels, type ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
+import { readLastMailboxChannelAccountId, writeLastMailboxChannelAccountId } from '../../lib/last-mailbox'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import {
   activeMentionQuery,
@@ -100,6 +101,8 @@ type Props = {
   lastInboundText?: string | null
   /** Bound mailbox UUID for email threads (default From). */
   channelAccountId?: string | null
+  /** Operator picked another From mailbox; persist + rebind the thread. */
+  onChannelAccountChange?: (channelAccountId: string) => void
   /** Open AI reply proposal loaded into the composer. Discarding the draft rejects it. */
   proposal?: {
     decisionMessageId: string
@@ -164,6 +167,7 @@ export default function ReplyComposer({
   suggestedCc,
   lastInboundText,
   channelAccountId: boundChannelAccountId,
+  onChannelAccountChange,
   proposal = null,
   latestInboundMessageId = null,
   isProposalOpen,
@@ -268,6 +272,8 @@ export default function ReplyComposer({
           if (boundChannelAccountId && mailboxes.some((row) => row.id === boundChannelAccountId)) {
             return boundChannelAccountId
           }
+          const lastUsed = readLastMailboxChannelAccountId()
+          if (lastUsed && mailboxes.some((row) => row.id === lastUsed)) return lastUsed
           return mailboxes[0]?.id ?? null
         })
       })
@@ -284,9 +290,21 @@ export default function ReplyComposer({
     [emailChannels, selectedChannelAccountId],
   )
   const canPickMailbox = surface.channel === 'email' && emailChannels.length > 1
+  const pickMailbox = (channelAccountId: string) => {
+    setSelectedChannelAccountId(channelAccountId)
+    writeLastMailboxChannelAccountId(channelAccountId)
+    onChannelAccountChange?.(channelAccountId)
+    setMode('reply')
+  }
+  // Email chip shows the mailbox/channel name; chevron switches when there are several.
   const replyTabLabel =
-    surface.channel === 'email' && selectedMailbox
-      ? mailboxDisplayLabel(selectedMailbox.displayName || selectedMailbox.label, selectedMailbox.address)
+    surface.channel === 'email'
+      ? selectedMailbox
+        ? mailboxDisplayLabel(
+            selectedMailbox.displayName || selectedMailbox.label,
+            selectedMailbox.address,
+          )
+        : t('composer.tabReplyEmail', { defaultValue: surface.replyLabel })
       : surface.replyTargetName
         ? t('composer.tabReplyTo', {
             name: surface.replyTargetName,
@@ -568,6 +586,8 @@ export default function ReplyComposer({
         return
       } else if (isNote) {
         await onNote(text, payload)
+        clearDraft()
+        setAttachments([])
       } else {
         // Customer reply: never treat structured mentions as agent invokes.
         const replyText = stripMentionMarkup(text)
@@ -579,10 +599,17 @@ export default function ReplyComposer({
                 channelAccountId: selectedChannelAccountId || undefined,
               }
             : undefined
-        await onReply(replyText, action, payload, snoozeMinutes, extras)
+        if (extras?.channelAccountId) writeLastMailboxChannelAccountId(extras.channelAccountId)
+        // Clear immediately so the bubble can land optimistically; failures
+        // stay on the timeline with retry instead of locking the composer.
+        clearDraft()
+        setAttachments([])
+        try {
+          await onReply(replyText, action, payload, snoozeMinutes, extras)
+        } catch {
+          // Delivery errors render on the outbound bubble (retry there).
+        }
       }
-      clearDraft()
-      setAttachments([])
     } catch (err) {
       toast.error(
         formatApiErrorMessage(
@@ -664,15 +691,6 @@ export default function ReplyComposer({
     }
   }
 
-  const channelLabel = t(`composer.channel.${surface.channel}`, { defaultValue: surface.replyLabel })
-  // Keep channelLabel for email mailbox chip title when picking a From address.
-  const mailboxTooltip =
-    surface.channel === 'email'
-      ? t('composer.channelTooltip', {
-          channel: channelLabel,
-          detail: surface.recipientValue ? ` · ${surface.recipientValue}` : '',
-        })
-      : replyTooltip
   const recipientLabel = t(
     surface.recipientLabel === 'To'
       ? 'composer.recipient.to'
@@ -698,79 +716,32 @@ export default function ReplyComposer({
       <div className={CHAT_COLUMN_CLASS}>
         <div className="relative z-10 mb-1.5 flex items-center gap-1">
           {showReplyTab ? (
-            canPickMailbox ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!isReply) setMode('reply')
-                    }}
-                    title={t('composer.sendFromHint', {
-                      defaultValue: 'Send from this mailbox. Switching moves the conversation here.',
-                    })}
-                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
-                      isReply
-                        ? 'bg-bg-hover font-medium text-text-heading'
-                        : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-                    }`}
-                  >
-                    {selectedMailbox ? (
-                      <ProviderLogo
-                        provider={selectedMailbox.provider as Provider}
-                        className="h-3 w-3 shrink-0 object-contain"
-                      />
-                    ) : (
-                      <ChannelGlyph channel={surface.channel} size={12} />
-                    )}
-                    <span className="max-w-[10rem] truncate-fade">{replyTabLabel}</span>
-                    <ChevronDown size={11} className="shrink-0 opacity-70" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64">
-                  <p className="px-2 py-1.5 text-2xs font-semibold text-text-muted">
-                    {t('composer.sendFrom', { defaultValue: 'Send from' })}
-                  </p>
-                  {emailChannels.map((row) => {
-                    const label = mailboxDisplayLabel(row.displayName || row.label, row.address)
-                    const active = row.id === selectedChannelAccountId
-                    return (
-                      <DropdownMenuItem
-                        key={row.id}
-                        className="gap-2 text-xs"
-                        onSelect={() => {
-                          setSelectedChannelAccountId(row.id)
-                          setMode('reply')
-                        }}
-                      >
-                        <ProviderLogo
-                          provider={row.provider as Provider}
-                          className="h-3.5 w-3.5 shrink-0 object-contain"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate-fade font-medium text-text-heading">{label}</span>
-                          {row.address && label !== row.address ? (
-                            <span className="block truncate-fade text-2xs text-text-muted">{row.address}</span>
-                          ) : null}
-                        </span>
-                        {active ? <Check size={12} className="shrink-0 text-accent" /> : null}
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
+            <div
+              className={`flex items-stretch overflow-hidden rounded-md ${
+                isReply ? 'bg-bg-hover' : ''
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => setMode('reply')}
-                title={canPickMailbox ? mailboxTooltip : replyTooltip}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+                title={
+                  surface.channel === 'email' && selectedMailbox
+                    ? t('composer.sendFromHint', {
+                        defaultValue: 'Send from this mailbox. Switching moves the conversation here.',
+                      }) +
+                      ` · ${mailboxDisplayLabel(
+                        selectedMailbox.displayName || selectedMailbox.label,
+                        selectedMailbox.address,
+                      )}`
+                    : replyTooltip
+                }
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors ${
                   isReply
-                    ? 'bg-bg-hover font-medium text-text-heading'
+                    ? 'font-medium text-text-heading'
                     : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
                 }`}
               >
-                {selectedMailbox ? (
+                {surface.channel === 'email' && selectedMailbox ? (
                   <ProviderLogo
                     provider={selectedMailbox.provider as Provider}
                     className="h-3 w-3 shrink-0 object-contain"
@@ -780,7 +751,54 @@ export default function ReplyComposer({
                 )}
                 <span className="max-w-[12rem] truncate-fade">{replyTabLabel}</span>
               </button>
-            )
+              {canPickMailbox ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      title={t('composer.sendFrom', { defaultValue: 'Send from' })}
+                      aria-label={t('composer.sendFrom', { defaultValue: 'Send from' })}
+                      className={`flex items-center border-l border-border/50 px-1.5 text-xs transition-colors ${
+                        isReply
+                          ? 'text-text-heading hover:bg-bg-muted/60'
+                          : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                      }`}
+                      data-testid="composer-mailbox-chevron"
+                    >
+                      <ChevronDown size={11} className="shrink-0 opacity-70" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    <p className="px-2 py-1.5 text-2xs font-semibold text-text-muted">
+                      {t('composer.sendFrom', { defaultValue: 'Send from' })}
+                    </p>
+                    {emailChannels.map((row) => {
+                      const label = mailboxDisplayLabel(row.displayName || row.label, row.address)
+                      const active = row.id === selectedChannelAccountId
+                      return (
+                        <DropdownMenuItem
+                          key={row.id}
+                          className="gap-2 text-xs"
+                          onSelect={() => pickMailbox(row.id)}
+                        >
+                          <ProviderLogo
+                            provider={row.provider as Provider}
+                            className="h-3.5 w-3.5 shrink-0 object-contain"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate-fade font-medium text-text-heading">{label}</span>
+                            {row.address && label !== row.address ? (
+                              <span className="block truncate-fade text-2xs text-text-muted">{row.address}</span>
+                            ) : null}
+                          </span>
+                          {active ? <Check size={12} className="shrink-0 text-accent" /> : null}
+                        </DropdownMenuItem>
+                      )
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
           ) : null}
           {showAskTab ? (
             <button
@@ -995,10 +1013,10 @@ export default function ReplyComposer({
             refreshMentionState(el.value, el.selectionStart ?? el.value.length)
           }}
           onFocus={() => {
-            // A ready email draft stays in this composer until the operator
-            // puts the cursor in it; editing belongs in the mail client.
+            // Email reply editing belongs in the mail client — open it as soon
+            // as the operator focuses the field (empty or with a draft).
             if (!onPromoteEmailEdit || !isReply || replyBlocked || dictation.listening) return
-            if (surface.channel !== 'email' || !body.trim()) return
+            if (surface.channel !== 'email') return
             onPromoteEmailEdit(body)
           }}
           onBlur={() => setMentionQuery(null)}

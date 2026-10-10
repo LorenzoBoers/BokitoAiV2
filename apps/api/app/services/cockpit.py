@@ -167,6 +167,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         "cost_cents_month": int(usage_month[1] or 0),
         "time_saved_minutes_week": time_saved["minutes"],
         "time_saved_breakdown": time_saved["by_action"],
+        "action_mix": time_saved["by_mode"],
         "resolved_conversations_week": resolved_week,
         "quiet_threads": [
             {

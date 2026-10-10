@@ -37,6 +37,8 @@ export type CockpitSummary = {
   time_saved_minutes_week: number
   /** Action-credit rows that sum to time_saved_minutes_week. */
   time_saved_breakdown?: TimeSavedAction[]
+  /** Weighted action mix for Overview pie (autonomous / assisted / manual). */
+  action_mix?: { mode: string; count: number; minutes: number }[]
   /** Closed without a takeover, still closed after 72 hours, matured this week. */
   resolved_conversations_week?: number
   quiet_threads?: {

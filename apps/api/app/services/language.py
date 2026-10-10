@@ -9,15 +9,17 @@ Two independent language axes:
   language per mailbox (``ai_config.reply_language``) or tenant-wide
   (``settings.ai_reply_language``).
 
-- **Workspace language** — the language of text the AI writes *for the
-  team*: operator chats, setup threads, no-reply summaries, explanations,
-  decision context. Tenant-wide (``settings.ai_workspace_language``),
+- **Workspace language** — the organization's working language for anything
+  the AI writes *for the team*: operator chats, setup threads, no-reply
+  summaries, explanations, decision context, **thinking/reasoning**, and
+  tool/activity narration. Tenant-wide (``settings.ai_workspace_language``),
   falling back to ``PLATFORM_DEFAULT_LANGUAGE`` (Dutch unless overridden).
 
 Internal AgentLoop surfaces (assistant, setup, @agent) inject
 ``internal_language_instruction`` from the workspace language. External
 trust (widget / inbound customer) injects reply + workspace rules so
-customer replies can still mirror the visitor.
+customer replies can still mirror the visitor while team-facing text
+stays in the workspace language.
 
 Static UI copy on suggestion cards (titles, button labels) is not handled
 here; the dashboard translates those client-side via i18n.
@@ -99,11 +101,13 @@ def reply_language_instruction(code: str, *, fallback: str | None = None) -> str
 
 
 def workspace_language_instruction(code: str) -> str:
-    """Prompt line for team-facing text (summaries, explanations)."""
+    """Prompt line for team-facing text (summaries, explanations, thinking)."""
     name = LANGUAGE_NAMES.get(code, "English")
     return (
-        f"Any summary or explanation addressed to the internal team "
-        f"(including the text after NO_REPLY_NEEDED:) must be written in {name}."
+        f"Any text for the internal team must be in {name}: summaries, "
+        f"explanations, decision titles/context, the line after NO_REPLY_NEEDED:, "
+        f"thinking/reasoning blocks, and tool or activity narration. "
+        f"Do not write those in another language."
     )
 
 
@@ -111,9 +115,10 @@ def internal_language_instruction(code: str) -> str:
     """Prompt block for operator / assistant / setup chats (not customer channels)."""
     name = LANGUAGE_NAMES.get(code, "Dutch")
     return (
-        f"Write every reply in {name}. This is an internal Bokito conversation "
-        f"on a {name} workspace. Do not switch to another language unless the "
-        f"operator explicitly asks you to."
+        f"This workspace's working language is {name}. "
+        f"Write every reply, thinking/reasoning block, tool narration, "
+        f"activity summary, and decision title in {name}. "
+        f"Do not switch to another language unless the operator explicitly asks."
     )
 
 

@@ -52,11 +52,11 @@ De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de red
 
 Antwoorden volgen het kanaal. E-mail krijgt één gestructureerd bericht. Op WhatsApp en websitechat schrijft de AI zoals een mens in een chat: maximaal vijf korte berichten, op volgorde verstuurd met een korte typpauze, en de AI-vermelding alleen bij het eerste. Mislukt één bericht, dan wachten de rest. Bij **Geassisteerd** bevat de conceptkaart dezelfde berichten, zodat je ze kunt verwijderen of aanpassen voordat je **Versturen** kiest (zie [Beslissingen](/docs/ai/decisions)).
 
-## Antwoord- en teamtaal instellen
+## Antwoord- en werktaal instellen
 
-1. Open **Taal** op dezelfde pagina.
+1. Open **Taal** op dezelfde pagina, of zet de organisatie-werktaal onder **Instellingen → Algemeen**.
 2. **Antwoordtaal** is wat de klant ziet. **Automatisch (volg de klant)** volgt de taal van het binnenkomende bericht. Je kunt ook Nederlands, Engels, Duits, Frans of Spaans vastzetten.
-3. **Teamtaal** is voor toelichting aan je team (samenvattingen, uitleg bij no-reply). Het verandert het klantantwoord niet.
+3. **Werktaal van de organisatie** (teamtaal) is de taal waarin agents voor je team schrijven, denken en uitleg geven — operatorchats, samenvattingen, beslissingen en thinking. Het verandert het klantantwoord niet.
 4. **Goedgekeurde antwoorden versturen als** is **Het goedkeurende teamlid** of **De AI-agent**. Dat bepaalt de handtekening en de weergavenaam bij Van. Op een enkel concept kan iedereen nog **Versturen als** wisselen.
 5. Klap onder **Antwoordtaal per mailbox** een mailbox open om die een eigen antwoordtaal te geven. Rijen met een afwijking tonen een badge **Afwijkend**.
 
@@ -78,8 +78,9 @@ Niet elke mail wil een antwoord. Bonnetjes, deploy-meldingen en andere automatis
 2. De AI houdt per persoon één antwoordvoorstel. Schrijft dezelfde persoon ook op een ander kanaal, dan gaat het voorstel van het oudere gesprek opzij (**Opzijgezet: nieuwer gesprek met deze persoon**) en draagt het nieuwste gesprek het actuele voorstel.
 3. Een voorstel dat het laatste bericht niet meer beantwoordt gaat ook opzij: als de klant opnieuw schrijft voordat je verstuurt (**klant schreef opnieuw**), als een collega vanuit de eigen mailbox antwoordde (**een collega antwoordde**), of als iemand **Al afgehandeld buiten Bokito** vastlegde. Een run die klaar is nadat een nieuwer bericht binnenkwam plaatst zijn concept niet.
 4. De composer vertelt wanneer een bewaard concept verouderd is en biedt **Opnieuw voorstellen**; zie [Communicatie](/docs/inbox/communication).
-5. Op een mailbox met **Automatische mail archiveren** aan wordt die kaart overgeslagen: het gesprek sluit bij binnenkomst en krijgt de tag `#automated`. Stel het per mailbox in onder [Kanalen](/docs/inbox/channels).
-6. Komt de derde no-reply mail van dezelfde afzender binnen, dan stelt de AI een **Automatiseringsregel** voor die afzender voor als kaart in het gesprek (*Mail van newsletter@example.com automatisch sluiten?*). **Activeren** zet de regel aan onder **Automatiseringsregels**; **Later** houdt hem als concept. Een agent die zelf een regel voorstelt gebruikt dezelfde kaart, zodat regels nooit zonder persoon actief worden.
+5. Blijf je in het gesprek terwijl de agent een concept afrondt, dan komt die tekst in de reply-composer. In de tijdlijn staat **Antwoord voorgesteld**: open de chevron om te lezen, of kies **Overnemen** / **In de invoer** om hem opnieuw in de invoer te zetten nadat je een ander gesprek hebt geopend. Teamnotities van het model vullen nooit het klantconcept.
+6. Op een mailbox met **Automatische mail archiveren** aan wordt die kaart overgeslagen: het gesprek sluit bij binnenkomst en krijgt de tag `#automated`. Stel het per mailbox in onder [Kanalen](/docs/inbox/channels).
+7. Komt de derde no-reply mail van dezelfde afzender binnen, dan stelt de AI een **Automatiseringsregel** voor die afzender voor als kaart in het gesprek (*Mail van newsletter@example.com automatisch sluiten?*). **Activeren** zet de regel aan onder **Automatiseringsregels**; **Later** houdt hem als concept. Een agent die zelf een regel voorstelt gebruikt dezelfde kaart, zodat regels nooit zonder persoon actief worden.
 
 Dezelfde modus bepaalt wie een onbekende chatter is. Geeft een bezoeker een e-mail of telefoonnummer, dan koppelt **Autonoom** het gesprek aan het passende contact (of maakt er een aan), koppelt **Geassisteerd** alleen bevestigde adressen en vraagt je voor de rest, en laat **Handmatig** het koppelen aan jou. Zie [Een gesprek aan een contact koppelen](/docs/inbox/contacts).
 

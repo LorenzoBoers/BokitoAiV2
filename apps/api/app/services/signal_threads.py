@@ -843,14 +843,22 @@ async def nav_badge_counts(
     include_agents_attention: bool,
     visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any]:
-    """Lightweight unread/attention counts for sidebar badges (no thread payloads)."""
+    """Lightweight unread/attention counts for sidebar badges (no thread payloads).
+
+    Unassigned / all badges only count **open** hub threads (never closed,
+    spam, pending, or Bin). Closed conversations clear ``has_unread`` on close.
+    """
+    from app.services.trash import alive
+
     tenant = Signal.tenant_id == tenant_id
+    # Closed / spam / snoozed never inflate Unassigned or All unread badges.
     open_status = Signal.status == "open"
     unread = Signal.has_unread.is_(True)
+    not_trashed = alive(Signal)
     acl = _visibility_predicate(visible_account_ids)
 
     async def _count(*filters) -> int:
-        stmt = select(func.count()).select_from(Signal).where(tenant, *filters)
+        stmt = select(func.count()).select_from(Signal).where(tenant, not_trashed, *filters)
         if acl is not None:
             stmt = stmt.where(acl)
         return int((await session.execute(stmt)).scalar_one() or 0)
@@ -1798,6 +1806,8 @@ async def patch_thread(
     follow_up_at_set: bool = False,
     follow_up_title: str | None = None,
     assignee: dict[str, Any] | None = None,
+    channel_account_id: UUID | None = None,
+    channel_account_id_set: bool = False,
     actor_role: str = "member",
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
@@ -1806,6 +1816,16 @@ async def patch_thread(
     before_status = signal.status
     before_assignee = signal.assigned_user_id
     before_owner = owner_payload(signal)
+    if channel_account_id_set:
+        if channel_account_id is None:
+            raise HTTPException(status_code=422, detail="channel_account_id is required")
+        await _rebind_email_account_for_reply(
+            session,
+            signal,
+            channel_account_id=channel_account_id,
+            user_id=user_id,
+            actor_role=actor_role,
+        )
     if snoozed_until_set:
         # Snooze is retired: mark unread instead of parking as pending.
         signal.snoozed_until = None
@@ -1863,6 +1883,9 @@ async def patch_thread(
             "spam": "human_spam",
         }[signal.status]
         await _defer_open_reply_suggestions(session, tenant_id, signal_id, reason=parked)
+        # Closed / spam must not keep an unread bit that could inflate badges.
+        if signal.status in {"closed", "spam"}:
+            signal.has_unread = False
     from app.services import ai_handling as handling_svc
 
     if signal.status != before_status:
@@ -2185,12 +2208,14 @@ async def bulk_update_threads(
         if action == "close":
             signal.status = "closed"
             signal.snoozed_until = None
+            signal.has_unread = False
         elif action == "reopen":
             signal.status = "open"
             signal.snoozed_until = None
         elif action == "spam":
             signal.status = "spam"
             signal.snoozed_until = None
+            signal.has_unread = False
         elif action == "read":
             signal.has_unread = False
         elif action == "unread":
@@ -2604,6 +2629,7 @@ async def reply_to_thread(
 
         signal.status = "closed"
         signal.snoozed_until = None
+        signal.has_unread = False
         on_status_change(session, signal, actor_id=str(user_id))
         from app.services.tickets import settle_ticket_on_close
 
@@ -3807,6 +3833,7 @@ async def dismiss_no_reply_suggestions(
                 from app.services.ai_handling import on_status_change
 
                 signal.status = "closed"
+                signal.has_unread = False
                 signal.updated_at = datetime.utcnow()
                 on_status_change(session, signal)
                 from app.services.tickets import settle_ticket_on_close

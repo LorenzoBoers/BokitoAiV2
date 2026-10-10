@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, ClipboardList, Info, RefreshCw, Repeat } from 'lucide-react'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '../ui/select'
+import { ChevronLeft, ChevronRight, ClipboardList, Info, RefreshCw, Repeat, Users } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
 import { Tip } from '../ui/Tip'
 import { formatAppDate } from '../../lib/app-locale'
@@ -37,7 +38,16 @@ function CalendarBrandStack({ size = 14 }: { size?: number }) {
   )
 }
 
-export type RailOption = { id: string; name: string }
+export type RailOption = {
+  id: string
+  name: string
+  email?: string
+  avatarUrl?: string | null
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_image_url?: string | null
+}
 
 function calendarBrandSlug(provider: string): string {
   const slug = provider.trim().toLowerCase()
@@ -74,6 +84,7 @@ type Props = {
 
 export default function AgendaRail(props: Props) {
   const { t } = useTranslation('nav')
+  const { user } = useAuth()
   const [syncBusy, setSyncBusy] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
 
@@ -98,55 +109,64 @@ export default function AgendaRail(props: Props) {
       <div className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-3">
       <section className="space-y-2">
         <RailHeading>{t('agendaPage.rail.who')}</RailHeading>
-        <Select value={props.who} onValueChange={(value) => props.onWho(value as AgendaWho)}>
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('agendaPage.who.all')}</SelectItem>
-            <SelectItem value="me">{t('agendaPage.who.me')}</SelectItem>
-            {props.people.length > 0 ? (
-              <>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>{t('agendaPage.who.people')}</SelectLabel>
-                  {props.people.map((person) => (
-                    <SelectItem key={person.id} value={`user:${person.id}`}>
-                      {person.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </>
-            ) : null}
-            {props.agents.length > 0 ? (
-              <>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>{t('agendaPage.who.agents')}</SelectLabel>
-                  {props.agents.map((agent) => (
-                    <SelectItem key={agent.id} value={`agent:${agent.id}`}>
-                      {agent.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </>
-            ) : null}
-          </SelectContent>
-        </Select>
+        <ChoiceSelect
+          aria-label={t('agendaPage.rail.who')}
+          triggerClassName="h-8 text-xs"
+          value={props.who}
+          onValueChange={(value) => props.onWho(value as AgendaWho)}
+          groups={[
+            {
+              items: [
+                { value: 'all', label: t('agendaPage.who.all'), kind: 'icon', icon: Users },
+                {
+                  value: 'me',
+                  label: t('agendaPage.who.me'),
+                  kind: 'person',
+                  person: user
+                    ? { name: user.name || user.email || t('agendaPage.who.me'), email: user.email, avatarUrl: user.avatarUrl }
+                    : { name: t('agendaPage.who.me') },
+                },
+              ],
+            },
+            {
+              label: t('agendaPage.who.people'),
+              items: props.people.map((person) => ({
+                value: `user:${person.id}`,
+                label: person.name,
+                kind: 'person' as const,
+                person: { name: person.name, email: person.email, avatarUrl: person.avatarUrl },
+              })),
+            },
+            {
+              label: t('agendaPage.who.agents'),
+              items: props.agents.map((agent) => ({
+                value: `agent:${agent.id}`,
+                label: agent.name,
+                kind: 'agent' as const,
+                agent,
+              })),
+            },
+          ]}
+        />
         {props.projects.length > 0 ? (
-          <Select value={props.projectId || 'all'} onValueChange={(value) => props.onProject(value === 'all' ? '' : value)}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('agendaPage.rail.allProjects')}</SelectItem>
-              {props.projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ChoiceSelect
+            aria-label={t('agendaPage.rail.allProjects')}
+            triggerClassName="h-8 text-xs"
+            value={props.projectId || 'all'}
+            onValueChange={(value) => props.onProject(value === 'all' ? '' : value)}
+            groups={[
+              {
+                items: [
+                  { value: 'all', label: t('agendaPage.rail.allProjects'), kind: 'project' },
+                  ...props.projects.map((project) => ({
+                    value: project.id,
+                    label: project.name,
+                    kind: 'project' as const,
+                  })),
+                ],
+              },
+            ]}
+          />
         ) : null}
       </section>
 

@@ -11,7 +11,7 @@ import { uploadAttachment } from '../../lib/uploads-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
 import { Callout } from '../ui/callout'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import {
   DropdownMenu,
@@ -192,21 +192,22 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             {enabledConnections.length === 1 ? (
               <span className="truncate-fade text-sm text-text-primary">{enabledConnections[0].mailboxEmail}</span>
             ) : (
-              <Select
+              <ChoiceSelect
+                aria-label={t('compose.from')}
+                triggerClassName="h-8 flex-1 text-sm"
                 value={connectionId != null ? String(connectionId) : undefined}
                 onValueChange={(value) => setConnectionId(Number(value) || null)}
-              >
-                <SelectTrigger className="h-8 flex-1 text-sm" aria-label={t('compose.from')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {enabledConnections.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.mailboxEmail}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                groups={[
+                  {
+                    items: enabledConnections.map((connection) => ({
+                      value: String(connection.id),
+                      label: connection.mailboxEmail,
+                      kind: 'icon' as const,
+                      brandSlug: connection.provider,
+                    })),
+                  },
+                ]}
+              />
             )}
           </div>
         ) : null}

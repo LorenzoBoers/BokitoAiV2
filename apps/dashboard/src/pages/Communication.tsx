@@ -359,6 +359,7 @@ export default function Communication() {
     refresh: refreshDetail,
     patch,
     reply,
+    retryFailedSend,
     addNote,
     updateNote,
     deleteNote,
@@ -1589,6 +1590,7 @@ export default function Communication() {
             unreadHighlightIds={unreadHighlightIds}
             onPatch={handlePatch}
             onReply={handleReply}
+            onRetrySend={retryFailedSend}
             onNote={handleNote}
             onUpdateNote={handleUpdateNote}
             onDeleteNote={handleDeleteNote}

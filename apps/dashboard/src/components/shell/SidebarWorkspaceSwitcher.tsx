@@ -1,4 +1,4 @@
-import { Building2, Check, ChevronsUpDown, LayoutGrid, Gauge } from 'lucide-react'
+import { Check, ChevronsUpDown, LayoutGrid, Gauge } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { ChoiceOption } from '../ui/ChoiceOption'
 import { Tip } from '../ui/Tip'
 
 /** Navigates to the workspaces hub, cross-host when running on a tenant subdomain. */
@@ -107,8 +108,11 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
               }}
               className={current ? 'text-text-heading' : undefined}
             >
-              <Building2 size={14} className="mr-2 shrink-0 text-text-muted" aria-hidden />
-              <span className="min-w-0 flex-1 truncate-fade">{workspace.name}</span>
+              <ChoiceOption
+                item={{ value: String(workspace.id), label: workspace.name, kind: 'icon' }}
+                size={16}
+                className="min-w-0 flex-1"
+              />
               {current ? <Check size={14} className="ml-auto shrink-0 text-text-muted" aria-hidden /> : null}
             </DropdownMenuItem>
           )

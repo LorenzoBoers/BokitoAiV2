@@ -44,6 +44,7 @@ Rare one-off styles fold into the nearest catalog component.
 | | `Table` family | Tabular data |
 | Identity | `IconTile` | Square icon or logo tile |
 | | `UserAvatar`, `AiAvatar`, `ContactAvatar`, `TeamAvatar` | People, agents, contacts, teams |
+| | `ChoiceSelect`, `ChoiceOption`, `AgentSelect` | Named rows in selects and menus: always a mark, then the name |
 
 ## Tokens
 

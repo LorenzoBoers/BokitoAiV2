@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { updateChannelDefaultTeam } from '../../lib/channel-accounts-api'
 import { listTeams, type Team } from '../../lib/teams-api'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { DefaultBadge } from '../ui/DefaultBadge'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
@@ -65,29 +65,44 @@ export default function ChannelTeamPicker({
   }
 
   return (
-    <Select
+    <ChoiceSelect
+      aria-label={t('channelsPage.team')}
+      triggerClassName="h-8 w-[200px] text-xs"
       value={current}
-      onValueChange={(v) => void change(v)}
+      onValueChange={(next) => void change(next)}
       disabled={!isAdmin || busy || !accountId || !token}
-    >
-      <SelectTrigger className="h-8 w-[200px] text-xs" aria-label={t('channelsPage.team')}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={PEOPLE}>
-          <span className="flex items-center gap-2">
-            {t('teamPage.system.people')}
-            <DefaultBadge>{t('channelsPage.defaultBadge')}</DefaultBadge>
-          </span>
-        </SelectItem>
-        {orphanTeam ? <SelectItem value={orphanTeam.id}>{orphanTeam.name}</SelectItem> : null}
-        {orphanId ? <SelectItem value={orphanId}>{t('channelsPage.unknownTeam')}</SelectItem> : null}
-        {custom.map((team) => (
-          <SelectItem key={team.id} value={team.id}>
-            {team.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      groups={[
+        {
+          items: [
+            {
+              value: PEOPLE,
+              label: t('teamPage.system.people'),
+              kind: 'team',
+              team: peopleTeam ?? { name: t('teamPage.system.people') },
+              trailing: <DefaultBadge>{t('channelsPage.defaultBadge')}</DefaultBadge>,
+            },
+            ...(orphanTeam
+              ? [{ value: orphanTeam.id, label: orphanTeam.name, kind: 'team' as const, team: orphanTeam }]
+              : []),
+            ...(orphanId
+              ? [
+                  {
+                    value: orphanId,
+                    label: t('channelsPage.unknownTeam'),
+                    kind: 'team' as const,
+                    team: { name: t('channelsPage.unknownTeam') },
+                  },
+                ]
+              : []),
+            ...custom.map((team) => ({
+              value: team.id,
+              label: team.name,
+              kind: 'team' as const,
+              team,
+            })),
+          ],
+        },
+      ]}
+    />
   )
 }

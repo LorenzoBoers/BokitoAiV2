@@ -14,9 +14,33 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { PageContent } from '../components/layout/PageContent';
 import { SettingsSection } from '../components/layout/SettingsSection';
+import { SegmentedControl } from '../components/ui/segmented-control';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { applyUiLanguageLocally, persistUiLanguage } from '../lib/language-preference';
+import {
+  getAiCommunicationSettings,
+  saveAiCommunicationSettings,
+  type WorkspaceLanguage,
+} from '../lib/inbox-api';
+
+const ORG_LANGUAGES: WorkspaceLanguage[] = ['nl', 'en', 'de', 'fr', 'es'];
+const ORG_LANGUAGE_LABEL: Record<WorkspaceLanguage, string> = {
+  nl: 'orgLanguageNl',
+  en: 'orgLanguageEn',
+  de: 'orgLanguageDe',
+  fr: 'orgLanguageFr',
+  es: 'orgLanguageEs',
+};
+
 export default function WorkspaceSettings() {
-  const { t } = useTranslation(['workspace', 'common', 'nav']);
-  const { user, isStaff } = useAuth();
+  const { t, i18n } = useTranslation(['workspace', 'common', 'nav']);
+  const { user, token, isStaff } = useAuth();
   const { currentWorkspace, updateWorkspace, deleteWorkspace } = useWorkspace();
   const canInviteMembers = usePermission('invite_members');
   const isOwner = usePermission('delete_workspace');
@@ -30,6 +54,12 @@ export default function WorkspaceSettings() {
   const [saving, setSaving] = useState(false);
   const [supportSaving, setSupportSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [uiLang, setUiLang] = useState<'nl' | 'en'>(() =>
+    (i18n.resolvedLanguage || i18n.language || 'nl').startsWith('en') ? 'en' : 'nl',
+  );
+  const [orgLang, setOrgLang] = useState<WorkspaceLanguage>('nl');
+  const [orgLangLoading, setOrgLangLoading] = useState(false);
+  const [orgLangSaving, setOrgLangSaving] = useState(false);
   const allowPlatformSupport = currentWorkspace?.allow_platform_support !== false;
   const nameDirty = workspaceName.trim() !== (currentWorkspace?.name || user?.tenant.name || '').trim();
   useUnsavedChangesGuard(nameDirty && !saving, t('unsavedLeave'));
@@ -37,6 +67,28 @@ export default function WorkspaceSettings() {
   useEffect(() => {
     if (currentWorkspace?.name) setWorkspaceName(currentWorkspace.name);
   }, [currentWorkspace?.id, currentWorkspace?.name]);
+
+  useEffect(() => {
+    const next = (i18n.resolvedLanguage || i18n.language || 'nl').startsWith('en') ? 'en' : 'nl';
+    setUiLang(next);
+  }, [i18n.resolvedLanguage, i18n.language]);
+
+  useEffect(() => {
+    if (!token || !canManageWorkspace) return;
+    let cancelled = false;
+    setOrgLangLoading(true);
+    void getAiCommunicationSettings(token)
+      .then((settings) => {
+        if (!cancelled) setOrgLang(settings.workspaceLanguage);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setOrgLangLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, canManageWorkspace, currentWorkspace?.id]);
 
   const handleSave = async () => {
     if (!currentWorkspace) return;
@@ -63,6 +115,33 @@ export default function WorkspaceSettings() {
       toast.error(error instanceof Error ? error.message : t('platformSupportSaveError'));
     } finally {
       setSupportSaving(false);
+    }
+  };
+
+  const handleUiLanguage = async (lang: 'nl' | 'en') => {
+    setUiLang(lang);
+    applyUiLanguageLocally(i18n, lang);
+    if (!token) return;
+    try {
+      await persistUiLanguage(token, lang);
+    } catch {
+      toast.error(t('languageSaveError'));
+    }
+  };
+
+  const handleOrgLanguage = async (lang: WorkspaceLanguage) => {
+    if (!token || !canManageWorkspace) return;
+    const previous = orgLang;
+    setOrgLang(lang);
+    setOrgLangSaving(true);
+    try {
+      await saveAiCommunicationSettings(token, { workspaceLanguage: lang });
+      toast.success(t('saveSuccess'));
+    } catch {
+      setOrgLang(previous);
+      toast.error(t('orgLanguageSaveError'));
+    } finally {
+      setOrgLangSaving(false);
     }
   };
 
@@ -165,6 +244,46 @@ export default function WorkspaceSettings() {
               className="max-w-md"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">
+              {t('languageSectionTitle')}
+            </label>
+            <p className="mb-2 text-xs text-text-muted">{t('languageSectionHint')}</p>
+            <SegmentedControl
+              value={uiLang}
+              onChange={(lang) => void handleUiLanguage(lang)}
+              options={[
+                { value: 'nl' as const, label: t('languageDutch') },
+                { value: 'en' as const, label: t('languageEnglish') },
+              ]}
+            />
+          </div>
+
+          {canManageWorkspace ? (
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2" htmlFor="org-working-language">
+                {t('orgLanguageTitle')}
+              </label>
+              <p className="mb-2 text-xs text-text-muted">{t('orgLanguageHint')}</p>
+              <Select
+                value={orgLang}
+                disabled={orgLangLoading || orgLangSaving || !token}
+                onValueChange={(v) => void handleOrgLanguage(v as WorkspaceLanguage)}
+              >
+                <SelectTrigger id="org-working-language" className="max-w-md">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORG_LANGUAGES.map((lang) => (
+                    <SelectItem key={lang} value={lang}>
+                      {t(ORG_LANGUAGE_LABEL[lang])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
 
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">

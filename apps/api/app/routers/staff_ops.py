@@ -352,3 +352,56 @@ async def staff_patch_tenant_features(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"ok": True, "tenant_id": str(tid), "custom_models": features}
+
+
+class StaffTimeSavedWeightsBody(BaseModel):
+    """Minutes credited per action key (0–120). Unknown keys are ignored."""
+
+    minutes: dict[str, int] = Field(default_factory=dict)
+
+
+@router.get("/ops/time-saved-weights")
+async def staff_get_time_saved_weights(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Platform action-credit matrix used for Overview time saved and the mix pie."""
+    _require_staff(auth)
+    from app.services.time_saved import action_weight_catalog, load_action_minutes
+
+    minutes = await load_action_minutes(session)
+    return {"actions": action_weight_catalog(minutes)}
+
+
+@router.put("/ops/time-saved-weights")
+async def staff_put_time_saved_weights(
+    body: StaffTimeSavedWeightsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Update platform action weights (persisted in platform_settings)."""
+    _require_staff(auth)
+    from app.services.time_saved import (
+        DEFAULT_ACTION_MINUTES,
+        action_weight_catalog,
+        clamp_action_minutes,
+        save_action_minutes,
+    )
+
+    if not body.minutes:
+        raise HTTPException(status_code=400, detail="minutes is required")
+    for key, value in body.minutes.items():
+        if key not in DEFAULT_ACTION_MINUTES:
+            continue
+        if clamp_action_minutes(value) is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid minutes for {key} (0–120)",
+            )
+    minutes = await save_action_minutes(session, body.minutes)
+    logger.info(
+        "staff_time_saved_weights_updated staff=%s keys=%s",
+        auth.user.email,
+        sorted(body.minutes.keys()),
+    )
+    return {"ok": True, "actions": action_weight_catalog(minutes)}

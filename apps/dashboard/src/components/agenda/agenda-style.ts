@@ -2,9 +2,11 @@ import { cn } from '../../lib/utils'
 import type { TFunction } from 'i18next'
 import { Bot, CalendarDays, ClipboardList, History, type LucideIcon } from 'lucide-react'
 import { layerOf, type AgendaLayer } from '../../lib/agenda-layout'
+import { statusTone } from '../../lib/badge-tones'
 import type { Trigger } from '../../lib/orchestration-api'
 import type { TimeItem } from '../../lib/time-items'
 import { timeAgo } from '../../lib/time-ago'
+import type { BadgeTone } from '../ui/badge'
 
 export type AgendaVisualLayer = AgendaLayer | 'calendar'
 
@@ -107,6 +109,11 @@ export function relativeMoment(atMs: number, nowMs: number, t: TFunction): strin
 export function isFailed(status: string): boolean {
   const s = status.toLowerCase()
   return s === 'failed' || s === 'error'
+}
+
+/** Soft pill tone for Agenda statuses (panel, list, group rows). */
+export function agendaStatusTone(status: string | null | undefined): BadgeTone {
+  return statusTone(status)
 }
 
 /** "every day", "every 2 hours", "on webhook" for a routine. */

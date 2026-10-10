@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Sparkles } from 'lucide-react'
 import { Card } from '../ui/card'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { DefaultBadge } from '../ui/DefaultBadge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { useAuth } from '../../context/AuthContext'
 import { bokitoUpdateAgent } from '../../lib/bokito-api'
@@ -73,29 +74,49 @@ export function AgentAskTargetCard({
           </h3>
           <p className="mt-1 text-sm text-text-muted">{t('workforce.agents.askTargetHint')}</p>
         </div>
-        <Select value={value} onValueChange={(v) => void change(v)} disabled={!canEdit}>
-          <SelectTrigger className="h-8 w-[220px] text-xs" aria-label={t('workforce.agents.askTargetTitle')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={AUTO}>
-              <span className="flex items-center gap-2">
-                {t('workforce.agents.askTargetAuto')}
-                <DefaultBadge>{t('channelsPage.defaultBadge')}</DefaultBadge>
-              </span>
-            </SelectItem>
-            {teams.map((team) => (
-              <SelectItem key={team.id} value={`team:${team.id}`}>
-                {team.kind === 'people' ? t('teamPage.system.people') : team.name}
-              </SelectItem>
-            ))}
-            {people.map((person) => (
-              <SelectItem key={person.uuid} value={`user:${person.uuid}`}>
-                {person.name || person.email}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ChoiceSelect
+          aria-label={t('workforce.agents.askTargetTitle')}
+          triggerClassName="h-8 w-[220px] text-xs"
+          value={value}
+          onValueChange={(next) => void change(next)}
+          disabled={!canEdit}
+          groups={[
+            {
+              items: [
+                {
+                  value: AUTO,
+                  label: t('workforce.agents.askTargetAuto'),
+                  kind: 'icon',
+                  icon: Sparkles,
+                  trailing: <DefaultBadge>{t('channelsPage.defaultBadge')}</DefaultBadge>,
+                },
+              ],
+            },
+            {
+              items: teams.map((team) => {
+                const label = team.kind === 'people' ? t('teamPage.system.people') : team.name
+                return {
+                  value: `team:${team.id}`,
+                  label,
+                  kind: 'team' as const,
+                  team: { ...team, name: label },
+                }
+              }),
+            },
+            {
+              items: people.map((person) => ({
+                value: `user:${person.uuid}`,
+                label: person.name || person.email,
+                kind: 'person' as const,
+                person: {
+                  name: person.name || person.email,
+                  email: person.email,
+                  avatarUrl: person.avatar_url,
+                },
+              })),
+            },
+          ]}
+        />
       </div>
     </Card>
   )

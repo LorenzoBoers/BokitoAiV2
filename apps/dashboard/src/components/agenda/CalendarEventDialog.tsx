@@ -11,13 +11,20 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import {
   createCalendarEvent,
   updateCalendarEvent,
   type CalendarConnection,
 } from '../../lib/calendars-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+
+function calendarBrandSlug(provider: string): string {
+  const slug = provider.trim().toLowerCase()
+  if (slug.includes('outlook') || slug.includes('microsoft')) return 'outlook-calendar'
+  if (slug.includes('google')) return 'google-calendar'
+  return slug || 'calendar'
+}
 
 export type CalendarEventEditSeed = {
   id: string
@@ -232,18 +239,24 @@ export default function CalendarEventDialog({
           {!editing ? (
             <div className="space-y-1.5">
               <Label htmlFor="cal-conn">{t('agendaPage.calendar.connection')}</Label>
-              <Select value={connectionId} onValueChange={setConnectionId}>
-                <SelectTrigger id="cal-conn" className="h-9">
-                  <SelectValue placeholder={t('agendaPage.calendar.connection')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.display_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ChoiceSelect
+                id="cal-conn"
+                aria-label={t('agendaPage.calendar.connection')}
+                placeholder={t('agendaPage.calendar.connection')}
+                triggerClassName="h-9"
+                value={connectionId}
+                onValueChange={setConnectionId}
+                groups={[
+                  {
+                    items: connections.map((connection) => ({
+                      value: connection.id,
+                      label: connection.display_name,
+                      kind: 'calendar' as const,
+                      brandSlug: calendarBrandSlug(connection.provider),
+                    })),
+                  },
+                ]}
+              />
             </div>
           ) : null}
           <div className="space-y-1.5">

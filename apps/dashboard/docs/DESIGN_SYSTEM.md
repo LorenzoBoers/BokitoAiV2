@@ -129,6 +129,13 @@ coloring a pill locally.
 `AiAvatar` (agents), `ContactAvatar` (external people and companies),
 `TeamAvatar` (teams).
 
+Named things in a menu always wear that same mark. Use `ChoiceSelect` for a
+select of agents, people, teams, flows, projects, tags, calendars, or
+connections. Pass `kind` plus the avatar or `brandSlug`; the closed control
+and every row render `ChoiceOption`. `AgentSelect` is that picker for agents
+only. A `DropdownMenu` of the same things uses `ChoiceOption` inside each
+item. Enums (a mode, a language, a number) stay a plain `Select`.
+
 ## Guard
 
 `npm run lint` runs `scripts/check-design-system.mjs`:

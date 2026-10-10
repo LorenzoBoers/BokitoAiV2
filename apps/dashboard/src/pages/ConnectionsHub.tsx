@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ConnectionsNextSteps } from '../components/integrations/ConnectionsNextSteps'
 import { ConnectionSections } from '../components/integrations/ConnectionSections'
 import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
 import { ApplicationCard } from '../components/integrations/ApplicationCard'
@@ -72,7 +71,7 @@ export default function ConnectionsHub() {
   )
   const [query, setQuery] = useState('')
 
-  const { loading, loadError, mcpRows, connections, counts, refresh } = useConnectedIntegrationsSummary()
+  const { loading, loadError, mcpRows, connections, refresh } = useConnectedIntegrationsSummary()
   const { applications, modules, refreshCatalog, runModuleAction } = useIntegrationCatalog()
 
   const [hubOpen, setHubOpen] = useState(false)
@@ -231,7 +230,6 @@ export default function ConnectionsHub() {
     () => modules.filter((module) => module.status !== 'coming_soon' && moduleIsOn(module)),
     [modules],
   )
-  const hasInstalledModule = installedModules.length > 0
 
   const refreshAll = useCallback(async () => {
     await Promise.all([refresh(), refreshCatalog()])
@@ -350,12 +348,6 @@ export default function ConnectionsHub() {
       </div>
 
       {loadError ? <p className="text-xs text-text-muted">{t(loadError)}</p> : null}
-
-      <ConnectionsNextSteps
-        needsChannel={counts.inbox === 0}
-        needsAgenda={counts.calendar === 0}
-        needsModule={!hasInstalledModule}
-      />
 
       <section className="space-y-3">
         <h2 className="text-xs font-semibold text-text-muted">{t('integrations.connected.yourList')}</h2>

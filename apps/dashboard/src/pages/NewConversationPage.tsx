@@ -7,10 +7,10 @@ import {
   Bot,
   Check,
   ChevronDown,
+  Hash,
   Loader2,
   Mail,
   User,
-  Users,
   X as XIcon,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -18,6 +18,7 @@ import { useChatSessions } from '../context/ChatSessionsContext'
 import {
   bokitoCreateConversation,
   bokitoListChatTargets,
+  startConversation,
   type ChatTarget,
 } from '../lib/signals-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
@@ -41,6 +42,12 @@ import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
 import { AiAvatar } from '../components/ui/AiAvatar'
+import { ChoiceSelect } from '../components/ui/ChoiceSelect'
+import { Input } from '../components/ui/input'
+import { Textarea } from '../components/ui/textarea'
+import { BrandMark } from '../components/integrations/BrandMark'
+import { listChannelAccounts, type ChannelAccountRow } from '../lib/channel-accounts-api'
+import { listCategories, type CategoryRow } from '../lib/tickets-api'
 import { useMembers } from '../hooks/useMembers'
 import { useMentionDraft } from '../hooks/useMentionDraft'
 import MentionPopover from '../components/inbox/MentionPopover'
@@ -54,10 +61,14 @@ import {
 } from '../lib/outbound-channel-pref'
 import { cn } from '../lib/utils'
 
-type Intent = 'contact' | 'agent' | 'teammate'
+type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket'
+
+const NO_PROJECT = '__none__'
 
 function parseIntent(raw: string | null): Intent | null {
-  if (raw === 'contact' || raw === 'agent' || raw === 'teammate') return raw
+  if (raw === 'contact' || raw === 'agent' || raw === 'teammate' || raw === 'whatsapp' || raw === 'ticket') {
+    return raw
+  }
   return null
 }
 
@@ -101,6 +112,16 @@ export default function NewConversationPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(memberParam || null)
+  const [whatsappAccounts, setWhatsappAccounts] = useState<ChannelAccountRow[]>([])
+  const [categories, setCategories] = useState<CategoryRow[]>([])
+  const [whatsappAccountId, setWhatsappAccountId] = useState('')
+  const [whatsappTo, setWhatsappTo] = useState('')
+  const [whatsappBody, setWhatsappBody] = useState('')
+  const [ticketTagId, setTicketTagId] = useState('')
+  const [ticketProjectId, setTicketProjectId] = useState('')
+  const [ticketSubject, setTicketSubject] = useState('')
+  const [ticketNote, setTicketNote] = useState('')
+  const [ticketFields, setTicketFields] = useState<Record<string, string>>({})
 
   // Unsent new-mail draft: the chooser shows it as a resumable chip instead
   // of only a passive "Draft" badge, so the saved mail is one click away.
@@ -230,6 +251,24 @@ export default function NewConversationPage() {
   }, [toParam])
 
   useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void Promise.all([
+      listChannelAccounts(token).catch(() => [] as ChannelAccountRow[]),
+      listCategories().catch(() => [] as CategoryRow[]),
+    ]).then(([accounts, tags]) => {
+      if (cancelled) return
+      const ready = accounts.filter((row) => row.channel === 'whatsapp' && row.isEnabled)
+      setWhatsappAccounts(ready)
+      setWhatsappAccountId((prev) => prev || ready[0]?.id || '')
+      setCategories(tags.filter((row) => row.workstream_id))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  useEffect(() => {
     if (!memberParam || !teammateOptions.length) return
     const member = teammateOptions.find((m) => String(m.id) === memberParam || m.uuid === memberParam)
     if (member?.email) {
@@ -278,20 +317,34 @@ export default function NewConversationPage() {
   }, [targets, agentQuery])
 
   // Contact typeahead inside the mail composer's To field.
-  const recipientSuggestions = useMemo<MailRecipientSuggestion[]>(
+  const recipientSuggestions = useMemo<MailRecipientSuggestion[]>(() => {
+    const rows: MailRecipientSuggestion[] = contacts
+      .filter((contact) => canComposeToAddress(contact.channel, contact.address))
+      .map((contact) => ({
+        label:
+          humanizeContactName(
+            contact.displayName,
+            contact.address,
+            t('contactPanel.widgetVisitor'),
+          ) || contact.address,
+        address: contact.address,
+      }))
+    const seen = new Set(rows.map((row) => row.address.trim().toLowerCase()))
+    for (const member of teammateOptions) {
+      const address = member.email.trim()
+      if (seen.has(address.toLowerCase())) continue
+      seen.add(address.toLowerCase())
+      rows.push({ label: member.name || address, address })
+    }
+    return rows
+  }, [contacts, teammateOptions, t])
+
+  const whatsappSuggestions = useMemo(
     () =>
-      contacts
-        .filter((contact) => canComposeToAddress(contact.channel, contact.address))
-        .map((contact) => ({
-          label:
-            humanizeContactName(
-              contact.displayName,
-              contact.address,
-              t('contactPanel.widgetVisitor'),
-            ) || contact.address,
-          address: contact.address,
-        })),
-    [contacts, t],
+      contacts.filter(
+        (contact) => contact.channel === 'whatsapp' || contact.channel === 'phone',
+      ),
+    [contacts],
   )
 
   const chooseAgent = (target: ChatTarget) => {
@@ -363,6 +416,60 @@ export default function NewConversationPage() {
     [token, sending, sendableMailboxes, connectionId, navigate, t],
   )
 
+  const selectedCategory = categories.find((row) => row.id === ticketTagId) ?? null
+  const ticketNeedsProject = (selectedCategory?.project_choices.length ?? 0) > 0
+
+  const startWhatsapp = useCallback(async () => {
+    if (!token || sending) return
+    setSending(true)
+    setError(null)
+    try {
+      const result = await startConversation(token, {
+        kind: 'whatsapp',
+        to: whatsappTo,
+        bodyText: whatsappBody,
+        channelAccountId: whatsappAccountId || undefined,
+      })
+      navigate(channelPath('whatsapp', { threadId: result.threadId }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('newConversation.startError'))
+      setSending(false)
+    }
+  }, [token, sending, whatsappTo, whatsappBody, whatsappAccountId, navigate, t])
+
+  const startTicket = useCallback(async () => {
+    if (!token || sending || !selectedCategory) return
+    setSending(true)
+    setError(null)
+    try {
+      const projectId =
+        !ticketNeedsProject || ticketProjectId === NO_PROJECT ? null : ticketProjectId || null
+      const result = await startConversation(token, {
+        kind: 'ticket',
+        tagId: selectedCategory.id,
+        subject: ticketSubject,
+        note: ticketNote,
+        projectId: ticketNeedsProject ? projectId : null,
+        fields: ticketFields,
+      })
+      navigate(channelPath('internal', { threadId: result.threadId }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('newConversation.startError'))
+      setSending(false)
+    }
+  }, [
+    token,
+    sending,
+    selectedCategory,
+    ticketNeedsProject,
+    ticketProjectId,
+    ticketSubject,
+    ticketNote,
+    ticketFields,
+    navigate,
+    t,
+  ])
+
   const start = useCallback(async () => {
     if (intent === 'agent') return startAgent()
   }, [intent, startAgent])
@@ -411,13 +518,15 @@ export default function NewConversationPage() {
           {intent ? t('newConversation.changeType') : t('newConversation.back')}
         </button>
         <p className="text-sm font-medium text-text-primary">
-          {intent === 'contact'
+          {intent === 'contact' || intent === 'teammate'
             ? t('newConversation.draftContact')
             : intent === 'agent'
               ? t('newConversation.draftAgent')
-              : intent === 'teammate'
-                ? t('newConversation.draftTeammate')
-                : t('newConversation.title')}
+              : intent === 'whatsapp'
+                ? t('newConversation.draftWhatsapp')
+                : intent === 'ticket'
+                  ? t('newConversation.draftTicket')
+                  : t('newConversation.title')}
         </p>
         <span className="rounded-md border border-border/50 bg-bg-elevated px-1.5 py-0.5 text-2xs font-medium text-text-muted">
           {t('newConversation.draftBadge')}
@@ -477,25 +586,25 @@ export default function NewConversationPage() {
                   disabled={!canSendEmail}
                   onClick={() => setIntent('contact')}
                 />
+                {whatsappAccounts.length > 0 ? (
+                  <IntentCard
+                    icon={<BrandMark slug="whatsapp" size={22} />}
+                    title={t('newConversation.intentWhatsapp')}
+                    hint={t('newConversation.intentWhatsappHint')}
+                    onClick={() => setIntent('whatsapp')}
+                  />
+                ) : null}
                 <IntentCard
-                  icon={<User size={22} />}
-                  title={t('newConversation.intentContact')}
-                  hint={t('newConversation.intentContactHint')}
-                  disabled={!canSendEmail}
-                  onClick={() => setIntent('contact')}
+                  icon={<Hash size={22} />}
+                  title={t('newConversation.intentTicket')}
+                  hint={t('newConversation.intentTicketHint')}
+                  onClick={() => setIntent('ticket')}
                 />
                 <IntentCard
                   icon={<Bot size={22} />}
                   title={t('newConversation.intentAgent')}
                   hint={t('newConversation.intentAgentHint')}
                   onClick={() => setIntent('agent')}
-                />
-                <IntentCard
-                  icon={<Users size={22} />}
-                  title={t('newConversation.intentTeammate')}
-                  hint={t('newConversation.intentTeammateHint')}
-                  disabled={!canSendEmail || teammateOptions.length === 0}
-                  onClick={() => setIntent('teammate')}
                 />
               </div>
               {!canSendEmail ? (
@@ -563,6 +672,96 @@ export default function NewConversationPage() {
                 </>
               )}
             </div>
+          ) : null}
+
+          {intent === 'whatsapp' ? (
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void startWhatsapp()
+              }}
+            >
+              {whatsappAccounts.length > 1 ? (
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-text-muted">{t('newConversation.from')}</span>
+                  <ChoiceSelect
+                    aria-label={t('newConversation.from')}
+                    value={whatsappAccountId}
+                    onValueChange={setWhatsappAccountId}
+                    groups={[
+                      {
+                        items: whatsappAccounts.map((account) => ({
+                          value: account.id,
+                          label: account.displayName || account.address,
+                          kind: 'icon' as const,
+                          brandSlug: 'whatsapp',
+                        })),
+                      },
+                    ]}
+                  />
+                </label>
+              ) : null}
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-text-muted">{t('newConversation.whatsappTo')}</span>
+                <Input
+                  value={whatsappTo}
+                  onChange={(event) => setWhatsappTo(event.target.value)}
+                  placeholder={t('newConversation.whatsappToPlaceholder')}
+                  inputMode="tel"
+                  autoComplete="off"
+                  list="whatsapp-contacts"
+                />
+                <datalist id="whatsapp-contacts">
+                  {whatsappSuggestions.map((contact) => (
+                    <option key={contact.id} value={contact.address}>
+                      {contact.displayName}
+                    </option>
+                  ))}
+                </datalist>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-text-muted">{t('newConversation.writeMessage')}</span>
+                <Textarea
+                  value={whatsappBody}
+                  onChange={(event) => setWhatsappBody(event.target.value)}
+                  placeholder={t('newConversation.whatsappBodyPlaceholder')}
+                  rows={5}
+                />
+              </label>
+              {error ? <p className="text-xs text-status-error">{error}</p> : null}
+              <p className="text-xs text-text-muted">{t('newConversation.whatsappHint')}</p>
+              <button
+                type="submit"
+                disabled={sending || whatsappTo.trim().length < 8 || !whatsappBody.trim()}
+                className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+              >
+                {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.send')}
+              </button>
+            </form>
+          ) : null}
+
+          {intent === 'ticket' ? (
+            <TicketStart
+              categories={categories}
+              tagId={ticketTagId}
+              projectId={ticketProjectId}
+              subject={ticketSubject}
+              note={ticketNote}
+              fields={ticketFields}
+              sending={sending}
+              error={error}
+              onTag={(id) => {
+                setTicketTagId(id)
+                setTicketProjectId('')
+                setTicketFields({})
+              }}
+              onProject={setTicketProjectId}
+              onSubject={setTicketSubject}
+              onNote={setTicketNote}
+              onField={(key, value) => setTicketFields((prev) => ({ ...prev, [key]: value }))}
+              onSubmit={() => void startTicket()}
+            />
           ) : null}
 
           {intent === 'agent' ? (
@@ -725,6 +924,148 @@ export default function NewConversationPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function TicketStart({
+  categories,
+  tagId,
+  projectId,
+  subject,
+  note,
+  fields,
+  sending,
+  error,
+  onTag,
+  onProject,
+  onSubject,
+  onNote,
+  onField,
+  onSubmit,
+}: {
+  categories: CategoryRow[]
+  tagId: string
+  projectId: string
+  subject: string
+  note: string
+  fields: Record<string, string>
+  sending: boolean
+  error: string | null
+  onTag: (id: string) => void
+  onProject: (id: string) => void
+  onSubject: (value: string) => void
+  onNote: (value: string) => void
+  onField: (key: string, value: string) => void
+  onSubmit: () => void
+}) {
+  const { t } = useTranslation('communication')
+  const category = categories.find((row) => row.id === tagId) ?? null
+  const needsProject = (category?.project_choices.length ?? 0) > 0
+  const intake = category?.intake_fields ?? []
+  const missingRequired = intake.some((field) => field.required && !(fields[field.key] || '').trim())
+  const ready = Boolean(category && subject.trim() && (!needsProject || projectId) && !missingRequired)
+
+  if (categories.length === 0) {
+    return (
+      <div className="panel px-5 py-8 text-center">
+        <Hash size={28} className="mx-auto text-text-muted" />
+        <p className="mt-3 text-sm text-text-primary">{t('newConversation.noActionTags')}</p>
+        <Link to="/workstreams" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
+          {t('newConversation.openFlows')}
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (ready) onSubmit()
+      }}
+    >
+      <label className="block space-y-1.5">
+        <span className="text-xs font-medium text-text-muted">{t('tags.actionTag')}</span>
+        <ChoiceSelect
+          aria-label={t('tags.actionTag')}
+          placeholder={t('newConversation.chooseActionTag')}
+          value={tagId}
+          onValueChange={onTag}
+          groups={[
+            {
+              items: categories.map((row) => ({
+                value: row.id,
+                label: row.name,
+                kind: 'tag' as const,
+                category: true,
+              })),
+            },
+          ]}
+        />
+      </label>
+      {needsProject ? (
+        <label className="block space-y-1.5">
+          <span className="text-xs font-medium text-text-muted">{t('tags.chooseProject')}</span>
+          <ChoiceSelect
+            aria-label={t('tags.chooseProject')}
+            placeholder={t('tags.chooseProject')}
+            value={projectId}
+            onValueChange={onProject}
+            groups={[
+              {
+                items: [
+                  { value: NO_PROJECT, label: t('tags.noProject'), kind: 'project' as const },
+                  ...category!.project_choices.map((project) => ({
+                    value: project.id,
+                    label: project.name,
+                    kind: 'project' as const,
+                  })),
+                ],
+              },
+            ]}
+          />
+        </label>
+      ) : null}
+      <label className="block space-y-1.5">
+        <span className="text-xs font-medium text-text-muted">{t('newConversation.subjectPlaceholder')}</span>
+        <Input
+          value={subject}
+          onChange={(event) => onSubject(event.target.value)}
+          placeholder={t('newConversation.ticketSubjectPlaceholder')}
+        />
+      </label>
+      {intake.map((field) => (
+        <label key={field.key} className="block space-y-1.5">
+          <span className="text-xs font-medium text-text-muted">
+            {field.name}
+            {field.required ? ` · ${t('tags.intakeRequired')}` : ''}
+          </span>
+          <Input
+            value={fields[field.key] ?? ''}
+            onChange={(event) => onField(field.key, event.target.value)}
+          />
+        </label>
+      ))}
+      <label className="block space-y-1.5">
+        <span className="text-xs font-medium text-text-muted">{t('newConversation.ticketNote')}</span>
+        <Textarea
+          value={note}
+          onChange={(event) => onNote(event.target.value)}
+          placeholder={t('newConversation.ticketNotePlaceholder')}
+          rows={4}
+        />
+      </label>
+      {error ? <p className="text-xs text-status-error">{error}</p> : null}
+      <p className="text-xs text-text-muted">{t('newConversation.ticketHint')}</p>
+      <button
+        type="submit"
+        disabled={sending || !ready}
+        className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+      >
+        {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.logTicket')}
+      </button>
+    </form>
   )
 }
 

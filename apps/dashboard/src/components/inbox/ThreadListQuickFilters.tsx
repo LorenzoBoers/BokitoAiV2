@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Filter, List, Mail, Pin, Rows3, Search, Settings, X } from 'lucide-react'
+import { Filter, List, Mail, Pin, Rows3, Search, Settings, Users, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import type { InboxDensity } from '../../lib/inbox-prefs'
@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import {
   Select,
   SelectContent,
@@ -36,7 +37,7 @@ function mailboxSyncLabel(
   return t('threadList.lastSyncDays', { count: Math.floor(hours / 24) })
 }
 
-type MemberOption = { id: number; name: string; email: string }
+type MemberOption = { id: number; name: string; email: string; avatarUrl?: string | null }
 
 type Props = {
   value: InboxListQuickFilter
@@ -233,24 +234,34 @@ export default function ThreadListQuickFilters({
                   {onAssigneeFilter ? (
                     <label className="block text-xs text-text-muted">
                       {t('threadList.filterAssignee')}
-                      <Select
+                      <ChoiceSelect
+                        aria-label={t('threadList.filterAssignee')}
+                        triggerClassName="mt-1 h-7 w-full text-xs"
                         value={assigneeFilter == null ? 'all' : String(assigneeFilter)}
-                        onValueChange={(next) =>
-                          onAssigneeFilter(next === 'all' ? null : Number(next))
-                        }
-                      >
-                        <SelectTrigger className="mt-1 h-7 w-full text-xs" aria-label={t('threadList.filterAssignee')}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">{t('threadList.filterAssigneeAll')}</SelectItem>
-                          {members.map((member) => (
-                            <SelectItem key={member.id} value={String(member.id)}>
-                              {member.name || member.email}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onValueChange={(next) => onAssigneeFilter(next === 'all' ? null : Number(next))}
+                        groups={[
+                          {
+                            items: [
+                              {
+                                value: 'all',
+                                label: t('threadList.filterAssigneeAll'),
+                                kind: 'icon',
+                                icon: Users,
+                              },
+                              ...members.map((member) => ({
+                                value: String(member.id),
+                                label: member.name || member.email,
+                                kind: 'person' as const,
+                                person: {
+                                  name: member.name || member.email,
+                                  email: member.email,
+                                  avatarUrl: member.avatarUrl,
+                                },
+                              })),
+                            ],
+                          },
+                        ]}
+                      />
                     </label>
                   ) : null}
                   {onPriorityFilter ? (

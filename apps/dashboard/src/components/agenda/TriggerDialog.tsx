@@ -16,6 +16,8 @@ import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { Switch } from '../ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
+import type { AgentVisualFields } from '../ui/AgentOptionRow'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
   createTrigger,
@@ -26,7 +28,7 @@ import {
 } from '../../lib/orchestration-api'
 import { WebhookTriggerPanel } from './WebhookTriggerPanel'
 
-export type TargetOption = { id: string; name: string }
+export type TargetOption = { id: string; name: string } & Partial<AgentVisualFields>
 
 type TriggerDialogProps = {
   open: boolean
@@ -41,6 +43,8 @@ type TriggerDialogProps = {
   initialKind?: TriggerKind
   /** Agent to target for a new item (Agenda filtered to one agent). */
   initialAgentId?: string | null
+  /** ``watch`` prefills a daily workspace check in this dialog. */
+  initialSeed?: string | null
   onSaved: () => void
 }
 
@@ -75,6 +79,7 @@ export default function TriggerDialog({
   initialRunAt,
   initialKind = 'once',
   initialAgentId = null,
+  initialSeed = null,
   onSaved,
 }: TriggerDialogProps) {
   const { t } = useTranslation('nav')
@@ -111,20 +116,21 @@ export default function TriggerDialog({
       setEnabled(trigger.enabled)
     } else {
       const base = initialRunAt ?? new Date(Date.now() + 60 * 60 * 1000)
-      setName('')
+      const watch = initialSeed === 'watch'
+      setName(watch ? t('cockpitPage.recurringWake.taskName') : '')
       setKind(initialKind)
       setRunAt(dateToLocalInputValue(base))
       setCronExpr('0 9 * * 1-5')
-      setIntervalMinutes(60)
+      setIntervalMinutes(watch ? 1440 : 60)
       const preferred = initialAgentId ? agents.find((agent) => agent.id === initialAgentId) : undefined
       const firstAgent = preferred ?? agents[0]
       setTarget(firstAgent ? `agent:${firstAgent.id}` : workstreams[0] ? `ws:${workstreams[0].id}` : 'none')
-      setInstructions('')
+      setInstructions(watch ? t('cockpitPage.recurringWake.promptDefault') : '')
       setEnabled(true)
     }
     setSavedWebhook(null)
     setRevealedSecret(null)
-  }, [open, trigger, initialRunAt, initialKind, initialAgentId, agents, workstreams])
+  }, [open, trigger, initialRunAt, initialKind, initialAgentId, initialSeed, agents, workstreams, t])
 
   const kindHint = t(`triggerDialog.hints.${kind}`)
   const needsRunAt = kind === 'once' || kind === 'event'
@@ -293,23 +299,29 @@ export default function TriggerDialog({
           {needsTarget ? (
             <div className="space-y-1.5">
               <Label>{t('triggerDialog.target')}</Label>
-              <Select value={target} onValueChange={setTarget}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('triggerDialog.targetPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {agents.map((a) => (
-                    <SelectItem key={a.id} value={`agent:${a.id}`}>
-                      {t('triggerDialog.agentPrefix', { name: a.name })}
-                    </SelectItem>
-                  ))}
-                  {workstreams.map((w) => (
-                    <SelectItem key={w.id} value={`ws:${w.id}`}>
-                      {t('triggerDialog.workstreamPrefix', { name: w.name })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ChoiceSelect
+                aria-label={t('triggerDialog.target')}
+                placeholder={t('triggerDialog.targetPlaceholder')}
+                value={target === 'none' ? undefined : target}
+                onValueChange={setTarget}
+                groups={[
+                  {
+                    items: agents.map((agent) => ({
+                      value: `agent:${agent.id}`,
+                      label: agent.name,
+                      kind: 'agent' as const,
+                      agent: { ...agent, id: agent.id, name: agent.name },
+                    })),
+                  },
+                  {
+                    items: workstreams.map((workstream) => ({
+                      value: `ws:${workstream.id}`,
+                      label: workstream.name,
+                      kind: 'flow' as const,
+                    })),
+                  },
+                ]}
+              />
               {agents.length === 0 && workstreams.length === 0 ? (
                 <p className="text-xs text-status-error">{t('triggerDialog.needTarget')}</p>
               ) : target === 'none' ? (

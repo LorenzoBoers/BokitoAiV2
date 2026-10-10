@@ -7,14 +7,18 @@ import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
+import { toast } from 'sonner'
 import {
   deleteStaffOpsTenant,
   getStaffOpsDirectory,
+  getStaffTimeSavedWeights,
   impersonateStaffOpsUser,
+  putStaffTimeSavedWeights,
   setStaffTenantCustomModels,
   type StaffOpsDirectory,
   type StaffOpsTenant,
   type StaffOpsUser,
+  type StaffTimeSavedWeight,
 } from '../lib/ops-api'
 
 function envLabel(environment: string, apiUrl: string): string {
@@ -49,6 +53,10 @@ export default function OpsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [featuringId, setFeaturingId] = useState<string | null>(null)
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
+  const [weights, setWeights] = useState<StaffTimeSavedWeight[] | null>(null)
+  const [weightDraft, setWeightDraft] = useState<Record<string, number>>({})
+  const [weightsLoading, setWeightsLoading] = useState(false)
+  const [weightsSaving, setWeightsSaving] = useState(false)
 
   const load = useCallback(async (q: string) => {
     if (!token) return
@@ -69,6 +77,49 @@ export default function OpsPage() {
     if (!isStaff || !token) return
     void load(appliedQuery)
   }, [isStaff, token, appliedQuery, load])
+
+  useEffect(() => {
+    if (!isStaff || !token) return
+    let cancelled = false
+    setWeightsLoading(true)
+    void getStaffTimeSavedWeights(token)
+      .then((payload) => {
+        if (cancelled) return
+        setWeights(payload.actions)
+        const draft: Record<string, number> = {}
+        for (const row of payload.actions) draft[row.action] = row.minutes
+        setWeightDraft(draft)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setWeights(null)
+          toast.error(err instanceof Error ? err.message : t('ops.timeSaved.loadError'))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWeightsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isStaff, token, t])
+
+  const onSaveWeights = useCallback(async () => {
+    if (!token || weightsSaving) return
+    setWeightsSaving(true)
+    try {
+      const payload = await putStaffTimeSavedWeights(token, weightDraft)
+      setWeights(payload.actions)
+      const draft: Record<string, number> = {}
+      for (const row of payload.actions) draft[row.action] = row.minutes
+      setWeightDraft(draft)
+      toast.success(t('ops.timeSaved.savedToast'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('ops.timeSaved.saveError'))
+    } finally {
+      setWeightsSaving(false)
+    }
+  }, [token, weightDraft, weightsSaving, t])
 
   const activeTenantId = user?.organisationId ?? ''
 
@@ -269,6 +320,77 @@ export default function OpsPage() {
               </p>
             </div>
           </div>
+
+          <section className="space-y-2">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-text">{t('ops.timeSaved.title')}</h2>
+                <p className="mt-0.5 max-w-2xl text-xs text-text-muted">{t('ops.timeSaved.hint')}</p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={weightsLoading || weightsSaving || !weights}
+                onClick={() => void onSaveWeights()}
+              >
+                {weightsSaving ? t('ops.timeSaved.saving') : t('ops.timeSaved.save')}
+              </Button>
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-border bg-surface-2 text-xs text-text-muted">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">{t('ops.col.action')}</th>
+                    <th className="px-3 py-2 font-medium">{t('ops.timeSaved.mode')}</th>
+                    <th className="px-3 py-2 font-medium">{t('ops.timeSaved.minutes')}</th>
+                    <th className="px-3 py-2 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {weightsLoading && !weights ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-6 text-center text-text-muted">
+                        <span className="inline-flex items-center gap-2">
+                          <Loader2 size={14} className="animate-spin" />
+                          {t('ops.loading')}
+                        </span>
+                      </td>
+                    </tr>
+                  ) : null}
+                  {(weights ?? []).map((row) => (
+                    <tr key={row.action} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2.5">
+                        <div className="font-medium text-text">
+                          {t(`ops.timeSaved.actions.${row.action}`, { defaultValue: row.action })}
+                        </div>
+                        <div className="font-mono text-2xs text-text-muted">{row.action}</div>
+                      </td>
+                      <td className="px-3 py-2.5 text-text-muted">{row.mode}</td>
+                      <td className="px-3 py-2.5">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={120}
+                          value={weightDraft[row.action] ?? row.minutes}
+                          onChange={(e) => {
+                            const next = Number(e.target.value)
+                            setWeightDraft((prev) => ({
+                              ...prev,
+                              [row.action]: Number.isFinite(next) ? next : 0,
+                            }))
+                          }}
+                          className="w-24"
+                        />
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-text-muted">
+                        {row.counts_as_saved ? t('ops.timeSaved.saved') : t('ops.timeSaved.mixOnly')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           <section className="space-y-2">
             <h2 className="text-sm font-semibold text-text">{t('ops.tenantsTitle')}</h2>

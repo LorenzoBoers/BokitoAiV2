@@ -1,7 +1,7 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select'
-import { AgentOptionRow, type AgentVisualFields } from './AgentOptionRow'
+import { ChoiceSelect } from './ChoiceSelect'
+import type { ChoiceItem } from './ChoiceOption'
+import type { AgentVisualFields } from './AgentOptionRow'
 import { DefaultBadge } from './DefaultBadge'
-import { cn } from '../../lib/utils'
 
 type Props = {
   agents: AgentVisualFields[]
@@ -16,16 +16,7 @@ type Props = {
   'aria-label'?: string
 }
 
-function EmptyOptionLabel({ label, badge }: { label: string; badge?: string }) {
-  return (
-    <span className="flex min-w-0 items-center gap-1.5">
-      <span className="truncate-fade text-sm text-text-secondary">{label}</span>
-      {badge ? <DefaultBadge>{badge}</DefaultBadge> : null}
-    </span>
-  )
-}
-
-/** Agent picker with avatar/color; use wherever an agent is chosen. */
+/** Agent picker with avatar. Prefer `ChoiceSelect` when the menu mixes kinds. */
 export function AgentSelect({
   agents,
   value = '',
@@ -37,40 +28,38 @@ export function AgentSelect({
   emptyOption,
   'aria-label': ariaLabel,
 }: Props) {
-  const selected = agents.find((a) => a.id === value) ?? null
-  const selectValue =
-    value || (emptyOption && !value ? emptyOption.value : undefined) || undefined
+  const selectValue = value || (emptyOption && !value ? emptyOption.value : undefined) || undefined
+  const items: ChoiceItem[] = [
+    ...(emptyOption
+      ? [
+          {
+            value: emptyOption.value,
+            label: emptyOption.label,
+            kind: 'icon' as const,
+            trailing: emptyOption.badge ? <DefaultBadge>{emptyOption.badge}</DefaultBadge> : undefined,
+          },
+        ]
+      : []),
+    ...agents.map(
+      (agent): ChoiceItem => ({
+        value: agent.id,
+        label: agent.name,
+        kind: 'agent',
+        agent,
+      }),
+    ),
+  ]
 
   return (
-    <Select
-      disabled={disabled}
+    <ChoiceSelect
+      groups={[{ items }]}
       value={selectValue}
       onValueChange={onValueChange}
-    >
-      <SelectTrigger
-        className={cn('h-8 text-sm', triggerClassName)}
-        aria-label={ariaLabel}
-      >
-        {selected ? (
-          <AgentOptionRow agent={selected} size={18} />
-        ) : emptyOption && (!value || value === emptyOption.value) ? (
-          <EmptyOptionLabel label={emptyOption.label} badge={emptyOption.badge} />
-        ) : (
-          <SelectValue placeholder={placeholder} />
-        )}
-      </SelectTrigger>
-      <SelectContent className={cn('min-w-[14rem]', className)}>
-        {emptyOption ? (
-          <SelectItem value={emptyOption.value} textValue={emptyOption.label}>
-            <EmptyOptionLabel label={emptyOption.label} badge={emptyOption.badge} />
-          </SelectItem>
-        ) : null}
-        {agents.map((agent) => (
-          <SelectItem key={agent.id} value={agent.id} textValue={agent.name}>
-            <AgentOptionRow agent={agent} size={18} />
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      placeholder={placeholder}
+      disabled={disabled}
+      triggerClassName={triggerClassName}
+      contentClassName={className}
+      aria-label={ariaLabel}
+    />
   )
 }

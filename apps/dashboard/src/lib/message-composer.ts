@@ -214,14 +214,9 @@ export function resolveComposerSurface(
     const nonReceiving = isNonReceivingEmailAddress(email)
     return {
       channel: 'email',
-      // When the customer is waiting and nothing needs a decision, the first
-      // keystroke is a reply. Ask stays the default once a decision is open
-      // or the last message was already ours.
-      defaultMode: nonReceiving
-        ? 'note'
-        : thread.lastMessageDirection === 'inbound' && !thread.hasOpenDecision
-          ? 'reply'
-          : 'ask',
+      // Mail threads open on the mail surface (Reply → MailComposer). Ask is
+      // an explicit switch; noreply senders land on an internal note.
+      defaultMode: nonReceiving ? 'note' : 'reply',
       modes: ['reply', 'ask', 'note'],
       replyLabel: 'Email',
       replyTargetName: name || email,

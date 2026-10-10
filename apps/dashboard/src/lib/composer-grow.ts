@@ -3,9 +3,11 @@
 export type ComposerGrowMode = 'chat' | 'email' | 'note'
 
 export const COMPOSER_GROW: Record<ComposerGrowMode, { min: number; max: number }> = {
-  chat: { min: 52, max: 360 },
+  // Chat + Ask/Note sit under the timeline; keep the cap modest so long
+  // drafts scroll inside the field instead of eating the thread.
+  chat: { min: 52, max: 220 },
   email: { min: 132, max: 440 },
-  note: { min: 72, max: 360 },
+  note: { min: 72, max: 220 },
 }
 
 export function composerFloorKey(mode: ComposerGrowMode): string {

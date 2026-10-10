@@ -14,11 +14,9 @@ import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/workstreams
 import { workstreamRunPath } from '../../lib/workstream-ui'
 import { openEntityPath } from '../../lib/open-entity'
 import { bokitoGetCockpitSummary, bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
-import { listTriggers, updateTrigger } from '../../lib/orchestration-api'
-import { platformCheckInTrigger } from '../../lib/talk-to-assistant'
 import { bulkUpdateSignalThreads } from '../../lib/signals-api'
 import { Button } from '../ui/button'
-import { Callout } from '../ui/callout'
+import { RecurringWakeBanner } from './RecurringWakeBanner'
 import { formatAppUsdCents } from '../../lib/app-number'
 import { formatAppTime } from '../../lib/app-locale'
 import { attentionOf, layerOf } from '../../lib/agenda-layout'
@@ -221,9 +219,6 @@ export default function OverviewFourBlocks() {
   const [data, setData] = useState<OverviewData>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
-  const [checkIn, setCheckIn] = useState<{ id: string; enabled: boolean } | null>(null)
-  const [enablingCheckIn, setEnablingCheckIn] = useState(false)
-
   const load = useCallback(async () => {
     if (!token) return
     setLoading(true)
@@ -244,7 +239,6 @@ export default function OverviewFourBlocks() {
         to: new Date(Date.now() + 86_400_000).toISOString(),
         sources: ['checkup', 'task', 'wake', 'calendar'],
       }).then((window) => window.items),
-      listTriggers().catch(() => []),
     ])
     const value = <T,>(index: number, fallback: T): T =>
       settled[index]?.status === 'fulfilled' ? (settled[index] as PromiseFulfilledResult<T>).value : fallback
@@ -280,8 +274,6 @@ export default function OverviewFourBlocks() {
       ),
       agenda: value(7, [] as TimeItem[]),
     })
-    const heartbeat = platformCheckInTrigger(value(8, [] as Awaited<ReturnType<typeof listTriggers>>))
-    setCheckIn(heartbeat ? { id: heartbeat.id, enabled: heartbeat.enabled } : null)
     setError(settled.some((result) => result.status === 'rejected'))
     setLoading(false)
   }, [token])
@@ -360,19 +352,6 @@ export default function OverviewFourBlocks() {
     }
   }
 
-  const enableCheckIn = async () => {
-    if (!checkIn || checkIn.enabled) return
-    setEnablingCheckIn(true)
-    try {
-      await updateTrigger(checkIn.id, { enabled: true })
-      setCheckIn({ ...checkIn, enabled: true })
-    } catch {
-      setError(true)
-    } finally {
-      setEnablingCheckIn(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -385,75 +364,71 @@ export default function OverviewFourBlocks() {
     <div className="space-y-4">
       {error ? <p className="text-right text-xs text-status-warning">{copy.loadError}</p> : null}
 
-      {checkIn && !checkIn.enabled ? (
-        <Callout
-          tone="warning"
-          title={t('setupGuidePage.automations.checkInOff')}
-          actions={
-            <Button type="button" size="sm" onClick={() => void enableCheckIn()} disabled={enablingCheckIn}>
-              {enablingCheckIn
-                ? t('setupGuidePage.automations.enablingCheckIn')
-                : t('setupGuidePage.automations.enableCheckIn')}
-            </Button>
-          }
-        />
-      ) : null}
+      <RecurringWakeBanner />
 
-      <Block title={copy.needs} hint={copy.needsHint} index={0}>
-        {data.needsYou.length === 0 ? (
-          <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-6 text-center">
-            <p className="text-sm font-medium text-text-heading">{copy.emptyNeeds}</p>
-            <p className="mt-1 text-xs text-text-muted">{copy.emptyNeedsHint}</p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-              <Link
-                to={forYouPath()}
-                className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-              >
-                {copy.emptyNeedsForYou}
-              </Link>
-              <Link
-                to="/settings/channels"
-                className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-              >
-                {copy.emptyNeedsChannels}
-              </Link>
+      <div
+        className={
+          data.quiet.length > 0
+            ? 'grid min-w-0 items-stretch gap-4 lg:grid-cols-2'
+            : 'min-w-0'
+        }
+      >
+        <Block title={copy.needs} hint={copy.needsHint} index={0}>
+          {data.needsYou.length === 0 ? (
+            <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-6 text-center">
+              <p className="text-sm font-medium text-text-heading">{copy.emptyNeeds}</p>
+              <p className="mt-1 text-xs text-text-muted">{copy.emptyNeedsHint}</p>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <Link
+                  to={forYouPath()}
+                  className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                >
+                  {copy.emptyNeedsForYou}
+                </Link>
+                <Link
+                  to="/settings/channels"
+                  className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {copy.emptyNeedsChannels}
+                </Link>
+              </div>
             </div>
-          </div>
-        ) : (
-          data.needsYou.map((thread) => (
-            <ThreadListItem
-              key={String(thread.id)}
-              thread={thread}
-              isSelected={false}
-              compact
-              showActions={false}
-              onSelect={() => navigate(attentionThreadPath(thread))}
-            />
-          ))
-        )}
-        <Link to={forYouPath()} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
-          {nl ? 'Alles in Voor jou' : 'All in For you'}
-        </Link>
-      </Block>
-
-      {data.quiet.length > 0 ? (
-        <Block title={copy.quiet} hint={copy.quietHint} index={1}>
-          {data.quiet.map((row) => (
-            <div key={row.id} className="flex items-center justify-between gap-3 py-1.5">
-              <button
-                type="button"
-                className="min-w-0 truncate text-left text-sm text-text-primary hover:text-accent"
-                onClick={() => navigate(forYouPath(row.id))}
-              >
-                {row.contactName || row.subject || row.id}
-              </button>
-              <Button type="button" size="sm" variant="secondary" onClick={() => void closeQuiet(row.id)}>
-                {copy.quietClose}
-              </Button>
-            </div>
-          ))}
+          ) : (
+            data.needsYou.map((thread) => (
+              <ThreadListItem
+                key={String(thread.id)}
+                thread={thread}
+                isSelected={false}
+                compact
+                showActions={false}
+                onSelect={() => navigate(attentionThreadPath(thread))}
+              />
+            ))
+          )}
+          <Link to={forYouPath()} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
+            {nl ? 'Alles in Voor jou' : 'All in For you'}
+          </Link>
         </Block>
-      ) : null}
+
+        {data.quiet.length > 0 ? (
+          <Block title={copy.quiet} hint={copy.quietHint} index={1}>
+            {data.quiet.map((row) => (
+              <div key={row.id} className="flex items-center justify-between gap-3 py-1.5">
+                <button
+                  type="button"
+                  className="min-w-0 truncate text-left text-sm text-text-primary hover:text-accent"
+                  onClick={() => navigate(forYouPath(row.id))}
+                >
+                  {row.contactName || row.subject || row.id}
+                </button>
+                <Button type="button" size="sm" variant="secondary" onClick={() => void closeQuiet(row.id)}>
+                  {copy.quietClose}
+                </Button>
+              </div>
+            ))}
+          </Block>
+        ) : null}
+      </div>
 
       <AiHandlingMetricsBlock />
 

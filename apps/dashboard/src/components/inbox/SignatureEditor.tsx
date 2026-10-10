@@ -14,15 +14,7 @@ import {
 import * as Dialog from '@radix-ui/react-dialog';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { useAuth } from '../../context/AuthContext';
 import { useAgents } from '../../hooks/useAgents';
@@ -422,44 +414,50 @@ export default function SignatureEditor({
                   <label className="text-xs font-medium text-text-muted" htmlFor="signature-preview-as">
                     {t('signatureEditor.previewAs')}
                   </label>
-                  <Select
+                  <ChoiceSelect
+                    id="signature-preview-as"
+                    aria-label={t('signatureEditor.previewAs')}
+                    triggerClassName="h-8 w-auto min-w-[14rem] text-xs"
                     value={previewPersona}
                     onValueChange={(value) => setPreviewPersona(value as PreviewPersonaId)}
-                  >
-                    <SelectTrigger
-                      id="signature-preview-as"
-                      className="h-8 w-auto min-w-[14rem] text-xs"
-                      aria-label={t('signatureEditor.previewAs')}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="me">{t('signatureEditor.previewAsMe')}</SelectItem>
-                        <SelectItem value="sample">{t('signatureEditor.previewAsSample')}</SelectItem>
-                      </SelectGroup>
-                      {members.length ? (
-                        <SelectGroup>
-                          <SelectLabel>{t('signatureEditor.previewAsPeople')}</SelectLabel>
-                          {members.map((member) => (
-                            <SelectItem key={member.uuid} value={`user:${member.uuid}`}>
-                              {member.name || member.email}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ) : null}
-                      {agents.length ? (
-                        <SelectGroup>
-                          <SelectLabel>{t('signatureEditor.previewAsAgents')}</SelectLabel>
-                          {agents.map((agent) => (
-                            <SelectItem key={String(agent.id)} value={`agent:${agent.id}`}>
-                              {agent.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ) : null}
-                    </SelectContent>
-                  </Select>
+                    groups={[
+                      {
+                        items: [
+                          {
+                            value: 'me',
+                            label: t('signatureEditor.previewAsMe'),
+                            kind: 'person',
+                            person: user
+                              ? { name: user.name || user.email, email: user.email, avatarUrl: user.avatarUrl }
+                              : { name: t('signatureEditor.previewAsMe') },
+                          },
+                          {
+                            value: 'sample',
+                            label: t('signatureEditor.previewAsSample'),
+                            kind: 'icon',
+                          },
+                        ],
+                      },
+                      {
+                        label: t('signatureEditor.previewAsPeople'),
+                        items: members.map((member) => ({
+                          value: `user:${member.uuid}`,
+                          label: member.name || member.email,
+                          kind: 'person' as const,
+                          person: { name: member.name || member.email, email: member.email, avatarUrl: member.avatarUrl },
+                        })),
+                      },
+                      {
+                        label: t('signatureEditor.previewAsAgents'),
+                        items: agents.map((agent) => ({
+                          value: `agent:${agent.id}`,
+                          label: agent.name,
+                          kind: 'agent' as const,
+                          agent,
+                        })),
+                      },
+                    ]}
+                  />
                 </div>
                 <div className="signature-preview min-h-[200px] rounded-md border border-border bg-bg-elevated p-4 text-sm">
                   <div dangerouslySetInnerHTML={{ __html: previewHtml }} />

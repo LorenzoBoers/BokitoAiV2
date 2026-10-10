@@ -52,11 +52,11 @@ The timeline shows a line such as **Drafted instead of sent** with the reason wh
 
 Replies follow the channel. Email gets one structured message. On WhatsApp and website chat the AI writes like a person in a chat: up to five short messages, sent in order with a short typing pause, and the AI note only on the first one. If one message fails to send, the rest wait. In **Assisted**, the draft card holds the same messages so you can remove or edit them before **Send** (see [Decisions](/docs/ai/decisions)).
 
-## Set reply and team language
+## Set reply and working language
 
-1. Open **Language** on the same page.
+1. Open **Language** on the same page, or set the organization working language under **Settings → General**.
 2. **Reply language** is what the customer sees. **Automatic (match the customer)** mirrors the inbound language. You can pin Dutch, English, German, French or Spanish.
-3. **Team language** is for notes to your team (summaries, no-reply explanations). It does not change the customer reply.
+3. **Organization working language** (team language) is the language agents use when writing, thinking, and explaining for your team — operator chats, summaries, decisions, and thinking. It does not change the customer reply.
 4. **Approved replies are sent as** is **The approving teammate** or **The AI agent**. That picks the signature and the From display name. On a single draft anyone can still switch **Send as**.
 5. Under **Reply language per mailbox**, expand a mailbox to give it its own reply language. Rows with an override show a **Custom** badge.
 
@@ -78,8 +78,9 @@ Not every mail wants an answer. Receipts, deploy notices and other automated mai
 2. The AI keeps one reply proposal per person. When the same person also writes on another channel, the older conversation's proposal is set aside (**Set aside: a newer conversation with this person**) and the newest conversation carries the live one.
 3. A proposal that no longer answers the latest message is set aside as well: when the customer writes again before you send (**customer wrote again**), when a colleague replied from their own mailbox (**a teammate replied**), or when someone logged **Already handled outside Bokito**. A run that finishes after a newer message arrived does not post its draft.
 4. The composer tells you when a stored draft is outdated and offers **Propose again**; see [Communication](/docs/inbox/communication).
-5. On a mailbox with **Archive automated mail** turned on, that card is skipped: the thread closes on arrival and gets the `#automated` tag. Set it per mailbox under [Channels](/docs/inbox/channels).
-6. When the third no-reply mail from the same sender arrives, the AI proposes an **Automation rule** for that sender as a card in the conversation (*Auto-close mail from newsletter@example.com?*). **Activate** turns the rule on under **Automation rules**; **Later** keeps it as a draft. An agent that proposes a rule on its own uses the same card, so rules never activate without a person.
+5. While you stay on the conversation and the agent finishes a draft, that text lands in the reply composer. The timeline shows **Suggested a reply**: open the chevron to read it, or choose **Use draft** / **In composer** to put it in the input again after you opened another chat. Team-only notes from the model never fill the customer draft.
+6. On a mailbox with **Archive automated mail** turned on, that card is skipped: the thread closes on arrival and gets the `#automated` tag. Set it per mailbox under [Channels](/docs/inbox/channels).
+7. When the third no-reply mail from the same sender arrives, the AI proposes an **Automation rule** for that sender as a card in the conversation (*Auto-close mail from newsletter@example.com?*). **Activate** turns the rule on under **Automation rules**; **Later** keeps it as a draft. An agent that proposes a rule on its own uses the same card, so rules never activate without a person.
 
 The same mode decides who an unknown chatter is. When a visitor gives an email or phone number, **Autonomous** links the conversation to the matching contact (or creates one), **Assisted** links only verified addresses and asks you for the rest, and **Manual** leaves linking to you. See [Link a conversation to a contact](/docs/inbox/contacts).
 

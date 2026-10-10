@@ -385,7 +385,10 @@ export default function OnboardingWizardPage() {
                 <SegmentedControl
                   value={workspaceLang}
                   onChange={setWorkspaceLang}
-                  options={WORKSPACE_LANGS.map((lang) => ({ value: lang, label: lang }))}
+                  options={WORKSPACE_LANGS.map((lang) => ({
+                    value: lang,
+                    label: t(`languages.lang.${lang}`, { defaultValue: lang }),
+                  }))}
                 />
               </div>
             ) : null}

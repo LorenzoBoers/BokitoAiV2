@@ -6,7 +6,8 @@ import { dayKey, groupByDay, isRoutine, itemOwner, itemStart, layerOf } from '..
 import { agendaStatusLabel } from '../../lib/status-labels'
 import type { TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
-import { agendaChipState, LAYER_DOT, LAYER_ICON, LAYER_TEXT, isFailed, itemSubtitle } from './agenda-style'
+import { Badge } from '../ui/badge'
+import { agendaChipState, agendaStatusTone, LAYER_DOT, LAYER_ICON, LAYER_TEXT, isFailed, itemSubtitle } from './agenda-style'
 import { AgendaOwnerMark } from './AgendaOwnerMark'
 import type { AgendaSelection } from './AgendaTimeGrid'
 
@@ -271,18 +272,9 @@ function Row({
       </span>
       {owner ? <AgendaOwnerMark owner={owner} size={dense ? 16 : 20} /> : null}
       {showStatus ? (
-        <span
-          className={cn(
-            'shrink-0 rounded-md border px-1.5 py-0.5 text-2xs',
-            isFailed(item.status)
-              ? 'border-status-error/40 text-status-error'
-              : item.status === 'due'
-                ? 'border-status-warning/40 text-status-warning'
-                : 'border-border/60 text-text-muted',
-          )}
-        >
+        <Badge size="sm" variant={agendaStatusTone(item.status)}>
           {agendaStatusLabel(item.status, t)}
-        </span>
+        </Badge>
       ) : null}
     </button>
   )

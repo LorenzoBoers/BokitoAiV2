@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { agentStatusOf, presenceLabel, presenceTextClass } from '../../lib/presence'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Pencil } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { AiAvatar } from '../ui/AiAvatar'
 import { AgentOptionRow, type AgentVisualFields } from '../ui/AgentOptionRow'
+import { ChoiceOption } from '../ui/ChoiceOption'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
   DropdownMenu,
@@ -134,7 +135,10 @@ export function ProjectAgentEditButton({
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={linking} onSelect={() => void linkLead(CREATE_LEAD)}>
-          {t('projects.detail.leadCreate')}
+          <ChoiceOption
+            item={{ value: CREATE_LEAD, label: t('projects.detail.leadCreate'), kind: 'icon', icon: Plus }}
+            size={18}
+          />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

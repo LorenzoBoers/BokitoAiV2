@@ -29,7 +29,7 @@ import {
 } from '../ui/dialog'
 import { Hashtag, HashtagMark } from '../ui/HashtagMark'
 import { Input } from '../ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { Switch } from '../ui/switch'
 import { Tip } from '../ui/Tip'
 
@@ -375,19 +375,29 @@ function PromoteTagDialog({
           </DialogTitle>
           <DialogDescription>{t('tagRegistry.promoteHint')}</DialogDescription>
         </DialogHeader>
-        <Select value={playbookId} onValueChange={setPlaybookId}>
-          <SelectTrigger className="h-9 text-sm" aria-label={t('tagRegistry.playbook')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NEW_PLAYBOOK}>{t('tagRegistry.newPlaybook', { name: tag?.name ?? '' })}</SelectItem>
-            {playbooks.map((ws) => (
-              <SelectItem key={ws.id} value={ws.id}>
-                {ws.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ChoiceSelect
+          aria-label={t('tagRegistry.playbook')}
+          triggerClassName="h-9 text-sm"
+          value={playbookId}
+          onValueChange={setPlaybookId}
+          groups={[
+            {
+              items: [
+                {
+                  value: NEW_PLAYBOOK,
+                  label: t('tagRegistry.newPlaybook', { name: tag?.name ?? '' }),
+                  kind: 'flow',
+                  icon: Plus,
+                },
+                ...playbooks.map((workstream) => ({
+                  value: workstream.id,
+                  label: workstream.name,
+                  kind: 'flow' as const,
+                })),
+              ],
+            },
+          ]}
+        />
         <p className="text-xs text-text-muted">{t('tagRegistry.promoteAfter')}</p>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>

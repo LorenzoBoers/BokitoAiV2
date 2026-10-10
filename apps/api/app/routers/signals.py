@@ -27,6 +27,228 @@ router = APIRouter(prefix="/signals", tags=["signals"])
 router.include_router(chat_router)
 
 
+class StartThreadBody(BaseModel):
+    """Start a conversation that is not a mailbox draft.
+
+    ``whatsapp`` sends the first message on the configured number (one thread
+    per customer number). ``ticket`` opens an internal thread already filed
+    on an action tag, with an optional project.
+    """
+
+    kind: Literal["whatsapp", "ticket"]
+    channel_account_id: UUID | None = None
+    to: str = ""
+    body_text: str = ""
+    tag_id: UUID | None = None
+    project_id: UUID | None = None
+    subject: str = ""
+    note: str = ""
+    fields: dict[str, str] | None = None
+
+
+@router.post("/start")
+async def start_thread(
+    body: StartThreadBody,
+    auth: Annotated[AuthContext, Depends(require_verified_email)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Create a WhatsApp thread or an internal ticket thread."""
+    if body.kind == "whatsapp":
+        return await _start_whatsapp(session, auth, body)
+    return await _start_ticket(session, auth, body)
+
+
+async def _start_whatsapp(session: AsyncSession, auth: AuthContext, body: StartThreadBody) -> dict:
+    from app.channels import deliver_outbound
+    from app.channels.whatsapp import digits as whatsapp_digits
+    from app.models.channel import ChannelAccount
+    from app.models.signal import Signal, SignalEvent, SignalMessage
+    from app.services.channel_registry import account_can_send
+    from app.services.ownership import set_owner
+    from app.services.signals import get_or_create_contact
+
+    phone = whatsapp_digits(body.to)
+    text = (body.body_text or "").strip()
+    if len(phone) < 8:
+        raise HTTPException(status_code=400, detail="A WhatsApp number is required")
+    if not text:
+        raise HTTPException(status_code=400, detail="A message is required")
+
+    visible = await visible_channel_account_ids(
+        session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+    )
+    query = select(ChannelAccount).where(
+        ChannelAccount.tenant_id == auth.tenant.id,
+        ChannelAccount.channel == "whatsapp",
+        ChannelAccount.is_enabled.is_(True),
+        ChannelAccount.archived_at.is_(None),
+    )
+    if body.channel_account_id is not None:
+        query = query.where(ChannelAccount.id == body.channel_account_id)
+    accounts = [
+        row
+        for row in (await session.execute(query)).scalars().all()
+        if (visible is None or row.id in visible) and account_can_send(row, tenant=auth.tenant)
+    ]
+    account = accounts[0] if accounts else None
+    if account is None:
+        raise HTTPException(status_code=400, detail="No WhatsApp account can send")
+
+    now = datetime.utcnow()
+    existing = (
+        await session.execute(
+            select(Signal)
+            .where(
+                Signal.tenant_id == auth.tenant.id,
+                Signal.channel == "whatsapp",
+                Signal.channel_account_id == account.id,
+                Signal.external_id == phone,
+                Signal.deleted_at.is_(None),
+            )
+            .order_by(Signal.last_message_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        signal = existing
+        if signal.status in ("closed", "pending"):
+            signal.status = "open"
+    else:
+        contact = await get_or_create_contact(
+            session, auth.tenant.id, channel="whatsapp", address=phone
+        )
+        signal = Signal(
+            tenant_id=auth.tenant.id,
+            channel="whatsapp",
+            source=account.provider or "whatsapp",
+            external_id=phone,
+            subject=f"WhatsApp {phone}",
+            contact_id=contact.id if contact else None,
+            contact_phone=phone,
+            contact_name=(contact.display_name if contact else "") or "",
+            channel_account_id=account.id,
+            status="open",
+            priority="normal",
+            has_unread=False,
+            last_message_at=now,
+        )
+        set_owner(signal, "user", auth.user.id, by_user_id=auth.user.id)
+        session.add(signal)
+        await session.flush()
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=auth.tenant.id,
+                event_type="signal_created",
+                actor_type="user",
+                actor_id=str(auth.user.id),
+                payload_json=json.dumps({"source": "whatsapp"}),
+            )
+        )
+
+    delivery = await deliver_outbound(session, signal, body_text=text, to_address=phone)
+    if delivery.status == "skipped" or delivery.status.startswith("failed"):
+        await session.rollback()
+        reason = delivery.status.removeprefix("failed:").replace("_", " ").strip() or "provider error"
+        raise HTTPException(status_code=502, detail=f"Sending failed: {reason}")
+
+    msg = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=auth.tenant.id,
+        kind="user_message",
+        direction="outbound",
+        role="user",
+        author_user_id=auth.user.id,
+        to_addresses=json.dumps([phone]),
+        body_text=text,
+        body_preview=text[:200],
+        send_status="sent",
+        received_at=now,
+    )
+    session.add(msg)
+    signal.last_message_at = now
+    signal.updated_at = now
+    signal.has_unread = False
+    session.add(signal)
+    await session.commit()
+    await session.refresh(msg)
+    from app.gateway.publish import publish_signal_message, publish_thread_update
+
+    await publish_signal_message(signal, msg)
+    await publish_thread_update(signal)
+    return {"ok": True, "thread_id": str(signal.id), "channel": "whatsapp"}
+
+
+async def _start_ticket(session: AsyncSession, auth: AuthContext, body: StartThreadBody) -> dict:
+    from app.models.signal import Signal, SignalEvent, SignalMessage
+    from app.services import tickets as ticket_svc
+    from app.services.ownership import set_owner
+
+    subject = (body.subject or "").strip()
+    if not subject:
+        raise HTTPException(status_code=400, detail="A subject is required")
+    if body.tag_id is None:
+        raise HTTPException(status_code=400, detail="An action tag is required")
+
+    now = datetime.utcnow()
+    signal = Signal(
+        tenant_id=auth.tenant.id,
+        channel="internal",
+        source="operator",
+        subject=subject[:300],
+        status="open",
+        priority="normal",
+        has_unread=False,
+        last_message_at=now,
+    )
+    set_owner(signal, "user", auth.user.id, by_user_id=auth.user.id)
+    session.add(signal)
+    await session.flush()
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=auth.tenant.id,
+            event_type="signal_created",
+            actor_type="user",
+            actor_id=str(auth.user.id),
+            payload_json=json.dumps({"source": "ticket"}),
+        )
+    )
+    note = (body.note or "").strip()
+    if note:
+        session.add(
+            SignalMessage(
+                signal_id=signal.id,
+                tenant_id=auth.tenant.id,
+                kind="internal_note",
+                direction="internal",
+                role="user",
+                author_user_id=auth.user.id,
+                body_text=note,
+                body_preview=note[:200],
+                received_at=now,
+            )
+        )
+    await ticket_svc.file_ticket(
+        session,
+        auth.tenant.id,
+        signal_id=signal.id,
+        tag_id=body.tag_id,
+        project_id=body.project_id,
+        project_chosen=True,
+        fields=body.fields,
+        actor="operator",
+        created_by_type="user",
+        created_by_id=str(auth.user.id),
+        user_id=auth.user.id,
+    )
+    await session.refresh(signal)
+    from app.gateway.publish import publish_thread_update
+
+    await publish_thread_update(signal)
+    return {"ok": True, "thread_id": str(signal.id), "channel": "internal"}
+
+
 class InboundSignalBody(BaseModel):
     channel: str = "email"
     source: str = "mock"
@@ -61,6 +283,8 @@ class ThreadPatch(BaseModel):
     # Next look-at while the conversation stays open (not snooze, not AgentTask).
     follow_up_at: datetime | None = None
     follow_up_title: str | None = None
+    # Email-only: bind the thread to this mailbox (From + channel folder).
+    channel_account_id: UUID | None = None
 
 
 class BulkBody(BaseModel):
@@ -565,6 +789,8 @@ async def patch_signal(
     follow_up_at_set = "follow_up_at" in updates
     follow_up_at = updates.pop("follow_up_at", None)
     follow_up_title = updates.pop("follow_up_title", None)
+    channel_account_id_set = "channel_account_id" in updates
+    channel_account_id = updates.pop("channel_account_id", None)
     thread = await svc.patch_thread(
         session,
         auth.tenant.id,
@@ -583,6 +809,8 @@ async def patch_signal(
         follow_up_at=follow_up_at,
         follow_up_at_set=follow_up_at_set,
         follow_up_title=follow_up_title,
+        channel_account_id=channel_account_id,
+        channel_account_id_set=channel_account_id_set,
         actor_role=auth.role,
     )
     if not thread:

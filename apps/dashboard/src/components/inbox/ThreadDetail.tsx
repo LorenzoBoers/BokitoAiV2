@@ -132,6 +132,8 @@ type Props = {
       quotedHtml?: string
     },
   ) => Promise<void>
+  /** Retry a failed outbound bubble from the timeline. */
+  onRetrySend?: (messageId: string) => void | Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
   /** Forward this email thread as a new outbound email (opens compose). */
   onForward?: () => void
@@ -177,7 +179,7 @@ type Props = {
   unreadHighlightIds?: string[]
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { token, user } = useAuth()
@@ -288,20 +290,48 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [detail],
   )
 
+  // Auto-fill the composer only when an agent finishes a draft while this
+  // thread stays open. Opening a thread (or returning after another chat)
+  // keeps the draft in the agent cloud until the operator taps Overnemen.
   const appliedProposalRef = useRef<string | null>(null)
+  const seededProposalIdsRef = useRef<Set<string> | null>(null)
+  const wasStreamingRef = useRef(false)
   useEffect(() => {
     appliedProposalRef.current = null
+    seededProposalIdsRef.current = null
+    wasStreamingRef.current = false
   }, [threadId])
+  useEffect(() => {
+    if (agentStreaming) wasStreamingRef.current = true
+  }, [agentStreaming])
   useEffect(() => {
     if (!detail) return
     const outdated = new Set(outdatedDecisionMessageIds)
+    const openIds: string[] = []
+    for (const message of detail.messages) {
+      const proposal = replyProposalFromMessage(message, detail.events)
+      if (!proposal) continue
+      if (outdated.has(proposal.decisionMessageId)) continue
+      openIds.push(proposal.decisionMessageId)
+    }
+    if (seededProposalIdsRef.current === null) {
+      seededProposalIdsRef.current = new Set(openIds)
+      return
+    }
     for (let i = detail.messages.length - 1; i >= 0; i -= 1) {
       const proposal = replyProposalFromMessage(detail.messages[i], detail.events)
       if (!proposal) continue
       if (outdated.has(proposal.decisionMessageId)) continue
+      if (seededProposalIdsRef.current.has(proposal.decisionMessageId)) continue
+      // Late-loading messages on open: absorb without filling the composer.
+      if (!wasStreamingRef.current) {
+        seededProposalIdsRef.current.add(proposal.decisionMessageId)
+        continue
+      }
       if (appliedProposalRef.current === proposal.decisionMessageId) return
       if (agentStreamingRef.current) return
       appliedProposalRef.current = proposal.decisionMessageId
+      seededProposalIdsRef.current.add(proposal.decisionMessageId)
       applyComposerDraft({
         body: proposal.body,
         subject: proposal.subject,
@@ -313,6 +343,19 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       return
     }
   }, [detail, applyComposerDraft, outdatedDecisionMessageIds])
+
+  const compactDecisionMessageIds = useMemo(() => {
+    if (!detail) return []
+    const outdated = new Set(outdatedDecisionMessageIds)
+    const ids: string[] = []
+    for (const message of detail.messages) {
+      const proposal = replyProposalFromMessage(message, detail.events)
+      if (!proposal) continue
+      if (outdated.has(proposal.decisionMessageId)) continue
+      ids.push(proposal.decisionMessageId)
+    }
+    return ids
+  }, [detail, outdatedDecisionMessageIds])
 
   // The proposal in the composer was resolved or set aside elsewhere (another
   // operator, a new inbound, a colleague's mailbox reply): drop the prefill.
@@ -802,7 +845,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       setComposerMode('reply')
       return
     }
-    if (activeSessionId) {
+    // Email opens on mail (Reply), not Ask — an active meta session must not
+    // yank the surface when the operator just opened the thread.
+    if (activeSessionId && messageLayout !== 'email') {
       setComposerMode('ask')
       return
     }
@@ -822,7 +867,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- detail.messages only matter on thread change
-  }, [threadId, activeSessionId, handlingEffective, detail?.thread])
+  }, [threadId, activeSessionId, handlingEffective, detail?.thread, messageLayout])
 
   const loadSessionMessages = useCallback(
     async (sessionId: string | null) => {
@@ -1132,6 +1177,31 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     setStoredMailDraft(null)
   }, [threadId])
 
+  // Mail drafts belong on the mail surface — never sit behind Ask. Resume once
+  // when the thread opens on Reply; canceling the composer leaves the chip.
+  const autoResumedMailDraftForRef = useRef<string | null>(null)
+  useEffect(() => {
+    autoResumedMailDraftForRef.current = null
+  }, [threadId])
+  useEffect(() => {
+    if (messageLayout !== 'email' || mailboxDisconnected) return
+    if (composerMode !== 'reply') return
+    if (mailDraft || composerDraft) return
+    if (!storedMailDraft) return
+    if (autoResumedMailDraftForRef.current === String(threadId)) return
+    autoResumedMailDraftForRef.current = String(threadId)
+    resumeStoredMailDraft()
+  }, [
+    threadId,
+    messageLayout,
+    mailboxDisconnected,
+    composerMode,
+    mailDraft,
+    composerDraft,
+    storedMailDraft,
+    resumeStoredMailDraft,
+  ])
+
   const handleComposerModeChange = useCallback(
     (mode: ComposerMode) => {
       // The Reply tab on an email thread is a mail action: it opens the
@@ -1184,20 +1254,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     ],
   )
 
-  // Focusing a ready draft in the small email composer opens the mail client
-  // with that text, plus the same recipients and quote as Reply.
+  // Focusing the small email composer opens the mail client (empty or with a
+  // draft), with the same recipients and quote as Reply.
   const handlePromoteEmailEdit = useCallback(
     (body: string) => {
       if (!detail || messageLayout !== 'email' || mailboxDisconnected) return
-      const text = body.trim()
-      if (!text) return
       const source = [...detail.messages]
         .reverse()
         .find(
           (m) =>
             m.direction === 'inbound' && m.kind !== 'decision_request' && m.kind !== 'system_event',
         )
-      setMailSeedBody(body)
+      setMailSeedBody(body.trim() ? body : null)
       if (source) {
         setMailDraft(
           buildMailDraftIntent(source, 'reply', {
@@ -1376,6 +1444,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (action === 'send_and_close') {
         // Send first, then prompt about open Signals before flipping status.
         const format = composerSurface?.includeSignature ? 'email' : 'plain'
+        // Optimistic bubble lands immediately; pin the timeline to it.
+        window.setTimeout(() => scrollToBottom('smooth'), 16)
         await onReply(bodyText, 'send', format, attachments, snoozeMinutes, extras)
         await requestCloseThread()
         if (token && threadIdString && activeSession) {
@@ -1391,6 +1461,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         return
       }
       const format = composerSurface?.includeSignature ? 'email' : 'plain'
+      window.setTimeout(() => scrollToBottom('smooth'), 16)
       await onReply(bodyText, action, format, attachments, snoozeMinutes, extras)
       // The customer answer is the outcome of the meta conversation, so the
       // session checks out with it instead of lingering open.
@@ -1569,6 +1640,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
           onMailAction={messageLayout === 'email' ? handleMailAction : undefined}
           mailOwnAddresses={mailOwnAddresses}
+          onRetrySend={onRetrySend}
           focusedMessageId={focusedMessageId}
           unreadHighlightIds={unreadHighlightIds}
           hasOlder={hasOlder}
@@ -1596,9 +1668,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               basedOnMessageId: card ? (proposalBasedOnMessageId(card) ?? undefined) : undefined,
             })
           }}
-          compactDecisionMessageIds={
-            composerDraft?.decisionMessageId ? [composerDraft.decisionMessageId] : []
-          }
+          compactDecisionMessageIds={compactDecisionMessageIds}
+          composerDecisionMessageId={composerDraft?.decisionMessageId ?? null}
           outdatedDecisionMessageIds={outdatedDecisionMessageIds}
           onAtBottomChange={(atBottom) => {
             anchorToBottomRef.current = atBottom
@@ -1645,10 +1716,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       !mailDraft &&
       storedMailDraft &&
       messageLayout === 'email' &&
-      !mailboxDisconnected ? (
-        <div className="shrink-0 bg-bg px-4 pt-1">
+      !mailboxDisconnected &&
+      composerMode === 'reply' &&
+      !composerDraft ? (
+        // Above the composer mode-tab fade (z-10) so Mailconcept stays readable.
+        <div className="relative z-20 shrink-0 bg-bg px-4 pt-1">
           <div className={CHAT_COLUMN_CLASS}>
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/70 px-3 py-1.5 text-xs">
+            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-1.5 text-xs">
               <PenLine size={13} className="shrink-0 text-text-muted" />
               <button
                 type="button"
@@ -1714,6 +1788,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           saving={saving || agentStreaming}
           lastInboundText={lastInboundText}
           channelAccountId={thread.channelAccountId ?? null}
+          onChannelAccountChange={(channelAccountId) => {
+            void onPatch({ channelAccountId })
+          }}
           replyDisabledNotice={
             mailboxDisconnected ? (
               <span className="flex flex-wrap items-center gap-2">

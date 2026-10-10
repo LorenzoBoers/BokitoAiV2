@@ -5,26 +5,34 @@ import {
   Bar,
   BarChart as ReBarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart as ReLineChart,
+  Pie,
+  PieChart as RePieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
 
-export type ChartKind = 'bar' | 'line' | 'area'
+export type ChartKind = 'bar' | 'line' | 'area' | 'pie'
 
 export type ChartPoint = { x: string; y: number }
 
 export type ChartSeries = { name: string; points: ChartPoint[] }
 
+export type ChartSlice = { name: string; value: number; color?: string }
+
 type ChartProps = {
   kind: ChartKind
-  series: ChartSeries[]
-  /** Plot height in px. Category labels sit under this for bar charts. */
-  height?: number
-  /** Axes and grid. Sparklines pass false. */
+  /** Required for bar / line / area. */
+  series?: ChartSeries[]
+  /** Required for pie. */
+  slices?: ChartSlice[]
+  /** Plot height in px, or a CSS length (`100%`) when the parent sets the box. */
+  height?: number | string
+  /** Axes and grid. Sparklines pass false. Ignored for pie. */
   showAxes?: boolean
   /** First series color token. Default accent; AI activity uses ai (violet). */
   tone?: 'accent' | 'ai'
@@ -139,12 +147,13 @@ function ChartTooltip({
 }
 
 /**
- * Shared bar, line and area chart. Colors come from Bokito tokens.
+ * Shared bar, line, area and pie chart. Colors come from Bokito tokens.
  * Canvas snapshots and the Overview token sparkline both use this.
  */
 export function Chart({
   kind,
-  series,
+  series = [],
+  slices = [],
   height = 144,
   showAxes = true,
   tone = 'accent',
@@ -154,6 +163,60 @@ export function Chart({
   ariaLabel,
 }: ChartProps) {
   const gradPrefix = `chart-fill-${useId().replace(/:/g, '')}`
+
+  if (kind === 'pie') {
+    const pieData = slices.filter((slice) => slice.name && Number.isFinite(slice.value) && slice.value > 0)
+    if (pieData.length === 0) {
+      if (!emptyLabel) return null
+      return (
+        <div
+          className="flex items-center justify-center rounded-md border border-dashed border-border/50 px-3 text-center text-xs text-text-muted"
+          style={{ height }}
+        >
+          {emptyLabel}
+        </div>
+      )
+    }
+    return (
+      <div className="min-w-0" role="img" aria-label={ariaLabel}>
+        <div className="w-full" style={{ height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <RePieChart>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius="58%"
+                outerRadius="88%"
+                paddingAngle={2}
+                stroke="rgb(var(--color-bg-surface))"
+                strokeWidth={2}
+                isAnimationActive={false}
+              >
+                {pieData.map((slice, index) => (
+                  <Cell key={slice.name} fill={slice.color || colorAt(tone, index)} />
+                ))}
+              </Pie>
+              <Tooltip
+                content={(props) => (
+                  <ChartTooltip
+                    active={props.active}
+                    payload={
+                      props.payload as
+                        | ReadonlyArray<{ name?: string; value?: number | string }>
+                        | undefined
+                    }
+                  />
+                )}
+                wrapperStyle={{ outline: 'none' }}
+              />
+            </RePieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    )
+  }
+
   const usable = usableSeries(series)
   if (usable.length === 0) {
     if (!emptyLabel) return null
@@ -253,8 +316,9 @@ export function Chart({
         tick={TICK}
         tickFormatter={(value) => compactNumber(Number(value))}
         width={showAxes ? 44 : 0}
-        domain={[0, 'auto']}
-        padding={spark ? { top: 10, bottom: 0 } : { top: 8, bottom: 0 }}
+        domain={[0, 'dataMax']}
+        allowDataOverflow={false}
+        padding={spark ? { top: 6, bottom: 0 } : { top: 8, bottom: 0 }}
       />
       <Tooltip
         content={(props) => (

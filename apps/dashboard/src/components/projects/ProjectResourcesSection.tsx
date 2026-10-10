@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
   createProjectResource,
@@ -213,31 +213,40 @@ export function ProjectResourcesSection({
         adding ? (
           <div className="space-y-2 rounded-md border border-border/50 p-2.5">
             <div className="flex flex-wrap gap-2">
-              <Select value={newType} onValueChange={(v) => setNewType(v as ResourceType)}>
-                <SelectTrigger className="h-8 w-32 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RESOURCE_TYPES.filter((type) => type !== 'repo').map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {t(`projects.work.resourceType.${type}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ChoiceSelect
+                aria-label={t('projects.work.resourceAddLink')}
+                triggerClassName="h-8 w-32 text-sm"
+                value={newType}
+                onValueChange={(value) => setNewType(value as ResourceType)}
+                groups={[
+                  {
+                    items: RESOURCE_TYPES.filter((type) => type !== 'repo').map((type) => ({
+                      value: type,
+                      label: t(`projects.work.resourceType.${type}`),
+                      kind: 'icon' as const,
+                      icon: TYPE_ICON[type],
+                    })),
+                  },
+                ]}
+              />
               {newType === 'connection' ? (
-                <Select value={newConnectionId} onValueChange={setNewConnectionId}>
-                  <SelectTrigger className="h-8 min-w-36 flex-1 text-sm">
-                    <SelectValue placeholder={t('projects.work.connectionPick')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {linkableConnections.map((conn) => (
-                      <SelectItem key={conn.id} value={conn.id}>
-                        {conn.display_name || conn.provider || conn.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ChoiceSelect
+                  aria-label={t('projects.work.connectionPick')}
+                  placeholder={t('projects.work.connectionPick')}
+                  triggerClassName="h-8 min-w-36 flex-1 text-sm"
+                  value={newConnectionId}
+                  onValueChange={setNewConnectionId}
+                  groups={[
+                    {
+                      items: linkableConnections.map((conn) => ({
+                        value: conn.id,
+                        label: conn.display_name || conn.provider || conn.id,
+                        kind: 'icon' as const,
+                        brandSlug: conn.provider || conn.provider_id,
+                      })),
+                    },
+                  ]}
+                />
               ) : (
                 <Input
                   value={newLabel}

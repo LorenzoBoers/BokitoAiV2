@@ -25,6 +25,14 @@ import {
   type ReplyInput,
   type ThreadId,
 } from '../lib/inbox-api'
+import {
+  buildOptimisticOutbound,
+  dropMatchedLocals,
+  keepPendingLocals,
+  patchLocalSendStatus,
+  readOptimisticReply,
+  replaceLocalWithServer,
+} from '../lib/optimistic-outbound'
 import { trailingUnreadInboundIds } from '../components/inbox/ThreadTimeline'
 
 function escapeHtml(input: string): string {
@@ -131,9 +139,13 @@ export function useThreadDetail(
                     return Boolean(e.createdAt && e.createdAt < oldestFreshAt)
                   })
                 : []
+              const mergedMsgs = keepPendingLocals(prev.messages, [
+                ...keepOlder,
+                ...next.messages,
+              ])
               return {
                 ...next,
-                messages: [...keepOlder, ...next.messages],
+                messages: mergedMsgs,
                 events: [...keepOlderEvents, ...next.events],
                 hasOlder: keepOlder.length > 0 ? prev.hasOlder : next.hasOlder,
                 oldestMessageId:
@@ -255,9 +267,10 @@ export function useThreadDetail(
           const already = current.messages.some((m) => String(m.id) === String(msg.id))
           setRawDetail((prev) => {
             if (!prev || String(prev.thread.id) !== String(msg.threadId)) return prev
+            const withLive = upsertLiveMessage(prev.messages, msg)
             return {
               ...prev,
-              messages: upsertLiveMessage(prev.messages, msg),
+              messages: dropMatchedLocals(withLive, msg),
               thread: {
                 ...prev.thread,
                 lastMessageAt: msg.receivedAt ?? msg.createdAt ?? prev.thread.lastMessageAt,
@@ -337,29 +350,58 @@ export function useThreadDetail(
   const reply = useCallback(
     async (input: ReplyInput) => {
       if (!token || !threadId) return
-      setSaving(true)
-      try {
-        // Email replies: body only. The API appends the operator/mailbox
-        // signature server-side. Never inject tenant logo or the Bokito mark —
-        // that produced a huge unsolicited logo under every send.
-        let bodyHtml = input.bodyHtml?.trim() ? input.bodyHtml : undefined
-        if (!bodyHtml) {
-          const signatureImageUrl = user?.signatureUrl?.trim()
-          bodyHtml =
-            input.format === 'email' && signatureImageUrl
-              ? buildEmailReplyHtml(input.bodyText, signatureImageUrl)
-              : buildPlainReplyHtml(input.bodyText)
+      // Email replies: body only. The API appends the operator/mailbox
+      // signature server-side. Never inject tenant logo or the Bokito mark —
+      // that produced a huge unsolicited logo under every send.
+      let bodyHtml = input.bodyHtml?.trim() ? input.bodyHtml : undefined
+      if (!bodyHtml) {
+        const signatureImageUrl = user?.signatureUrl?.trim()
+        bodyHtml =
+          input.format === 'email' && signatureImageUrl
+            ? buildEmailReplyHtml(input.bodyText, signatureImageUrl)
+            : buildPlainReplyHtml(input.bodyText)
+      }
+      const optimistic = buildOptimisticOutbound({
+        threadId: String(threadId),
+        bodyText: input.bodyText,
+        bodyHtml,
+        authorUserId: user?.id ?? null,
+        attachments: input.attachments,
+        extras: {
+          format: input.format,
+          cc: input.cc,
+          bcc: input.bcc,
+          channelAccountId: input.channelAccountId,
+          to: input.to,
+          mode: input.mode,
+          sourceMessageId: input.sourceMessageId,
+          subject: input.subject,
+          quotedHtml: input.quotedHtml,
+          sendAfterSeconds: input.sendAfterSeconds,
+          action: input.action ?? 'send',
+          snoozeMinutes: input.snoozeMinutes,
+        },
+      })
+      // Show the bubble immediately; delivery can take seconds (WhatsApp / mail).
+      setRawDetail((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          messages: [...prev.messages, optimistic],
+          thread: {
+            ...prev.thread,
+            lastMessageAt: optimistic.receivedAt ?? prev.thread.lastMessageAt,
+          },
         }
+      })
+      try {
         const msg = await replyToThread(token, threadId, { ...input, bodyHtml })
         if (msg) {
           setRawDetail((prev) => {
             if (!prev) return prev
-            // Gateway may have already quiet-refreshed this message while the
-            // reply HTTP was in flight — never append a duplicate.
-            const already = prev.messages.some((m) => String(m.id) === String(msg.id))
             return {
               ...prev,
-              messages: already ? prev.messages : [...prev.messages, msg],
+              messages: replaceLocalWithServer(prev.messages, String(optimistic.id), msg),
               thread: {
                 ...prev.thread,
                 lastMessageAt: msg.receivedAt ?? prev.thread.lastMessageAt,
@@ -372,17 +414,115 @@ export function useThreadDetail(
               },
             }
           })
+        } else {
+          setRawDetail((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  messages: patchLocalSendStatus(
+                    prev.messages,
+                    String(optimistic.id),
+                    'failed:network',
+                  ),
+                }
+              : prev,
+          )
         }
         // Prefer gateway `message` events for the assistant follow-up. Avoid
         // a full quiet refetch on every send (was blocking the UI feel).
         return msg
       } catch (err) {
+        setRawDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: patchLocalSendStatus(
+                  prev.messages,
+                  String(optimistic.id),
+                  'failed:network',
+                ),
+              }
+            : prev,
+        )
         throw err instanceof Error ? err : new Error('Could not send message.')
-      } finally {
-        setSaving(false)
       }
     },
-    [token, threadId, user?.signatureUrl],
+    [token, threadId, user?.signatureUrl, user?.id],
+  )
+
+  /** Re-deliver a failed outbound bubble (optimistic or server `failed:*`). */
+  const retryFailedSend = useCallback(
+    async (messageId: string) => {
+      if (!token || !threadId) return
+      const current = detailRef.current
+      const failed = current?.messages.find((m) => String(m.id) === String(messageId))
+      if (!failed) return
+      if (!(typeof failed.sendStatus === 'string' && failed.sendStatus.startsWith('failed'))) {
+        return
+      }
+      const stashed = readOptimisticReply(failed)
+      const bodyText = (stashed?.bodyText ?? failed.bodyText ?? '').trim()
+      if (!bodyText && !(stashed?.attachments?.length || failed.attachments?.length)) return
+      setRawDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: patchLocalSendStatus(prev.messages, String(messageId), 'sending'),
+            }
+          : prev,
+      )
+      try {
+        const msg = await replyToThread(token, threadId, {
+          bodyText: bodyText || ' ',
+          bodyHtml: stashed?.bodyHtml ?? failed.bodyHtml ?? undefined,
+          action: 'send',
+          attachments: stashed?.attachments ?? (failed.attachments as ReplyInput['attachments']),
+          format: stashed?.format,
+          cc: stashed?.cc ?? failed.cc ?? undefined,
+          bcc: stashed?.bcc ?? failed.bcc ?? undefined,
+          channelAccountId: stashed?.channelAccountId,
+          to: stashed?.to,
+          mode: stashed?.mode ?? (failed.replyMode as ReplyInput['mode']),
+          sourceMessageId: stashed?.sourceMessageId,
+          subject: stashed?.subject ?? failed.subject,
+          quotedHtml: stashed?.quotedHtml,
+          sendAfterSeconds: stashed?.sendAfterSeconds,
+        })
+        if (msg) {
+          setRawDetail((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  messages: replaceLocalWithServer(prev.messages, String(messageId), msg),
+                  thread: {
+                    ...prev.thread,
+                    lastMessageAt: msg.receivedAt ?? prev.thread.lastMessageAt,
+                  },
+                }
+              : prev,
+          )
+        } else {
+          setRawDetail((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  messages: patchLocalSendStatus(prev.messages, String(messageId), 'failed:network'),
+                }
+              : prev,
+          )
+        }
+      } catch {
+        setRawDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: patchLocalSendStatus(prev.messages, String(messageId), 'failed:network'),
+              }
+            : prev,
+        )
+      }
+    },
+    [token, threadId],
   )
 
   const addNote = useCallback(
@@ -545,6 +685,7 @@ export function useThreadDetail(
     refresh: fetchDetail,
     patch,
     reply,
+    retryFailedSend,
     addNote,
     updateNote,
     deleteNote,

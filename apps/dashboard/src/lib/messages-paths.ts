@@ -147,7 +147,7 @@ export function channelPath(
 
 /** URL of the composer-first "New conversation" draft surface. */
 export type NewConversationOpts = {
-  intent?: 'contact' | 'agent' | 'teammate'
+  intent?: 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket'
   agentId?: string
   connectionId?: string | number
   to?: string

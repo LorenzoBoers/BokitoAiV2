@@ -548,6 +548,8 @@ export type PatchThreadInput = {
   /** Next look-at while open; null clears it. */
   followUpAt?: string | null
   followUpTitle?: string
+  /** Email-only: bind the thread to this mailbox (From + channel folder). */
+  channelAccountId?: string
 }
 
 export type BulkThreadAction =
@@ -1128,7 +1130,7 @@ export async function getAiCommunicationSettings(token: string): Promise<AiCommu
     payload.workspace_language && payload.workspace_language !== 'auto'
       && REPLY_LANGUAGES.includes(payload.workspace_language as ReplyLanguage)
       ? (payload.workspace_language as WorkspaceLanguage)
-      : 'en'
+      : 'nl'
   return {
     replyLanguage,
     workspaceLanguage,
@@ -1144,15 +1146,11 @@ export async function saveAiCommunicationSettings(
     replySendAs?: ReplySendAs
   },
 ): Promise<void> {
-  await apiPut(
-    policyRoutes.aiLanguage(),
-    {
-      reply_language: input.replyLanguage,
-      workspace_language: input.workspaceLanguage,
-      reply_send_as: input.replySendAs,
-    },
-    token,
-  )
+  const body: Record<string, string> = {}
+  if (input.replyLanguage !== undefined) body.reply_language = input.replyLanguage
+  if (input.workspaceLanguage !== undefined) body.workspace_language = input.workspaceLanguage
+  if (input.replySendAs !== undefined) body.reply_send_as = input.replySendAs
+  await apiPut(policyRoutes.aiLanguage(), body, token)
 }
 
 // ---------------------------------------------------------------------------

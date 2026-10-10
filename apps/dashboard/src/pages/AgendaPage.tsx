@@ -68,7 +68,7 @@ import { cn } from '../lib/utils'
 
 const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'task', 'calendar', 'activity']
 const VIEW_KEYS: Record<string, AgendaView> = { d: 'day', w: 'week', m: 'month', l: 'list' }
-const NEW_KINDS: TriggerKind[] = ['once', 'event', 'cron']
+const NEW_KINDS: TriggerKind[] = ['once', 'event', 'cron', 'interval']
 
 export default function AgendaPage() {
   const { t, i18n } = useTranslation('nav')
@@ -108,6 +108,7 @@ export default function AgendaPage() {
     trigger: Trigger | null
     at: Date | null
     kind: TriggerKind
+    seed: string | null
   } | null>(null)
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false)
   const [calendarEditEvent, setCalendarEditEvent] = useState<CalendarEventEditSeed | null>(null)
@@ -139,11 +140,17 @@ export default function AgendaPage() {
       setCalendarSeedAt(null)
       setCalendarDialogOpen(true)
     } else if (newParam && NEW_KINDS.includes(newParam as TriggerKind)) {
-      setTriggerDialog({ trigger: null, at: null, kind: newParam as TriggerKind })
+      setTriggerDialog({
+        trigger: null,
+        at: null,
+        kind: newParam as TriggerKind,
+        seed: searchParams.get('seed'),
+      })
     }
     setParams({
       agent: null,
       new: null,
+      seed: null,
       source: null,
       ...(agentParam ? { who: `agent:${agentParam}` } : {}),
     })
@@ -229,7 +236,16 @@ export default function AgendaPage() {
       listWorkstreams().catch(() => []),
       listProjects().catch(() => []),
     ]).then(([agentRows, wsRows, projectRows]) => {
-      setAgents(agentRows.map((a) => ({ id: a.id, name: a.name })))
+      setAgents(
+        agentRows.map((a) => ({
+          id: a.id,
+          name: a.name,
+          avatar_kind: a.avatar_kind,
+          avatar_icon: a.avatar_icon,
+          avatar_color: a.avatar_color,
+          avatar_image_url: a.avatar_image_url,
+        })),
+      )
       setWorkstreams((Array.isArray(wsRows) ? wsRows : []).map((w) => ({ id: w.id, name: w.name })))
       setProjects(projectRows.map((p) => ({ id: p.id, name: p.name })))
     })
@@ -256,7 +272,7 @@ export default function AgendaPage() {
     const item = items.find((row) => row.series_id === triggerParam || row.trigger_id === triggerParam)
     const trigger = triggers.find((row) => row.id === triggerParam)
     if (item) setSelection({ kind: 'item', item })
-    else if (trigger) setTriggerDialog({ trigger, at: null, kind: trigger.kind })
+    else if (trigger) setTriggerDialog({ trigger, at: null, kind: trigger.kind, seed: null })
     setParams({ trigger: null })
   }, [triggerParam, loading, items, triggers, setParams])
 
@@ -301,12 +317,16 @@ export default function AgendaPage() {
   const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
   const agentNames = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents])
   const people = useMemo(
-    () => members.filter((m) => m.uuid).map((m) => ({ id: m.uuid, name: m.name || m.email })),
+    () =>
+      members
+        .filter((m) => m.uuid)
+        .map((m) => ({ id: m.uuid, name: m.name || m.email, email: m.email, avatarUrl: m.avatarUrl })),
     [members],
   )
 
   const reload = () => setReloadKey((k) => k + 1)
-  const openNew = (kind: TriggerKind, at: Date | null = null) => setTriggerDialog({ trigger: null, at, kind })
+  const openNew = (kind: TriggerKind, at: Date | null = null) =>
+    setTriggerDialog({ trigger: null, at, kind, seed: null })
   const openCalendarNew = (at: Date | null = null) => {
     setCalendarEditEvent(null)
     setCalendarSeedAt(at)
@@ -488,7 +508,7 @@ export default function AgendaPage() {
               projectNames={projectNames}
               onSelect={setSelection}
               onClose={() => setSelection(null)}
-              onEditTrigger={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind })}
+              onEditTrigger={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind, seed: null })}
               onOpenCalendar={(item) => setCalendarDetailItem(item)}
               onChanged={reload}
             />
@@ -506,6 +526,7 @@ export default function AgendaPage() {
         workstreams={workstreams}
         initialRunAt={triggerDialog?.at ?? null}
         initialKind={triggerDialog?.kind}
+        initialSeed={triggerDialog?.seed}
         initialAgentId={who.startsWith('agent:') ? who.slice('agent:'.length) : null}
         onSaved={reload}
       />
@@ -514,7 +535,7 @@ export default function AgendaPage() {
         onOpenChange={setRoutinesOpen}
         triggers={triggers.filter((row) => row.kind !== 'once' && row.kind !== 'event')}
         agentNames={agentNames}
-        onEdit={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind })}
+        onEdit={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind, seed: null })}
         onCreate={() => openNew('cron')}
         onChanged={reload}
       />

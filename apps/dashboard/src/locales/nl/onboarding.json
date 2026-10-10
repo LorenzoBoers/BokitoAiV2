@@ -51,12 +51,19 @@
   },
   "languages": {
     "title": "Talen",
-    "subtitle": "Je interfacetaal, en de taal die agents gebruiken als ze voor het team schrijven.",
+    "subtitle": "Je eigen interface, en de werktaal van de organisatie voor agents (inclusief thinking).",
     "uiLabel": "Jouw interface",
     "uiEn": "English",
     "uiNl": "Nederlands",
-    "workspaceLabel": "Organisatie- / AI-taal",
-    "workspaceHint": "Voor operatorchats, samenvattingen en setup."
+    "workspaceLabel": "Werktaal van de organisatie",
+    "workspaceHint": "Agents schrijven, denken en leggen uit in deze taal — ook in operatorchats en setup. Klantantwoorden kunnen per kanaal nog de taal van de klant volgen.",
+    "lang": {
+      "nl": "Nederlands",
+      "en": "English",
+      "de": "Deutsch",
+      "fr": "Français",
+      "es": "Español"
+    }
   },
   "notifications": {
     "title": "Meldingen",

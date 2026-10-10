@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderKanban, MessageSquare, Pause, Pencil, Play, Bot, X, Zap } from 'lucide-react'
+import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Callout } from '../ui/callout'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
@@ -16,7 +17,7 @@ import {
   LAYER_DOT,
   LAYER_ICON,
   LAYER_TEXT,
-  isFailed,
+  agendaStatusTone,
   itemSubtitle,
   relativeMoment,
   triggerScheduleLabel,
@@ -167,8 +168,10 @@ function ItemBody({
         {item.status && !['planned', 'calendar'].includes(item.status) && item.kind !== 'activity' ? (
           <>
             <dt className="text-text-muted">{t('agendaPage.panel.status')}</dt>
-            <dd className={cn(isFailed(item.status) ? 'text-status-error' : item.status === 'due' ? 'text-status-warning' : 'text-text-heading')}>
-              {agendaStatusLabel(item.status, t)}
+            <dd>
+              <Badge size="sm" variant={agendaStatusTone(item.status)}>
+                {agendaStatusLabel(item.status, t)}
+              </Badge>
             </dd>
           </>
         ) : null}
@@ -299,8 +302,10 @@ function GroupBody({ items, onSelect }: Props & { items: TimeItem[] }) {
                 <span className="block truncate text-text-heading">{item.title}</span>
                 <span className="block truncate text-xs text-text-muted">{itemSubtitle(item, t)}</span>
               </span>
-              {isFailed(item.status) ? (
-                <span className="shrink-0 text-2xs text-status-error">{agendaStatusLabel(item.status, t)}</span>
+              {item.status && !['planned', 'calendar'].includes(item.status) && item.kind !== 'activity' ? (
+                <Badge size="sm" variant={agendaStatusTone(item.status)}>
+                  {agendaStatusLabel(item.status, t)}
+                </Badge>
               ) : null}
             </button>
           </li>

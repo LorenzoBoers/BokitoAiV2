@@ -363,6 +363,12 @@ def split_suggestion(text: str) -> SuggestionParts:
     internal_note = _collapse_blank_lines("\n\n".join(note_parts)) if note_parts else ""
 
     if not body:
-        # Cleaning removed everything: keep the original so nothing is lost.
+        # Note-only model output (e.g. the whole reply was after INTERNAL_NOTE:):
+        # keep the note and return an empty customer body — never put the
+        # sentinel or team-facing text into the draft the operator would send.
+        if internal_note:
+            return SuggestionParts(body="", internal_note=internal_note)
+        # Cleaning removed everything with no note extracted: keep the original
+        # so a short sign-off-only draft is never silently lost.
         return SuggestionParts(body=raw, internal_note="")
     return SuggestionParts(body=body, internal_note=internal_note)

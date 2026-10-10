@@ -126,29 +126,16 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(threadNeedsReply(thread({ status: 'pending', hasUnread: false, lastMessageDirection: 'inbound' }))).toBe(false)
   })
 
-  it('keeps email threads on the email surface', () => {
+  it('keeps email threads on the email surface and opens on Reply', () => {
     const surface = resolveComposerSurface(
       thread({ channel: 'email', contactEmail: 'klant@example.com' }),
     )
     expect(surface.channel).toBe('email')
     expect(surface.includeSignature).toBe(true)
-    // No inbound waiting: the bottom input stays on Ask.
-    expect(surface.defaultMode).toBe('ask')
-  })
-
-  it('opens Reply when the customer is waiting and no decision is open', () => {
-    const surface = resolveComposerSurface(
-      thread({
-        channel: 'email',
-        contactEmail: 'klant@example.com',
-        lastMessageDirection: 'inbound',
-        hasOpenDecision: false,
-      }),
-    )
     expect(surface.defaultMode).toBe('reply')
   })
 
-  it('keeps Ask on email when a decision is open', () => {
+  it('stays on Reply for email even when a decision is open', () => {
     const surface = resolveComposerSurface(
       thread({
         channel: 'email',
@@ -157,7 +144,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
         hasOpenDecision: true,
       }),
     )
-    expect(surface.defaultMode).toBe('ask')
+    expect(surface.defaultMode).toBe('reply')
   })
 
   it('defaults noreply addresses to an internal note, not Reply to', () => {

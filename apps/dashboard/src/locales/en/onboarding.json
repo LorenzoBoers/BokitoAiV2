@@ -51,12 +51,19 @@
   },
   "languages": {
     "title": "Languages",
-    "subtitle": "Your interface language, and the language agents use when writing for the team.",
+    "subtitle": "Your own interface, and the organization working language for agents (including thinking).",
     "uiLabel": "Your interface",
     "uiEn": "English",
     "uiNl": "Nederlands",
-    "workspaceLabel": "Organization / AI language",
-    "workspaceHint": "Used for operator chats, summaries and setup."
+    "workspaceLabel": "Organization working language",
+    "workspaceHint": "Agents write, think, and explain in this language — including operator chats and setup. Customer replies can still follow the customer per channel.",
+    "lang": {
+      "nl": "Nederlands",
+      "en": "English",
+      "de": "Deutsch",
+      "fr": "Français",
+      "es": "Español"
+    }
   },
   "notifications": {
     "title": "Notifications",

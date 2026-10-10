@@ -397,6 +397,8 @@ type Props = {
   onMailAction?: (message: InboxMessage, mode: MailDraftMode) => void
   /** Our mailbox address(es); hides Reply all when nobody else was copied. */
   mailOwnAddresses?: string[]
+  /** Retry a failed outbound send from the bubble. */
+  onRetrySend?: (messageId: string) => void | Promise<void>
   /** Deep-linked card (`?message=`): highlighted and scrolled into view. */
   focusedMessageId: string | null
   /** Trailing unread inbound messages briefly flash when the thread opens. */
@@ -419,8 +421,10 @@ type Props = {
     decisionMessageId: string
     sendAs?: ReplySendAs
   }) => void
-  /** Decision message ids whose draft already sits in the composer. */
+  /** Open reply proposals shown as the compact agent-cloud pill. */
   compactDecisionMessageIds: string[]
+  /** Decision message id currently loaded in the reply composer, if any. */
+  composerDecisionMessageId?: string | null
   /** Open proposals that answer an older message than the newest inbound one. */
   outdatedDecisionMessageIds?: string[]
   /** Live AI strip pinned under the last row while a reply streams. */
@@ -479,6 +483,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     noteActions,
     onMailAction,
     mailOwnAddresses,
+    onRetrySend,
     focusedMessageId,
     unreadHighlightIds = [],
     hasOlder = false,
@@ -494,6 +499,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     onDecisionResolved,
     onEditDraft,
     compactDecisionMessageIds,
+    composerDecisionMessageId = null,
     outdatedDecisionMessageIds,
     liveTrace,
     emptyState,
@@ -804,6 +810,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             agentAvatarColor={agentAvatarColor}
             agentAvatarImageUrl={agentAvatarImageUrl}
             compactReplyProposal={compact.has(String(message.id))}
+            activeInComposer={composerDecisionMessageId === String(message.id)}
             outdated={outdated.has(String(message.id))}
             onResolved={onDecisionResolved}
             onEditDraft={onEditDraft}
@@ -830,6 +837,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             chatTags={chatTags}
             onMailAction={onMailAction}
             mailOwnAddresses={mailOwnAddresses}
+            onRetrySend={onRetrySend}
             mailCollapsedByDefault={
               openMailIds != null &&
               !focused &&

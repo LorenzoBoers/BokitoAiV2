@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BubbleAction } from './ChatBubble'
 
 const NONE = '__none__'
@@ -82,22 +82,25 @@ export function SplitConversationAction({
           </DialogHeader>
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-text-muted">{t('splitConversation.category')}</span>
-            <Select
+            <ChoiceSelect
+              aria-label={t('splitConversation.category')}
+              triggerClassName="h-9 text-sm"
               value={categoryId || NONE}
               onValueChange={(value) => setCategoryId(value === NONE ? '' : value)}
-            >
-              <SelectTrigger className="h-9 text-sm" aria-label={t('splitConversation.category')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>{t('splitConversation.noCategory')}</SelectItem>
-                {types.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    #{type.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              groups={[
+                {
+                  items: [
+                    { value: NONE, label: t('splitConversation.noCategory'), kind: 'icon' },
+                    ...types.map((type) => ({
+                      value: type.id,
+                      label: type.name,
+                      kind: 'tag' as const,
+                      category: true,
+                    })),
+                  ],
+                },
+              ]}
+            />
           </label>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

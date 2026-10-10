@@ -1419,6 +1419,14 @@
     "workspaceIdCopied": "Copied for support",
     "workspaceIdCopyFailed": "Could not copy",
     "showSetupAgain": "Show setup card",
+    "recurringWake": {
+      "title": "Let an agent watch for you",
+      "body": "A recurring task keeps an eye on the workspace and reports only what needs attention.",
+      "cta": "Set up task",
+      "promptDefault": "Look over the workspace. Report only what needs attention: conversations that are stuck, decisions that are waiting, and one concrete improvement. Write that in your channel. Do not repeat something you already reported.",
+      "taskName": "Workspace check",
+      "dismiss": "Hide"
+    },
     "loadError": "Could not load overview.",
     "partialLoadError": "Some overview data failed to load: {{items}}.",
     "conversations": "Conversations 7d",
@@ -2756,8 +2764,8 @@
       "languageDescription": "What language the AI writes in — for customer replies and for notes to your team.",
       "replyLanguageLabel": "Reply language",
       "replyLanguageHint": "Language of drafted customer replies. Automatic mirrors the language of the customer's message. Individual mailboxes can override this below.",
-      "workspaceLanguageLabel": "Team language",
-      "workspaceLanguageHint": "Language of AI summaries and explanations written for your team, such as no-reply summaries. Workspace-wide only.",
+      "workspaceLanguageLabel": "Organization working language",
+      "workspaceLanguageHint": "Language agents use for your team: operator chats, summaries, decisions, thinking, and tool steps. Also under Settings → General. Customer replies follow the reply language above.",
       "sendAsLabel": "Approved replies are sent as",
       "sendAsHint": "Default sender identity when a teammate approves a suggested reply. Teammates can still switch on the decision card; agents can set their own default under Agents.",
       "sendAsUser": "The approving teammate",
@@ -5979,7 +5987,31 @@
     "inactive": "Inactive",
     "emptyTenants": "No tenants match.",
     "emptyUsers": "No users match.",
-    "emptyLogs": "No support access logged yet."
+    "emptyLogs": "No support access logged yet.",
+    "timeSaved": {
+      "title": "Action weights (time saved)",
+      "hint": "Minutes credited per outcome on Overview. Manual replies count in the mix pie only. Stored in platform_settings for this API environment.",
+      "minutes": "Minutes",
+      "mode": "Mode",
+      "saved": "Counts as time saved",
+      "mixOnly": "Mix pie only",
+      "save": "Save weights",
+      "saving": "Saving…",
+      "savedToast": "Action weights saved.",
+      "loadError": "Could not load action weights.",
+      "saveError": "Could not save action weights.",
+      "actions": {
+        "autonomous_reply": "Autonomous reply sent",
+        "assisted_draft_unchanged": "Assisted draft sent unchanged",
+        "assisted_draft_edited": "Assisted draft edited then sent",
+        "assisted_draft_human_continued": "Draft then human continued",
+        "no_reply_triaged": "No-reply triaged",
+        "no_reply_confirmed": "No-reply confirmed close",
+        "ticket_filed_by_agent": "Ticket filed by agent",
+        "flow_run_completed": "Flow run completed",
+        "manual_reply": "Manual human reply"
+      }
+    }
   },
   "helpPublic": {
     "title": "Help Center",

@@ -1,4 +1,4 @@
-import { BookOpen, Check, Copy, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { AlertCircle, BookOpen, Check, Copy, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -99,6 +99,8 @@ type MessageItemProps = {
   mailOwnAddresses?: string[]
   /** Older mail in an email thread opens folded to its envelope band. */
   mailCollapsedByDefault?: boolean
+  /** Retry a failed outbound send from the bubble. */
+  onRetrySend?: (messageId: string) => void | Promise<void>
 }
 
 type EventItemProps = {
@@ -1363,11 +1365,22 @@ export function MessageTimelineItem({
   onMailAction,
   mailOwnAddresses,
   mailCollapsedByDefault = false,
+  onRetrySend,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { user, token } = useAuth()
   const [proposalPicked, setProposalPicked] = useState<string[]>([])
+  const [retrying, setRetrying] = useState(false)
+  // Brief green check after delivery lands, then settle to muted grey.
+  // Optimistic bubbles remount when the server id arrives — flash if the
+  // confirmed send is still fresh.
+  const [justSentFlash, setJustSentFlash] = useState(() => {
+    if (messageProp.sendStatus !== 'sent') return false
+    const at = Date.parse(messageProp.receivedAt ?? messageProp.createdAt ?? '')
+    return Number.isFinite(at) && Date.now() - at < 2500
+  })
+  const prevSendStatus = useRef(messageProp.sendStatus)
   // Initial fold only; once a reader opens an older mail it stays open, and a
   // mail that was the newest when it mounted does not fold when a reply lands.
   const [mailCollapsed, setMailCollapsed] = useState(mailCollapsedByDefault)
@@ -1378,6 +1391,18 @@ export function MessageTimelineItem({
   > | null>(null)
   const [enriching, setEnriching] = useState(false)
   const message = enriched ? { ...messageProp, ...enriched } : messageProp
+  useEffect(() => {
+    const prev = prevSendStatus.current
+    prevSendStatus.current = message.sendStatus
+    if (prev !== 'sent' && message.sendStatus === 'sent') {
+      setJustSentFlash(true)
+    }
+  }, [message.sendStatus])
+  useEffect(() => {
+    if (!justSentFlash) return
+    const timer = window.setTimeout(() => setJustSentFlash(false), 1400)
+    return () => window.clearTimeout(timer)
+  }, [justSentFlash])
   // Contact link / escalate / handover write kind=system_event with no author.
   const isSystemEvent = message.kind === 'system_event'
 
@@ -1766,15 +1791,31 @@ export function MessageTimelineItem({
         ? t(failReasonKey[failCode])
         : t('timeline.deliveryFail.unknown')
       return (
-        <div className="mb-1 flex min-w-0 items-center gap-1">
+        <div className="mb-1 flex min-w-0 flex-wrap items-center gap-1.5">
           {/* Readable chip: plain status-red would drown in the accent bubble. */}
           <span
-            className="truncate-fade rounded bg-bg-surface px-1.5 py-0.5 text-2xs font-medium text-status-error"
+            className="inline-flex min-w-0 items-center gap-1 truncate-fade rounded bg-bg-surface px-1.5 py-0.5 text-2xs font-medium text-status-error"
             title={String(message.sendStatus)}
           >
+            <AlertCircle size={11} className="shrink-0" aria-hidden />
             {t('timeline.notDelivered')}
             {failReason ? ` - ${failReason}` : ''}
           </span>
+          {onRetrySend ? (
+            <button
+              type="button"
+              disabled={retrying}
+              onClick={() => {
+                setRetrying(true)
+                void Promise.resolve(onRetrySend(String(message.id))).finally(() =>
+                  setRetrying(false),
+                )
+              }}
+              className="text-2xs font-medium text-status-error underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              {retrying ? t('timeline.sending') : t('timeline.retrySend')}
+            </button>
+          ) : null}
           {displayBody ? (
             <button
               type="button"
@@ -1793,27 +1834,25 @@ export function MessageTimelineItem({
       )
     }
     if (message.sendStatus === 'scheduled') {
-      return (
+      // Soft-undo window: status lives on the checkmark; keep cancel here.
+      return token && typeof message.id === 'string' ? (
         <div className="mb-1 flex min-w-0 items-center gap-1">
-          <span className="text-2xs font-medium text-text-muted">{t('timeline.sending')}</span>
-          {token && typeof message.id === 'string' ? (
-            <button
-              type="button"
-              onClick={() => {
-                void cancelScheduledMessage(token, String(message.id)).then(
-                  () => toast.success(t('timeline.sendCancelled')),
-                  () => toast.error(t('timeline.cancelSendFailed')),
-                )
-              }}
-              className="text-2xs font-medium text-accent hover:underline"
-            >
-              {t('timeline.cancelSend')}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              void cancelScheduledMessage(token, String(message.id)).then(
+                () => toast.success(t('timeline.sendCancelled')),
+                () => toast.error(t('timeline.cancelSendFailed')),
+              )
+            }}
+            className="text-2xs font-medium text-accent hover:underline"
+          >
+            {t('timeline.cancelSend')}
+          </button>
         </div>
-      )
+      ) : null
     }
-    // Successful sends: checkmark next to the timestamp (see timeMeta), not a label here.
+    // Successful / in-flight sends: checkmark next to the timestamp (see timeMeta).
     return null
   })()
 
@@ -1956,23 +1995,58 @@ export function MessageTimelineItem({
     )
 
   const sentAt = message.receivedAt ?? message.createdAt
-  const showSentCheck =
-    authorKind === 'self' &&
-    !isInternal &&
-    isCustomerChannel(channel) &&
-    message.sendStatus === 'sent'
-  const timeMeta = sentAt ? (
-    <span className="inline-flex items-center gap-1">
-      {showSentCheck ? (
+  const showDeliveryMark =
+    authorKind === 'self' && !isInternal && isCustomerChannel(channel) && Boolean(message.sendStatus)
+  const deliveryMark = (() => {
+    if (!showDeliveryMark) return null
+    const status = message.sendStatus
+    if (status === 'sending' || status === 'scheduled') {
+      return (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex" aria-label={t('timeline.sentOk')}>
+            <span className="inline-flex" aria-label={t('timeline.sending')}>
+              <Loader2 size={11} className="shrink-0 animate-spin opacity-80" aria-hidden />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">{t('timeline.sending')}</TooltipContent>
+        </Tooltip>
+      )
+    }
+    if (typeof status === 'string' && status.startsWith('failed')) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex text-status-error" aria-label={t('timeline.notDelivered')}>
+              <AlertCircle size={11} className="shrink-0" aria-hidden />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">{t('timeline.notDelivered')}</TooltipContent>
+        </Tooltip>
+      )
+    }
+    if (status === 'sent') {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                'inline-flex transition-colors duration-300',
+                justSentFlash ? 'text-status-success' : 'opacity-70',
+              )}
+              aria-label={t('timeline.sentOk')}
+            >
               <Check size={11} className="shrink-0" aria-hidden />
             </span>
           </TooltipTrigger>
           <TooltipContent side="top">{t('timeline.sentOk')}</TooltipContent>
         </Tooltip>
-      ) : null}
+      )
+    }
+    return null
+  })()
+  const timeMeta = sentAt ? (
+    <span className="inline-flex items-center gap-1">
+      {deliveryMark}
       <time dateTime={sentAt} title={new Date(sentAt).toLocaleString(i18n.language)}>
         {formatHourMinute(sentAt, i18n.language)}
       </time>

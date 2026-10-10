@@ -42,6 +42,8 @@ export const appRoutes = {
   },
   signals: {
     threadsQuery: (params: URLSearchParams) => withQuery('/signals', params),
+    /** Start a WhatsApp thread or an internal ticket thread. */
+    start: '/signals/start',
     // Assistant conversation facade (chat with company agents).
     chatTargets: '/signals/chat/targets',
     conversations: '/signals/conversations',

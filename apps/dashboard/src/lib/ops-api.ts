@@ -1,5 +1,12 @@
 import { staffRoutes } from '../api/routes'
-import { staffDelete, staffGet, staffPatch, staffPost, type AuthSessionResponse } from './api'
+import {
+  staffDelete,
+  staffGet,
+  staffPatch,
+  staffPost,
+  staffPut,
+  type AuthSessionResponse,
+} from './api'
 
 export type StaffOpsTenant = {
   id: string
@@ -87,4 +94,28 @@ export async function impersonateStaffOpsUser(
   const body: { tenant_id?: string } = {}
   if (tenantId) body.tenant_id = tenantId
   return staffPost<AuthSessionResponse>(staffRoutes.opsUserImpersonate(userId), body, token)
+}
+
+export type StaffTimeSavedWeight = {
+  action: string
+  mode: 'autonomous' | 'assisted' | 'manual' | string
+  minutes: number
+  counts_as_saved: boolean
+}
+
+export async function getStaffTimeSavedWeights(
+  token: string,
+): Promise<{ actions: StaffTimeSavedWeight[] }> {
+  return staffGet<{ actions: StaffTimeSavedWeight[] }>(staffRoutes.opsTimeSavedWeights, token)
+}
+
+export async function putStaffTimeSavedWeights(
+  token: string,
+  minutes: Record<string, number>,
+): Promise<{ ok: boolean; actions: StaffTimeSavedWeight[] }> {
+  return staffPut<{ ok: boolean; actions: StaffTimeSavedWeight[] }>(
+    staffRoutes.opsTimeSavedWeights,
+    { minutes },
+    token,
+  )
 }
