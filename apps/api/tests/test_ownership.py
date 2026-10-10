@@ -260,13 +260,13 @@ async def test_for_you_includes_all_people_team_turn(
     from app.services.ownership import for_you_predicate, turn_is_mine_predicate
 
     tenant, user = await _tenant_and_user(session_override)
+    waiting = await _email_thread(session_override, tenant)
+    assert waiting.assignee_kind == "team" and waiting.turn_reason == "reply_needed"
     people = (
         await session_override.execute(
             select(Team).where(Team.tenant_id == tenant.id, Team.kind == TEAM_KIND_PEOPLE)
         )
     ).scalar_one()
-    waiting = await _email_thread(session_override, tenant)
-    assert waiting.assignee_kind == "team" and waiting.turn_reason == "reply_needed"
 
     for_you = set(
         (

@@ -1,6 +1,8 @@
 import asyncio
+import json
 import os
 from typing import AsyncGenerator
+from uuid import uuid4
 
 import pytest
 import pytest_asyncio
@@ -152,6 +154,26 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             address="support@test.local",
             provider="gmail",
             credentials_json='{"access_token": "mock-access-token", "mock": true}',
+        )
+    )
+    # Website chat is opt-in in product; tests that hit livechat still need a
+    # row. Address uses the operator shape so startup cleanup of unused seeded
+    # widgets (address == slug) does not disable it.
+    session_override.add(
+        ChannelAccount(
+            tenant_id=tenant.id,
+            channel="widget",
+            provider="widget",
+            address=f"{tenant.slug}:{uuid4().hex[:10]}",
+            display_name="Website chat",
+            is_enabled=True,
+            settings_json=json.dumps(
+                {
+                    "ai_config": {"ai_handling": {"mode": "autonomous"}},
+                    "livechat_settings": {"pre_chat_form": True},
+                    "widget_settings_migrated": True,
+                }
+            ),
         )
     )
     from app.services.workspace import upsert_doc

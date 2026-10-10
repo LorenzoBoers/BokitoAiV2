@@ -144,9 +144,12 @@ DEFAULT_ORCHESTRATOR_SCOPES = [
 async def _seed_channels(session, tenant):
     """Website chat plus one relay address so local dev has a working inbox."""
     from app.services.email_relay import create_relay, list_relays
-    from app.services.tenant_bootstrap import ensure_widget_channel
+    from app.services.widget_channel import create_extra_widget_channel, get_widget_account
 
-    await ensure_widget_channel(session, tenant.id, commit=False)
+    # Operator-shaped website chat (not address==slug) so startup cleanup of
+    # unused auto-seeded widgets leaves the local seed inbox usable.
+    if await get_widget_account(session, tenant.id, None) is None:
+        await create_extra_widget_channel(session, tenant, label="Website chat")
     if not await list_relays(session, tenant.id):
         await create_relay(session, tenant.id, prefix="support", label="Support", commit=False)
 
