@@ -15,7 +15,7 @@ Integrations are partner logins. A **module** is one package of hashtags, playbo
 
 1. Open **Connections**. The **AI (coding) tools** banner sits above the **Connections** / **Marketplace** tabs: logos for Cursor, Claude, OpenAI, VS Code, Windsurf and Copilot, and **Set up** opens Developers. **Installed modules** uses the same cards as Marketplace: status (including **Installation incomplete** when no package is attached), partner logos, **Manage**, and **Uninstall**. Missing first steps may appear next (**Connect email or chat**, **Connect Agenda**, **Install a module**). Below that, **Connections** shows each connected integration as the same card as Marketplace — one card per product (Microsoft 365, Outlook Calendar, and Microsoft Graph are separate). Kind chips and search still apply. Mailboxes open **Channels** from the card dialog; Agenda apps open [Agenda](/docs/ai/agenda). **Custom MCP servers** stays a separate list for logins that are not in the catalog.
 2. Choose a card to see every registration to that provider in one list (see **Manage connections to one provider** below). Choose **New connection** on a card for a second login. Attach a partner to Accounting from the module page (**Use this connection**), not from a grouped program row. GitHub stays a **Code** card.
-3. Choose **Disconnect** on a custom MCP row when that login should stop (confirm **Remove this connection?**). Mailboxes and calendars are managed on Channels and Agenda.
+3. Choose **Disconnect** on a custom MCP row when that login should stop (confirm **Remove this connection?**). Mailboxes are managed on Channels; calendar accounts under the **Agenda** filter (see **Connect calendar accounts** below).
 
 ## Install from the marketplace
 
@@ -85,6 +85,19 @@ Set which people, agents and teams may use or manage a registration.
 4. An agent without access cannot reach the registration; the attempt appears in the audit log. Agents can propose a change with `set_connection_scope`, which always asks for approval.
 
 **Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; they and their planned packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear faded on Marketplace.
+
+## Connect calendar accounts
+
+Each Google or Microsoft account is one connection; add as many as you need and choose per account which calendars show in [Agenda](/docs/ai/agenda).
+
+![Calendar accounts](/api/docs/assets/integrations/calendar-accounts.png)
+*The Agenda filter on Connections lists every calendar account with its status and calendars.*
+
+1. Open **Connections** and choose the **Agenda** filter. Under **Calendar accounts**, choose **Connect Google Calendar** or **Connect Outlook Calendar** and finish sign-in. With an account already connected, the buttons read **Add Google account** and **Add Microsoft account**.
+2. Each account row shows its address, the sync status, the number of events, and a colored dot per calendar that is on. **Shared with you** marks an account someone else connected.
+3. Choose **Manage**. Under **Calendars**, switch on the calendars to sync (only the primary calendar is on at first) and pick the **Default calendar for new events**. Read-only calendars sync but never receive new events. Switched-on calendars sync every 15 minutes; **Sync now** runs it right away.
+4. Under **Access**, choose who may see and use the account. A new account is yours to manage, and agents may read it. Give a colleague **Use** to show it in their Agenda, or **Manage** to let them change calendars and access. Owners and admins always manage.
+5. When the row says **Sign in again to keep this calendar in sync**, choose **Reconnect**. **Disconnect** removes the account and its events from Agenda; nothing changes in Google or Outlook.
 
 ## Control accounting writes and agent access
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, ClipboardList, Info, RefreshCw, Repeat, Users } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, ClipboardList, Info, RefreshCw, Repeat, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
@@ -10,9 +10,10 @@ import { formatAppDate } from '../../lib/app-locale'
 import { connectedPathWithKind } from '../../lib/integration-kind-url'
 import { AGENDA_LAYERS, addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
 import type { CalendarConnection } from '../../lib/calendars-api'
-import { syncAllCalendars, listCalendarConnections } from '../../lib/calendars-api'
+import { calendarBrandSlug, syncAllCalendars, listCalendarConnections } from '../../lib/calendars-api'
 import { cn } from '../../lib/utils'
 import { LAYER_DOT } from './agenda-style'
+import { CalendarSwatch } from './CalendarSwatch'
 import { useState } from 'react'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
@@ -49,13 +50,6 @@ export type RailOption = {
   avatar_image_url?: string | null
 }
 
-function calendarBrandSlug(provider: string): string {
-  const slug = provider.trim().toLowerCase()
-  if (slug.includes('outlook') || slug.includes('microsoft')) return 'outlook-calendar'
-  if (slug.includes('google')) return 'google-calendar'
-  return slug
-}
-
 type Props = {
   anchor: Date
   nowMs: number
@@ -75,6 +69,9 @@ type Props = {
   calendarIds: Set<string>
   calendarCounts: Record<string, number>
   onToggleCalendar: (connectionId: string) => void
+  /** `connection|calendar` keys hidden in this view. */
+  hiddenCalendars: Set<string>
+  onToggleSubCalendar: (connectionId: string, calendarId: string) => void
   calendarsLoading: boolean
   onCalendars: (rows: CalendarConnection[]) => void
   onSynced: () => void
@@ -174,33 +171,65 @@ export default function AgendaRail(props: Props) {
         <RailHeading>{t('agendaPage.rail.show')}</RailHeading>
         {props.calendars.map((connection) => {
           const on = props.calendarIds.has(connection.id)
+          const subCalendars = (connection.calendars ?? []).filter((cal) => cal.enabled)
           return (
-            <button
-              key={connection.id}
-              type="button"
-              role="switch"
-              aria-checked={on}
-              onClick={() => props.onToggleCalendar(connection.id)}
-              className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated"
-              data-testid="agenda-calendar-toggle"
-            >
-              <span
-                className={cn(
-                  'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
-                  on ? cn(LAYER_DOT.calendar, 'border-transparent') : 'border-border bg-transparent',
-                )}
-                aria-hidden
+            <div key={connection.id}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={on}
+                onClick={() => props.onToggleCalendar(connection.id)}
+                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated"
+                data-testid="agenda-calendar-toggle"
               >
-                {on ? <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> : null}
-              </span>
-              <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
-              <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted')}>
-                {connection.display_name}
-              </span>
-              <span className="text-2xs tabular-nums text-text-muted">
-                {props.calendarCounts[connection.id] || ''}
-              </span>
-            </button>
+                <span
+                  className={cn(
+                    'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+                    on ? cn(LAYER_DOT.calendar, 'border-transparent') : 'border-border bg-transparent',
+                  )}
+                  aria-hidden
+                >
+                  {on ? <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> : null}
+                </span>
+                <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
+                <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted')}>
+                  {connection.account || connection.display_name}
+                </span>
+                <span className="text-2xs tabular-nums text-text-muted">
+                  {props.calendarCounts[connection.id] || ''}
+                </span>
+              </button>
+              {connection.sync_status === 'reconnect' ? (
+                <Link
+                  to={connectedPathWithKind('calendar')}
+                  className="ml-7 inline-flex items-center gap-1 text-2xs text-status-warning hover:underline"
+                >
+                  <AlertTriangle className="h-3 w-3" aria-hidden />
+                  {t('agenda.reconnect', { ns: 'calendar' })}
+                </Link>
+              ) : null}
+              {on && subCalendars.length > 1
+                ? subCalendars.map((cal) => {
+                    const shown = !props.hiddenCalendars.has(`${connection.id}|${cal.id}`)
+                    return (
+                      <button
+                        key={cal.id}
+                        type="button"
+                        role="switch"
+                        aria-checked={shown}
+                        onClick={() => props.onToggleSubCalendar(connection.id, cal.id)}
+                        className="ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs hover:bg-bg-elevated"
+                        data-testid="agenda-subcalendar-toggle"
+                      >
+                        <CalendarSwatch color={cal.color} className={cn(!shown && 'opacity-30')} />
+                        <span className={cn('min-w-0 flex-1 truncate', shown ? 'text-text-secondary' : 'text-text-muted line-through')}>
+                          {cal.name}
+                        </span>
+                      </button>
+                    )
+                  })
+                : null}
+            </div>
           )
         })}
         {AGENDA_LAYERS.map((layer) => {

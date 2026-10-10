@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -13,17 +13,46 @@ import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import {
+  calendarBrandSlug,
   createCalendarEvent,
   updateCalendarEvent,
   type CalendarConnection,
 } from '../../lib/calendars-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import type { ChoiceGroup } from '../ui/ChoiceSelect'
+import { CalendarSwatch } from './CalendarSwatch'
 
-function calendarBrandSlug(provider: string): string {
-  const slug = provider.trim().toLowerCase()
-  if (slug.includes('outlook') || slug.includes('microsoft')) return 'outlook-calendar'
-  if (slug.includes('google')) return 'google-calendar'
-  return slug || 'calendar'
+const TARGET_SEP = '::'
+
+/** Writable, switched-on calendars per account; an account without a stored
+ * list (not synced yet) is one target on its default calendar. */
+function writeTargets(connections: CalendarConnection[]): { groups: ChoiceGroup[]; first: string } {
+  let first = ''
+  const groups = connections.map((connection) => {
+    const label = connection.account || connection.display_name
+    const brandSlug = calendarBrandSlug(connection.provider)
+    const calendars = connection.calendars ?? []
+    const items =
+      calendars.length === 0
+        ? [{ value: `${connection.id}${TARGET_SEP}`, label, kind: 'calendar' as const, brandSlug }]
+        : calendars
+            .filter((cal) => cal.enabled && cal.writable)
+            .map((cal) => ({
+              value: `${connection.id}${TARGET_SEP}${cal.id}`,
+              label: cal.name,
+              kind: 'calendar' as const,
+              brandSlug,
+              trailing: <CalendarSwatch color={cal.color} />,
+            }))
+    if (!first && items.length) {
+      const preferred = items.find(
+        (item) => item.value === `${connection.id}${TARGET_SEP}${connection.default_write_calendar ?? ''}`,
+      )
+      first = (preferred ?? items[0]).value
+    }
+    return { label, items }
+  })
+  return { groups: groups.filter((g) => g.items.length > 0), first }
 }
 
 export type CalendarEventEditSeed = {
@@ -91,7 +120,8 @@ export default function CalendarEventDialog({
 }: CalendarEventDialogProps) {
   const { t } = useTranslation('nav')
   const editing = Boolean(editEvent?.id)
-  const [connectionId, setConnectionId] = useState('')
+  const targets = useMemo(() => writeTargets(connections), [connections])
+  const [target, setTarget] = useState('')
   const [title, setTitle] = useState('')
   const [allDay, setAllDay] = useState(false)
   const [startLocal, setStartLocal] = useState('')
@@ -109,7 +139,6 @@ export default function CalendarEventDialog({
       setTitle(editEvent.title || '')
       setLocation(editEvent.location || '')
       setDescription(editEvent.description || '')
-      setConnectionId(editEvent.connectionId || connections[0]?.id || '')
       setAllDay(nextAllDay)
       if (nextAllDay) {
         const startDate = editEvent.startIso
@@ -131,7 +160,7 @@ export default function CalendarEventDialog({
     setLocation('')
     setDescription('')
     setAllDay(false)
-    setConnectionId(connections[0]?.id ?? '')
+    setTarget(targets.first)
     const start = initialStart ? new Date(initialStart) : new Date()
     if (!initialStart) {
       start.setMinutes(0, 0, 0)
@@ -141,7 +170,7 @@ export default function CalendarEventDialog({
     end.setHours(end.getHours() + 1)
     setStartLocal(toLocalInputValue(start))
     setEndLocal(toLocalInputValue(end))
-  }, [open, connections, initialStart, editEvent])
+  }, [open, targets, initialStart, editEvent])
 
   const toggleAllDay = (checked: boolean) => {
     setAllDay(checked)
@@ -163,6 +192,7 @@ export default function CalendarEventDialog({
       setError(t('agendaPage.calendar.createValidation'))
       return
     }
+    const [connectionId, calendarId] = target.split(TARGET_SEP)
     if (!editing && !connectionId) {
       setError(t('agendaPage.calendar.createValidation'))
       return
@@ -203,6 +233,7 @@ export default function CalendarEventDialog({
       } else {
         await createCalendarEvent({
           connection_id: connectionId,
+          calendar_id: calendarId || undefined,
           title: title.trim(),
           start_at: startAt,
           end_at: endAt,
@@ -238,25 +269,20 @@ export default function CalendarEventDialog({
         <div className="space-y-3">
           {!editing ? (
             <div className="space-y-1.5">
-              <Label htmlFor="cal-conn">{t('agendaPage.calendar.connection')}</Label>
-              <ChoiceSelect
-                id="cal-conn"
-                aria-label={t('agendaPage.calendar.connection')}
-                placeholder={t('agendaPage.calendar.connection')}
-                triggerClassName="h-9"
-                value={connectionId}
-                onValueChange={setConnectionId}
-                groups={[
-                  {
-                    items: connections.map((connection) => ({
-                      value: connection.id,
-                      label: connection.display_name,
-                      kind: 'calendar' as const,
-                      brandSlug: calendarBrandSlug(connection.provider),
-                    })),
-                  },
-                ]}
-              />
+              <Label htmlFor="cal-conn">{t('agenda.target', { ns: 'calendar' })}</Label>
+              {targets.groups.length === 0 ? (
+                <p className="text-xs text-text-muted">{t('agenda.noWritable', { ns: 'calendar' })}</p>
+              ) : (
+                <ChoiceSelect
+                  id="cal-conn"
+                  aria-label={t('agenda.target', { ns: 'calendar' })}
+                  placeholder={t('agenda.target', { ns: 'calendar' })}
+                  triggerClassName="h-9"
+                  value={target}
+                  onValueChange={setTarget}
+                  groups={targets.groups}
+                />
+              )}
             </div>
           ) : null}
           <div className="space-y-1.5">
@@ -321,7 +347,7 @@ export default function CalendarEventDialog({
           <Button
             type="button"
             onClick={() => void submit()}
-            disabled={saving || (!editing && connections.length === 0)}
+            disabled={saving || (!editing && !target)}
           >
             {saving
               ? t('agendaPage.calendar.saving')

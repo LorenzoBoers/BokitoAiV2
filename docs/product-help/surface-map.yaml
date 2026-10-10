@@ -465,11 +465,14 @@ integrations:
     - apps/dashboard/src/components/modules/**
     - apps/dashboard/src/components/access/**
     - apps/dashboard/src/lib/use-connection-actions.ts
+    - apps/dashboard/src/lib/calendars-api.ts
+    - apps/api/app/services/calendar_sync.py
   screenshots:
     - marketplace
     - modules-hub
     - module-home
     - provider-connections
+    - calendar-accounts
 
 mcp:
   section: integrations

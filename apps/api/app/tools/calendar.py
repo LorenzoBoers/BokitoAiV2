@@ -13,34 +13,60 @@ def _event_id_from_agenda(item: dict[str, Any]) -> str:
     return raw[4:] if raw.startswith("cal:") else raw
 
 
-async def _calendar_list_events(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.calendar_sync import calendar_events_in_window, list_calendar_connections
+NO_CALENDAR = {
+    "ok": False,
+    "error": "no_calendar",
+    "message": (
+        "No calendar you may use is connected. Connect Google Calendar or Outlook "
+        "Calendar under Connections (Agenda), or ask its owner for access."
+    ),
+}
 
-    connections = await list_calendar_connections(ctx.session, ctx.tenant_id)
+
+async def _calendar_list_events(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.calendar_sync import (
+        calendar_events_in_window,
+        list_calendar_connections,
+        viewer_for_tool,
+    )
+
+    viewer = viewer_for_tool(ctx)
+    connections = await list_calendar_connections(ctx.session, ctx.tenant_id, viewer)
     if not connections:
-        return {
-            "ok": False,
-            "error": "no_calendar",
-            "message": (
-                "No calendar connected. Connect Google Calendar or Outlook Calendar "
-                "under Settings > Marketplace or Agenda."
-            ),
-        }
+        return dict(NO_CALENDAR)
     days = int(tool_input.get("days") or 7)
     days = max(1, min(days, 60))
     start = datetime.utcnow() - timedelta(hours=1)
     end = datetime.utcnow() + timedelta(days=days)
-    items = await calendar_events_in_window(ctx.session, ctx.tenant_id, start=start, end=end)
+    items = await calendar_events_in_window(
+        ctx.session, ctx.tenant_id, start=start, end=end, viewer=viewer
+    )
     return {
         "ok": True,
-        "connections": connections,
+        "connections": [
+            {
+                "id": c["id"],
+                "name": c["display_name"],
+                "account": c["account"],
+                "sync_status": c["sync_status"],
+                "default_calendar_id": c["default_write_calendar"],
+                "calendars": [
+                    {"id": cal["id"], "name": cal["name"], "writable": cal["writable"]}
+                    for cal in c["calendars"]
+                    if cal["enabled"]
+                ],
+            }
+            for c in connections
+        ],
         "events": [
             {
                 "id": _event_id_from_agenda(i),
                 "title": i.get("title"),
                 "at": i.get("start"),
                 "end_at": i.get("end"),
+                "all_day": bool(i.get("all_day")),
                 "provider": i.get("provider_label") or i.get("provider"),
+                "calendar": i.get("calendar_name") or "",
                 "location": i.get("location") or "",
                 "link": i.get("html_link") or "",
                 "connection_id": i.get("connection_id") or "",
@@ -51,6 +77,35 @@ async def _calendar_list_events(ctx: ToolContext, tool_input: dict[str, Any]) ->
     }
 
 
+async def _writable_connection(
+    ctx: ToolContext, connection_id: str
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """The connection to write to (named or first with a default calendar),
+    or an error payload when this caller may not write anywhere."""
+    from app.services.calendar_sync import list_calendar_connections, viewer_for_tool
+
+    connections = await list_calendar_connections(ctx.session, ctx.tenant_id, viewer_for_tool(ctx))
+    if not connections:
+        return None, dict(NO_CALENDAR)
+    if connection_id:
+        match = next((c for c in connections if c["id"] == connection_id), None)
+        if match is None:
+            return None, {
+                "ok": False,
+                "error": "calendar_access",
+                "message": "That calendar is not connected or you have no access to it.",
+            }
+        return match, None
+    match = next((c for c in connections if c["default_write_calendar"]), None)
+    if match is None:
+        return None, {
+            "ok": False,
+            "error": "no_writable_calendar",
+            "message": "None of the connected calendars accepts new events.",
+        }
+    return match, None
+
+
 async def _calendar_propose_event(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.tools.builtin import _create_decision_request
 
@@ -59,12 +114,21 @@ async def _calendar_propose_event(ctx: ToolContext, tool_input: dict[str, Any]) 
     end_at = str(tool_input.get("end_at") or "").strip()
     if not title or not start_at or not end_at:
         return {"ok": False, "error": "title, start_at and end_at are required"}
-    connection_id = str(tool_input.get("connection_id") or "").strip()
+    connection, error = await _writable_connection(
+        ctx, str(tool_input.get("connection_id") or "").strip()
+    )
+    if error:
+        return error
+    calendar_id = str(tool_input.get("calendar_id") or "").strip() or connection["default_write_calendar"]
+    calendar = next((c for c in connection["calendars"] if c["id"] == calendar_id), None)
+    if connection["calendars"] and (calendar is None or not calendar["writable"]):
+        return {"ok": False, "error": "That calendar does not accept new events."}
     description = str(tool_input.get("description") or "").strip()
     location = str(tool_input.get("location") or "").strip()
     all_day = bool(tool_input.get("all_day"))
     payload = {
-        "connection_id": connection_id,
+        "connection_id": connection["id"],
+        "calendar_id": calendar_id,
         "title": title,
         "start_at": start_at,
         "end_at": end_at,
@@ -73,11 +137,12 @@ async def _calendar_propose_event(ctx: ToolContext, tool_input: dict[str, Any]) 
         "all_day": all_day,
     }
     when = "all day" if all_day else f"from {start_at} to {end_at}"
+    where = (calendar or {}).get("name") or connection["display_name"]
     result = await _create_decision_request(
         ctx,
         {
             "title": f"Create calendar event: {title}",
-            "summary": f"{title} {when}",
+            "summary": f"{title} {when} in {where}",
             "signal_id": tool_input.get("signal_id")
             or (str(ctx.signal_id) if ctx.signal_id else None),
             "options": [
@@ -104,6 +169,16 @@ async def _calendar_propose_update(ctx: ToolContext, tool_input: dict[str, Any])
     event_id = str(tool_input.get("event_id") or "").strip()
     if not event_id:
         return {"ok": False, "error": "event_id is required (from calendar_list_events)"}
+    from uuid import UUID
+
+    from app.services.calendar_sync import connection_level, event_connection, viewer_for_tool
+
+    try:
+        _, conn = await event_connection(ctx.session, ctx.tenant_id, UUID(event_id))
+    except ValueError:
+        return {"ok": False, "error": "Event not found; use an id from calendar_list_events"}
+    if conn is None or await connection_level(ctx.session, conn, viewer_for_tool(ctx)) is None:
+        return {"ok": False, "error": "You have no access to this calendar."}
     title = str(tool_input.get("title") or "").strip()
     start_at = str(tool_input.get("start_at") or "").strip()
     end_at = str(tool_input.get("end_at") or "").strip()
@@ -142,7 +217,7 @@ async def _calendar_propose_update(ctx: ToolContext, tool_input: dict[str, Any])
         {
             "title": f"Update calendar event: {label}",
             "summary": f"Reschedule or edit {label}"
-            + (f" ({start_at} → {end_at})" if start_at and end_at else ""),
+            + (f" ({start_at} to {end_at})" if start_at and end_at else ""),
             "signal_id": tool_input.get("signal_id")
             or (str(ctx.signal_id) if ctx.signal_id else None),
             "options": [
@@ -215,7 +290,17 @@ register_tool(
                 "location": {"type": "string"},
                 "connection_id": {
                     "type": "string",
-                    "description": "Calendar connection id from calendar_list_events",
+                    "description": (
+                        "Calendar connection id from calendar_list_events; "
+                        "default: the first connection with a default calendar"
+                    ),
+                },
+                "calendar_id": {
+                    "type": "string",
+                    "description": (
+                        "Calendar id inside that connection (calendars[].id); "
+                        "default: the connection's default calendar"
+                    ),
                 },
             },
             "required": ["title", "start_at", "end_at"],

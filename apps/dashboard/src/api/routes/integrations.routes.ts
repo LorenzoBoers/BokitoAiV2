@@ -45,6 +45,8 @@ export const integrationsRoutes = {
       syncAll: '/calendars/sync',
       syncOne: (connectionId: string) =>
         `/calendars/connections/${encodeURIComponent(connectionId)}/sync`,
+      accountCalendars: (connectionId: string) =>
+        `/calendars/connections/${encodeURIComponent(connectionId)}/calendars`,
       events: '/calendars/events',
       eventById: (eventId: string) => `/calendars/events/${encodeURIComponent(eventId)}`,
     },

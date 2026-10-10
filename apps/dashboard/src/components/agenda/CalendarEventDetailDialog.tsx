@@ -14,6 +14,7 @@ import type { TimeItem } from '../../lib/time-items'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import type { CalendarEventEditSeed } from './CalendarEventDialog'
+import { CalendarSwatch } from './CalendarSwatch'
 
 type CalendarEventDetailDialogProps = {
   open: boolean
@@ -105,9 +106,11 @@ export default function CalendarEventDetailDialog({
             </p>
           ) : null}
           {item.calendar_name ? (
-            <p>
+            <p className="flex items-center gap-1.5">
               <span className="text-text-muted">{t('agendaPage.calendar.calendarName')}: </span>
+              <CalendarSwatch color={item.calendar_color} />
               {item.calendar_name}
+              {item.account ? <span className="text-text-muted">({item.account})</span> : null}
             </p>
           ) : null}
           {item.location ? (
@@ -137,12 +140,16 @@ export default function CalendarEventDetailDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {t('agendaPage.cancel', { defaultValue: 'Close' })}
           </Button>
-          <Button type="button" variant="outline" onClick={edit} disabled={busy}>
-            {t('agendaPage.calendar.edit')}
-          </Button>
-          <Button type="button" variant="destructive" onClick={() => void remove()} disabled={busy}>
-            {t('agendaPage.delete')}
-          </Button>
+          {item.can_edit !== false ? (
+            <>
+              <Button type="button" variant="outline" onClick={edit} disabled={busy}>
+                {t('agendaPage.calendar.edit')}
+              </Button>
+              <Button type="button" variant="destructive" onClick={() => void remove()} disabled={busy}>
+                {t('agendaPage.delete')}
+              </Button>
+            </>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

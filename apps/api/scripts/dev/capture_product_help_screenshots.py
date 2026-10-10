@@ -67,6 +67,7 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/connections/marketplace", "integrations", "marketplace"),
     ("/connections/accounting", "integrations", "module-home"),
     ("/connections", "integrations", "provider-connections"),
+    ("/connections?kind=calendar", "integrations", "calendar-accounts"),
     ("/settings/mcp", "mcp", "servers"),
     ("/team", "team", "invite"),
     ("/settings/help-centers", "help-centers", "publish"),

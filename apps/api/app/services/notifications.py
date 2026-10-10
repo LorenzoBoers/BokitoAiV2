@@ -248,6 +248,7 @@ async def resolve_decision(
                         description=str(payload.get("description") or ""),
                         location=str(payload.get("location") or ""),
                         all_day=bool(payload.get("all_day")),
+                        calendar_id=str(payload.get("calendar_id") or "") or None,
                     )
                 except Exception as exc:
                     raise DecisionActionError(action_type, str(exc)) from exc

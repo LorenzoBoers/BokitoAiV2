@@ -1246,7 +1246,10 @@ async def platform_oauth_start(
                 except Exception:
                     creds = {}
                 if not creds.get("access_token"):
+                    from app.services.calendar_sync import apply_default_access
+
                     set_connection_credentials(conn, {"mock": True})
+                    await apply_default_access(session, conn, auth.user.id)
                     session.add(conn)
                     await session.commit()
                     await session.refresh(conn)

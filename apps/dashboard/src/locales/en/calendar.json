@@ -1,0 +1,53 @@
+{
+  "accounts": {
+    "title": "Calendar accounts",
+    "hint": "Each Google or Microsoft account is one connection. Pick which of its calendars show in Agenda and who may see them.",
+    "empty": "No calendar connected yet. Connect Google Calendar or Outlook Calendar to see meetings in Agenda.",
+    "connectGoogle": "Connect Google Calendar",
+    "connectOutlook": "Connect Outlook Calendar",
+    "addGoogle": "Add Google account",
+    "addOutlook": "Add Microsoft account",
+    "loadError": "Could not load calendar accounts.",
+    "connectError": "Could not start the sign-in.",
+    "shared": "Shared with you",
+    "eventCount_one": "{{count}} event",
+    "eventCount_other": "{{count}} events"
+  },
+  "status": {
+    "ok": "Synced {{when}}",
+    "idle": "Waiting for the first sync",
+    "reconnect": "Sign in again to keep this calendar in sync",
+    "error": "Sync failed: {{error}}"
+  },
+  "actions": {
+    "reconnect": "Reconnect",
+    "syncNow": "Sync now",
+    "syncing": "Syncing...",
+    "manage": "Manage",
+    "close": "Close",
+    "disconnect": "Disconnect",
+    "disconnectConfirm": "Disconnect this calendar account? Its events leave Agenda. Nothing changes in Google or Outlook.",
+    "syncError": "Sync failed."
+  },
+  "calendars": {
+    "title": "Calendars",
+    "hint": "Switched-on calendars sync every 15 minutes and show in Agenda.",
+    "loading": "Loading calendars...",
+    "readOnly": "Read only",
+    "primary": "Primary",
+    "default": "Default calendar for new events",
+    "defaultHint": "Agenda and agents create events here unless they pick another calendar.",
+    "noneWritable": "None of the switched-on calendars accepts new events.",
+    "saveError": "Could not save the calendar choice."
+  },
+  "access": {
+    "title": "Access",
+    "hint": "New calendars are yours: you manage them and agents may read them. Owners and admins always manage."
+  },
+  "agenda": {
+    "reconnect": "Sign in again",
+    "target": "Calendar",
+    "targetHint": "Where the event is created.",
+    "noWritable": "None of your calendars accepts new events. Switch one on under Connections."
+  }
+}

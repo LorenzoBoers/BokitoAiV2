@@ -38,17 +38,21 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 ## Plan a task
 
 1. Choose **New** and pick a one-off agent task, a reminder (fires on a date or a platform event), a recurring agent scan, or a **Calendar block** on a connected calendar.
-2. Fill the name, who (person or agent), when, and the instructions. For a calendar block, pick the calendar, title, start and end. Turn on **All day** to put it in the top row under the date headers. Choose **Save** or **Create**.
+2. Fill the name, who (person or agent), when, and the instructions. For a calendar block, pick the **Calendar** (it starts on the account's default calendar), title, start and end. Turn on **All day** to put it in the top row under the date headers. Choose **Save** or **Create**.
 3. **Tasks** and **Activity** under **Show**, and each connected calendar you leave on, appear in the grid at their own time; only all-day items sit in the top row. Manage recurring agent scans under **Manage tasks** on the left.
 4. From a conversation, use **What next** to plan a task for yourself. Shortcuts: **Plan an agent task** in the command palette (Ctrl+K), or **Schedule on Agenda** on an agent's page.
 
 Agents plan work too: ask one in a conversation to "check this again on Friday". Depending on your [autonomy posture](/docs/govern/autonomy), the plan is created directly or arrives as a decision in Communication first.
 
-## Show your Google or Outlook calendar
+## Show your Google or Outlook calendars
 
-1. If no calendar is connected, the sidebar shows **Connect your calendars** with the Google and Outlook marks, an info icon, and a link to **Connections**. Open **Connections**, filter by **Calendar**, and connect Google Calendar or Outlook Calendar there.
-2. Finish sign-in. Each connected calendar appears as its own checkbox under **Show**. Meetings appear in the grid next to the work and give agents context from those calendars.
-3. Choose a meeting to see details, edit it, or delete it.
+1. If no calendar is connected, the sidebar shows **Connect your calendars** with a link to **Connections**. Open **Connections**, filter by **Agenda**, and choose **Connect Google Calendar** or **Connect Outlook Calendar** under **Calendar accounts**.
+2. Finish sign-in. Each account appears as its own checkbox under **Show**, with the account address below it. Only your primary calendar is on at first; choose **Manage** on the account under **Connections** to switch on other calendars, such as a shared team calendar.
+3. When an account shows more than one calendar, each one gets its own color and toggle under the account, so you can hide a single calendar without hiding the rest.
+4. Choose a meeting to see its calendar, account and details. **Edit** and **Delete** appear only when you may manage that account and the calendar accepts changes.
+5. If an account shows **Sign in again**, its sign-in expired. Choose it and finish the sign-in; meetings stay visible until then.
+
+You see your own calendar accounts and the ones shared with you. See [Connect integrations](/docs/integrations/integrations) for adding accounts and choosing who sees them.
 
 ## What to do next
 

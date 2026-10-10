@@ -45,6 +45,10 @@ export type TimeItem = {
   provider_label?: string | null
   calendar_id?: string | null
   calendar_name?: string | null
+  /** Provider colour of that calendar (hex), when known. */
+  calendar_color?: string | null
+  /** Signed-in account of the calendar connection. */
+  account?: string | null
   /** Every calendar that lists this meeting (merged across connections). */
   calendars?: string[] | null
   location?: string | null
@@ -52,6 +56,8 @@ export type TimeItem = {
   all_day?: boolean
   connection_id?: string | null
   external_id?: string | null
+  /** False for read-only calendars. */
+  can_edit?: boolean | null
 }
 
 export type TimeWindow = {

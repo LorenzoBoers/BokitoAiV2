@@ -88,6 +88,7 @@ async def agenda(
         raise HTTPException(status_code=400, detail="`to` must be after `from`")
     if end - start > timedelta(days=92):
         raise HTTPException(status_code=400, detail="Window too large (max 92 days)")
+    from app.services.calendar_sync import CalendarViewer
     from app.services.time_items import list_time_items
 
     wanted = [s.strip() for s in sources.split(",") if s.strip()] if sources else None
@@ -104,6 +105,7 @@ async def agenda(
         scheduled_only=scheduled_only,
         project_id=project_id,
         connection_ids=cal_ids,
+        viewer=CalendarViewer(user_id=auth.user.id, role=auth.role),
     )
     return {
         "items": items,

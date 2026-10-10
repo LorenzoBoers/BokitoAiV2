@@ -1,0 +1,53 @@
+{
+  "accounts": {
+    "title": "Agenda-accounts",
+    "hint": "Elk Google- of Microsoft-account is een koppeling. Kies welke agenda's daarvan in Agenda staan en wie ze mag zien.",
+    "empty": "Nog geen agenda gekoppeld. Koppel Google Calendar of Outlook Calendar om afspraken in Agenda te zien.",
+    "connectGoogle": "Google Calendar koppelen",
+    "connectOutlook": "Outlook Calendar koppelen",
+    "addGoogle": "Google-account toevoegen",
+    "addOutlook": "Microsoft-account toevoegen",
+    "loadError": "Agenda-accounts konden niet worden geladen.",
+    "connectError": "Inloggen kon niet worden gestart.",
+    "shared": "Met jou gedeeld",
+    "eventCount_one": "{{count}} afspraak",
+    "eventCount_other": "{{count}} afspraken"
+  },
+  "status": {
+    "ok": "Gesynchroniseerd {{when}}",
+    "idle": "Wacht op de eerste synchronisatie",
+    "reconnect": "Log opnieuw in om deze agenda bij te houden",
+    "error": "Synchroniseren mislukt: {{error}}"
+  },
+  "actions": {
+    "reconnect": "Opnieuw koppelen",
+    "syncNow": "Nu synchroniseren",
+    "syncing": "Bezig...",
+    "manage": "Beheren",
+    "close": "Sluiten",
+    "disconnect": "Ontkoppelen",
+    "disconnectConfirm": "Dit agenda-account ontkoppelen? De afspraken verdwijnen uit Agenda. In Google of Outlook verandert niets.",
+    "syncError": "Synchroniseren mislukt."
+  },
+  "calendars": {
+    "title": "Agenda's",
+    "hint": "Aangezette agenda's synchroniseren elke 15 minuten en staan in Agenda.",
+    "loading": "Agenda's laden...",
+    "readOnly": "Alleen lezen",
+    "primary": "Hoofdagenda",
+    "default": "Standaardagenda voor nieuwe afspraken",
+    "defaultHint": "Agenda en agents maken afspraken hier, tenzij ze een andere agenda kiezen.",
+    "noneWritable": "Geen van de aangezette agenda's accepteert nieuwe afspraken.",
+    "saveError": "De agendakeuze kon niet worden opgeslagen."
+  },
+  "access": {
+    "title": "Toegang",
+    "hint": "Nieuwe agenda's zijn van jou: jij beheert ze en agents mogen ze lezen. Eigenaren en beheerders beheren altijd."
+  },
+  "agenda": {
+    "reconnect": "Opnieuw inloggen",
+    "target": "Agenda",
+    "targetHint": "Waar de afspraak wordt gemaakt.",
+    "noWritable": "Geen van je agenda's accepteert nieuwe afspraken. Zet er een aan onder Koppelingen."
+  }
+}

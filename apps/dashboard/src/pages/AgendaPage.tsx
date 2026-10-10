@@ -175,6 +175,16 @@ export default function AgendaPage() {
     else next.add(connectionId)
     setParams({ cals: calendarIdsParam(next, availableCalendarIds) ?? '' })
   }
+  // Calendars inside an account hidden for this view only (`connection|calendar`).
+  const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => new Set())
+  const toggleSubCalendar = (connectionId: string, calendarId: string) =>
+    setHiddenCalendars((prev) => {
+      const key = `${connectionId}|${calendarId}`
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   const range = useMemo(() => viewRange(view, anchor), [view, anchor])
 
@@ -283,11 +293,13 @@ export default function AgendaPage() {
       byWho.filter((item) => {
         const layer = layerOf(item)
         if (layer === 'calendar') {
-          return item.connection_id ? calendarIds.has(item.connection_id) : calendarIds.size > 0
+          if (!item.connection_id) return calendarIds.size > 0
+          if (hiddenCalendars.has(`${item.connection_id}|${item.calendar_id ?? ''}`)) return false
+          return calendarIds.has(item.connection_id)
         }
         return layers.has(layer)
       }),
-    [byWho, layers, calendarIds],
+    [byWho, layers, calendarIds, hiddenCalendars],
   )
   const counts = useMemo(() => {
     const out = Object.fromEntries(AGENDA_LAYERS.map((layer) => [layer, 0])) as Record<AgendaLayer, number>
@@ -456,6 +468,8 @@ export default function AgendaPage() {
           calendarIds={calendarIds}
           calendarCounts={calendarCounts}
           onToggleCalendar={toggleCalendar}
+          hiddenCalendars={hiddenCalendars}
+          onToggleSubCalendar={toggleSubCalendar}
           calendarsLoading={calendarsLoading}
           onCalendars={setCalendars}
           onSynced={reload}

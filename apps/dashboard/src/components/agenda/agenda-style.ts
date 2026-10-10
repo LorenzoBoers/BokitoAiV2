@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { cn } from '../../lib/utils'
 import type { TFunction } from 'i18next'
 import { Bot, CalendarDays, ClipboardList, History, type LucideIcon } from 'lucide-react'
@@ -21,6 +22,11 @@ export const LAYER_DOT: Record<AgendaVisualLayer, string> = {
   calendar: 'bg-status-info',
   tasks: 'bg-accent',
   activity: 'bg-status-success',
+}
+
+/** Calendar events take their provider calendar colour over the layer swatch. */
+export function itemDotStyle(item: TimeItem): CSSProperties | undefined {
+  return item.kind === 'calendar' && item.calendar_color ? { backgroundColor: item.calendar_color } : undefined
 }
 
 /** Block on the time grid: tinted fill, coloured left edge. */

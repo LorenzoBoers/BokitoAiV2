@@ -38,17 +38,21 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 ## Plan een taak
 
 1. Kies **Nieuw** en daarna een eenmalige agenttaak, een herinnering (gaat af op een datum of bij een platformgebeurtenis), een terugkerende agentscan, of een **Agendablok** in een gekoppelde agenda.
-2. Vul de naam, wie (persoon of agent), wanneer, en de instructies in. Voor een agendablok kies je de agenda, titel, start en eind. Zet **Hele dag** aan om hem in de bovenste rij onder de datumheaders te zetten. Kies **Opslaan** of **Aanmaken**.
+2. Vul de naam, wie (persoon of agent), wanneer, en de instructies in. Voor een agendablok kies je de **Agenda** (standaard de standaardagenda van het account), titel, start en eind. Zet **Hele dag** aan om hem in de bovenste rij onder de datumheaders te zetten. Kies **Opslaan** of **Aanmaken**.
 3. **Taken** en **Activiteit** onder **Tonen**, en elke gekoppelde agenda die je aanzet, staan in het rooster op hun eigen tijd; alleen items voor de hele dag staan in de bovenste rij. Beheer terugkerende agentscans links onder **Taken beheren**.
 4. Vanuit een gesprek gebruik je **Wat nu** om een taak voor jezelf te plannen. Snelkoppelingen: **Agenttaak plannen** in het opdrachtenpalet (Ctrl+K), of **Plannen op Agenda** op de pagina van een agent.
 
 Agents plannen ook werk: vraag er een in een gesprek om "dit vrijdag opnieuw te bekijken". Afhankelijk van je [autonomiehouding](/docs/govern/autonomy) wordt het plan direct aangemaakt of komt het eerst als beslissing in Communicatie.
 
-## Toon je Google- of Outlook-agenda
+## Toon je Google- of Outlook-agenda's
 
-1. Zonder gekoppelde agenda toont de zijbalk **Koppel je eigen agenda's** met de Google- en Outlook-merken, een info-icoon en een link naar **Koppelingen**. Open **Koppelingen**, filter op **Kalender**, en koppel daar Google Calendar of Outlook Calendar.
-2. Rond de aanmelding af. Elke gekoppelde agenda krijgt een eigen checkbox onder **Tonen**. Afspraken verschijnen in het rooster naast het werk en geven agents context uit die agenda's.
-3. Kies een afspraak om details te zien, te bewerken of te verwijderen.
+1. Zonder gekoppelde agenda toont de zijbalk **Koppel je eigen agenda's** met een link naar **Koppelingen**. Open **Koppelingen**, filter op **Agenda**, en kies onder **Agenda-accounts** **Google Calendar koppelen** of **Outlook Calendar koppelen**.
+2. Rond de aanmelding af. Elk account krijgt een eigen checkbox onder **Tonen**, met het accountadres eronder. Eerst staat alleen je hoofdagenda aan; kies **Beheren** bij het account onder **Koppelingen** om andere agenda's aan te zetten, zoals een gedeelde teamagenda.
+3. Toont een account meer dan één agenda, dan krijgt elke agenda een eigen kleur en schakelaar onder het account, zodat je één agenda kunt verbergen zonder de rest.
+4. Kies een afspraak om de agenda, het account en de details te zien. **Bewerken** en **Verwijderen** verschijnen alleen als je dat account mag beheren en de agenda wijzigingen accepteert.
+5. Toont een account **Opnieuw inloggen**, dan is de aanmelding verlopen. Kies het en rond de aanmelding af; afspraken blijven tot dan zichtbaar.
+
+Je ziet je eigen agenda-accounts en de accounts die met jou gedeeld zijn. Zie [Integraties koppelen](/docs/integrations/integrations) voor accounts toevoegen en kiezen wie ze ziet.
 
 ## Wat nu
 

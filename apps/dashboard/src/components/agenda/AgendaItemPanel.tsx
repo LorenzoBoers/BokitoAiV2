@@ -18,6 +18,7 @@ import {
   LAYER_ICON,
   LAYER_TEXT,
   agendaStatusTone,
+  itemDotStyle,
   itemSubtitle,
   relativeMoment,
   triggerScheduleLabel,
@@ -232,7 +233,7 @@ function ItemBody({
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-border/50 pt-3">
-        {item.kind === 'calendar' ? (
+        {item.kind === 'calendar' && item.can_edit !== false ? (
           <Button type="button" size="sm" variant="outline" onClick={() => onOpenCalendar(item)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden />
             {t('agendaPage.calendar.edit')}
@@ -297,7 +298,11 @@ function GroupBody({ items, onSelect }: Props & { items: TimeItem[] }) {
               <span className="w-10 shrink-0 text-xs tabular-nums text-text-muted">
                 {formatAppTime(itemStart(item), i18n.language)}
               </span>
-              <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', LAYER_DOT[layer])} aria-hidden />
+              <span
+                className={cn('h-1.5 w-1.5 shrink-0 rounded-full', LAYER_DOT[layer])}
+                style={itemDotStyle(item)}
+                aria-hidden
+              />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-text-heading">{item.title}</span>
                 <span className="block truncate text-xs text-text-muted">{itemSubtitle(item, t)}</span>

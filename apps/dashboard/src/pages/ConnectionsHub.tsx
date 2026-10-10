@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { CalendarAccountsSection } from '../components/integrations/CalendarAccountsSection'
 import { ConnectionSections } from '../components/integrations/ConnectionSections'
 import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
 import { ApplicationCard } from '../components/integrations/ApplicationCard'
@@ -269,10 +270,7 @@ export default function ConnectionsHub() {
       navigate('/settings/channels')
       return
     }
-    if (kind === 'calendar') {
-      navigate('/agenda')
-      return
-    }
+    if (kind === 'calendar') setHubOpen(false)
     navigate(connectedPathWithKind(kind))
   }
 
@@ -349,29 +347,33 @@ export default function ConnectionsHub() {
 
       {loadError ? <p className="text-xs text-text-muted">{t(loadError)}</p> : null}
 
-      <section className="space-y-3">
-        <h2 className="text-xs font-semibold text-text-muted">{t('integrations.connected.yourList')}</h2>
-        {loading && applications.length === 0 ? (
-          <CardGridSkeleton />
-        ) : connectedOffers.length === 0 ? (
-          <p className="text-sm text-text-muted">
-            {query.trim()
-              ? t('integrations.connected.noSearchMatches')
-              : t('integrations.connected.emptyAllDescription')}
-          </p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {connectedOffers.map(({ application, offer }) => (
-              <ApplicationCard
-                key={`${application.hostSlug}:${offer.integration.id}`}
-                application={application}
-                offer={offer}
-                onOpenDetail={() => openApplicationHub(application, 'offer-detail', offer)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      {kindFilter === 'calendar' ? (
+        <CalendarAccountsSection />
+      ) : (
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold text-text-muted">{t('integrations.connected.yourList')}</h2>
+          {loading && applications.length === 0 ? (
+            <CardGridSkeleton />
+          ) : connectedOffers.length === 0 ? (
+            <p className="text-sm text-text-muted">
+              {query.trim()
+                ? t('integrations.connected.noSearchMatches')
+                : t('integrations.connected.emptyAllDescription')}
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {connectedOffers.map(({ application, offer }) => (
+                <ApplicationCard
+                  key={`${application.hostSlug}:${offer.integration.id}`}
+                  application={application}
+                  offer={offer}
+                  onOpenDetail={() => openApplicationHub(application, 'offer-detail', offer)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <ConnectionSections
         title={t('integrations.connected.mcpServersTitle', {

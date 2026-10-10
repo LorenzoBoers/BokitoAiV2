@@ -15,7 +15,7 @@ Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, dra
 
 1. Open **Koppelingen**. De banner **AI (coding) tools** staat boven de tabs **Koppelingen** / **Marketplace**: logo's van Cursor, Claude, OpenAI, VS Code, Windsurf en Copilot, en **Koppelen** opent Developers. **Geïnstalleerde modules** gebruiken dezelfde kaarten als de Marketplace: status (inclusief **Installatie incompleet** zonder pakket), partnerlogo's, **Beheren** en **Deïnstalleren**. Ontbrekende eerste stappen kunnen daaronder staan (**Koppel e-mail of chat**, **Koppel Agenda**, **Installeer een module**). Daarna **Koppelingen**: elke gekoppelde integratie als dezelfde kaart als op Marketplace — één kaart per product (Microsoft 365, Outlook Calendar en Microsoft Graph staan los). Soort-chips en zoeken blijven. Mailboxen openen **Kanalen** vanuit de kaart; Agenda-apps openen [Agenda](/docs/ai/agenda). **Custom MCP-servers** blijft een aparte lijst voor logins die niet in de catalogus staan.
 2. Kies een kaart om elke registratie bij die provider in één lijst te zien (zie **Beheer koppelingen met één provider** hieronder). Kies **Nieuwe koppeling** op een kaart voor een tweede login. Hang een partner aan Boekhouding vanaf de modulepagina (**Deze koppeling gebruiken**), niet vanaf een gegroepeerde programmarij. GitHub blijft een **Code**-kaart.
-3. Kies **Ontkoppelen** op een custom MCP-rij wanneer die login moet stoppen (bevestig **Deze koppeling verwijderen?**). Mailboxen en agenda's beheer je onder Kanalen en Agenda.
+3. Kies **Ontkoppelen** op een custom MCP-rij wanneer die login moet stoppen (bevestig **Deze koppeling verwijderen?**). Mailboxen beheer je onder Kanalen; agenda-accounts onder het filter **Agenda** (zie **Agenda-accounts koppelen** hieronder).
 
 ## Installeer vanuit de marketplace
 
@@ -85,6 +85,19 @@ Bepaal welke mensen, agents en teams een registratie mogen gebruiken of beheren.
 4. Een agent zonder toegang kan de registratie niet bereiken; de poging staat in het auditlog. Agents kunnen een wijziging voorstellen met `set_connection_scope`, wat altijd om goedkeuring vraagt.
 
 **Bankieren** is installeerbaar met een read-only GoCardless Bank Account Data-koppeling (saldi en transacties; betalingen verschijnen alleen als voorstel). **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar; zij en hun geplande packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded op Marketplace.
+
+## Agenda-accounts koppelen
+
+Elk Google- of Microsoft-account is één koppeling; voeg er zoveel toe als nodig en kies per account welke agenda's in [Agenda](/docs/ai/agenda) staan.
+
+![Agenda-accounts](/api/docs/assets/integrations/calendar-accounts.png)
+*Het filter Agenda op Koppelingen toont elk agenda-account met status en agenda's.*
+
+1. Open **Koppelingen** en kies het filter **Agenda**. Kies onder **Agenda-accounts** **Google Calendar koppelen** of **Outlook Calendar koppelen** en rond de aanmelding af. Is er al een account gekoppeld, dan heten de knoppen **Google-account toevoegen** en **Microsoft-account toevoegen**.
+2. Elke accountrij toont het adres, de synchronisatiestatus, het aantal afspraken en een gekleurde stip per aangezette agenda. **Met jou gedeeld** markeert een account dat iemand anders koppelde.
+3. Kies **Beheren**. Zet onder **Agenda's** de agenda's aan die moeten synchroniseren (eerst staat alleen de hoofdagenda aan) en kies de **Standaardagenda voor nieuwe afspraken**. Agenda's met alleen leesrechten synchroniseren wel, maar krijgen nooit nieuwe afspraken. Aangezette agenda's synchroniseren elke 15 minuten; **Nu synchroniseren** doet het direct.
+4. Kies onder **Toegang** wie het account mag zien en gebruiken. Een nieuw account beheer jij, en agents mogen het lezen. Geef een collega **Gebruiken** om het in diens Agenda te tonen, of **Beheren** om agenda's en toegang te laten wijzigen. Eigenaren en beheerders beheren altijd.
+5. Staat er **Log opnieuw in om deze agenda bij te houden**, kies dan **Opnieuw koppelen**. **Ontkoppelen** haalt het account en zijn afspraken uit Agenda; in Google of Outlook verandert niets.
 
 ## Stuur boekhoudschrijfacties en agent-toegang
 

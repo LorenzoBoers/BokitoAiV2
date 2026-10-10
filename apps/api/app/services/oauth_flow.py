@@ -191,6 +191,34 @@ async def _store_email_credentials(
     )
 
 
+async def _calendar_account_target(
+    session: AsyncSession, tenant_id: UUID, provider: str, email: str
+) -> tuple[UUID | None, bool]:
+    """(connection to refresh, create_new) for a calendar sign-in."""
+    rows = (
+        await session.execute(
+            select(IntegrationConnection).where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.provider == provider,
+                IntegrationConnection.status == "active",
+            )
+        )
+    ).scalars().all()
+    wanted = email.strip().lower()
+    for conn in rows:
+        try:
+            meta = json.loads(conn.metadata_json or "{}")
+        except (TypeError, json.JSONDecodeError):
+            meta = {}
+        known = str((meta or {}).get("email") or "").strip().lower()
+        if wanted and known == wanted:
+            return conn.id, False
+        if not known:
+            # A connection that never finished sign-in is reused, not duplicated.
+            return conn.id, False
+    return None, bool(rows)
+
+
 async def _store_integration_credentials(
     session: AsyncSession,
     tenant_id: UUID,
@@ -199,6 +227,7 @@ async def _store_integration_credentials(
     tokens: dict[str, Any],
     *,
     return_url: str = "",
+    user_id: UUID | None = None,
 ) -> bool:
     """Persist tokens; True when they landed on an already-connected account."""
     if provider == oauth_providers.GITHUB:
@@ -213,6 +242,12 @@ async def _store_integration_credentials(
 
         connection_id = oauth_connection_id_from_return_url(return_url)
         create_new = oauth_create_new_from_return_url(return_url)
+        if provider in oauth_providers.CALENDAR_PROVIDERS and connection_id is None:
+            # One connection per calendar account: signing in again with the same
+            # account refreshes it; another account becomes its own connection.
+            connection_id, create_new = await _calendar_account_target(
+                session, tenant_id, provider, str(identity.get("email") or "")
+            )
         serialized = await ensure_oauth_connection(
             session,
             tenant_id,
@@ -300,6 +335,10 @@ async def _store_integration_credentials(
     conn.metadata_json = json.dumps(meta)
     conn.status = "active"
     session.add(conn)
+    if provider in oauth_providers.CALENDAR_PROVIDERS:
+        from app.services.calendar_sync import apply_default_access
+
+        await apply_default_access(session, conn, user_id)
     reused = False
     if instance_key:
         from app.services.connection_instance import claim_instance_key
@@ -507,6 +546,7 @@ async def complete_oauth(
                 identity,
                 tokens,
                 return_url=return_url,
+                user_id=link_user_id,
             )
     except Exception as storage_exc:
         logger.exception("OAuth credential storage failed for provider=%s", provider)

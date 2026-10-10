@@ -4,7 +4,7 @@ import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { dayKey, groupByDay, itemOwner, itemStart, layerOf } from '../../lib/agenda-layout'
 import type { TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
-import { agendaChipState, LAYER_DOT } from './agenda-style'
+import { agendaChipState, itemDotStyle, LAYER_DOT } from './agenda-style'
 import { AgendaOwnerMark } from './AgendaOwnerMark'
 import type { AgendaSelection } from './AgendaTimeGrid'
 
@@ -74,7 +74,11 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
                     }),
                   )}
                 >
-                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', LAYER_DOT[layerOf(item)])} aria-hidden />
+                  <span
+                    className={cn('h-1.5 w-1.5 shrink-0 rounded-full', LAYER_DOT[layerOf(item)])}
+                    style={itemDotStyle(item)}
+                    aria-hidden
+                  />
                   <span className="shrink-0 tabular-nums text-text-muted">
                     {item.all_day ? '' : formatAppTime(itemStart(item), i18n.language)}
                   </span>

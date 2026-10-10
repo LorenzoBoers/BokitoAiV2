@@ -11,6 +11,7 @@ import workspacesEn from '../locales/en/workspaces.json'
 import governEn from '../locales/en/govern.json'
 import tourEn from '../locales/en/tour.json'
 import onboardingEn from '../locales/en/onboarding.json'
+import calendarEn from '../locales/en/calendar.json'
 import commonNl from '../locales/nl/common.json'
 import navNl from '../locales/nl/nav.json'
 import profileNl from '../locales/nl/profile.json'
@@ -20,6 +21,7 @@ import workspacesNl from '../locales/nl/workspaces.json'
 import governNl from '../locales/nl/govern.json'
 import tourNl from '../locales/nl/tour.json'
 import onboardingNl from '../locales/nl/onboarding.json'
+import calendarNl from '../locales/nl/calendar.json'
 
 const resources = {
   en: {
@@ -32,6 +34,7 @@ const resources = {
     govern: governEn,
     tour: tourEn,
     onboarding: onboardingEn,
+    calendar: calendarEn,
   },
   nl: {
     common: commonNl,
@@ -43,6 +46,7 @@ const resources = {
     govern: governNl,
     tour: tourNl,
     onboarding: onboardingNl,
+    calendar: calendarNl,
   },
 }
 
@@ -54,7 +58,7 @@ i18n
     fallbackLng: PLATFORM_DEFAULT_LANGUAGE,
     supportedLngs: ['en', 'nl'],
     defaultNS: 'common',
-    ns: ['common', 'nav', 'profile', 'workspace', 'communication', 'workspaces', 'govern', 'tour', 'onboarding'],
+    ns: ['common', 'nav', 'profile', 'workspace', 'communication', 'workspaces', 'govern', 'tour', 'onboarding', 'calendar'],
     interpolation: {
       escapeValue: false,
     },

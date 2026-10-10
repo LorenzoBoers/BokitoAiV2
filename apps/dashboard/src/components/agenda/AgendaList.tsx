@@ -7,7 +7,16 @@ import { agendaStatusLabel } from '../../lib/status-labels'
 import type { TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
 import { Badge } from '../ui/badge'
-import { agendaChipState, agendaStatusTone, LAYER_DOT, LAYER_ICON, LAYER_TEXT, isFailed, itemSubtitle } from './agenda-style'
+import {
+  agendaChipState,
+  agendaStatusTone,
+  LAYER_DOT,
+  LAYER_ICON,
+  LAYER_TEXT,
+  isFailed,
+  itemDotStyle,
+  itemSubtitle,
+} from './agenda-style'
 import { AgendaOwnerMark } from './AgendaOwnerMark'
 import type { AgendaSelection } from './AgendaTimeGrid'
 
@@ -260,7 +269,11 @@ function Row({
       </span>
       <span className={cn('relative flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-bg-elevated', dense && 'h-5 w-5')}>
         <Icon className={cn('h-3.5 w-3.5', LAYER_TEXT[layer])} aria-hidden />
-        <span className={cn('absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full', LAYER_DOT[layer])} aria-hidden />
+        <span
+          className={cn('absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full', LAYER_DOT[layer])}
+          style={itemDotStyle(item)}
+          aria-hidden
+        />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium text-text-heading">{item.title}</span>

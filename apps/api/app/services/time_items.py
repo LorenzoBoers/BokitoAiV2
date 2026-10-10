@@ -285,10 +285,15 @@ def merge_calendar_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged: dict[tuple[str, str, str], dict[str, Any]] = {}
     out: list[dict[str, Any]] = []
     for event in events:
+        uid = str(event.get("ical_uid") or "")
         key = (
-            (event.get("title") or "").strip().lower(),
-            str(event.get("start") or ""),
-            str(event.get("end") or ""),
+            ("uid", uid, str(event.get("start") or ""))
+            if uid
+            else (
+                (event.get("title") or "").strip().lower(),
+                str(event.get("start") or ""),
+                str(event.get("end") or ""),
+            )
         )
         name = event.get("calendar_name") or event.get("provider_label") or ""
         first = merged.get(key)
@@ -366,6 +371,7 @@ async def list_time_items(
     scheduled_only: bool = False,
     project_id: UUID | None = None,
     connection_ids: Iterable[str] | None = None,
+    viewer: Any = None,
 ) -> list[dict[str, Any]]:
     """Every time item in [start, end], sorted by start.
 
@@ -374,6 +380,8 @@ async def list_time_items(
     on-demand work such as email replies stays on the activity timeline.
     ``project_id`` keeps items tied to that project's conversations or runs.
     ``connection_ids`` limits calendar events to those connections (None = all).
+    ``viewer`` (a ``CalendarViewer``) limits calendar events to connections
+    that person or agent may use; None is system code and sees all.
     """
     from app.services.triggers import _planned_occurrences
 
@@ -545,13 +553,12 @@ async def list_time_items(
     if "calendar" in wanted and agent_id is None and not project_id:
         from app.services.calendar_sync import calendar_events_in_window
 
-        events = merge_calendar_events(
-            await calendar_events_in_window(session, tenant_id, start=start, end=end)
+        events = await calendar_events_in_window(
+            session, tenant_id, start=start, end=end, viewer=viewer
         )
-        for event in events:
-            conn_id = str(event.get("connection_id") or "")
-            if calendar_filter is not None and conn_id not in calendar_filter:
-                continue
+        if calendar_filter is not None:
+            events = [e for e in events if str(e.get("connection_id") or "") in calendar_filter]
+        for event in merge_calendar_events(events):
             row = _row(
                 id=event["id"],
                 kind="calendar",
@@ -569,12 +576,15 @@ async def list_time_items(
                 "provider_label",
                 "calendar_id",
                 "calendar_name",
+                "calendar_color",
                 "calendars",
+                "account",
                 "location",
                 "html_link",
                 "all_day",
                 "connection_id",
                 "external_id",
+                "can_edit",
             ):
                 row[key] = event.get(key)
             items.append(row)
