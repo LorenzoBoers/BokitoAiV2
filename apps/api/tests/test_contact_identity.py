@@ -27,10 +27,36 @@ async def _headers(client: AsyncClient) -> dict[str, str]:
 
 
 async def _tenant(session, mode: str | None = None) -> Tenant:
+    from app.models.channel import ChannelAccount
+
     tenant = (await session.execute(select(Tenant))).scalar_one()
     if mode:
         tenant.settings_json = json.dumps({"ai_handling": {"default": {"mode": mode}}})
         session.add(tenant)
+        # Widget threads without channel_account_id still resolve through the
+        # website-chat channel layer — keep that layer on the mode under test.
+        widget = (
+            await session.execute(
+                select(ChannelAccount).where(
+                    ChannelAccount.tenant_id == tenant.id,
+                    ChannelAccount.channel == "widget",
+                )
+            )
+        ).scalars().first()
+        if widget is not None:
+            try:
+                settings = json.loads(widget.settings_json or "{}")
+            except json.JSONDecodeError:
+                settings = {}
+            if not isinstance(settings, dict):
+                settings = {}
+            ai = settings.get("ai_config")
+            if not isinstance(ai, dict):
+                ai = {}
+            ai["ai_handling"] = {"mode": mode}
+            settings["ai_config"] = ai
+            widget.settings_json = json.dumps(settings)
+            session.add(widget)
         await session.commit()
     return tenant
 
