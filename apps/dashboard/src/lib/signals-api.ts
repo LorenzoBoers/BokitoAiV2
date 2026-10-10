@@ -214,6 +214,19 @@ export type ThreadAgentCandidate = {
   reason: ThreadAgentReason
 }
 
+export async function setThreadExample(
+  token: string,
+  threadId: string,
+  useAsExample: boolean,
+): Promise<boolean> {
+  const payload = await apiPost<{ is_example?: boolean }>(
+    appRoutes.signals.threadExample(threadId),
+    { use_as_example: useAsExample },
+    token,
+  )
+  return Boolean(payload.is_example)
+}
+
 export async function listThreadAgentCandidates(
   token: string,
   threadId: string,

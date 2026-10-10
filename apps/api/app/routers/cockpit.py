@@ -51,8 +51,11 @@ async def usage_series(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     days: int = Query(30, ge=1, le=365),
+    hours: int | None = Query(None, ge=1, le=168),
 ):
-    """Daily token totals for the Overview AI-activity sparkline."""
+    """Token totals for charts. Pass hours for hourly buckets (Overview); days for daily (Usage)."""
+    if hours is not None:
+        return await usage_token_series(session, auth.tenant.id, hours=hours)
     return await usage_token_series(session, auth.tenant.id, days=days)
 
 

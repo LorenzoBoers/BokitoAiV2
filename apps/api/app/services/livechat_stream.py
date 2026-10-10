@@ -133,6 +133,20 @@ async def get_or_create_widget_thread(
     )
     session.add(signal)
     await session.flush()
+    try:
+        meta = json.loads(contact.metadata_json or "{}")
+    except json.JSONDecodeError:
+        meta = {}
+    visitor_email = str(meta.get("email") or "").strip() if isinstance(meta, dict) else ""
+    if visitor_email:
+        from app.services.contact_identity import link_visitor_email
+
+        visitor_name = (contact.display_name or "").strip()
+        if visitor_name.lower() in {"website visitor", "websitebezoeker", "website bezoeker", "visitor", "bezoeker"}:
+            visitor_name = ""
+        await link_visitor_email(
+            session, tenant, signal, email=visitor_email, name=visitor_name
+        )
     from app.services.distribution import distribute
 
     if await distribute(session, signal):

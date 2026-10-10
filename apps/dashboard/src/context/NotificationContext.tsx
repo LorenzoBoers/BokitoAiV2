@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import { appRoutes } from '../api/routes/app.routes';
 import { apiGet, apiPost } from '../lib/api';
 import type { GatewayEvent } from '../lib/gateway';
 import { applyLive, listLive, onLiveReconnect, seedLive, useLiveList } from '../lib/live-store';
+import { openEntityPath } from '../lib/open-entity';
+import { playIncomingNotificationSound } from '../lib/notification-sound';
 import { useAuth } from './AuthContext';
 
 const TABLE = 'notification';
@@ -76,6 +79,79 @@ function byBellOrder(a: AppNotification, b: AppNotification): number {
   if (unread) return unread;
   if (a.tier !== b.tier) return a.tier - b.tier;
   return b.createdAt.localeCompare(a.createdAt);
+}
+
+/** Kinds that should chime (and toast when they are conversation work). */
+const AUDIBLE_KINDS = new Set([
+  'new_message',
+  'mention',
+  'assignment',
+  'handoff',
+  'decision_request',
+]);
+
+function viewingSignal(signalId: string | null | undefined): boolean {
+  if (!signalId) return false;
+  try {
+    return window.location.pathname.includes(`/t/${encodeURIComponent(signalId)}`)
+      || window.location.pathname.includes(`/t/${signalId}`);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sound + toast for live notices. Conversation rows stay out of the bell
+ * (For you), but still announce so the operator hears the new mail.
+ */
+export function announceNotification(
+  event: GatewayEvent,
+  userId: string | null | undefined,
+  navigate?: (path: string) => void,
+) {
+  if (event.event !== 'notification') return;
+  const raw = event.data?.row as RawNotification | undefined;
+  if (!raw?.id) return;
+  if (raw.user_id && userId && raw.user_id !== userId) return;
+
+  const kind = raw.kind || '';
+  const signalId =
+    (typeof raw.signal_id === 'string' && raw.signal_id) ||
+    (typeof raw.payload?.signal_id === 'string' ? raw.payload.signal_id : null);
+  const tier = raw.tier === 1 || raw.tier === 3 ? raw.tier : 2;
+  const audible = AUDIBLE_KINDS.has(kind) || (!signalId && tier === 1);
+  if (!audible) return;
+  if (viewingSignal(signalId)) return;
+
+  void playIncomingNotificationSound();
+
+  // Conversation work stays out of the bell — toast + deep link instead.
+  if (!signalId) return;
+
+  const href = openEntityPath({
+    type: 'notification',
+    kind,
+    payload: {
+      ...(raw.payload && typeof raw.payload === 'object' ? raw.payload : {}),
+      signal_id: signalId,
+    },
+  });
+  const openLabel = (document.documentElement.lang || 'nl').toLowerCase().startsWith('nl')
+    ? 'Openen'
+    : 'Open';
+  toast(raw.title || kind, {
+    description: (raw.body || '').slice(0, 160) || undefined,
+    duration: 6000,
+    action: href
+      ? {
+          label: openLabel,
+          onClick: () => {
+            if (navigate) navigate(href);
+            else window.location.assign(href);
+          },
+        }
+      : undefined,
+  });
 }
 
 /**

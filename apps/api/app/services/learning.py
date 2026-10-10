@@ -255,8 +255,8 @@ async def apply_heuristic_guardrails(session: AsyncSession, tenant_id: UUID) -> 
 
 # Earned autonomy: a channel whose drafts are sent unedited this often, over at
 # least this many resolved drafts in 30 days, gets a Govern promotion proposal.
-_PROMOTION_UNEDITED_RATE = 0.8
-_PROMOTION_MIN_DRAFTS = 50
+PROMOTION_UNEDITED_RATE = 0.8
+PROMOTION_MIN_DRAFTS = 50
 
 
 async def propose_ai_handling_promotions(session: AsyncSession, tenant: Any) -> int:
@@ -279,9 +279,9 @@ async def propose_ai_handling_promotions(session: AsyncSession, tenant: Any) -> 
             continue
         stats = await evidence(session, tenant.id, account_id=account.id)
         rate = stats["unedited_rate"]
-        if rate is None or stats["drafts_resolved"] < _PROMOTION_MIN_DRAFTS:
+        if rate is None or stats["drafts_resolved"] < PROMOTION_MIN_DRAFTS:
             continue
-        if rate < _PROMOTION_UNEDITED_RATE:
+        if rate < PROMOTION_UNEDITED_RATE:
             continue
         duplicate = (
             await session.execute(

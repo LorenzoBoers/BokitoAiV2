@@ -760,6 +760,14 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     on_status_change(
         ctx.session, signal, actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or "")
     )
+    from app.services.tickets import settle_ticket_on_close
+
+    await settle_ticket_on_close(
+        ctx.session,
+        signal,
+        actor_type="agent" if ctx.agent else "user",
+        actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+    )
     signal.updated_at = datetime.utcnow()
     ctx.session.add(signal)
     ctx.session.add(

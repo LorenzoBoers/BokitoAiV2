@@ -69,6 +69,7 @@ export const appRoutes = {
     /** Re-queue inbound agent read (record_thread_read + reply when allowed). */
     threadTriage: (threadId: string) => `/signals/${threadId}/triage`,
     threadAgentCandidates: (threadId: string) => `/signals/${threadId}/agent-candidates`,
+    threadExample: (threadId: string) => `/signals/${threadId}/example`,
     threadAssignees: (threadId: string) => `/signals/${threadId}/assignees`,
     threadSessions: (threadId: string) => `/signals/${threadId}/sessions`,
     threadContactLink: (threadId: string) => `/signals/${threadId}/contact-link`,
@@ -191,8 +192,13 @@ export const appRoutes = {
     summary: '/cockpit/summary',
     activity: (params: URLSearchParams) => withQuery('/cockpit/activity', params),
     usage: (days: number) => withQuery('/cockpit/usage', new URLSearchParams({ days: String(days) })),
-    usageSeries: (days: number) =>
-      withQuery('/cockpit/usage/series', new URLSearchParams({ days: String(days) })),
+    usageSeries: (opts: { days: number } | { hours: number }) => {
+      const params =
+        'hours' in opts
+          ? new URLSearchParams({ hours: String(opts.hours) })
+          : new URLSearchParams({ days: String(opts.days) })
+      return withQuery('/cockpit/usage/series', params)
+    },
     budget: '/cockpit/budget',
   },
 } as const

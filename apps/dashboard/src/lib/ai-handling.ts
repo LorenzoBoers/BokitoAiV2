@@ -76,6 +76,13 @@ export type AiHandling = {
   own: AiHandlingMode | null
   /** Channel scope only. */
   breakerTrippedAt?: string | null
+  /** Assisted channels: how close unedited drafts are to an Autonomous proposal. */
+  promotion?: {
+    draftsResolved: number
+    unedited: number
+    targetDrafts: number
+    targetRate: number
+  } | null
 }
 
 export function normalizeMode(value: unknown): AiHandlingMode | null {
@@ -117,6 +124,20 @@ export function normalizeAiHandling(raw: unknown): AiHandling | null {
     inheritedSourceLabel: asText(row.inherited_source_label),
     own: normalizeMode(row.own),
     breakerTrippedAt: asText(row.breaker_tripped_at) || null,
+    promotion: normalizePromotion(row.promotion),
+  }
+}
+
+function normalizePromotion(raw: unknown): AiHandling['promotion'] {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const target = Number(row.target_drafts)
+  if (!Number.isFinite(target) || target <= 0) return null
+  return {
+    draftsResolved: Number(row.drafts_resolved) || 0,
+    unedited: Number(row.unedited) || 0,
+    targetDrafts: target,
+    targetRate: Number(row.target_rate) || 0.8,
   }
 }
 

@@ -25,6 +25,33 @@ describe('notification prefs', () => {
     expect(prefs.tiers['1']).toEqual({ inapp: true, push: false, email: false })
     expect(prefs.rows.find((r) => r.id === 'unknown')).toBeUndefined()
     expect(prefs.rows.find((r) => r.id === 'mentions')?.channels).toEqual({ inapp: true, push: true, email: true })
+    expect(prefs.sound).toBe(true)
+  })
+
+  it('keeps sound off when stored', () => {
+    expect(normalizeNotificationPrefs({ sound: false }).sound).toBe(false)
+  })
+
+  it('defaults new-message on and upgrades legacy stored off until version 2', () => {
+    expect(defaultNotificationPrefs().rows.find((r) => r.id === 'new-message')?.channels).toEqual({
+      inapp: true,
+      push: true,
+      email: false,
+    })
+    const upgraded = normalizeNotificationPrefs({
+      rows: [{ id: 'new-message', channels: { inapp: false, push: false, email: false } }],
+    })
+    expect(upgraded.version).toBe(2)
+    expect(upgraded.rows.find((r) => r.id === 'new-message')?.channels).toEqual({
+      inapp: true,
+      push: true,
+      email: false,
+    })
+    const kept = normalizeNotificationPrefs({
+      version: 2,
+      rows: [{ id: 'new-message', channels: { inapp: false, push: false, email: false } }],
+    })
+    expect(kept.rows.find((r) => r.id === 'new-message')?.channels.inapp).toBe(false)
   })
 
   it('never offers push below tier 1', () => {

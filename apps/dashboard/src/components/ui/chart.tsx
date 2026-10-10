@@ -26,6 +26,8 @@ type ChartProps = {
   height?: number
   /** Axes and grid. Sparklines pass false. */
   showAxes?: boolean
+  /** First series color token. Default accent; AI activity uses ai (violet). */
+  tone?: 'accent' | 'ai'
   xLabel?: string
   yLabel?: string
   /** Dashed placeholder when there is nothing to plot. Omitted series render nothing. */
@@ -33,11 +35,18 @@ type ChartProps = {
   ariaLabel?: string
 }
 
-const SERIES_COLORS = [
-  'rgb(var(--color-accent))',
-  'rgb(var(--color-ai))',
-  'rgb(var(--color-text-muted))',
-]
+const SERIES_COLORS = {
+  accent: [
+    'rgb(var(--color-accent))',
+    'rgb(var(--color-ai))',
+    'rgb(var(--color-text-muted))',
+  ],
+  ai: [
+    'rgb(var(--color-ai))',
+    'rgb(var(--color-accent))',
+    'rgb(var(--color-text-muted))',
+  ],
+} as const
 
 const TICK = { fill: 'rgb(var(--color-text-muted))', fontSize: 11 }
 
@@ -60,8 +69,9 @@ function formatQuantity(value: number | string | undefined): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
 }
 
-function colorAt(index: number): string {
-  return SERIES_COLORS[index % SERIES_COLORS.length]
+function colorAt(tone: 'accent' | 'ai', index: number): string {
+  const palette = SERIES_COLORS[tone]
+  return palette[index % palette.length]
 }
 
 function usableSeries(series: ChartSeries[]): ChartSeries[] {
@@ -137,6 +147,7 @@ export function Chart({
   series,
   height = 144,
   showAxes = true,
+  tone = 'accent',
   xLabel,
   yLabel,
   emptyLabel,
@@ -163,7 +174,7 @@ export function Chart({
   const lastIndex = data.length - 1
 
   const marks = usable.map((row, index) => {
-    const color = colorAt(index)
+    const color = colorAt(tone, index)
     if (kind === 'bar') {
       return <Bar key={row.name} dataKey={row.name} fill={color} radius={2} isAnimationActive={false} />
     }
@@ -207,19 +218,19 @@ export function Chart({
     <Plot
       data={data}
       margin={{
-        top: spark ? 18 : 8,
+        top: spark ? 14 : 8,
         right: spark ? 14 : 8,
         left: spark ? 4 : 0,
-        bottom: spark ? 10 : 0,
+        bottom: spark ? 2 : 0,
       }}
     >
       {kind === 'area' ? (
         <defs>
           {usable.map((_, index) => (
             <linearGradient key={index} id={`${gradPrefix}-${index}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={colorAt(index)} stopOpacity={0.42} />
-              <stop offset="70%" stopColor={colorAt(index)} stopOpacity={0.08} />
-              <stop offset="100%" stopColor={colorAt(index)} stopOpacity={0} />
+              <stop offset="0%" stopColor={colorAt(tone, index)} stopOpacity={0.42} />
+              <stop offset="70%" stopColor={colorAt(tone, index)} stopOpacity={0.08} />
+              <stop offset="100%" stopColor={colorAt(tone, index)} stopOpacity={0} />
             </linearGradient>
           ))}
         </defs>
@@ -243,7 +254,7 @@ export function Chart({
         tickFormatter={(value) => compactNumber(Number(value))}
         width={showAxes ? 44 : 0}
         domain={[0, 'auto']}
-        padding={spark ? { top: 12, bottom: 18 } : { top: 8, bottom: 0 }}
+        padding={spark ? { top: 10, bottom: 0 } : { top: 8, bottom: 0 }}
       />
       <Tooltip
         content={(props) => (

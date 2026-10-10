@@ -37,7 +37,7 @@ async def test_session_start_exposes_availability(client: AsyncClient):
     data, _headers = await _widget_session(client)
     config = data["agent_config"]
     assert isinstance(config["team_available"], bool)
-    assert config["pre_chat_form"] is False
+    assert config["pre_chat_form"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ async def test_widget_settings_roundtrip(client: AsyncClient):
 
     r = await client.get("/api/settings/widget", headers=owner)
     assert r.status_code == 200, r.text
-    assert r.json()["pre_chat_form"] is False
+    assert r.json()["pre_chat_form"] is True
 
     r = await client.put(
         "/api/settings/widget",

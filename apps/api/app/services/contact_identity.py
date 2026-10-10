@@ -227,6 +227,34 @@ _BASIS_NL = {"verified": "bevestigd", "claimed": "geclaimd", "manual": "handmati
 _BASIS_EN = {"verified": "verified", "claimed": "claimed", "manual": "manual"}
 
 
+async def link_visitor_email(
+    session: AsyncSession,
+    tenant: Tenant,
+    signal: Signal,
+    *,
+    email: str,
+    name: str = "",
+) -> Contact | None:
+    """Turn a widget visitor into a person once they give an email.
+
+    Skips a merge of two known people. Still writes the email on the thread
+    so the operator can see it. Caller commits.
+    """
+    proposal = await resolve_link(
+        session, tenant, signal, email=email, name=name, basis="claimed"
+    )
+    if proposal.outcome in ("link", "create") and not proposal.needs_merge:
+        return await apply_link(
+            session, signal, proposal, actor_type="visitor", publish=False
+        )
+    if proposal.email:
+        signal.contact_email = proposal.email
+    if name:
+        signal.contact_name = name
+    session.add(signal)
+    return None
+
+
 async def apply_link(
     session: AsyncSession,
     signal: Signal,

@@ -110,9 +110,12 @@ if (!(await confirm({ title: 'Delete key?', description: '...', destructive: tru
 />
 ```
 
-`Chart` (`bar`, `line`, `area`) is the only plot. `showAxes={false}` is the
-sparkline. Colors are `accent`, then `ai`, then muted. Canvas `BarChart` /
-`LineChart` and the Overview token sparkline both render this component.
+`Chart` (`bar`, `line`, `area`) is the only quantitative plot. `showAxes={false}`
+is the sparkline. `tone` is `accent` (default) or `ai` (violet first). Canvas
+`BarChart` / `LineChart` use accent; Overview and Usage token series use `ai`.
+
+Swimlane timelines stay custom: `AgentActivityTimeline` (agents on one clock,
+markers, clusters, Now line). Do not force those into `Chart`.
 
 Badge tones: `neutral`, `accent`, `ai`, `success`, `warning`, `error`,
 `info`. Domain mapping lives in `lib/badge-tones.ts` (`statusTone`,

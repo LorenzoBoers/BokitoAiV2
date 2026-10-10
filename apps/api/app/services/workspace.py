@@ -1072,6 +1072,45 @@ async def build_workspace_context(
     except Exception:
         pass
     try:
+        from app.models.learning import Feedback
+
+        edits = (
+            await session.execute(
+                select(Feedback)
+                .where(
+                    Feedback.tenant_id == tenant_id,
+                    Feedback.subject_type == "draft_edit",
+                )
+                .order_by(Feedback.created_at.desc())
+                .limit(3)
+            )
+        ).scalars().all()
+        chunks: list[str] = []
+        for row in edits:
+            try:
+                meta = json.loads(row.metadata_json or "{}")
+            except json.JSONDecodeError:
+                meta = {}
+            if not isinstance(meta, dict):
+                meta = {}
+            customer = str(meta.get("customer") or "").strip()
+            sent = (row.comment or str(meta.get("sent") or "")).strip()
+            if not sent:
+                continue
+            lines = []
+            if customer:
+                lines.append(f"Customer: {customer[:400]}")
+            lines.append(f"Sent: {sent[:400]}")
+            chunks.append("\n".join(lines))
+        if chunks:
+            parts.append(
+                "## Recent corrections\n"
+                "The operator edited these drafts before sending. Match this wording on similar replies.\n\n"
+                + "\n\n".join(chunks)
+            )
+    except Exception:
+        pass
+    try:
         from app.modules.catalog import active_module_skill_prompt
 
         module_skills = await active_module_skill_prompt(session, tenant_id)

@@ -43,7 +43,7 @@ export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> 
 
 export const TAB_PATHS: Record<Tab, string> = {
   overview: '/cockpit',
-  communication: '/communication/inbox/open',
+  communication: '/communication/inbox/for_you',
   agenda: '/agenda',
   team: '/team',
   agents: '/agents',

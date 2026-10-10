@@ -309,13 +309,17 @@ class NotificationCategoryModel(BaseModel):
 
 
 class NotificationPrefsResponse(BaseModel):
+    version: int = 2
     tiers: dict[str, NotificationChannelsModel]
     rows: list[NotificationCategoryModel]
+    sound: bool = True
 
 
 class NotificationPrefsBody(BaseModel):
+    version: int | None = None
     tiers: dict[str, dict[str, bool]] | None = None
     rows: list[dict] | None = None
+    sound: bool | None = None
 
 
 @router.get("/user/notification-preferences", response_model=NotificationPrefsResponse)
@@ -325,7 +329,8 @@ async def get_notification_preferences(
 ):
     """Your notification switches: per tier (1 now, 2 later, 3 digest) and per event category.
 
-    Tier 2 and 3 never push; tier 3 email is the daily digest.
+    Tier 2 and 3 never push; tier 3 email is the daily digest. ``sound`` is the
+    in-app chime while the dashboard is open.
     """
     from app.services.notify import load_prefs, serialize_prefs
 
@@ -341,12 +346,12 @@ async def patch_notification_preferences(
     """Change tier or category switches; omitted switches keep their value."""
     from app.services.notify import save_prefs, serialize_prefs
 
-    prefs = await save_prefs(
-        session,
-        auth.tenant.id,
-        auth.user.id,
-        {"tiers": body.tiers or {}, "rows": body.rows or []},
-    )
+    patch: dict = {"tiers": body.tiers or {}, "rows": body.rows or []}
+    if body.sound is not None:
+        patch["sound"] = body.sound
+    if body.version is not None:
+        patch["version"] = body.version
+    prefs = await save_prefs(session, auth.tenant.id, auth.user.id, patch)
     return serialize_prefs(prefs)
 
 

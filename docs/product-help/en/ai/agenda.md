@@ -46,7 +46,7 @@ Agents plan work too: ask one in a conversation to "check this again on Friday".
 
 ## Show your Google or Outlook calendar
 
-1. If no calendar is connected, Agenda shows a short banner with a link to **Connections**. Open **Connections**, filter by **Calendar**, and connect Google Calendar or Outlook Calendar there.
+1. If no calendar is connected, the sidebar shows **Connect your calendars** with the Google and Outlook marks, an info icon, and a link to **Connections**. Open **Connections**, filter by **Calendar**, and connect Google Calendar or Outlook Calendar there.
 2. Finish sign-in. Each connected calendar appears as its own checkbox under **Show**. Meetings appear in the grid next to the work and give agents context from those calendars.
 3. Choose a meeting to see details, edit it, or delete it.
 

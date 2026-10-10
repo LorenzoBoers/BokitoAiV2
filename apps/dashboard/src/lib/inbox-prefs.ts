@@ -31,7 +31,7 @@ function writeStorage(key: string, value: string): void {
 export function readLastInboxQueue(): InboxQueue {
   const raw = readStorage(LAST_QUEUE_KEY)
   if (raw && (INBOX_QUEUES as readonly string[]).includes(raw)) return raw as InboxQueue
-  return 'open'
+  return 'for_you'
 }
 
 export function writeLastInboxQueue(queue: InboxQueue): void {

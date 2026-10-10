@@ -168,6 +168,41 @@ async def resolve_decision(
 
             await apply_checkout_choice(session, tenant_id, payload, user_id=user_id)
 
+        if action_type == "file_ticket":
+            tag_raw = str(payload.get("tag_id") or "").strip()
+            signal_raw = str(payload.get("signal_id") or decision.signal_id or "").strip()
+            if tag_raw and signal_raw:
+                from app.models.signal import SignalTag
+                from app.services.tickets import file_ticket, playbook_project_ids
+
+                try:
+                    tag_id = UUID(tag_raw)
+                    signal_id = UUID(signal_raw)
+                    signal = await session.get(Signal, signal_id)
+                    tag = await session.get(SignalTag, tag_id)
+                    choices: list = []
+                    if signal is not None and tag is not None:
+                        choices = await playbook_project_ids(session, tenant_id, tag.workstream_id)
+                    project_chosen = not choices or (
+                        signal is not None and signal.project_id in choices
+                    )
+                    await file_ticket(
+                        session,
+                        tenant_id,
+                        signal_id=signal_id,
+                        tag_id=tag_id,
+                        project_id=signal.project_id if signal is not None and project_chosen else None,
+                        project_chosen=project_chosen,
+                        summary=str(payload.get("summary") or decision.summary or ""),
+                        certainty=10,
+                        actor="operator" if project_chosen else "agent",
+                        created_by_type="user",
+                        created_by_id=str(user_id or ""),
+                        user_id=user_id,
+                    )
+                except Exception as exc:
+                    raise DecisionActionError(action_type, str(exc)) from exc
+
         if action_type == "activate_inbox_rule":
             rule_raw = str(payload.get("rule_id") or "").strip()
             if rule_raw:

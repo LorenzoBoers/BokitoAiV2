@@ -1,4 +1,5 @@
 import { AlertCircle, PenLine, RefreshCw, Trash2 } from 'lucide-react'
+import { Callout } from '../ui/callout'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -43,7 +44,13 @@ import {
 } from '../ui/dialog'
 import { isAiHandlingVerb, type ParsedComposerVerb } from '../../lib/composer-verbs'
 import type { AiHandlingMode } from '../../lib/ai-handling'
-import { listSignalAssignees, patchSignalThread, type AssigneeCandidates } from '../../lib/signals-api'
+import {
+  listSignalAssignees,
+  listThreadAgentCandidates,
+  patchSignalThread,
+  type AssigneeCandidates,
+  type ThreadAgentCandidate,
+} from '../../lib/signals-api'
 import {
   decisionCardOpen,
   isOpenNoReplyCard,
@@ -320,6 +327,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // channel stay listed but greyed out. An @agent opens that agent's session;
   // an @team note goes to the team (see thread_dispatch on the server).
   const [assignees, setAssignees] = useState<AssigneeCandidates | null>(null)
+  const [agentCandidates, setAgentCandidates] = useState<ThreadAgentCandidate[]>([])
   const assigneesThreadId = detail ? String(detail.thread.id) : null
   useEffect(() => {
     if (!token || !assigneesThreadId) return
@@ -335,6 +343,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           })
         }
       })
+    listThreadAgentCandidates(token, assigneesThreadId)
+      .then((rows) => {
+        if (!cancelled) setAgentCandidates(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setAgentCandidates([])
+      })
     return () => {
       cancelled = true
     }
@@ -342,6 +357,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const mentionExtras: MentionItem[] = useMemo(() => {
     if (!assignees) return []
     const reason = t('threadChrome.noChannelAccess')
+    const agentRank = new Map(agentCandidates.map((row, index) => [row.id, index]))
+    const rankedAgents = [...assignees.agents].sort((a, b) => {
+      const left = agentRank.has(a.id) ? (agentRank.get(a.id) as number) : 1_000
+      const right = agentRank.has(b.id) ? (agentRank.get(b.id) as number) : 1_000
+      return left - right
+    })
     return [
       ...assignees.people.map(
         (p): MentionItem => ({
@@ -355,7 +376,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           disabledReason: p.canHandle ? undefined : reason,
         }),
       ),
-      ...assignees.agents.map(
+      ...rankedAgents.map(
         (a): MentionItem => ({
           type: 'agent',
           id: a.id,
@@ -382,7 +403,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         }),
       ),
     ]
-  }, [assignees, t])
+  }, [assignees, agentCandidates, t])
 
   useEffect(() => {
     if (!token) return
@@ -1496,7 +1517,16 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         blockingContact={blockingContact}
         onWhatsNext={onWhatsNext}
         panelCount={openSignalCount + (thread.followUpAt ? 1 : 0)}
+        onExampleChanged={() => {
+          void onRefresh()
+        }}
       />
+
+      {thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? (
+        <Callout tone="warning" className="mx-3 mt-2" role="status">
+          {t('threadChrome.humanRequestedBanner')}
+        </Callout>
+      ) : null}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {unseenNew > 0 ? (

@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { AlertTriangle, AtSign, Bell, CalendarClock, ChevronDown, ChevronRight, Hand, Inbox, ListTodo, MessageSquare, Settings, ShieldCheck, UserCheck } from 'lucide-react';
-import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext';
-import { useOptionalNavBadges } from '../../context/NavBadgeContext';
-import { Button } from '../ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { translateNotificationCopy } from '../../lib/activity-labels';
-import { collapseNotifications, type GroupedNotification } from '../../lib/notification-groups';
-import { activityDayBucket } from '../../lib/activity-day';
-import { openEntityPath } from '../../lib/open-entity';
-import { timeAgo } from '../../lib/time-ago';
-import { forYouPath, inboxPath } from '../../lib/messages-paths';
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { AlertTriangle, AtSign, Bell, CalendarClock, ChevronDown, ChevronRight, Hand, Inbox, ListTodo, MessageSquare, Settings, ShieldCheck, UserCheck } from 'lucide-react'
+import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext'
+import { useOptionalNavBadges } from '../../context/NavBadgeContext'
+import { Button } from '../ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu'
+import { translateNotificationCopy } from '../../lib/activity-labels'
+import { collapseNotifications, type GroupedNotification } from '../../lib/notification-groups'
+import { activityDayBucket } from '../../lib/activity-day'
+import { openEntityPath } from '../../lib/open-entity'
+import { timeAgo } from '../../lib/time-ago'
+import { forYouPath } from '../../lib/messages-paths'
 
 const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
   status_update: CalendarClock,
@@ -22,42 +22,43 @@ const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: 
   handoff: Hand,
   task_due: ListTodo,
   ops_alert: AlertTriangle,
-};
+}
 
 function formatTimeAgo(timestamp: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const days = Math.floor((Date.now() - new Date(timestamp).getTime()) / 86_400_000);
-  return days >= 7 ? t('notificationsUi.staleDays', { count: days }) : timeAgo(timestamp, t);
+  const days = Math.floor((Date.now() - new Date(timestamp).getTime()) / 86_400_000)
+  return days >= 7 ? t('notificationsUi.staleDays', { count: days }) : timeAgo(timestamp, t)
 }
 
 export default function NotificationDropdown() {
-  const { t } = useTranslation(['nav', 'communication']);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
-  const forYouCount = useOptionalNavBadges().counts.inboxByQueue.forYou;
-  const routerNavigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [showDigest, setShowDigest] = useState(false);
+  const { t } = useTranslation(['nav', 'communication'])
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications()
+  const forYouCount = useOptionalNavBadges().counts.inboxByQueue.forYou
+  const routerNavigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [showDigest, setShowDigest] = useState(false)
+  const attentionBadge = Math.max(forYouCount, unreadCount)
   const navigate = (to: string) => {
-    setOpen(false);
-    routerNavigate(to);
-  };
+    setOpen(false)
+    routerNavigate(to)
+  }
 
-  const groupedNotifications = collapseNotifications(notifications.filter((item) => item.tier < 3));
-  const digestNotifications = collapseNotifications(notifications.filter((item) => item.tier === 3));
+  const groupedNotifications = collapseNotifications(notifications.filter((item) => item.tier < 3))
+  const digestNotifications = collapseNotifications(notifications.filter((item) => item.tier === 3))
 
   const handleNotificationClick = (notification: AppNotification, ids: string[]) => {
     for (const id of ids) {
-      const row = notifications.find((item) => item.id === id);
-      if (row?.status === 'unread') markAsRead(id);
+      const row = notifications.find((item) => item.id === id)
+      if (row?.status === 'unread') markAsRead(id)
     }
-    const target = openEntityPath({ type: 'notification', kind: notification.kind, payload: notification.payload });
-    if (target) navigate(target);
-  };
+    const target = openEntityPath({ type: 'notification', kind: notification.kind, payload: notification.payload })
+    if (target) navigate(target)
+  }
 
   const renderItem = (notification: GroupedNotification<AppNotification>) => {
-    const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare;
+    const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare
     const unread = notification.status === 'unread' || notification.ids.some((id) =>
       notifications.find((item) => item.id === id)?.status === 'unread',
-    );
+    )
     return (
       <div
         onClick={() => handleNotificationClick(notification, notification.ids)}
@@ -98,8 +99,8 @@ export default function NotificationDropdown() {
           ) : null}
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   const trigger = (
     <Button
@@ -109,13 +110,13 @@ export default function NotificationDropdown() {
       aria-label={t('notificationsUi.aria')}
     >
       <Bell size={16} />
-      {unreadCount > 0 && (
+      {attentionBadge > 0 && (
         <span className="count-pop absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-2xs font-bold leading-none text-accent-fg">
-          {unreadCount > 9 ? '9+' : unreadCount}
+          {attentionBadge > 9 ? '9+' : attentionBadge}
         </span>
       )}
     </Button>
-  );
+  )
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -149,17 +150,24 @@ export default function NotificationDropdown() {
               </button>
             </div>
           </div>
-          {forYouCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => navigate(forYouPath())}
-              data-testid="bell-for-you"
-              className="flex w-full items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-left text-xs text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-heading"
-            >
-              <Inbox size={13} className="shrink-0 text-text-muted" aria-hidden />
-              {t('notificationsUi.forYouLine', { count: forYouCount })}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => navigate(forYouPath())}
+            data-testid="bell-for-you"
+            className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
+              forYouCount > 0
+                ? 'border-accent/40 bg-accent/5 text-text-heading hover:bg-accent/10'
+                : 'border-border/60 text-text-secondary hover:bg-bg-hover/60 hover:text-text-heading'
+            }`}
+          >
+            <Inbox size={13} className="shrink-0 text-text-muted" aria-hidden />
+            <span className="min-w-0 flex-1">
+              {forYouCount > 0
+                ? t('notificationsUi.forYouLine', { count: forYouCount })
+                : t('notificationsUi.forYouEmpty')}
+            </span>
+            <span className="shrink-0 text-xs font-medium text-accent">{t('notificationsUi.openForYou')}</span>
+          </button>
         </div>
 
         <div className="space-y-1 max-h-96 overflow-y-auto">
@@ -170,10 +178,10 @@ export default function NotificationDropdown() {
               <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
                 <button
                   type="button"
-                  onClick={() => navigate(inboxPath('open'))}
+                  onClick={() => navigate(forYouPath())}
                   className="text-xs font-medium text-accent hover:underline"
                 >
-                  {t('notificationsUi.openCommunication')}
+                  {t('notificationsUi.openForYou')}
                 </button>
                 <button
                   type="button"
@@ -226,5 +234,5 @@ export default function NotificationDropdown() {
       </div>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
+  )
 }

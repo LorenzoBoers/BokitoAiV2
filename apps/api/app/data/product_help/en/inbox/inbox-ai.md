@@ -23,7 +23,7 @@ The same icons appear everywhere: a lightning bolt for Autonomous and a pen for 
 3. Turning on **Autonomous** shows a confirmation with how many open conversations follow this setting and how often drafts were sent unedited recently. Only an owner or admin can turn on Autonomous.
 4. Under the cards, the **Ceiling** shows the Govern limit. Choose **Pause autonomous replies** to cap every conversation at Assisted in one step; **Allow autonomous replies** lifts that cap. Open **Govern ceiling** from the note when you need to change the workspace posture or Messaging allowance.
 
-Start with **Assisted**. Bokito suggests Autonomous once at least 80% of 50 or more drafts go out unedited.
+Start with **Assisted**. Bokito suggests Autonomous once at least 80% of 50 or more drafts go out unedited. On an Assisted channel, the AI handling row shows how many of those 50 drafts were sent unchanged.
 
 ## Review exceptions
 

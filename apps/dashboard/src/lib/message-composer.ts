@@ -214,10 +214,14 @@ export function resolveComposerSurface(
     const nonReceiving = isNonReceivingEmailAddress(email)
     return {
       channel: 'email',
-      // Email threads land on Ask: writing a real mail goes through the
-      // mail-native composer (Reply tab or bubble actions), so the bottom
-      // input is for the AI and the team by default.
-      defaultMode: nonReceiving ? 'note' : 'ask',
+      // When the customer is waiting and nothing needs a decision, the first
+      // keystroke is a reply. Ask stays the default once a decision is open
+      // or the last message was already ours.
+      defaultMode: nonReceiving
+        ? 'note'
+        : thread.lastMessageDirection === 'inbound' && !thread.hasOpenDecision
+          ? 'reply'
+          : 'ask',
       modes: ['reply', 'ask', 'note'],
       replyLabel: 'Email',
       replyTargetName: name || email,

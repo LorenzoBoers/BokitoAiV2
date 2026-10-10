@@ -117,6 +117,8 @@ export type InboxThread = {
   lastMessageAt: string | null
   hasUnread: boolean
   isPinned: boolean
+  /** Closed conversations marked as few-shot examples for the next reply. */
+  isExample?: boolean
   /** True when an agent decision card is still waiting on a human. */
   hasOpenDecision?: boolean
   /** Resolved AI handling (workspace, channel, contact, conversation; Govern-capped). */
@@ -684,6 +686,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     hasUnread: Boolean(raw.has_unread),
     hasOpenDecision: Boolean(raw.has_open_decision),
     isPinned: Boolean(raw.is_pinned),
+    isExample: Boolean(raw.is_example),
     aiHandling: normalizeAiHandling(raw.ai_handling),
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')

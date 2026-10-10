@@ -16,6 +16,13 @@ export type AuthMeResponse = {
   tenant: { id: string; slug: string; name: string; logo?: string | null }
 }
 
+export type TimeSavedAction = {
+  action: string
+  count: number
+  minutes_each: number
+  minutes: number
+}
+
 export type CockpitSummary = {
   volume_week: number
   /** Open external conversations of any age (inbox backlog). */
@@ -28,6 +35,17 @@ export type CockpitSummary = {
   tokens_month: number
   cost_cents_month: number
   time_saved_minutes_week: number
+  /** Action-credit rows that sum to time_saved_minutes_week. */
+  time_saved_breakdown?: TimeSavedAction[]
+  /** Closed without a takeover, still closed after 72 hours, matured this week. */
+  resolved_conversations_week?: number
+  quiet_threads?: {
+    id: string
+    subject: string
+    contact_name: string
+    channel: string
+    last_message_at: string | null
+  }[]
 }
 
 export type PushSubscriptionPayload = {
@@ -196,15 +214,19 @@ export async function bokitoGetUsageBreakdown(token: string, days = 30) {
   return bokitoFetch<UsageBreakdown>(`${APP_API_BASE}${appRoutes.cockpit.usage(days)}`, token)
 }
 
-export type UsageSeriesPoint = { date: string; tokens: number }
+export type UsageSeriesPoint = { date?: string; at?: string; tokens: number }
 
 export type UsageTokenSeries = {
-  days: number
+  days?: number
+  hours?: number
   points: UsageSeriesPoint[]
 }
 
-export async function bokitoGetUsageSeries(token: string, days = 30) {
-  return bokitoFetch<UsageTokenSeries>(`${APP_API_BASE}${appRoutes.cockpit.usageSeries(days)}`, token)
+export async function bokitoGetUsageSeries(
+  token: string,
+  opts: { days: number } | { hours: number } = { days: 30 },
+) {
+  return bokitoFetch<UsageTokenSeries>(`${APP_API_BASE}${appRoutes.cockpit.usageSeries(opts)}`, token)
 }
 
 export type SpendPeriodStatus = {

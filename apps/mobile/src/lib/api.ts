@@ -540,6 +540,12 @@ export type CockpitSummary = {
   tokens_month: number
   cost_cents_month: number
   time_saved_minutes_week: number
+  time_saved_breakdown?: Array<{
+    action: string
+    count: number
+    minutes_each: number
+    minutes: number
+  }>
 }
 
 export type NotificationPrefRow = {

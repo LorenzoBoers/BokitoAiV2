@@ -22,7 +22,6 @@ export default function ChannelAiHandlingSetting({
   const { token } = useAuth()
   const { handling, setHandling, change, saving, canRaise } = useAiHandling('channel', row.id, {
     initial: row.aiHandling,
-    skipFetch: true,
     onChanged,
   })
   const tripped = Boolean(handling?.breakerTrippedAt)
@@ -39,6 +38,7 @@ export default function ChannelAiHandlingSetting({
   }
 
   return (
+    <>
     <AiHandlingPicker
       variant="row"
       className="py-2.5"
@@ -79,5 +79,14 @@ export default function ChannelAiHandlingSetting({
         ) : null
       }
     />
+    {handling?.promotion && (handling.requested === 'assisted' || handling.effective === 'assisted') ? (
+      <p className="px-1 pb-1 text-xs text-text-muted" data-testid="channel-autonomy-progress">
+        {t('aiHandling.metrics.promotionProgress', {
+          done: handling.promotion.unedited,
+          target: handling.promotion.targetDrafts,
+        })}
+      </p>
+    ) : null}
+    </>
   )
 }

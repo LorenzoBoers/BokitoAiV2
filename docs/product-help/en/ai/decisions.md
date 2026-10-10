@@ -54,7 +54,7 @@ When a check-in or agent asked the same question many times (for example *Set up
 
 ## Teach the agent for next time
 
-1. On a card that asks before an action, the row **Next time:** offers three buttons. Under an agent's message, the same choices sit in the **More options** menu next to the buttons.
+1. On a card that asks before an action, the row **Next time:** offers three buttons. Under an agent's message, the same choices sit in the **More options** menu next to the buttons. When an earlier draft was set aside because the person continued elsewhere, the resolved line offers **Open active** to jump to that conversation.
 2. **You may do this yourself from now on** proposes a rule that lets the agent do this on its own. **Always ask** proposes a rule that keeps asking. Both arrive as a card in the same conversation; confirm it there. Only an owner or admin can confirm a rule that lets an agent act on its own.
 3. **Not sure yet** keeps the case as an example. After a few examples the agent proposes a rule from them.
 4. Rules show on the agent under **Rules** (see [Agents](/docs/ai/agents)).

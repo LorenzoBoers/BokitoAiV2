@@ -283,7 +283,9 @@
     "narrowBy": "Verfijnen",
     "clearFilters": "Wissen",
     "emptyForYou": "Er wacht niets op jou.",
-    "emptyForYouHint": "Gesprekken van jou, jouw beurt, de beurt van je team, vragen aan iedereen en vermeldingen komen hier."
+    "emptyForYouHint": "Toegewezen gesprekken, jouw beurt, beslissingen en vermeldingen komen hier. Koppel een kanaal zodat klanten je kunnen bereiken.",
+    "emptyForYouConnect": "Kanaal koppelen",
+    "emptyForYouNewChat": "Start een chat"
   },
   "decisionCard": {
     "titleSuggestedReply": "Voorgesteld antwoord",
@@ -297,6 +299,7 @@
     "draftSupersededByInbound": "Eerder concept — de klant schreef daarna opnieuw",
     "draftSupersededByExternalReply": "Eerder concept — beantwoord vanuit de mailbox van een collega",
     "draftSiblingThread": "Eerder concept — gaat verder in een nieuwer gesprek met deze persoon",
+    "openActiveThread": "Actief openen",
     "draftHandledExternally": "Eerder concept — buiten Bokito afgehandeld",
     "customerWroteAgain": "De klant schreef opnieuw na dit voorstel. Lees eerst het nieuwste bericht voordat je het gebruikt.",
     "automatedExplainer": "Dit lijkt een automatisch bericht, dus er is geen antwoord opgesteld.",
@@ -724,6 +727,11 @@
     "showDetails": "Details tonen",
     "askAssistant": "Vraag assistent",
     "closeThread": "Gesprek sluiten",
+    "humanRequestedBanner": "De klant vroeg om een medewerker. AI-antwoorden blijven gepauzeerd tot iemand dit gesprek overneemt.",
+    "useAsExample": "Gebruik als voorbeeld",
+    "removeExample": "Niet meer als voorbeeld",
+    "exampleOn": "Gebruikt als voorbeeld voor het volgende antwoord",
+    "exampleOff": "Niet meer als voorbeeld",
     "assignToMe": "Aan mij toewijzen",
     "createTask": "Wat nu",
     "creating": "Aanmaken...",
@@ -1094,9 +1102,23 @@
     "needsReply": "Jij aan zet",
     "theirTurn": "Wacht op antwoord",
     "needsDecision": "Wacht op beslissing",
+    "humanRequested": "Vroeg om een medewerker",
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}u",
-    "daysAgo": "{{count}}d"
+    "daysAgo": "{{count}}d",
+    "certaintyHint": "AI-zekerheid {{value}}%",
+    "category": {
+      "support": "Support",
+      "sales": "Sales",
+      "billing": "Facturatie"
+    }
+  },
+  "banners": {
+    "channelNotReady": "Er is geen kanaal klaar om te versturen. Koppel of herstel een mailbox of chatkanaal.",
+    "openChannels": "Kanalen openen",
+    "noReplyTips": "{{count}} “Geen antwoord nodig”-tips wachten bij beslissingen",
+    "reviewTips": "Bekijken",
+    "dismissTips": "Alles wegzetten"
   },
   "snooze": {
     "1h": "1 uur",

@@ -232,7 +232,7 @@ def widget_settings_from_tenant(tenant: Tenant) -> dict[str, Any]:
     if not isinstance(livechat, dict):
         livechat = {}
     return {
-        "pre_chat_form": bool(livechat.get("pre_chat_form", False)),
+        "pre_chat_form": bool(livechat.get("pre_chat_form", True)),
         "offline_message": str(livechat.get("offline_message") or "").strip(),
     }
 

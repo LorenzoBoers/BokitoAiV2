@@ -1,5 +1,6 @@
 """Notification tiers, availability, the bell, and read state per conversation."""
 
+import json
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -34,10 +35,10 @@ async def _tenant_and_user(session: AsyncSession):
     return tenant, user
 
 
-def test_tier_one_pushes_only_outside_the_app():
+def test_tier_one_pushes_when_available_or_offline():
     prefs = parse_prefs(None)
     assert channels_for(prefs, tier=TIER_NOW, category="mentions", status=OFFLINE) == {"inapp", "push"}
-    assert channels_for(prefs, tier=TIER_NOW, category="mentions", status=AVAILABLE) == {"inapp"}
+    assert channels_for(prefs, tier=TIER_NOW, category="mentions", status=AVAILABLE) == {"inapp", "push"}
 
 
 def test_tier_two_and_three_never_push():
@@ -57,12 +58,43 @@ def test_away_lets_only_critical_tier_one_through():
     }
 
 
-def test_new_message_is_off_until_opt_in():
+def test_new_message_defaults_on_for_owners():
     prefs = parse_prefs(None)
-    assert channels_for(prefs, tier=TIER_NOW, category="new-message", status=OFFLINE) == set()
-    prefs["categories"]["new-message"]["inapp"] = True
-    prefs["categories"]["new-message"]["push"] = True
     assert channels_for(prefs, tier=TIER_NOW, category="new-message", status=OFFLINE) == {"inapp", "push"}
+    prefs["categories"]["new-message"]["inapp"] = False
+    prefs["categories"]["new-message"]["push"] = False
+    assert channels_for(prefs, tier=TIER_NOW, category="new-message", status=OFFLINE) == set()
+
+
+def test_prefs_v2_upgrades_stored_new_message_off():
+    from app.services.notify import serialize_prefs
+
+    legacy = parse_prefs(
+        '{"rows": [{"id": "new-message", "channels": {"inapp": false, "push": false, "email": false}}]}'
+    )
+    assert legacy["version"] == 2
+    assert legacy["categories"]["new-message"]["inapp"] is True
+    assert legacy["categories"]["new-message"]["push"] is True
+    kept = parse_prefs(
+        json.dumps(
+            {
+                "version": 2,
+                "rows": [{"id": "new-message", "channels": {"inapp": False, "push": False, "email": False}}],
+            }
+        )
+    )
+    assert kept["categories"]["new-message"]["inapp"] is False
+    out = serialize_prefs(kept)
+    assert out["version"] == 2
+
+
+def test_sound_pref_defaults_on_and_round_trips():
+    assert parse_prefs(None)["sound"] is True
+    assert parse_prefs('{"sound": false}')["sound"] is False
+    from app.services.notify import serialize_prefs
+
+    out = serialize_prefs(parse_prefs('{"sound": false, "tiers": {}, "rows": []}'))
+    assert out["sound"] is False
 
 
 def test_category_row_narrows_the_tier():

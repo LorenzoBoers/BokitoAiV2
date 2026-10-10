@@ -54,7 +54,7 @@ Wanneer een check-in of agent dezelfde vraag vaak heeft gesteld (bijvoorbeeld *G
 
 ## Leer de agent voor de volgende keer
 
-1. Op een kaart die vraagt voor een actie biedt de rij **Volgende keer:** drie knoppen. Onder een agentbericht staan dezelfde keuzes in het menu **Meer opties** naast de knoppen.
+1. Op een kaart die vraagt voor een actie biedt de rij **Volgende keer:** drie knoppen. Onder een agentbericht staan dezelfde keuzes in het menu **Meer opties** naast de knoppen. Is een eerder concept opzij gezet omdat de persoon elders verderging, dan biedt de afgehandelde regel **Actief openen** om naar dat gesprek te springen.
 2. **Dit mag je voortaan zelf** stelt een regel voor waarmee de agent dit zelf doet. **Altijd vragen** stelt een regel voor die blijft vragen. Beide komen als kaart in hetzelfde gesprek; bevestig die daar. Alleen een eigenaar of beheerder kan een regel bevestigen waarmee een agent zelf handelt.
 3. **Weet ik nog niet** bewaart het geval als voorbeeld. Na een paar voorbeelden stelt de agent er zelf een regel uit voor.
 4. Regels staan op de agent onder **Regels** (zie [Agents](/docs/ai/agents)).

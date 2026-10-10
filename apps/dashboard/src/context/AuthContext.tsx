@@ -354,7 +354,12 @@ function normalizeAuthUser(raw: unknown): User {
 
   return {
     id: toNumber(payload.numeric_id) ?? toNumber(payload.id) ?? 0,
-    uuid: typeof payload.id === 'string' && payload.id.includes('-') ? payload.id : null,
+    uuid:
+      typeof payload.id === 'string' && payload.id.includes('-')
+        ? payload.id
+        : typeof nestedUser.id === 'string' && nestedUser.id.includes('-')
+          ? nestedUser.id
+          : null,
     name: displayName,
     firstName,
     lastName,

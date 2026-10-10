@@ -43,8 +43,8 @@ const VALUE_BUTTON =
   'inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs text-text-heading transition-colors hover:bg-bg-hover/70 disabled:opacity-40'
 
 /**
- * Everything noted on this one conversation: priority, look-again / re-read,
- * category (or ticket) and tags. Agent summary lives in the timeline.
+ * Everything noted on this one conversation: AI summary, priority,
+ * look-again / re-read, category (or ticket) and tags.
  */
 export function ConversationWorkSection({ thread, saving = false, onPatch, onWhatsNext }: Props) {
   const { t, i18n } = useTranslation('communication')
@@ -74,6 +74,15 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
       <h2 className="text-xs font-semibold text-text-muted">
         {t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
       </h2>
+
+      {!internal && thread.aiSummary ? (
+        <p
+          className="rounded-md border border-border/50 bg-bg-elevated/50 px-2.5 py-2 text-xs leading-relaxed text-text-secondary"
+          data-testid="thread-ai-summary"
+        >
+          {thread.aiSummary}
+        </p>
+      ) : null}
 
       {internal ? null : (
       <div className="space-y-0.5">

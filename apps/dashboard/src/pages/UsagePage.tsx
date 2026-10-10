@@ -26,17 +26,19 @@ import { CapBar } from '../components/ui/cap-bar'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { Chart } from '../components/ui/chart'
+import { InsetPanel } from '../components/ui/inset-panel'
 import { StatGrid, StatTile } from '../components/ui/stat-tile'
 import { formatAppTime } from '../lib/app-locale'
 import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
 import { workspaceBrandName } from '../lib/tenant-branding'
-import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
-import { inboxPath } from '../lib/messages-paths'
+import { forYouPath, inboxPath } from '../lib/messages-paths'
 import { ModelIcon } from '../components/ui/ModelIcon'
 import { humanizeModelId } from '../lib/model-label'
 import { RegionBadge } from '../components/models/RegionBadge'
 import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
+
+const CHART_HEIGHT = 168
 
 function isSystemUsageName(name: string): boolean {
   return /system|systeem/i.test(name)
@@ -74,33 +76,12 @@ function UsageCard({
   )
 }
 
-function UsageSeriesChart({ points, days }: { points: UsageSeriesPoint[]; days: number }) {
-  const { t, i18n } = useTranslation('nav')
-  const fmt = (iso: string) => {
-    const date = new Date(`${iso}T12:00:00Z`)
-    return date.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })
-  }
+function KpiInset({ label, value }: { label: string; value: string }) {
   return (
-    <section className="panel mb-5 overflow-hidden">
-      <div className="border-b border-border/60 px-4 py-3">
-        <h2 className="text-base font-semibold text-text-heading">{t('usagePage.seriesTitle')}</h2>
-        <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.seriesHint')}</p>
-      </div>
-      <div className="p-4">
-        <Chart
-          kind="area"
-          height={180}
-          ariaLabel={t('usagePage.seriesAria', { days })}
-          emptyLabel={t('usagePage.seriesEmpty')}
-          series={[
-            {
-              name: t('usagePage.seriesName'),
-              points: points.map((point) => ({ x: fmt(point.date), y: point.tokens })),
-            },
-          ]}
-        />
-      </div>
-    </section>
+    <InsetPanel padding="sm" className="flex h-full flex-col justify-center px-3 py-3">
+      <span className="text-xs text-text-muted">{label}</span>
+      <span className="mt-1 block tabular-nums text-2xl font-semibold text-text-heading">{value}</span>
+    </InsetPanel>
   )
 }
 
@@ -125,6 +106,19 @@ export default function UsagePage() {
   const [capError, setCapError] = useState<string | null>(null)
   const confirm = useConfirm()
 
+  const fmtDay = (iso: string) => {
+    if (!iso) return ''
+    const date = new Date(`${iso}T12:00:00Z`)
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+  }
+
+  const setDays = (next: string) => {
+    const params = new URLSearchParams(searchParams)
+    if (next === '30') params.delete('days')
+    else params.set('days', next)
+    setSearchParams(params, { replace: true })
+  }
+
   const capBar = (label: string, period: SpendPeriodStatus, format: (value: number) => string) => (
     <CapBar
       label={label}
@@ -146,7 +140,7 @@ export default function UsagePage() {
       bokitoGetCockpitSummary(token),
       bokitoGetUsageBreakdown(token, days),
       bokitoGetBudget(token),
-      bokitoGetUsageSeries(token, days),
+      bokitoGetUsageSeries(token, { days }),
     ])
       .then(([s, b, bud, ser]) => {
         setSummary(s)
@@ -205,20 +199,25 @@ export default function UsagePage() {
       .finally(() => setSavingCaps(false))
   }, [token, capDraft, t, budget, confirm])
 
-  const stats = summary
+  const tokensValue = num(breakdown?.total_tokens ?? summary?.tokens_month ?? 0)
+  const costValue = breakdown
+    ? usd(breakdown.total_customer_cost_micros)
+    : formatAppUsdCents(summary?.cost_cents_month ?? 0, locale)
+
+  const timeBreakdown = summary?.time_saved_breakdown ?? []
+  const timeMinutes = (key: string) =>
+    timeBreakdown.find((row) => row.action === key)?.minutes ?? 0
+  const timeSavedHint =
+    summary && summary.time_saved_minutes_week > 0
+      ? t('usagePage.timeSavedHint', {
+          autonomous: `${num(timeMinutes('autonomous_reply'))} min`,
+          drafts: `${num(timeMinutes('assisted_draft_unchanged') + timeMinutes('assisted_draft_edited'))} min`,
+          other: `${num(timeMinutes('ticket_filed_by_agent') + timeMinutes('flow_run_completed'))} min`,
+        })
+      : t('usagePage.timeSavedEmptyHint')
+
+  const outcomeStats = summary
     ? [
-        {
-          key: 'tokens',
-          label: t('usagePage.tokens30d', { days }),
-          value: num(breakdown?.total_tokens ?? summary.tokens_month),
-        },
-        {
-          key: 'cost',
-          label: t('usagePage.cost30d', { days }),
-          value: breakdown
-            ? usd(breakdown.total_customer_cost_micros)
-            : formatAppUsdCents(summary.cost_cents_month, locale),
-        },
         {
           key: 'conversations',
           label: t('usagePage.conversations7d'),
@@ -226,17 +225,10 @@ export default function UsagePage() {
           hint:
             summary.volume_week === 0
               ? (summary.open_backlog ?? 0) > 0
-                ? t('usagePage.conversationsEmptyWithBacklog', {
-                    count: summary.open_backlog,
-                    defaultValue:
-                      'No new conversations this week. {{count}} still open in the inbox.',
-                  })
+                ? t('usagePage.conversationsEmptyWithBacklog', { count: summary.open_backlog })
                 : t('usagePage.conversationsEmptyHint')
               : (summary.open_backlog ?? 0) > 0
-                ? t('usagePage.openBacklogHint', {
-                    count: summary.open_backlog,
-                    defaultValue: '{{count}} open in the inbox (any age)',
-                  })
+                ? t('usagePage.openBacklogHint', { count: summary.open_backlog })
                 : null,
           hintTo: inboxPath('open'),
           hintLink: t('usagePage.openInbox'),
@@ -253,34 +245,60 @@ export default function UsagePage() {
           key: 'time',
           label: t('usagePage.timeSaved'),
           value: `${num(summary.time_saved_minutes_week)} min`,
-          hint: summary.time_saved_minutes_week === 0 ? t('usagePage.timeSavedEmptyHint') : null,
-          hintTo: '/agents',
-          hintLink: t('usagePage.openAgents'),
+          hint: timeSavedHint,
+          hintTo: summary.time_saved_minutes_week === 0 ? '/agents' : null,
+          hintLink: summary.time_saved_minutes_week === 0 ? t('usagePage.openAgents') : null,
         },
         {
           key: 'feedback',
           label: t('usagePage.avgFeedback'),
-          value: summary.avg_feedback_score > 0 ? num(summary.avg_feedback_score) : '-',
-          hint: summary.avg_feedback_score > 0 ? null : t('usagePage.feedbackEmptyHint'),
-          hintTo: WEBSITE_WIDGET_PATH,
-          hintLink: t('usagePage.openWebsiteWidget'),
+          value:
+            summary.avg_feedback_score > 0
+              ? num(summary.avg_feedback_score)
+              : t('usagePage.noScore', { defaultValue: '—' }),
+          hint: summary.avg_feedback_score === 0 ? t('usagePage.feedbackEmptyHint') : null,
+          hintTo: summary.avg_feedback_score === 0 ? '/ai/assistant' : null,
+          hintLink: summary.avg_feedback_score === 0 ? t('usagePage.openWebsiteWidget') : null,
         },
         {
-          key: 'eu-share',
-          label: t('usagePage.euShare', { days }),
+          key: 'csat',
+          label: t('cockpitPage.csat'),
           value:
-            breakdown && breakdown.eu_share_pct !== null && breakdown.eu_share_pct !== undefined
-              ? `${num(breakdown.eu_share_pct)}%`
-              : '-',
+            summary.csat_score != null
+              ? num(summary.csat_score)
+              : t('usagePage.noScore', { defaultValue: '—' }),
           hint:
-            breakdown && breakdown.eu_share_pct !== null && breakdown.eu_share_pct !== undefined
-              ? t('usagePage.euShareHint')
-              : t('usagePage.euShareEmptyHint'),
-          hintTo: '/settings/trust',
-          hintLink: t('usagePage.openDataPrivacy'),
+            summary.csat_score == null
+              ? t('cockpitPage.noRatings')
+              : t('cockpitPage.csatResponses', { count: summary.csat_responses }),
+          hintTo: summary.csat_score == null ? '/ai/assistant' : null,
+          hintLink: summary.csat_score == null ? t('usagePage.openWebsiteWidget') : null,
+        },
+        {
+          key: 'decisions',
+          label: t('usagePage.openDecisions'),
+          value: num(summary.open_decisions),
+          hint:
+            summary.open_decisions > 0
+              ? t('usagePage.openDecisionsHint')
+              : t('usagePage.openDecisionsEmpty'),
+          hintTo: forYouPath(),
+          hintLink: t('usagePage.openForYou', { defaultValue: 'Open For you' }),
         },
       ]
     : []
+
+  const periodControl = (
+    <SegmentedControl
+      size="sm"
+      value={String(days)}
+      onChange={setDays}
+      options={([7, 30, 90] as const).map((value) => ({
+        value: String(value),
+        label: t(`usagePage.period${value}` as 'usagePage.period7'),
+      }))}
+    />
+  )
 
   return (
     <div>
@@ -290,20 +308,6 @@ export default function UsagePage() {
         meta={
           <div className="flex flex-wrap items-center gap-2">
             <WorkspaceIdHint />
-            <SegmentedControl
-              size="sm"
-              value={String(days)}
-              onChange={(next) => {
-                const params = new URLSearchParams(searchParams)
-                if (next === '30') params.delete('days')
-                else params.set('days', next)
-                setSearchParams(params, { replace: true })
-              }}
-              options={([7, 30, 90] as const).map((value) => ({
-                value: String(value),
-                label: t(`usagePage.period${value}` as 'usagePage.period7'),
-              }))}
-            />
             {refreshedAt ? (
               <span className="text-xs text-text-muted">
                 {t('usagePage.refreshedAt', { time: formatAppTime(refreshedAt, locale) })}
@@ -342,7 +346,7 @@ export default function UsagePage() {
       <CockpitTabs />
 
       {error ? (
-        <div className="space-y-2">
+        <div className="mb-4 space-y-2">
           <ApiErrorBanner message={error} onRetry={load} />
           {!summary ? (
             <div className="rounded-lg border border-dashed border-border/60 px-4 py-3">
@@ -370,266 +374,316 @@ export default function UsagePage() {
         <Callout tone="error" title={t('usagePage.budgetBlocked')} className="mb-4" />
       ) : null}
 
-      {series ? <UsageSeriesChart points={series} days={days} /> : null}
-
-      {budget ? (
-        <section className="panel mb-5 overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
-            <h2 className="text-base font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h2>
-            {capDraft ? null : (
-              <button
-                type="button"
-                onClick={startEditCaps}
-                className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
-              >
-                {t('usagePage.editCaps')}
-              </button>
-            )}
+      <div className="space-y-5">
+        <section className="panel overflow-hidden" data-testid="usage-token-series">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-text-heading">{t('usagePage.seriesTitle')}</h2>
+              <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.seriesHint', { days })}</p>
+            </div>
+            {periodControl}
           </div>
           <div className="p-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {capBar(t('usagePage.tokensToday'), budget.status.daily_tokens, num)}
-            {capBar(t('usagePage.spendMonth'), budget.status.monthly_customer_micros, usd)}
-          </div>
-          {capDraft ? (
-            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
-              <label className="flex flex-col gap-1 text-xs text-text-muted">
-                {t('usagePage.dailyCap')}
-                <input
-                  value={capDraft.tokens}
-                  onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void saveCaps()
-                    }
-                  }}
-                  placeholder={t('usagePage.noCap')}
-                  inputMode="numeric"
-                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-text-muted">
-                {t('usagePage.monthlyCap')}
-                <input
-                  value={capDraft.usd}
-                  onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void saveCaps()
-                    }
-                  }}
-                  placeholder={t('usagePage.noCap')}
-                  inputMode="decimal"
-                  className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
-                />
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void saveCaps()}
-                  disabled={savingCaps}
-                  className="rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
-                >
-                  {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCapDraft(null)}
-                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
-                >
-                  {t('usagePage.cancel')}
-                </button>
+            {series ? (
+              <div className="grid items-stretch gap-4 lg:grid-cols-3">
+                <div className="min-w-0 lg:col-span-2" style={{ height: CHART_HEIGHT }}>
+                  <Chart
+                    kind="area"
+                    tone="ai"
+                    height={CHART_HEIGHT}
+                    ariaLabel={t('usagePage.seriesAria', { days })}
+                    emptyLabel={t('usagePage.seriesEmpty')}
+                    series={[
+                      {
+                        name: t('usagePage.seriesName'),
+                        points: series.map((point) => ({
+                          x: fmtDay(point.date ?? ''),
+                          y: point.tokens,
+                        })),
+                      },
+                    ]}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-1" style={{ minHeight: CHART_HEIGHT }}>
+                  <KpiInset label={t('usagePage.tokens30d', { days })} value={tokensValue} />
+                  <KpiInset label={t('usagePage.cost30d', { days })} value={costValue} />
+                </div>
               </div>
-              {capError ? <p className="w-full text-xs text-status-error">{capError}</p> : null}
-            </div>
-          ) : null}
-          <p className="mt-3 text-xs text-text-muted">
-            {t('usagePage.capsHint')}
-          </p>
+            ) : (
+              <p className="py-8 text-center text-sm text-text-muted">{t('usagePage.loading')}</p>
+            )}
           </div>
         </section>
-      ) : null}
 
-      <StatGrid className="grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
-        {stats.map((stat) => (
-          <StatTile
-            key={stat.key}
-            label={stat.label}
-            value={stat.value}
-            hint={
-              stat.hint && stat.hintTo && stat.hintLink ? (
-                <span className="leading-snug">
-                  {stat.hint}{' '}
-                  <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
-                    {stat.hintLink}
-                  </Link>
-                </span>
-              ) : null
-            }
-          />
-        ))}
-        {!summary && !error ? (
-          <p className="col-span-full px-1 py-6 text-sm text-text-muted">{t('usagePage.loading')}</p>
-        ) : null}
-      </StatGrid>
-
-      {breakdown ? (
-        <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <UsageCard
-            title={t('usagePage.byModel', { days: breakdown.days })}
-            extra={t('usagePage.billable', { amount: usd(breakdown.total_customer_cost_micros) })}
-          >
-              {breakdown.by_model.length === 0 ? (
-                <div>
-                  <p className="text-xs text-text-muted">{t('usagePage.noModelUsage')}</p>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                    <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
-                      {t('usagePage.startChat')}
-                    </Link>
-                    <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
-                      {t('usagePage.openAgents')}
-                    </Link>
-                    <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
-                      {t('usagePage.openSetup')}
-                    </Link>
-                    <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
-                      {t('usagePage.openModels')}
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                breakdown.by_model.map((row) => (
-                  <Link
-                    key={`${row.model}-${row.key_source}`}
-                    to="/settings/models"
-                    className={usageLink}
-                  >
-                    <div className="flex min-w-0 items-start gap-2">
-                      <ModelIcon slug={row.model} provider={row.provider} size={18} className="mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="truncate-fade font-medium text-text-primary">
-                          {humanizeModelId(row.model) || t('usagePage.unknown')}
-                        </p>
-                        <p className="text-xs text-text-muted">
-                          {t('usagePage.tokens', { count: num(row.tokens) })} ·{' '}
-                          {row.billable ? (
-                            <span className="text-status-warning">
-                              {t('usagePage.billableRow', { amount: usd(row.customer_cost_micros) })}
-                            </span>
-                          ) : (
-                            <span className="text-status-success">{t('usagePage.byok')}</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))
+        {budget ? (
+          <section className="panel overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h2>
+                <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.capsHint')}</p>
+              </div>
+              {capDraft ? null : (
+                <button
+                  type="button"
+                  onClick={startEditCaps}
+                  className="shrink-0 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                >
+                  {t('usagePage.editCaps')}
+                </button>
               )}
-          </UsageCard>
+            </div>
+            <div className="p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                {capBar(t('usagePage.tokensToday'), budget.status.daily_tokens, num)}
+                {capBar(t('usagePage.spendMonth'), budget.status.monthly_customer_micros, usd)}
+              </div>
+              {capDraft ? (
+                <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
+                  <label className="flex flex-col gap-1 text-xs text-text-muted">
+                    {t('usagePage.dailyCap')}
+                    <input
+                      value={capDraft.tokens}
+                      onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void saveCaps()
+                        }
+                      }}
+                      placeholder={t('usagePage.noCap')}
+                      inputMode="numeric"
+                      className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-text-muted">
+                    {t('usagePage.monthlyCap')}
+                    <input
+                      value={capDraft.usd}
+                      onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void saveCaps()
+                        }
+                      }}
+                      placeholder={t('usagePage.noCap')}
+                      inputMode="decimal"
+                      className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
+                    />
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void saveCaps()}
+                      disabled={savingCaps}
+                      className="rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+                    >
+                      {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCapDraft(null)}
+                      className="rounded-md px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
+                    >
+                      {t('usagePage.cancel')}
+                    </button>
+                  </div>
+                  {capError ? <p className="w-full text-xs text-status-error">{capError}</p> : null}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
-          <UsageCard title={t('usagePage.byAgent', { days: breakdown.days })}>
-              {breakdown.by_agent.length === 0 ? (
-                <div>
-                  <p className="text-xs text-text-muted">{t('usagePage.noAgentUsage')}</p>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                    <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
-                      {t('usagePage.openAgents')}
+        {outcomeStats.length > 0 ? (
+          <section className="panel overflow-hidden">
+            <div className="border-b border-border/60 px-4 py-3">
+              <h2 className="text-base font-semibold text-text-heading">{t('usagePage.outcomesTitle')}</h2>
+              <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.outcomesHint')}</p>
+            </div>
+            <div className="p-4">
+              <StatGrid className="grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
+                {outcomeStats.map((stat) => (
+                  <StatTile
+                    key={stat.key}
+                    label={stat.label}
+                    value={stat.value}
+                    hint={
+                      stat.hint ? (
+                        <span className="leading-snug">
+                          {stat.hint}
+                          {stat.hintTo && stat.hintLink ? (
+                            <>
+                              {' '}
+                              <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
+                                {stat.hintLink}
+                              </Link>
+                            </>
+                          ) : null}
+                        </span>
+                      ) : null
+                    }
+                  />
+                ))}
+              </StatGrid>
+            </div>
+          </section>
+        ) : !summary && !error ? (
+          <p className="px-1 py-6 text-sm text-text-muted">{t('usagePage.loading')}</p>
+        ) : null}
+
+        {breakdown ? (
+          <div>
+            <div className="mb-3 px-0.5">
+              <h2 className="text-base font-semibold text-text-heading">{t('usagePage.breakdownTitle')}</h2>
+              <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.breakdownHint', { days })}</p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <UsageCard
+                title={t('usagePage.byModel', { days: breakdown.days })}
+                extra={t('usagePage.billable', { amount: usd(breakdown.total_customer_cost_micros) })}
+              >
+                {breakdown.by_model.length === 0 ? (
+                  <div>
+                    <p className="text-xs text-text-muted">{t('usagePage.noModelUsage')}</p>
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                      <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.startChat')}
+                      </Link>
+                      <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.openAgents')}
+                      </Link>
+                      <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.openSetup')}
+                      </Link>
+                      <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.openModels')}
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  breakdown.by_model.map((row) => (
+                    <Link
+                      key={`${row.model}-${row.key_source}`}
+                      to="/settings/models"
+                      className={usageLink}
+                    >
+                      <div className="flex min-w-0 items-start gap-2">
+                        <ModelIcon slug={row.model} provider={row.provider} size={18} className="mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="truncate-fade font-medium text-text-primary">
+                            {humanizeModelId(row.model) || t('usagePage.unknown')}
+                          </p>
+                          <p className="text-xs text-text-muted">
+                            {t('usagePage.tokens', { count: num(row.tokens) })} ·{' '}
+                            {row.billable ? (
+                              <span className="text-status-warning">
+                                {t('usagePage.billableRow', { amount: usd(row.customer_cost_micros) })}
+                              </span>
+                            ) : (
+                              <span className="text-status-success">{t('usagePage.byok')}</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
                     </Link>
-                    <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
+                  ))
+                )}
+              </UsageCard>
+
+              <UsageCard title={t('usagePage.byAgent', { days: breakdown.days })}>
+                {breakdown.by_agent.length === 0 ? (
+                  <div>
+                    <p className="text-xs text-text-muted">{t('usagePage.noAgentUsage')}</p>
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                      <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.openAgents')}
+                      </Link>
+                      <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.startChat')}
+                      </Link>
+                      <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.openSetup')}
+                      </Link>
+                      <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
+                        {t('usagePage.openModels')}
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  breakdown.by_agent.map((row) => {
+                    const body = (
+                      <>
+                        <p className="min-w-0 truncate-fade font-medium text-text-primary">{row.agent_name}</p>
+                        <p className="shrink-0 text-xs text-text-muted">
+                          {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
+                        </p>
+                      </>
+                    )
+                    return row.agent_id ? (
+                      <Link key={row.agent_id} to={`/agents/${row.agent_id}`} className={usageLink}>
+                        {body}
+                      </Link>
+                    ) : (
+                      <div key="system" className={usageRow}>
+                        {body}
+                      </div>
+                    )
+                  })
+                )}
+              </UsageCard>
+
+              <UsageCard title={t('usagePage.byUser', { days: breakdown.days })} hint={t('usagePage.userHint')}>
+                {(breakdown.by_user ?? []).length === 0 ? (
+                  <div>
+                    <p className="text-xs text-text-muted">{t('usagePage.noUserUsage')}</p>
+                    <Link
+                      to="/communication/new"
+                      className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+                    >
                       {t('usagePage.startChat')}
                     </Link>
-                    <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
+                    <Link
+                      to="/settings/setup"
+                      className="mt-2 ml-3 inline-block text-xs font-medium text-accent hover:underline"
+                    >
                       {t('usagePage.openSetup')}
                     </Link>
-                    <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
-                      {t('usagePage.openModels')}
-                    </Link>
                   </div>
-                </div>
-              ) : (
-                breakdown.by_agent.map((row) => {
-                  const body = (
-                    <>
-                      <p className="min-w-0 truncate-fade font-medium text-text-primary">{row.agent_name}</p>
+                ) : (
+                  (breakdown.by_user ?? []).map((row) => (
+                    <div key={row.user_id ?? 'system'} className={usageRow}>
+                      <p className="min-w-0 truncate-fade font-medium text-text-primary">
+                        {isSystemUsageName(row.user_name) ? t('usagePage.systemUser') : row.user_name}
+                      </p>
                       <p className="shrink-0 text-xs text-text-muted">
                         {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
                       </p>
-                    </>
-                  )
-                  return row.agent_id ? (
-                    <Link
-                      key={row.agent_id}
-                      to={`/agents/${row.agent_id}`}
-                      className={usageLink}
-                    >
-                      {body}
-                    </Link>
-                  ) : (
-                    <div key="system" className={usageRow}>
-                      {body}
                     </div>
-                  )
-                })
-              )}
-          </UsageCard>
+                  ))
+                )}
+              </UsageCard>
 
-          <UsageCard title={t('usagePage.byUser', { days: breakdown.days })} hint={t('usagePage.userHint')}>
-              {(breakdown.by_user ?? []).length === 0 ? (
-                <div>
-                  <p className="text-xs text-text-muted">{t('usagePage.noUserUsage')}</p>
-                  <Link
-                    to="/communication/new"
-                    className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
-                  >
-                    {t('usagePage.startChat')}
-                  </Link>
-                  <Link
-                    to="/settings/setup"
-                    className="mt-2 ml-3 inline-block text-xs font-medium text-accent hover:underline"
-                  >
-                    {t('usagePage.openSetup')}
-                  </Link>
-                </div>
-              ) : (
-                (breakdown.by_user ?? []).map((row) => (
-                  <div key={row.user_id ?? 'system'} className={usageRow}>
-                    <p className="min-w-0 truncate-fade font-medium text-text-primary">
-                      {isSystemUsageName(row.user_name) ? t('usagePage.systemUser') : row.user_name}
-                    </p>
-                    <p className="shrink-0 text-xs text-text-muted">
-                      {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
-                    </p>
-                  </div>
-                ))
-              )}
-          </UsageCard>
+              <UsageCard title={t('usagePage.byRegion', { days: breakdown.days })} hint={t('usagePage.euShareHint')}>
+                {(breakdown.by_region ?? []).length === 0 ? (
+                  <p className="text-xs text-text-muted">{t('usagePage.noRegionUsage')}</p>
+                ) : (
+                  (breakdown.by_region ?? []).map((row) => (
+                    <Link key={row.region} to="/settings/trust" className={usageLink}>
+                      <RegionBadge region={row.region} />
+                      <p className="shrink-0 text-xs text-text-muted">
+                        {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
+                      </p>
+                    </Link>
+                  ))
+                )}
+              </UsageCard>
+            </div>
+          </div>
+        ) : null}
 
-          <UsageCard title={t('usagePage.byRegion', { days: breakdown.days })} hint={t('usagePage.euShareHint')}>
-              {(breakdown.by_region ?? []).length === 0 ? (
-                <p className="text-xs text-text-muted">{t('usagePage.noRegionUsage')}</p>
-              ) : (
-                (breakdown.by_region ?? []).map((row) => (
-                  <Link
-                    key={row.region}
-                    to="/settings/trust"
-                    className={usageLink}
-                  >
-                    <RegionBadge region={row.region} />
-                    <p className="shrink-0 text-xs text-text-muted">
-                      {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
-                    </p>
-                  </Link>
-                ))
-              )}
-          </UsageCard>
-        </div>
-      ) : null}
-
-      <p className="mt-4 text-xs text-text-muted">
-        {t('usagePage.byokFooter')}
-      </p>
+        <p className="text-xs text-text-muted">{t('usagePage.byokFooter')}</p>
+      </div>
     </div>
   )
 }

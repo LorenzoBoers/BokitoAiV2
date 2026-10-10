@@ -13,7 +13,12 @@ import { listWorkLogs, type WorkLogRow } from '../../lib/work-logs-api'
 import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/workstreams-api'
 import { workstreamRunPath } from '../../lib/workstream-ui'
 import { openEntityPath } from '../../lib/open-entity'
-import { bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
+import { bokitoGetCockpitSummary, bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
+import { listTriggers, updateTrigger } from '../../lib/orchestration-api'
+import { platformCheckInTrigger } from '../../lib/talk-to-assistant'
+import { bulkUpdateSignalThreads } from '../../lib/signals-api'
+import { Button } from '../ui/button'
+import { Callout } from '../ui/callout'
 import { formatAppUsdCents } from '../../lib/app-number'
 import { formatAppTime } from '../../lib/app-locale'
 import { attentionOf, layerOf } from '../../lib/agenda-layout'
@@ -22,8 +27,16 @@ import { agendaKindOf, listTimeItems, parseTimelineMs, timeItemHref, type TimeIt
 import AiHandlingMetricsBlock from './AiHandlingMetricsBlock'
 import ThreadListItem from '../inbox/ThreadListItem'
 
+type QuietThread = {
+  id: string
+  subject: string
+  contactName: string
+  lastMessageAt: string | null
+}
+
 type OverviewData = {
   needsYou: InboxThread[]
+  quiet: QuietThread[]
   categories: CategoryRow[]
   playbookRuns: WorkstreamRunRow[]
   jobs: WorkLogRow[]
@@ -34,6 +47,7 @@ type OverviewData = {
 
 const EMPTY: OverviewData = {
   needsYou: [],
+  quiet: [],
   categories: [],
   playbookRuns: [],
   jobs: [],
@@ -134,7 +148,7 @@ export default function OverviewFourBlocks() {
   const copy = nl
     ? {
         needs: 'Jij bent nodig',
-        needsHint: 'Open beslissingen en gesprekken die aan jou zijn toegewezen.',
+        needsHint: 'Open beslissingen en gesprekken die aan jou zijn toegewezen — jouw uitzonderingenlijst.',
         signals: 'Open tickets per actietag',
         signalsHint: 'Open en wachtend werk. Open een rij om de actietag in Communicatie te openen.',
         running: 'Lopend en straks',
@@ -145,6 +159,12 @@ export default function OverviewFourBlocks() {
         trajectory: 'Traject',
         trajectoryHint: 'Deze week, met het verschil ten opzichte van vorige week.',
         emptyNeeds: 'Niets wacht op jou.',
+        emptyNeedsHint: 'Beslissingen, toegewezen gesprekken en jouw beurt landen hier. Koppel een kanaal of open Voor jou.',
+        emptyNeedsForYou: 'Voor jou openen',
+        emptyNeedsChannels: 'Kanaal koppelen',
+        quiet: 'Al 14 dagen stil',
+        quietHint: 'Open gesprekken zonder bericht. Sluit ze als het werk klaar is.',
+        quietClose: 'Afsluiten',
         emptySignals: 'Geen open tickets.',
         emptyRunning: 'Er draait nu niets en er staat niets gepland.',
         decisions: 'Beslissing nodig',
@@ -160,10 +180,11 @@ export default function OverviewFourBlocks() {
         cost: 'Kosten per categorie',
         costUnavailable: 'Nog niet toewijsbaar; workbench-gebruik mist een categorie.',
         loadError: 'Een deel van Overview kon niet worden geladen.',
+        moreContext: 'Verder in de workspace',
       }
     : {
         needs: 'Needs you',
-        needsHint: 'Open decisions and conversations assigned to you.',
+        needsHint: 'Open decisions and conversations assigned to you — your exception list.',
         signals: 'Open tickets by action tag',
         signalsHint: 'Open and waiting work. Open a row to see the action tag in Communication.',
         running: 'Running and next up',
@@ -174,6 +195,12 @@ export default function OverviewFourBlocks() {
         trajectory: 'Trajectory',
         trajectoryHint: 'This week, with the change from last week.',
         emptyNeeds: 'Nothing is waiting on you.',
+        emptyNeedsHint: 'Decisions, assigned conversations and your turn land here. Connect a channel or open For you.',
+        emptyNeedsForYou: 'Open For you',
+        emptyNeedsChannels: 'Connect a channel',
+        quiet: 'Quiet for 14 days',
+        quietHint: 'Open conversations with no message. Close them when the work is done.',
+        quietClose: 'Close',
         emptySignals: 'No open tickets.',
         emptyRunning: 'Nothing is running or planned.',
         decisions: 'Decision needed',
@@ -189,10 +216,13 @@ export default function OverviewFourBlocks() {
         cost: 'Cost per category',
         costUnavailable: 'Not attributable yet; workbench usage has no category.',
         loadError: 'Some Overview data could not be loaded.',
+        moreContext: 'More workspace context',
       }
   const [data, setData] = useState<OverviewData>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [checkIn, setCheckIn] = useState<{ id: string; enabled: boolean } | null>(null)
+  const [enablingCheckIn, setEnablingCheckIn] = useState(false)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -200,19 +230,21 @@ export default function OverviewFourBlocks() {
     setError(false)
     const settled = await Promise.allSettled([
       Promise.all([
-        listThreads(token, { view: 'awaiting_decision', perPage: 10 }),
-        listThreads(token, { view: 'for_you', perPage: 10 }),
+        listThreads(token, { view: 'awaiting_decision', perPage: 16 }),
+        listThreads(token, { view: 'for_you', perPage: 16 }),
       ]),
       listCategories(),
       listWorkstreamRuns({ limit: 100 }),
       listWorkLogs({ status: 'running', limit: 100 }),
       listGovernChanges('pending_review').then((value) => value.items ?? []),
       bokitoGetUsageBreakdown(token, 7),
+      bokitoGetCockpitSummary(token).catch(() => null),
       listTimeItems({
         from: new Date(Date.now() - 30 * 86_400_000).toISOString(),
         to: new Date(Date.now() + 86_400_000).toISOString(),
         sources: ['checkup', 'task', 'wake', 'calendar'],
       }).then((window) => window.items),
+      listTriggers().catch(() => []),
     ])
     const value = <T,>(index: number, fallback: T): T =>
       settled[index]?.status === 'fulfilled' ? (settled[index] as PromiseFulfilledResult<T>).value : fallback
@@ -225,15 +257,31 @@ export default function OverviewFourBlocks() {
     }
     setData({
       needsYou: [...uniqueThreads.values()]
-        .sort((a, b) => new Date(b.lastMessageAt ?? b.createdAt).getTime() - new Date(a.lastMessageAt ?? a.createdAt).getTime())
-        .slice(0, 5),
+        .sort((a, b) => {
+          const human = (thread: InboxThread) =>
+            thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? 0 : 1
+          const byHuman = human(a) - human(b)
+          if (byHuman !== 0) return byHuman
+          return new Date(b.lastMessageAt ?? b.createdAt).getTime() - new Date(a.lastMessageAt ?? a.createdAt).getTime()
+        })
+        .slice(0, 8),
       categories: value(1, [] as CategoryRow[]),
       playbookRuns: value(2, [] as WorkstreamRunRow[]),
       jobs: value(3, [] as WorkLogRow[]),
       govern: value(4, [] as PlatformChangeRow[]),
       usage: value(5, null as UsageBreakdown | null),
-      agenda: value(6, [] as TimeItem[]),
+      quiet: (value(6, null as Awaited<ReturnType<typeof bokitoGetCockpitSummary>> | null)?.quiet_threads ?? []).map(
+        (row) => ({
+          id: row.id,
+          subject: row.subject,
+          contactName: row.contact_name,
+          lastMessageAt: row.last_message_at,
+        }),
+      ),
+      agenda: value(7, [] as TimeItem[]),
     })
+    const heartbeat = platformCheckInTrigger(value(8, [] as Awaited<ReturnType<typeof listTriggers>>))
+    setCheckIn(heartbeat ? { id: heartbeat.id, enabled: heartbeat.enabled } : null)
     setError(settled.some((result) => result.status === 'rejected'))
     setLoading(false)
   }, [token])
@@ -302,6 +350,29 @@ export default function OverviewFourBlocks() {
     { label: copy.finishedRuns, values: trajectory.completed, to: '/workstreams?view=runs&status=completed' },
   ] as const
 
+  const closeQuiet = async (id: string) => {
+    if (!token) return
+    try {
+      await bulkUpdateSignalThreads(token, [id], 'close')
+      setData((prev) => ({ ...prev, quiet: prev.quiet.filter((row) => row.id !== id) }))
+    } catch {
+      setError(true)
+    }
+  }
+
+  const enableCheckIn = async () => {
+    if (!checkIn || checkIn.enabled) return
+    setEnablingCheckIn(true)
+    try {
+      await updateTrigger(checkIn.id, { enabled: true })
+      setCheckIn({ ...checkIn, enabled: true })
+    } catch {
+      setError(true)
+    } finally {
+      setEnablingCheckIn(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -314,11 +385,42 @@ export default function OverviewFourBlocks() {
     <div className="space-y-4">
       {error ? <p className="text-right text-xs text-status-warning">{copy.loadError}</p> : null}
 
-      <AiHandlingMetricsBlock />
+      {checkIn && !checkIn.enabled ? (
+        <Callout
+          tone="warning"
+          title={t('setupGuidePage.automations.checkInOff')}
+          actions={
+            <Button type="button" size="sm" onClick={() => void enableCheckIn()} disabled={enablingCheckIn}>
+              {enablingCheckIn
+                ? t('setupGuidePage.automations.enablingCheckIn')
+                : t('setupGuidePage.automations.enableCheckIn')}
+            </Button>
+          }
+        />
+      ) : null}
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <Block title={copy.needs} hint={copy.needsHint} index={0}>
-          {data.needsYou.length === 0 ? <EmptyRow>{copy.emptyNeeds}</EmptyRow> : data.needsYou.map((thread) => (
+      <Block title={copy.needs} hint={copy.needsHint} index={0}>
+        {data.needsYou.length === 0 ? (
+          <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-6 text-center">
+            <p className="text-sm font-medium text-text-heading">{copy.emptyNeeds}</p>
+            <p className="mt-1 text-xs text-text-muted">{copy.emptyNeedsHint}</p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <Link
+                to={forYouPath()}
+                className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+              >
+                {copy.emptyNeedsForYou}
+              </Link>
+              <Link
+                to="/settings/channels"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              >
+                {copy.emptyNeedsChannels}
+              </Link>
+            </div>
+          </div>
+        ) : (
+          data.needsYou.map((thread) => (
             <ThreadListItem
               key={String(thread.id)}
               thread={thread}
@@ -327,12 +429,36 @@ export default function OverviewFourBlocks() {
               showActions={false}
               onSelect={() => navigate(attentionThreadPath(thread))}
             />
-          ))}
-          <Link to={forYouPath()} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
-            {nl ? 'Alles openen' : 'Open all'}
-          </Link>
-        </Block>
+          ))
+        )}
+        <Link to={forYouPath()} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
+          {nl ? 'Alles in Voor jou' : 'All in For you'}
+        </Link>
+      </Block>
 
+      {data.quiet.length > 0 ? (
+        <Block title={copy.quiet} hint={copy.quietHint} index={1}>
+          {data.quiet.map((row) => (
+            <div key={row.id} className="flex items-center justify-between gap-3 py-1.5">
+              <button
+                type="button"
+                className="min-w-0 truncate text-left text-sm text-text-primary hover:text-accent"
+                onClick={() => navigate(forYouPath(row.id))}
+              >
+                {row.contactName || row.subject || row.id}
+              </button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => void closeQuiet(row.id)}>
+                {copy.quietClose}
+              </Button>
+            </div>
+          ))}
+        </Block>
+      ) : null}
+
+      <AiHandlingMetricsBlock />
+
+      <p className="px-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">{copy.moreContext}</p>
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
         <Block title={copy.signals} hint={copy.signalsHint} index={1}>
           {openCategories.length === 0 ? <EmptyRow>{copy.emptySignals}</EmptyRow> : openCategories.map((row) => (
             <Metric

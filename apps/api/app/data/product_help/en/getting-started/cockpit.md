@@ -17,9 +17,10 @@ Overview is the morning scan. Open it from the left rail to see what needs you, 
 *Overview shows open work, decisions and recent runs.*
 
 1. Open **Overview** in the left rail. You land on the scan. The in-page heading is the workspace name; the help icon next to **Overview** in the top bar opens this guide. The subtitle greets you and shows today's date. The gray line `environment · tenant-slug · Live · 1.2.01` is for support (API environment, this tenant, websocket, release version). Click the slug to copy the whole line. The same line sits at the bottom of the account menu. The dev host shows the next patch, one step ahead of production.
-2. At the top, **AI activity** shows token use over the last 30 days as a chart (no vertical scale) and the open conversation counts for **Autonomous** and **Assisted**. **AI handling settings** opens the workspace dial.
-3. Scan the four fixed blocks under that: **Needs you**, **Open tickets by category**, **Running and next up**, and **Trajectory**. **Running and next up** warns about due check-ups and overdue look-ats, lists the next few [Agenda](/docs/ai/agenda) items, then the runs in progress, and ends with **Open Agenda**. Trajectory compares this week with last week: **Tickets filed (7 days)** counts confirmed tickets only, and the block links to completed runs, Govern proposals, and Usage.
-4. Click any row in the four blocks to open its conversation, run, or filtered list. A row under **Open tickets by category** opens that category's row in Communication. Overview itself does not change operational data.
+2. **Needs you** sits first and full width: open decisions and conversations assigned to you (the same exception list as **For you** in Communication). When it is empty, use **Open For you** or **Connect a channel**.
+3. Below that, **AI activity** shows token use over the last 24 hours by hour as a chart (no vertical scale), **Time saved** (estimated minutes from AI outcomes this week) and **Resolved** (conversations closed without a takeover that stayed closed for 72 hours, and matured in the last 7 days), plus the open conversation counts for **Autonomous** and **Assisted**. **AI handling settings** opens the workspace dial.
+4. Under **More workspace context**, scan the three secondary blocks: **Open tickets by category**, **Running and next up**, and **Trajectory**. **Running and next up** warns about due check-ups and overdue look-ats, lists the next few [Agenda](/docs/ai/agenda) items, then the runs in progress, and ends with **Open Agenda**. Trajectory compares this week with last week: **Tickets filed (7 days)** counts confirmed tickets only, and the block links to completed runs, Govern proposals, and Usage.
+5. Click any row to open its conversation, run, or filtered list. A row under **Open tickets by category** opens that category's row in Communication. When an open conversation has had no message for 14 days, **Quiet for 14 days** lists it with **Close**. When the platform check-in is paused, a banner offers **Turn on check-in** so the assistant watches again.
 
 On a new workspace, Overview may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).
 
@@ -42,12 +43,12 @@ Workspace canvases are snapshot dashboards (not live tiles). They sit on the **C
 
 ## Read Activity
 
-1. Open **Activity** from Communication (or an agent's **Activity** row) when you need the full stream. Overview itself keeps to the four blocks.
+1. Open **Activity** from Communication (or an agent's **Activity** row) when you need the full stream. Overview itself keeps **Needs you** first, then the secondary context blocks.
 2. Scan outcomes, not every thinking step.
 3. Jump into a thread or agent when a row needs follow-up.
 
 ## Check Usage
 
-1. Open the **Usage** tab on Overview. The **Token use** card shows tokens per day for the selected period. The **Budget (platform keys)** card shows **Tokens today** and **Billable spend this month**, plus breakdowns **By model**, **By agent**, **By user** and **By data region**. The **EU-hosted share** stat shows which part of live tokens ran on EU-hosted models; change the policy under [Data & privacy](/docs/govern/privacy-security). Switch the period with **7 days**, **30 days** or **90 days**, or choose **Export CSV**.
+1. Open the **Usage** tab on Overview. At the top, **Token use** shows a per-day chart for **7 days**, **30 days** or **90 days**, with **Tokens** and **Cost** for that period beside it. Below that sit **Budget (platform keys)** (tokens today and billable spend this month), **Outcomes** (this week’s conversations, autonomy rate, time saved, average feedback, customer rating, and open decisions), and **Breakdown** (**By model**, **By agent**, **By user**, **By data region**). **Time saved** is a 7-day estimate: fixed minutes for autonomous replies, assisted drafts, AI-filed tickets and completed flows. Data-region mix is under **By data region**; change the policy under [Data & privacy](/docs/govern/privacy-security). Choose **Export CSV** in the header.
 2. Owners and admins choose **Edit caps**. Set a **Daily token cap** and a **Monthly spend cap (USD)**, or leave a field empty for **No cap**. Alerts fire at 80% and 100%.
-3. When the budget is exhausted, AI calls on Bokito platform keys pause until you raise the cap or the period resets. Models on your own keys keep working (**Your own key (no charge)**). Empty ratings say **No customer ratings yet** with **Install website chat**.
+3. When the budget is exhausted, AI calls on Bokito platform keys pause until you raise the cap or the period resets. Models on your own keys keep working (**Your own key (no charge)**).

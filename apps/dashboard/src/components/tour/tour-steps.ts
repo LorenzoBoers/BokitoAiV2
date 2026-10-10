@@ -27,7 +27,7 @@ export const TOUR_STEPS: readonly TourStepDef[] = [
   {
     id: 'communication',
     target: 'nav-communication',
-    route: '/communication/inbox/open',
+    route: '/communication/inbox/for_you',
     placement: 'right',
   },
   { id: 'ai', target: 'nav-group-ai', placement: 'right' },

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import RunEvent
@@ -99,7 +99,52 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
     ).one()
 
     autonomy_rate = round((auto_msgs / total_ai_msgs * 100) if total_ai_msgs else 0, 1)
-    time_saved_minutes = auto_msgs * 5  # heuristic: 5 min per autonomously handled item
+
+    from app.services.time_saved import compute_time_saved
+
+    time_saved = await compute_time_saved(session, tenant_id, days=7)
+
+    # Resolved: closed without a human takeover, and still closed after 72 hours.
+    # Count those that matured during the last 7 days.
+    matured_before = datetime.utcnow() - timedelta(hours=72)
+    matured_after = datetime.utcnow() - timedelta(days=7, hours=72)
+    handoff_reasons = ("handoff_requested", "escalated", "operator_takeover")
+    resolved_week = int(
+        (
+            await session.execute(
+                select(func.count()).select_from(Signal).where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.channel.in_(EXTERNAL_CHANNELS),
+                    Signal.source != "demo",
+                    Signal.status == "closed",
+                    Signal.updated_at.is_not(None),
+                    Signal.updated_at <= matured_before,
+                    Signal.updated_at >= matured_after,
+                    or_(
+                        Signal.ai_handling_reason.is_(None),
+                        Signal.ai_handling_reason.notin_(handoff_reasons),
+                    ),
+                )
+            )
+        ).scalar()
+        or 0
+    )
+    quiet_before = datetime.utcnow() - timedelta(days=14)
+    quiet_rows = (
+        await session.execute(
+            select(Signal)
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.channel.in_(EXTERNAL_CHANNELS),
+                Signal.source != "demo",
+                Signal.status == "open",
+                Signal.last_message_at.is_not(None),
+                Signal.last_message_at <= quiet_before,
+            )
+            .order_by(Signal.last_message_at.asc())
+            .limit(8)
+        )
+    ).scalars().all()
 
     latest_eval = (
         await session.execute(
@@ -120,7 +165,19 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         "csat_responses": int(csat[1] or 0),
         "tokens_month": int(usage_month[0] or 0),
         "cost_cents_month": int(usage_month[1] or 0),
-        "time_saved_minutes_week": time_saved_minutes,
+        "time_saved_minutes_week": time_saved["minutes"],
+        "time_saved_breakdown": time_saved["by_action"],
+        "resolved_conversations_week": resolved_week,
+        "quiet_threads": [
+            {
+                "id": str(row.id),
+                "subject": row.subject or "",
+                "contact_name": row.contact_name or "",
+                "channel": row.channel,
+                "last_message_at": row.last_message_at.isoformat() if row.last_message_at else None,
+            }
+            for row in quiet_rows
+        ],
         "learning_autonomy_rate": autonomy_rate,
         "learning_sample_size": latest_eval.sample_size if latest_eval else 0,
     }
@@ -246,19 +303,59 @@ async def usage_breakdown(
 
 
 async def usage_token_series(
-    session: AsyncSession, tenant_id: UUID, *, days: int = 30
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    days: int | None = None,
+    hours: int | None = None,
 ) -> dict[str, Any]:
-    """Daily token totals for the Overview AI-activity chart.
+    """Token totals for charts: daily (Usage) or hourly (Overview AI activity).
 
-    Returns every calendar day in the window (zeros included) so the chart
-    can render without gaps. Bucketing is done in Python so SQLite and
-    Postgres stay on the same path.
+    Returns every bucket in the window (zeros included) so the chart can
+    render without gaps. Bucketing is done in Python so SQLite and Postgres
+    stay on the same path.
     """
-    days = max(1, min(int(days), 365))
+    if hours is not None:
+        hours = max(1, min(int(hours), 168))
+        end = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        start = end - timedelta(hours=hours - 1)
+        buckets = {
+            (start + timedelta(hours=i)).isoformat(): 0 for i in range(hours)
+        }
+        rows = (
+            await session.execute(
+                select(
+                    UsageLedger.created_at,
+                    UsageLedger.tokens_in,
+                    UsageLedger.tokens_out,
+                ).where(
+                    UsageLedger.tenant_id == tenant_id,
+                    UsageLedger.created_at >= start,
+                )
+            )
+        ).all()
+        for created, tokens_in, tokens_out in rows:
+            if created is None:
+                continue
+            if hasattr(created, "replace"):
+                hour = created.replace(minute=0, second=0, microsecond=0)
+                if getattr(hour, "tzinfo", None) is not None:
+                    hour = hour.replace(tzinfo=None)
+                key = hour.isoformat()
+            else:
+                key = str(created)[:13] + ":00:00"
+            if key in buckets:
+                buckets[key] += int(tokens_in or 0) + int(tokens_out or 0)
+        return {
+            "hours": hours,
+            "points": [{"at": at, "tokens": tokens} for at, tokens in buckets.items()],
+        }
+
+    days = max(1, min(int(days if days is not None else 30), 365))
     today = datetime.utcnow().date()
-    start = today - timedelta(days=days - 1)
-    since = datetime.combine(start, datetime.min.time())
-    buckets = {(start + timedelta(days=i)).isoformat(): 0 for i in range(days)}
+    start_day = today - timedelta(days=days - 1)
+    since = datetime.combine(start_day, datetime.min.time())
+    buckets = {(start_day + timedelta(days=i)).isoformat(): 0 for i in range(days)}
     rows = (
         await session.execute(
             select(

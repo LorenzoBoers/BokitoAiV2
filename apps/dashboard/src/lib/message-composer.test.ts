@@ -132,7 +132,31 @@ describe('resolveComposerSurface (whatsapp)', () => {
     )
     expect(surface.channel).toBe('email')
     expect(surface.includeSignature).toBe(true)
-    // Mail-native composer owns outbound mail; the bottom input starts on Ask.
+    // No inbound waiting: the bottom input stays on Ask.
+    expect(surface.defaultMode).toBe('ask')
+  })
+
+  it('opens Reply when the customer is waiting and no decision is open', () => {
+    const surface = resolveComposerSurface(
+      thread({
+        channel: 'email',
+        contactEmail: 'klant@example.com',
+        lastMessageDirection: 'inbound',
+        hasOpenDecision: false,
+      }),
+    )
+    expect(surface.defaultMode).toBe('reply')
+  })
+
+  it('keeps Ask on email when a decision is open', () => {
+    const surface = resolveComposerSurface(
+      thread({
+        channel: 'email',
+        contactEmail: 'klant@example.com',
+        lastMessageDirection: 'inbound',
+        hasOpenDecision: true,
+      }),
+    )
     expect(surface.defaultMode).toBe('ask')
   })
 

@@ -788,6 +788,7 @@ async def evidence(
         "days": days,
         "drafts": drafts,
         "drafts_resolved": len(resolved),
+        "unedited": unedited,
         "unedited_rate": round(unedited / len(resolved), 3) if resolved else None,
         "escalations": int(events.get("escalated", 0)),
         "escalation_rate": round(int(events.get("escalated", 0)) / drafts, 3) if drafts else None,

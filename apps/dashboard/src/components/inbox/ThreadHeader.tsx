@@ -7,6 +7,7 @@ import {
   ArchiveRestore,
   ArrowLeft,
   Bot,
+  BookMarked,
   Flag,
   Forward,
   Hand,
@@ -23,10 +24,13 @@ import {
   Star,
   Trash2,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput, ThreadDetail as ThreadDetailType } from '../../lib/inbox-api'
+import { setThreadExample } from '../../lib/signals-api'
 import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import { isInternalThread, threadCounterpartyName, threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
@@ -89,6 +93,8 @@ type Props = {
   onWhatsNext?: () => void
   /** Items under "This conversation" in the panel; shown while the panel is closed. */
   panelCount?: number
+  /** After toggling the few-shot example flag on a closed conversation. */
+  onExampleChanged?: (isExample: boolean) => void
 }
 
 export default function ThreadHeader({
@@ -116,10 +122,13 @@ export default function ThreadHeader({
   blockingContact = false,
   onWhatsNext,
   panelCount = 0,
+  onExampleChanged,
 }: Props) {
   const { t } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
+  const { token } = useAuth()
   const canRaise = useIsAdmin()
+  const [exampleBusy, setExampleBusy] = useState(false)
   const internal = isInternalThread(thread)
   const handling = thread.aiHandling ?? null
   const showHandling =
@@ -282,20 +291,30 @@ export default function ThreadHeader({
               type="button"
               disabled={saving || closeBusy}
               onClick={() => {
-                if (thread.status === 'closed') {
-                  void onPatch({ status: 'open' })
+                if (thread.status === 'closed' || thread.status === 'pending') {
+                  void onPatch({ status: 'open', snoozedUntil: null })
                   return
                 }
                 void onRequestClose()
               }}
-              aria-label={thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
+              aria-label={
+                thread.status === 'closed' || thread.status === 'pending'
+                  ? t('threadChrome.reopen')
+                  : t('threadChrome.close')
+              }
               className={HEADER_ICON}
             >
-              {thread.status === 'closed' ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+              {thread.status === 'closed' || thread.status === 'pending' ? (
+                <ArchiveRestore size={14} />
+              ) : (
+                <Archive size={14} />
+              )}
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {thread.status === 'closed' ? t('threadChrome.reopen') : t('threadChrome.close')}
+            {thread.status === 'closed' || thread.status === 'pending'
+              ? t('threadChrome.reopen')
+              : t('threadChrome.close')}
           </TooltipContent>
         </Tooltip>
         <DropdownMenu>
@@ -438,6 +457,35 @@ export default function ThreadHeader({
               <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => void onTogglePin()}>
                 {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
                 {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
+              </DropdownMenuItem>
+            ) : null}
+            {!internal && thread.status === 'closed' && token ? (
+              <DropdownMenuItem
+                className="gap-2"
+                disabled={exampleBusy || loading}
+                onClick={() => {
+                  void (async () => {
+                    setExampleBusy(true)
+                    try {
+                      const next = await setThreadExample(token, String(thread.id), !thread.isExample)
+                      onExampleChanged?.(next)
+                      toast.success(
+                        next
+                          ? t('threadChrome.exampleOn', { defaultValue: 'Used as an example for the next reply' })
+                          : t('threadChrome.exampleOff', { defaultValue: 'Removed as an example' }),
+                      )
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : t('actions.patchError'))
+                    } finally {
+                      setExampleBusy(false)
+                    }
+                  })()
+                }}
+              >
+                <BookMarked size={13} />
+                {thread.isExample
+                  ? t('threadChrome.removeExample', { defaultValue: 'Stop using as example' })
+                  : t('threadChrome.useAsExample', { defaultValue: 'Use as example' })}
               </DropdownMenuItem>
             ) : null}
             {onDelete ? (

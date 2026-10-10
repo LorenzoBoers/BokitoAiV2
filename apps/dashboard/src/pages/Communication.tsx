@@ -57,6 +57,10 @@ import { InboxSplitSkeleton } from '../components/ui/skeleton'
 import OnboardingChecklist, { useOnboardingStatus } from '../components/onboarding/OnboardingChecklist'
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
+import { useChannelStatus } from '../hooks/useChannelStatus'
+import { Callout } from '../components/ui/callout'
+import { Button } from '../components/ui/button'
+import { dismissNoReplySuggestions } from '../lib/signals-api'
 import {
   useInboxCommunication,
   type InboxListQuickFilter,
@@ -119,7 +123,9 @@ export default function Communication() {
   const navigate = useNavigate()
   const { user, token, logout } = useAuth()
   const collectStageFields = useCollectStageFields()
-  const { refresh: refreshNavBadges } = useNavBadges()
+  const { counts, refresh: refreshNavBadges } = useNavBadges()
+  const { sendReady, loading: channelStatusLoading } = useChannelStatus()
+  const [dismissingTips, setDismissingTips] = useState(false)
   const currentUserId = user?.id ?? null
 
   const leaf = useMemo<HubLeaf>(
@@ -1395,9 +1401,70 @@ export default function Communication() {
             scopeLabel={scopeLabel}
             onClearScope={hasFolderFilter ? clearScope : undefined}
             banner={
-              needsDecisionParam ? (
-                <DecisionGroupsBanner onDismissed={() => void refreshThreads()} />
-              ) : null
+              <>
+                {!channelStatusLoading && !sendReady ? (
+                  <Callout
+                    tone="warning"
+                    className="rounded-none border-x-0 border-t-0"
+                    title={t('banners.channelNotReady', {
+                      defaultValue: 'No channel is ready to send. Connect or repair a mailbox or chat channel.',
+                    })}
+                    actions={
+                      <Link
+                        to="/settings/channels"
+                        className="text-xs font-semibold text-accent hover:underline"
+                      >
+                        {t('banners.openChannels', { defaultValue: 'Open Channels' })}
+                      </Link>
+                    }
+                  />
+                ) : null}
+                {counts.noReplySuggestions > 0 ? (
+                  <Callout
+                    tone="ai"
+                    className="rounded-none border-x-0 border-t-0"
+                    title={t('banners.noReplyTips', {
+                      defaultValue: '{{count}} “No reply needed” tips wait in decisions',
+                      count: counts.noReplySuggestions,
+                    })}
+                    actions={
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`${forYouPath()}?needs_decision=1`}
+                          className="text-xs font-semibold text-accent hover:underline"
+                        >
+                          {t('banners.reviewTips', { defaultValue: 'Review' })}
+                        </Link>
+                        {token ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={dismissingTips}
+                            onClick={() => {
+                              void (async () => {
+                                setDismissingTips(true)
+                                try {
+                                  await dismissNoReplySuggestions(token)
+                                  await refreshNavBadges()
+                                  void refreshThreads()
+                                } finally {
+                                  setDismissingTips(false)
+                                }
+                              })()
+                            }}
+                          >
+                            {t('banners.dismissTips', { defaultValue: 'Dismiss all' })}
+                          </Button>
+                        ) : null}
+                      </div>
+                    }
+                  />
+                ) : null}
+                {needsDecisionParam ? (
+                  <DecisionGroupsBanner onDismissed={() => void refreshThreads()} />
+                ) : null}
+              </>
             }
             total={threadsTotal}
             hasMore={threadsHaveMore}
@@ -1468,6 +1535,18 @@ export default function Communication() {
               ) : leaf.queue === 'for_you' ? (
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <p className="w-full text-xs text-text-muted">{t('threadList.emptyForYouHint')}</p>
+                  <Link
+                    to="/settings/channels"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.emptyForYouConnect')}
+                  </Link>
+                  <Link
+                    to="/communication/new"
+                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  >
+                    {t('threadList.emptyForYouNewChat')}
+                  </Link>
                   <Link
                     to={inboxPath('open')}
                     className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"

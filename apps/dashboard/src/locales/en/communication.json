@@ -283,7 +283,9 @@
     "narrowBy": "Narrow by",
     "clearFilters": "Clear",
     "emptyForYou": "Nothing waits on you.",
-    "emptyForYouHint": "Conversations you own, your turn, your team's turn, questions to everyone and mentions land here."
+    "emptyForYouHint": "Assigned conversations, your turn, decisions and mentions land here. Connect a channel so customers can reach you.",
+    "emptyForYouConnect": "Connect a channel",
+    "emptyForYouNewChat": "Start a chat"
   },
   "decisionCard": {
     "titleSuggestedReply": "Suggested reply",
@@ -297,6 +299,7 @@
     "draftSupersededByInbound": "Earlier draft — the customer wrote again",
     "draftSupersededByExternalReply": "Earlier draft — answered from a teammate's mailbox",
     "draftSiblingThread": "Earlier draft — continued in a newer conversation with this person",
+    "openActiveThread": "Open active",
     "draftHandledExternally": "Earlier draft — handled outside Bokito",
     "customerWroteAgain": "The customer wrote again after this proposal. Check the newest message before using it.",
     "automatedExplainer": "This looks like an automated message, so no reply was drafted.",
@@ -724,6 +727,11 @@
     "showDetails": "Show details",
     "askAssistant": "Ask assistant",
     "closeThread": "Close thread",
+    "humanRequestedBanner": "The customer asked for a person. AI replies stay paused until someone takes this conversation.",
+    "useAsExample": "Use as example",
+    "removeExample": "Stop using as example",
+    "exampleOn": "Used as an example for the next reply",
+    "exampleOff": "Removed as an example",
     "assignToMe": "Assign to me",
     "createTask": "What next",
     "creating": "Creating...",
@@ -1094,9 +1102,23 @@
     "needsReply": "Needs reply",
     "theirTurn": "Waiting on them",
     "needsDecision": "Needs decision",
+    "humanRequested": "Asked for a person",
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}h",
-    "daysAgo": "{{count}}d"
+    "daysAgo": "{{count}}d",
+    "certaintyHint": "AI certainty {{value}}%",
+    "category": {
+      "support": "Support",
+      "sales": "Sales",
+      "billing": "Billing"
+    }
+  },
+  "banners": {
+    "channelNotReady": "No channel is ready to send. Connect or repair a mailbox or chat channel.",
+    "openChannels": "Open Channels",
+    "noReplyTips": "{{count}} “No reply needed” tips wait in decisions",
+    "reviewTips": "Review",
+    "dismissTips": "Dismiss all"
   },
   "snooze": {
     "1h": "1 hour",

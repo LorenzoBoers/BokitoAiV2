@@ -23,7 +23,7 @@ Overal zie je dezelfde iconen: een bliksem voor Autonoom en een pen voor Geassis
 3. Bij **Autonoom** zie je eerst een bevestiging met hoeveel open gesprekken deze instelling volgen en hoe vaak concepten recent ongewijzigd zijn verstuurd. Alleen een eigenaar of beheerder kan Autonoom aanzetten.
 4. Onder de kaarten toont het **Plafond** de Govern-grens. Kies **Autonome antwoorden pauzeren** om in één stap elk gesprek op Geassisteerd te begrenzen; **Autonome antwoorden toestaan** heft dat weer op. Open **Govern-plafond** via de notitie wanneer je de workspace-houding of Berichten-toestemming wilt wijzigen.
 
-Begin met **Geassisteerd**. Bokito stelt Autonoom voor zodra minstens 80% van 50 of meer concepten ongewijzigd wordt verstuurd.
+Begin met **Geassisteerd**. Bokito stelt Autonoom voor zodra minstens 80% van 50 of meer concepten ongewijzigd wordt verstuurd. Op een geassisteerd kanaal toont de rij AI-afhandeling hoeveel van die 50 concepten ongewijzigd zijn verstuurd.
 
 ## Uitzonderingen bekijken
 

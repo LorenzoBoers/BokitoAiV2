@@ -306,20 +306,25 @@ export function AgentActivityTimeline({
   const language = i18n.language
 
   return (
-    <Card className={cn('overflow-hidden border-border/50 bg-bg-surface/80', className)}>
-      <div className="flex items-start justify-between gap-3 border-b border-border/40 px-4 py-3">
+    <Card className={cn('overflow-hidden', className)} data-testid="agent-activity-timeline">
+      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold tracking-tight text-text-heading">
+          <h2 className="text-base font-semibold text-text-heading">
             {t('workforce.agents.timelineTitle')}
-          </p>
-          <p className="mt-0.5 max-w-2xl text-xs leading-relaxed text-text-muted">
+          </h2>
+          <p className="mt-0.5 max-w-2xl text-xs text-text-muted">
             {combined ? t('workforce.agents.timelineCombinedHint') : t('workforce.agents.timelineHint')}
           </p>
         </div>
       </div>
-      <div className="px-4 py-3">
+      <div className="min-w-0 p-4">
         {error ? <p className="mb-2 text-xs text-status-error">{error}</p> : null}
-        <div className={cn('flex gap-3', combined && 'max-h-[22rem]')}>
+        <div
+          className={cn(
+            'flex min-w-0 gap-3 overflow-x-clip',
+            combined && 'max-h-[22rem] overflow-y-auto overscroll-y-contain',
+          )}
+        >
           {combined ? (
             <div className="flex w-[8.25rem] shrink-0 flex-col pt-6">
               {lanes.map((lane) => (
@@ -343,8 +348,8 @@ export function AgentActivityTimeline({
               ))}
             </div>
           ) : null}
-          <div className="relative min-w-0 flex-1">
-            <div className="relative mb-1.5 h-5">
+          <div className="relative min-w-0 flex-1 overflow-x-clip">
+            <div className="relative mb-1.5 h-5 overflow-x-clip">
               {ticks.map((ms, index) => {
                 const pct = timelinePct(ms, fromMs, toMs)
                 const isNow = Math.abs(ms - nowMs) < 60_000
@@ -365,7 +370,7 @@ export function AgentActivityTimeline({
                 )
               })}
             </div>
-            <div className="relative">
+            <div className="relative overflow-x-clip">
               <div
                 className="pointer-events-none absolute inset-y-1 z-10 w-px bg-gradient-to-b from-ai/20 via-ai/80 to-ai/20"
                 style={{ left: `${nowPct}%` }}
@@ -383,7 +388,7 @@ export function AgentActivityTimeline({
                     ? clusterTimelineItems(lane.items, fromMs, toMs)
                     : []
                 return (
-                  <div key={lane.agentId || 'one'} className="relative h-9">
+                  <div key={lane.agentId || 'one'} className="relative h-9 overflow-x-clip">
                     <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-border/50">
                       <div
                         className="absolute inset-y-0 left-0 bg-ai/20"

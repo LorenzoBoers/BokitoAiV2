@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Bell, BellRing, RotateCcw } from 'lucide-react'
+import { Bell, BellRing, RotateCcw, Volume2 } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
 import { PageContent } from '../components/layout/PageContent'
@@ -26,6 +26,11 @@ import {
   type NotificationPrefs,
   type NotificationTier,
 } from '../lib/notification-prefs'
+import {
+  playIncomingNotificationSound,
+  setNotificationSoundEnabled,
+  unlockNotificationAudio,
+} from '../lib/notification-sound'
 import {
   ensureWebPush,
   getCurrentPushSubscription,
@@ -162,8 +167,16 @@ export default function NotificationSettings() {
       credentials: 'include',
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(t('notificationsPage.loadFailed')))))
-      .then((data: unknown) => setPrefs(normalizeNotificationPrefs(data)))
-      .catch(() => setPrefs(defaultNotificationPrefs()))
+      .then((data: unknown) => {
+        const next = normalizeNotificationPrefs(data)
+        setNotificationSoundEnabled(next.sound)
+        setPrefs(next)
+      })
+      .catch(() => {
+        const next = defaultNotificationPrefs()
+        setNotificationSoundEnabled(next.sound)
+        setPrefs(next)
+      })
       .finally(() => setLoading(false))
   }, [token, t])
 
@@ -202,6 +215,7 @@ export default function NotificationSettings() {
   const save = useCallback(
     async (next: NotificationPrefs) => {
       setPrefs(next)
+      setNotificationSoundEnabled(next.sound)
       if (!token) return
       setSaveError(null)
       const res = await fetch(`${APP_API_BASE}${policyRoutes.notificationPreferences()}`, {
@@ -215,6 +229,11 @@ export default function NotificationSettings() {
     },
     [token, t],
   )
+
+  const playTestSound = useCallback(() => {
+    unlockNotificationAudio()
+    void playIncomingNotificationSound({ force: true })
+  }, [])
 
   /** Persist prefs; when push turns on, enroll this browser first. */
   const apply = useCallback(
@@ -283,6 +302,32 @@ export default function NotificationSettings() {
             : t('notificationsPage.pushNotConfigured')}
         </p>
       ) : null}
+
+      <Card className="p-4" data-testid="notification-sound-card">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 space-y-1">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
+              <Volume2 size={14} className="text-text-muted" />
+              {t('notificationsPage.soundTitle')}
+            </p>
+            <p className="text-xs text-text-secondary">{t('notificationsPage.soundBody')}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={playTestSound}
+              className="h-8 rounded-md border border-border/70 px-3 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover"
+            >
+              {t('notificationsPage.soundTest')}
+            </button>
+            <Switch
+              checked={prefs.sound}
+              onCheckedChange={(value) => void apply({ ...prefs, sound: value })}
+              aria-label={t('notificationsPage.soundTitle')}
+            />
+          </div>
+        </div>
+      </Card>
 
       <Card className="overflow-hidden" data-testid="notification-tiers">
         <div className={`grid ${GRID} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}>

@@ -126,7 +126,7 @@ def widget_settings_from_account(tenant: Tenant, account: ChannelAccount | None)
 
         return widget_settings_from_tenant(tenant)
     return {
-        "pre_chat_form": bool(livechat.get("pre_chat_form", False)),
+        "pre_chat_form": bool(livechat.get("pre_chat_form", True)),
         "offline_message": str(livechat.get("offline_message") or "").strip(),
     }
 

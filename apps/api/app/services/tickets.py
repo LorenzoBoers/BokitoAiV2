@@ -860,7 +860,7 @@ async def move_ticket_stage(
             ),
         )
     )
-    if target.get("kind") == "done" and target.get("auto_close_conversation"):
+    if target.get("kind") == "done" and target.get("auto_close_conversation") and signal.status != "closed":
         _auto_close_conversation_for_done_stage(
             session,
             signal,
@@ -872,6 +872,34 @@ async def move_ticket_stage(
 
     await on_stage_entered(session, signal, target, actor_type=actor_type, actor_id=actor_id)
     return True
+
+
+async def settle_ticket_on_close(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    actor_type: str = "system",
+    actor_id: str = "",
+) -> bool:
+    """Move an open ticket to its done stage when the conversation closes.
+
+    A flow without a done stage, or a done stage that still needs fields, leaves
+    the ticket where it is. Closing the conversation still succeeds.
+    """
+    if signal.status != "closed" or signal.ticket_tag_id is None:
+        return False
+    if (signal.ticket_status or "") == "done":
+        return False
+    try:
+        return await move_ticket_stage(
+            session,
+            signal,
+            status="done",
+            actor_type=actor_type,
+            actor_id=actor_id,
+        )
+    except HTTPException:
+        return False
 
 
 def _auto_close_conversation_for_done_stage(

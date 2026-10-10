@@ -14,9 +14,9 @@ Conversation items (``signal_id`` set) are For you work: they get one
 Notification row per person for a shared read state (opening the
 conversation reads them) and never a second badge in the bell.
 
-Availability steers delivery: while you are in the app you get the in-app
-notice and no push; while you are away only critical tier 1 notices reach you
-outside the app.
+Availability steers delivery: while you are away only critical tier 1
+notices reach you outside the app. Push still fires when you are available
+so a laptop or phone can show an OS notification even with the dashboard open.
 """
 
 from __future__ import annotations
@@ -50,14 +50,15 @@ TIER_ALLOWED: dict[int, tuple[str, ...]] = {
 }
 
 # Finer per-event switches. A notice is delivered only when both its tier
-# and its category allow the channel. New mail is off until the person opts in.
+# and its category allow the channel. New mail on a conversation you or your
+# team own defaults on (in-app + push) so For you stays the attention path.
 # Workspace rows default email on so the Later email switch still reaches them.
 CATEGORY_DEFAULTS: dict[str, dict[str, bool]] = {
     "assigned-to-me": {"inapp": True, "push": True, "email": False},
     "mentions": {"inapp": True, "push": True, "email": False},
     "decisions": {"inapp": True, "push": True, "email": False},
     "handoff": {"inapp": True, "push": True, "email": False},
-    "new-message": {"inapp": False, "push": False, "email": False},
+    "new-message": {"inapp": True, "push": True, "email": False},
     "ops-run-failed": {"inapp": True, "push": False, "email": True},
     "ops-channel-disconnect": {"inapp": True, "push": False, "email": True},
     "billing-alerts": {"inapp": True, "push": True, "email": True},
@@ -89,17 +90,27 @@ def _bool_map(raw: Any, fallback: dict[str, bool]) -> dict[str, bool]:
     return out
 
 
+# Bump when a default category matrix change should override stored rows once.
+PREFS_VERSION = 2
+
+
 def parse_prefs(prefs_json: str | None) -> dict[str, Any]:
-    """``{"tiers": {1: {...}, 2: {...}, 3: {...}}, "categories": {id: {...}}}``."""
+    """``{"version": int, "tiers": {...}, "categories": {id: {...}}, "sound": bool}``."""
     try:
         raw = json.loads(prefs_json or "")
     except (json.JSONDecodeError, TypeError):
         raw = None
     tiers_raw: dict[str, Any] = {}
     rows: list[Any] = []
+    sound = True
+    version = 1
     if isinstance(raw, dict):
         tiers_raw = raw.get("tiers") if isinstance(raw.get("tiers"), dict) else {}
         rows = raw.get("rows") if isinstance(raw.get("rows"), list) else []
+        if isinstance(raw.get("sound"), bool):
+            sound = raw["sound"]
+        if isinstance(raw.get("version"), int):
+            version = raw["version"]
     elif isinstance(raw, list):
         rows = raw
     tiers = {
@@ -113,15 +124,20 @@ def parse_prefs(prefs_json: str | None) -> dict[str, Any]:
     for row in rows:
         if isinstance(row, dict) and row.get("id") == "digest-daily" and "3" not in tiers_raw:
             tiers[TIER_DIGEST]["email"] = bool((row.get("channels") or {}).get("email"))
-    return {"tiers": tiers, "categories": categories}
+    # v2: new-message defaults on for owned conversations (For you attention path).
+    if version < 2:
+        categories["new-message"] = dict(CATEGORY_DEFAULTS["new-message"])
+    return {"tiers": tiers, "categories": categories, "sound": sound, "version": PREFS_VERSION}
 
 
 def serialize_prefs(prefs: dict[str, Any]) -> dict[str, Any]:
     return {
+        "version": int(prefs.get("version") or PREFS_VERSION),
         "tiers": {str(tier): prefs["tiers"][tier] for tier in TIERS},
         "rows": [
             {"id": key, "channels": value} for key, value in prefs["categories"].items()
         ],
+        "sound": bool(prefs.get("sound", True)),
     }
 
 
@@ -140,7 +156,7 @@ async def load_prefs(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> d
 async def save_prefs(
     session: AsyncSession, tenant_id: UUID, user_id: UUID, patch: dict[str, Any]
 ) -> dict[str, Any]:
-    """Merge ``{"tiers": {...}, "rows": [...]}`` into the stored preferences."""
+    """Merge ``{"version", "tiers", "rows", "sound"}`` into the stored preferences."""
     row = (
         await session.execute(
             select(UserNotificationPreference).where(
@@ -162,6 +178,12 @@ async def save_prefs(
         if isinstance(entry, dict) and entry.get("id") in CATEGORY_DEFAULTS:
             key = entry["id"]
             current["categories"][key] = _bool_map(entry.get("channels"), current["categories"][key])
+    if isinstance(patch.get("sound"), bool):
+        current["sound"] = patch["sound"]
+    if isinstance(patch.get("version"), int) and patch["version"] >= 1:
+        current["version"] = patch["version"]
+    else:
+        current["version"] = PREFS_VERSION
     row.prefs_json = json.dumps(serialize_prefs(current))
     row.updated_at = datetime.utcnow()
     session.add(row)
@@ -175,10 +197,10 @@ def channels_for(
     """Channels for one notice: tier switch, then category switch, then availability.
 
     ``inapp`` means an unread row exists (For you, shared read state); push and
-    email interrupt. In the app there is no push; away lets only critical
-    tier 1 notices interrupt.
+    email interrupt. Away lets only critical tier 1 notices interrupt outside
+    the app. Available users still get push when that channel is on.
     """
-    from app.services.presence import AVAILABLE, AWAY
+    from app.services.presence import AWAY
 
     tier = tier if tier in TIERS else TIER_LATER
     enabled = {
@@ -193,9 +215,7 @@ def channels_for(
     if tier == TIER_DIGEST:
         # Digest email goes out in the daily mail, not per event.
         enabled.discard("email")
-    if status == AVAILABLE:
-        enabled.discard("push")
-    elif status == AWAY and not (critical and tier == TIER_NOW):
+    if status == AWAY and not (critical and tier == TIER_NOW):
         enabled -= {"push", "email"}
     return enabled
 
@@ -380,9 +400,10 @@ async def notify_new_inbound(
 ) -> list[Notification]:
     """Tell the conversation's people that a new customer message arrived.
 
-    Off until someone turns on the ``new-message`` row. A user owner is told
-    alone; a team owner tells that team's people. An agent-owned conversation
-    stays quiet. The sender is skipped when they are a workspace member.
+    Honours the ``new-message`` pref row (on by default for in-app + push). A
+    user owner is told alone; a team owner tells that team's people. An
+    agent-owned conversation stays quiet. The sender is skipped when they are
+    a workspace member.
     """
     from app.models.auth import Tenant
     from app.models.team import Team

@@ -1044,11 +1044,11 @@ const WIDGET_CHROME = {
     noConversations: 'No conversations yet',
     loadConversationsError: 'Could not load conversations',
     prechatTitle: 'Before we start',
-    prechatSub: 'Leave your name and email so we can follow up if needed.',
+    prechatSub: 'Leave your email so we can follow up if needed.',
     prechatName: 'Your name',
     prechatStart: 'Start chatting',
     prechatSkip: 'Skip',
-    prechatErrorEmpty: 'Enter a name or email address.',
+    prechatErrorEmpty: 'Enter an email address.',
     prechatErrorEmail: 'That email address does not look right.',
     prechatErrorSave: 'Could not save your details. Try again.',
     csatTitle: 'How was this conversation?',
@@ -1129,11 +1129,11 @@ const WIDGET_CHROME = {
     noConversations: 'Nog geen gesprekken',
     loadConversationsError: 'Kon gesprekken niet laden',
     prechatTitle: 'Voordat we beginnen',
-    prechatSub: 'Laat je naam en e-mailadres achter zodat we je kunnen bereiken als dat nodig is.',
+    prechatSub: 'Laat je e-mailadres achter zodat we je kunnen bereiken als dat nodig is.',
     prechatName: 'Je naam',
     prechatStart: 'Start met chatten',
     prechatSkip: 'Overslaan',
-    prechatErrorEmpty: 'Vul een naam of e-mailadres in.',
+    prechatErrorEmpty: 'Vul een e-mailadres in.',
     prechatErrorEmail: 'Dat e-mailadres lijkt niet te kloppen.',
     prechatErrorSave: 'Kon je gegevens niet opslaan. Probeer het opnieuw.',
     csatTitle: 'Hoe was dit gesprek?',
@@ -2991,12 +2991,12 @@ class BokitoChatWidget extends HTMLElement {
     submitBtn.addEventListener('click', async () => {
       const name = nameInput.value.trim();
       const email = emailInput.value.trim();
-      if (!name && !email) {
+      if (!email) {
         errorEl.textContent = this.#chrome('prechatErrorEmpty');
         errorEl.hidden = false;
         return;
       }
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         errorEl.textContent = this.#chrome('prechatErrorEmail');
         errorEl.hidden = false;
         return;

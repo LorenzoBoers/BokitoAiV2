@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { Button } from '../ui/button'
 import { BrandMark } from '../integrations/BrandMark'
 import {
@@ -13,11 +13,33 @@ import { connectedPathWithKind, marketplacePathWithKind } from '../../lib/integr
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { cn } from '../../lib/utils'
 
+const CALENDAR_BRANDS = ['google-calendar', 'outlook-calendar'] as const
+
 function calendarBrandSlug(provider: string): string {
   const slug = provider.trim().toLowerCase()
   if (slug.includes('outlook') || slug.includes('microsoft')) return 'outlook-calendar'
   if (slug.includes('google')) return 'google-calendar'
   return slug
+}
+
+function CalendarBrandStack({ size = 18 }: { size?: number }) {
+  const ring = Math.round(size * 1.55)
+  return (
+    <div className="flex shrink-0 items-center" aria-hidden>
+      {CALENDAR_BRANDS.map((slug, index) => (
+        <span
+          key={slug}
+          className={cn(
+            'inline-flex items-center justify-center rounded-full bg-bg-surface ring-2 ring-bg-elevated',
+            index > 0 && '-ml-2',
+          )}
+          style={{ width: ring, height: ring }}
+        >
+          <BrandMark slug={slug} size={size} />
+        </span>
+      ))}
+    </div>
+  )
 }
 
 type CalendarConnectBarProps = {
@@ -39,7 +61,6 @@ export function CalendarConnectBar({
   const { t } = useTranslation('nav')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-
 
   const sync = async () => {
     setBusy('sync')
@@ -78,8 +99,14 @@ export function CalendarConnectBar({
             {t('agendaPage.calendar.syncNow')}
           </button>
         ) : (
-          <div className="space-y-1.5 px-0.5">
-            <p className="text-xs leading-relaxed text-text-muted">{t('agendaPage.rail.connectCalendarsBanner')}</p>
+          <div className="space-y-2 px-0.5">
+            <div className="flex items-center gap-2.5">
+              <CalendarBrandStack size={14} />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-text-heading">{t('agendaPage.calendar.connectTitle')}</p>
+                <p className="text-2xs leading-snug text-text-muted">{t('agendaPage.calendar.connectBody')}</p>
+              </div>
+            </div>
             <Link
               to={connectedPathWithKind('calendar')}
               className="inline-block text-xs font-medium text-accent hover:underline"
@@ -95,15 +122,18 @@ export function CalendarConnectBar({
 
   if (connections.length === 0) {
     return (
-      <div className="rounded-lg border border-border/60 bg-bg-elevated px-4 py-3" data-testid="agenda-connect-calendars-banner">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
-              <CalendarDays className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
-              {t('agendaPage.calendar.connectTitle')}
-            </p>
-            <p className="mt-1 text-xs text-text-muted">{t('agendaPage.rail.connectCalendarsBanner')}</p>
-            {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
+      <div
+        className="rounded-lg border border-border/60 bg-bg-elevated px-4 py-3"
+        data-testid="agenda-connect-calendars-banner"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <CalendarBrandStack size={18} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-heading">{t('agendaPage.calendar.connectTitle')}</p>
+              <p className="mt-0.5 text-xs text-text-muted">{t('agendaPage.calendar.connectBody')}</p>
+              {error ? <p className="mt-1.5 text-xs text-status-error">{error}</p> : null}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" asChild>

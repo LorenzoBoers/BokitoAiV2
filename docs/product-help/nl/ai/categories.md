@@ -11,7 +11,7 @@ related: workstreams,communication,channels,projects,widget
 
 Een actietag is een tag met een flow. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat, op een van de projecten van de flow of op geen project.
 
-Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend bericht (samenvatting, prioriteit, tags en tickets) in één run. Bij AI-afhandeling **Handmatig** leest de agent nog wel en mag die tags of tickets vastleggen, maar er komt geen conceptantwoord naar de klant. Zonder kanaalagent is er geen AI-lezing. Een zekere lezing legt het ticket vast, een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije tags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
+Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend bericht (samenvatting, prioriteit, tags en tickets) in één run. Bij AI-afhandeling **Handmatig** leest de agent nog wel en mag die tags of tickets vastleggen, maar er komt geen conceptantwoord naar de klant. Zonder kanaalagent is er geen AI-lezing. Een zekere lezing legt het ticket vast wanneer die actietag automatisch taggen toestaat. Een zekere lezing op een tag zonder automatisch taggen wordt een kaart **Dien in als #naam** met **Dien in** en **Niet nu**. Een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije tags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
 
 ## Een tag tot actietag maken
 
@@ -44,7 +44,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 ## Een ticket door de fasen verplaatsen
 
 1. Klik in het **Ticket**-paneel op een segment van de fasebalk om het ticket naar die fase te zetten; **Fase 2 van 3** toont waar het staat, gevolgd door de volgende check-up als de fase er een heeft. Op een flow- of projectbord sleep je de kaart naar een andere kolom; zie [Projecten](/docs/ai/projects).
-2. Als de doelfase verplichte velden heeft die nog leeg zijn, vraagt een dialoog ze in te vullen. Het ticket blijft in de huidige fase tot die waarden er zijn. Dezelfde dialoog verschijnt bij slepen, of als je het gesprek sluit en het ticket naar de klaar-fase wilt zetten.
+2. Als de doelfase verplichte velden heeft die nog leeg zijn, vraagt een dialoog ze in te vullen. Het ticket blijft in de huidige fase tot die waarden er zijn. Dezelfde dialoog verschijnt bij slepen. Het gesprek sluiten zet het ticket in de klaar-fase. Mist die fase nog verplichte velden, dan blijft het ticket staan en sluit het gesprek toch.
 3. Elke verplaatsing verschijnt in de tijdlijn, bijvoorbeeld **Ticket verplaatst naar Waiting**. De status van het ticket volgt altijd het soort van de fase: open, waiting of done.
 4. Onder het project heeft elk eigen veld van de flow een eigen rij. Klik op een waarde om die te wijzigen; die wordt opgeslagen als je op Enter drukt, het veld verlaat of een optie kiest. Een `*` markeert een verplicht veld en kleurt oranje zolang het leeg is.
 5. Beheerders zonder velden zien **Eigen velden toevoegen aan deze flow**; dat opent de flow in de bewerkmodus. Pas daar de fasen en velden aan; zie [Flows](/docs/ai/workstreams).

@@ -305,6 +305,9 @@ def for_you_predicate(
         )
         .exists()
     )
+    # A customer who asked for a person is yours even when the thread sits
+    # with All people (that queue is Unassigned, not For you).
+    clauses.append(Signal.ai_handling_reason.in_(("handoff_requested", "escalated")))
     return or_(*clauses)
 
 

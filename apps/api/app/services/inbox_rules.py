@@ -722,6 +722,9 @@ async def apply_rule_to_signal(
         signal.has_unread = False
         signal.snoozed_until = None
         on_status_change(session, signal)
+        from app.services.tickets import settle_ticket_on_close
+
+        await settle_ticket_on_close(session, signal, actor_type="system", actor_id="inbox_rule")
         signal.updated_at = now
         session.add(signal)
         result["delivery"] = "auto_closed"

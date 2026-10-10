@@ -11,7 +11,7 @@ related: workstreams,communication,channels,projects,widget
 
 An action tag is a tag with a flow. A conversation carries at most one action tag: filing it makes the conversation a ticket that moves through that flow's stages, on one of the flow's projects or on no project.
 
-When a channel has an **AI agent** linked, that agent reads each inbound message (summary, priority, tags and tickets) in one run. Under **Manual** AI handling the agent still reads and may file tags or tickets, but it does not draft a customer reply. Without a channel agent there is no AI read. A certain read files the ticket, an unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free tags stay next to the action tag for grouping; see [Communication](/docs/inbox/communication).
+When a channel has an **AI agent** linked, that agent reads each inbound message (summary, priority, tags and tickets) in one run. Under **Manual** AI handling the agent still reads and may file tags or tickets, but it does not draft a customer reply. Without a channel agent there is no AI read. A certain read files the ticket when that action tag allows auto-tagging. A certain read on a tag that does not auto-tag becomes a card **File as #name** with **File** and **Not now**. An unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free tags stay next to the action tag for grouping; see [Communication](/docs/inbox/communication).
 
 ## Make a tag an action tag
 
@@ -44,7 +44,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 ## Move a ticket through its stages
 
 1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or project board, drag the card to another column instead; see [Projects](/docs/ai/projects).
-2. If the target stage has required fields that are still empty, a dialog asks for them. The ticket stays on its current stage until those values are filled. The same dialog appears when you drag a card, or when you close the conversation and choose to move the ticket to its done stage.
+2. If the target stage has required fields that are still empty, a dialog asks for them. The ticket stays on its current stage until those values are filled. The same dialog appears when you drag a card. Closing the conversation moves its ticket to the done stage. If that stage still needs required fields, the ticket stays where it is and the conversation still closes.
 3. Every move shows in the timeline, for example **Ticket moved to Waiting**. The ticket's status always follows the kind of its stage: open, waiting or done.
 4. Under the project, every custom field of the flow has its own row. Click a value to edit it; it saves when you press Enter, leave the field, or pick an option. A `*` marks a required field and turns orange while it is empty.
 5. Admins without fields see **Add custom fields to this flow**, which opens the flow in edit mode. Change the stages and fields there; see [Flows](/docs/ai/workstreams).

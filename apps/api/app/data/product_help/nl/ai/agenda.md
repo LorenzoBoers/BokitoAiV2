@@ -46,7 +46,7 @@ Agents plannen ook werk: vraag er een in een gesprek om "dit vrijdag opnieuw te 
 
 ## Toon je Google- of Outlook-agenda
 
-1. Zonder gekoppelde agenda toont Agenda een korte banner met een link naar **Koppelingen**. Open **Koppelingen**, filter op **Kalender**, en koppel daar Google Calendar of Outlook Calendar.
+1. Zonder gekoppelde agenda toont de zijbalk **Koppel je eigen agenda's** met de Google- en Outlook-merken, een info-icoon en een link naar **Koppelingen**. Open **Koppelingen**, filter op **Kalender**, en koppel daar Google Calendar of Outlook Calendar.
 2. Rond de aanmelding af. Elke gekoppelde agenda krijgt een eigen checkbox onder **Tonen**. Afspraken verschijnen in het rooster naast het werk en geven agents context uit die agenda's.
 3. Kies een afspraak om details te zien, te bewerken of te verwijderen.
 

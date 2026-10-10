@@ -243,7 +243,13 @@ async def session_identify(
                 )
             )
             signal = sig_result.scalar_one_or_none()
-            if signal and name:
+            if signal and email:
+                from app.services.contact_identity import link_visitor_email
+
+                await link_visitor_email(
+                    session, tenant, signal, email=email, name=name
+                )
+            elif signal and name:
                 signal.contact_name = name
                 session.add(signal)
     await session.commit()

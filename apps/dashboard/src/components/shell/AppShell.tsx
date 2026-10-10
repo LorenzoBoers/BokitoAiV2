@@ -20,6 +20,7 @@ import { TourProvider } from '../tour/TourContext'
 import { TicketStageGateProvider } from '../inbox/TicketStageGate'
 import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
 import { useShellLiveBus } from '../../hooks/useShellLiveBus'
+import { unlockNotificationAudio } from '../../lib/notification-sound'
 import { cn } from '../../lib/utils'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
@@ -87,6 +88,9 @@ function contentEnterKey(pathname: string): string {
 
 export default function AppShell() {
   useShellLiveBus()
+  useEffect(() => {
+    unlockNotificationAudio()
+  }, [])
   const { t } = useTranslation('nav')
   const { pathname, search } = useLocation()
   const [navCollapsed, setNavCollapsed] = useState(loadNavCollapsed)

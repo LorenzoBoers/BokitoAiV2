@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronLeft, ChevronRight, ClipboardList, RefreshCw, Repeat } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardList, Info, RefreshCw, Repeat } from 'lucide-react'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '../ui/select'
 import { BrandMark } from '../integrations/BrandMark'
+import { Tip } from '../ui/Tip'
 import { formatAppDate } from '../../lib/app-locale'
 import { connectedPathWithKind } from '../../lib/integration-kind-url'
 import { AGENDA_LAYERS, addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
@@ -13,6 +14,28 @@ import { cn } from '../../lib/utils'
 import { LAYER_DOT } from './agenda-style'
 import { useState } from 'react'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+
+const CALENDAR_BRANDS = ['google-calendar', 'outlook-calendar'] as const
+
+function CalendarBrandStack({ size = 14 }: { size?: number }) {
+  const ring = Math.round(size * 1.55)
+  return (
+    <div className="flex shrink-0 items-center" aria-hidden>
+      {CALENDAR_BRANDS.map((slug, index) => (
+        <span
+          key={slug}
+          className={cn(
+            'inline-flex items-center justify-center rounded-full bg-bg-surface ring-2 ring-bg-elevated',
+            index > 0 && '-ml-2',
+          )}
+          style={{ width: ring, height: ring }}
+        >
+          <BrandMark slug={slug} size={size} />
+        </span>
+      ))}
+    </div>
+  )
+}
 
 export type RailOption = { id: string; name: string }
 
@@ -206,15 +229,29 @@ export default function AgendaRail(props: Props) {
             className="mt-1 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2.5"
             data-testid="agenda-connect-calendars-banner"
           >
-            <p className="text-xs leading-relaxed text-text-secondary">
-              {t('agendaPage.rail.connectCalendarsBanner')}
-            </p>
-            <Link
-              to={connectedPathWithKind('calendar')}
-              className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
-            >
-              {t('agendaPage.rail.openConnections')}
-            </Link>
+            <div className="flex items-start gap-2.5">
+              <CalendarBrandStack size={14} />
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1 text-xs font-medium text-text-heading">
+                  <span className="min-w-0">{t('agendaPage.rail.connectCalendarsTitle')}</span>
+                  <Tip label={t('agendaPage.rail.connectCalendarsHint')} side="right" className="max-w-56 text-left font-normal">
+                    <button
+                      type="button"
+                      className="inline-flex shrink-0 rounded-full p-0.5 text-text-muted hover:text-text-heading focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                      aria-label={t('agendaPage.rail.connectCalendarsHint')}
+                    >
+                      <Info className="h-3 w-3" aria-hidden />
+                    </button>
+                  </Tip>
+                </p>
+                <Link
+                  to={connectedPathWithKind('calendar')}
+                  className="mt-1 inline-block text-xs font-medium text-accent hover:underline"
+                >
+                  {t('agendaPage.rail.openConnections')}
+                </Link>
+              </div>
+            </div>
           </div>
         ) : null}
       </section>

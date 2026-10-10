@@ -330,6 +330,7 @@ def serialize_thread(
         "last_message_at": _iso(signal.last_message_at),
         "has_unread": signal.has_unread,
         "has_open_decision": has_open_decision,
+        "is_example": bool(signal.is_example),
         "is_pinned": is_pinned,
         "channel": signal.channel,
         "source": signal.source or "",
@@ -1255,11 +1256,20 @@ async def list_threads(
     count_result = await session.execute(select(func.count()).select_from(query.subquery()))
     items_total = count_result.scalar_one()
 
+    human_first = case(
+        (Signal.ai_handling_reason.in_(("handoff_requested", "escalated")), 0),
+        else_=1,
+    )
     if mine_first is not None:
-        # For you: what waits on you now comes before what you merely own.
-        query = query.order_by(case((mine_first, 0), else_=1), Signal.last_message_at.desc())
+        # For you: a customer waiting on a person, then what waits on you now,
+        # then what you merely own.
+        query = query.order_by(
+            human_first,
+            case((mine_first, 0), else_=1),
+            Signal.last_message_at.desc(),
+        )
     else:
-        query = query.order_by(Signal.last_message_at.desc())
+        query = query.order_by(human_first, Signal.last_message_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await session.execute(query)
     threads = list(result.scalars().all())
@@ -1857,6 +1867,10 @@ async def patch_thread(
 
     if signal.status != before_status:
         handling_svc.on_status_change(session, signal, actor_id=str(user_id))
+        if signal.status == "closed":
+            from app.services.tickets import settle_ticket_on_close
+
+            await settle_ticket_on_close(session, signal, actor_type="user", actor_id=str(user_id))
     handling_svc.on_assignment_change(
         session,
         signal,
@@ -2192,6 +2206,9 @@ async def bulk_update_threads(
                 signal.status = "open"
         if action == "close":
             handling_svc.on_status_change(session, signal, actor_id=str(user_id))
+            from app.services.tickets import settle_ticket_on_close
+
+            await settle_ticket_on_close(session, signal, actor_type="user", actor_id=str(user_id))
         elif action == "assign":
             handling_svc.on_assignment_change(
                 session, signal, before_assignee=before_assignee, actor_id=str(user_id)
@@ -2588,6 +2605,9 @@ async def reply_to_thread(
         signal.status = "closed"
         signal.snoozed_until = None
         on_status_change(session, signal, actor_id=str(user_id))
+        from app.services.tickets import settle_ticket_on_close
+
+        await settle_ticket_on_close(session, signal, actor_type="user", actor_id=str(user_id))
     elif action == "send_and_pending":
         # Snooze-as-park retired: keep the thread open and visible.
         if signal.status == "pending":
@@ -2768,6 +2788,9 @@ async def mark_handled_externally(
         signal.status = "closed"
         signal.snoozed_until = None
         on_status_change(session, signal, actor_id=str(user_id))
+        from app.services.tickets import settle_ticket_on_close
+
+        await settle_ticket_on_close(session, signal, actor_type="user", actor_id=str(user_id))
     session.add(signal)
     session.add(
         SignalEvent(
@@ -3243,8 +3266,9 @@ async def resolve_message_decision(
 
         payload_override["messages"] = split_chat_messages(body)
 
-    # Editing an AI draft before approval is explicit learning evidence.
-    if body is not None and user_id:
+    # An approved edit is the reply the operator actually wanted. Store it so
+    # the next draft can follow that wording.
+    if body is not None and user_id and action in ("approved", "approve"):
         from app.models.learning import Feedback
         from app.models.notification import DecisionRequest
 
@@ -3269,16 +3293,36 @@ async def resolve_message_decision(
                 if isinstance(payload, dict):
                     original = str(payload.get("body_text") or payload.get("body") or "")
         if original.strip() and original.strip() != body.strip():
+            inbound = (
+                await session.execute(
+                    select(SignalMessage.body_text)
+                    .where(
+                        SignalMessage.signal_id == signal_id,
+                        SignalMessage.tenant_id == tenant_id,
+                        SignalMessage.direction == "inbound",
+                    )
+                    .order_by(SignalMessage.created_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            thread = await session.get(Signal, signal_id)
+            category = (thread.category if thread else "") or "general"
             session.add(
                 Feedback(
                     tenant_id=tenant_id,
                     subject_type="draft_edit",
                     subject_id=str(message.decision_id),
                     user_id=user_id,
-                    sentiment="down",
                     comment=body[:2000],
+                    correction_key=f"reply:{category}"[:160],
                     metadata_json=json.dumps(
-                        {"original": original[:2000], "signal_id": str(signal_id)}
+                        {
+                            "original": original[:2000],
+                            "sent": body[:2000],
+                            "customer": (inbound or "")[:2000],
+                            "category": category,
+                            "signal_id": str(signal_id),
+                        }
                     ),
                 )
             )
@@ -3765,6 +3809,9 @@ async def dismiss_no_reply_suggestions(
                 signal.status = "closed"
                 signal.updated_at = datetime.utcnow()
                 on_status_change(session, signal)
+                from app.services.tickets import settle_ticket_on_close
+
+                await settle_ticket_on_close(session, signal, actor_type="user", actor_id=str(user_id))
                 session.add(signal)
                 session.add(
                     SignalEvent(

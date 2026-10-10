@@ -26,6 +26,13 @@ Mode = Literal["manual", "assisted", "autonomous"]
 Scope = Literal["workspace", "channel", "contact", "conversation"]
 
 
+class PromotionProgress(BaseModel):
+    drafts_resolved: int = 0
+    unedited: int = 0
+    target_drafts: int = 50
+    target_rate: float = 0.8
+
+
 class AiHandlingPayload(BaseModel):
     effective: Mode
     requested: Mode
@@ -39,6 +46,7 @@ class AiHandlingPayload(BaseModel):
     inherited_source: str
     inherited_source_label: str = ""
     own: Mode | None = None
+    promotion: PromotionProgress | None = None
 
 
 class SafeguardSettings(BaseModel):
@@ -179,7 +187,17 @@ async def _target_payload(
         account = await session.get(ChannelAccount, target_uuid)
         if account is None or account.tenant_id != tenant.id:
             raise HTTPException(status_code=404, detail="Channel not found")
-        return svc.resolve_ai_handling(tenant, account, scope="channel").to_payload()
+        payload = svc.resolve_ai_handling(tenant, account, scope="channel").to_payload()
+        from app.services.learning import PROMOTION_MIN_DRAFTS, PROMOTION_UNEDITED_RATE
+
+        stats = await svc.evidence(session, tenant.id, account_id=account.id)
+        payload["promotion"] = {
+            "drafts_resolved": stats["drafts_resolved"],
+            "unedited": stats["unedited"],
+            "target_drafts": PROMOTION_MIN_DRAFTS,
+            "target_rate": PROMOTION_UNEDITED_RATE,
+        }
+        return payload
     if scope == "contact":
         contact = await session.get(Contact, target_uuid)
         if contact is None or contact.tenant_id != tenant.id:

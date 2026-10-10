@@ -88,6 +88,87 @@ async def _split_new_intent(
         logger.warning("thread-read split failed for signal %s", signal_id, exc_info=True)
 
 
+async def _propose_file_tag(
+    session: AsyncSession,
+    tenant: Tenant | None,
+    signal_id: UUID,
+    category,
+    *,
+    summary: str,
+    agent_id: UUID | None,
+) -> None:
+    """Ask once, in the thread, to file a confident read that is not auto-tagged."""
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import and_, or_, select
+
+    from app.models.notification import DecisionRequest
+    from app.services.language import resolve_workspace_language
+    from app.services.signal_decisions import create_decision
+
+    if tenant is None:
+        return
+    lang = resolve_workspace_language(tenant)
+    title = (
+        f"Dien in als #{category.name}"
+        if lang == "nl"
+        else f"File as #{category.name}"
+    )
+    since = datetime.utcnow() - timedelta(days=7)
+    existing = (
+        await session.execute(
+            select(DecisionRequest.id).where(
+                DecisionRequest.tenant_id == tenant.id,
+                DecisionRequest.signal_id == signal_id,
+                DecisionRequest.title == title,
+                or_(
+                    DecisionRequest.status == "awaiting_human",
+                    and_(
+                        DecisionRequest.status.in_(("rejected", "deferred")),
+                        DecisionRequest.resolved_at.is_not(None),
+                        DecisionRequest.resolved_at >= since,
+                    ),
+                ),
+            )
+        )
+    ).first()
+    if existing:
+        return
+    file_label = "Dien in" if lang == "nl" else "File"
+    later_label = "Niet nu" if lang == "nl" else "Not now"
+    summary_text = summary or (
+        "Deze lezing is zeker genoeg om in te dienen. Jij bevestigt de actietag."
+        if lang == "nl"
+        else "This read is confident enough to file. You confirm the action tag."
+    )
+    try:
+        await create_decision(
+            session,
+            tenant.id,
+            title=title,
+            summary=summary_text[:500],
+            options=[
+                {
+                    "id": "file",
+                    "label": file_label,
+                    "action_type": "file_ticket",
+                    "payload": {
+                        "signal_id": str(signal_id),
+                        "tag_id": str(category.id),
+                        "summary": summary[:500],
+                    },
+                },
+                {"id": "later", "label": later_label, "action_type": "defer"},
+            ],
+            agent_id=agent_id,
+            signal_id=signal_id,
+            source_type="thread_read",
+            source_id=str(category.id),
+        )
+    except Exception:  # noqa: BLE001 - a card must never fail the read
+        logger.warning("file-as-tag card failed for #%s", category.name, exc_info=True)
+
+
 async def _record_unknown_signal(
     session: AsyncSession,
     tenant_id: UUID,
@@ -211,6 +292,15 @@ async def apply_thread_read(
             summary=summary,
             certainty=certainty,
             certain=certain,
+        )
+    elif picked is not None and certain:
+        await _propose_file_tag(
+            session,
+            tenant,
+            signal_id,
+            picked,
+            summary=summary,
+            agent_id=agent_id,
         )
     elif not suggested_tags:
         await _record_unknown_signal(

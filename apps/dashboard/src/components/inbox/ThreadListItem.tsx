@@ -20,6 +20,7 @@ import { agentPresenceOf } from '../../hooks/useAgentPresence'
 import type { PresenceStatus } from '../../lib/teams-api'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
+import { Badge } from '../ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -423,6 +424,11 @@ function ThreadListItem({
             <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-secondary">
               {secondaryLabel}
             </span>
+            {thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? (
+              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-2xs" data-testid="thread-row-human-requested">
+                {t('listItem.humanRequested')}
+              </Badge>
+            ) : null}
             {handlingOverride ? (
               <span
                 title={tc(`aiHandling.modes.${handlingOverride}.label`)}
@@ -540,6 +546,29 @@ function ThreadListItem({
                         <span className="truncate">{tag}</span>
                       </span>
                     ))}
+                    {!ticket && thread.category && thread.category !== 'other' ? (
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 px-1.5 py-0 text-2xs capitalize"
+                        data-testid="thread-row-category"
+                      >
+                        {t(`listItem.category.${thread.category}`, {
+                          defaultValue: thread.category,
+                        })}
+                      </Badge>
+                    ) : null}
+                    {typeof thread.certainty === 'number' && thread.certainty >= 80 ? (
+                      <span
+                        className="shrink-0 text-2xs text-text-muted"
+                        title={t('listItem.certaintyHint', {
+                          defaultValue: 'AI certainty {{value}}%',
+                          value: thread.certainty,
+                        })}
+                        data-testid="thread-row-certainty"
+                      >
+                        {thread.certainty}%
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>

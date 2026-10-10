@@ -321,6 +321,9 @@ async def archive_automated_mail_if_enabled(
         signal.status = "closed"
         signal.snoozed_until = None
         on_status_change(session, signal)
+        from app.services.tickets import settle_ticket_on_close
+
+        await settle_ticket_on_close(session, signal, actor_type="system", actor_id="automated_mail")
     signal.has_unread = False
     signal.updated_at = datetime.utcnow()
     await add_signal_tags(session, tenant_id, signal.id, [AUTOMATED_MAIL_TAG])

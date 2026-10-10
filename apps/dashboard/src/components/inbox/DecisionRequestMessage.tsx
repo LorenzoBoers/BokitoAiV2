@@ -22,6 +22,7 @@ import {
   parseDecisionAddressee,
   parseDecisionSource,
 } from '../../lib/decision-source'
+import { forYouPath } from '../../lib/messages-paths'
 import { openEntityPath } from '../../lib/open-entity'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
@@ -680,6 +681,13 @@ export default function DecisionRequestMessage({
           : reason && deferredLabelKey[reason]
             ? t(deferredLabelKey[reason])
             : t('decisionCard.earlierDraft')
+    const siblingId = (
+      message.payload?.decision as { superseded_by_signal_id?: unknown } | undefined
+    )?.superseded_by_signal_id
+    const openSibling =
+      typeof siblingId === 'string' && siblingId
+        ? forYouPath(siblingId)
+        : null
     return (
       <ChatMessageBubble
         side="left"
@@ -691,6 +699,15 @@ export default function DecisionRequestMessage({
               {resolvedLabel}
               {excerpt ? ` — ${excerpt}` : ''}
             </span>
+            {openSibling ? (
+              <Link
+                to={openSibling}
+                className="shrink-0 text-xs font-medium text-accent hover:underline"
+                data-testid="draft-open-active-thread"
+              >
+                {t('decisionCard.openActiveThread', { defaultValue: 'Open active' })}
+              </Link>
+            ) : null}
             <span className="shrink-0 rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
               {t('decisionCard.resolved')}
             </span>

@@ -250,7 +250,7 @@ export default function OnboardingWizardPage() {
     setBusy(true)
     try {
       await saveCurrentStep()
-      await completeAndEnterApp('/communication/inbox/open')
+      await completeAndEnterApp('/communication/inbox/for_you')
     } catch {
       toast.error(t('saveError'))
     } finally {
@@ -283,7 +283,7 @@ export default function OnboardingWizardPage() {
   }
 
   if (!needsGate && params.get('force') !== '1') {
-    return <Navigate to="/communication/inbox/open" replace />
+    return <Navigate to="/communication/inbox/for_you" replace />
   }
 
   return (

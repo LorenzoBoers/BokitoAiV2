@@ -39,7 +39,7 @@ Rare one-off styles fold into the nearest catalog component.
 | | `MetaLine` | "a · b · c" muted facts |
 | | `EntityRow`, `EntityList`, `DescriptionRow` | Rows of people, agents, keys; label/value pairs |
 | | `StatTile`, `StatGrid` | KPIs |
-| | `Chart` | Bar, line, area, and sparkline (`showAxes={false}`). Canvas and Overview share it |
+| | `Chart` | Bar, line, area, and sparkline (`showAxes={false}`). Canvas, Overview, Usage. Swimlanes (`AgentActivityTimeline`) stay custom |
 | | `CapBar` | Usage against a cap |
 | | `Table` family | Tabular data |
 | Identity | `IconTile` | Square icon or logo tile |

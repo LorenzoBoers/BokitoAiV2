@@ -7,7 +7,14 @@ export type NotificationCategoryRow = { id: string; channels: ChannelSwitches }
 export type NotificationPrefs = {
   tiers: Record<NotificationTier, ChannelSwitches>
   rows: NotificationCategoryRow[]
+  /** Dashboard chime for live notices (same tone as the chat widget). */
+  sound: boolean
+  /** Bump with `services/notify.py` PREFS_VERSION when defaults override stored rows. */
+  version: number
 }
+
+/** Mirrors `services/notify.py` PREFS_VERSION — v2 turns new-message on by default. */
+export const NOTIFICATION_PREFS_VERSION = 2
 
 export const NOTIFICATION_TIERS: NotificationTier[] = ['1', '2', '3']
 export const NOTIFICATION_CHANNELS: NotificationChannel[] = ['inapp', 'push', 'email']
@@ -63,18 +70,20 @@ const on = (inapp: boolean, push: boolean, email: boolean): ChannelSwitches => (
 
 export function defaultNotificationPrefs(): NotificationPrefs {
   return {
+    version: NOTIFICATION_PREFS_VERSION,
     tiers: { '1': on(true, true, false), '2': on(true, false, false), '3': on(true, false, false) },
     rows: [
       { id: 'assigned-to-me', channels: on(true, true, false) },
       { id: 'mentions', channels: on(true, true, false) },
       { id: 'decisions', channels: on(true, true, false) },
       { id: 'handoff', channels: on(true, true, false) },
-      { id: 'new-message', channels: on(false, false, false) },
+      { id: 'new-message', channels: on(true, true, false) },
       { id: 'ops-run-failed', channels: on(true, false, true) },
       { id: 'ops-channel-disconnect', channels: on(true, false, true) },
       { id: 'billing-alerts', channels: on(true, true, true) },
       { id: 'digest-weekly', channels: on(false, false, false) },
     ],
+    sound: true,
   }
 }
 
@@ -91,16 +100,28 @@ function switches(raw: unknown, fallback: ChannelSwitches): ChannelSwitches {
 export function normalizeNotificationPrefs(raw: unknown): NotificationPrefs {
   const defaults = defaultNotificationPrefs()
   const data = (raw && typeof raw === 'object' ? raw : {}) as {
+    version?: unknown
     tiers?: Record<string, unknown>
     rows?: Array<{ id?: unknown; channels?: unknown }>
+    sound?: unknown
   }
+  const storedVersion = typeof data.version === 'number' ? data.version : 1
   const tiers = { ...defaults.tiers }
   for (const tier of NOTIFICATION_TIERS) tiers[tier] = switches(data.tiers?.[tier], defaults.tiers[tier])
   const rows = defaults.rows.map((row) => {
     const stored = Array.isArray(data.rows) ? data.rows.find((r) => r?.id === row.id) : undefined
+    // v2: owned-conversation new-message defaults on (For you attention path).
+    if (row.id === 'new-message' && storedVersion < 2) {
+      return { id: row.id, channels: { ...defaults.rows.find((r) => r.id === 'new-message')!.channels } }
+    }
     return { id: row.id, channels: switches(stored?.channels, row.channels) }
   })
-  return { tiers, rows }
+  return {
+    version: NOTIFICATION_PREFS_VERSION,
+    tiers,
+    rows,
+    sound: typeof data.sound === 'boolean' ? data.sound : defaults.sound,
+  }
 }
 
 export function setTierChannel(

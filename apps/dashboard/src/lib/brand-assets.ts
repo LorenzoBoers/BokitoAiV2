@@ -8,6 +8,8 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   github: { logoUrl: '/brands/logo-github.svg' },
   microsoft: { logoUrl: '/brands/logo-microsoft.svg' },
   outlook: { logoUrl: '/brands/logo-outlook.svg' },
+  outlook_calendar: { logoUrl: '/brands/logo-outlook.svg' },
+  'outlook-calendar': { logoUrl: '/brands/logo-outlook.svg' },
   google: { logoUrl: '/brands/logo-gmail.svg' },
   google_calendar: { logoUrl: '/brands/logo-gmail.svg' },
   'google-calendar': { logoUrl: '/brands/logo-gmail.svg' },

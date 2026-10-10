@@ -154,7 +154,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const finishExplore = useCallback(() => {
     persist({ completed: true })
     setPhase('idle')
-    navigate('/communication/inbox/open')
+    navigate('/communication/inbox/for_you')
   }, [persist, navigate])
 
   const finishWithAssistant = useCallback(() => {
@@ -168,7 +168,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const finishWithCommunication = useCallback(() => {
     persist({ completed: true })
     setPhase('idle')
-    navigate('/communication/inbox/open')
+    navigate('/communication/inbox/for_you')
   }, [persist, navigate])
 
   const value = useMemo<TourContextValue>(
