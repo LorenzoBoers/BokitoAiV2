@@ -169,7 +169,8 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             is_enabled=True,
             settings_json=json.dumps(
                 {
-                    "ai_config": {"ai_handling": {"mode": "autonomous"}},
+                    # No channel AI-handling override: tests that set the
+                    # workspace default (assisted/manual) must keep winning.
                     "livechat_settings": {"pre_chat_form": True},
                     "widget_settings_migrated": True,
                 }
