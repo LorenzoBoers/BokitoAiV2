@@ -62,6 +62,37 @@ function buildEmailReplyHtml(bodyText: string, signatureImageUrl: string): strin
   ].join('')
 }
 
+/** Map API/transport errors onto `failed:*` codes shown in the bubble. */
+function classifyOutboundSendFailure(err: unknown): `failed:${string}` {
+  const msg = err instanceof Error ? err.message : String(err ?? '')
+  const lower = msg.toLowerCase()
+  if (
+    lower.includes('selected mailbox cannot send') ||
+    lower.includes('mailbox cannot send') ||
+    lower.includes('cannot send')
+  ) {
+    return 'failed:cannot_send'
+  }
+  if (lower.includes('channel not found') || lower.includes('no_account') || lower.includes('no mailbox')) {
+    return 'failed:no_account'
+  }
+  if (lower.includes('auth') && (lower.includes('expired') || lower.includes('reconnect'))) {
+    return 'failed:auth_expired'
+  }
+  if (lower.includes('no recipient') || lower.includes('no_recipient')) {
+    return 'failed:no_recipient'
+  }
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('networkerror') ||
+    lower.includes('network error') ||
+    /\b(502|503|504)\b/.test(msg)
+  ) {
+    return 'failed:network'
+  }
+  return 'failed:unknown'
+}
+
 export function useThreadDetail(
   threadId: ThreadId | null,
   pinnedIds: ThreadId[] = [],
@@ -422,7 +453,7 @@ export function useThreadDetail(
                   messages: patchLocalSendStatus(
                     prev.messages,
                     String(optimistic.id),
-                    'failed:network',
+                    'failed:unknown',
                   ),
                 }
               : prev,
@@ -439,7 +470,7 @@ export function useThreadDetail(
                 messages: patchLocalSendStatus(
                   prev.messages,
                   String(optimistic.id),
-                  'failed:network',
+                  classifyOutboundSendFailure(err),
                 ),
               }
             : prev,
@@ -506,17 +537,21 @@ export function useThreadDetail(
             prev
               ? {
                   ...prev,
-                  messages: patchLocalSendStatus(prev.messages, String(messageId), 'failed:network'),
+                  messages: patchLocalSendStatus(prev.messages, String(messageId), 'failed:unknown'),
                 }
               : prev,
           )
         }
-      } catch {
+      } catch (err) {
         setRawDetail((prev) =>
           prev
             ? {
                 ...prev,
-                messages: patchLocalSendStatus(prev.messages, String(messageId), 'failed:network'),
+                messages: patchLocalSendStatus(
+                  prev.messages,
+                  String(messageId),
+                  classifyOutboundSendFailure(err),
+                ),
               }
             : prev,
         )

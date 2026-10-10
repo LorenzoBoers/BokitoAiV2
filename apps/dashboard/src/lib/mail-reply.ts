@@ -122,7 +122,8 @@ export function buildQuotedHtml(
   const fromLine = opts.senderName
     ? `${opts.senderName} <${message.fromAddress}>`
     : message.fromAddress
-  const toLine = message.toHeader || message.toAddresses || ''
+  // Normalize JSON-array address fields (DB default "[]") so quotes never show "Aan: []".
+  const toLine = formatAddressListDisplay(message.toHeader || message.toAddresses || '')
   const body =
     (message.bodyHtml || '').trim() ||
     `<div>${escapeHtml(message.bodyText || '').replace(/\n/g, '<br>')}</div>`

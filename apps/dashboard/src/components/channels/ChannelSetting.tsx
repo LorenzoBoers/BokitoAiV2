@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils'
+import { SettingRow } from '../ui/entity-row'
 
 /** One titled block inside a channel panel. Every kind uses the same frame. */
 export function ChannelSection({
@@ -30,12 +31,8 @@ export function ChannelSetting({
   children?: ReactNode
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-text-heading">{label}</p>
-        {hint ? <p className="mt-0.5 text-xs leading-snug text-text-muted">{hint}</p> : null}
-      </div>
-      {children ? <div className="flex shrink-0 items-center gap-2">{children}</div> : null}
-    </div>
+    <SettingRow density="field" label={label} hint={hint}>
+      {children}
+    </SettingRow>
   )
 }

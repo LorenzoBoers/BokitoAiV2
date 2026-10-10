@@ -99,6 +99,12 @@ class Contact(SQLModel, table=True):
     metadata_json: str = Field(default="{}")
     # AI handling override as JSON ({"mode": "manual"}); null follows the channel.
     ai_handling: Optional[str] = Field(default=None)
+    # Contact owner (account manager): new conversations from this contact go
+    # to this person or team unless the agent may answer autonomously, and the
+    # escalation chain returns here after the last human owner.
+    owner_kind: str = Field(default="")  # user | team | ""
+    owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
+    owner_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
     merged_into_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="contacts.id", index=True
     )

@@ -99,6 +99,15 @@ class Signal(SQLModel, table=True):
     assignee_kind: str = Field(default="", index=True)  # user | agent | team
     assignee_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
     assigned_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    # Last person or team that owned this conversation. Set by set_owner for
+    # user/team owners; the escalation chain returns the conversation here
+    # first when the agent hands it back to people.
+    last_human_owner_kind: str = Field(default="")  # user | team | ""
+    last_human_owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    last_human_owner_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id")
+    # Collision guard: a person is typing in the composer until this moment;
+    # an autonomous agent drafts instead of sending while it is in the future.
+    human_composing_until: Optional[datetime] = Field(default=None)
     # Turn: who must act now (derived by ownership.recompute_turn).
     turn_kind: str = Field(default="", index=True)  # customer | agent | user | team | ""
     turn_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)

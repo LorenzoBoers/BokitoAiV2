@@ -621,13 +621,17 @@ async def create_reply_suggestion(
     await _defer_sibling_thread_suggestions(session, tenant_id, signal)
 
     # Anchor the proposal to the inbound message it answers. When the contact
-    # writes again, the composer can tell this draft is out of date.
+    # writes again, the composer can tell this draft is out of date. Only the
+    # contact's own messages count: decision cards are stored as inbound rows
+    # too, and anchoring on one of those made every fresh draft look stale.
     based_on = (
         await session.execute(
             select(SignalMessage.id)
             .where(
                 SignalMessage.signal_id == signal.id,
                 SignalMessage.direction == "inbound",
+                SignalMessage.kind == "user_message",
+                SignalMessage.author_user_id.is_(None),
             )
             .order_by(SignalMessage.created_at.desc())
             .limit(1)
@@ -822,6 +826,9 @@ async def _deliver_chat_reply(
     apply_suggested_actions(signal)
     session.add(signal)
     final_status = statuses[-1] if statuses else "skipped"
+    closed_by_policy = False
+    if not is_mock_reply and statuses and all(s.startswith("sent") for s in statuses):
+        closed_by_policy = await close_after_agent_reply(session, tenant_id, signal, agent)
     session.add(
         SignalEvent(
             signal_id=signal.id,
@@ -835,11 +842,18 @@ async def _deliver_chat_reply(
                     "delivery": final_status,
                     "messages": len(messages),
                     "is_mock": is_mock_reply,
+                    "closed": closed_by_policy,
                 }
             ),
         )
     )
     await session.commit()
+    if closed_by_policy:
+        from app.gateway.publish import publish_thread_update
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        await publish_thread_update(signal)
+        await emit_webhook_event(session, tenant_id, "signal.closed", signal_event_data(signal))
     if not is_mock_reply:
         from app.models.auth import Tenant
 
@@ -1066,6 +1080,9 @@ async def persist_inbound_agent_reply(
 
     apply_suggested_actions(signal)
     session.add(signal)
+    closed_by_policy = False
+    if delivery_status.startswith("sent") and not is_mock_reply:
+        closed_by_policy = await close_after_agent_reply(session, tenant_id, signal, agent)
     session.add(
         SignalEvent(
             signal_id=signal.id,
@@ -1078,11 +1095,18 @@ async def persist_inbound_agent_reply(
                     "run_id": str(run_id) if run_id else None,
                     "delivery": delivery_status,
                     "is_mock": is_mock_reply,
+                    "closed": closed_by_policy,
                 }
             ),
         )
     )
     await session.commit()
+    if closed_by_policy:
+        from app.gateway.publish import publish_thread_update
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        await publish_thread_update(signal)
+        await emit_webhook_event(session, tenant_id, "signal.closed", signal_event_data(signal))
     if not is_mock_reply:
         from app.models.auth import Tenant
 
@@ -1093,5 +1117,43 @@ async def persist_inbound_agent_reply(
         "delivery": delivery_status,
         "channel": signal.channel,
         "is_mock": is_mock_reply,
+        "closed": closed_by_policy,
         "delivered_to_customer": False if is_mock_reply else delivery_status.startswith("sent"),
     }
+
+
+async def close_after_agent_reply(
+    session: AsyncSession, tenant_id: UUID, signal: Signal, agent: Agent
+) -> bool:
+    """Close the conversation after a delivered autonomous reply when the
+    channel's routing policy says so (``close_after_agent_reply``). A new
+    customer message reopens it. Does not commit."""
+    from app.models.auth import Tenant
+    from app.services import ai_handling as handling_svc
+
+    if signal.status == "closed":
+        return False
+    tenant = await session.get(Tenant, tenant_id)
+    policy = await handling_svc.routing_for_signal(session, tenant, signal)
+    if not policy.effective["close_after_agent_reply"]:
+        return False
+    signal.status = "closed"
+    signal.snoozed_until = None
+    signal.has_unread = False
+    signal.updated_at = datetime.utcnow()
+    handling_svc.on_status_change(session, signal, actor_id=str(agent.id))
+    from app.services.tickets import settle_ticket_on_close
+
+    await settle_ticket_on_close(session, signal, actor_type="agent", actor_id=str(agent.id))
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=tenant_id,
+            event_type="closed",
+            actor_type="agent",
+            actor_id=str(agent.id),
+            payload_json=json.dumps({"via": "close_after_agent_reply"}),
+        )
+    )
+    return True

@@ -63,6 +63,7 @@ export const appRoutes = {
     threadPin: (threadId: string) => `/signals/${threadId}/pin`,
     threadSplit: (threadId: string) => `/signals/${threadId}/split`,
     threadReply: (threadId: string) => `/signals/${threadId}/reply`,
+    threadComposing: (threadId: string) => `/signals/${threadId}/composing`,
     messageCancel: (messageId: string) => `/signals/messages/${messageId}/cancel`,
     threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
     threadHandledExternally: (threadId: string) => `/signals/${threadId}/handled-externally`,

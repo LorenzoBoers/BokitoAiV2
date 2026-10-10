@@ -12,8 +12,15 @@ The most specific non-null layer wins. The result is capped by a ceiling:
 privacy-off means manual, the Govern ``messaging`` allowance (deny/ask/allow ->
 manual/assisted/autonomous) and a tripped channel breaker (assisted).
 
-Conversation overrides are temporary: closing clears them, assigning a person
-sets manual (reason ``assigned``), hand back clears them.
+Conversation overrides are temporary: closing clears them, Take over sets
+manual (reason ``operator_takeover``), hand back clears them. Assigning a
+person no longer holds the conversation: the owner says who is responsible,
+the AI handling says what the agent may do.
+
+Routing policy (``settings_json.ai_handling.routing``, channel override in
+``ai_config.routing``): what happens after a person replies on an agent-owned
+conversation, whether replies close the conversation, who owns a reopened
+conversation, and the bounce limit between agent and people.
 """
 
 from __future__ import annotations
@@ -51,6 +58,27 @@ REASON_ASSIGNED = "assigned"
 REASON_TAKEOVER = "operator_takeover"
 REASON_HANDOFF = "handoff_requested"
 REASON_ESCALATED = "escalated"
+# Too many agent <-> people handovers in a day: people keep it until hand back.
+REASON_BOUNCE = "bounce_limit"
+# Holds that only an explicit hand back releases (a reply does not).
+STICKY_HOLD_REASONS = (REASON_TAKEOVER, REASON_BOUNCE)
+
+AFTER_HUMAN_REPLY_OPTIONS: tuple[str, ...] = ("return_to_agent", "keep_with_human", "ask")
+REOPEN_OWNER_OPTIONS: tuple[str, ...] = ("same_owner", "route_again")
+ROUTING_KEYS: tuple[str, ...] = (
+    "after_human_reply",
+    "close_after_agent_reply",
+    "close_after_human_reply",
+    "reopen_owner",
+)
+DEFAULT_ROUTING: dict[str, Any] = {
+    "after_human_reply": "return_to_agent",
+    "close_after_agent_reply": False,
+    "close_after_human_reply": False,
+    "reopen_owner": "same_owner",
+}
+DEFAULT_BOUNCE_LIMIT = 3
+BOUNCE_WINDOW_HOURS = 24
 
 # Channels where anonymous contacts are normal (widget visitors stay pending
 # until they leave an email), so the new-contact safeguard does not apply.
@@ -112,12 +140,21 @@ def workspace_settings(tenant: Tenant | None) -> dict[str, Any]:
         except (TypeError, ValueError):
             return DEFAULT_BREAKER[key]
 
+    routing_raw = data.get("routing") if isinstance(data.get("routing"), dict) else {}
+    routing = {**DEFAULT_ROUTING, **normalize_routing(routing_raw)}
+    try:
+        bounce_limit = int(routing_raw.get("bounce_limit", DEFAULT_BOUNCE_LIMIT))
+    except (TypeError, ValueError):
+        bounce_limit = DEFAULT_BOUNCE_LIMIT
+    routing["bounce_limit"] = min(20, max(0, bounce_limit))
+
     return {
         "default": {"mode": normalize_mode(data.get("default")) or DEFAULT_WORKSPACE_MODE},
         "safeguards": {
             "certainty_threshold": min(10, max(1, threshold)),
             "new_contacts": bool(safeguards.get("new_contacts", True)),
         },
+        "routing": routing,
         "breaker": {
             "enabled": bool(breaker.get("enabled", True)),
             "max_autonomous_per_hour": _limit("max_autonomous_per_hour"),
@@ -132,6 +169,83 @@ def workspace_settings(tenant: Tenant | None) -> dict[str, Any]:
 
 def workspace_mode(tenant: Tenant | None) -> str:
     return workspace_settings(tenant)["default"]["mode"]
+
+
+def normalize_routing(raw: Any) -> dict[str, Any]:
+    """Only the valid routing keys with valid values (no defaults filled in)."""
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, Any] = {}
+    value = raw.get("after_human_reply")
+    if isinstance(value, str) and value in AFTER_HUMAN_REPLY_OPTIONS:
+        out["after_human_reply"] = value
+    for key in ("close_after_agent_reply", "close_after_human_reply"):
+        if isinstance(raw.get(key), bool):
+            out[key] = raw[key]
+    value = raw.get("reopen_owner")
+    if isinstance(value, str) and value in REOPEN_OWNER_OPTIONS:
+        out["reopen_owner"] = value
+    return out
+
+
+def channel_routing(account: ChannelAccount | None) -> dict[str, Any]:
+    """The channel's own routing values (keys it overrides)."""
+    return normalize_routing(account_ai_config(account).get("routing"))
+
+
+@dataclass
+class RoutingPolicy:
+    effective: dict[str, Any]
+    own: dict[str, Any]
+    inherited: dict[str, Any]
+    source: dict[str, str]
+    bounce_limit: int
+
+    def to_payload(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def resolve_routing(tenant: Tenant | None, account: ChannelAccount | None = None) -> RoutingPolicy:
+    """Workspace routing defaults with the channel's overrides on top."""
+    workspace = workspace_settings(tenant)["routing"]
+    inherited = {key: workspace[key] for key in ROUTING_KEYS}
+    own = channel_routing(account) if account is not None else {}
+    effective = {**inherited, **own}
+    source = {key: ("channel" if key in own else "workspace") for key in ROUTING_KEYS}
+    return RoutingPolicy(
+        effective=effective,
+        own=own,
+        inherited=inherited,
+        source=source,
+        bounce_limit=int(workspace["bounce_limit"]),
+    )
+
+
+def set_account_routing(account: ChannelAccount, patch: dict[str, Any]) -> None:
+    """Write channel overrides; a ``None`` value clears that key (follows workspace)."""
+    settings_obj = _json_obj(account.settings_json)
+    cfg = settings_obj.get("ai_config") if isinstance(settings_obj.get("ai_config"), dict) else {}
+    current = normalize_routing(cfg.get("routing"))
+    for key in ROUTING_KEYS:
+        if key not in patch:
+            continue
+        if patch[key] is None:
+            current.pop(key, None)
+        else:
+            current.update(normalize_routing({key: patch[key]}))
+    if current:
+        cfg["routing"] = current
+    else:
+        cfg.pop("routing", None)
+    settings_obj["ai_config"] = cfg
+    account.settings_json = json.dumps(settings_obj)
+
+
+async def routing_for_signal(
+    session: AsyncSession, tenant: Tenant | None, signal: Signal
+) -> RoutingPolicy:
+    account, _contact = await load_layers(session, signal.tenant_id, signal)
+    return resolve_routing(tenant, account)
 
 
 def account_ai_config(account: ChannelAccount | None) -> dict:
@@ -489,22 +603,26 @@ def on_assignment_change(
     before_kind: str | None = None,
     actor_id: str = "",
 ) -> None:
-    """Assigning a person makes the conversation manual; an agent or team hands back.
+    """Owner changes no longer hold the conversation; moving it to an agent releases one.
 
-    A person owner holds the conversation. Moving it to an agent or a team
-    clears that hold so the channel's AI handling (and the agent ceiling)
-    applies again.
+    Who owns the conversation and what the agent may do are two settings. A
+    person as owner keeps the channel's AI handling (assisted drafts for them).
+    Handing the conversation to an agent is an explicit "the agent handles
+    this", so every conversation hold (take over, handoff, escalation, bounce
+    limit) is released. Moving it to a team releases the legacy ``assigned``
+    hold only.
     """
     kind_changed = before_kind is not None and before_kind != (signal.assignee_kind or "")
     if signal.assigned_user_id == before_assignee and not kind_changed:
         return
-    if signal.assigned_user_id is not None:
-        if not is_held(signal):
-            hold_conversation(
-                session, signal, reason=REASON_ASSIGNED, actor_id=actor_id, via="assign"
-            )
-    elif (signal.ai_handling_reason or "") in (REASON_ASSIGNED, REASON_TAKEOVER):
+    reason = signal.ai_handling_reason or ""
+    if signal.assignee_kind == "agent" and is_held(signal):
+        release_conversation(session, signal, reason="assigned_to_agent", actor_id=actor_id, via="assign")
+    elif signal.assignee_kind == "team" and reason == REASON_ASSIGNED:
         release_conversation(session, signal, reason="unassigned", actor_id=actor_id, via="assign")
+    elif signal.assignee_kind == "user" and reason == REASON_ASSIGNED:
+        # Legacy hold from before owner and AI handling were separated.
+        release_conversation(session, signal, reason="reassigned", actor_id=actor_id, via="assign")
 
 
 def set_account_mode(account: ChannelAccount, mode: str | None) -> None:
@@ -630,16 +748,41 @@ async def set_ai_handling(
         signal.ai_handling = mode
         signal.ai_handling_reason = (reason or (REASON_TAKEOVER if mode == "manual" else "operator")) if mode else None
         if assign_to_me is not None and mode == "manual":
-            if signal.assignee_kind == "team":
-                from app.services.ownership import picked_up_event
+            from app.services.ownership import picked_up_event, set_owner
 
+            if signal.assignee_kind == "team":
                 session.add(
                     await picked_up_event(session, signal, assign_to_me, signal.assignee_team_id, via="take_over")
                 )
-            signal.assigned_user_id = assign_to_me
-        elif mode is None and (before == "manual"):
-            # Hand back: the AI owns the next reply again.
-            signal.assigned_user_id = None
+            set_owner(signal, "user", assign_to_me, by_user_id=assign_to_me)
+        elif mode is None and before == "manual":
+            # Hand back: the agent owns the next reply again when it may.
+            from app.services.handover import hand_to_agent
+
+            signal.ai_handling_reason = None
+            actor_uuid = UUID(actor_id) if actor_type == "user" and actor_id else None
+            became_owner = await hand_to_agent(
+                session,
+                tenant,
+                signal,
+                actor_type=actor_type,
+                actor_id=actor_id,
+                via="hand_back",
+                by_user_id=actor_uuid,
+            )
+            if (
+                not became_owner
+                and actor_uuid is not None
+                and signal.assignee_kind == "user"
+                and signal.assigned_user_id == actor_uuid
+            ):
+                # The agent may not own it (assisted / manual channel): the
+                # person who hands back returns it to the channel team so it
+                # shows in the queue instead of staying on their plate.
+                from app.services.ownership import resolve_assignee, set_owner
+
+                team_id = await resolve_assignee(session, tenant.id, signal, "team", None)
+                set_owner(signal, "team", team_id, by_user_id=actor_uuid)
         signal.updated_at = datetime.utcnow()
         session.add(signal)
         affected = [signal]

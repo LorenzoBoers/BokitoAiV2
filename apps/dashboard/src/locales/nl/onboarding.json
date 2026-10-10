@@ -55,7 +55,7 @@
     "uiLabel": "Jouw interface",
     "uiEn": "English",
     "uiNl": "Nederlands",
-    "workspaceLabel": "Werktaal van de organisatie",
+    "workspaceLabel": "Jouw organisatie",
     "workspaceHint": "Agents schrijven, denken en leggen uit in deze taal — ook in operatorchats en setup. Klantantwoorden kunnen per kanaal nog de taal van de klant volgen.",
     "lang": {
       "nl": "Nederlands",

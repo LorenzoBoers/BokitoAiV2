@@ -1392,6 +1392,28 @@ async def _store_avatar(user: User, upload: UploadFile, session: AsyncSession) -
     return {"avatar": {"url": user.avatar_url, "path": user.avatar_url}}
 
 
+@router.get("/avatars/{user_id}")
+async def public_user_avatar(
+    user_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Profile photo for email signatures. Mail clients fetch this with no session."""
+    from app.services.signatures import raster_avatar_bytes
+
+    user = (
+        await session.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+    parsed = raster_avatar_bytes(user.avatar_url) if user else None
+    if parsed is None:
+        raise HTTPException(status_code=404, detail="No avatar")
+    mime, data = parsed
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @router.post("/users/me/avatar")
 async def upload_me_avatar(
     auth: Annotated[AuthContext, Depends(get_current_auth)],

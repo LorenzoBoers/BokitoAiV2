@@ -4,18 +4,30 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronRight, FolderKanban, Loader2, Plus, Workflow } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
+import ContentHeader from '../components/shell/ContentHeader'
 import { Badge } from '../components/ui/badge'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { Hashtag } from '../components/ui/HashtagMark'
 import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
+import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { flowTitle } from '../lib/flow-title'
 import { normalizeHashtag, stripHash } from '../lib/hashtag'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
+import { listSignalTags, type SignalTag } from '../lib/signals-api'
 import { stageLabel } from '../lib/tickets-api'
 import { timeAgo } from '../lib/time-ago'
 import { cn } from '../lib/utils'
@@ -26,14 +38,13 @@ import { workstreamPath } from '../lib/workstream-ui'
 export default function WorkstreamsPage() {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = useIsAdmin()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [workstreams, setWorkstreams] = useState<WorkstreamRow[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
-  const [newName, setNewName] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -56,66 +67,56 @@ export default function WorkstreamsPage() {
     void load()
   }, [load])
 
-  const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return
+    if (!isAdmin) return
+    setCreateOpen(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('new')
+    setSearchParams(next, { replace: true })
+  }, [isAdmin, searchParams, setSearchParams])
 
-  const create = async () => {
-    const name = normalizeHashtag(newName)
-    if (!name) return
-    setCreating(true)
-    try {
-      const created = await createWorkstream({ name })
-      setNewName('')
-      toast.success(t('workstreamsPage.created'))
-      navigate(workstreamPath(created.id))
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('workstreamsPage.createError')))
-    } finally {
-      setCreating(false)
-    }
-  }
+  const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-text-heading">
-            <Workflow size={22} className="text-text-muted" />
-            {t('workstreamsPage.title')}
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-text-muted">{t('workstreamsPage.subtitle')}</p>
-        </div>
-        {isAdmin ? (
-          <div className="flex items-center gap-2">
-            <span className="relative">
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-accent">
-                #
-              </span>
-              <Input
-                autoFocus={searchParams.get('new') === '1'}
-                value={newName}
-                onChange={(e) => setNewName(stripHash(e.target.value))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void create()
-                }}
-                placeholder={t('workstreamsPage.newPlaceholder')}
-                aria-label={t('workstreamsPage.newPlaceholder')}
-                className="h-9 w-56 pl-6 text-sm"
-              />
-            </span>
-            <Button type="button" size="sm" disabled={creating || !newName.trim()} onClick={() => void create()}>
-              {creating ? <Loader2 size={13} className="mr-1 animate-spin" /> : <Plus size={13} className="mr-1" />}
-              {t('workstreamsPage.create')}
+      <ContentHeader
+        title={t('workstreamsPage.title')}
+        subtitle={t('workstreamsPage.subtitle')}
+        className="mb-0"
+        meta={
+          isAdmin ? (
+            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              {t('workstreamsPage.new')}
             </Button>
-          </div>
-        ) : null}
-      </header>
+          ) : null
+        }
+      />
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
       {loading ? (
         <TableRowsSkeleton rows={6} />
       ) : workstreams.length === 0 ? (
-        <EmptyState tone="dashed" size="sm" icon={Workflow} title={t('workstreamsPage.empty')} />
+        <EmptyState
+          icon={Workflow}
+          title={t('workstreamsPage.emptyTitle')}
+          description={t('workstreamsPage.emptyBody')}
+          action={
+            isAdmin ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" aria-hidden />
+                {t('workstreamsPage.new')}
+              </Button>
+            ) : undefined
+          }
+          footer={
+            <Link to="/docs/ai/workstreams" className="text-xs font-medium text-accent hover:underline">
+              {t('pageGuides.learnMore')}
+            </Link>
+          }
+        />
       ) : (
         <ul className="space-y-2" data-testid="flows-list">
           {workstreams.map((ws) => (
@@ -126,7 +127,7 @@ export default function WorkstreamsPage() {
         </ul>
       )}
 
-      {isAdmin && !loading ? (
+      {isAdmin && !loading && workstreams.length > 0 ? (
         <p className="text-xs text-text-muted">
           {t('workstreamsPage.categoriesHint')}{' '}
           <Link to="/settings/action-tags" className="font-medium text-accent hover:underline">
@@ -134,7 +135,187 @@ export default function WorkstreamsPage() {
           </Link>
         </p>
       ) : null}
+
+      <CreateFlowDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(id) => navigate(workstreamPath(id))}
+      />
+
+      <PageRelatedLinks
+        links={[
+          { to: '/projects', label: t('pageGuides.related.projects') },
+          { to: '/settings/action-tags', label: t('pageGuides.related.categories') },
+          { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
+        ]}
+      />
     </PageContent>
+  )
+}
+
+function CreateFlowDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreated: (workstreamId: string) => void
+}) {
+  const { t } = useTranslation('nav')
+  const { token } = useAuth()
+  const [query, setQuery] = useState('')
+  const [tags, setTags] = useState<SignalTag[]>([])
+  const [loading, setLoading] = useState(false)
+  const [creating, setCreating] = useState(false)
+
+  useEffect(() => {
+    if (!open || !token) return
+    let cancelled = false
+    setLoading(true)
+    setQuery('')
+    void listSignalTags(token)
+      .then((rows) => {
+        if (!cancelled) setTags(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setTags([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, token])
+
+  const available = useMemo(
+    () => tags.filter((tag) => !tag.workstreamId).sort((a, b) => a.name.localeCompare(b.name)),
+    [tags],
+  )
+
+  const normalized = normalizeHashtag(query)
+  const matches = useMemo(() => {
+    if (!normalized) return available
+    return available.filter(
+      (tag) =>
+        tag.name.includes(normalized) || tag.description.toLowerCase().includes(normalized),
+    )
+  }, [available, normalized])
+
+  const canCreateTag = Boolean(normalized) && matches.length === 0
+
+  const createWithName = async (name: string) => {
+    const tagName = normalizeHashtag(name)
+    if (!tagName || creating) return
+    setCreating(true)
+    try {
+      const created = await createWorkstream({ name: tagName })
+      toast.success(t('workstreamsPage.created'))
+      onOpenChange(false)
+      onCreated(created.id)
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('workstreamsPage.createError')))
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('workstreamsPage.dialogTitle')}</DialogTitle>
+          <DialogDescription>{t('workstreamsPage.dialogBody')}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-accent">
+              #
+            </span>
+            <Input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(stripHash(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                if (canCreateTag) {
+                  void createWithName(normalized)
+                  return
+                }
+                if (matches.length === 1) void createWithName(matches[0].name)
+              }}
+              placeholder={t('workstreamsPage.dialogSearchPlaceholder')}
+              aria-label={t('workstreamsPage.dialogSearchPlaceholder')}
+              className="h-9 pl-6 text-sm"
+              disabled={creating}
+            />
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-text-muted">
+              <Loader2 size={14} className="animate-spin" aria-hidden />
+              {t('workstreamsPage.dialogLoadingTags')}
+            </div>
+          ) : matches.length > 0 ? (
+            <div
+              className="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto"
+              role="listbox"
+              aria-label={t('workstreamsPage.dialogTagsAria')}
+            >
+              {matches.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  role="option"
+                  disabled={creating}
+                  onClick={() => void createWithName(tag.name)}
+                  className={cn(
+                    'inline-flex max-w-full items-center gap-0.5 rounded-full border border-border/70 bg-bg-input/40 px-2.5 py-1',
+                    'text-xs font-medium text-text-primary transition',
+                    'hover:border-accent/50 hover:bg-accent/10 hover:text-accent',
+                    'disabled:pointer-events-none disabled:opacity-60',
+                  )}
+                  title={tag.description || undefined}
+                >
+                  <Hashtag name={tag.name} category={tag.isCategory} className="text-xs" />
+                </button>
+              ))}
+            </div>
+          ) : canCreateTag ? (
+            <div className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center">
+              <p className="text-xs text-text-muted">{t('workstreamsPage.dialogNoMatch')}</p>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-3"
+                disabled={creating}
+                onClick={() => void createWithName(normalized)}
+              >
+                {creating ? (
+                  <Loader2 size={13} className="mr-1 animate-spin" aria-hidden />
+                ) : (
+                  <Plus size={13} className="mr-1" aria-hidden />
+                )}
+                {t('workstreamsPage.dialogCreateTag', { name: normalized })}
+              </Button>
+            </div>
+          ) : (
+            <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center text-xs text-text-muted">
+              {available.length === 0
+                ? t('workstreamsPage.dialogNoTags')
+                : t('workstreamsPage.dialogTypeToFilter')}
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={creating}>
+            {t('workstreamsPage.cancel')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

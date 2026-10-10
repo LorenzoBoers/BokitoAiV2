@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, Settings2, ShieldAlert } from 'lucide-react'
+import { ChevronDown, Settings2, ShieldAlert } from 'lucide-react'
 import {
   AI_HANDLING_META,
   AI_HANDLING_MODES,
@@ -12,6 +12,8 @@ import {
   type AiHandlingScope,
 } from '../../lib/ai-handling'
 import { cn } from '../../lib/utils'
+import { controlChipClass } from '../ui/select'
+import { SettingRow } from '../ui/entity-row'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +34,8 @@ type Props = {
   /** Owner/admin: may raise to autonomous at any scope. */
   canRaise: boolean
   variant?: 'chip' | 'row' | 'cards'
+  /** Row layout. `field` matches channel settings; `inline` matches side panels. */
+  density?: 'inline' | 'field'
   saving?: boolean
   disabled?: boolean
   /** Row variant: left-hand title and description. */
@@ -112,7 +116,7 @@ function ModeMenu({
             disabled={!allowed}
             data-testid={`ai-handling-option-${mode}`}
             data-default={isDefault ? 'true' : undefined}
-            className="items-start gap-2.5 py-2"
+            className={cn('items-start gap-2.5 py-2', selected && 'bg-accent/15')}
             title={allowed ? undefined : t('aiHandling.needsAdmin')}
             onSelect={() => void onChange(isDefault ? null : mode)}
           >
@@ -132,7 +136,6 @@ function ModeMenu({
                 {t(`aiHandling.modes.${mode}.description`)}
               </span>
             </span>
-            {selected ? <Check size={14} className="mt-0.5 shrink-0 text-text-secondary" /> : null}
           </DropdownMenuItem>
         )
       })}
@@ -187,7 +190,7 @@ function Chip({
         data-testid={testId ?? 'ai-handling-chip'}
         data-mode={mode}
         className={cn(
-          'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover/70 disabled:opacity-50',
+          controlChipClass,
           handling?.own && AI_HANDLING_META[mode].tone === 'ai' && 'border-ai/30',
           className,
         )}
@@ -215,6 +218,7 @@ export default function AiHandlingPicker({
   onChange,
   canRaise,
   variant = 'chip',
+  density = 'inline',
   saving = false,
   disabled = false,
   label,
@@ -247,7 +251,6 @@ export default function AiHandlingPicker({
                   icon={<AiHandlingIcon mode={mode} size={16} />}
                   title={t(`aiHandling.modes.${mode}.label`)}
                   description={t(`aiHandling.modes.${mode}.description`)}
-                  badge={active ? <Check size={14} className="ml-auto text-text-secondary" aria-hidden /> : null}
                   className="gap-1.5"
                 />
               </div>
@@ -283,12 +286,8 @@ export default function AiHandlingPicker({
   if (variant === 'chip') return menu
 
   return (
-    <div className={cn('flex items-center justify-between gap-4', className)}>
-      <div className="min-w-0">
-        {label ? <p className="text-sm font-medium text-text-heading">{label}</p> : null}
-        {description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}
-      </div>
+    <SettingRow density={density} label={label ?? ''} hint={description} className={className}>
       {menu}
-    </div>
+    </SettingRow>
   )
 }

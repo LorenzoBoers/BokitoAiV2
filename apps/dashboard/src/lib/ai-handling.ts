@@ -1,4 +1,6 @@
-import { Hand, PenLine, Zap, type LucideIcon } from 'lucide-react'
+import { Hand, type LucideIcon, type LucideProps } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { AssistedModeIcon, AutonomousModeIcon } from './ai-handling-icons'
 
 /**
  * AI handling: one setting with three modes, resolved over four layers
@@ -6,6 +8,8 @@ import { Hand, PenLine, Zap, type LucideIcon } from 'lucide-react'
  * Govern, privacy and the channel breaker cap the result.
  *
  * Autonomous and assisted are AI work and render violet; manual renders gray.
+ * Icons: Autonomous = A in circular arrows (violet); Assisted = grey+violet
+ * handshake; Manual = grey Hand.
  */
 export type AiHandlingMode = 'autonomous' | 'assisted' | 'manual'
 export type AiHandlingScope = 'workspace' | 'channel' | 'contact' | 'conversation'
@@ -13,9 +17,9 @@ export type AiHandlingScope = 'workspace' | 'channel' | 'contact' | 'conversatio
 export const AI_HANDLING_MODES: readonly AiHandlingMode[] = ['autonomous', 'assisted', 'manual']
 
 type ModeMeta = {
-  icon: LucideIcon
+  icon: LucideIcon | ComponentType<LucideProps>
   tone: 'ai' | 'muted'
-  /** Icon colour. */
+  /** Icon colour (assisted paints both tones itself). */
   iconClass: string
   /** Small pill / selected-card surface. */
   surfaceClass: string
@@ -23,15 +27,16 @@ type ModeMeta = {
 
 export const AI_HANDLING_META: Record<AiHandlingMode, ModeMeta> = {
   autonomous: {
-    icon: Zap,
+    icon: AutonomousModeIcon,
     tone: 'ai',
     iconClass: 'text-ai-ink',
     surfaceClass: 'border-ai/30 bg-ai/10 text-ai-ink',
   },
   assisted: {
-    icon: PenLine,
+    icon: AssistedModeIcon,
     tone: 'ai',
-    iconClass: 'text-ai-ink',
+    // Dual-tone handshake: leave empty so grey + violet paths both show.
+    iconClass: '',
     surfaceClass: 'border-ai/30 bg-ai/10 text-ai-ink',
   },
   manual: {

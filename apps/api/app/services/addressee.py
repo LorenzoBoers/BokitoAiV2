@@ -7,8 +7,10 @@ Resolution, first match wins:
 3. Automatic (routed ``auto``):
    a. the conversation owner when that is a person;
    b. whoever handed the agent the work (assigned the conversation or gave the task);
-   c. the conversation's owner team, else the channel's owner team;
-   d. All people.
+   c. the last person or team that handled the conversation;
+   d. the contact's owner (person or team);
+   e. the conversation's owner team, else the channel's owner team;
+   f. All people.
 
 A person who is away is skipped; the question goes to the next step.
 Notifications for the decision go to the addressee only: the person, or the
@@ -219,6 +221,26 @@ async def resolve_addressee(
     if await _available_member(session, tenant_id, giver):
         return Addressee("user", user_id=giver)
     if signal is not None:
+        last_kind = signal.last_human_owner_kind or ""
+        if last_kind == "user" and await _available_member(
+            session, tenant_id, signal.last_human_owner_user_id
+        ):
+            return Addressee("user", user_id=signal.last_human_owner_user_id)
+        if last_kind == "team" and await _valid_team(session, tenant_id, signal.last_human_owner_team_id):
+            return Addressee("team", team_id=signal.last_human_owner_team_id)
+        if signal.contact_id:
+            from app.models.channel import Contact
+            from app.services.ownership import contact_owner
+
+            owner = await contact_owner(
+                session, tenant_id, await session.get(Contact, signal.contact_id)
+            )
+            if owner is not None:
+                kind, owner_id = owner
+                if kind == "user" and await _available_member(session, tenant_id, owner_id):
+                    return Addressee("user", user_id=owner_id)
+                if kind == "team":
+                    return Addressee("team", team_id=owner_id)
         if signal.assignee_kind == "team" and await _valid_team(session, tenant_id, signal.assignee_team_id):
             return Addressee("team", team_id=signal.assignee_team_id)
         channel_team = await _channel_team(session, signal)

@@ -429,9 +429,9 @@ async def ingest_inbound(
             from app.services.signals import apply_email_routing
 
             await apply_email_routing(session, tenant_id, signal)
-        from app.services.distribution import distribute
+        from app.services.ownership import route_new_conversation
 
-        await distribute(session, signal)
+        await route_new_conversation(session, signal, account=account, contact=contact)
 
     message = SignalMessage(
         signal_id=signal.id,
@@ -471,8 +471,13 @@ async def ingest_inbound(
         # A fresh customer message must surface the thread again: reopen a
         # closed conversation and wake a snoozed one (snooze-until-reply).
         # Spam stays parked, and backfilled older mail never reopens a thread.
+        reopened_from_closed = signal.status == "closed"
         signal.status = "open"
         signal.snoozed_until = None
+        if reopened_from_closed:
+            from app.services.handover import apply_reopen_policy
+
+            await apply_reopen_policy(session, None, signal, account=account, contact=contact)
     if not created and not member_hit and is_newest:
         # The contact wrote again: an open reply proposal answered the previous
         # message and is now out of date. Set it aside; the agent drafts anew.

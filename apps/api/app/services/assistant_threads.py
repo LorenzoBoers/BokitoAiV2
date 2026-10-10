@@ -370,11 +370,18 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
                 # The session ends through a decision card, never by the agent
                 # declaring itself done in prose.
                 intro += (
-                    "This is an inline session on that conversation. When the "
-                    "work is done, call propose_session_checkout with a short "
-                    "summary of what you did and what you recommend; the "
-                    "teammate ends the session or tells you to keep going. Do "
-                    "not ask them to close it in plain text.\n"
+                    "This is an inline session on that conversation. The "
+                    "transcript above is already in front of you: do not "
+                    "announce that you are going to read or check it, and do "
+                    "not narrate a step unless a tool call actually follows. "
+                    "Answer directly and briefly (one or two short messages); "
+                    "when a reply to the contact is the obvious next step, "
+                    "draft it with suggest_thread_reply right away instead of "
+                    "asking whether you should. When the work is done, call "
+                    "propose_session_checkout with a short summary of what you "
+                    "did and what you recommend; the teammate ends the session "
+                    "or tells you to keep going. Do not ask them to close it in "
+                    "plain text.\n"
                 )
             remaining = [
                 {"role": "user", "content": intro + transcript},

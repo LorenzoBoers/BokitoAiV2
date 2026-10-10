@@ -485,17 +485,20 @@ async def resolve_decision(
         signal = sig_result.scalar_one_or_none()
         if signal:
             from app.models.signal import SignalEvent
-            from app.services.ai_handling import REASON_ESCALATED, hold_conversation
+            from app.services.ai_handling import REASON_ESCALATED
+            from app.services.handover import escalate_to_human
 
-            if user_id and not signal.assigned_user_id:
-                signal.assigned_user_id = user_id
-            hold_conversation(
+            # The person who chose to escalate takes it; otherwise the agent's
+            # escalation chain picks the owner.
+            target = {"kind": "user", "id": str(user_id)} if user_id and signal.assignee_kind != "user" else None
+            await escalate_to_human(
                 session,
                 signal,
-                reason=REASON_ESCALATED,
+                via="decision_escalate",
                 actor_type="user" if user_id else "system",
                 actor_id=str(user_id) if user_id else "",
-                via="decision_escalate",
+                to=target,
+                hold_reason=REASON_ESCALATED,
             )
 
             session.add(

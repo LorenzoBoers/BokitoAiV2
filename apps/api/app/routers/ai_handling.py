@@ -65,6 +65,38 @@ class DisclosureSettings(BaseModel):
     text: str = ""
 
 
+AfterHumanReply = Literal["return_to_agent", "keep_with_human", "ask"]
+ReopenOwner = Literal["same_owner", "route_again"]
+
+
+class RoutingSettings(BaseModel):
+    """Workspace routing policy (what happens around handovers)."""
+
+    after_human_reply: AfterHumanReply = "return_to_agent"
+    close_after_agent_reply: bool = False
+    close_after_human_reply: bool = False
+    reopen_owner: ReopenOwner = "same_owner"
+    # Agent <-> people handovers per conversation per 24h before people keep it; 0 = off.
+    bounce_limit: int = Field(default=3, ge=0, le=20)
+
+
+class RoutingOverride(BaseModel):
+    """Channel values; a null field follows the workspace default."""
+
+    after_human_reply: AfterHumanReply | None = None
+    close_after_agent_reply: bool | None = None
+    close_after_human_reply: bool | None = None
+    reopen_owner: ReopenOwner | None = None
+
+
+class RoutingPolicyPayload(BaseModel):
+    effective: RoutingOverride
+    own: RoutingOverride
+    inherited: RoutingOverride
+    source: dict[str, str]
+    bounce_limit: int
+
+
 class ExceptionRow(BaseModel):
     id: str
     label: str = ""
@@ -95,6 +127,7 @@ class AiHandlingOverview(BaseModel):
     safeguards: SafeguardSettings
     breaker: BreakerSettings
     disclosure: DisclosureSettings
+    routing: RoutingSettings
     disclosure_preview: str | None = None
     catalog: list[CatalogEntry]
     exceptions: Exceptions
@@ -112,6 +145,7 @@ class AiHandlingSettingsUpdate(BaseModel):
     safeguards: SafeguardSettings | None = None
     breaker: BreakerSettings | None = None
     disclosure: DisclosureSettings | None = None
+    routing: RoutingSettings | None = None
 
 
 class Evidence(BaseModel):
@@ -164,6 +198,7 @@ async def _overview(session: AsyncSession, auth: AuthContext) -> dict[str, Any]:
         "safeguards": settings["safeguards"],
         "breaker": settings["breaker"],
         "disclosure": settings["disclosure"],
+        "routing": settings["routing"],
         "disclosure_preview": svc.disclosure_text(
             tenant, language=resolve_workspace_language(tenant)
         ),
@@ -237,7 +272,13 @@ async def update_ai_handling_settings(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Safeguards, breaker limits and AI disclosure (owner/admin)."""
+    """Safeguards, breaker limits, AI disclosure and the routing policy (owner/admin).
+
+    Routing: what happens after a person replies on an agent-owned
+    conversation, whether replies close the conversation, who owns a reopened
+    conversation and the bounce limit. Channels may override every routing
+    value except the bounce limit (``PUT /ai-handling/channel/{id}/routing``).
+    """
     from app.services.audit import record_audit
 
     auth.require_role("owner", "admin")
@@ -251,6 +292,8 @@ async def update_ai_handling_settings(
         disclosure = body.disclosure.model_dump()
         disclosure["text"] = disclosure["text"].strip()[:200]
         patch["disclosure"] = disclosure
+    if body.routing is not None:
+        patch["routing"] = body.routing.model_dump()
     after = svc.update_workspace_block(auth.tenant, patch)
     session.add(auth.tenant)
     await record_audit(
@@ -268,6 +311,59 @@ async def update_ai_handling_settings(
     )
     await session.commit()
     return await _overview(session, auth)
+
+
+async def _channel_for(session: AsyncSession, auth: AuthContext, account_id: UUID) -> ChannelAccount:
+    account = await session.get(ChannelAccount, account_id)
+    if account is None or account.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    return account
+
+
+@router.get("/channel/{account_id}/routing", response_model=RoutingPolicyPayload)
+async def get_channel_routing(
+    account_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Routing policy for one channel: effective values, the channel's own
+    overrides, the inherited workspace defaults and per-key source."""
+    account = await _channel_for(session, auth, account_id)
+    return svc.resolve_routing(auth.tenant, account).to_payload()
+
+
+@router.put("/channel/{account_id}/routing", response_model=RoutingPolicyPayload)
+async def set_channel_routing(
+    account_id: UUID,
+    body: RoutingOverride,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Override routing values on one channel (owner/admin). Send a field as
+    ``null`` to follow the workspace default again; omitted fields stay."""
+    from app.services.audit import record_audit
+
+    auth.require_role("owner", "admin")
+    account = await _channel_for(session, auth, account_id)
+    before = svc.channel_routing(account)
+    patch = body.model_dump(exclude_unset=True)
+    svc.set_account_routing(account, patch)
+    session.add(account)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="ai_handling:routing",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="channel",
+        resource_id=str(account.id),
+        summary=f"Routing policy changed on {account.display_name or account.address}",
+        before=before,
+        after=svc.channel_routing(account),
+        commit=False,
+    )
+    await session.commit()
+    return svc.resolve_routing(auth.tenant, account).to_payload()
 
 
 @router.get("/{scope}/{target_id}", response_model=AiHandlingPayload)

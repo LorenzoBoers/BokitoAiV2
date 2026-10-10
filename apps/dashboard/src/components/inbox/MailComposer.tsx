@@ -42,7 +42,7 @@ import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDict
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
 import type { MessageAttachment } from '../../lib/inbox-api'
-import { listChannels, type ChannelRow } from '../../lib/channels-api'
+import { channelCanSend, listChannels, type ChannelRow } from '../../lib/channels-api'
 import {
   getConnectionSignature,
   listEmailConnections,
@@ -454,9 +454,10 @@ export default function MailComposer({
         const mailboxes = rows.filter(
           (row) =>
             row.channel === 'email' &&
-            row.isEnabled &&
-            row.capabilities.includes('send') &&
-            (row.kind === 'email_mailbox' || row.kind === 'email_relay'),
+            (row.kind === 'email_mailbox' || row.kind === 'email_relay') &&
+            // Match API `account_can_send` / ReplyComposer: capability alone
+            // is not enough (relay in setup still advertises send).
+            channelCanSend(row),
         )
         setEmailChannels(mailboxes)
         setSelectedChannelAccountId((prev) => {

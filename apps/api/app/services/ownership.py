@@ -263,11 +263,13 @@ def for_you_predicate(
     """Work in conversations that is yours.
 
     - you own it;
-    - the turn is yours, or a custom team's you are in;
-    - a question is addressed to All people;
-    - you were mentioned and have not opened it since.
+    - the turn is yours, or any team you are in (custom teams and All people);
+    - a custom team you are in owns the conversation (not standing group rooms);
+    - you were mentioned and have not opened it since;
+    - the customer asked for a person (handoff / escalate).
 
-    Customer replies waiting on All people stay in Unassigned, not here.
+    Unassigned still lists every team-owned conversation; For you overlaps when
+    it is that team's turn (including All people waiting for a reply).
     """
     from app.models.notification import Notification
 
@@ -276,8 +278,12 @@ def for_you_predicate(
         and_(Signal.turn_kind == "user", Signal.turn_user_id == user_id),
     ]
     custom = {t for t in team_ids if t != people_team_id}
+    teams_for_turn = set(custom)
+    if people_team_id is not None:
+        teams_for_turn.add(people_team_id)
+    if teams_for_turn:
+        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_team_id.in_(teams_for_turn)))
     if custom:
-        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_team_id.in_(custom)))
         # Team-owned customer work belongs here. Standing group rooms do not —
         # they only appear when it is actually the team's turn.
         clauses.append(
@@ -285,14 +291,6 @@ def for_you_predicate(
                 Signal.assignee_kind == "team",
                 Signal.assignee_team_id.in_(custom),
                 Signal.source != "team",
-            )
-        )
-    if people_team_id is not None:
-        clauses.append(
-            and_(
-                Signal.turn_kind == "team",
-                Signal.turn_team_id == people_team_id,
-                Signal.turn_reason == "question",
             )
         )
     clauses.append(
@@ -319,16 +317,11 @@ def turn_is_mine_predicate(
     """The subset of For you where you must act now (sorted first, counted on the badge)."""
     clauses = [and_(Signal.turn_kind == "user", Signal.turn_user_id == user_id)]
     custom = {t for t in team_ids if t != people_team_id}
-    if custom:
-        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_team_id.in_(custom)))
+    teams_for_turn = set(custom)
     if people_team_id is not None:
-        clauses.append(
-            and_(
-                Signal.turn_kind == "team",
-                Signal.turn_team_id == people_team_id,
-                Signal.turn_reason == "question",
-            )
-        )
+        teams_for_turn.add(people_team_id)
+    if teams_for_turn:
+        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_team_id.in_(teams_for_turn)))
     return or_(*clauses)
 
 
@@ -365,7 +358,11 @@ def set_owner(
     *,
     by_user_id: UUID | None = None,
 ) -> None:
-    """Point the conversation at a new owner (caller commits)."""
+    """Point the conversation at a new owner (caller commits).
+
+    A person or team owner is also remembered as ``last_human_owner_*`` so the
+    conversation can return there when an agent hands it back.
+    """
     if kind not in OWNER_KINDS:
         raise ValueError("Invalid owner kind")
     signal.assignee_kind = kind
@@ -373,7 +370,217 @@ def set_owner(
     signal.assignee_team_id = owner_id if kind == "team" else None
     if kind == "agent":
         signal.agent_id = owner_id
+    else:
+        remember_human_owner(signal, kind, owner_id)
     signal.assigned_by_user_id = by_user_id
+
+
+def remember_human_owner(signal: Signal, kind: str, owner_id: UUID | None) -> None:
+    """Record the last person or team that handled this conversation."""
+    if kind == "user" and owner_id is not None:
+        signal.last_human_owner_kind = "user"
+        signal.last_human_owner_user_id = owner_id
+        signal.last_human_owner_team_id = None
+    elif kind == "team" and owner_id is not None:
+        signal.last_human_owner_kind = "team"
+        signal.last_human_owner_user_id = None
+        signal.last_human_owner_team_id = owner_id
+
+
+def human_owner_payload(signal: Signal) -> dict[str, Any] | None:
+    kind = signal.last_human_owner_kind or ""
+    if kind == "user" and signal.last_human_owner_user_id:
+        return {"kind": "user", "id": str(signal.last_human_owner_user_id)}
+    if kind == "team" and signal.last_human_owner_team_id:
+        return {"kind": "team", "id": str(signal.last_human_owner_team_id)}
+    return None
+
+
+async def _active_member(session: AsyncSession, tenant_id: UUID, user_id: UUID | None) -> bool:
+    if user_id is None:
+        return False
+    from app.models.auth import Membership
+
+    membership = (
+        await session.execute(
+            select(Membership).where(
+                Membership.tenant_id == tenant_id, Membership.user_id == user_id
+            )
+        )
+    ).scalar_one_or_none()
+    return membership is not None
+
+
+async def _team_exists(session: AsyncSession, tenant_id: UUID, team_id: UUID | None) -> bool:
+    if team_id is None:
+        return False
+    team = await session.get(Team, team_id)
+    return team is not None and team.tenant_id == tenant_id
+
+
+async def contact_owner(
+    session: AsyncSession, tenant_id: UUID, contact: Any
+) -> tuple[str, UUID] | None:
+    """Validated ``(kind, id)`` owner of a contact, following merges."""
+    if contact is None:
+        return None
+    if getattr(contact, "merged_into_id", None):
+        from app.models.channel import Contact
+
+        merged = await session.get(Contact, contact.merged_into_id)
+        if merged is not None and merged.tenant_id == tenant_id:
+            contact = merged
+    kind = getattr(contact, "owner_kind", "") or ""
+    if kind == "user" and await _active_member(session, tenant_id, contact.owner_user_id):
+        return "user", contact.owner_user_id
+    if kind == "team" and await _team_exists(session, tenant_id, contact.owner_team_id):
+        return "team", contact.owner_team_id
+    return None
+
+
+async def human_fallback_owner(
+    session: AsyncSession, signal: Signal, *, contact: Any = None
+) -> tuple[str, UUID]:
+    """Where a conversation lands when it leaves the agent.
+
+    Chain: last human owner (still a member / existing team) -> contact owner
+    -> channel owner team -> All people. Never returns an agent.
+    """
+    tenant_id = signal.tenant_id
+    kind = signal.last_human_owner_kind or ""
+    if kind == "user" and await _active_member(session, tenant_id, signal.last_human_owner_user_id):
+        return "user", signal.last_human_owner_user_id  # type: ignore[return-value]
+    if kind == "team" and await _team_exists(session, tenant_id, signal.last_human_owner_team_id):
+        return "team", signal.last_human_owner_team_id  # type: ignore[return-value]
+    if contact is None and signal.contact_id:
+        from app.models.channel import Contact
+
+        contact = await session.get(Contact, signal.contact_id)
+    owner = await contact_owner(session, tenant_id, contact)
+    if owner is not None:
+        return owner
+    team_id = await resolve_assignee(session, tenant_id, signal, "team", None)
+    return "team", team_id
+
+
+async def route_new_conversation(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    tenant: Any = None,
+    account: Any = None,
+    contact: Any = None,
+) -> dict[str, Any] | None:
+    """Pick the first owner of a new external conversation (caller commits).
+
+    1. An inbox rule already assigned a person: keep it.
+    2. The contact has an owner and the agent may not take the conversation
+       (manual, held, no channel agent): that person or team owns it.
+    3. The channel agent may own it (autonomous or assisted): the agent owns
+       it first; a contact owner is remembered as the person it hands to.
+    4. Otherwise the channel owner team owns it and ``distribute`` may hand
+       it to a person straight away.
+
+    Returns the ``auto_assigned`` event payload when the owner changed.
+    """
+    from app.models.signal import SignalEvent
+    from app.services.distribution import distribute
+
+    if signal.channel in INTERNAL_CHANNELS:
+        return None
+    if signal.assignee_kind == "user" and signal.assigned_user_id is not None:
+        return None
+
+    tenant_id = signal.tenant_id
+    if tenant is None:
+        from app.models.auth import Tenant
+
+        tenant = await session.get(Tenant, tenant_id)
+    from app.services import ai_handling
+    from app.services.routing import resolve_inbound_agent_for_signal
+
+    if account is None or contact is None:
+        loaded_account, loaded_contact = await ai_handling.load_layers(session, tenant_id, signal)
+        account = account or loaded_account
+        contact = contact or loaded_contact
+    agent = await resolve_inbound_agent_for_signal(session, signal)
+    handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal, agent=agent)
+    agent_can_own = await agent_may_own(session, signal, agent=agent, account=account, tenant=tenant, handling=handling)
+
+    owner = await contact_owner(session, tenant_id, contact)
+    payload: dict[str, Any] | None = None
+    if owner is not None and not agent_can_own:
+        kind, owner_id = owner
+        set_owner(signal, kind, owner_id)
+        payload = {"kind": kind, "id": str(owner_id), "reason": "contact_owner"}
+    elif agent_can_own and agent is not None:
+        set_owner(signal, "agent", agent.id)
+        if owner is not None:
+            # The agent answers first; the contact owner is where it escalates.
+            remember_human_owner(signal, owner[0], owner[1])
+        payload = {
+            "kind": "agent",
+            "id": str(agent.id),
+            "agent_name": getattr(agent, "name", ""),
+            "reason": "assisted" if handling.effective == "assisted" else "autonomous",
+        }
+    if payload is not None:
+        session.add(signal)
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=tenant_id,
+                event_type="auto_assigned",
+                actor_type="system",
+                actor_id="",
+                payload_json=json.dumps(payload),
+            )
+        )
+        return payload
+    return await distribute(session, signal)
+
+
+async def agent_may_own(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    agent: Any,
+    account: Any = None,
+    tenant: Any = None,
+    handling: Any = None,
+) -> bool:
+    """Whether this agent may own the conversation.
+
+    The agent owns the next step when the effective AI handling is autonomous
+    (it sends) or assisted (it prepares a draft, context and actions, then hands
+    the conversation to a person). Manual, a hold, an internal channel or an
+    autonomous channel that cannot deliver rule it out.
+    """
+    if agent is None or signal.channel in INTERNAL_CHANNELS:
+        return False
+    from app.services import ai_handling
+
+    if handling is None:
+        if tenant is None:
+            from app.models.auth import Tenant
+
+            tenant = await session.get(Tenant, signal.tenant_id)
+        if account is None:
+            account, contact = await ai_handling.load_layers(session, signal.tenant_id, signal)
+        else:
+            _account, contact = await ai_handling.load_layers(session, signal.tenant_id, signal)
+        handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal, agent=agent)
+    if handling.effective not in ("autonomous", "assisted"):
+        return False
+    if handling.effective == "autonomous" and signal.channel_account_id:
+        from app.models.channel import ChannelAccount
+        from app.services.channel_registry import account_can_send
+
+        if account is None:
+            account = await session.get(ChannelAccount, signal.channel_account_id)
+        if account is not None and not account_can_send(account):
+            return False
+    return True
 
 
 async def picked_up_event(

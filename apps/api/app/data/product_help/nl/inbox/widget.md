@@ -9,7 +9,7 @@ related: channels,communication,widget-embed,categories,assistant
 
 # De websitewidget installeren
 
-De widget is een klein script op je site. Bezoekers chatten met je assistent. Die gesprekken verschijnen in Communicatie. Open **Instellingen**, daarna **Kanalen**, daarna de rij **Websitechat**. Elk websitechat-kanaal heeft eigen uiterlijk, uren en snippet — kies **Kanaal toevoegen** en **Websitechat** als een tweede site een eigen embed nodig heeft.
+De widget is een klein script op je site. Bezoekers chatten met je assistent. Die gesprekken verschijnen in Communicatie. Voeg eerst **Websitechat** toe via **Instellingen → Kanalen → Kanaal toevoegen**; een nieuwe workspace maakt die niet automatisch aan. Open die rij voor uiterlijk, uren en de embed-snippet. Voeg een tweede **Websitechat** toe als een andere site een eigen embed nodig heeft.
 
 ## Kopieer de embed-snippet
 

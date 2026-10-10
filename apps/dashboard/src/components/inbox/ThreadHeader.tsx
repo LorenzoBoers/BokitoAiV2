@@ -1,6 +1,6 @@
 /**
  * Thread header chrome: who this conversation is with, its status, the AI
- * handling picker (which owns take over / hand back), and the action cluster.
+ * handling picker (Manual assigns to you; hand back when held), and actions.
  */
 import {
   Archive,
@@ -10,7 +10,6 @@ import {
   BookMarked,
   Flag,
   Forward,
-  Hand,
   Hash,
   Link2,
   ListPlus,
@@ -254,7 +253,10 @@ export default function ThreadHeader({
             scope="conversation"
             canRaise={canRaise}
             saving={aiHandlingSaving || loading}
-            onChange={(mode) => onChangeAiHandling(mode)}
+            onChange={(mode) =>
+              // Manual on a conversation is take-over: assign to the operator.
+              void onChangeAiHandling(mode, mode === 'manual' ? { assignToMe: true } : undefined)
+            }
             testId="thread-ai-handling"
             extraItems={
               held ? (
@@ -262,15 +264,7 @@ export default function ThreadHeader({
                   <Bot size={13} />
                   {tc('aiHandling.handBack')}
                 </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  className="gap-2 text-xs"
-                  onSelect={() => void onChangeAiHandling('manual', { assignToMe: true })}
-                >
-                  <Hand size={13} />
-                  {tc('aiHandling.takeOver')}
-                </DropdownMenuItem>
-              )
+              ) : null
             }
           />
         ) : null}

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AI_HANDLING_META, type AiHandlingMode } from '../../lib/ai-handling'
 import { cn } from '../../lib/utils'
 
-/** The one icon per AI handling mode: Zap and PenLine in violet, Hand in gray. */
+/** The one icon per AI handling mode: A in refresh arrows, grey+violet handshake, Hand. All stroke 2. */
 export function AiHandlingIcon({
   mode,
   size = 14,
@@ -23,7 +23,8 @@ export function AiHandlingIcon({
   return (
     <Icon
       size={size}
-      className={cn('shrink-0', meta.iconClass, className)}
+      strokeWidth={2}
+      className={cn('shrink-0', meta.iconClass || undefined, className)}
       aria-label={label}
       role="img"
       data-ai-handling={mode}

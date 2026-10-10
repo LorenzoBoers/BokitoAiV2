@@ -15,6 +15,7 @@ export const aiHandlingRoutes = {
       `/ai-handling/${encodeURIComponent(scope)}/${encodeURIComponent(targetId)}/preview`,
       new URLSearchParams(mode ? { mode } : {}),
     ),
+  channelRouting: (accountId: string) => `/ai-handling/channel/${encodeURIComponent(accountId)}/routing`,
   resetBreaker: (accountId: string, keepAssisted = false) =>
     withQuery(
       `/ai-handling/channel/${encodeURIComponent(accountId)}/reset-breaker`,

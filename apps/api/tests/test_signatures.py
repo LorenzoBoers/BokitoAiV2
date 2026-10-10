@@ -77,11 +77,15 @@ def test_compose_default_is_text_only():
     assert "data:image" not in html
 
 
-def test_avatar_placeholder_only_uses_https_photo():
+def test_avatar_placeholder_uses_https_photo_or_initials():
     from app.services.signatures import avatar_placeholder_html, render_signature_template
 
-    assert avatar_placeholder_html(avatar_url=None, name="Ada") == ""
-    assert avatar_placeholder_html(avatar_url="data:image/svg+xml;base64,abc", name="Ada") == ""
+    missing = avatar_placeholder_html(avatar_url=None, name="Ada")
+    assert "<img" not in missing
+    assert "AD" in missing
+    svg = avatar_placeholder_html(avatar_url="data:image/svg+xml;base64,abc", name="Ada")
+    assert "<img" not in svg
+    assert "AD" in svg
     img = avatar_placeholder_html(avatar_url="https://cdn.example.com/a.jpg", name="Ada")
     assert "<img" in img
     assert "https://cdn.example.com/a.jpg" in img
@@ -92,6 +96,25 @@ def test_avatar_placeholder_only_uses_https_photo():
     )
     assert "<img" in rendered
     assert "Ada" in rendered
+
+
+def test_email_avatar_src_publishes_profile_photo():
+    from uuid import uuid4
+
+    from app.services.signatures import email_avatar_src
+
+    uid = uuid4()
+    tiny = (
+        "data:image/png;base64,"
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    src = email_avatar_src(tiny, user_id=uid)
+    assert src is not None
+    assert src.startswith("http")
+    assert f"/api/auth/avatars/{uid}" in src
+    assert "data:image" not in src
+    assert email_avatar_src("data:image/svg+xml;base64,abc", user_id=uid) is None
+    assert email_avatar_src(tiny, user_id=None) is None
 
 
 @pytest.mark.asyncio

@@ -133,12 +133,25 @@
     "subtitle": "Elke flow hoort bij één actietag. De fases zijn de kolommen van een live ticketbord.",
     "loadError": "Kon flows niet laden.",
     "notFound": "Flow niet gevonden.",
+    "new": "Nieuwe flow",
     "newPlaceholder": "Hashtag voor nieuwe flow",
     "create": "Aanmaken",
+    "cancel": "Annuleren",
     "created": "Flow aangemaakt.",
     "createError": "Kon de flow niet aanmaken.",
     "allWorkstreams": "Alle flows",
-    "empty": "Nog geen flows. Typ hierboven een hashtag om er een te maken; die hashtag wordt de actietag.",
+    "empty": "Nog geen flows. Kies Nieuwe flow om een actietag te kiezen of aan te maken.",
+    "emptyTitle": "Nog geen flows",
+    "emptyBody": "Een flow is het fasebord van één actietag. Maak een flow om van een hashtag een live ticketpipeline te maken.",
+    "dialogTitle": "Nieuwe flow",
+    "dialogBody": "Kies een tag die nog geen flow heeft, of typ een nieuwe hashtag om er een aan te maken.",
+    "dialogSearchPlaceholder": "Zoek of typ een hashtag",
+    "dialogTagsAria": "Beschikbare tags",
+    "dialogLoadingTags": "Tags laden…",
+    "dialogNoMatch": "Geen tag komt overeen met die naam.",
+    "dialogCreateTag": "Tag #{{name}} aanmaken",
+    "dialogNoTags": "Nog geen vrije tags. Typ hierboven een hashtag om die als actietag voor deze flow aan te maken.",
+    "dialogTypeToFilter": "Typ om de tags hierboven te filteren.",
     "stepCount": "{{count}} stappen",
     "stepCount_one": "{{count}} stap",
     "default": "Standaard",
@@ -959,6 +972,9 @@
     "loadContactError": "Kon contact niet laden.",
     "saveContactError": "Kon contact niet opslaan.",
     "savedContact": "Contact opgeslagen",
+    "owner": "Eigenaar",
+    "ownerHint": "De agent geeft gesprekken van dit contact aan deze persoon of dit team zodra er iemand nodig is (na de laatste behandelaar). Staat de AI op Handmatig, dan komen nieuwe gesprekken hier direct terecht.",
+    "ownerSaved": "Eigenaar opgeslagen",
     "blocked": "Contact geblokkeerd",
     "approved": "Contact goedgekeurd",
     "statusUpdated": "Status bijgewerkt",
@@ -1707,8 +1723,10 @@
     "section": {
       "status": "Status",
       "general": "Algemeen",
+      "routing": "Overdracht",
       "manage": "Beheer"
     },
+    "routingHint": "Wie het gesprek bezit na een antwoord en wanneer een antwoord het gesprek sluit. Volgt de bedrijfsstandaard tot dit kanaal een eigen regel kiest.",
     "edit": "Wijzigen",
     "open": "Openen",
     "name": "Naam",
@@ -2751,6 +2769,55 @@
       "breakerHint": "Pauzeert autonome antwoorden op een kanaal na ongewoon volume of meerdere negatieve signalen binnen een uur. Het kanaal valt terug op Geassisteerd tot iemand het hervat.",
       "maxAutonomous": "Autonome antwoorden per uur per kanaal",
       "maxNegative": "Negatieve signalen per uur per kanaal",
+      "routing": {
+        "title": "Overdracht tussen agent en mensen",
+        "description": "Wie een gesprek bezit na een antwoord, of een antwoord het gesprek sluit en wie een heropend gesprek krijgt. Kanalen kunnen elke regel overschrijven.",
+        "afterHumanReply": {
+          "label": "Na een antwoord van een medewerker",
+          "options": {
+            "return_to_agent": {
+              "label": "Terug naar de agent",
+              "hint": "De agent wordt weer eigenaar en pakt het volgende bericht van de klant op: zelf beantwoorden bij Autonoom, een concept voor jou bij Geassisteerd. Overnemen blijft een harde stop."
+            },
+            "keep_with_human": {
+              "label": "Blijft bij de medewerker",
+              "hint": "Wie antwoordt wordt eigenaar. De agent maakt vanaf dan concepten voor die persoon."
+            },
+            "ask": {
+              "label": "Vraag bij versturen",
+              "hint": "De verstuurknop in het gesprek biedt beide keuzes: Versturen en teruggeven aan de agent, of Versturen en zelf houden."
+            }
+          }
+        },
+        "closeAfterAgentReply": {
+          "label": "Sluiten na een autonoom antwoord",
+          "hint": "Een verzonden autonoom antwoord sluit het gesprek. Een nieuw bericht van het contact heropent het."
+        },
+        "closeAfterHumanReply": {
+          "label": "Sluiten na een antwoord van een medewerker",
+          "hint": "Versturen sluit het gesprek standaard. Een nieuw bericht van het contact heropent het."
+        },
+        "reopenOwner": {
+          "label": "Eigenaar bij heropenen",
+          "options": {
+            "same_owner": {
+              "label": "Zelfde eigenaar",
+              "hint": "Een heropend gesprek blijft bij de laatste eigenaar. Is die persoon geen lid meer, dan valt het terug op de contacteigenaar of het kanaalteam."
+            },
+            "route_again": {
+              "label": "Opnieuw routeren",
+              "hint": "Een heropend gesprek wordt gerouteerd als een nieuw gesprek: naar de agent bij Autonoom of Geassisteerd, anders naar de contacteigenaar of het kanaalteam."
+            }
+          }
+        },
+        "bounceLimit": {
+          "label": "Pingpong-limiet",
+          "hint": "Zoveel keer per dag mag een gesprek tussen agent en mensen wisselen. Daarna houden mensen het tot iemand het expliciet teruggeeft. 0 schakelt de limiet uit."
+        },
+        "on": "Aan",
+        "off": "Uit",
+        "channelOverrideHint": "Per kanaal overschrijven kan onder Instellingen > Kanalen, sectie Overdracht. De pingpong-limiet geldt voor de hele workspace."
+      },
       "safeguardsTitle": "Waarborgen",
       "safeguardsDescription": "Wanneer een autonoom antwoord een concept ter controle wordt in plaats van verzonden.",
       "newContactsLabel": "Antwoorden aan nieuwe contacten controleren",

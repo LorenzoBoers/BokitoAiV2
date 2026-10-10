@@ -667,16 +667,30 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
             "signal_id": str(signal.id),
         }
 
+    from app.services.handover import hand_to_agent
+
+    # Pin this agent on the thread; it becomes the owner only when it may
+    # send on its own (autonomous, channel can send). Otherwise the current
+    # owner keeps the conversation and this agent drafts for them.
     signal.agent_id = ctx.agent.id
-    signal.assigned_user_id = None
     signal.updated_at = datetime.utcnow()
-    release_conversation(
+    if conversation_mode(signal) == "manual":
+        release_conversation(
+            ctx.session,
+            signal,
+            reason=str(tool_input.get("reason") or "").strip(),
+            actor_type="agent",
+            actor_id=str(ctx.agent.id),
+            via="take_over_conversation",
+        )
+    became_owner = await hand_to_agent(
         ctx.session,
+        None,
         signal,
-        reason=str(tool_input.get("reason") or "").strip(),
         actor_type="agent",
         actor_id=str(ctx.agent.id),
         via="take_over_conversation",
+        agent=ctx.agent,
     )
     ctx.session.add(signal)
     ctx.session.add(
@@ -703,10 +717,15 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
         "signal_id": str(signal.id),
         "ai_handling": None,
         "handling_agent": ctx.agent.name,
+        "owner": "agent" if became_owner else (signal.assignee_kind or "team"),
         "note": (
-            "You now handle this conversation and answer the next inbound "
-            "message. Use suggest_thread_reply if you want to propose the "
-            "next reply for approval first."
+            "You now own this conversation and send the next reply yourself."
+            if became_owner
+            else (
+                "You handle the next inbound message, but AI handling here is not "
+                "autonomous: the current owner keeps the conversation and you draft "
+                "replies for their approval."
+            )
         ),
     }
 

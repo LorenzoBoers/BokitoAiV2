@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { PenLine, ShieldAlert, Zap } from 'lucide-react'
+import { ShieldAlert } from 'lucide-react'
 import AiHandlingPicker from '../ai/AiHandlingPicker'
+import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import { Badge } from '../ui/badge'
 import { DropdownMenuItem } from '../ui/dropdown-menu'
 import { useAiHandling } from '../../hooks/useAiHandling'
@@ -41,7 +42,7 @@ export default function ChannelAiHandlingSetting({
     <>
     <AiHandlingPicker
       variant="row"
-      className="py-2.5"
+      density="field"
       scope="channel"
       handling={handling}
       canRaise={canRaise}
@@ -49,7 +50,7 @@ export default function ChannelAiHandlingSetting({
       onChange={(mode) => void change(mode)}
       testId="channel-ai-handling"
       label={
-        <span className="inline-flex items-center gap-2">
+        <span className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
           {t('aiHandling.title')}
           {tripped ? (
             <Badge
@@ -68,11 +69,11 @@ export default function ChannelAiHandlingSetting({
         tripped && canRaise ? (
           <>
             <DropdownMenuItem className="gap-2 text-xs" onSelect={() => void reset(false)}>
-              <Zap size={13} />
+              <AiHandlingIcon mode="autonomous" size={13} />
               {t('aiHandling.breakerResume')}
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 text-xs" onSelect={() => void reset(true)}>
-              <PenLine size={13} />
+              <AiHandlingIcon mode="assisted" size={13} />
               {t('aiHandling.breakerKeepAssisted')}
             </DropdownMenuItem>
           </>

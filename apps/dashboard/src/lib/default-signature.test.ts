@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  composeAvatarSignatureTemplateHtml,
   composeDefaultSignatureHtml,
+  editorHtmlFromSignature,
   previewSignatureHtml,
   renderSignatureTemplate,
+  signatureHtmlFromEditor,
 } from './default-signature'
 
 describe('default-signature', () => {
@@ -40,7 +43,7 @@ describe('default-signature', () => {
     expect(html).not.toContain('data:image')
   })
 
-  it('renders {{avatar}} only for https photos', () => {
+  it('renders {{avatar}} as a photo or initials', () => {
     const withPhoto = renderSignatureTemplate('<p>{{avatar}}</p><p>{{name}}</p>', {
       name: 'Ada',
       avatarUrl: 'https://cdn.example.com/a.jpg',
@@ -54,15 +57,30 @@ describe('default-signature', () => {
       language: 'en',
     })
     expect(without).not.toContain('<img')
-  })
-
-  it('preview uses default when template is empty', () => {
-    const html = previewSignatureHtml('', {
+    expect(without).toContain('AD')
+    expect(without).not.toContain('{{avatar}}')
+    const raster = renderSignatureTemplate('<p>{{avatar}}</p>', {
       name: 'Ada',
-      email: 'ada@example.com',
+      avatarUrl: 'data:image/png;base64,iVBORw0KGgo=',
       language: 'en',
     })
-    expect(html).toContain('Kind regards')
-    expect(html).toContain('Ada')
+    expect(raster).toContain('<img')
+    expect(raster).toContain('data:image/png')
+  })
+
+  it('writes the greeting out and keeps the avatar slot', () => {
+    const template = composeAvatarSignatureTemplateHtml('nl')
+    expect(template).toContain('Met vriendelijke groet')
+    expect(template).not.toContain('{{closing}}')
+    expect(template).toContain('{{avatar}}')
+    const visual = editorHtmlFromSignature(template, {
+      name: 'Lorenzo Boers',
+      language: 'nl',
+    })
+    expect(visual).toContain('data-sig-avatar="1"')
+    expect(visual).toContain('LB')
+    expect(visual).not.toContain('{{avatar}}')
+    expect(signatureHtmlFromEditor(visual)).toContain('{{avatar}}')
+    expect(signatureHtmlFromEditor(visual)).not.toContain('data-sig-avatar')
   })
 })

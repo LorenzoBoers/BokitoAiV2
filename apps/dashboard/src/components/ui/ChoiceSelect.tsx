@@ -14,6 +14,8 @@ type Props = {
   placeholder?: string
   disabled?: boolean
   triggerClassName?: string
+  /** `chip` is the compact side-panel control; `field` is a form select. */
+  variant?: 'field' | 'chip'
   contentClassName?: string
   'aria-label'?: string
   id?: string
@@ -39,6 +41,7 @@ export function ChoiceSelect({
   placeholder,
   disabled,
   triggerClassName,
+  variant = 'field',
   contentClassName,
   'aria-label': ariaLabel,
   id,
@@ -48,7 +51,12 @@ export function ChoiceSelect({
 
   return (
     <Select disabled={disabled} value={value || undefined} onValueChange={onValueChange}>
-      <SelectTrigger id={id} className={cn('h-8 text-sm', triggerClassName)} aria-label={ariaLabel}>
+      <SelectTrigger
+        id={id}
+        variant={variant}
+        className={cn(variant === 'field' && 'h-8 min-w-0 text-sm', triggerClassName)}
+        aria-label={ariaLabel}
+      >
         {selected ? (
           <ChoiceOption item={selected} size={16} className="min-w-0 flex-1" />
         ) : (
@@ -59,7 +67,8 @@ export function ChoiceSelect({
         position="popper"
         sideOffset={4}
         className={cn(
-          'max-h-[min(20rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[14rem]',
+          // At least as wide as the trigger; grow so labels + DefaultBadge stay readable.
+          'max-h-[min(20rem,var(--radix-select-content-available-height))] min-w-[max(14rem,var(--radix-select-trigger-width))]',
           contentClassName,
         )}
       >

@@ -110,10 +110,10 @@ export default function AgentBindingPicker({
     () => agents.find((a) => a.slug === 'front-desk') ?? null,
     [agents],
   )
-  const leadName = agents.find((a) => a.isLead)?.name ?? ''
-  const defaultName = frontDesk?.name || leadName
-  const defaultLabel = defaultName || t('bindingPicker.leadDefault')
-  const defaultBadge = defaultName ? t('bindingPicker.defaultBadge') : undefined
+  const lead = useMemo(() => agents.find((a) => a.isLead) ?? null, [agents])
+  const defaultAgent = frontDesk ?? lead
+  const defaultLabel = defaultAgent?.name || t('bindingPicker.leadDefault')
+  const defaultBadge = defaultAgent ? t('bindingPicker.defaultBadge') : undefined
 
   const currentAgentId = agentId ?? ''
   // Bound-to-Front-desk looks like the empty default so the picker stays clear.
@@ -167,11 +167,16 @@ export default function AgentBindingPicker({
       value={selectValue}
       disabled={!isAdmin || busy || loading || !resolvedAccountId || !token}
       onValueChange={(v) => void persist(v)}
-      emptyOption={{ value: '__empty__', label: defaultLabel, badge: defaultBadge }}
+      emptyOption={{
+        value: '__empty__',
+        label: defaultLabel,
+        badge: defaultBadge,
+        agent: defaultAgent ?? undefined,
+      }}
       aria-label={ariaLabel ?? t('bindingPicker.ariaLabel')}
       triggerClassName={
         className ??
-        'h-8 max-w-[16rem] rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary'
+        'h-8 w-full min-w-0 rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary'
       }
       placeholder={defaultLabel}
     />

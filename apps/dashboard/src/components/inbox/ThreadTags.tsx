@@ -29,8 +29,8 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
   const save = (next: string[]) => (onPatch ? onPatch({ tags: next }) : Promise.resolve())
 
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <>
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
         {actionTag ? (
           <span className={`${CHIP} bg-bg-subtle/60`} title={t('tags.categoryLocked')}>
             <Hashtag name={actionTag.name} category />
@@ -57,17 +57,14 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             type="button"
             disabled={saving}
             onClick={() => setOpen(true)}
-            title={t('tags.hint')}
-            className={`${CHIP} text-text-secondary transition-colors hover:bg-bg-hover/70 disabled:opacity-40`}
+            aria-label={t('tags.add')}
+            title={t('tags.add')}
+            className={`${CHIP} px-1.5 text-text-secondary transition-colors hover:bg-bg-hover/70 disabled:opacity-40`}
           >
-            <Plus size={11} />
-            {t('tags.add')}
+            <Plus size={12} />
           </button>
         ) : null}
       </div>
-      {onPatch ? (
-        <p className="text-2xs text-text-muted">{t('tags.hint')}</p>
-      ) : null}
       <HashtagPickerModal
         open={open}
         onOpenChange={setOpen}
@@ -75,6 +72,6 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
         onPatch={onPatch}
         onTicketChanged={onTicketChanged}
       />
-    </div>
+    </>
   )
 }

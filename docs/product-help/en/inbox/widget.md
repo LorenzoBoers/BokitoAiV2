@@ -9,7 +9,7 @@ related: channels,communication,widget-embed,categories,assistant
 
 # Install the website widget
 
-The widget is a small script on your site. Visitors chat with your assistant. Those threads appear in Communication. Open **Settings**, then **Channels**, then the **Website chat** row. Each website-chat channel has its own look, hours and snippet — add another **Website chat** from **Add channel** when a second site needs its own embed.
+The widget is a small script on your site. Visitors chat with your assistant. Those threads appear in Communication. Add **Website chat** under **Settings → Channels → Add channel** first; a new workspace does not create it automatically. Open that row for look, hours and the embed snippet. Add another **Website chat** when a second site needs its own embed.
 
 ## Copy the embed snippet
 

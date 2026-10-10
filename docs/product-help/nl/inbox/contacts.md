@@ -2,7 +2,7 @@
 title: Zo werken Contacten
 intro: Een gedeeld adresboek uit echte gesprekken.
 description: Open mensen en bedrijven vanuit elk gesprek, voeg een contact toe, start uitgaande mail, en keur afzenders goed of blokkeer ze.
-keywords: contacten, crm, klanten, bedrijven, nieuw contact
+keywords: contacten, crm, klanten, bedrijven, nieuw contact, contacteigenaar, accountmanager
 sort: 30
 related: communication,channels,widget
 ---
@@ -63,6 +63,14 @@ De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppel
 4. Filter op Contacten met het menu **Elke AI-afhandeling** om contacten met **Eigen AI-afhandeling** of een specifieke modus te vinden. Rijen met een eigen modus tonen het icoon.
 
 Een enkel gesprek kan nog steeds afwijken van het contact. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+
+## Een contact een vaste eigenaar geven
+
+1. Open het contact onder Contacten, of open het zijpaneel in een gesprek met die persoon. Zoek **Eigenaar** onder **AI-afhandeling**.
+2. Kies een persoon of een team in het menu; **Geen vaste eigenaar** haalt het weer weg.
+3. Nieuwe gesprekken van dit contact gaan naar die eigenaar wanneer de AI stil staat (Handmatig). Bij Autonoom of Geassisteerd pakt de agent het gesprek eerst op en geeft hij het aan de contacteigenaar zodra er een persoon nodig is, voordat hij terugvalt op het kanaalteam.
+
+Accountmanagers en key accounts zijn het gebruikelijke geval: de agent doet de routinemail en de eigenaar krijgt alles wat de agent niet kan afmaken. Zie [Overdracht](/docs/inbox/inbox-ai#overdracht-tussen-agent-en-mensen-instellen).
 
 ## Wat nu
 

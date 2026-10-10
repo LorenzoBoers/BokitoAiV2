@@ -211,11 +211,18 @@ async def ensure_front_desk(
 
 async def ensure_widget_default_agent(
     session: AsyncSession, tenant_id: UUID, front_desk: Agent, *, commit: bool = False
-) -> ChannelAccount:
-    """Bind the website chat to Front desk when unset or pointing at Bokito / inactive."""
+) -> ChannelAccount | None:
+    """Bind an existing website chat to Front desk when unset or pointing at Bokito / inactive.
+
+    Does not create a widget channel — website chat is opt-in via Channels.
+    """
     from sqlalchemy import select
 
-    widget = await ensure_widget_channel(session, tenant_id, commit=False)
+    from app.services.widget_channel import get_widget_account
+
+    widget = await get_widget_account(session, tenant_id, None)
+    if widget is None:
+        return None
     current = None
     if widget.default_agent_id:
         current = (
@@ -238,10 +245,65 @@ async def ensure_widget_default_agent(
     return widget
 
 
+async def disable_unused_seeded_widgets(session: AsyncSession) -> int:
+    """Turn off auto-seeded website chats that never received a conversation.
+
+    Seeded rows use ``address == tenant.slug``; operator-created ones use
+    ``{slug}:{hex}``. Hides them from Communication → Channels until someone
+    adds website chat explicitly.
+    """
+    from sqlalchemy import func, select
+
+    from app.models.signal import Signal
+
+    widgets = list(
+        (
+            await session.execute(
+                select(ChannelAccount).where(
+                    ChannelAccount.channel == "widget",
+                    ChannelAccount.is_enabled.is_(True),
+                    ChannelAccount.archived_at.is_(None),
+                )
+            )
+        ).scalars().all()
+    )
+    if not widgets:
+        return 0
+    tenant_ids = {w.tenant_id for w in widgets}
+    tenants = {
+        t.id: t
+        for t in (
+            await session.execute(select(Tenant).where(Tenant.id.in_(tenant_ids)))
+        ).scalars().all()
+    }
+    disabled = 0
+    for widget in widgets:
+        tenant = tenants.get(widget.tenant_id)
+        if tenant is None or (widget.address or "") != tenant.slug:
+            continue
+        n = int(
+            (
+                await session.execute(
+                    select(func.count())
+                    .select_from(Signal)
+                    .where(Signal.channel_account_id == widget.id)
+                )
+            ).scalar_one()
+            or 0
+        )
+        if n > 0:
+            continue
+        widget.is_enabled = False
+        session.add(widget)
+        disabled += 1
+    return disabled
+
+
 async def ensure_front_desks(session: AsyncSession) -> int:
-    """Startup backfill: Front desk agent + widget default binding per tenant."""
+    """Startup backfill: Front desk agent + bind existing website chats (no auto-create)."""
     from sqlalchemy import select
 
+    await disable_unused_seeded_widgets(session)
     tenant_ids = list((await session.execute(select(Tenant.id))).scalars().all())
     for tenant_id in tenant_ids:
         front_desk = await ensure_front_desk(session, tenant_id, commit=False)
@@ -269,7 +331,7 @@ async def ensure_front_desks(session: AsyncSession) -> int:
 async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # Persona lives in the persona.md workspace doc (DEFAULT_DOCS below);
     # inbox policy lives in Tenant.settings_json (services/channel_ai.py).
-    front_desk = await ensure_front_desk(session, tenant_id, commit=False)
+    await ensure_front_desk(session, tenant_id, commit=False)
     # Platform furniture, not a tenant agent: every member's own Bokito helper.
     await ensure_personal_assistant(session, tenant_id, commit=False)
     for path, kind, content in DEFAULT_DOCS:
@@ -286,10 +348,8 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # Only the assistant, docs, the assistant's own channel conversation, and
     # a paused hourly check-in (operator or setup turns watching on). The Agent
     # row is the single runtime passport.
-    # Email stays empty until someone connects a mailbox or creates a Bokito
-    # relay address. The website chat is the one channel that works the moment
-    # the widget is embedded, so it gets a row to carry state and an off switch.
-    await ensure_widget_default_agent(session, tenant_id, front_desk, commit=False)
+    # Email and website chat stay empty until someone connects/creates them
+    # under Settings → Channels (website chat via "Add channel").
     await seed_default_triggers(session, tenant_id)
     from app.services.tickets import ensure_platform_tags
 
@@ -299,7 +359,12 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
 async def ensure_widget_channel(
     session: AsyncSession, tenant_id: UUID, *, commit: bool = True
 ) -> ChannelAccount:
-    """The website chat as a real channel row (state, pause, agent binding)."""
+    """Return the tenant's website chat, creating one only when explicitly needed.
+
+    Prefer ``create_extra_widget_channel`` from Settings → Add channel for new
+    installs. Callers that only want an existing row should use
+    ``get_widget_account`` instead of this helper.
+    """
     from sqlalchemy import select as sa_select
 
     existing = (
@@ -357,8 +422,8 @@ def default_tenant_settings() -> dict:
             "main_color": DEFAULT_BRAND_COLOR,
             "powered_by": True,
         },
-        # AI handling: workspace default (assisted drafts for approval); the
-        # website chat channel is seeded autonomous in ensure_widget_channel.
+        # AI handling: workspace default (assisted drafts for approval).
+        # Operator-created website chat defaults to autonomous on that channel.
         "ai_handling": {"default": {"mode": "assisted"}},
         "widget_capabilities": {
             "anonymous": ["qa"],

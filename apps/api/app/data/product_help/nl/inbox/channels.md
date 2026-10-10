@@ -2,14 +2,14 @@
 title: Kanalen koppelen
 intro: Breng klantmail en andere inboxen naar Communicatie.
 description: Voeg kanalen toe in een lijst, maak een Bokito-adres aan, koppel Gmail, Outlook, SMTP/IMAP of WhatsApp, lees de status en controles per kanaal, en zet een kanaal uit, koppel het los of verwijder het.
-keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, handtekening, kanaal uitzetten, kanaal loskoppelen, kanaal terugzetten, kanaal verwijderen, automatische mail archiveren, nieuwsbrieven, syncfouten
+keywords: kanalen, gmail, outlook, smtp, imap, mailbox, bokito-adres, relay, kanaalstatus, routing, overdracht, handtekening, kanaal uitzetten, kanaal loskoppelen, kanaal terugzetten, kanaal verwijderen, automatische mail archiveren, nieuwsbrieven, syncfouten
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
 
 # Kanalen koppelen
 
-Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de pagina te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**. Websitechat voegt **Uiterlijk**, **Stem en uren** en **Installatie** toe op die pagina. Een nieuwe workspace start alleen met de websitechat, dus voeg een e-mailkanaal toe voordat je mail verwacht.
+Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de pagina te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**. Websitechat voegt **Uiterlijk**, **Stem en uren** en **Installatie** toe op die pagina. Een nieuwe workspace start zonder kanalen; voeg e-mail of websitechat toe via **Kanaal toevoegen** wanneer je ze nodig hebt.
 
 ## Voeg een kanaal toe
 
@@ -105,8 +105,8 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 
 ## Zet een handtekening en standaardagent
 
-1. Klik op de rij van een mailbox of Bokito-adres. Onder **Handtekeningbron** kies je **Mailbox-handtekening** (één gedeelde template voor iedereen; placeholders zoals `{{name}}`, `{{first_name}}` en `{{last_name}}` worden per afzender ingevuld) of **Ieders eigen handtekening** (via **Profiel**). Bij mailboxbron kies je **Wijzigen** naast **Handtekening** voor de template. In de editor open je **Voorbeeld** en kies je met **Voorbeeld als** jezelf, een teamlid, een agent of voorbeeldgegevens. Placeholders komen uit dat profiel; een foto verschijnt alleen als de template `{{avatar}}` bevat (template **Met profielfoto**) en die persoon een publieke https-foto heeft. Is de template leeg, of staat de bron op ieders eigen, dan gebruikt Bokito de persoonlijke handtekening en daarna de Bokito-standaard. Agent-sends blijven de agenthandtekening gebruiken. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
-2. Kies onder **Algemeen** een **Eigenaar-team** voor nieuwe gesprekken tot iemand ze oppakt, en een **AI-agent** voor inbound lezen en AI-afhandeling. Zonder agent op het kanaal interpreteert of beantwoordt Bokito nieuwe inbound berichten niet. Je kunt nog wel handmatig een agent in een gesprek halen.
+1. Klik op de rij van een mailbox of Bokito-adres. Onder **Handtekeningbron** kies je **Mailbox-handtekening** (één gedeelde template voor iedereen; placeholders zoals `{{name}}`, `{{first_name}}` en `{{last_name}}` worden per afzender ingevuld) of **Ieders eigen handtekening** (via **Profiel**). Bij mailboxbron kies je **Wijzigen** naast **Handtekening** voor de template. In de editor open je **Voorbeeld** en kies je met **Voorbeeld als** jezelf, een teamlid, een agent of voorbeeldgegevens. Placeholders komen uit dat profiel. **Met profielfoto** zet de profielfoto van de afzender naast de naam, of een cirkel met initialen als er geen foto is. De groet staat als gewone tekst in de template, zodat je die kunt aanpassen. Is de template leeg, of staat de bron op ieders eigen, dan gebruikt Bokito de persoonlijke handtekening en daarna de Bokito-standaard. Agent-sends blijven de agenthandtekening gebruiken. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
+2. Kies onder **Algemeen** een **Eigenaar-team** voor nieuwe gesprekken tot iemand ze oppakt, en een **AI-agent** voor inbound lezen en AI-afhandeling. Op een kanaal met **Autonoom** of **Geassisteerd** is de agent zelf eigenaar van nieuwe gesprekken (bij Geassisteerd alleen zolang hij het antwoord voorbereidt); het eigenaar-team is waar ze landen wanneer de agent overdraagt en er geen dichterbij staande eigenaar is. Zonder agent op het kanaal interpreteert of beantwoordt Bokito nieuwe inbound berichten niet. Je kunt nog wel handmatig een agent in een gesprek halen.
 3. Kies **Toegang** om de toegangsmatrix te openen. Zet **Zien** en **Afhandelen** per team, persoon en agent aan of uit. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Teams dekken hun leden — iemand zonder eigen toekenning volgt nog steeds **Alle mensen**. Eigenaren en beheerders handelen altijd elk kanaal af.
 4. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
 
@@ -126,6 +126,13 @@ Nieuwsbrieven, bonnetjes en no-reply meldingen hoeven geen antwoord, maar ze bel
 3. Een badge **Gepauzeerd** betekent dat de noodrem is geactiveerd na ongewone activiteit en het kanaal Geassisteerd draait. Kies **Autonoom hervatten** of **Geassisteerd houden** in hetzelfde menu.
 
 Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+
+## Overdracht per kanaal instellen
+
+1. Klik op de kanaalrij en open **Overdracht**. Elke regel toont de workspace-waarde met de badge **Bedrijfsstandaard** tot het kanaal een eigen waarde kiest.
+2. Kies onder **Na een antwoord van een medewerker** voor **Terug naar de agent**, **Blijft bij de medewerker** of **Vraag bij versturen** voor gesprekken op dit kanaal. Kies de waarde met **Bedrijfsstandaard** om de workspace weer te volgen.
+3. Zet **Sluiten na een autonoom antwoord** en **Sluiten na een antwoord van een medewerker** op **Aan** of **Uit**, of laat ze op de bedrijfsstandaard. Kies onder **Eigenaar bij heropenen** voor **Zelfde eigenaar** of **Opnieuw routeren**.
+4. Alleen een eigenaar of beheerder kan deze regels wijzigen. De pingpong-limiet geldt voor de hele workspace en staat onder [AI-afhandeling](/docs/inbox/inbox-ai).
 
 ## Koppel WhatsApp
 

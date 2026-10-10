@@ -116,11 +116,10 @@ async def get_or_create_widget_thread(
         session.add(contact)
         await session.flush()
     from app.services.widget_channel import get_widget_account
-    from app.services.tenant_bootstrap import ensure_widget_channel
 
     account = await get_widget_account(session, tenant.id, channel_account_id)
-    if account is None:
-        account = await ensure_widget_channel(session, tenant.id, commit=False)
+    if account is None or not account.is_enabled:
+        raise ValueError("Website chat channel is not set up")
     signal = Signal(
         tenant_id=tenant.id,
         channel="widget",
@@ -147,9 +146,9 @@ async def get_or_create_widget_thread(
         await link_visitor_email(
             session, tenant, signal, email=visitor_email, name=visitor_name
         )
-    from app.services.distribution import distribute
+    from app.services.ownership import route_new_conversation
 
-    if await distribute(session, signal):
+    if await route_new_conversation(session, signal, tenant=tenant, account=account, contact=contact):
         await session.flush()
     # Transient flag: callers emit the signal.created webhook after their
     # own commit (this function only flushes).

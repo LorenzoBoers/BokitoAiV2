@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -320,6 +320,19 @@ class ReplyBody(BaseModel):
     # Quoted prior-conversation HTML; the server appends it below the
     # signature so the wire format matches normal mail clients.
     quoted_html: str | None = None
+    # After this reply: True hands the conversation back to the agent, False
+    # keeps it with the sender, None follows the channel routing policy.
+    handback: bool | None = None
+    # True: the sender explicitly keeps the conversation open even when the
+    # channel policy closes after a human reply.
+    keep_open: bool = False
+
+
+class ComposingBody(BaseModel):
+    # Seconds the composer lock stays valid; the client refreshes while typing.
+    seconds: int = Field(default=90, ge=5, le=600)
+    # False releases the lock right away (composer emptied or closed).
+    active: bool = True
 
 
 class NoteBody(BaseModel):
@@ -908,10 +921,36 @@ async def reply(
         source_message_id=body.source_message_id,
         subject=body.subject,
         quoted_html=body.quoted_html,
+        handback=body.handback,
+        keep_open=body.keep_open,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")
     return message
+
+
+@router.post("/{signal_id}/composing")
+async def set_composing(
+    signal_id: UUID,
+    body: ComposingBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Collision guard: a person is writing a reply. While the lock is in the
+    future an autonomous agent drafts instead of sending. Refresh it while
+    typing; ``active: false`` releases it."""
+    from datetime import timedelta
+
+    from app.models.signal import Signal
+
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    until = (datetime.utcnow() + timedelta(seconds=body.seconds)) if body.active else None
+    signal.human_composing_until = until
+    session.add(signal)
+    await session.commit()
+    return {"ok": True, "human_composing_until": until.isoformat() if until else None}
 
 
 @router.post("/messages/{message_id}/cancel")

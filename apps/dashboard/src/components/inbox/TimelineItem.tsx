@@ -1,4 +1,4 @@
-import { AlertCircle, BookOpen, Check, Copy, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
+import { AlertCircle, BookOpen, Check, Copy, EyeOff, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -44,6 +44,7 @@ import MessageAttachments from './MessageAttachments'
 import ChatText from './ChatText'
 import ActivityTrail from './ActivityTrail'
 import { isCustomerChannel } from '../../lib/chatMessages'
+import { isSessionMessage } from '../../lib/session-timeline'
 import { authorizeUploadUrls } from '../../lib/email-upload-auth'
 import {
   canReplyAll,
@@ -198,9 +199,24 @@ function ContactAvatarWithHover({
   )
 }
 
+/** Outlook / Apple / Gmail reply trail markers — needs the iframe quote collapse. */
+function hasEmailQuoteMarkers(html: string): boolean {
+  const raw = html.trim()
+  if (!raw) return false
+  if (/gmail_quote|blockquote\s[^>]*type\s*=\s*["']?cite|divRplyFwdMsg|Original Message|appendonsend/i.test(raw)) {
+    return true
+  }
+  // Dutch/English Outlook headers after an hr or on their own.
+  if (/\b(?:Van|From)\s*:/i.test(raw) && /\b(?:Verzonden|Sent|Aan|To|Onderwerp|Subject)\s*:/i.test(raw)) {
+    return true
+  }
+  return false
+}
+
 function isSimpleMessageHtml(html: string): boolean {
   const trimmed = html.trim()
   if (!trimmed) return true
+  if (hasEmailQuoteMarkers(trimmed)) return false
   if (/<(?:table|style|link|script|iframe|object|embed|form|meta|font)\b/i.test(trimmed)) return false
   if (/\bbackground(?:-color)?\s*:/i.test(trimmed)) return false
   // Inline text colors are designed for a light background; route through the
@@ -416,6 +432,45 @@ function rememberEmailDisplayHeight(html: string, height: number) {
   }
 }
 
+/** Outlook / Apple Mail reply header block (Van:/From: + Sent/To/Subject). */
+function looksLikeOutlookHeaderText(text: string): boolean {
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (!t || t.length > 900) return false
+  if (!/\b(?:Van|From)\s*:/i.test(t)) return false
+  return /\b(?:Verzonden|Sent|Aan|To|Onderwerp|Subject)\s*:/i.test(t)
+}
+
+function looksLikeWroteLine(text: string): boolean {
+  const t = text.replace(/\s+/g, ' ').trim()
+  return (
+    /^On .{10,120} wrote:$/i.test(t) ||
+    /^Op .{10,120} schreef .+:$/i.test(t) ||
+    /^-----Original Message-----$/i.test(t)
+  )
+}
+
+/**
+ * Wrap `start` and every following sibling into one quote container so we can
+ * hide the whole trail (Outlook often starts with <hr> then Van:/Verzonden:).
+ */
+function wrapFromNodeThroughEnd(start: Node): HTMLElement | null {
+  const parent = start.parentNode
+  if (!parent || !(parent instanceof HTMLElement)) return null
+  if (start.parentElement?.closest('[data-bokito-quote]')) return null
+  const doc = start.ownerDocument
+  if (!doc) return null
+  const wrapper = doc.createElement('div')
+  wrapper.setAttribute('data-bokito-quote', '1')
+  parent.insertBefore(wrapper, start)
+  let node: ChildNode | null = start as ChildNode
+  while (node) {
+    const next: ChildNode | null = node.nextSibling
+    wrapper.appendChild(node)
+    node = next
+  }
+  return wrapper
+}
+
 function findEmailQuoteRoots(doc: Document): HTMLElement[] {
   const roots: HTMLElement[] = []
   const seen = new Set<HTMLElement>()
@@ -437,25 +492,60 @@ function findEmailQuoteRoots(doc: Document): HTMLElement[] {
     if (node instanceof HTMLElement) add(node)
   })
 
-  // Outlook / Apple Mail plain wrappers: a horizontal rule or "On … wrote" /
-  // "Op … schreef" line that begins the quoted trail.
-  const walk = doc.body ? Array.from(doc.body.querySelectorAll('div, p, span, hr')) : []
+  // Horizontal rule that starts the quoted trail (common in Outlook replies).
+  doc.querySelectorAll('hr').forEach((hr) => {
+    if (!(hr instanceof HTMLElement)) return
+    if (hr.closest(EMAIL_QUOTE_SELECTORS) || hr.closest('[data-bokito-quote]')) return
+    let peek = ''
+    let sib: ChildNode | null = hr.nextSibling
+    for (let i = 0; i < 6 && sib; i += 1, sib = sib.nextSibling) {
+      peek += sib.textContent || ''
+    }
+    if (!looksLikeOutlookHeaderText(peek) && !looksLikeWroteLine(peek.trim())) return
+    add(wrapFromNodeThroughEnd(hr))
+  })
+
+  // Outlook / Apple Mail plain wrappers: "On … wrote" / "Op … schreef" /
+  // Van:/From: header blocks without a leading <hr>.
+  const walk = doc.body ? Array.from(doc.body.querySelectorAll('div, p, span, blockquote')) : []
   for (const node of walk) {
     if (!(node instanceof HTMLElement)) continue
-    if (node.closest(EMAIL_QUOTE_SELECTORS)) continue
+    if (node.closest(EMAIL_QUOTE_SELECTORS) || node.closest('[data-bokito-quote]')) continue
     const text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim()
-    if (
-      /^On .{10,120} wrote:$/i.test(text) ||
-      /^Op .{10,120} schreef .+:$/i.test(text) ||
-      /^-----Original Message-----$/i.test(text)
-    ) {
-      // Collapse from this marker through the rest of its parent siblings.
-      const parent = node.parentElement
-      if (parent && parent !== doc.body) {
-        add(parent)
-      } else {
-        add(node)
+    if (looksLikeWroteLine(text) || looksLikeOutlookHeaderText(text)) {
+      // From this marker through the rest of the letter (siblings after it).
+      add(wrapFromNodeThroughEnd(node) ?? node)
+    }
+  }
+
+  // Outlook often splits Van:/Verzonden:/Aan:/Onderwerp: across sibling <p>s
+  // — no single node holds the full header. Scan sibling windows.
+  if (roots.length === 0) {
+    const containers = [
+      doc.getElementById('bokito-email-root'),
+      doc.body,
+      ...Array.from(doc.body?.querySelectorAll('div, td, blockquote') ?? []),
+    ].filter((el): el is HTMLElement => el instanceof HTMLElement)
+    for (const container of containers) {
+      if (container.closest('[data-bokito-quote]')) continue
+      const kids = Array.from(container.childNodes).filter((n) => {
+        if (n.nodeType === Node.ELEMENT_NODE) return true
+        return n.nodeType === Node.TEXT_NODE && Boolean(n.textContent?.trim())
+      })
+      for (let i = 0; i < kids.length; i += 1) {
+        let joined = ''
+        for (let j = i; j < Math.min(i + 8, kids.length); j += 1) {
+          joined += `${kids[j].textContent || ''}\n`
+          if (!looksLikeOutlookHeaderText(joined)) continue
+          // Need some real reply above this trail (signature / new text).
+          const before = kids.slice(0, i).map((n) => n.textContent || '').join('').trim()
+          if (before.length < 2) break
+          add(wrapFromNodeThroughEnd(kids[i]))
+          break
+        }
+        if (roots.length > 0) break
       }
+      if (roots.length > 0) break
     }
   }
   return roots
@@ -487,8 +577,7 @@ function EmailHtmlFrame({
   const [naturalHeight, setNaturalHeight] = useState(
     () => initialHeight ?? cachedEmailDisplayHeight(html) ?? 80,
   )
-  const [quotesCollapsed, setQuotesCollapsed] = useState(true)
-  const [hasQuotes, setHasQuotes] = useState(false)
+  const quotesCollapsedRef = useRef(true)
   const [expandedFull, setExpandedFull] = useState(false)
   const onDisplayHeightRef = useRef(onDisplayHeight)
   onDisplayHeightRef.current = onDisplayHeight
@@ -574,14 +663,64 @@ a { color: #60a5fa; }
     doc.head.appendChild(style)
   }, [])
 
+  const quoteToggleRef = useRef<HTMLButtonElement | null>(null)
+
   const applyQuoteCollapse = useCallback(
     (collapsed: boolean) => {
       for (const el of quoteRootsRef.current) {
         el.style.display = collapsed ? 'none' : ''
       }
+      const btn = quoteToggleRef.current
+      if (btn) {
+        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+        btn.title = collapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')
+      }
       measure()
     },
-    [measure],
+    [measure, t],
+  )
+
+  const placeQuoteDots = useCallback(
+    (doc: Document, firstRoot: HTMLElement, collapsed: boolean) => {
+      doc.getElementById('bokito-quote-dots')?.remove()
+      const btn = doc.createElement('button')
+      btn.id = 'bokito-quote-dots'
+      btn.type = 'button'
+      btn.textContent = '···'
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+      btn.setAttribute('aria-label', collapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted'))
+      btn.title = collapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')
+      btn.style.cssText = [
+        'display:inline-flex',
+        'align-items:center',
+        'justify-content:center',
+        'margin:6px 0 2px',
+        'padding:2px 10px',
+        'border:0',
+        'border-radius:999px',
+        'background:transparent',
+        'color:#6b7280',
+        'font:600 16px/1.2 ui-sans-serif,system-ui,sans-serif',
+        'letter-spacing:0.12em',
+        'cursor:pointer',
+      ].join(';')
+      btn.addEventListener('mouseenter', () => {
+        btn.style.background = 'rgba(107,114,128,0.12)'
+      })
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = 'transparent'
+      })
+      btn.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        const next = !quotesCollapsedRef.current
+        quotesCollapsedRef.current = next
+        applyQuoteCollapse(next)
+      })
+      firstRoot.parentNode?.insertBefore(btn, firstRoot)
+      quoteToggleRef.current = btn
+    },
+    [applyQuoteCollapse, t],
   )
 
   const handleLoad = useCallback(() => {
@@ -594,11 +733,16 @@ a { color: #60a5fa; }
     }
     const roots = findEmailQuoteRoots(doc)
     quoteRootsRef.current = roots
-    setHasQuotes(roots.length > 0)
-    setQuotesCollapsed(true)
+    quotesCollapsedRef.current = true
     setExpandedFull(false)
+    quoteToggleRef.current = null
     if (roots.length > 0) {
+      // Earliest quote in document order — cut the letter there.
+      const first = roots.reduce((a, b) =>
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? a : b,
+      )
       for (const el of roots) el.style.display = 'none'
+      placeQuoteDots(doc, first, true)
     }
     measure()
     // Remote CDNs (Google, ESP trackers) often block hotlinks when the
@@ -616,7 +760,7 @@ a { color: #60a5fa; }
       a.setAttribute('target', '_blank')
       a.setAttribute('rel', 'noopener noreferrer')
     })
-  }, [applyDarkTheme, isDark, measure])
+  }, [applyDarkTheme, isDark, measure, placeQuoteDots])
 
   useEffect(() => {
     const id = window.setTimeout(measure, 250)
@@ -624,10 +768,10 @@ a { color: #60a5fa; }
   }, [measure, html])
 
   useEffect(() => {
-    setHasQuotes(false)
-    setQuotesCollapsed(true)
+    quotesCollapsedRef.current = true
     setExpandedFull(false)
     quoteRootsRef.current = []
+    quoteToggleRef.current = null
   }, [html])
 
   // Theme switches without a reload: (re)apply on an already-loaded document.
@@ -700,21 +844,8 @@ a { color: #2563eb; }
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-bg-surface to-transparent" />
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {hasQuotes ? (
-          <button
-            type="button"
-            className="text-xs font-medium text-text-muted hover:text-text-primary"
-            onClick={() => {
-              const next = !quotesCollapsed
-              setQuotesCollapsed(next)
-              applyQuoteCollapse(next)
-            }}
-          >
-            {quotesCollapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')}
-          </button>
-        ) : null}
-        {capped || (expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX) ? (
+      {capped || (expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX) ? (
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             className="text-xs font-medium text-text-muted hover:text-text-primary"
@@ -722,8 +853,8 @@ a { color: #2563eb; }
           >
             {expandedFull ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1017,6 +1148,62 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     typeof p.agent_name === 'string' && p.agent_name
       ? t('timeline.events.agentAssigned', { name: p.agent_name })
       : t('timeline.events.agentAssignedGeneric'),
+  auto_assigned: (t, p) => {
+    const reason = typeof p.reason === 'string' ? p.reason : ''
+    if (reason === 'autonomous') {
+      return typeof p.agent_name === 'string' && p.agent_name
+        ? t('timeline.events.agentOwns', { name: p.agent_name })
+        : t('timeline.events.agentOwnsGeneric')
+    }
+    if (reason === 'assisted') {
+      return typeof p.agent_name === 'string' && p.agent_name
+        ? t('timeline.events.agentPrepares', { name: p.agent_name })
+        : t('timeline.events.agentPreparesGeneric')
+    }
+    if (reason === 'contact_owner') return t('timeline.events.routedToContactOwner')
+    if (reason === 'reopened') return t('timeline.events.reopenedRerouted')
+    return t('timeline.events.threadAssigned')
+  },
+  owner_handover: (t, p, name) => {
+    const to = p.to && typeof p.to === 'object' ? (p.to as Record<string, unknown>) : {}
+    const reason = typeof p.reason === 'string' ? p.reason : ''
+    if (to.kind === 'agent') {
+      const agent = typeof p.agent_name === 'string' ? p.agent_name : ''
+      if (reason === 'human_replied' || p.policy === 'return_to_agent') {
+        return agent
+          ? t('timeline.events.returnedToAgent', { name: agent })
+          : t('timeline.events.returnedToAgentGeneric')
+      }
+      return name
+        ? t('timeline.events.handedBackBy', { name, agent: agent || t('aiChat.title', { defaultValue: 'AI' }) })
+        : agent
+          ? t('timeline.events.returnedToAgent', { name: agent })
+          : t('timeline.events.returnedToAgentGeneric')
+    }
+    if (p.bounce_limited) return t('timeline.events.escalatedBounceLimit')
+    if (p.via === 'assisted') {
+      // Routine end of an assisted run: the agent prepared, a person is up.
+      const owner =
+        (typeof p.owner_name === 'string' && p.owner_name) || t('timeline.events.assistTeam')
+      const agent =
+        (typeof p.agent_name === 'string' && p.agent_name) || t('aiChat.title', { defaultValue: 'AI' })
+      if (reason === 'draft_ready') return t('timeline.events.assistDraftReady', { owner })
+      if (reason === 'pending_decision') return t('timeline.events.assistDecision', { owner })
+      if (reason === 'no_reply_needed') return t('timeline.events.assistNoReply', { owner })
+      if (reason === 'run_failed') return t('timeline.events.assistRunFailed', { owner })
+      return t('timeline.events.assistNeedsPerson', { agent, owner })
+    }
+    if (typeof p.policy === 'string' || reason === 'human_replied' || reason === 'hand_back') {
+      return name
+        ? t('timeline.events.keptByHuman', { name })
+        : t('timeline.events.escalatedToPeople')
+    }
+    return t('timeline.events.escalatedToPeople')
+  },
+  closed: (t, p) =>
+    p.via === 'close_after_agent_reply'
+      ? t('timeline.events.closedAfterAgentReply')
+      : t('timeline.events.threadClosed'),
   decision_approved: (t, _, name) =>
     name ? t('timeline.events.approvedBy', { name }) : t('timeline.events.suggestionApproved'),
   decision_dismissed: (t, _, name) =>
@@ -1050,6 +1237,7 @@ const AI_EVENT_TYPES = new Set([
   'ai_paused',
   'ai_resumed',
   'rule_applied',
+  'owner_handover',
 ])
 
 function handlingEventMode(eventType: string, payload: Record<string, unknown>): AiHandlingMode | null {
@@ -1073,6 +1261,15 @@ function eventPresentation(
   if (eventType === 'decision_approved') return { ai: true, icon: <Check size={10} /> }
   if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={10} /> }
   if (eventType === 'triaged') return { ai: true, icon: <BookOpen size={10} /> }
+  if (eventType === 'auto_assigned' && payload.reason === 'autonomous') {
+    return { ai: true, icon: <AiHandlingIcon mode="autonomous" size={10} /> }
+  }
+  if (eventType === 'auto_assigned' && payload.reason === 'assisted') {
+    return { ai: true, icon: <AiHandlingIcon mode="assisted" size={10} /> }
+  }
+  if (eventType === 'closed' && payload.via === 'close_after_agent_reply') {
+    return { ai: true, icon: <AiMark size={10} /> }
+  }
   if (AI_EVENT_TYPES.has(eventType) || (eventType && eventType.startsWith('decision_'))) {
     return { ai: true, icon: <AiMark size={10} /> }
   }
@@ -1444,10 +1641,20 @@ export function MessageTimelineItem({
   const isInternal = message.direction === 'internal'
   const isOutbound = message.direction === 'outbound'
   const isInbound = !isInternal && !isOutbound
+  // Inline agent session turn: team-only chat next to the customer thread.
+  // Same bubbles as an agent chat, never a mail card or a delivery label.
+  const isSessionTurn = isSessionMessage(message)
 
+  // Handover notes the agent leaves when it escalates (metadata system_note):
+  // rendered as a note from the agent, never editable as a teammate note.
+  const isSystemNote = isInternal && message.payload?.system_note === true
   // Inline editing state for internal notes (kind "internal_note").
   const isEditableNote =
-    isInternal && message.kind === 'internal_note' && noteActions != null && typeof message.id === 'string'
+    isInternal &&
+    !isSystemNote &&
+    message.kind === 'internal_note' &&
+    noteActions != null &&
+    typeof message.id === 'string'
   const [editingNote, setEditingNote] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
   const [noteBusy, setNoteBusy] = useState(false)
@@ -1697,6 +1904,15 @@ export function MessageTimelineItem({
   // notes always show who wrote them (avatar + name) because authorship is
   // the main signal on a team-only message.
   const header = (() => {
+    if (isSystemNote) {
+      return (
+        <BubbleHeader
+          name={agentName || t('timeline.aiAgent')}
+          chip={<RoleChip kind="ai" />}
+          subtitle={t('timeline.internalNote')}
+        />
+      )
+    }
     if (isInternal) {
       return (
         <BubbleHeader
@@ -1713,7 +1929,7 @@ export function MessageTimelineItem({
         isMockAgentBody(message.bodyPreview)
       const delivered = !mockOrPlaceholder && message.deliveredToCustomer === true
       // Assistant and internal threads have no customer: no delivery label.
-      const agentSubtitle = !isOutbound || !isCustomerChannel(channel)
+      const agentSubtitle = !isOutbound || !isCustomerChannel(channel) || isSessionTurn
         ? undefined
         : mockOrPlaceholder
           ? t('timeline.mockNotSent')
@@ -1784,8 +2000,10 @@ export function MessageTimelineItem({
         auth_expired: 'timeline.deliveryFail.authExpired',
         no_credentials: 'timeline.deliveryFail.noMailbox',
         no_account: 'timeline.deliveryFail.noMailbox',
+        cannot_send: 'timeline.deliveryFail.cannotSend',
         network: 'timeline.deliveryFail.network',
         no_recipient: 'timeline.deliveryFail.noRecipient',
+        unknown: 'timeline.deliveryFail.unknown',
       }
       const failReason = failReasonKey[failCode]
         ? t(failReasonKey[failCode])
@@ -1833,31 +2051,17 @@ export function MessageTimelineItem({
         </div>
       )
     }
-    if (message.sendStatus === 'scheduled') {
-      // Soft-undo window: status lives on the checkmark; keep cancel here.
-      return token && typeof message.id === 'string' ? (
-        <div className="mb-1 flex min-w-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={() => {
-              void cancelScheduledMessage(token, String(message.id)).then(
-                () => toast.success(t('timeline.sendCancelled')),
-                () => toast.error(t('timeline.cancelSendFailed')),
-              )
-            }}
-            className="text-2xs font-medium text-accent hover:underline"
-          >
-            {t('timeline.cancelSend')}
-          </button>
-        </div>
-      ) : null
-    }
-    // Successful / in-flight sends: checkmark next to the timestamp (see timeMeta).
+    // Soft-undo / in-flight: the mail (or chat bubble) already looks final;
+    // delivery state is the spinner next to the time. Cancel lives on hover.
     return null
   })()
 
   const avatar =
-    authorKind === 'external' ? contactAvatar : authorKind === 'agent' ? agentAvatar : userAvatar
+    authorKind === 'external'
+      ? contactAvatar
+      : authorKind === 'agent' || isSystemNote
+        ? agentAvatar
+        : userAvatar
   const variant: BubbleVariant = isInternal
     ? 'note'
     : authorKind === 'external'
@@ -1884,7 +2088,7 @@ export function MessageTimelineItem({
   // Email threads: every external-facing mail is a document on neutral paper
   // (MailMessageCard). Author and recipients live in the envelope band, so the
   // bubble header and CC line are not used here.
-  const isMailCard = layout === 'email' && !isInternal
+  const isMailCard = layout === 'email' && !isInternal && !isSessionTurn
   const mailTone: MailCardTone =
     authorKind === 'self'
       ? 'self'
@@ -1996,19 +2200,46 @@ export function MessageTimelineItem({
 
   const sentAt = message.receivedAt ?? message.createdAt
   const showDeliveryMark =
-    authorKind === 'self' && !isInternal && isCustomerChannel(channel) && Boolean(message.sendStatus)
+    authorKind === 'self' &&
+    !isInternal &&
+    !isSessionTurn &&
+    isCustomerChannel(channel) &&
+    Boolean(message.sendStatus)
   const deliveryMark = (() => {
     if (!showDeliveryMark) return null
     const status = message.sendStatus
     if (status === 'sending' || status === 'scheduled') {
+      const canCancel =
+        status === 'scheduled' && token && typeof message.id === 'string'
+      const mark = (
+        <span className="inline-flex" aria-label={t('timeline.sending')}>
+          <Loader2 size={11} className="shrink-0 animate-spin opacity-80" aria-hidden />
+        </span>
+      )
       return (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex" aria-label={t('timeline.sending')}>
-              <Loader2 size={11} className="shrink-0 animate-spin opacity-80" aria-hidden />
-            </span>
+            {canCancel ? (
+              <button
+                type="button"
+                className="inline-flex rounded-sm hover:opacity-100"
+                aria-label={t('timeline.cancelSend')}
+                onClick={() => {
+                  void cancelScheduledMessage(token, String(message.id)).then(
+                    () => toast.success(t('timeline.sendCancelled')),
+                    () => toast.error(t('timeline.cancelSendFailed')),
+                  )
+                }}
+              >
+                {mark}
+              </button>
+            ) : (
+              mark
+            )}
           </TooltipTrigger>
-          <TooltipContent side="top">{t('timeline.sending')}</TooltipContent>
+          <TooltipContent side="top">
+            {canCancel ? t('timeline.cancelSend') : t('timeline.sending')}
+          </TooltipContent>
         </Tooltip>
       )
     }
@@ -2044,8 +2275,21 @@ export function MessageTimelineItem({
     }
     return null
   })()
+  // Session turns carry a quiet "internal" mark next to the time so a reader
+  // can tell them from messages the customer saw, without a banner.
+  const internalMark = isSessionTurn ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex opacity-70" aria-label={t('agentSession.internalHint')}>
+          <EyeOff size={11} className="shrink-0" aria-hidden />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top">{t('agentSession.internalHint')}</TooltipContent>
+    </Tooltip>
+  ) : null
   const timeMeta = sentAt ? (
     <span className="inline-flex items-center gap-1">
+      {internalMark}
       {deliveryMark}
       <time dateTime={sentAt} title={new Date(sentAt).toLocaleString(i18n.language)}>
         {formatHourMinute(sentAt, i18n.language)}
@@ -2065,6 +2309,20 @@ export function MessageTimelineItem({
         }}
       >
         <Copy size={12} />
+      </BubbleAction>
+    ) : null
+  const cancelSendAction =
+    message.sendStatus === 'scheduled' && token && typeof message.id === 'string' ? (
+      <BubbleAction
+        label={t('timeline.cancelSend')}
+        onClick={() => {
+          void cancelScheduledMessage(token, String(message.id)).then(
+            () => toast.success(t('timeline.sendCancelled')),
+            () => toast.error(t('timeline.cancelSendFailed')),
+          )
+        }}
+      >
+        <XIcon size={12} />
       </BubbleAction>
     ) : null
   const splitAction =
@@ -2097,9 +2355,15 @@ export function MessageTimelineItem({
       </>
     ) : null
   const actions =
-    copyAction || feedbackRow || noteEditControls || splitAction || mailActions ? (
+    copyAction ||
+    cancelSendAction ||
+    feedbackRow ||
+    noteEditControls ||
+    splitAction ||
+    mailActions ? (
       <>
         {mailActions}
+        {cancelSendAction}
         {feedbackRow}
         {noteEditControls}
         {copyAction}
@@ -2107,6 +2371,10 @@ export function MessageTimelineItem({
       </>
     ) : null
 
+  // While the soft-undo window is open, keep the full mail open so it already
+  // looks like the delivered card — only the spinner next to the time differs.
+  const mailStillSending =
+    message.sendStatus === 'scheduled' || message.sendStatus === 'sending'
   const bubble = isMailCard ? (
     <MailMessageCard
       side={side}
@@ -2126,7 +2394,7 @@ export function MessageTimelineItem({
       body={bubbleBodyWithMeta}
       meta={timeMeta}
       actions={actions}
-      collapsed={mailCollapsed}
+      collapsed={mailStillSending ? false : mailCollapsed}
       onToggleCollapsed={() => setMailCollapsed(false)}
       preview={mailPreview}
       expandAria={t('timeline.envelope.openMail')}

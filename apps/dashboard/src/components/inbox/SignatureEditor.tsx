@@ -22,7 +22,11 @@ import { useMembers } from '../../hooks/useMembers';
 import {
   composeAvatarSignatureTemplateHtml,
   composeDefaultSignatureHtml,
+  editorHtmlFromSignature,
   renderSignatureTemplate,
+  signatureClosingText,
+  signatureHtmlFromEditor,
+  withHardcodedClosing,
   type SignatureIdentityVars,
 } from '../../lib/default-signature';
 
@@ -153,7 +157,7 @@ export default function SignatureEditor({
       {
         name: t('signatureEditor.templateModern'),
         html:
-          `<p style="margin:0 0 14px 0">{{closing}},</p>` +
+          `<p style="margin:0 0 14px 0">${signatureClosingText(i18n.language)},</p>` +
           `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;color:#1f2937;` +
           `padding-left:14px;border-left:2px solid #e5e7eb">` +
           `<div style="font-weight:600;color:#111827">{{name}}</div>` +
@@ -164,7 +168,7 @@ export default function SignatureEditor({
       },
       {
         name: t('signatureEditor.templateWithPhoto'),
-        html: composeAvatarSignatureTemplateHtml(),
+        html: composeAvatarSignatureTemplateHtml(i18n.language),
       },
       {
         name: t('signatureEditor.templateStandard'),
@@ -179,31 +183,35 @@ export default function SignatureEditor({
         html: `<p>${t('signatureEditor.kindRegards')},<br><br><strong>{{name}}</strong><br><em>{{function}}</em><br><br>{{company}}<br>{{address}}<br>${t('signatureEditor.emailAbbr')}: ${emailToken}<br>${t('signatureEditor.phoneAbbr')}: {{phone}}<br>${t('signatureEditor.webAbbr')}: {{website}}</p>`,
       },
     ];
-  }, [mailboxEmail, t]);
+  }, [mailboxEmail, t, i18n.language]);
 
   // Re-initialize when the dialog opens (possibly for a different mailbox).
   useEffect(() => {
     if (open) {
-      setSignature(initialSignature);
+      setSignature(withHardcodedClosing(initialSignature, i18n.language));
       setActiveTab('edit');
       setPreviewPersona('me');
     }
-  }, [open, initialSignature]);
+  }, [open, initialSignature, i18n.language]);
 
   // The contentEditable is uncontrolled: content is written once on mount and
   // read back on input. Binding innerHTML to state would reset the caret to the
   // start of the editor on every keystroke. Radix unmounts inactive tab content,
   // so switching Edit <-> HTML re-mounts the editor with the latest source.
+  const identityRef = useRef(meIdentity);
+  identityRef.current = meIdentity;
+
   const initEditor = useCallback((node: HTMLDivElement | null) => {
+    if (!node && editorRef.current) editorRef.current.innerHTML = '';
     editorRef.current = node;
     if (node) {
-      node.innerHTML = signatureRef.current;
+      node.innerHTML = editorHtmlFromSignature(signatureRef.current, identityRef.current);
     }
   }, []);
 
   const handleContentChange = useCallback(() => {
     if (editorRef.current) {
-      setSignature(editorRef.current.innerHTML);
+      setSignature(signatureHtmlFromEditor(editorRef.current.innerHTML));
     }
   }, []);
 
@@ -222,11 +230,12 @@ export default function SignatureEditor({
   }, [signature, onSave, onOpenChange]);
 
   const applyTemplate = useCallback((html: string) => {
-    setSignature(html);
+    const next = withHardcodedClosing(html, i18n.language);
+    setSignature(next);
     if (editorRef.current) {
-      editorRef.current.innerHTML = html;
+      editorRef.current.innerHTML = editorHtmlFromSignature(next, identityRef.current);
     }
-  }, []);
+  }, [i18n.language]);
 
   const useDynamicDefault = useCallback(() => {
     // Empty stored signature → server composes the modern avatar layout at send time.

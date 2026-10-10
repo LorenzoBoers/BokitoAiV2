@@ -145,7 +145,6 @@ export default function AgentThreadPanel({
               fallbackName={thread.contactName}
               fallbackEmail={thread.contactEmail}
               currentThreadId={thread.id}
-              threadSubject={thread.emailSubject}
               threadPreview={thread.lastMessagePreview}
               threadStatus={thread.status}
               onPatch={onPatch}

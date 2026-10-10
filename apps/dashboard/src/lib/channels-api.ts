@@ -345,8 +345,9 @@ export function buildRelayAddress(prefix: string, workspaceSlug: string, domain:
   return `${clean}-${workspaceSlug}@${domain}`
 }
 
-/** A channel may deliver outbound messages when it can send and is not broken. */
-export function channelCanSend(row: ChannelRow): boolean {
+/** Same rule as API `account_can_send` / `can_send`. */
+export function channelCanSend(row: Pick<ChannelRow, 'isEnabled' | 'capabilities' | 'state'>): boolean {
+  if (!row.isEnabled) return false
   if (!row.capabilities.includes('send')) return false
   return row.state === 'active' || row.state === 'degraded' || row.state === 'connecting'
 }

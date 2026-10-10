@@ -285,6 +285,9 @@ async def test_idle_session_gets_one_server_side_nudge(
             select(DecisionRequest).where(DecisionRequest.signal_id == thread.id)
         )
     ).scalars().all()
+    # The agent may also have proposed a customer reply during the turn; only
+    # the session checkout card is under test here.
+    decisions = [d for d in decisions if d.source_type == "agent_session"]
     assert len(decisions) == 1
     options = json.loads(decisions[0].options_json)
     assert {o["payload"]["kind"] for o in options} == {"end_only", "continue"}

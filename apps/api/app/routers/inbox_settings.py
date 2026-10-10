@@ -155,10 +155,22 @@ class WidgetSettingsResponse(BaseModel):
 
 
 async def _widget_settings_payload(session: AsyncSession, tenant) -> dict:
-    from app.services.tenant_bootstrap import ensure_widget_channel
-    from app.services.widget_channel import widget_payload
+    from app.services.widget_channel import get_widget_account, widget_payload
 
-    account = await ensure_widget_channel(session, tenant.id, commit=False)
+    account = await get_widget_account(session, tenant.id, None)
+    if account is None or not account.is_enabled:
+        return {
+            "pre_chat_form": False,
+            "offline_message": "",
+            "team_available": False,
+            "whatsapp_handover": {
+                "enabled": False,
+                "account_id": "",
+                "number": "",
+                "number_known": False,
+                "ready": False,
+            },
+        }
     payload = await widget_payload(session, tenant, account)
     return {
         "pre_chat_form": payload["pre_chat_form"],
@@ -189,11 +201,15 @@ async def update_widget_settings(
     """
     auth.require_role("owner", "admin")
     from app.models.channel import ChannelAccount
-    from app.services.tenant_bootstrap import ensure_widget_channel
-    from app.services.widget_channel import apply_widget_livechat
+    from app.services.widget_channel import apply_widget_livechat, get_widget_account
     from app.services.whatsapp_handover import digits
 
-    account = await ensure_widget_channel(session, auth.tenant.id, commit=False)
+    account = await get_widget_account(session, auth.tenant.id, None)
+    if account is None or not account.is_enabled:
+        raise HTTPException(
+            status_code=404,
+            detail="Website chat is not set up. Add it under Settings → Channels.",
+        )
     livechat: dict = {}
     if body.pre_chat_form is not None:
         livechat["pre_chat_form"] = body.pre_chat_form

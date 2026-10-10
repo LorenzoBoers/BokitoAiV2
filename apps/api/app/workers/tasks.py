@@ -105,6 +105,52 @@ def assisted_tool_allowed(name: str) -> bool:
     )
 
 
+def autonomous_gate_reason(signal, agent, *, now: datetime | None = None) -> str | None:
+    """Why an autonomous run must draft instead of send, or None when it may send.
+
+    ``not_owner``: a person or team owns the conversation (the agent drafts
+    for them). ``human_composing``: a person is typing a reply right now.
+    """
+    if signal.assignee_kind != "agent" or signal.agent_id != agent.id:
+        return "not_owner"
+    until = signal.human_composing_until
+    if until is not None and until > (now or datetime.utcnow()):
+        return "human_composing"
+    return None
+
+
+def assist_handover_reason(delivery: dict | None) -> str:
+    """Why the agent hands an open conversation to a person after its run."""
+    status = str((delivery or {}).get("delivery") or "")
+    if status == "run_failed":
+        return "run_failed"
+    if status == "pending_approval":
+        return "draft_ready"
+    if status == "pending_decision":
+        return "pending_decision"
+    if status in ("no_reply_needed", "no_reply_noted"):
+        return "no_reply_needed"
+    return "needs_person"
+
+
+async def _hand_over_after_assist(session, signal, agent, delivery, *, reason: str | None = None) -> None:
+    """After an inbound run: an agent-owned, still open conversation that got
+    nothing sent to the customer goes to a person (draft ready, card, failure)."""
+    from app.services.handover import hand_to_people_after_assist
+
+    if signal.assignee_kind != "agent" or signal.status == "closed":
+        return
+    delivery = delivery if isinstance(delivery, dict) else {}
+    status = str(delivery.get("delivery") or "")
+    if delivery.get("delivered_to_customer") or status.startswith("sent"):
+        return
+    if status in ("archived", "closed"):
+        return
+    await hand_to_people_after_assist(
+        session, signal, agent=agent, reason=reason or assist_handover_reason(delivery)
+    )
+
+
 async def startup(ctx):
     from app.observability import init_observability
 
@@ -274,9 +320,15 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             outcome = await inbox_rules.apply_rule_to_signal(
                 session, UUID(tenant_id), signal, msg, rule
             )
+            if signal.assignee_kind == "agent" and signal.status != "closed":
+                await _hand_over_after_assist(session, signal, None, {"delivery": str(outcome)})
+                await session.commit()
             return {"processed": True, "signal_id": signal_id, "delivery": outcome}
 
         if preflight.is_member:
+            if signal.assignee_kind == "agent":
+                await _hand_over_after_assist(session, signal, None, {"delivery": "workspace_member"})
+                await session.commit()
             return {"skipped": True, "reason": "workspace_member"}
 
         from app.services.automated_mail import clip_with_ellipsis
@@ -307,6 +359,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                     ),
                 )
             )
+            await _hand_over_after_assist(session, signal, agent, delivery)
             await session.commit()
             return {"processed": True, "signal_id": signal_id, "delivery": delivery}
 
@@ -348,6 +401,25 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
             if handling.effective == "assisted":
                 run_mode = "assisted"
+            if run_mode == "autonomous":
+                # Sending on its own needs ownership: a person or team that
+                # owns the conversation gets a draft instead. A person typing
+                # in the composer right now also turns the send into a draft.
+                gate_reason = autonomous_gate_reason(signal, agent)
+                if gate_reason:
+                    run_mode = "assisted"
+                    session.add(
+                        SignalEvent(
+                            signal_id=signal.id,
+                            tenant_id=UUID(tenant_id),
+                            event_type="ai_handling_downgraded",
+                            actor_type="system",
+                            actor_id="",
+                            payload_json=json.dumps(
+                                {"from": "autonomous", "to": "assisted", "reason": gate_reason}
+                            ),
+                        )
+                    )
 
         run = AgentRun(
             tenant_id=UUID(tenant_id),
@@ -527,6 +599,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             run.completed_at = datetime.utcnow()
             record_run_error(run, exc)
             session.add(run)
+            # A failed run must not leave the conversation parked on the agent.
+            await _hand_over_after_assist(
+                session, signal, agent, {"delivery": "run_failed"}, reason="run_failed"
+            )
             await session.commit()
             from app.services.workforce_runtime import mark_agent_activity
 
@@ -710,6 +786,12 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 llm_live=llm_live,
                 segments=list(loop.turn.segments) if loop.turn else None,
             )
+
+        # The agent owned the conversation to prepare it. Nothing went to the
+        # customer, so the next step is a person's: hand it to them now so it
+        # shows in their queue instead of staying parked on the agent.
+        if not stale:
+            await _hand_over_after_assist(session, signal, agent, delivery)
 
         from app.services.workforce_runtime import mark_agent_activity
 

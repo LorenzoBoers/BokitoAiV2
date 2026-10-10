@@ -30,18 +30,13 @@ import type {
 } from '../../lib/inbox-api'
 import type { ChatTagMap } from '../../lib/chatText'
 import type { MailDraftMode } from '../../lib/mail-reply'
-import type { ChatMessage } from '../../lib/signals-api'
-import type { LiveTurn } from '../../lib/agentActivity'
-import {
-  mergeSessionLiveMessages,
-  type SessionStreamState,
-} from '../../lib/use-agent-session-chat'
 import { assignBubbleStacks, CHAT_COLUMN_CLASS, CHAT_STACK_GAP_MS } from '../../lib/chat-layout'
+import { sessionIdOf } from '../../lib/session-timeline'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { cn } from '../../lib/utils'
 import { EventClusterTimelineItem, MessageTimelineItem, isAgentSideEvent } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
-import AgentSessionCard from './AgentSessionCard'
+import SessionMarker from './SessionMarker'
 import type { NoteActions } from './TimelineItem'
 import type { BubbleStack } from './ChatBubble'
 
@@ -136,6 +131,32 @@ export function eventsShareCluster(
   return Math.abs(next - previous) <= gapMs
 }
 
+const SESSION_CHECKOUT_OPTION_IDS = new Set(['end_only', 'continue', 'apply_actions'])
+
+/** Button-echo from a session wrap-up card — the resolved card already covers it. */
+export function isSessionCheckoutEcho(message: InboxMessage): boolean {
+  if (!message.decisionResponse) return false
+  const payload = message.payload ?? {}
+  const ids: string[] = []
+  const single = payload.decision_response_option_id ?? payload.option_id
+  if (typeof single === 'string' && single) ids.push(single)
+  const many = payload.decision_response_option_ids ?? payload.option_ids
+  if (Array.isArray(many)) {
+    for (const id of many) if (typeof id === 'string' && id) ids.push(id)
+  }
+  if (ids.some((id) => SESSION_CHECKOUT_OPTION_IDS.has(id))) return true
+  // Older payloads omitted option_id; match the known button labels.
+  const body = (message.bodyText || '').trim().toLowerCase()
+  return (
+    body === 'end session' ||
+    body === 'keep going' ||
+    body === 'apply and end' ||
+    body === 'sessie afronden' ||
+    body === 'doorgaan' ||
+    body === 'toepassen en afronden'
+  )
+}
+
 export function buildTimelineRows(
   detail: ThreadDetailType | null,
   t: (key: string) => string,
@@ -154,6 +175,9 @@ export function buildTimelineRows(
   const entries: TimelineEntry[] = [
     ...detail.messages
       .filter((m) => !(m.attachedToMessageId && inlineHosts.has(m.attachedToMessageId)))
+      // Session-checkout buttons used to echo as "End session" / "Keep going"
+      // chat bubbles; the resolved card already says Afgehandeld.
+      .filter((m) => !isSessionCheckoutEcho(m))
       .map((m) => ({
       kind: 'message' as const,
       time: m.receivedAt ?? m.createdAt,
@@ -232,6 +256,9 @@ function messageStackKey(message: InboxMessage): string | null {
   if (message.kind === 'decision_request') return null
   // System activity renders as centered pills, not stacked note bubbles.
   if (message.kind === 'system_event') return null
+  // Session turns stack among themselves, never onto a customer reply.
+  const sessionId = sessionIdOf(message)
+  const scope = sessionId ? `session:${sessionId}:` : ''
   const isAgent =
     message.kind === 'agent_message' ||
     Boolean(message.payload?.agent_id) ||
@@ -241,13 +268,13 @@ function messageStackKey(message: InboxMessage): string | null {
       typeof message.payload?.agent_id === 'string' && message.payload.agent_id
         ? message.payload.agent_id
         : 'agent'
-    return `agent:${aid}`
+    return `${scope}agent:${aid}`
   }
   const lane = message.direction === 'internal' ? 'note' : message.direction
-  if (message.authorUserId != null) return `${lane}:user:${message.authorUserId}`
+  if (message.authorUserId != null) return `${scope}${lane}:user:${message.authorUserId}`
   const from = (message.fromAddress || '').trim().toLowerCase()
-  if (from) return `${lane}:from:${from}`
-  return `${lane}:kind:${message.kind || 'message'}`
+  if (from) return `${scope}${lane}:from:${from}`
+  return `${scope}${lane}:kind:${message.kind || 'message'}`
 }
 
 /** Assign start/middle/end/single for consecutive same-author chat bubbles. */
@@ -280,7 +307,9 @@ function isSkippableLandingMessage(message: InboxMessage): boolean {
   return (
     kind === 'internal_note' ||
     kind === 'system_event' ||
-    kind === 'decision_request'
+    kind === 'decision_request' ||
+    // Team-only session turns never decide where an email thread lands.
+    sessionIdOf(message) !== null
   )
 }
 
@@ -407,13 +436,9 @@ type Props = {
   loadingOlder?: boolean
   onLoadOlder?: () => void | Promise<void>
   activeSessionId: string | null
-  sessionMessages: ChatMessage[] | null
-  sessionStream: SessionStreamState
+  /** True while the operator's Ask message streams in the active session. */
   agentStreaming: boolean
-  /** Live agent turn inside the active session (gateway activity). */
-  sessionTurn?: LiveTurn
   onRefresh: (quiet?: boolean) => void
-  onUseSessionAsReply: (text: string) => void
   onDecisionResolved?: (info?: { closed?: boolean }) => void
   onEditDraft: (draft: {
     body: string
@@ -490,12 +515,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     loadingOlder = false,
     onLoadOlder,
     activeSessionId,
-    sessionMessages,
-    sessionStream,
     agentStreaming,
-    sessionTurn,
     onRefresh,
-    onUseSessionAsReply,
     onDecisionResolved,
     onEditDraft,
     compactDecisionMessageIds,
@@ -671,7 +692,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     ref,
     () => ({
       scrollToBottom: (behavior: 'auto' | 'smooth' = 'auto') => {
-        scrollToAbsoluteBottom(behavior, 0)
+        // Brief settle so streamed Ask turns / optimistic bubbles that grow
+        // the list still land at the bottom after Virtuoso remeasures.
+        scrollToAbsoluteBottom(behavior, 280)
       },
       land: (behavior: 'auto' | 'smooth' = 'auto') => {
         if (readingHistoryRef.current) return landing
@@ -732,6 +755,45 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     )
   }
 
+  // One bubble renderer for thread messages and session transcripts.
+  const renderMessageItem = (
+    message: InboxMessage,
+    stack: BubbleStack,
+    opts: { focused?: boolean; unreadFlash?: boolean; rowId?: string } = {},
+  ) => (
+    <MessageTimelineItem
+      message={message}
+      threadId={threadId}
+      channel={channel}
+      layout={messageLayout}
+      contactName={contactName}
+      contactEmail={contactEmail}
+      contactPhone={contactPhone}
+      agentName={agentName}
+      agentId={agentId}
+      agentAvatarKind={agentAvatarKind}
+      agentAvatarIcon={agentAvatarIcon}
+      agentAvatarColor={agentAvatarColor}
+      agentAvatarImageUrl={agentAvatarImageUrl}
+      membersById={membersById}
+      noteActions={noteActions}
+      stack={stack}
+      onProposalResolved={onDecisionResolved}
+      chatTags={chatTags}
+      onMailAction={onMailAction}
+      mailOwnAddresses={mailOwnAddresses}
+      onRetrySend={onRetrySend}
+      mailCollapsedByDefault={
+        openMailIds != null &&
+        opts.rowId != null &&
+        !opts.focused &&
+        !opts.unreadFlash &&
+        isMailDocument(message) &&
+        !openMailIds.has(opts.rowId)
+      }
+    />
+  )
+
   const renderRow = (row: TimelineRow) => {
     if (row.kind === 'day') {
       return (
@@ -762,23 +824,13 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     }
     if (row.kind === 'session') {
       return (
-        <div className="mb-4">
-          <AgentSessionCard
+        <div className="mb-3">
+          <SessionMarker
             session={row.session}
             threadId={String(threadId)}
-            liveMessages={
-              row.session.id === activeSessionId
-                ? mergeSessionLiveMessages(sessionMessages, sessionStream)
-                : undefined
-            }
             streaming={row.session.id === activeSessionId && agentStreaming}
-            liveTurn={row.session.id === activeSessionId ? sessionTurn : undefined}
             onChanged={onRefresh}
-            onUseAsReply={onUseSessionAsReply}
-            agentAvatarKind={agentAvatarKind}
-            agentAvatarIcon={agentAvatarIcon}
-            agentAvatarColor={agentAvatarColor}
-            agentAvatarImageUrl={agentAvatarImageUrl}
+            renderMessage={(message, stack) => renderMessageItem(message, stack)}
           />
         </div>
       )
@@ -816,36 +868,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             onEditDraft={onEditDraft}
           />
         ) : (
-          <MessageTimelineItem
-            message={message}
-            threadId={threadId}
-            channel={channel}
-            layout={messageLayout}
-            contactName={contactName}
-            contactEmail={contactEmail}
-            contactPhone={contactPhone}
-            agentName={agentName}
-            agentId={agentId}
-            agentAvatarKind={agentAvatarKind}
-            agentAvatarIcon={agentAvatarIcon}
-            agentAvatarColor={agentAvatarColor}
-            agentAvatarImageUrl={agentAvatarImageUrl}
-            membersById={membersById}
-            noteActions={noteActions}
-            stack={stack}
-            onProposalResolved={onDecisionResolved}
-            chatTags={chatTags}
-            onMailAction={onMailAction}
-            mailOwnAddresses={mailOwnAddresses}
-            onRetrySend={onRetrySend}
-            mailCollapsedByDefault={
-              openMailIds != null &&
-              !focused &&
-              !unreadFlash &&
-              isMailDocument(message) &&
-              !openMailIds.has(row.id)
-            }
-          />
+          renderMessageItem(message, stack, { focused, unreadFlash, rowId: row.id })
         )}
       </div>
     )

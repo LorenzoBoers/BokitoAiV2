@@ -257,30 +257,3 @@ export function useAiChatStream(token: string | null) {
     streamingRef,
   }
 }
-
-/** Merge persisted transcript with the in-flight optimistic + stream bubbles. */
-export function mergeSessionLiveMessages(
-  base: ChatMessage[] | null | undefined,
-  stream: SessionStreamState,
-): ChatMessage[] | undefined {
-  const withUsers = [...(base ?? [])]
-  for (const user of stream.optimisticUsers) {
-    if (!withUsers.some((r) => r.id === user.id)) withUsers.push(user)
-  }
-  if (stream.active && (stream.text || stream.thinking)) {
-    withUsers.push({
-      id: 'local-stream',
-      role: 'assistant',
-      content: stream.text || (stream.thinking ? `_${stream.thinking}_` : '…'),
-      created_at: new Date().toISOString(),
-    })
-  } else if (stream.active) {
-    withUsers.push({
-      id: 'local-stream',
-      role: 'assistant',
-      content: '…',
-      created_at: new Date().toISOString(),
-    })
-  }
-  return withUsers.length ? withUsers : base ?? undefined
-}

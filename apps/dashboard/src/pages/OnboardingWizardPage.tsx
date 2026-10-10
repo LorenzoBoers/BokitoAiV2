@@ -30,6 +30,8 @@ import {
   type WizardIntake,
 } from '../lib/onboarding-wizard-api'
 import { setPosture, type AutonomyPostureId } from '../lib/govern-api'
+import AiHandlingPicker from '../components/ai/AiHandlingPicker'
+import type { AiHandling, AiHandlingMode } from '../lib/ai-handling'
 import { APP_API_BASE } from '../lib/api.config'
 import { policyRoutes } from '../api/routes/policy.routes'
 import { appRoutes } from '../api/routes/app.routes'
@@ -48,7 +50,23 @@ const OWNER_STEPS: OwnerStep[] = [
   'channel',
 ]
 const MEMBER_STEPS: MemberStep[] = ['languages', 'notifications']
-const POSTURES: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
+/** Synthetic workspace handling so the onboarding cards match Settings → AI handling. */
+function postureAsHandling(posture: AutonomyPostureId): AiHandling {
+  return {
+    effective: posture,
+    requested: posture,
+    source: 'workspace',
+    sourceLabel: '',
+    ceiling: posture,
+    clampedBy: null,
+    reason: null,
+    untilClose: false,
+    inherited: posture,
+    inheritedSource: 'default',
+    inheritedSourceLabel: '',
+    own: posture,
+  }
+}
 const WORKSPACE_LANGS = ['nl', 'en', 'de', 'fr', 'es'] as const
 
 const INTAKE_SOURCES = ['search', 'referral', 'social', 'partner', 'other'] as const
@@ -89,7 +107,6 @@ function ChoiceGrid({
 
 export default function OnboardingWizardPage() {
   const { t, i18n } = useTranslation('onboarding')
-  const { t: tg } = useTranslation('govern')
   const { t: tn } = useTranslation('nav')
   const { token, logout, currentTenantRole } = useAuth()
   const navigate = useNavigate()
@@ -428,18 +445,17 @@ export default function OnboardingWizardPage() {
               <h2 className="text-lg font-semibold text-text-heading">{t('govern.title')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('govern.subtitle')}</p>
             </div>
-            <OptionCardGrid className="grid-cols-1 gap-2 sm:grid-cols-1">
-              {POSTURES.map((id) => (
-                <OptionCard
-                  key={id}
-                  selected={posture === id}
-                  onClick={() => setPostureLocal(id)}
-                  title={tg(`posture.${id}.label`)}
-                  description={tg(`posture.${id}.summary`)}
-                  className="px-4"
-                />
-              ))}
-            </OptionCardGrid>
+            <AiHandlingPicker
+              variant="cards"
+              scope="workspace"
+              handling={postureAsHandling(posture)}
+              canRaise
+              hideSettingsLink
+              onChange={(mode: AiHandlingMode | null) => {
+                if (mode) setPostureLocal(mode)
+              }}
+              testId="onboarding-ai-handling"
+            />
           </section>
         ) : null}
 

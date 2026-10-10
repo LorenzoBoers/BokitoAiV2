@@ -145,7 +145,9 @@ class Settings(BaseSettings):
 
     # Inline agent sessions: idle time (seconds, no operator turn) after which
     # the server offers a checkout card on the host thread. 0 disables it.
-    session_idle_seconds: int = 300
+    # Inline agent sessions: offer a wrap-up card after this much silence.
+    # An hour — five minutes nudged operators who had just stepped away.
+    session_idle_seconds: int = 3600
 
     # File storage: local (dev) or s3 (R2 prod)
     storage_backend: str = "local"  # local | s3

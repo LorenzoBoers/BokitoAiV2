@@ -153,6 +153,27 @@ async def create_extra_widget_channel(
     *,
     label: str = "",
 ) -> ChannelAccount:
+    # Re-enable an unused auto-seeded row instead of stacking a second site.
+    seeded = (
+        await session.execute(
+            select(ChannelAccount)
+            .where(
+                ChannelAccount.tenant_id == tenant.id,
+                ChannelAccount.channel == "widget",
+                ChannelAccount.address == tenant.slug,
+                ChannelAccount.archived_at.is_(None),
+            )
+            .order_by(ChannelAccount.created_at)
+        )
+    ).scalars().first()
+    if seeded is not None and not seeded.is_enabled:
+        name = (label or "").strip() or seeded.display_name or "Website chat"
+        seeded.is_enabled = True
+        seeded.display_name = name
+        session.add(seeded)
+        await session.flush()
+        return seeded
+
     count = await count_widget_channels(session, tenant.id)
     name = (label or "").strip() or (
         "Website chat" if count == 0 else f"Website chat {count + 1}"

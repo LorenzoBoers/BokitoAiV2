@@ -55,7 +55,7 @@
     "uiLabel": "Your interface",
     "uiEn": "English",
     "uiNl": "Nederlands",
-    "workspaceLabel": "Organization working language",
+    "workspaceLabel": "Your organization",
     "workspaceHint": "Agents write, think, and explain in this language — including operator chats and setup. Customer replies can still follow the customer per channel.",
     "lang": {
       "nl": "Nederlands",

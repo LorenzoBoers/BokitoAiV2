@@ -202,6 +202,7 @@ async def _latest_message_previews(
             SignalMessage.kind,
             SignalMessage.direction,
             SignalMessage.author_agent_id,
+            SignalMessage.metadata_json,
             func.row_number()
             .over(
                 partition_by=SignalMessage.signal_id,
@@ -228,11 +229,20 @@ async def _latest_message_previews(
             ranked.c.kind,
             ranked.c.direction,
             ranked.c.author_agent_id,
-        ).where(ranked.c.rn <= 4)
+            ranked.c.metadata_json,
+        ).where(ranked.c.rn <= 8)
     )
     user_previews: dict[UUID, tuple[str, str, bool]] = {}
     other_previews: dict[UUID, tuple[str, str, bool]] = {}
-    for signal_id, preview, text, kind, direction, author_agent_id in result.all():
+    for signal_id, preview, text, kind, direction, author_agent_id, metadata_json in result.all():
+        # Decision-button echoes ("End session", "Ja") are not useful list
+        # snippets — prefer the real customer / agent turn underneath.
+        try:
+            meta = json.loads(metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if isinstance(meta, dict) and meta.get("decision_response"):
+            continue
         raw = (preview or text or "").strip()
         is_placeholder = _is_placeholder_preview(raw)
         snippet = _clean_thread_preview(raw)
@@ -492,6 +502,11 @@ def serialize_message(
             payload["decision"]["selection"] = str(meta["selection"]).lower()
     if message.decision_id and meta.get("attached_to_message_id"):
         payload["attached_to_message_id"] = str(meta["attached_to_message_id"])
+    if meta.get("system_note"):
+        # Handover note the agent left when it escalated (services/handover.py).
+        payload["system_note"] = True
+        if meta.get("handover"):
+            payload["handover"] = str(meta["handover"])
     if isinstance(meta.get("items"), list):
         payload["items"] = meta["items"]
     if meta.get("decision_response"):
@@ -500,6 +515,14 @@ def serialize_message(
             payload["decision_response_decision_id"] = str(meta["decision_id"])
         if isinstance(meta.get("items"), list):
             payload["decision_response_items"] = meta["items"]
+        # Lets the timeline hide checkout button-echoes ("End session") that
+        # older builds posted as chat bubbles next to the resolved card.
+        if meta.get("option_id"):
+            payload["decision_response_option_id"] = str(meta["option_id"])
+        if meta.get("option_ids") and isinstance(meta["option_ids"], list):
+            payload["decision_response_option_ids"] = [
+                str(x) for x in meta["option_ids"] if x
+            ]
     proposal_meta = meta.get("proposal")
     if isinstance(proposal_meta, dict) and proposal_meta.get("decision_id"):
         # Bubble-level items are the source of truth for showcases.
@@ -1584,10 +1607,13 @@ async def get_thread(
 
     tenant = await session.get(Tenant, tenant_id)
     handling = (await resolve_for_signal(session, tenant, signal)).to_payload()
+    from app.services import ai_handling as handling_svc
     from app.services.signal_tags import signal_tag_names
     from app.services.tickets import ticket_payload
 
     thread_tags = await signal_tag_names(session, signal.id)
+    routing_policy = (await handling_svc.routing_for_signal(session, tenant, signal)).effective
+    from app.services.ownership import human_owner_payload
 
     return {
         "thread": serialize_thread(
@@ -1599,6 +1625,10 @@ async def get_thread(
             ticket=await ticket_payload(session, signal),
             tags=thread_tags,
         ),
+        # Channel routing policy for the composer (send split at "ask",
+        # "Send and close" default) and the last person/team that handled it.
+        "routing_policy": routing_policy if not is_internal_channel(signal.channel) else None,
+        "last_human_owner": human_owner_payload(signal),
         "messages": serialized_messages,
         "events": [serialize_event(e, user_num_map=rev_map) for e in events],
         "sessions": sessions,
@@ -2511,10 +2541,30 @@ async def reply_to_thread(
     source_message_id: UUID | None = None,
     subject: str | None = None,
     quoted_html: str | None = None,
+    handback: bool | None = None,
+    keep_open: bool = False,
 ) -> dict[str, Any] | None:
     signal = await _get_signal_row(session, tenant_id, signal_id)
     if not signal:
         return None
+
+    routing_policy = None
+    if direction == "outbound":
+        from app.models.auth import Tenant
+        from app.services import ai_handling as handling_svc
+
+        tenant = await session.get(Tenant, tenant_id)
+        routing_policy = await handling_svc.routing_for_signal(session, tenant, signal)
+        if (
+            action == "send"
+            and not keep_open
+            and routing_policy.effective["close_after_human_reply"]
+        ):
+            # Channel policy: a plain send closes the conversation; a new
+            # customer message reopens it. The dashboard composer passes
+            # keep_open when it closes through its own flow or when the
+            # sender picks "send and keep open".
+            action = "send_and_close"
 
     if channel_account_id is not None and direction == "outbound":
         await _rebind_email_account_for_reply(
@@ -2622,8 +2672,13 @@ async def reply_to_thread(
         signal.has_unread = False
     picked = False
     if direction == "outbound":
+        from app.services.handover import apply_after_human_reply
+
         await _defer_open_reply_suggestions(session, tenant_id, signal_id)
-        picked = await pick_up(session, signal, user_id, via="reply")
+        settled = await apply_after_human_reply(
+            session, None, signal, user_id, handback=handback, via="reply"
+        )
+        picked = bool(settled.get("owner_changed"))
     if action == "send_and_close":
         from app.services.ai_handling import on_status_change
 
@@ -3458,7 +3513,9 @@ async def resolve_message_decision(
         )
     )
     # Suggested-reply cards already leave an outbound email (or escalate event).
-    # Recording the button label ("Send") as a chat bubble clutters the timeline.
+    # Session-checkout buttons close the meta session via apply_checkout_choice.
+    # Recording the button label ("Send" / "End session") as a chat bubble
+    # clutters the customer timeline.
     decision_title = (decision_row.title if decision_row else "") or ""
     chosen_action_types = {
         str(o.get("action_type") or "")
@@ -3466,7 +3523,7 @@ async def resolve_message_decision(
         if isinstance(o, dict) and str(o.get("id")) in set(chosen_ids)
     }
     skip_decision_chat = decision_title in REPLY_SUGGESTION_TITLES or bool(
-        chosen_action_types & {"send_reply", "draft", "escalate"}
+        chosen_action_types & {"send_reply", "draft", "escalate", "session_checkout"}
     )
     if answer and user_id and not skip_decision_chat:
         sig_result = await session.execute(

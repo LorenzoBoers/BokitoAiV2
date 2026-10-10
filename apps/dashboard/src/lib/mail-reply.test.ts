@@ -93,6 +93,23 @@ describe('mail-reply', () => {
     expect(html).toContain('<p>Ha Lorenzo</p>')
   })
 
+  it('quoted block omits Aan when toAddresses is JSON empty array', () => {
+    const html = buildQuotedHtml(
+      msg({ toHeader: '', toAddresses: '[]' }),
+      { language: 'nl' },
+    )
+    expect(html).not.toContain('Aan:')
+    expect(html).not.toContain('[]')
+  })
+
+  it('quoted block formats JSON toAddresses for Aan', () => {
+    const html = buildQuotedHtml(
+      msg({ toHeader: '', toAddresses: '["me@firm.nl"]' }),
+      { language: 'nl' },
+    )
+    expect(html).toContain('<b>Aan:</b> me@firm.nl')
+  })
+
   it('reply on own outbound mail keeps its recipients', () => {
     const intent = buildMailDraftIntent(
       msg({ direction: 'outbound', fromAddress: 'me@firm.nl', toAddresses: 'klant@x.nl' }),

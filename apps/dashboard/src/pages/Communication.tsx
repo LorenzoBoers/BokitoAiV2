@@ -1015,6 +1015,8 @@ export default function Communication() {
         sourceMessageId?: string
         subject?: string
         quotedHtml?: string
+        handback?: boolean
+        keepOpen?: boolean
       },
     ) => {
       // Email replies get a short soft-undo window: the backend schedules
@@ -1039,6 +1041,8 @@ export default function Communication() {
           sourceMessageId: extras?.sourceMessageId,
           subject: extras?.subject,
           quotedHtml: extras?.quotedHtml,
+          handback: extras?.handback,
+          keepOpen: extras?.keepOpen,
           sendAfterSeconds: undoable ? UNDO_SEND_SECONDS : undefined,
         })
         void refreshThreads()
@@ -1092,15 +1096,8 @@ export default function Communication() {
             },
           })
         }
-        // A person answering an autonomous conversation takes it over so the
-        // AI does not reply next to them. Assisted keeps drafting.
-        if (detail?.thread.aiHandling?.effective === 'autonomous') {
-          try {
-            await changeAiHandling('manual', { assignToMe: true })
-          } catch {
-            // Reply already left; take over is best-effort.
-          }
-        }
+        // Who owns the conversation after this reply is settled server-side
+        // by the channel routing policy (return to agent / keep / ask).
       } finally {
         if (resolving) advancingRef.current = false
       }
@@ -1114,7 +1111,6 @@ export default function Communication() {
       refreshDetail,
       selectedThreadId,
       leaveResolvedThread,
-      changeAiHandling,
     ],
   )
 

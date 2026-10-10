@@ -16,6 +16,117 @@ export type AiHandlingBreaker = {
 }
 export type AiHandlingDisclosure = { enabled: boolean; text: string }
 
+export type AfterHumanReply = 'return_to_agent' | 'keep_with_human' | 'ask'
+export type ReopenOwner = 'same_owner' | 'route_again'
+export const AFTER_HUMAN_REPLY_OPTIONS: AfterHumanReply[] = ['return_to_agent', 'keep_with_human', 'ask']
+export const REOPEN_OWNER_OPTIONS: ReopenOwner[] = ['same_owner', 'route_again']
+
+/** Routing policy values (workspace defaults; channels override per key). */
+export type RoutingPolicy = {
+  afterHumanReply: AfterHumanReply
+  closeAfterAgentReply: boolean
+  closeAfterHumanReply: boolean
+  reopenOwner: ReopenOwner
+}
+export type RoutingKey = keyof RoutingPolicy
+
+export type AiHandlingRouting = RoutingPolicy & {
+  /** Agent <-> people handovers per conversation per day before people keep it; 0 = off. */
+  bounceLimit: number
+}
+
+/** One channel's routing: effective values, its own overrides and the inherited defaults. */
+export type ChannelRoutingPolicy = {
+  effective: RoutingPolicy
+  own: Partial<RoutingPolicy>
+  inherited: RoutingPolicy
+  source: Record<RoutingKey, 'workspace' | 'channel'>
+  bounceLimit: number
+}
+
+export const DEFAULT_ROUTING_POLICY: RoutingPolicy = {
+  afterHumanReply: 'return_to_agent',
+  closeAfterAgentReply: false,
+  closeAfterHumanReply: false,
+  reopenOwner: 'same_owner',
+}
+
+export function normalizeAfterHumanReply(value: unknown): AfterHumanReply | null {
+  return value === 'return_to_agent' || value === 'keep_with_human' || value === 'ask' ? value : null
+}
+
+export function normalizeReopenOwner(value: unknown): ReopenOwner | null {
+  return value === 'same_owner' || value === 'route_again' ? value : null
+}
+
+function toRoutingPolicy(raw: Raw): RoutingPolicy {
+  return {
+    afterHumanReply: normalizeAfterHumanReply(raw.after_human_reply) ?? DEFAULT_ROUTING_POLICY.afterHumanReply,
+    closeAfterAgentReply: raw.close_after_agent_reply === true,
+    closeAfterHumanReply: raw.close_after_human_reply === true,
+    reopenOwner: normalizeReopenOwner(raw.reopen_owner) ?? DEFAULT_ROUTING_POLICY.reopenOwner,
+  }
+}
+
+function toPartialRoutingPolicy(raw: Raw): Partial<RoutingPolicy> {
+  const out: Partial<RoutingPolicy> = {}
+  const after = normalizeAfterHumanReply(raw.after_human_reply)
+  if (after) out.afterHumanReply = after
+  if (typeof raw.close_after_agent_reply === 'boolean') out.closeAfterAgentReply = raw.close_after_agent_reply
+  if (typeof raw.close_after_human_reply === 'boolean') out.closeAfterHumanReply = raw.close_after_human_reply
+  const reopen = normalizeReopenOwner(raw.reopen_owner)
+  if (reopen) out.reopenOwner = reopen
+  return out
+}
+
+const ROUTING_WIRE: Record<RoutingKey, string> = {
+  afterHumanReply: 'after_human_reply',
+  closeAfterAgentReply: 'close_after_agent_reply',
+  closeAfterHumanReply: 'close_after_human_reply',
+  reopenOwner: 'reopen_owner',
+}
+
+function routingToWire(policy: Partial<Record<RoutingKey, unknown>>): Raw {
+  const body: Raw = {}
+  for (const key of Object.keys(policy) as RoutingKey[]) {
+    body[ROUTING_WIRE[key]] = policy[key]
+  }
+  return body
+}
+
+function toChannelRouting(raw: Raw): ChannelRoutingPolicy {
+  const source = (raw.source ?? {}) as Raw
+  const pick = (key: RoutingKey): 'workspace' | 'channel' =>
+    source[ROUTING_WIRE[key]] === 'channel' ? 'channel' : 'workspace'
+  return {
+    effective: toRoutingPolicy((raw.effective ?? {}) as Raw),
+    own: toPartialRoutingPolicy((raw.own ?? {}) as Raw),
+    inherited: toRoutingPolicy((raw.inherited ?? {}) as Raw),
+    source: {
+      afterHumanReply: pick('afterHumanReply'),
+      closeAfterAgentReply: pick('closeAfterAgentReply'),
+      closeAfterHumanReply: pick('closeAfterHumanReply'),
+      reopenOwner: pick('reopenOwner'),
+    },
+    bounceLimit: num(raw.bounce_limit, 3),
+  }
+}
+
+export async function getChannelRouting(token: string, accountId: string): Promise<ChannelRoutingPolicy> {
+  return toChannelRouting(await apiGet<Raw>(aiHandlingRoutes.channelRouting(accountId), token))
+}
+
+/** Override one or more keys on a channel; `null` follows the workspace default again. */
+export async function setChannelRouting(
+  token: string,
+  accountId: string,
+  patch: Partial<Record<RoutingKey, RoutingPolicy[RoutingKey] | null>>,
+): Promise<ChannelRoutingPolicy> {
+  return toChannelRouting(
+    await apiPut<Raw>(aiHandlingRoutes.channelRouting(accountId), routingToWire(patch), token),
+  )
+}
+
 export type AiHandlingException = {
   id: string
   label: string
@@ -34,6 +145,7 @@ export type AiHandlingOverview = {
   safeguards: AiHandlingSafeguards
   breaker: AiHandlingBreaker
   disclosure: AiHandlingDisclosure
+  routing: AiHandlingRouting
   disclosurePreview: string | null
   exceptions: {
     channels: AiHandlingException[]
@@ -100,6 +212,10 @@ function toOverview(raw: Raw): AiHandlingOverview {
       maxNegativePerHour: num(breaker.max_negative_per_hour, 3),
     },
     disclosure: { enabled: disclosure.enabled !== false, text: str(disclosure.text) },
+    routing: {
+      ...toRoutingPolicy((raw.routing ?? {}) as Raw),
+      bounceLimit: num(((raw.routing ?? {}) as Raw).bounce_limit, 3),
+    },
     disclosurePreview: str(raw.disclosure_preview) || null,
     exceptions: {
       channels: list(exceptions.channels),
@@ -120,9 +236,21 @@ export async function saveAiHandlingSettings(
     safeguards?: AiHandlingSafeguards
     breaker?: AiHandlingBreaker
     disclosure?: AiHandlingDisclosure
+    routing?: AiHandlingRouting
   },
 ): Promise<AiHandlingOverview> {
   const body: Raw = {}
+  if (patch.routing) {
+    body.routing = {
+      ...routingToWire({
+        afterHumanReply: patch.routing.afterHumanReply,
+        closeAfterAgentReply: patch.routing.closeAfterAgentReply,
+        closeAfterHumanReply: patch.routing.closeAfterHumanReply,
+        reopenOwner: patch.routing.reopenOwner,
+      }),
+      bounce_limit: patch.routing.bounceLimit,
+    }
+  }
   if (patch.safeguards) {
     body.safeguards = {
       certainty_threshold: patch.safeguards.certaintyThreshold,

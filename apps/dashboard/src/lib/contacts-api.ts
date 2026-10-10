@@ -26,8 +26,21 @@ export type ContactRow = {
   threadCount: number
   /** Own AI handling override; null follows the channel. */
   aiHandling: AiHandlingMode | null
+  /** Account manager: new conversations go here unless the agent answers autonomously. */
+  owner: ContactOwner | null
   /** Other ways to reach this person (visitor key, email, WhatsApp number). Detail only. */
   identities: ContactIdentity[]
+}
+
+export type ContactOwner = { kind: 'user' | 'team'; id: string }
+
+export function normalizeContactOwner(value: unknown): ContactOwner | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const id = asString(raw.id)
+  if (!id) return null
+  if (raw.kind === 'user' || raw.kind === 'team') return { kind: raw.kind, id }
+  return null
 }
 
 export type ContactIdentity = {
@@ -69,6 +82,8 @@ export type ContactPatch = {
   title?: string
   phone?: string
   notes?: string
+  /** `{kind: '', id: null}` clears the owner. */
+  owner?: { kind: 'user' | 'team' | ''; id: string | null }
 }
 
 function asString(value: unknown, fallback = ''): string {
@@ -98,6 +113,7 @@ function normalizeContact(row: unknown): ContactRow | null {
     createdAt: asString(raw.created_at),
     threadCount: typeof raw.thread_count === 'number' ? raw.thread_count : 0,
     aiHandling: normalizeMode(raw.ai_handling),
+    owner: normalizeContactOwner(raw.owner),
     identities: Array.isArray(raw.identities)
       ? raw.identities.map(normalizeIdentity).filter((i): i is ContactIdentity => i !== null)
       : [],

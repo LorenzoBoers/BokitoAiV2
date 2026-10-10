@@ -328,10 +328,15 @@ async def create_widget_channel(
 ) -> dict[str, Any]:
     """Create an extra website-chat channel with its own snippet and look."""
     auth.require_role("owner", "admin")
+    from app.services.tenant_bootstrap import ensure_front_desk
     from app.services.widget_channel import create_extra_widget_channel
 
     label = body.label if body else ""
     account = await create_extra_widget_channel(session, auth.tenant, label=label)
+    front_desk = await ensure_front_desk(session, auth.tenant.id, commit=False)
+    if account.default_agent_id is None:
+        account.default_agent_id = front_desk.id
+        session.add(account)
     await session.commit()
     await session.refresh(account)
     return await _row(session, auth, account)
@@ -859,6 +864,13 @@ async def create_email_relay(
 # ── contacts (CRM + pairing / allowlist) ─────────────────────────────
 
 
+class ContactOwnerBody(BaseModel):
+    """Contact owner: ``kind`` user | team with its id, or kind "" to clear."""
+
+    kind: str = ""
+    id: UUID | None = None
+
+
 class ContactUpdateBody(BaseModel):
     status: str | None = None
     display_name: str | None = None
@@ -867,6 +879,45 @@ class ContactUpdateBody(BaseModel):
     title: str | None = None
     phone: str | None = None
     notes: str | None = None
+    owner: ContactOwnerBody | None = None
+
+
+def _contact_owner_payload(row: Contact) -> dict | None:
+    kind = row.owner_kind or ""
+    if kind == "user" and row.owner_user_id:
+        return {"kind": "user", "id": str(row.owner_user_id)}
+    if kind == "team" and row.owner_team_id:
+        return {"kind": "team", "id": str(row.owner_team_id)}
+    return None
+
+
+async def _apply_contact_owner(
+    session: AsyncSession, tenant_id: UUID, contact: Contact, owner: ContactOwnerBody
+) -> None:
+    if owner.kind not in ("", "user", "team"):
+        raise HTTPException(status_code=400, detail="Owner kind must be user, team or empty")
+    if owner.kind and owner.id is None:
+        raise HTTPException(status_code=400, detail="Owner id is required")
+    if owner.kind == "user":
+        from app.models.auth import Membership
+
+        member = (
+            await session.execute(
+                select(Membership).where(
+                    Membership.tenant_id == tenant_id, Membership.user_id == owner.id
+                )
+            )
+        ).scalar_one_or_none()
+        if member is None:
+            raise HTTPException(status_code=404, detail="Person not found in this workspace")
+    elif owner.kind == "team":
+        from app.services.teams import get_team
+
+        if await get_team(session, tenant_id, owner.id) is None:
+            raise HTTPException(status_code=404, detail="Team not found")
+    contact.owner_kind = owner.kind
+    contact.owner_user_id = owner.id if owner.kind == "user" else None
+    contact.owner_team_id = owner.id if owner.kind == "team" else None
 
 
 class ContactCreateBody(BaseModel):
@@ -907,6 +958,8 @@ def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict
         "created_at": row.created_at.isoformat(),
         # Own AI handling override (null follows the channel).
         "ai_handling": contact_mode(row),
+        # Account manager: {"kind": "user"|"team", "id"} or null.
+        "owner": _contact_owner_payload(row),
     }
     if thread_count is not None:
         data["thread_count"] = thread_count
@@ -1218,6 +1271,25 @@ async def update_contact(
         contact.phone = body.phone
     if body.notes is not None:
         contact.notes = body.notes
+    if body.owner is not None:
+        before_owner = _contact_owner_payload(contact)
+        await _apply_contact_owner(session, auth.tenant.id, contact, body.owner)
+        if _contact_owner_payload(contact) != before_owner:
+            from app.services.audit import record_audit
+
+            await record_audit(
+                session,
+                auth.tenant.id,
+                action="contact:owner",
+                actor_type="user",
+                actor_id=str(auth.user.id),
+                resource_type="contact",
+                resource_id=str(contact.id),
+                summary=f"Contact owner changed on {contact.display_name or contact.address}",
+                before=before_owner or {},
+                after=_contact_owner_payload(contact) or {},
+                commit=False,
+            )
     session.add(contact)
     await session.commit()
     return _serialize_contact(contact)

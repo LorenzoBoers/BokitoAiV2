@@ -25,12 +25,13 @@ One coherent model:
   ``services/suggestion_format.py``), so signatures can never stack.
 - Defaults are text-only (no avatar image) and composed at send/preview time —
   not persisted — so they stay in sync with name, role, company, and language.
-  Photo layout is opt-in via ``{{avatar}}`` (https profile photo only).
+  Photo layout is opt-in via ``{{avatar}}`` (https photo, otherwise an initials circle).
 """
 
 from __future__ import annotations
 
 import base64
+import hashlib
 import html
 import json
 import re
@@ -422,7 +423,7 @@ def render_signature_template(
 
     Unknown keys resolve to empty string so templates never leak raw tokens
     into customer mail. Values are HTML-escaped. ``{{avatar}}`` injects a safe
-    photo ``<img>`` when ``avatar_url`` is a usable http(s) URL; otherwise empty.
+    photo ``<img>`` when ``avatar_url`` is a usable http(s) URL; otherwise an initials circle.
     """
     raw = (template_html or "").strip()
     if not raw:
@@ -443,10 +444,52 @@ def render_signature_template(
     return _cleanup_after_render(rendered)
 
 
-def photo_avatar_url_for_email(url: str | None) -> str | None:
-    """HTTPS (or absolute) photo URL safe for mail clients — never SVG data URIs.
+_RASTER_DATA_RE = re.compile(
+    r"^data:image/(png|jpeg|jpg|gif|webp);base64,([A-Za-z0-9+/=\s]+)$",
+    re.IGNORECASE,
+)
 
-    Many clients strip or break ``data:image/svg+xml`` and relative paths, so the
+
+def raster_avatar_bytes(url: str | None) -> tuple[str, bytes] | None:
+    """Decode a profile photo stored as a raster data URI. SVG is refused."""
+    match = _RASTER_DATA_RE.match((url or "").strip())
+    if not match:
+        return None
+    mime = match.group(1).lower()
+    if mime == "jpg":
+        mime = "jpeg"
+    try:
+        data = base64.b64decode(re.sub(r"\s+", "", match.group(2)))
+    except Exception:
+        return None
+    if not data or len(data) > 512_000:
+        return None
+    return f"image/{mime}", data
+
+
+def email_avatar_src(url: str | None, *, user_id: UUID | None = None) -> str | None:
+    """Image URL a mail client can fetch.
+
+    https photos pass through. A profile picture stored as a raster data URI
+    is served from ``/api/auth/avatars/{user_id}`` so the message stays small
+    and clients that strip data URIs still show the photo.
+    """
+    direct = photo_avatar_url_for_email(url)
+    if direct:
+        return direct
+    if user_id is None or raster_avatar_bytes(url) is None:
+        return None
+    from app.config import get_settings
+
+    digest = hashlib.sha256((url or "").encode("utf-8")).hexdigest()[:12]
+    base = get_settings().public_api_url.rstrip("/")
+    return f"{base}/api/auth/avatars/{user_id}?v={digest}"
+
+
+def photo_avatar_url_for_email(url: str | None) -> str | None:
+    """HTTPS (or absolute) photo URL safe for mail clients — never data URIs.
+
+    Many clients strip or break ``data:`` images and relative paths, so the
     default signature stays text-only; photo is opt-in via ``{{avatar}}``.
     """
     raw = (url or "").strip()
@@ -462,12 +505,28 @@ def photo_avatar_url_for_email(url: str | None) -> str | None:
     return None
 
 
+def initials_avatar_html(name: str, *, size: int = 48) -> str:
+    """Circle with initials. No image, so mail still shows a mark without a photo."""
+    initials = html.escape(_initials(name))
+    radius = max(1, size // 2)
+    font = max(12, round(size * 0.36))
+    return (
+        '<table cellpadding="0" cellspacing="0" border="0" role="presentation" '
+        'style="border-collapse:collapse">'
+        f'<tr><td width="{size}" height="{size}" align="center" valign="middle" '
+        f'style="width:{size}px;height:{size}px;background:{_AVATAR_COLOR};'
+        f'border-radius:{radius}px;color:#ffffff;'
+        f'font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:{font}px;'
+        f'font-weight:600;line-height:{size}px;text-align:center">{initials}</td></tr></table>'
+    )
+
+
 def avatar_placeholder_html(*, avatar_url: str | None, name: str, size: int = 48) -> str:
-    """Safe ``<img>`` for ``{{avatar}}``, or empty when no usable photo."""
+    """``{{avatar}}``: https photo, or an initials circle when there is no photo."""
     photo = photo_avatar_url_for_email(avatar_url)
-    if not photo:
-        return ""
-    return round_avatar_img_html(url=photo, name=name, size=size)
+    if photo:
+        return round_avatar_img_html(url=photo, name=name, size=size)
+    return initials_avatar_html(name, size=size)
 
 
 def _signature_detail_bits(vars_: dict[str, str]) -> str:
@@ -740,17 +799,18 @@ async def resolve_signature_html(
         return with_agent_disclaimer(body, language=language)
 
     if send_as == "user" and user:
+        avatar_src = email_avatar_src(user.avatar_url, user_id=user.id)
         source = mailbox_signature_source(account)
         if source == SIGNATURE_SOURCE_MAILBOX:
             mailbox_template = mailbox_signature_html(account)
             if mailbox_template:
                 return render_signature_template(
-                    mailbox_template, user_vars, avatar_url=user.avatar_url
+                    mailbox_template, user_vars, avatar_url=avatar_src
                 )
         personal = user_signature_html(user)
         if personal:
             return render_signature_template(
-                personal, user_vars, avatar_url=user.avatar_url
+                personal, user_vars, avatar_url=avatar_src
             )
         return compose_default_signature_html(
             name=user_full_name(user) or user.email,

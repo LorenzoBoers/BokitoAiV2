@@ -2,7 +2,7 @@
 title: How Contacts works
 intro: A shared address book built from real conversations.
 description: Open people and companies from any thread, add a contact, start outbound mail, and approve or block senders.
-keywords: contacts, crm, customers, companies, new contact
+keywords: contacts, crm, customers, companies, new contact, contact owner, account manager
 sort: 30
 related: communication,channels,widget
 ---
@@ -63,6 +63,14 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 4. On Contacts, filter the list with the **Any AI handling** menu to find contacts with **Custom AI handling** or a specific mode. Rows with their own mode show its icon.
 
 A single conversation can still differ from the contact. See [AI handling](/docs/inbox/inbox-ai).
+
+## Give a contact a fixed owner
+
+1. Open the contact on Contacts, or open the side panel in a conversation with them. Find **Owner** under **AI handling**.
+2. Pick a person or a team from the menu; **No fixed owner** clears it.
+3. New conversations from this contact go to that owner when the AI is silent (Manual). On Autonomous or Assisted the agent picks the conversation up first and hands it to the contact owner as soon as a person is needed, before it falls back to the channel team.
+
+Account managers and key accounts are the usual case: the agent handles the routine mail and the owner gets everything the agent cannot finish. See [Handovers](/docs/inbox/inbox-ai#set-handovers-between-agent-and-people).
 
 ## What to do next
 

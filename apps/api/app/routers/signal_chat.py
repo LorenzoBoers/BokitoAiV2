@@ -350,6 +350,7 @@ async def send_message(
         attachments=body.attachments,
     )
     _apply_intent_title_once(signal, body.content)
+    await _withdraw_session_checkout(session, auth.tenant.id, signal)
     await session.commit()
 
     if is_held(signal):
@@ -472,6 +473,7 @@ async def stream_message(
         attachments=body.attachments,
     )
     _apply_intent_title_once(signal, body.content)
+    await _withdraw_session_checkout(session, auth.tenant.id, signal)
     await session.commit()
 
     if is_held(signal):
@@ -702,6 +704,20 @@ async def _running_chat_run(
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def _withdraw_session_checkout(
+    session: AsyncSession, tenant_id: UUID, signal: Signal
+) -> None:
+    """Inline session: a new operator message retracts a pending wrap-up card."""
+    if not signal.context_signal_id or signal.session_state != "active":
+        return
+    from app.services.agent_sessions import resume_session_after_message
+
+    try:
+        await resume_session_after_message(session, tenant_id, signal)
+    except Exception:
+        logger.debug("checkout withdraw failed for %s", signal.id, exc_info=True)
 
 
 async def _ensure_session_idle(

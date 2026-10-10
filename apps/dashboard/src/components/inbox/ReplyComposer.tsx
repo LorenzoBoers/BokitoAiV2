@@ -1,6 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, Paperclip, PhoneOff, Quote, Send, Square, StickyNote } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  Paperclip,
+  PhoneOff,
+  Quote,
+  Send,
+  Square,
+  StickyNote,
+  UserRound,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -21,8 +31,9 @@ import {
 import { effectiveComposerMode, type ComposerSurface, type ComposerMode } from '../../lib/message-composer'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
-import type { MessageAttachment } from '../../lib/inbox-api'
-import { listChannels, type ChannelRow } from '../../lib/channels-api'
+import type { MessageAttachment, ThreadRoutingPolicy } from '../../lib/inbox-api'
+import { setThreadComposing } from '../../lib/signals-api'
+import { channelCanSend, listChannels, type ChannelRow } from '../../lib/channels-api'
 import type { Provider } from '../../lib/email-oauth'
 import { readLastMailboxChannelAccountId, writeLastMailboxChannelAccountId } from '../../lib/last-mailbox'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
@@ -59,9 +70,22 @@ type Props = {
     action: 'send' | 'send_and_close' | 'send_and_pending',
     attachments?: MessageAttachment[],
     snoozeMinutes?: number,
-    extras?: { cc?: string; bcc?: string; channelAccountId?: string },
+    extras?: {
+      cc?: string
+      bcc?: string
+      channelAccountId?: string
+      handback?: boolean
+      keepOpen?: boolean
+    },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
+  /** Channel routing policy; drives the default send label and the ask split. */
+  routingPolicy?: ThreadRoutingPolicy | null
+  /**
+   * True when the policy is "ask" and the agent could take the next turn:
+   * the send menu offers "hand back to agent" and "keep with me".
+   */
+  handbackChoice?: boolean
   /** Send into the active agent meta session (no customer delivery). */
   /** Resolve `false` when nothing was sent, so the text goes back into the editor. */
   onAgentMessage?: (
@@ -173,6 +197,8 @@ export default function ReplyComposer({
   isProposalOpen,
   onHandledExternally,
   onPromoteEmailEdit,
+  routingPolicy = null,
+  handbackChoice = false,
 }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
@@ -263,8 +289,10 @@ export default function ReplyComposer({
           (row) =>
             row.channel === 'email' &&
             row.isEnabled &&
-            row.capabilities.includes('send') &&
-            (row.kind === 'email_mailbox' || row.kind === 'email_relay'),
+            (row.kind === 'email_mailbox' || row.kind === 'email_relay') &&
+            // Match API `account_can_send`: capability alone is not enough
+            // (Bokito Support can advertise send while still in setup).
+            channelCanSend(row),
         )
         setEmailChannels(mailboxes)
         setSelectedChannelAccountId((prev) => {
@@ -442,6 +470,43 @@ export default function ReplyComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- anchors are read from refs
   }, [persistKey])
 
+  // Collision guard: while a person types a customer reply the server keeps
+  // an autonomous agent at drafting. Refresh the lock every 45s of typing
+  // and release it when the text is gone or the thread changes.
+  const composingLockedRef = useRef(false)
+  const composingSentAtRef = useRef(0)
+  const isReplyTyping = mode === 'reply' && body.trim().length > 0
+  useEffect(() => {
+    if (!token || !persistKey || surface.channel === 'internal' || surface.channel === 'assistant') {
+      return
+    }
+    const threadId = persistKey
+    if (isReplyTyping) {
+      const now = Date.now()
+      if (!composingLockedRef.current || now - composingSentAtRef.current > 45_000) {
+        composingLockedRef.current = true
+        composingSentAtRef.current = now
+        void setThreadComposing(token, threadId, true, 90).catch(() => {
+          composingLockedRef.current = false
+        })
+      }
+      return
+    }
+    if (composingLockedRef.current) {
+      composingLockedRef.current = false
+      void setThreadComposing(token, threadId, false).catch(() => undefined)
+    }
+  }, [token, persistKey, surface.channel, isReplyTyping, body])
+  useEffect(() => {
+    return () => {
+      if (composingLockedRef.current && token && persistKey) {
+        composingLockedRef.current = false
+        void setThreadComposing(token, persistKey, false).catch(() => undefined)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- release on thread switch/unmount only
+  }, [persistKey])
+
   const clearDraft = () => {
     // Update the flush ref now: an unmount before the next render would
     // otherwise write the sent text back and restore it on the next open.
@@ -541,9 +606,15 @@ export default function ReplyComposer({
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
 
+  // Channel policy: a plain send closes the conversation. The primary button
+  // then reads "Send and close" and the menu offers "Send and keep open".
+  const closesByPolicy = isReply && Boolean(routingPolicy?.closeAfterHumanReply)
+  const showHandbackChoice = isReply && handbackChoice
+
   const handleSubmit = async (
     action: 'send' | 'send_and_close' | 'send_and_pending',
     snoozeMinutes?: number,
+    routing?: { handback?: boolean; keepOpen?: boolean },
   ) => {
     if (isReply && replyBlocked) return
     const text = body.trim()
@@ -591,12 +662,20 @@ export default function ReplyComposer({
       } else {
         // Customer reply: never treat structured mentions as agent invokes.
         const replyText = stripMentionMarkup(text)
-        const extras =
+        const mailExtras =
           surface.channel === 'email'
             ? {
                 cc: cc.trim() || undefined,
                 bcc: bcc.trim() || undefined,
                 channelAccountId: selectedChannelAccountId || undefined,
+              }
+            : {}
+        const extras =
+          surface.channel === 'email' || routing
+            ? {
+                ...mailExtras,
+                handback: routing?.handback,
+                keepOpen: routing?.keepOpen,
               }
             : undefined
         if (extras?.channelAccountId) writeLastMailboxChannelAccountId(extras.channelAccountId)
@@ -680,14 +759,15 @@ export default function ReplyComposer({
     // Email replies are consequential (real customer mail): plain Enter adds a
     // newline and Cmd/Ctrl+Enter sends. Chat, intern, and agent keep Enter-to-send.
     const enterSends = !(surface.channel === 'email' && isReply)
+    const defaultAction = closesByPolicy ? 'send_and_close' : 'send'
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
-      if (!busy) void handleSubmit('send')
+      if (!busy) void handleSubmit(defaultAction)
       return
     }
     if (e.key === 'Enter' && !e.shiftKey && enterSends) {
       e.preventDefault()
-      if (!busy) void handleSubmit('send')
+      if (!busy) void handleSubmit(defaultAction)
     }
   }
 
@@ -1103,7 +1183,10 @@ export default function ReplyComposer({
             <button
               type="button"
               disabled={!canSend || busy || disabled || uploading}
-              onClick={() => void handleSubmit('send')}
+              onClick={() =>
+                void (closesByPolicy ? handleSubmit('send_and_close') : handleSubmit('send'))
+              }
+              data-testid="composer-send"
               title={
                 isAsk
                   ? t('composer.sendAsk', {
@@ -1111,9 +1194,11 @@ export default function ReplyComposer({
                     })
                   : isNote
                     ? t('composer.sendIntern')
-                    : surface.channel === 'email'
-                      ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
-                      : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
+                    : closesByPolicy
+                      ? `${t('composer.sendAndClose')} — ${t('composer.closesByPolicy')}`
+                      : surface.channel === 'email'
+                        ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
+                        : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
               }
               className={`flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40 ${
                 isAsk
@@ -1124,7 +1209,9 @@ export default function ReplyComposer({
               } ${isReply && showCustomerActions ? 'rounded-none' : 'rounded-lg'}`}
             >
               {isAsk ? <AiMark size={13} /> : isNote ? <StickyNote size={13} /> : <Send size={13} />}
-              {isReply && surface.channel === 'email' ? (
+              {closesByPolicy ? (
+                <span className="text-2xs font-medium opacity-90">{t('composer.sendAndClose')}</span>
+              ) : isReply && surface.channel === 'email' ? (
                 <span className="text-2xs font-medium opacity-90">{t('composer.sendShortcut')}</span>
               ) : null}
             </button>
@@ -1144,12 +1231,47 @@ export default function ReplyComposer({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-44">
-                  <DropdownMenuItem
-                    disabled={!canSend}
-                    onClick={() => void handleSubmit('send_and_close')}
-                  >
-                    {t('composer.sendAndClose')}
-                  </DropdownMenuItem>
+                  {showHandbackChoice ? (
+                    <>
+                      <DropdownMenuItem
+                        disabled={!canSend}
+                        className="gap-1.5"
+                        data-testid="composer-send-handback"
+                        onClick={() => void handleSubmit('send', undefined, { handback: true })}
+                      >
+                        <AiMark size={13} />
+                        {t('composer.sendHandback', {
+                          name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
+                        })}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={!canSend}
+                        className="gap-1.5"
+                        data-testid="composer-send-keep"
+                        onClick={() => void handleSubmit('send', undefined, { handback: false })}
+                      >
+                        <UserRound size={13} />
+                        {t('composer.sendKeepWithMe')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
+                  {closesByPolicy ? (
+                    <DropdownMenuItem
+                      disabled={!canSend}
+                      data-testid="composer-send-keep-open"
+                      onClick={() => void handleSubmit('send', undefined, { keepOpen: true })}
+                    >
+                      {t('composer.sendKeepOpen')}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      disabled={!canSend}
+                      onClick={() => void handleSubmit('send_and_close')}
+                    >
+                      {t('composer.sendAndClose')}
+                    </DropdownMenuItem>
+                  )}
                   {onHandledExternally ? (
                     <>
                       <DropdownMenuSeparator />

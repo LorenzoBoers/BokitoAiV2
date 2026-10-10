@@ -21,6 +21,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { Badge } from '../ui/badge'
+import { SettingRow } from '../ui/entity-row'
 import { useAuth } from '../../context/AuthContext'
 import {
   findThreadsForContact,
@@ -30,9 +31,11 @@ import {
   resolveContact,
   updateContact,
   type ContactLinkCandidate,
+  type ContactOwner,
   type ContactRow,
   type ContactStatus,
 } from '../../lib/contacts-api'
+import ContactOwnerPicker from './ContactOwnerPicker'
 import {
   humanizeContactName,
   isAnonymousContact,
@@ -48,10 +51,8 @@ import type {
   ThreadStatus,
 } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
-import { canComposeToAddress, composeEmailPath } from '../../lib/compose-intent'
 import { IdentitySeenLine } from './IdentitySeenLine'
 import { timeAgo } from '../../lib/time-ago'
-import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { useMembers } from '../../hooks/useMembers'
 import { useAiHandling } from '../../hooks/useAiHandling'
 import AiHandlingPicker from '../ai/AiHandlingPicker'
@@ -78,7 +79,6 @@ type Props = {
   fallbackName?: string
   fallbackEmail?: string
   currentThreadId?: ThreadId | null
-  threadSubject?: string | null
   threadPreview?: string | null
   threadStatus?: ThreadStatus
   onPatch?: (input: PatchThreadInput) => Promise<void>
@@ -171,7 +171,6 @@ export default function ContactPanel({
   fallbackName,
   fallbackEmail,
   currentThreadId,
-  threadSubject,
   threadPreview,
   threadStatus,
   onPatch,
@@ -184,8 +183,6 @@ export default function ContactPanel({
   const { t } = useTranslation('communication')
   const { token, user } = useAuth()
   const { members } = useMembers()
-  const { activeConnections } = useMailboxConnections()
-  const canSendEmail = activeConnections.length > 0
   const [contact, setContact] = useState<ContactRow | null>(null)
   const [threads, setThreads] = useState<InboxThread[]>([])
   const [loading, setLoading] = useState(true)
@@ -313,6 +310,24 @@ export default function ContactPanel({
       if (updated) setContact((prev) => (prev ? { ...prev, status: updated.status } : updated))
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('contactPanel.statusError')))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const setOwner = async (owner: ContactOwner | null) => {
+    if (!token || !contact || saving) return
+    const previous = contact.owner
+    setContact((prev) => (prev ? { ...prev, owner } : prev))
+    setSaving(true)
+    try {
+      const updated = await updateContact(token, contact.id, {
+        owner: owner ? { kind: owner.kind, id: owner.id } : { kind: '', id: null },
+      })
+      if (updated) setContact((prev) => (prev ? { ...prev, owner: updated.owner } : updated))
+    } catch (err) {
+      setContact((prev) => (prev ? { ...prev, owner: previous } : prev))
+      toast.error(formatApiErrorMessage(err, t('contactPanel.saveError')))
     } finally {
       setSaving(false)
     }
@@ -621,43 +636,22 @@ export default function ContactPanel({
           ) : null}
         </div>
         {needsIdentity ? linkForm : null}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {needsIdentity && !captureOpen ? linkButton : null}
-          {statusPending && !anonymous ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void setStatus('approved')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
-            >
-              <Check size={11} />
-              {t('contactPanel.approve')}
-            </button>
-          ) : null}
-          {canSendEmail && canComposeToAddress(contact.channel, contact.address) ? (
-            <Link
-              to={composeEmailPath({
-                to: contact.address,
-                subject: threadSubject?.trim()
-                  ? /^re:/i.test(threadSubject) ? threadSubject : `Re: ${threadSubject}`
-                  : undefined,
-              })}
-              title={t('contactPanel.writeEmail')}
-              className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
-            >
-              <Mail size={11} />
-              {t('contactPanel.writeEmail')}
-            </Link>
-          ) : null}
-          {!namedHeadline ? null : (
-            <Link
-              to={`/contacts/${contact.id}`}
-              className="ml-auto inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-1.5 py-1 text-xs font-medium text-accent hover:underline"
-            >
-              {t('contactPanel.fullProfile')}
-            </Link>
-          )}
-        </div>
+        {(needsIdentity && !captureOpen) || (statusPending && !anonymous) ? (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {needsIdentity && !captureOpen ? linkButton : null}
+            {statusPending && !anonymous ? (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void setStatus('approved')}
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+              >
+                <Check size={11} />
+                {t('contactPanel.approve')}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="border-b border-border/40 px-4 py-2">
@@ -672,6 +666,19 @@ export default function ContactPanel({
           testId="contact-ai-handling"
         />
       </div>
+
+      {!anonymous ? (
+        <div className="border-b border-border/40 px-4 py-2">
+          <SettingRow label={t('contactPanel.owner')}>
+            <ContactOwnerPicker
+              variant="chip"
+              owner={contact.owner}
+              onChange={(owner) => void setOwner(owner)}
+              disabled={saving}
+            />
+          </SettingRow>
+        </div>
+      ) : null}
 
       {/* Notes */}
       <div className="border-b border-border/40 px-4 py-3">

@@ -47,6 +47,64 @@ export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
 )
 EntityRow.displayName = 'EntityRow'
 
+/**
+ * Label on the left, control on the right. The one settings line
+ * (contact panel, channel config, conversation side panel).
+ */
+export function SettingRow({
+  label,
+  hint,
+  children,
+  density = 'inline',
+  htmlFor,
+  className,
+}: {
+  label: React.ReactNode
+  hint?: React.ReactNode
+  children?: React.ReactNode
+  /** `inline` for side panels; `field` when the label has a hint. */
+  density?: 'inline' | 'field'
+  htmlFor?: string
+  className?: string
+}) {
+  const text = density === 'field'
+  const labelClass = text ? 'text-sm font-medium text-text-heading' : 'text-xs font-medium text-text-secondary'
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 justify-between gap-3',
+        text ? 'flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:gap-x-4' : 'items-center',
+        className,
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        {typeof label === 'string' ? (
+          htmlFor ? (
+            <label htmlFor={htmlFor} className={labelClass}>
+              {label}
+            </label>
+          ) : (
+            <p className={labelClass}>{label}</p>
+          )
+        ) : (
+          label
+        )}
+        {hint ? <p className="mt-0.5 text-xs leading-snug text-text-muted">{hint}</p> : null}
+      </div>
+      {children ? (
+        <div
+          className={cn(
+            'flex min-w-0 items-center justify-end gap-1.5',
+            text ? 'w-full sm:w-auto sm:max-w-[16rem]' : 'shrink-0',
+          )}
+        >
+          {children}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /** Label / value pair for detail panels (contact, key, channel facts). */
 export function DescriptionRow({
   label,

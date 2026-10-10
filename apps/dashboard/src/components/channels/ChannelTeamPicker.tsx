@@ -67,7 +67,7 @@ export default function ChannelTeamPicker({
   return (
     <ChoiceSelect
       aria-label={t('channelsPage.team')}
-      triggerClassName="h-8 w-[200px] text-xs"
+      triggerClassName="h-8 w-full min-w-0 text-xs"
       value={current}
       onValueChange={(next) => void change(next)}
       disabled={!isAdmin || busy || !accountId || !token}

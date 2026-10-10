@@ -30,6 +30,7 @@ export {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
+  controlChipClass,
 } from './select'
 export {
   DropdownMenu,
@@ -59,7 +60,7 @@ export { ApiErrorBanner, formatApiErrorMessage } from './ApiErrorBanner'
 // Data
 export { Badge, badgeVariants, type BadgeTone } from './badge'
 export { MetaLine } from './meta-line'
-export { EntityRow, EntityList, DescriptionRow } from './entity-row'
+export { EntityRow, EntityList, DescriptionRow, SettingRow } from './entity-row'
 export { StatTile, StatGrid } from './stat-tile'
 export { Chart, type ChartKind, type ChartPoint, type ChartSeries } from './chart'
 export { CapBar } from './cap-bar'

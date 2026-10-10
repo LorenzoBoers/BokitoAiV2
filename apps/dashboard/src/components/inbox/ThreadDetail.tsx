@@ -19,6 +19,7 @@ import {
 import { buildMailDraftIntent, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
 import {
   clearStoredMailDraft,
+  MAIL_DRAFT_CHANGED_EVENT,
   readStoredMailDraft,
   type StoredMailDraft,
 } from '../../lib/mail-draft-store'
@@ -87,7 +88,9 @@ import {
   discardAgentSession,
   startAgentSession,
   type ChatMessage,
+  type ThreadSession,
 } from '../../lib/signals-api'
+import { sessionTimelineMessages } from '../../lib/session-timeline'
 import { useAiChatStream } from '../../lib/use-agent-session-chat'
 import { applyAgentLive } from '../../hooks/useAgentPresence'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
@@ -130,6 +133,10 @@ type Props = {
       sourceMessageId?: string
       subject?: string
       quotedHtml?: string
+      /** Routing choice after the reply (ask policy); omit = channel default. */
+      handback?: boolean
+      /** Keep open even when the channel closes after a human reply. */
+      keepOpen?: boolean
     },
   ) => Promise<void>
   /** Retry a failed outbound bubble from the timeline. */
@@ -474,10 +481,55 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   const isAssistantThread = (detail?.thread.channel ?? '') === 'assistant'
 
+  // A session the operator just started, until the thread detail refresh
+  // carries it. Without this the first Ask has no session to stream into:
+  // no live bubble, and the whole answer appears at once afterwards.
+  const [pendingSession, setPendingSession] = useState<ThreadSession | null>(null)
+  useEffect(() => {
+    setPendingSession(null)
+  }, [threadId])
+  const activeSession = useMemo(() => {
+    const fromDetail = (detail?.sessions ?? []).find((s) => s.state === 'active') ?? null
+    if (fromDetail) return fromDetail
+    if (
+      pendingSession &&
+      !(detail?.sessions ?? []).some((s) => s.id === pendingSession.id && s.state === 'closed')
+    ) {
+      return pendingSession
+    }
+    return null
+  }, [detail?.sessions, pendingSession])
+  const activeSessionId = activeSession?.id ?? null
+  useEffect(() => {
+    if (!pendingSession) return
+    if ((detail?.sessions ?? []).some((s) => s.id === pendingSession.id)) setPendingSession(null)
+  }, [detail?.sessions, pendingSession])
+  const sessionLive = useSignalStream(activeSessionId)
+
+  // Inline session turns (operator + agent) are rows of the host timeline,
+  // rendered by the same bubbles as the rest. Includes optimistic operator
+  // bubbles so Send shows up before the transcript refetch lands.
+  const sessionInboxMessages = useMemo(
+    () =>
+      activeSession && !isAssistantThread
+        ? sessionTimelineMessages(
+            activeSession,
+            sessionMessages,
+            sessionStream.optimisticUsers,
+            user?.id ?? null,
+          )
+        : [],
+    [activeSession, isAssistantThread, sessionMessages, sessionStream.optimisticUsers, user?.id],
+  )
+
   // While an assistant turn streams, splice optimistic operator bubbles into
   // the timeline so Send never blanks the thread waiting on a hard refresh.
   const timelineDetail = useMemo(() => {
-    if (!detail || !isAssistantThread) return detail
+    if (!detail) return detail
+    if (!isAssistantThread) {
+      if (!sessionInboxMessages.length) return detail
+      return { ...detail, messages: [...detail.messages, ...sessionInboxMessages] }
+    }
     const optimistic = sessionStream.optimisticUsers
     if (!optimistic.length) return detail
     // Assistant chats store the operator as inbound; match body text so the
@@ -513,7 +565,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       )
     if (!extras.length) return detail
     return { ...detail, messages: [...detail.messages, ...extras] }
-  }, [detail, isAssistantThread, sessionStream.optimisticUsers, user?.id])
+  }, [detail, isAssistantThread, sessionInboxMessages, sessionStream.optimisticUsers, user?.id])
 
   const rows = useMemo(
     () => buildTimelineRows(timelineDetail, t, i18n.language),
@@ -715,10 +767,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   // The mail composer autosaves and flushes its draft on unmount; re-read
   // whenever the mail surface closes (or the thread changes) so the draft
-  // chip above the composer stays accurate.
+  // chip above the composer stays accurate. Soft-undo parks a draft via
+  // localStorage without toggling mailDraft — listen for that too.
   useEffect(() => {
     if (mailDraft) return
     setStoredMailDraft(readStoredMailDraft(String(threadId)))
+  }, [threadId, mailDraft])
+
+  useEffect(() => {
+    const onDraftChanged = (event: Event) => {
+      const id = (event as CustomEvent<{ threadId?: string }>).detail?.threadId
+      if (id != null && String(id) !== String(threadId)) return
+      if (mailDraft) return
+      setStoredMailDraft(readStoredMailDraft(String(threadId)))
+    }
+    window.addEventListener(MAIL_DRAFT_CHANGED_EVENT, onDraftChanged)
+    return () => window.removeEventListener(MAIL_DRAFT_CHANGED_EVENT, onDraftChanged)
   }, [threadId, mailDraft])
 
   // Addresses of our own mailboxes: excluded from reply-all recipient lists
@@ -816,13 +880,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [token, detail, blockingContact, t, onRefresh])
 
   const threadIdString = detail ? String(detail.thread.id) : null
-
-  const activeSession = useMemo(
-    () => (detail?.sessions ?? []).find((s) => s.state === 'active') ?? null,
-    [detail?.sessions],
-  )
-  const activeSessionId = activeSession?.id ?? null
-  const sessionLive = useSignalStream(activeSessionId)
 
   // Land on the surface default when opening a thread. Manual handling forces
   // reply. An active meta conversation keeps Ask. Switching to Ask or @-mentioning
@@ -1020,14 +1077,19 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         !isAssistant &&
         (!sessionId || Boolean(askAgentId && activeSession?.agentId && activeSession.agentId !== askAgentId))
       if (needsNewSession) {
+        let started: ThreadSession | null = null
         try {
-          const started = await startAgentSession(token, threadIdString, wantedAgentId)
+          started = await startAgentSession(token, threadIdString, wantedAgentId)
           sessionId = started?.id ?? null
         } catch {
           toast.error(t('agentSession.startError'))
           return false
         }
         if (!sessionId) return false
+        // Subscribe to the session's live turn and show the marker right away;
+        // the detail refresh replaces this once it carries the session.
+        setPendingSession(started)
+        setSessionMessages([])
         onRefresh(true)
       }
       if (!sessionId) return false
@@ -1041,8 +1103,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             window.setTimeout(() => pinToBottom('smooth'), 120)
           },
         })
-        // Show the operator's own message right away, not only after the reply.
+        // Email threads land mid-list; pin past that so the Ask turn is visible
+        // while it streams (retry after Virtuoso measures the new rows).
         pinToBottom('smooth')
+        window.requestAnimationFrame(() => pinToBottom('smooth'))
+        window.setTimeout(() => pinToBottom('smooth'), 80)
         return (await sendPromise) !== false
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''
@@ -1328,24 +1393,38 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   useEffect(() => {
     if (liveTurn.ended && liveTurnSaved) resetLiveTurn()
   }, [liveTurn.ended, liveTurnSaved, resetLiveTurn])
+  // Same hand-off for the inline session's turn (its own gateway topic).
+  const sessionTurn = sessionLive.turn
+  const resetSessionTurn = sessionLive.reset
+  const sessionTurnSaved = turnSaved(sessionTurn, sessionInboxMessages)
+  useEffect(() => {
+    if (sessionTurn.ended && sessionTurnSaved) resetSessionTurn()
+  }, [sessionTurn.ended, sessionTurnSaved, resetSessionTurn])
 
+  // One live view for every agent turn on this screen: the thread's own
+  // agent (inbound handling), the inline session agent, or the plain SSE
+  // stream of an Ask before gateway events land. It always renders as the
+  // last row, so the operator watches the work where the answer will appear.
   const threadLiveTurn = useMemo(() => {
     // Gateway turn (thinking + tools + speech) is the rich path when connected.
     if (!liveTurnSaved && turnHasContent(liveTurn)) return liveTurn
+    if (!sessionTurnSaved && turnHasContent(sessionTurn)) return sessionTurn
     // SSE fallback while the agent is working — show a live bubble even before
     // the first token, so the operator sees that work started.
-    if (isAssistantThread && agentStreaming) {
+    if (agentStreaming) {
       return textOnlyTurn(sessionStream.text || sessionStream.thinking || '')
     }
     return null
   }, [
     liveTurn,
     liveTurnSaved,
-    isAssistantThread,
+    sessionTurn,
+    sessionTurnSaved,
     agentStreaming,
     sessionStream.text,
     sessionStream.thinking,
   ])
+  const liveTurnIsSession = threadLiveTurn != null && threadLiveTurn === sessionTurn
 
   // Pulse avatar corners as soon as this thread sees a live turn / Ask stream.
   // The API also broadcasts agent.status; this covers the same browser before
@@ -1415,7 +1494,13 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       action: 'send' | 'send_and_close' | 'send_and_pending',
       attachments?: MessageAttachment[],
       snoozeMinutes?: number,
-      extras?: { cc?: string; bcc?: string; channelAccountId?: string },
+      extras?: {
+        cc?: string
+        bcc?: string
+        channelAccountId?: string
+        handback?: boolean
+        keepOpen?: boolean
+      },
     ) => {
       const pendingDecisionId = composerDraft?.decisionMessageId
       if (pendingDecisionId && token && detail) {
@@ -1446,7 +1531,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         const format = composerSurface?.includeSignature ? 'email' : 'plain'
         // Optimistic bubble lands immediately; pin the timeline to it.
         window.setTimeout(() => scrollToBottom('smooth'), 16)
-        await onReply(bodyText, 'send', format, attachments, snoozeMinutes, extras)
+        // keepOpen: the close happens here (after the open-Signals prompt),
+        // not through the channel's close-after-reply policy.
+        await onReply(bodyText, 'send', format, attachments, snoozeMinutes, {
+          ...extras,
+          keepOpen: true,
+        })
         await requestCloseThread()
         if (token && threadIdString && activeSession) {
           try {
@@ -1647,15 +1737,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           loadingOlder={loadingOlder}
           onLoadOlder={onLoadOlder}
           activeSessionId={activeSessionId}
-          sessionMessages={sessionMessages}
-          sessionStream={sessionStream}
           agentStreaming={agentStreaming}
-          sessionTurn={sessionLive.turn}
           onRefresh={onRefresh}
-          onUseSessionAsReply={(body) => {
-            applyComposerDraft({ body, key: `session-${Date.now()}` })
-            toast.success(t('aiChat.replyCopied', { defaultValue: t('agentSession.replyCopied') }))
-          }}
           onDecisionResolved={onDecisionResolved}
           onEditDraft={(draft) => {
             const card = detail.messages.find((m) => String(m.id) === draft.decisionMessageId)
@@ -1679,7 +1762,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
               <AgentTurnLive
                 turn={threadLiveTurn}
                 avatar={
-                  thread.agentId ? (
+                  liveTurnIsSession || agentStreaming ? (
+                    <AiAvatar
+                      {...toAiAvatarProps(
+                        {
+                          name: activeSession?.agentName ?? askAgentName ?? thread.agentName,
+                          agentId: activeSession?.agentId ?? askAgentId ?? thread.agentId,
+                          agentAvatarKind: thread.agentAvatarKind,
+                          agentAvatarIcon: thread.agentAvatarIcon,
+                          agentAvatarImageUrl: thread.agentAvatarImageUrl,
+                        },
+                        t('agentSession.title'),
+                      )}
+                      size={28}
+                      decorative
+                    />
+                  ) : thread.agentId ? (
                     <AiAvatar {...toAiAvatarProps(thread)} size={28} decorative />
                   ) : undefined
                 }
@@ -1787,6 +1885,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onMentionInserted={handleMentionInserted}
           saving={saving || agentStreaming}
           lastInboundText={lastInboundText}
+          routingPolicy={detail.routingPolicy ?? null}
+          handbackChoice={
+            detail.routingPolicy?.afterHumanReply === 'ask' &&
+            thread.owner?.kind !== 'user' &&
+            thread.aiHandling?.effective !== 'manual'
+          }
           channelAccountId={thread.channelAccountId ?? null}
           onChannelAccountChange={(channelAccountId) => {
             void onPatch({ channelAccountId })

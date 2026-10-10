@@ -108,16 +108,19 @@ export function ChoiceOption({
   item,
   size = 18,
   className,
+  hideTrailing = false,
 }: {
   item: ChoiceItem
   size?: number
   className?: string
+  /** Closed trigger: hide DefaultBadge so the name stays readable. */
+  hideTrailing?: boolean
 }) {
   return (
-    <span className={cn('flex min-w-0 items-center gap-2', className)}>
+    <span className={cn('flex w-full min-w-0 items-center gap-2', className)}>
       <ChoiceMark item={item} size={size} />
-      <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">{item.label}</span>
-      {item.trailing}
+      <span className="min-w-0 flex-1 truncate-fade text-text-primary">{item.label}</span>
+      {!hideTrailing && item.trailing ? <span className="shrink-0">{item.trailing}</span> : null}
     </span>
   )
 }

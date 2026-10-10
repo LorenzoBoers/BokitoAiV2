@@ -1,4 +1,4 @@
-import { ChevronDown, ListPlus, RefreshCw } from 'lucide-react'
+import { ChevronDown, ListPlus, Sparkles } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -13,6 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { SettingRow } from '../ui/entity-row'
+import { controlChipClass } from '../ui/select'
 import { ThreadCategory } from './ThreadCategory'
 import { ThreadTags } from './ThreadTags'
 
@@ -31,16 +33,10 @@ export const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = 
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-h-7 items-center justify-between gap-3">
-      <span className="shrink-0 text-xs text-text-muted">{label}</span>
-      <div className="flex min-w-0 items-center justify-end">{children}</div>
-    </div>
-  )
+  return <SettingRow label={label}>{children}</SettingRow>
 }
 
-const VALUE_BUTTON =
-  'inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs text-text-heading transition-colors hover:bg-bg-hover/70 disabled:opacity-40'
+const VALUE_BUTTON = controlChipClass
 
 /**
  * Everything noted on this one conversation: AI summary, priority,
@@ -61,9 +57,9 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
     setRereading(true)
     try {
       await queueThreadTriage(token, String(thread.id))
-      toast.success(t('sidePanel.rereadQueued', { defaultValue: 'Agent will re-read this conversation' }))
+      toast.success(t('sidePanel.rereadQueued', { defaultValue: 'Agent will review this conversation again' }))
     } catch {
-      toast.error(t('sidePanel.rereadFailed', { defaultValue: 'Could not queue a re-read' }))
+      toast.error(t('sidePanel.rereadFailed', { defaultValue: 'Could not start another review' }))
     } finally {
       setRereading(false)
     }
@@ -71,9 +67,25 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
 
   return (
     <div className="space-y-3 border-t border-border/40 px-4 py-3">
-      <h2 className="text-xs font-semibold text-text-muted">
-        {t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
-      </h2>
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <h2 className="text-xs font-semibold text-text-muted">
+          {t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
+        </h2>
+        {!internal && token ? (
+          <button
+            type="button"
+            onClick={() => void handleReread()}
+            disabled={rereading || saving}
+            className="inline-flex max-w-full items-center gap-1 text-xs font-medium text-ai-ink hover:underline disabled:opacity-40"
+            title={t('sidePanel.rereadHint', {
+              defaultValue: 'Ask the channel agent to review this conversation again',
+            })}
+          >
+            <Sparkles size={12} className={rereading ? 'animate-pulse' : undefined} aria-hidden />
+            <span className="truncate">{t('sidePanel.reread')}</span>
+          </button>
+        ) : null}
+      </div>
 
       {!internal && thread.aiSummary ? (
         <p
@@ -84,93 +96,78 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
         </p>
       ) : null}
 
-      {internal ? null : (
       <div className="space-y-0.5">
-        <Row label={t('sidePanel.priority', { defaultValue: 'Priority' })}>
-          {onPatch ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  disabled={saving}
-                  aria-label={t('threadChrome.setPriority')}
-                  className={VALUE_BUTTON}
-                >
+        {internal ? null : (
+          <>
+            <Row label={t('sidePanel.priority', { defaultValue: 'Priority' })}>
+              {onPatch ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      aria-label={t('threadChrome.setPriority')}
+                      className={VALUE_BUTTON}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
+                      {t(priorityMeta.labelKey)}
+                      <ChevronDown size={11} className="text-text-muted" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-36">
+                    {Object.entries(PRIORITY_META).map(([value, meta]) => (
+                      <DropdownMenuItem
+                        key={value}
+                        className="gap-2 text-xs"
+                        onSelect={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                        {t(meta.labelKey)}
+                        {value === priority ? (
+                          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-text-heading" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs text-text-heading">
                   <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
                   {t(priorityMeta.labelKey)}
-                  <ChevronDown size={11} className="text-text-muted" />
+                </span>
+              )}
+            </Row>
+
+            <Row label={t('sidePanel.lookAgain', { defaultValue: 'Look again' })}>
+              {thread.followUpAt ? (
+                <button
+                  type="button"
+                  onClick={onWhatsNext}
+                  disabled={!onWhatsNext}
+                  title={thread.followUpTitle || undefined}
+                  className={VALUE_BUTTON}
+                >
+                  <ListPlus size={11} className="shrink-0 text-text-muted" />
+                  <span className="truncate-fade">{followUpWake ?? thread.followUpTitle}</span>
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-36">
-                {Object.entries(PRIORITY_META).map(([value, meta]) => (
-                  <DropdownMenuItem
-                    key={value}
-                    className="gap-2 text-xs"
-                    onSelect={() => void onPatch({ priority: value as PatchThreadInput['priority'] })}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                    {t(meta.labelKey)}
-                    {value === priority ? (
-                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-text-heading" />
-                    ) : null}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-xs text-text-heading">
-              <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
-              {t(priorityMeta.labelKey)}
-            </span>
-          )}
-        </Row>
+              ) : onWhatsNext ? (
+                <button type="button" onClick={onWhatsNext} className={`${VALUE_BUTTON} text-text-secondary`}>
+                  <ListPlus size={11} />
+                  <span className="truncate">{t('sidePanel.plan', { defaultValue: 'Plan' })}</span>
+                </button>
+              ) : null}
+            </Row>
+          </>
+        )}
 
-        <Row label={t('sidePanel.lookAgain', { defaultValue: 'Look again' })}>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-            {token ? (
-              <button
-                type="button"
-                onClick={() => void handleReread()}
-                disabled={rereading || saving}
-                className={`${VALUE_BUTTON} text-text-secondary`}
-                title={t('sidePanel.rereadHint', {
-                  defaultValue: 'Ask the channel agent to read this conversation again',
-                })}
-              >
-                <RefreshCw size={11} className={rereading ? 'animate-spin' : undefined} />
-                {t('sidePanel.reread', { defaultValue: 'Re-read' })}
-              </button>
-            ) : null}
-            {thread.followUpAt ? (
-              <button
-                type="button"
-                onClick={onWhatsNext}
-                disabled={!onWhatsNext}
-                title={thread.followUpTitle || undefined}
-                className={VALUE_BUTTON}
-              >
-                <ListPlus size={11} className="shrink-0 text-text-muted" />
-                <span className="truncate-fade">{followUpWake ?? thread.followUpTitle}</span>
-              </button>
-            ) : onWhatsNext ? (
-              <button type="button" onClick={onWhatsNext} className={`${VALUE_BUTTON} text-text-secondary`}>
-                <ListPlus size={11} />
-                {t('sidePanel.plan', { defaultValue: 'Plan' })}
-              </button>
-            ) : null}
-          </div>
+        <Row label={t('tags.title')}>
+          <ThreadTags
+            thread={thread}
+            saving={saving}
+            onPatch={onPatch}
+            onTicketChanged={() => setTicketBump((n) => n + 1)}
+          />
         </Row>
-      </div>
-      )}
-
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-text-muted">{t('tags.title')}</p>
-        <ThreadTags
-          thread={thread}
-          saving={saving}
-          onPatch={onPatch}
-          onTicketChanged={() => setTicketBump((n) => n + 1)}
-        />
       </div>
 
       <ThreadCategory

@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTimelineRows,
   eventsShareCluster,
+  isSessionCheckoutEcho,
 } from '../components/inbox/ThreadTimeline'
 import { CHAT_STACK_GAP_MS } from './chat-layout'
-import type { InboxEvent, InboxThread, ThreadDetail } from './inbox-api'
+import type { InboxEvent, InboxMessage, InboxThread, ThreadDetail } from './inbox-api'
 
 function event(id: string, createdAt: string, eventType = 'assigned'): InboxEvent {
   return {
@@ -77,5 +78,50 @@ describe('buildTimelineRows event clusters', () => {
     const clusters = rows.filter((row) => row.kind === 'events')
     const first = clusters[0]
     expect(first?.kind === 'events' && first.events[0]?.id).toBe('start')
+  })
+})
+
+describe('isSessionCheckoutEcho', () => {
+  const base = {
+    id: 'm1',
+    threadId: 't1',
+    connectionId: null,
+    kind: 'user_message',
+    direction: 'inbound',
+    bodyText: 'End session',
+    bodyHtml: null,
+    subject: null,
+    authorUserId: 1,
+    authorAgentId: null,
+    authorName: null,
+    attachments: null,
+    receivedAt: null,
+    createdAt: '2026-10-10T14:15:00.000Z',
+    payload: {},
+  } as InboxMessage
+
+  it('hides checkout button echoes by option id', () => {
+    expect(
+      isSessionCheckoutEcho({
+        ...base,
+        decisionResponse: true,
+        payload: { decision_response_option_id: 'end_only' },
+      }),
+    ).toBe(true)
+  })
+
+  it('hides older echoes by button label', () => {
+    expect(isSessionCheckoutEcho({ ...base, decisionResponse: true })).toBe(true)
+  })
+
+  it('keeps normal decision answers', () => {
+    expect(
+      isSessionCheckoutEcho({
+        ...base,
+        bodyText: 'Ja',
+        decisionResponse: true,
+        payload: { decision_response_option_id: 'approve' },
+      }),
+    ).toBe(false)
   })
 })

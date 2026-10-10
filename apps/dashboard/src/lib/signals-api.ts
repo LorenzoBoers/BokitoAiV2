@@ -24,6 +24,7 @@ import type {
   ReplyInput,
   ThreadDetail,
   ThreadFilters,
+  ThreadRoutingPolicy,
 } from './inbox-api'
 import { parsePresenceStatus, type PresenceStatus } from './teams-api'
 
@@ -319,9 +320,11 @@ export async function getSignalThread(
     has_older?: unknown
     oldest_message_id?: unknown
     related_conversations?: unknown[]
+    routing_policy?: unknown
   }>(path, token)
   const thread = normalizeThreadRow(payload.thread)
   if (!thread) return null
+  const routingPolicy = normalizeThreadRoutingPolicy(payload.routing_policy)
   const relatedConversations: RelatedConversation[] = (payload.related_conversations ?? [])
     .map((raw): RelatedConversation | null => {
       if (!raw || typeof raw !== 'object') return null
@@ -369,6 +372,21 @@ export async function getSignalThread(
           ? String(messages[0].id)
           : null,
     relatedConversations,
+    routingPolicy,
+  }
+}
+
+function normalizeThreadRoutingPolicy(raw: unknown): ThreadRoutingPolicy | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const after = row.after_human_reply
+  const reopen = row.reopen_owner
+  return {
+    afterHumanReply:
+      after === 'keep_with_human' || after === 'ask' ? after : 'return_to_agent',
+    closeAfterAgentReply: row.close_after_agent_reply === true,
+    closeAfterHumanReply: row.close_after_human_reply === true,
+    reopenOwner: reopen === 'route_again' ? 'route_again' : 'same_owner',
   }
 }
 
@@ -527,8 +545,24 @@ export async function replyToSignalThread(
   if (input.sourceMessageId) body.source_message_id = input.sourceMessageId
   if (input.subject?.trim()) body.subject = input.subject.trim()
   if (input.quotedHtml?.trim()) body.quoted_html = input.quotedHtml
+  if (typeof input.handback === 'boolean') body.handback = input.handback
+  if (input.keepOpen) body.keep_open = true
   const payload = await apiPost<unknown>(appRoutes.signals.threadReply(threadId), body, token)
   return normalizeSignalMessage(payload)
+}
+
+/**
+ * Collision guard: tell the server a person is writing a reply so an
+ * autonomous agent drafts instead of sending. Refresh while typing;
+ * `active: false` releases the lock.
+ */
+export async function setThreadComposing(
+  token: string,
+  threadId: string,
+  active: boolean,
+  seconds = 90,
+): Promise<void> {
+  await apiPost<unknown>(appRoutes.signals.threadComposing(threadId), { active, seconds }, token)
 }
 
 /** Soft undo: cancel a scheduled outbound message before delivery. */

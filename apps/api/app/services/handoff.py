@@ -2,11 +2,11 @@
 
 One shared path for every way a conversation can escalate to the team:
 the agent's ``handoff_to_human`` tool and the widget visitor's own
-"talk to a human" action both land here. Sets the conversation's AI handling
-to manual (reason ``handoff_requested``), records an ``ai_handling_changed``
-SignalEvent, publishes the thread update, and alerts the addressee: the person
-or the people in the team the question goes to (``services/addressee.py``;
-notification category ``handoff``). An agent-owned conversation moves to them.
+"talk to a human" action both land here. ``services/handover.py`` holds the
+conversation (reason ``handoff_requested``), moves an agent-owned conversation
+to the escalation target and leaves a system note; this module alerts the
+addressee: the person or the people in the team the question goes to
+(notification category ``handoff``).
 """
 
 from __future__ import annotations
@@ -105,27 +105,22 @@ async def request_human_handoff(
 ) -> bool:
     """Escalate ``signal`` to the team. Returns True when newly held."""
     from app.gateway.publish import publish_thread_update
+    from app.services.handover import escalate_to_human
     from app.services.ops_alerts import notify_tenant_admins
 
-    from app.services.ai_handling import REASON_HANDOFF, hold_conversation, is_held
-
-    newly_paused = False
-    if not is_held(signal):
-        signal.has_unread = True
-        hold_conversation(
-            session,
-            signal,
-            reason=REASON_HANDOFF,
-            actor_type=actor_type,
-            actor_id=actor_id,
-            via=via,
-        )
-        await session.flush()
-        await publish_thread_update(signal)
-        newly_paused = True
-
-    recipients = await _route_to_people(session, tenant_id, signal, to)
+    outcome = await escalate_to_human(
+        session,
+        signal,
+        reason=reason,
+        via=via,
+        actor_type=actor_type,
+        actor_id=actor_id,
+        to=to,
+    )
+    newly_paused = bool(outcome["newly_held"])
+    recipients = list(outcome["recipients"])
     await session.flush()
+    await publish_thread_update(signal)
     lang = await _workspace_lang(session, tenant_id)
     who = signal.contact_name or ("Een bezoeker" if lang == "nl" else "A visitor")
     title, default_body = _handoff_copy(lang, who=who, subject=signal.subject)

@@ -63,8 +63,10 @@ import {
   type AiHandlingDisclosure,
   type AiHandlingException,
   type AiHandlingOverview,
+  type AiHandlingRouting,
   type AiHandlingSafeguards,
 } from '../lib/ai-handling-api'
+import { RoutingPolicyFields } from '../components/ai/RoutingPolicyFields'
 import { getAllowances, updateAllowances, type AllowanceMode } from '../lib/govern-api'
 import { listCategories, patchCategory, type CategoryRow } from '../lib/tickets-api'
 import { Hashtag } from '../components/ui/HashtagMark'
@@ -163,6 +165,7 @@ export default function AiCommunicationSettings() {
   const [safeguards, setSafeguards] = useState<AiHandlingSafeguards | null>(null)
   const [breaker, setBreaker] = useState<AiHandlingBreaker | null>(null)
   const [disclosure, setDisclosure] = useState<AiHandlingDisclosure | null>(null)
+  const [routing, setRouting] = useState<AiHandlingRouting | null>(null)
   const [messagingMode, setMessagingMode] = useState<AllowanceMode | null>(null)
   const [messagingBusy, setMessagingBusy] = useState(false)
   const [categories, setCategories] = useState<CategoryRow[]>([])
@@ -183,6 +186,7 @@ export default function AiCommunicationSettings() {
     setSafeguards(next.safeguards)
     setBreaker(next.breaker)
     setDisclosure(next.disclosure)
+    setRouting(next.routing)
   }, [])
 
   const loadOverview = useCallback(async () => {
@@ -295,8 +299,11 @@ export default function AiCommunicationSettings() {
     overview != null && breaker != null && JSON.stringify(breaker) !== JSON.stringify(overview.breaker)
   const disclosureDirty =
     overview != null && disclosure != null && JSON.stringify(disclosure) !== JSON.stringify(overview.disclosure)
+  const routingDirty =
+    overview != null && routing != null && JSON.stringify(routing) !== JSON.stringify(overview.routing)
   const mailboxDirty = dirtyMailboxIds.length > 0
-  const isDirty = tenantDirty || safeguardsDirty || breakerDirty || disclosureDirty || mailboxDirty
+  const isDirty =
+    tenantDirty || safeguardsDirty || breakerDirty || disclosureDirty || routingDirty || mailboxDirty
 
   const autonomousPaused = messagingMode === 'ask' || messagingMode === 'deny'
 
@@ -373,12 +380,13 @@ export default function AiCommunicationSettings() {
   const handleSave = useCallback(async () => {
     if (!token) return
     try {
-      if (safeguardsDirty || breakerDirty || disclosureDirty) {
+      if (safeguardsDirty || breakerDirty || disclosureDirty || routingDirty) {
         applyOverview(
           await saveAiHandlingSettings(token, {
             ...(safeguardsDirty && safeguards ? { safeguards } : {}),
             ...(breakerDirty && breaker ? { breaker } : {}),
             ...(disclosureDirty && disclosure ? { disclosure } : {}),
+            ...(routingDirty && routing ? { routing } : {}),
           }),
         )
       }
@@ -406,9 +414,11 @@ export default function AiCommunicationSettings() {
     safeguardsDirty,
     breakerDirty,
     disclosureDirty,
+    routingDirty,
     safeguards,
     breaker,
     disclosure,
+    routing,
     tenantDirty,
     aiSettings,
     mailboxDirty,
@@ -726,6 +736,48 @@ export default function AiCommunicationSettings() {
                   </div>
                 ) : null}
               </div>
+            </div>
+          )}
+        </Card>
+
+        <Card className="space-y-5 p-5" data-testid="ai-handling-routing">
+          <div>
+            <h3 className="text-sm font-medium text-text-heading">{t('ai.communication.routing.title')}</h3>
+            <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.routing.description')}</p>
+          </div>
+          {!routing ? (
+            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+          ) : (
+            <div className="space-y-5">
+              <RoutingPolicyFields
+                value={routing}
+                idPrefix="ai-routing"
+                onChange={(key, next) => {
+                  if (next === null) return
+                  setRouting((prev) => (prev ? { ...prev, [key]: next } : prev))
+                }}
+              />
+              <SettingRow
+                icon={ShieldAlert}
+                htmlFor="ai-routing-bounce-limit"
+                label={t('ai.communication.routing.bounceLimit.label')}
+                hint={t('ai.communication.routing.bounceLimit.hint')}
+              >
+                <Input
+                  id="ai-routing-bounce-limit"
+                  type="number"
+                  min={0}
+                  max={20}
+                  className="w-24"
+                  value={routing.bounceLimit}
+                  onChange={(e) => {
+                    const parsed = Number(e.target.value)
+                    const next = Number.isFinite(parsed) ? Math.min(20, Math.max(0, Math.round(parsed))) : 0
+                    setRouting((prev) => (prev ? { ...prev, bounceLimit: next } : prev))
+                  }}
+                />
+              </SettingRow>
+              <p className="text-xs text-text-muted">{t('ai.communication.routing.channelOverrideHint')}</p>
             </div>
           )}
         </Card>

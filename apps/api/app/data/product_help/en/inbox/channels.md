@@ -2,14 +2,14 @@
 title: Connect channels
 intro: Bring customer mail and other inboxes into Communication.
 description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and turn off, disconnect or delete a channel.
-keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, signature, turn off channel, disconnect channel, restore channel, delete channel, archive automated mail, newsletters, sync errors
+keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, handovers, signature, turn off channel, disconnect channel, restore channel, delete channel, archive automated mail, newsletters, sync errors
 sort: 20
 related: communication,inbox-ai,widget,integrations
 ---
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and hours** and **Install** on that page. A new workspace starts with the website chat only, so add an email channel before you expect mail.
+Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and hours** and **Install** on that page. A new workspace starts with no channels; add email or website chat via **Add channel** when you need them.
 
 ## Add a channel
 
@@ -105,8 +105,8 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 
 ## Set a signature and default agent
 
-1. Click a mailbox or Bokito address row. Under **Signature source**, choose **Mailbox signature** (one shared template for everyone, with placeholders such as `{{name}}`, `{{first_name}}` and `{{last_name}}` filled from the sender) or **Each person's signature** (uses **Profile**). With mailbox source, choose **Edit** next to **Signature** to set the template. In the editor, open **Preview** and use **Preview as** to check the template as yourself, another teammate, an agent, or sample data. Placeholders fill from that profile; a photo only appears if the template includes `{{avatar}}` (template **With profile photo**) and the person has a public https photo. If the template is empty, or the source is each person, Bokito uses the personal signature, then the Bokito default. Agent sends still use the agent signature. After send, Communication shows that same signature in the thread bubble (what the customer received).
-2. Under **General**, pick an **Owner team** for new conversations until someone takes them, and an **AI agent** for inbound reading and AI handling. Without an agent on the channel, Bokito does not interpret or reply to new inbound messages. You can still bring an agent into a conversation manually.
+1. Click a mailbox or Bokito address row. Under **Signature source**, choose **Mailbox signature** (one shared template for everyone, with placeholders such as `{{name}}`, `{{first_name}}` and `{{last_name}}` filled from the sender) or **Each person's signature** (uses **Profile**). With mailbox source, choose **Edit** next to **Signature** to set the template. In the editor, open **Preview** and use **Preview as** to check the template as yourself, another teammate, an agent, or sample data. Placeholders fill from that profile. **With profile photo** puts the sender's profile photo beside the name, or a circle with their initials when they have no photo. The greeting is written out in the template so you can edit it. If the template is empty, or the source is each person, Bokito uses the personal signature, then the Bokito default. Agent sends still use the agent signature. After send, Communication shows that same signature in the thread bubble (what the customer received).
+2. Under **General**, pick an **Owner team** for new conversations until someone takes them, and an **AI agent** for inbound reading and AI handling. On an **Autonomous** or **Assisted** channel the agent itself owns new conversations (on Assisted only while it prepares the reply); the owner team is where they land when the agent hands over and no closer owner exists. Without an agent on the channel, Bokito does not interpret or reply to new inbound messages. You can still bring an agent into a conversation manually.
 3. Choose **Access** to open the access matrix. Toggle **View** and **Handle** per team, person and agent. Handle means reply, take conversations and receive them; View is read only. Teams cover their members — a person with no own grant still follows **All people**. Owners and admins always handle every channel.
 4. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
@@ -126,6 +126,13 @@ Newsletters, receipts and no-reply notifications do not need an answer, but they
 3. A **Paused** badge means the circuit breaker tripped after unusual activity and the channel runs Assisted. Choose **Resume autonomous** or **Keep assisted** from the same menu.
 
 Contacts and single conversations can still differ from the channel. See [AI handling](/docs/inbox/inbox-ai).
+
+## Set handovers per channel
+
+1. Click the channel row and open **Handovers**. Every rule shows the workspace value with the **Company default** badge until the channel sets its own.
+2. Under **After a person replies**, pick **Return to the agent**, **Stays with the person** or **Ask when sending** for conversations on this channel. Pick the value marked **Company default** to follow the workspace again.
+3. Set **Close after an autonomous reply** and **Close after a person replies** to **On** or **Off**, or leave them on the company default. Under **Owner on reopen**, choose **Same owner** or **Route again**.
+4. Only an owner or admin can change these rules. The bounce limit applies to the whole workspace and lives under [AI handling](/docs/inbox/inbox-ai).
 
 ## Connect WhatsApp
 

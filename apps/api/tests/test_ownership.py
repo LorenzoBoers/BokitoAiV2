@@ -248,3 +248,39 @@ async def test_for_you_predicate(client: AsyncClient, session_override: AsyncSes
         (await session_override.execute(select(Signal.id).where(unassigned_predicate()))).scalars().all()
     )
     assert other.id in unassigned and mine.id not in unassigned
+
+
+@pytest.mark.asyncio
+async def test_for_you_includes_all_people_team_turn(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """When All people must reply, every member sees it in For you — not only personal assignees."""
+    from app.models.signal import Signal
+    from app.models.team import TEAM_KIND_PEOPLE, Team
+    from app.services.ownership import for_you_predicate, turn_is_mine_predicate
+
+    tenant, user = await _tenant_and_user(session_override)
+    people = (
+        await session_override.execute(
+            select(Team).where(Team.tenant_id == tenant.id, Team.kind == TEAM_KIND_PEOPLE)
+        )
+    ).scalar_one()
+    waiting = await _email_thread(session_override, tenant)
+    assert waiting.assignee_kind == "team" and waiting.turn_reason == "reply_needed"
+
+    for_you = set(
+        (
+            await session_override.execute(
+                select(Signal.id).where(for_you_predicate(user.id, set(), people.id))
+            )
+        ).scalars().all()
+    )
+    mine_now = set(
+        (
+            await session_override.execute(
+                select(Signal.id).where(turn_is_mine_predicate(user.id, set(), people.id))
+            )
+        ).scalars().all()
+    )
+    assert waiting.id in for_you
+    assert waiting.id in mine_now

@@ -205,7 +205,7 @@ async def test_safeguards_leave_assisted_alone(session_override: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_close_clears_and_assignment_holds(session_override: AsyncSession):
+async def test_close_clears_and_assignment_does_not_hold(session_override: AsyncSession):
     tenant = await _persisted_tenant(session_override, _allow())
     signal = Signal(tenant_id=tenant.id, channel="email", status="open", ai_handling="assisted")
     session_override.add(signal)
@@ -215,24 +215,28 @@ async def test_close_clears_and_assignment_holds(session_override: AsyncSession)
     svc.on_status_change(session_override, signal)
     assert signal.ai_handling is None
 
+    # Owner and AI handling are two settings: assigning a person keeps the
+    # channel's handling (the agent drafts for them).
     signal.status = "open"
     user_id = uuid4()
     signal.assigned_user_id = user_id
-    svc.on_assignment_change(session_override, signal, before_assignee=None)
-    assert signal.ai_handling == "manual"
-    assert signal.ai_handling_reason == svc.REASON_ASSIGNED
-
-    signal.assigned_user_id = None
-    svc.on_assignment_change(session_override, signal, before_assignee=user_id)
+    signal.assignee_kind = "user"
+    svc.on_assignment_change(session_override, signal, before_assignee=None, before_kind="team")
     assert signal.ai_handling is None
 
-    # A customer handoff is not released by unassigning.
+    # A customer handoff is not released by moving it to a team or another person.
     svc.hold_conversation(session_override, signal, reason=svc.REASON_HANDOFF)
-    signal.assigned_user_id = user_id
-    svc.on_assignment_change(session_override, signal, before_assignee=None)
     signal.assigned_user_id = None
-    svc.on_assignment_change(session_override, signal, before_assignee=user_id)
+    signal.assignee_kind = "team"
+    svc.on_assignment_change(session_override, signal, before_assignee=user_id, before_kind="user")
     assert signal.ai_handling == "manual"
+    assert signal.ai_handling_reason == svc.REASON_HANDOFF
+
+    # Handing it to an agent explicitly releases every hold.
+    signal.agent_id = uuid4()
+    signal.assignee_kind = "agent"
+    svc.on_assignment_change(session_override, signal, before_assignee=None, before_kind="team")
+    assert signal.ai_handling is None
 
 
 # ---------------------------------------------------------------------------

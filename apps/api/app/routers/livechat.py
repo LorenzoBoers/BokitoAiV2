@@ -111,7 +111,6 @@ async def session_start(
     widget_account_id = None
     if surface != SURFACE_IN_APP:
         from app.services.widget_channel import get_widget_account
-        from app.services.tenant_bootstrap import ensure_widget_channel
 
         requested = None
         if body.channel_account_id:
@@ -119,13 +118,13 @@ async def session_start(
                 requested = UUID(str(body.channel_account_id).strip())
             except ValueError:
                 requested = None
-        if requested:
-            widget_account = await get_widget_account(session, tenant.id, requested)
-            if widget_account is None:
-                raise HTTPException(status_code=404, detail="Widget channel not found")
-        else:
-            widget_account = await ensure_widget_channel(session, tenant.id, commit=False)
-        widget_account_id = widget_account.id if widget_account else None
+        widget_account = await get_widget_account(session, tenant.id, requested)
+        if widget_account is None or not widget_account.is_enabled:
+            raise HTTPException(
+                status_code=404,
+                detail="Website chat is not set up. Add it under Settings → Channels.",
+            )
+        widget_account_id = widget_account.id
     session_token = create_widget_session_token(
         tenant_id=tenant.id,
         user_id=user.id if user else None,

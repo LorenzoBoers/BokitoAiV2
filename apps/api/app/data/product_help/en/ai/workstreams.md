@@ -13,8 +13,8 @@ A flow is the pipeline for work that comes back under one action tag: a complain
 
 ## Create a flow
 
-1. Open **Flows** (Work group) and type a hashtag in **New flow hashtag**, then choose **Create**. That hashtag becomes the flow's action tag; an existing free hashtag is reused.
-2. A hashtag that already belongs to another flow cannot start a second one. You can also make an action tag from **Add hashtags** on a conversation or under Settings, which creates its flow.
+1. Open **Flows** (Work group) and choose **New flow**. In the dialog, pick a free tag from the pills, or type in the search field to narrow them.
+2. When no tag matches what you typed, choose **Create tag** with that hashtag. It becomes the flow's action tag; an existing free hashtag is reused. A hashtag that already belongs to another flow does not appear and cannot start a second one.
 3. The **Flows** list shows each flow with its stages, the number of open tickets per stage, the projects it is used in, and the last activity.
 
 ## Follow tickets on the flow board

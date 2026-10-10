@@ -13,8 +13,8 @@ Een flow is de pijplijn voor werk dat onder één actietag terugkomt: een klacht
 
 ## Een flow aanmaken
 
-1. Open **Flows** (groep Werk), typ een hashtag in **Hashtag voor nieuwe flow** en kies **Aanmaken**. Die hashtag wordt de actietag van de flow; een bestaande vrije hashtag wordt hergebruikt.
-2. Een hashtag die al bij een andere flow hoort, kan geen tweede flow starten. Je kunt ook een actietag maken via **Hashtags toevoegen** op een gesprek of onder Instellingen; dat maakt de flow.
+1. Open **Flows** (groep Werk) en kies **Nieuwe flow**. Kies in de dialoog een vrije tag uit de pillen, of typ in het zoekveld om ze te filteren.
+2. Als geen tag meer overeenkomt met wat je typt, kies **Tag aanmaken** met die hashtag. Die wordt de actietag van de flow; een bestaande vrije hashtag wordt hergebruikt. Een hashtag die al bij een andere flow hoort, verschijnt niet en kan geen tweede flow starten.
 3. De lijst **Flows** toont per flow de fasen, het aantal open tickets per fase, de projecten waarin hij gebruikt wordt en de laatste activiteit.
 
 ## Tickets volgen op het flowbord

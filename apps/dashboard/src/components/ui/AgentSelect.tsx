@@ -12,7 +12,7 @@ type Props = {
   className?: string
   triggerClassName?: string
   /** Optional first empty option (e.g. lead default). Value is passed through as-is. */
-  emptyOption?: { value: string; label: string; badge?: string }
+  emptyOption?: { value: string; label: string; badge?: string; agent?: AgentVisualFields }
   'aria-label'?: string
 }
 
@@ -32,12 +32,20 @@ export function AgentSelect({
   const items: ChoiceItem[] = [
     ...(emptyOption
       ? [
-          {
-            value: emptyOption.value,
-            label: emptyOption.label,
-            kind: 'icon' as const,
-            trailing: emptyOption.badge ? <DefaultBadge>{emptyOption.badge}</DefaultBadge> : undefined,
-          },
+          emptyOption.agent
+            ? {
+                value: emptyOption.value,
+                label: emptyOption.label,
+                kind: 'agent' as const,
+                agent: emptyOption.agent,
+                trailing: emptyOption.badge ? <DefaultBadge>{emptyOption.badge}</DefaultBadge> : undefined,
+              }
+            : {
+                value: emptyOption.value,
+                label: emptyOption.label,
+                kind: 'icon' as const,
+                trailing: emptyOption.badge ? <DefaultBadge>{emptyOption.badge}</DefaultBadge> : undefined,
+              },
         ]
       : []),
     ...agents.map(

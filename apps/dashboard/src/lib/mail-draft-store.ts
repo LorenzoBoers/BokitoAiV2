@@ -28,6 +28,16 @@ export type StoredMailDraft = {
 
 export const mailDraftStorageKey = (threadId: string) => `inbox.mailDraft.${threadId}`
 
+/** Same-tab signal when a draft is parked/cleared outside MailComposer (e.g. soft-undo). */
+export const MAIL_DRAFT_CHANGED_EVENT = 'bokito:mail-draft-changed'
+
+function notifyMailDraftChanged(threadId: string): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent(MAIL_DRAFT_CHANGED_EVENT, { detail: { threadId: String(threadId) } }),
+  )
+}
+
 const MODES: readonly MailComposerMode[] = ['reply', 'reply_all', 'forward', 'new']
 
 /** A draft is only worth keeping when there is something to send. */
@@ -84,6 +94,7 @@ export function writeStoredMailDraft(
     } else {
       window.localStorage.removeItem(mailDraftStorageKey(threadId))
     }
+    notifyMailDraftChanged(threadId)
   } catch {
     // Quota / private mode: the draft just is not persisted.
   }
@@ -94,6 +105,7 @@ export function clearStoredMailDraft(threadId: string | null | undefined): void 
   if (!threadId || typeof window === 'undefined') return
   try {
     window.localStorage.removeItem(mailDraftStorageKey(threadId))
+    notifyMailDraftChanged(threadId)
   } catch {
     // Private mode / quota: nothing to clear.
   }

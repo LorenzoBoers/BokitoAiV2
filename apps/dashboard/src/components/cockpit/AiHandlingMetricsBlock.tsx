@@ -25,7 +25,7 @@ const MODE_ORDER: AiHandlingMode[] = ['autonomous', 'assisted', 'manual']
 
 const MODE_SLICE_COLOR: Record<AiHandlingMode, string> = {
   autonomous: 'rgb(var(--color-ai))',
-  assisted: 'rgb(var(--color-status-success))',
+  assisted: 'rgb(var(--color-ai))',
   manual: 'rgb(var(--color-text-muted))',
 }
 

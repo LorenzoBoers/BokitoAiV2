@@ -58,12 +58,74 @@ export type SignatureIdentityVars = {
   language?: string | null
 }
 
-/** HTTPS photo only — SVG data URIs break in most mail clients. */
+export function signatureClosingText(language?: string | null): string {
+  const langRaw = (language || 'nl').trim().toLowerCase().slice(0, 2)
+  return CLOSINGS[langRaw] || CLOSINGS.en
+}
+
+/** Circle with initials. No image, so it still shows when there is no photo. */
+export function initialsAvatarHtml(name: string, size = 48): string {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean)
+  const initials = (
+    parts.length === 0
+      ? '?'
+      : parts.length === 1
+        ? parts[0].slice(0, 2)
+        : `${parts[0][0]}${parts[parts.length - 1][0]}`
+  ).toUpperCase()
+  const font = Math.round(size * 0.36)
+  return (
+    `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse">` +
+    `<tr><td width="${size}" height="${size}" align="center" valign="middle" ` +
+    `style="width:${size}px;height:${size}px;background:#4652f2;border-radius:${Math.round(size / 2)}px;` +
+    `color:#ffffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:${font}px;` +
+    `font-weight:600;line-height:${size}px;text-align:center">${escapeHtml(initials)}</td></tr></table>`
+  )
+}
+
+/** Photo when the URL is http(s); otherwise the initials circle. */
+export function avatarMarkHtml(url: string | null | undefined, name: string, size = 48): string {
+  const photo = photoAvatarUrl(url)
+  if (photo) return roundAvatarImgHtml(photo, name, size)
+  return initialsAvatarHtml(name, size)
+}
+
+/** Photo the editor can show: https, a same-origin path, or a raster data URI. */
 function photoAvatarUrl(url: string | null | undefined): string | null {
   const raw = (url || '').trim()
-  if (!raw || raw.startsWith('data:')) return null
-  if (raw.startsWith('https://') || raw.startsWith('http://')) return raw
+  if (!raw || /^data:image\/svg/i.test(raw)) return null
+  if (/^data:image\/(?:png|jpe?g|gif|webp)/i.test(raw)) return raw
+  if (raw.startsWith('https://') || raw.startsWith('http://') || raw.startsWith('/')) return raw
   return null
+}
+
+/** Avatar mark for the visual editor. An img stays intact inside contentEditable. */
+function editorAvatarImgHtml(url: string | null | undefined, name: string, size = 48): string {
+  const photo = photoAvatarUrl(url)
+  const src = photo ? escapeHtml(photo) : initialsAvatarSvgSrc(name, size)
+  return (
+    `<img data-sig-avatar="1" contenteditable="false" src="${src}" alt="" ` +
+    `width="${size}" height="${size}" ` +
+    `style="border-radius:50%;display:inline-block;width:${size}px;height:${size}px;` +
+    `object-fit:cover;vertical-align:top;border:0" />`
+  )
+}
+
+function initialsAvatarSvgSrc(name: string, size = 48): string {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean)
+  const initials = (
+    parts.length === 0
+      ? '?'
+      : parts.length === 1
+        ? parts[0].slice(0, 2)
+        : `${parts[0][0]}${parts[parts.length - 1][0]}`
+  ).toUpperCase()
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">` +
+    `<circle cx="24" cy="24" r="24" fill="#4652f2"/>` +
+    `<text x="24" y="26" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" ` +
+    `font-family="system-ui,sans-serif" font-size="16" font-weight="600">${escapeHtml(initials)}</text></svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
 function roundAvatarImgHtml(url: string, name: string, size = 48): string {
@@ -76,9 +138,7 @@ function roundAvatarImgHtml(url: string, name: string, size = 48): string {
 }
 
 function avatarPlaceholderHtml(url: string | null | undefined, name: string, size = 48): string {
-  const photo = photoAvatarUrl(url)
-  if (!photo) return ''
-  return roundAvatarImgHtml(photo, name, size)
+  return avatarMarkHtml(url, name, size)
 }
 
 export function signatureIdentityMap(opts: SignatureIdentityVars): Record<string, string> {
@@ -91,7 +151,6 @@ export function signatureIdentityMap(opts: SignatureIdentityVars): Record<string
     first = parts[0] ?? ''
     last = parts.slice(1).join(' ')
   }
-  const langRaw = (opts.language || 'nl').trim().toLowerCase().slice(0, 2)
   return {
     name: display,
     first_name: first,
@@ -102,7 +161,7 @@ export function signatureIdentityMap(opts: SignatureIdentityVars): Record<string
     phone: (opts.phone || '').trim(),
     website: (opts.website || '').trim(),
     address: (opts.address || '').trim(),
-    closing: CLOSINGS[langRaw] || CLOSINGS.en,
+    closing: signatureClosingText(opts.language),
   }
 }
 
@@ -221,8 +280,7 @@ function signatureDetailBits(vars: Record<string, string>): string {
 /** Text-only default: closing + name / role / company / contacts (no avatar image). */
 export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string {
   const vars = signatureIdentityMap(opts)
-  const langRaw = (opts.language || 'nl').trim().toLowerCase().slice(0, 2)
-  const closing = CLOSINGS[langRaw] || CLOSINGS.en
+  const closing = signatureClosingText(opts.language)
   return (
     `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` +
     `font-size:14px;line-height:1.45;color:#1f2937">` +
@@ -233,12 +291,13 @@ export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string
 }
 
 /**
- * Optional photo layout. Template HTML uses ``{{avatar}}`` so the photo is
- * filled at send/preview from the profile URL (https only).
+ * Photo layout. Closing is plain text (edit it in the signature). ``{{avatar}}``
+ * becomes the sender's photo, or an initials circle when there is no photo.
  */
-export function composeAvatarSignatureTemplateHtml(): string {
+export function composeAvatarSignatureTemplateHtml(language?: string | null): string {
+  const closing = escapeHtml(signatureClosingText(language))
   return (
-    `<p style="margin:0 0 14px 0">{{closing}},</p>` +
+    `<p style="margin:0 0 14px 0">${closing},</p>` +
     `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse">` +
     `<tr>` +
     `<td style="vertical-align:top;padding:0 14px 0 0">{{avatar}}</td>` +
@@ -249,6 +308,25 @@ export function composeAvatarSignatureTemplateHtml(): string {
     `<div style="margin-top:8px;font-size:12px;line-height:1.5;color:#4b5563">{{email}}</div>` +
     `</td></tr></table>`
   )
+}
+
+/** Replace ``{{closing}}`` with the language phrase so the editor stores real words. */
+export function withHardcodedClosing(html: string, language?: string | null): string {
+  const phrase = escapeHtml(signatureClosingText(language))
+  return (html || '').replace(/\{\{\s*closing\s*\}\}/gi, phrase)
+}
+
+const AVATAR_SLOT = /<img\b[^>]*\bdata-sig-avatar="1"[^>]*\/?>/gi
+
+/** Visual editor: show the avatar mark instead of the raw ``{{avatar}}`` token. */
+export function editorHtmlFromSignature(html: string, identity: SignatureIdentityVars): string {
+  const mark = editorAvatarImgHtml(identity.avatarUrl, identity.name || identity.email || '')
+  return withHardcodedClosing(html, identity.language).replace(/\{\{\s*avatar\s*\}\}/gi, mark)
+}
+
+/** Persist the avatar slot back as ``{{avatar}}`` so each sender gets their own. */
+export function signatureHtmlFromEditor(html: string): string {
+  return (html || '').replace(AVATAR_SLOT, '{{avatar}}')
 }
 
 /** Effective signature for UI preview: custom template rendered, else modern default. */

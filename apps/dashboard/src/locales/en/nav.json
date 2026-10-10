@@ -133,12 +133,25 @@
     "subtitle": "Each flow belongs to one action tag. Its stages are the columns of a live ticket board.",
     "loadError": "Could not load flows.",
     "notFound": "Flow not found.",
+    "new": "New flow",
     "newPlaceholder": "New flow hashtag",
     "create": "Create",
+    "cancel": "Cancel",
     "created": "Flow created.",
     "createError": "Could not create the flow.",
     "allWorkstreams": "All flows",
-    "empty": "No flows yet. Type a hashtag above to create one; that hashtag becomes its action tag.",
+    "empty": "No flows yet. Choose New flow to pick or create an action tag.",
+    "emptyTitle": "No flows yet",
+    "emptyBody": "A flow is the stage board for one action tag. Create a flow to turn a hashtag into a live ticket pipeline.",
+    "dialogTitle": "New flow",
+    "dialogBody": "Pick a tag that is not already a flow, or type a new hashtag to create one.",
+    "dialogSearchPlaceholder": "Search or type a hashtag",
+    "dialogTagsAria": "Available tags",
+    "dialogLoadingTags": "Loading tags…",
+    "dialogNoMatch": "No tag matches that name.",
+    "dialogCreateTag": "Create tag #{{name}}",
+    "dialogNoTags": "No free tags yet. Type a hashtag above to create one as the action tag for this flow.",
+    "dialogTypeToFilter": "Type to narrow the tags above.",
     "stepCount": "{{count}} steps",
     "stepCount_one": "{{count}} step",
     "default": "Default",
@@ -959,6 +972,9 @@
     "loadContactError": "Could not load contact.",
     "saveContactError": "Could not save contact.",
     "savedContact": "Contact saved",
+    "owner": "Owner",
+    "ownerHint": "The agent hands conversations from this contact to this person or team as soon as someone is needed (after the last person who handled it). When the AI is on Manual, new conversations land here directly.",
+    "ownerSaved": "Owner saved",
     "blocked": "Contact blocked",
     "approved": "Contact approved",
     "statusUpdated": "Status updated",
@@ -1707,8 +1723,10 @@
     "section": {
       "status": "Status",
       "general": "General",
+      "routing": "Handovers",
       "manage": "Manage"
     },
+    "routingHint": "Who owns the conversation after a reply and when a reply closes it. Follows the workspace default until this channel picks its own rule.",
     "edit": "Edit",
     "open": "Open",
     "name": "Name",
@@ -2751,6 +2769,55 @@
       "breakerHint": "Pauses autonomous replies on a channel after unusual volume or several negative signals in one hour. The channel falls back to Assisted until someone resumes it.",
       "maxAutonomous": "Autonomous replies per hour per channel",
       "maxNegative": "Negative signals per hour per channel",
+      "routing": {
+        "title": "Handovers between agent and people",
+        "description": "Who owns a conversation after a reply, whether a reply closes it, and who gets a reopened conversation. Channels can override every rule.",
+        "afterHumanReply": {
+          "label": "After a person replies",
+          "options": {
+            "return_to_agent": {
+              "label": "Return to the agent",
+              "hint": "The agent owns the conversation again and picks up the customer's next message: it answers itself on Autonomous, drafts for you on Assisted. Take over stays a hard stop."
+            },
+            "keep_with_human": {
+              "label": "Stays with the person",
+              "hint": "Whoever replies becomes the owner. From then on the agent drafts for that person."
+            },
+            "ask": {
+              "label": "Ask when sending",
+              "hint": "The send button in the conversation offers both: Send and hand back to the agent, or Send and keep."
+            }
+          }
+        },
+        "closeAfterAgentReply": {
+          "label": "Close after an autonomous reply",
+          "hint": "A delivered autonomous reply closes the conversation. A new message from the contact reopens it."
+        },
+        "closeAfterHumanReply": {
+          "label": "Close after a person replies",
+          "hint": "Send closes the conversation by default. A new message from the contact reopens it."
+        },
+        "reopenOwner": {
+          "label": "Owner on reopen",
+          "options": {
+            "same_owner": {
+              "label": "Same owner",
+              "hint": "A reopened conversation stays with its last owner. If that person left the workspace it falls back to the contact owner or the channel team."
+            },
+            "route_again": {
+              "label": "Route again",
+              "hint": "A reopened conversation is routed like a new one: to the agent on Autonomous or Assisted, else to the contact owner or the channel team."
+            }
+          }
+        },
+        "bounceLimit": {
+          "label": "Bounce limit",
+          "hint": "How often per day a conversation may move between the agent and people. After that, people keep it until someone hands it back explicitly. 0 turns the limit off."
+        },
+        "on": "On",
+        "off": "Off",
+        "channelOverrideHint": "Override per channel under Settings > Channels, section Handovers. The bounce limit applies to the whole workspace."
+      },
       "safeguardsTitle": "Safeguards",
       "safeguardsDescription": "When an autonomous reply becomes a draft for review instead of being sent.",
       "newContactsLabel": "Review replies to new contacts",

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearStoredMailDraft,
+  MAIL_DRAFT_CHANGED_EVENT,
   mailDraftHasContent,
   mailDraftStorageKey,
   readStoredMailDraft,
@@ -10,14 +11,21 @@ import {
 import type { MessageAttachment } from './inbox-api'
 
 const store = new Map<string, string>()
+const dispatched: Array<{ type: string; detail?: { threadId?: string } }> = []
 
 beforeEach(() => {
   store.clear()
+  dispatched.length = 0
   vi.stubGlobal('window', {
     localStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
       removeItem: (key: string) => void store.delete(key),
+    },
+    dispatchEvent: (event: Event) => {
+      const custom = event as CustomEvent<{ threadId?: string }>
+      dispatched.push({ type: custom.type, detail: custom.detail })
+      return true
     },
   })
 })
@@ -76,6 +84,16 @@ describe('mail-draft-store', () => {
     writeStoredMailDraft('t1', draftOf())
     clearStoredMailDraft('t1')
     expect(readStoredMailDraft('t1')).toBeNull()
+  })
+
+  it('notifies same-tab listeners when a draft is parked or cleared', () => {
+    writeStoredMailDraft('t1', draftOf())
+    clearStoredMailDraft('t1')
+    expect(dispatched.map((e) => e.type)).toEqual([
+      MAIL_DRAFT_CHANGED_EVENT,
+      MAIL_DRAFT_CHANGED_EVENT,
+    ])
+    expect(dispatched.map((e) => e.detail?.threadId)).toEqual(['t1', 't1'])
   })
 
   it('ignores corrupt or foreign payloads', () => {

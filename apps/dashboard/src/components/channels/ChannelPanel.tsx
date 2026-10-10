@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { AccessPicker } from '../access/AccessPicker'
 import ChannelTeamPicker from './ChannelTeamPicker'
 import ChannelAiHandlingSetting from './ChannelAiHandlingSetting'
+import ChannelRoutingSetting from './ChannelRoutingSetting'
 import { ChannelSection, ChannelSetting } from './ChannelSetting'
 import { CheckLine } from './ChannelStatus'
 import { CHANNEL_KIND_SETTINGS } from './channel-kind-settings'
@@ -109,6 +110,13 @@ export default function ChannelPanel({
           />
         </ChannelSetting>
       </ChannelSection>
+
+      {!archived && AI_HANDLING_CHANNELS.has(row.channel) ? (
+        <ChannelSection title={t('channelsPage.section.routing')}>
+          <p className="py-1.5 text-xs leading-snug text-text-muted">{t('channelsPage.routingHint')}</p>
+          <ChannelRoutingSetting accountId={row.id} />
+        </ChannelSection>
+      ) : null}
 
       {KindSettings && !hideKindSettings && !archived ? (
         <ChannelSection title={t(`channelsPage.kind.${row.kind}`, { defaultValue: row.kind })}>

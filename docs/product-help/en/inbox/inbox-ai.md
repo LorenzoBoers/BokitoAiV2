@@ -1,8 +1,8 @@
 ---
 title: Set AI handling
 intro: Choose whether the AI answers on its own, drafts for review, or stays quiet — once for the workspace, with exceptions per channel, contact, or conversation.
-description: Configure AI handling (Autonomous, Assisted, Manual), its layers, safeguards, disclosure, reply language and send-as.
-keywords: ai handling, autonomous, assisted, manual, drafts, auto reply, safeguards, disclosure, reply language, send as, certainty, automated mail, automation rule, no reply needed
+description: Configure AI handling (Autonomous, Assisted, Manual), its layers, safeguards, handovers between agent and people, disclosure, reply language and send-as.
+keywords: ai handling, autonomous, assisted, manual, drafts, auto reply, safeguards, handover, owner, return to agent, bounce limit, close after reply, reopen, disclosure, reply language, send as, certainty, automated mail, automation rule, no reply needed
 sort: 25
 related: communication,contacts,channels,govern,autonomy,agents
 ---
@@ -48,9 +48,22 @@ A conversation exception lasts until the conversation closes. Channel and contac
 2. Turn **Always review** on for an action tag. Replies on a ticket with that tag become a draft, even when the conversation is Autonomous.
 3. Turn it off (**May send**) when autonomous send is fine for that tag.
 
-The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies.
+The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies. The same line appears with **the agent does not own this conversation** when a person or team owns it (the agent then drafts for them) and with **a colleague is typing a reply** when someone is writing in the composer at that moment.
 
 Replies follow the channel. Email gets one structured message. On WhatsApp and website chat the AI writes like a person in a chat: up to five short messages, sent in order with a short typing pause, and the AI note only on the first one. If one message fails to send, the rest wait. In **Assisted**, the draft card holds the same messages so you can remove or edit them before **Send** (see [Decisions](/docs/ai/decisions)).
+
+## Set handovers between agent and people
+
+AI handling says what the agent may do; the owner says whose turn it is right now. The agent owns a conversation while it has the next step: on an **Autonomous** channel it answers new conversations itself; on **Assisted** it picks them up, gathers context, prepares a draft or choice card and then hands the conversation to a person (the timeline shows **Draft ready: {name} is up**). It also hands over when the customer asks for a person, when a safeguard or decision escalates, or when someone takes over. These rules decide what happens around that handover.
+
+1. On the same page, open **Handovers between agent and people**.
+2. Under **After a person replies**, pick **Return to the agent** (the agent owns the conversation again and picks up the customer's next message: it answers itself on Autonomous, drafts for you on Assisted; the default), **Stays with the person** (whoever replies becomes the owner and the agent drafts for them) or **Ask when sending** (the send menu in the conversation offers **Send and hand back to {agent}** and **Send and keep with me**).
+3. Turn on **Close after an autonomous reply** to close a conversation as soon as a delivered autonomous reply goes out, or **Close after a person replies** to make **Send** close it by default; the send menu then offers **Send and keep open**. A new message from the contact reopens a closed conversation.
+4. Under **Owner on reopen**, choose **Same owner** (the last owner gets the reopened conversation; a person who left the workspace falls back to the contact owner or the channel team) or **Route again** (the reopened conversation is routed like a new one).
+5. Set the **Bounce limit**: how often per day a conversation may move between the agent and people. After that, people keep it until someone hands it back explicitly, and the thread shows a note from the agent. 0 turns the limit off.
+6. Override every rule except the bounce limit per channel under [Channels](/docs/inbox/channels), section **Handovers**. A channel value shows the **Company default** badge until the channel picks its own rule.
+
+When the agent hands a conversation to people, it picks the owner in this order: the person named by the agent or decision, a learned routing rule, the last person or team who handled the conversation, the owner of the contact (see [Contacts](/docs/inbox/contacts)), the channel's owner team, All people. The thread gets an internal note from the agent with the reason, and **Take over** always stays a hard stop until someone chooses **Hand back to AI**.
 
 ## Set reply and working language
 
@@ -63,6 +76,7 @@ Replies follow the channel. Email gets one structured message. On WhatsApp and w
 ## When the AI does not reply
 
 - **Manual** is in effect somewhere in the chain, or a teammate took over the conversation.
+- A person or team owns the conversation (for example after **Stays with the person**): the agent drafts for them instead of sending.
 - Govern caps conversations at Assisted (messaging set to ask) or Manual (messaging denied).
 - **Privacy** keeps AI away from message bodies; AI handling then shows Manual.
 - The channel's circuit breaker tripped after unusual activity; the channel runs Assisted until someone resumes it.

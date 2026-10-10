@@ -100,14 +100,21 @@ async function readJsonResponse<T>(res: Response, path: string): Promise<T> {
     try {
       err = text ? JSON.parse(text) : { message: 'Unknown error' };
     } catch {
-      const unreachable =
-        res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504;
-      const localDevHint =
-        import.meta.env.DEV
-          ? 'API not reachable. Start FastAPI on http://127.0.0.1:8000 (see docs/AI-OS-DEV.md).'
-          : 'The API is temporarily unavailable. Try again in a moment.';
+      const gatewayDown =
+        res.status === 502 || res.status === 503 || res.status === 504;
+      // Remote-dev Vite proxies to VITE_BOKITO_API_URL (often :8010); laptop
+      // defaults to :8000. Never claim the API is down for a plain 500.
+      const proxyTarget = (import.meta.env.VITE_BOKITO_API_URL || 'http://127.0.0.1:8000').replace(
+        /\/$/,
+        '',
+      );
+      const gatewayHint = import.meta.env.DEV
+        ? `API gateway error (${res.status}). Is the API up at ${proxyTarget}?`
+        : 'The API is temporarily unavailable. Try again in a moment.';
       err = {
-        message: unreachable ? localDevHint : text || 'Unknown error',
+        message: gatewayDown
+          ? gatewayHint
+          : text?.trim() || `HTTP ${res.status}`,
       };
     }
     throw new Error(`HTTP ${res.status} ${formatHttpError(path, err)}`);

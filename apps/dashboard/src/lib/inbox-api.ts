@@ -422,6 +422,8 @@ export type ThreadDetail = {
   oldestMessageId?: string | null
   /** Other conversations with this person, newest first. */
   relatedConversations?: RelatedConversation[]
+  /** Channel routing policy (null on internal threads). */
+  routingPolicy?: ThreadRoutingPolicy | null
 }
 
 export type ThreadFilters = {
@@ -534,6 +536,21 @@ export type ReplyInput = {
   subject?: string
   /** Quoted prior-conversation HTML; the server appends it below the signature. */
   quotedHtml?: string
+  /**
+   * After this reply: true hands the conversation back to the agent, false
+   * keeps it with the sender; omitted follows the channel routing policy.
+   */
+  handback?: boolean
+  /** Explicitly keep the conversation open when the channel closes after a human reply. */
+  keepOpen?: boolean
+}
+
+/** Channel routing policy as the thread detail exposes it to the composer. */
+export type ThreadRoutingPolicy = {
+  afterHumanReply: 'return_to_agent' | 'keep_with_human' | 'ask'
+  closeAfterAgentReply: boolean
+  closeAfterHumanReply: boolean
+  reopenOwner: 'same_owner' | 'route_again'
 }
 
 export type PatchThreadInput = {

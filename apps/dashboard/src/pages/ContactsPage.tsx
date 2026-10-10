@@ -52,12 +52,14 @@ import {
   type CompanyDetail as CompanyDetailData,
   type CompanyRow,
   type ContactAiHandlingFilter,
+  type ContactOwner,
   type ContactRow,
   type ContactStatus,
 } from '../lib/contacts-api'
 import { AI_HANDLING_MODES, normalizeMode } from '../lib/ai-handling'
 import { AiHandlingIcon } from '../components/ai/AiHandlingIcon'
 import AiHandlingPicker from '../components/ai/AiHandlingPicker'
+import ContactOwnerPicker from '../components/inbox/ContactOwnerPicker'
 import { useAiHandling } from '../hooks/useAiHandling'
 import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
 import {
@@ -181,6 +183,25 @@ function ContactDetail({ contactId }: { contactId: string }) {
       setDirty(false)
       toast.success(t('contactsPage.savedContact'))
     } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('contactsPage.saveContactError')))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const setOwner = async (owner: ContactOwner | null) => {
+    if (!token || !contact || saving) return
+    const previous = contact.owner
+    setContact((prev) => (prev ? { ...prev, owner } : prev))
+    setSaving(true)
+    try {
+      const updated = await updateContact(token, contact.id, {
+        owner: owner ? { kind: owner.kind, id: owner.id } : { kind: '', id: null },
+      })
+      if (updated) setContact((prev) => (prev ? { ...prev, owner: updated.owner } : updated))
+      toast.success(t('contactsPage.ownerSaved'))
+    } catch (err) {
+      setContact((prev) => (prev ? { ...prev, owner: previous } : prev))
       toast.error(formatApiErrorMessage(err, t('contactsPage.saveContactError')))
     } finally {
       setSaving(false)
@@ -416,6 +437,18 @@ function ContactDetail({ contactId }: { contactId: string }) {
               className="rounded-md border border-border/60 px-3 py-2.5"
               testId="contact-ai-handling"
             />
+            <div className="rounded-md border border-border/60 px-3 py-2.5" data-testid="contact-owner">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-text-muted">{t('contactsPage.owner')}</span>
+                <div className="w-[220px]">
+                  <ContactOwnerPicker
+                    owner={contact.owner}
+                    onChange={(owner) => void setOwner(owner)}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+            </div>
             {field(t('contactsPage.fieldName'), 'displayName', t('contactsPage.namePlaceholderFull'))}
             <div className="grid grid-cols-2 gap-3">
               {field(t('contactsPage.fieldCompany'), 'company', t('contactsPage.fieldCompany'))}

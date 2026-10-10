@@ -37,11 +37,44 @@ SUMMARY_MAX_CHARS = 400
 # cornered into applying something to leave the session.
 CHECKOUT_KINDS = ("end_only", "continue", "apply_actions")
 CHECKOUT_ACTION_TYPE = "session_checkout"
-DEFAULT_CHECKOUT_LABELS = {
-    "end_only": "End session",
-    "continue": "Keep going",
-    "apply_actions": "Apply and end",
+# Card copy per workspace language. The backend writes these into the
+# decision, so they follow the tenant's working language, not the browser.
+CHECKOUT_COPY: dict[str, dict[str, str]] = {
+    "en": {
+        "end_only": "End session",
+        "continue": "Keep going",
+        "apply_actions": "Apply and end",
+        "title": "Wrap up session with {agent}",
+        "title_plain": "Wrap up session",
+        "idle_opening": "This session has been quiet for a while.",
+        "idle_last": "Last from the agent: {tail}",
+    },
+    "nl": {
+        "end_only": "Sessie afronden",
+        "continue": "Doorgaan",
+        "apply_actions": "Toepassen en afronden",
+        "title": "Sessie met {agent} afronden?",
+        "title_plain": "Sessie afronden?",
+        "idle_opening": "Deze sessie staat al een tijd stil.",
+        "idle_last": "Laatste van de agent: {tail}",
+    },
 }
+DEFAULT_CHECKOUT_LABELS = {
+    kind: CHECKOUT_COPY["en"][kind] for kind in CHECKOUT_KINDS
+}
+
+
+def _checkout_copy(lang: str) -> dict[str, str]:
+    return CHECKOUT_COPY.get(lang, CHECKOUT_COPY["en"])
+
+
+async def _workspace_lang(session: AsyncSession, tenant_id: UUID) -> str:
+    from app.models.auth import Tenant
+    from app.services.language import resolve_workspace_language
+
+    tenant = await session.get(Tenant, tenant_id)
+    lang = resolve_workspace_language(tenant)
+    return lang if lang in CHECKOUT_COPY else "en"
 
 
 def _load_outcome(signal: Signal) -> dict[str, Any]:
@@ -580,11 +613,12 @@ def _checkout_option(
 
 
 def _checkout_options(
-    raw: Any, *, session_id: UUID, thread_id: UUID
+    raw: Any, *, session_id: UUID, thread_id: UUID, lang: str = "en"
 ) -> list[dict[str, Any]]:
     """Normalize agent-supplied options and guarantee end / continue exist."""
     from app.services.agent.style import strip_emoji
 
+    labels = _checkout_copy(lang)
     options: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     seen_kinds: set[str] = set()
@@ -603,7 +637,7 @@ def _checkout_options(
         options.append(
             _checkout_option(
                 option_id,
-                label or DEFAULT_CHECKOUT_LABELS[kind],
+                label or labels[kind],
                 kind,
                 session_id=session_id,
                 thread_id=thread_id,
@@ -617,7 +651,7 @@ def _checkout_options(
         options.append(
             _checkout_option(
                 option_id,
-                DEFAULT_CHECKOUT_LABELS[kind],
+                labels[kind],
                 kind,
                 session_id=session_id,
                 thread_id=thread_id,
@@ -696,12 +730,16 @@ async def propose_checkout(
     outcome = _load_outcome(conversation)
     await _supersede_checkout(session, tenant_id, outcome.get("checkout_decision_id"))
 
+    lang = await _workspace_lang(session, tenant_id)
+    copy = _checkout_copy(lang)
     decision, _ = await create_decision(
         session,
         tenant_id,
-        title=f"Session checkout: {agent.name}" if agent else "Session checkout",
+        title=copy["title"].format(agent=agent.name) if agent else copy["title_plain"],
         summary=summary,
-        options=_checkout_options(options, session_id=conversation.id, thread_id=thread_id),
+        options=_checkout_options(
+            options, session_id=conversation.id, thread_id=thread_id, lang=lang
+        ),
         user_id=conversation.owner_user_id or user_id,
         agent_id=conversation.agent_id,
         signal_id=thread_id,
@@ -793,7 +831,33 @@ async def apply_checkout_choice(
     return {"ok": True, "state": closed.get("state"), "session_id": str(conversation.id)}
 
 
+async def resume_session_after_message(
+    session: AsyncSession, tenant_id: UUID, conversation: Signal
+) -> bool:
+    """The operator kept talking: a pending checkout card is moot.
+
+    Same effect as picking "Keep going", applied implicitly so the card does
+    not linger above a session that is clearly still in use. Returns True when
+    a card was withdrawn. Does not commit.
+    """
+    if conversation.session_state != "active":
+        return False
+    outcome = _load_outcome(conversation)
+    decision_id = outcome.get("checkout_decision_id")
+    if not decision_id:
+        return False
+    await _supersede_checkout(session, tenant_id, decision_id)
+    outcome.pop("checkout_decision_id", None)
+    outcome.pop("checkout_summary", None)
+    outcome.pop("idle_nudge_at", None)
+    conversation.session_outcome_json = json.dumps(outcome)
+    conversation.updated_at = datetime.utcnow()
+    session.add(conversation)
+    return True
+
+
 async def _idle_summary(session: AsyncSession, conversation: Signal) -> str:
+    copy = _checkout_copy(await _workspace_lang(session, conversation.tenant_id))
     last_agent_text = (
         await session.execute(
             select(SignalMessage.body_text)
@@ -806,8 +870,8 @@ async def _idle_summary(session: AsyncSession, conversation: Signal) -> str:
         )
     ).scalar()
     tail = (last_agent_text or "").strip()[:SUMMARY_MAX_CHARS]
-    opening = "This session has been idle for a while."
-    return f"{opening} Last from the agent: {tail}" if tail else opening
+    opening = copy["idle_opening"]
+    return f"{opening} {copy['idle_last'].format(tail=tail)}" if tail else opening
 
 
 async def nudge_idle_sessions(
