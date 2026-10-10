@@ -32,7 +32,6 @@ from app.services.handover import (
     hand_to_people_after_assist,
 )
 from app.services.ownership import agent_may_own, route_new_conversation
-from app.services.teams import create_team
 from app.workers.tasks import autonomous_gate_reason
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
