@@ -208,7 +208,11 @@ def channels_for(
         for channel in TIER_ALLOWED[tier]
         if prefs["tiers"][tier].get(channel)
     }
-    if category and category in prefs["categories"]:
+    if category and category.startswith("ops-"):
+        # Ops alerts are not user-toggleable: owners/admins always get the
+        # in-app row so a broken run or channel cannot be muted.
+        enabled.add("inapp")
+    elif category and category in prefs["categories"]:
         enabled &= {c for c, on in prefs["categories"][category].items() if on}
     if critical:
         enabled.add("inapp")
