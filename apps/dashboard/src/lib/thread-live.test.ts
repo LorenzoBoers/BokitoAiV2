@@ -143,6 +143,8 @@ describe('threadMatchesFilters', () => {
     expect(threadMatchesFilters(thread(), { tag: 'vip' }, me)).toBe(false)
     expect(threadMatchesFilters(thread({ assignedToUserId: 3 }), { assigneeId: 3 }, me)).toBe(true)
     expect(threadMatchesFilters(thread(), { assigneeId: 3 }, me)).toBe(false)
+    expect(threadMatchesFilters(thread({ priority: 'high' }), { priority: 'high' }, me)).toBe(true)
+    expect(threadMatchesFilters(thread({ priority: 'normal' }), { priority: 'high' }, me)).toBe(false)
     expect(
       threadMatchesFilters(thread({ emailConnectionId: 12 }), { connectionId: 12 }, me),
     ).toBe(true)

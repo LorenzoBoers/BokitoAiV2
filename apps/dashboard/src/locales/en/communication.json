@@ -27,7 +27,8 @@
   "decisionGroups": {
     "heading": "Same question, many cards",
     "dismissAll": "Dismiss all",
-    "dismissing": "Dismissing..."
+    "dismissing": "Dismissing...",
+    "dismissError": "Could not dismiss these cards."
   },
   "loadingMailboxes": "Loading mailboxes...",
   "missingOrganisation": "Your account does not have an organization context yet. Ask an admin to link your user to an organization, or sign in again if you just accepted an invite.",
@@ -274,7 +275,7 @@
     "allLoaded": "All {{total}} conversations loaded",
     "densityCompact": "Compact list",
     "densityComfortable": "Comfortable list",
-    "markAllRead": "Mark as read",
+    "markAllRead": "Mark loaded as read",
     "countsPartial": "Counts are for loaded conversations only",
     "filterAssignee": "Filter by assignee",
     "filterAssigneeAll": "Any assignee",
@@ -766,6 +767,7 @@
     "emptyAsk": "Ask the assistant about this",
     "emptyAskPrefill": "This conversation is empty. Help me work out what should happen next.",
     "loadOlder": "Load older messages",
+    "loadOlderError": "Older messages could not be loaded. Try again.",
     "loadingOlder": "Loading older messages…",
     "loadError": "This conversation could not be loaded.",
     "openEmailSettings": "Open Email & messages",
@@ -1136,7 +1138,7 @@
     "noMembers": "No members",
     "clear": "Clear",
     "clearSelection": "Clear selection",
-    "selectAll": "Select all"
+    "selectAll": "Select loaded"
   },
   "priority": {
     "normal": "Normal",

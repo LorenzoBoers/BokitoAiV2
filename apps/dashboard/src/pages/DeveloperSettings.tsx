@@ -43,7 +43,7 @@ import {
   createWebhook,
   deleteWebhook,
   listWebhookDeliveries,
-  listWebhooks,
+  listWebhooksPage,
   testWebhook,
   updateWebhook,
   type WebhookDelivery,
@@ -489,6 +489,8 @@ export default function DeveloperSettings() {
   const [createdToken, setCreatedToken] = useState<string | null>(null)
   const grantsState = useMcpOAuthGrants()
   const [items, setItems] = useState<WebhookEndpoint[]>([])
+  const [webhooksNext, setWebhooksNext] = useState<number | null>(null)
+  const [loadingMoreWebhooks, setLoadingMoreWebhooks] = useState(false)
   const [eventCatalog, setEventCatalog] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -501,14 +503,17 @@ export default function DeveloperSettings() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [deliveries, setDeliveries] = useState<Record<string, WebhookDelivery[]>>({})
+  const [deliveryNext, setDeliveryNext] = useState<Record<string, number | null>>({})
+  const [loadingMoreDeliveries, setLoadingMoreDeliveries] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await listWebhooks()
+      const data = await listWebhooksPage(0)
       setItems(data.items)
+      setWebhooksNext(typeof data.next_offset === 'number' ? data.next_offset : null)
       setEventCatalog(data.events)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('developersPage.webhooks.loadError'))
@@ -590,12 +595,52 @@ export default function DeveloperSettings() {
     }
   }
 
-  async function loadDeliveries(endpointId: string) {
+  async function loadDeliveries(endpointId: string, offset = 0) {
     try {
-      const data = await listWebhookDeliveries(endpointId)
-      setDeliveries((prev) => ({ ...prev, [endpointId]: data.items }))
-    } catch {
-      // Listing failures leave the previous rows in place.
+      const data = await listWebhookDeliveries(endpointId, offset)
+      setDeliveries((prev) => {
+        const current = offset === 0 ? [] : (prev[endpointId] ?? [])
+        const seen = new Set(current.map((row) => row.id))
+        return {
+          ...prev,
+          [endpointId]: [...current, ...data.items.filter((row) => !seen.has(row.id))],
+        }
+      })
+      setDeliveryNext((prev) => ({
+        ...prev,
+        [endpointId]: typeof data.next_offset === 'number' ? data.next_offset : null,
+      }))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('developersPage.webhooks.loadError'))
+    }
+  }
+
+  async function loadMoreWebhooks() {
+    if (webhooksNext == null || loadingMoreWebhooks) return
+    setLoadingMoreWebhooks(true)
+    try {
+      const data = await listWebhooksPage(webhooksNext)
+      setItems((prev) => {
+        const seen = new Set(prev.map((row) => row.id))
+        return [...prev, ...data.items.filter((row) => !seen.has(row.id))]
+      })
+      setWebhooksNext(typeof data.next_offset === 'number' ? data.next_offset : null)
+      setEventCatalog(data.events)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('developersPage.webhooks.loadError'))
+    } finally {
+      setLoadingMoreWebhooks(false)
+    }
+  }
+
+  async function loadMoreDeliveries(endpointId: string) {
+    const offset = deliveryNext[endpointId]
+    if (offset == null || loadingMoreDeliveries) return
+    setLoadingMoreDeliveries(endpointId)
+    try {
+      await loadDeliveries(endpointId, offset)
+    } finally {
+      setLoadingMoreDeliveries(null)
     }
   }
 
@@ -846,10 +891,35 @@ export default function DeveloperSettings() {
                           </tbody>
                         </table>
                       )}
+                      {deliveryNext[endpoint.id] != null ? (
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-accent hover:underline disabled:opacity-60"
+                          disabled={loadingMoreDeliveries === endpoint.id}
+                          onClick={() => void loadMoreDeliveries(endpoint.id)}
+                        >
+                          {loadingMoreDeliveries === endpoint.id
+                            ? t('developersPage.webhooks.loadingMore')
+                            : t('developersPage.webhooks.loadMore')}
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
               ))}
+              {webhooksNext != null ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={loadingMoreWebhooks}
+                  onClick={() => void loadMoreWebhooks()}
+                >
+                  {loadingMoreWebhooks
+                    ? t('developersPage.webhooks.loadingMore')
+                    : t('developersPage.webhooks.loadMore')}
+                </Button>
+              ) : null}
             </div>
           )}
         </section>

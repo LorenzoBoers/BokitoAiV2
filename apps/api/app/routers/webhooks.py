@@ -72,17 +72,21 @@ async def list_webhooks(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ):
     auth.require_role("owner", "admin")
     result = await session.execute(
         select(WebhookEndpoint)
         .where(WebhookEndpoint.tenant_id == auth.tenant.id)
         .order_by(WebhookEndpoint.created_at.desc())
+        .offset(offset)
         .limit(limit)
     )
+    rows = list(result.scalars().all())
     return {
-        "items": [serialize_endpoint(e, include_secret=True) for e in result.scalars().all()],
+        "items": [serialize_endpoint(e, include_secret=True) for e in rows],
         "events": list(WEBHOOK_EVENTS),
+        "next_offset": offset + limit if len(rows) == limit else None,
     }
 
 
@@ -203,6 +207,8 @@ async def list_deliveries(
     endpoint_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ):
     auth.require_role("owner", "admin")
     endpoint = await _get_endpoint(session, auth.tenant.id, endpoint_id)
@@ -210,6 +216,11 @@ async def list_deliveries(
         select(WebhookDelivery)
         .where(WebhookDelivery.endpoint_id == endpoint.id)
         .order_by(WebhookDelivery.created_at.desc())
-        .limit(20)
+        .offset(offset)
+        .limit(limit)
     )
-    return {"items": [serialize_delivery(d) for d in result.scalars().all()]}
+    rows = list(result.scalars().all())
+    return {
+        "items": [serialize_delivery(d) for d in rows],
+        "next_offset": offset + limit if len(rows) == limit else None,
+    }

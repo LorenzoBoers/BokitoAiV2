@@ -44,9 +44,11 @@ import {
   enrichContactsFromThreads,
   findThreadsForContact,
   getContact,
+  getContactThreadPage,
   latestThreadActivityAt,
-  listCompanies,
-  listContacts,
+  bulkUpdatePendingContacts,
+  listCompaniesPage,
+  listContactsPage,
   updateCompany,
   updateContact,
   type CompanyDetail as CompanyDetailData,
@@ -56,7 +58,8 @@ import {
   type ContactRow,
   type ContactStatus,
 } from '../lib/contacts-api'
-import { AI_HANDLING_MODES, normalizeMode } from '../lib/ai-handling'
+import { AI_HANDLING_MODES } from '../lib/ai-handling'
+import { parseContactsAiHandling, parseContactsStatus, withContactsParam } from '../lib/contacts-list-query'
 import { AiHandlingIcon } from '../components/ai/AiHandlingIcon'
 import AiHandlingPicker from '../components/ai/AiHandlingPicker'
 import ContactOwnerPicker from '../components/inbox/ContactOwnerPicker'
@@ -97,6 +100,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
   const navigate = useNavigate()
   const [contact, setContact] = useState<ContactRow | null>(null)
   const [threads, setThreads] = useState<InboxThread[]>([])
+  const [threadTotal, setThreadTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState({ displayName: '', company: '', title: '', phone: '', notes: '' })
@@ -123,16 +127,33 @@ function ContactDetail({ contactId }: { contactId: string }) {
       setDirty(false)
       if (!row) {
         setThreads([])
+        setThreadTotal(0)
       } else {
         try {
-          setThreads(await findThreadsForContact(token, row))
+          const page = await getContactThreadPage(token, row.id)
+          if (page.threads.length > 0 || page.total > 0) {
+            setThreads(page.threads)
+            setThreadTotal(page.total)
+          } else {
+            const history = await findThreadsForContact(token, row)
+            setThreads(history)
+            setThreadTotal(Math.max(history.length, row.threadCount))
+          }
         } catch {
-          setThreads([])
+          try {
+            const history = await findThreadsForContact(token, row)
+            setThreads(history)
+            setThreadTotal(Math.max(history.length, row.threadCount))
+          } catch {
+            setThreads([])
+            setThreadTotal(row.threadCount)
+          }
         }
       }
     } catch (err) {
       setContact(null)
       setThreads([])
+      setThreadTotal(0)
       toast.error(formatApiErrorMessage(err, t('contactsPage.loadContactError')))
     } finally {
       setLoading(false)
@@ -508,7 +529,9 @@ function ContactDetail({ contactId }: { contactId: string }) {
         <section id="conversations" className="panel p-4">
           <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
           <p className="text-xs text-text-muted">
-            {t('contactsPage.threadCount', { count: threads.length })}
+            {threadTotal > threads.length
+              ? t('contactsPage.threadCountPartial', { shown: threads.length, count: threadTotal })
+              : t('contactsPage.threadCount', { count: threadTotal })}
           </p>
           <div className="mt-3 space-y-1.5">
             {threads.length === 0 ? (
@@ -741,6 +764,14 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
           </div>
 
           <h3 className="mt-5 text-sm font-semibold text-text-heading">{t('contactsPage.peopleSection')}</h3>
+          {company.contactCount > company.contacts.length ? (
+            <p className="mt-1 text-xs text-text-muted">
+              {t('contactsPage.peopleTruncated', {
+                shown: company.contacts.length,
+                count: company.contactCount,
+              })}
+            </p>
+          ) : null}
           <div className="mt-2 space-y-1.5">
             {company.contacts.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
@@ -786,7 +817,11 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
 
         <section className="panel p-4">
           <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
-          <p className="text-xs text-text-muted">{t('contactsPage.companyThreadsHint')}</p>
+          <p className="text-xs text-text-muted">
+            {company.threadsTruncated
+              ? t('contactsPage.companyThreadsTruncated', { count: company.threads.length })
+              : t('contactsPage.companyThreadsHint')}
+          </p>
           <div className="mt-3 space-y-1.5">
             {company.threads.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
@@ -863,11 +898,12 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
   const [search, setSearch] = useState(() => searchParams.get('q')?.trim() ?? '')
-  const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>('all')
-  const [aiFilter, setAiFilter] = useState<ContactAiHandlingFilter | 'all'>(() => {
-    const raw = searchParams.get('ai_handling')
-    return raw === 'custom' || normalizeMode(raw) ? (raw as ContactAiHandlingFilter) : 'all'
-  })
+  const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>(() =>
+    parseContactsStatus(searchParams.get('status')),
+  )
+  const [aiFilter, setAiFilter] = useState<ContactAiHandlingFilter | 'all'>(() =>
+    parseContactsAiHandling(searchParams.get('ai_handling')),
+  )
   const { t: tc } = useTranslation('common')
   const filtered = Boolean(search.trim()) || statusFilter !== 'all' || aiFilter !== 'all'
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
@@ -881,6 +917,9 @@ export default function ContactsPage() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [backfilling, setBackfilling] = useState(false)
+  const [contactsNext, setContactsNext] = useState<number | null>(null)
+  const [companiesNext, setCompaniesNext] = useState<number | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const handleViewChange = useCallback(
     (next: 'people' | 'companies') => {
@@ -899,7 +938,19 @@ export default function ContactsPage() {
     setView((current) => (current === fromUrl ? current : fromUrl))
     const query = searchParams.get('q')?.trim() ?? ''
     setSearch((current) => (current === query ? current : query))
+    const status = parseContactsStatus(searchParams.get('status'))
+    setStatusFilter((current) => (current === status ? current : status))
+    const ai = parseContactsAiHandling(searchParams.get('ai_handling'))
+    setAiFilter((current) => (current === ai ? current : ai))
   }, [searchParams, companyId])
+
+  useEffect(() => {
+    if (companyId) return
+    const timer = window.setTimeout(() => {
+      setSearchParams((prev) => withContactsParam(prev, 'q', search.trim() || null), { replace: true })
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [search, companyId, setSearchParams])
 
   useEffect(() => {
     if (searchParams.get('new') !== '1') return
@@ -918,24 +969,30 @@ export default function ContactsPage() {
     setListError(null)
     try {
       if (view === 'companies') {
-        const rows = await listCompanies(token, {
+        const page = await listCompaniesPage(token, {
           ...(search.trim() ? { search: search.trim() } : {}),
         })
-        setCompanies(rows)
+        setCompanies(page.companies)
+        setCompaniesNext(page.nextOffset)
+        setContactsNext(null)
       } else {
-        const [rows, inbox] = await Promise.all([
-          listContacts(token, {
+        const [page, inbox] = await Promise.all([
+          listContactsPage(token, {
             ...(search.trim() ? { search: search.trim() } : {}),
             ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
             ...(aiFilter !== 'all' ? { aiHandling: aiFilter } : {}),
           }),
           listSignalThreads(token, { perPage: 80 }).catch(() => ({ items: [] as InboxThread[] })),
         ])
-        setContacts(enrichContactsFromThreads(rows, inbox.items))
+        setContacts(enrichContactsFromThreads(page.contacts, inbox.items))
+        setContactsNext(page.nextOffset)
+        setCompaniesNext(null)
       }
     } catch (err) {
       setContacts([])
       setCompanies([])
+      setContactsNext(null)
+      setCompaniesNext(null)
       setListError(err instanceof Error ? err.message : t('contactsPage.couldNotLoad'))
     } finally {
       setLoading(false)
@@ -947,6 +1004,59 @@ export default function ContactsPage() {
     const timer = window.setTimeout(() => void load(), search ? 250 : 0)
     return () => window.clearTimeout(timer)
   }, [load, contactId, companyId, search])
+
+  const loadMore = async () => {
+    if (!token || loadingMore) return
+    const offset = view === 'companies' ? companiesNext : contactsNext
+    if (offset == null) return
+    setLoadingMore(true)
+    try {
+      if (view === 'companies') {
+        const page = await listCompaniesPage(token, {
+          ...(search.trim() ? { search: search.trim() } : {}),
+          offset,
+        })
+        setCompanies((prev) => {
+          const seen = new Set(prev.map((row) => row.id))
+          return [...prev, ...page.companies.filter((row) => !seen.has(row.id))]
+        })
+        setCompaniesNext(page.nextOffset)
+      } else {
+        const page = await listContactsPage(token, {
+          ...(search.trim() ? { search: search.trim() } : {}),
+          ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+          ...(aiFilter !== 'all' ? { aiHandling: aiFilter } : {}),
+          offset,
+        })
+        const inbox = await listSignalThreads(token, { perPage: 80 }).catch(() => ({ items: [] as InboxThread[] }))
+        const extra = enrichContactsFromThreads(page.contacts, inbox.items)
+        setContacts((prev) => {
+          const seen = new Set(prev.map((row) => row.id))
+          return [...prev, ...extra.filter((row) => !seen.has(row.id))]
+        })
+        setContactsNext(page.nextOffset)
+      }
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('contactsPage.couldNotLoad')))
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const moreOffset = view === 'companies' ? companiesNext : contactsNext
+  const loadMoreButton =
+    moreOffset == null ? null : (
+      <div className="flex justify-center border-t border-border/60 px-4 py-3">
+        <button
+          type="button"
+          disabled={loadingMore}
+          onClick={() => void loadMore()}
+          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
+        >
+          {loadingMore ? t('contactsPage.loadingMore') : t('contactsPage.loadMore')}
+        </button>
+      </div>
+    )
 
   const handleBackfill = async () => {
     if (!token || backfilling) return
@@ -1002,14 +1112,15 @@ export default function ContactsPage() {
     }
   }
 
-  const handleBulkStatus = async (status: ContactStatus) => {
+  const handleBulkStatus = async (status: 'approved' | 'blocked') => {
     if (!token || bulkBusy) return
-    const pending = contacts.filter((row) => row.status === 'pending')
-    if (pending.length === 0) return
     setBulkBusy(true)
     try {
-      await Promise.all(pending.map((row) => updateContact(token, row.id, { status })))
-      toast.success(t('contactsPage.bulkUpdated', { count: pending.length }))
+      const updated = await bulkUpdatePendingContacts(token, status, {
+        search: search.trim() || undefined,
+        aiHandling: aiFilter,
+      })
+      toast.success(t('contactsPage.bulkUpdated', { count: updated }))
       await load()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('contactsPage.bulkError')))
@@ -1119,7 +1230,10 @@ export default function ContactsPage() {
                 key={f.key}
                 title={t(f.hintKey)}
                 active={statusFilter === f.key}
-                onClick={() => setStatusFilter(f.key)}
+                onClick={() => {
+                  setStatusFilter(f.key)
+                  setSearchParams((prev) => withContactsParam(prev, 'status', f.key), { replace: true })
+                }}
               >
                 {t(f.labelKey)}
               </FilterChip>
@@ -1132,7 +1246,10 @@ export default function ContactsPage() {
             ) : null}
             <Select
               value={aiFilter}
-              onValueChange={(value) => setAiFilter(value as ContactAiHandlingFilter | 'all')}
+              onValueChange={(value) => {
+                setAiFilter(value as ContactAiHandlingFilter | 'all')
+                setSearchParams((prev) => withContactsParam(prev, 'ai_handling', value), { replace: true })
+              }}
             >
               <SelectTrigger
                 aria-label={tc('aiHandling.title')}
@@ -1293,6 +1410,7 @@ export default function ContactsPage() {
                 </Link>
               </div>
             )}
+            {loadMoreButton}
           </div>
         ) : (
           <div className="panel overflow-hidden">
@@ -1333,6 +1451,7 @@ export default function ContactsPage() {
                 ))}
               </tbody>
             </table>
+            {loadMoreButton}
           </div>
         )
       ) : sorted.length === 0 ? (
@@ -1380,6 +1499,7 @@ export default function ContactsPage() {
               </div>
             </div>
           )}
+          {loadMoreButton}
         </div>
       ) : (
         <div className="panel overflow-hidden">
@@ -1543,6 +1663,7 @@ export default function ContactsPage() {
               ))}
             </tbody>
           </table>
+          {loadMoreButton}
         </div>
       )}
     </PageContent>

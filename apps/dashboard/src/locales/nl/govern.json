@@ -13,6 +13,8 @@
   "filterEmpty": "Geen rijen die bij die zoekopdracht passen.",
   "showAll": "Alles tonen ({{count}})",
   "showFewer": "Minder tonen",
+  "loadOlder": "Ouder laden",
+  "loadingOlder": "Ouder laden",
   "sections": {
     "ledger": "Ledger",
     "autonomy": "Autonomie"

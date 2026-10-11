@@ -645,6 +645,7 @@ async def list_changes(
     resource_id: str | None = None,
     limit: int = 100,
     offset: int = 0,
+    q: str | None = None,
 ):
     rows = await list_platform_changes(
         session,
@@ -652,6 +653,7 @@ async def list_changes(
         status=status,
         resource_type=resource_type,
         resource_id=resource_id,
+        q=q,
         limit=limit,
         offset=offset,
     )

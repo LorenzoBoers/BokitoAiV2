@@ -609,6 +609,8 @@ export type ThreadFilters = {
   /** A ticket stage key, or a stage kind (open, waiting, done). */
   stage?: string
   assigneeId?: number
+  /** Server-side priority so matches beyond the loaded page are included. */
+  priority?: ThreadPriority
   search?: string
   page?: number
   perPage?: number

@@ -895,6 +895,15 @@ class ContactOwnerBody(BaseModel):
     id: UUID | None = None
 
 
+class ContactBulkStatusBody(BaseModel):
+    """Move every pending contact that matches the list filters."""
+
+    status: str
+    search: str | None = None
+    channel: str | None = None
+    ai_handling: str | None = None
+
+
 class ContactUpdateBody(BaseModel):
     status: str | None = None
     display_name: str | None = None
@@ -1022,9 +1031,13 @@ async def list_contacts(
     channel: str | None = None,
     search: str | None = None,
     ai_handling: str | None = None,
+    offset: int = Query(0, ge=0),
 ):
     """Contacts, optionally filtered by status, channel, search text or AI
-    handling (``manual|assisted|autonomous`` own override, ``custom`` any)."""
+    handling (``manual|assisted|autonomous`` own override, ``custom`` any).
+
+    One page is 200 rows. ``next_offset`` is set when another page exists.
+    """
     stmt = select(Contact).where(
         Contact.tenant_id == auth.tenant.id,
         Contact.merged_into_id.is_(None),
@@ -1045,11 +1058,13 @@ async def list_contacts(
             | Contact.address.ilike(like)
             | Contact.company.ilike(like)
         )
-    stmt = stmt.order_by(Contact.last_seen_at.desc()).limit(200)
+    page_size = 200
+    stmt = stmt.order_by(Contact.last_seen_at.desc()).offset(offset).limit(page_size)
     result = await session.execute(stmt)
+    fetched = list(result.scalars().all())
     contacts = [
         row
-        for row in result.scalars().all()
+        for row in fetched
         if not _is_unnamed_visitor(row.address, row.display_name)
     ]
 
@@ -1067,7 +1082,8 @@ async def list_contacts(
     return {
         "contacts": [
             _serialize_contact(c, thread_count=counts.get(c.id, 0)) for c in contacts
-        ]
+        ],
+        "next_offset": offset + page_size if len(fetched) == page_size else None,
     }
 
 
@@ -1153,6 +1169,51 @@ async def delete_contact(
     return {"ok": True}
 
 
+@router.post("/contacts/bulk-status")
+async def bulk_contact_status(
+    body: ContactBulkStatusBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Approve or block every pending contact matching the list filters.
+
+    The contacts list is capped, so a page-local loop would leave older
+    pending people untouched.
+    """
+    auth.require_role("owner", "admin")
+    if body.status not in ("approved", "blocked"):
+        raise HTTPException(status_code=400, detail=f"Invalid status: {body.status}")
+    stmt = select(Contact).where(
+        Contact.tenant_id == auth.tenant.id,
+        Contact.merged_into_id.is_(None),
+        Contact.deleted_at.is_(None),
+        Contact.status == "pending",
+    )
+    if body.ai_handling == "custom":
+        stmt = stmt.where(Contact.ai_handling.is_not(None))
+    elif body.ai_handling in ("manual", "assisted", "autonomous"):
+        stmt = stmt.where(Contact.ai_handling.contains(f'"{body.ai_handling}"'))
+    if body.channel:
+        stmt = stmt.where(Contact.channel == body.channel)
+    if body.search and body.search.strip():
+        like = f"%{body.search.strip()}%"
+        stmt = stmt.where(
+            Contact.display_name.ilike(like)
+            | Contact.address.ilike(like)
+            | Contact.company.ilike(like)
+        )
+    rows = (await session.execute(stmt)).scalars().all()
+    updated = 0
+    for row in rows:
+        if _is_unnamed_visitor(row.address, row.display_name):
+            continue
+        row.status = body.status
+        updated += 1
+    if updated:
+        await session.commit()
+    return {"updated": updated}
+
+
 @router.get("/contacts/{contact_id}")
 async def get_contact(
     contact_id: UUID,
@@ -1209,7 +1270,7 @@ async def list_contact_threads(
     contact_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    limit: int = 20,
+    limit: int = Query(100, ge=1, le=100),
 ):
     contact = await _contact_or_404(session, auth.tenant.id, contact_id)
     identities = await _identity_rows(session, auth.tenant.id, contact.id)
@@ -1217,14 +1278,18 @@ async def list_contact_threads(
     if contact.address and "@" in contact.address:
         # Older threads may predate the contact link; match denormalized email.
         conditions.append(Signal.contact_email == contact.address)
+    matched = (Signal.tenant_id == auth.tenant.id, or_(*conditions))
+    total = (
+        await session.execute(select(func.count()).select_from(Signal).where(*matched))
+    ).scalar_one()
     result = await session.execute(
         select(Signal)
-        .where(Signal.tenant_id == auth.tenant.id, or_(*conditions))
+        .where(*matched)
         .order_by(Signal.last_message_at.desc())
-        .limit(max(1, min(limit, 100)))
+        .limit(limit)
     )
     threads = [serialize_thread(s) for s in result.scalars().all()]
-    return {"threads": threads}
+    return {"threads": threads, "total": int(total or 0)}
 
 
 @router.patch("/contacts/{contact_id}")
@@ -1478,6 +1543,7 @@ async def list_companies(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     search: str | None = None,
+    offset: int = Query(0, ge=0),
 ):
     from app.services.companies import company_contact_counts, serialize_company
 
@@ -1485,13 +1551,16 @@ async def list_companies(
     if search:
         like = f"%{search}%"
         stmt = stmt.where(or_(Company.name.ilike(like), Company.domain.ilike(like)))
-    result = await session.execute(stmt.order_by(Company.name.asc()).limit(200))
+    page_size = 200
+    result = await session.execute(stmt.order_by(Company.name.asc()).offset(offset).limit(page_size))
+    rows = list(result.scalars().all())
     counts = await company_contact_counts(session, auth.tenant.id)
     return {
         "companies": [
             serialize_company(c, contact_count=counts.get(c.id, 0))
-            for c in result.scalars().all()
-        ]
+            for c in rows
+        ],
+        "next_offset": offset + page_size if len(rows) == page_size else None,
     }
 
 
@@ -1516,26 +1585,38 @@ async def get_company(
     from app.services.companies import serialize_company
 
     company = await _company_or_404(session, auth.tenant.id, company_id)
+    linked = (
+        Contact.tenant_id == auth.tenant.id,
+        Contact.company_id == company.id,
+        Contact.deleted_at.is_(None),
+    )
+    people_count = (
+        await session.execute(
+            select(func.count())
+            .select_from(Contact)
+            .where(*linked, Contact.merged_into_id.is_(None))
+        )
+    ).scalar_one()
     contacts = await session.execute(
         select(Contact)
-        .where(Contact.tenant_id == auth.tenant.id, Contact.company_id == company.id)
+        .where(*linked, Contact.merged_into_id.is_(None))
         .order_by(Contact.last_seen_at.desc().nullslast())
         .limit(100)
     )
     contact_rows = list(contacts.scalars().all())
     threads = await session.execute(
         select(Signal)
-        .where(
-            Signal.tenant_id == auth.tenant.id,
-            Signal.contact_id.in_([c.id for c in contact_rows] or [None]),
-        )
+        .join(Contact, Signal.contact_id == Contact.id)
+        .where(*linked, Signal.tenant_id == auth.tenant.id, Signal.deleted_at.is_(None))
         .order_by(Signal.last_message_at.desc())
-        .limit(20)
+        .limit(100)
     )
+    thread_rows = list(threads.scalars().all())
     return {
-        **serialize_company(company, contact_count=len(contact_rows)),
+        **serialize_company(company, contact_count=int(people_count or 0)),
         "contacts": [_serialize_contact(c) for c in contact_rows],
-        "threads": [serialize_thread(s) for s in threads.scalars().all()],
+        "threads": [serialize_thread(s) for s in thread_rows],
+        "threads_truncated": len(thread_rows) == 100,
     }
 
 

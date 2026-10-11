@@ -80,6 +80,8 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<ProjectRow | null>(null)
   const [budget, setBudget] = useState<ProjectBudgetResponse | null>(null)
   const [runs, setRuns] = useState<WorkLogRow[]>([])
+  const [runsMore, setRunsMore] = useState(false)
+  const [loadingMoreRuns, setLoadingMoreRuns] = useState(false)
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,7 +113,9 @@ export default function ProjectDetail() {
         token ? listThreads(token, { folder: 'internal', perPage: 80 }) : Promise.reject(new Error('signed out')),
       ])
       setBudget(budgetResult.status === 'fulfilled' ? budgetResult.value : null)
-      setRuns(runsResult.status === 'fulfilled' ? runsResult.value : [])
+      const runRows = runsResult.status === 'fulfilled' ? runsResult.value : []
+      setRuns(runRows)
+      setRunsMore(runRows.length === 10)
       setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
       setAgents(agentsResult.status === 'fulfilled' ? agentsResult.value : [])
       setRefreshedAt(new Date())
@@ -125,6 +129,23 @@ export default function ProjectDetail() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const loadMoreRuns = useCallback(async () => {
+    if (!projectId || loadingMoreRuns) return
+    setLoadingMoreRuns(true)
+    try {
+      const page = await listWorkLogs({ project_id: projectId, limit: 10, offset: runs.length })
+      setRuns((prev) => {
+        const seen = new Set(prev.map((row) => row.id))
+        return [...prev, ...page.filter((row) => !seen.has(row.id))]
+      })
+      setRunsMore(page.length === 10)
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('projects.detail.loadError')))
+    } finally {
+      setLoadingMoreRuns(false)
+    }
+  }, [loadingMoreRuns, projectId, runs.length, t])
 
   const dirty = useMemo(() => {
     if (!project) return false
@@ -302,6 +323,17 @@ export default function ProjectDetail() {
                     showProjectColumn={false}
                   />
                 )}
+                {runsMore ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={loadingMoreRuns}
+                    onClick={() => void loadMoreRuns()}
+                  >
+                    {loadingMoreRuns ? t('projects.detail.loadingMoreRuns') : t('projects.detail.loadMoreRuns')}
+                  </Button>
+                ) : null}
               </section>
             </TabsContent>
 

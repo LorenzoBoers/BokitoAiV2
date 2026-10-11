@@ -158,6 +158,7 @@ export default function AgentThreadPanel({
                 saving={saving}
                 onPatch={onPatch}
                 onPlan={onPlan}
+                onScheduleChanged={() => onThreadUpdated?.()}
               />
             </ContactPanel>
           </>

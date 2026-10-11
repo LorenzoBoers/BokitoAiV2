@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -62,6 +62,10 @@ async def agenda(
     from_: datetime | None = Query(None, alias="from"),
     to: datetime | None = Query(None),
     agent_id: UUID | None = Query(None),
+    user_id: UUID | None = Query(
+        None,
+        description="Only activity and decisions for this person (Who = you or a teammate)",
+    ),
     sources: str | None = Query(
         None,
         description=(
@@ -101,6 +105,7 @@ async def agenda(
         start=start,
         end=end,
         agent_id=agent_id,
+        user_id=user_id,
         sources=wanted,
         scheduled_only=scheduled_only,
         project_id=project_id,
@@ -120,6 +125,7 @@ async def list_triggers(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     kind: str | None = Query(None),
+    q: str | None = Query(None),
     limit: int = Query(200, ge=1, le=500),
 ):
     stmt = select(Trigger).where(
@@ -130,6 +136,9 @@ async def list_triggers(
     )
     if kind:
         stmt = stmt.where(Trigger.kind == kind)
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Trigger.name.ilike(like), Trigger.instructions.ilike(like)))
     stmt = stmt.order_by(Trigger.created_at).limit(limit)
     result = await session.execute(stmt)
     return {"triggers": [svc.serialize_trigger(t) for t in result.scalars().all()]}

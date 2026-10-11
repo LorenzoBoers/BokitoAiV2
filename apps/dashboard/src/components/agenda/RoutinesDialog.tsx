@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, Plus } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
@@ -7,7 +7,7 @@ import { Input } from '../ui/input'
 import { Switch } from '../ui/switch'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
-import { updateTrigger, type Trigger } from '../../lib/orchestration-api'
+import { listTriggers, updateTrigger, type Trigger } from '../../lib/orchestration-api'
 import { parseTimelineMs } from '../../lib/time-items'
 import { triggerScheduleLabel, isFailed } from './agenda-style'
 import { agendaStatusLabel } from '../../lib/status-labels'
@@ -26,19 +26,44 @@ type Props = {
 export default function RoutinesDialog({ open, onOpenChange, triggers, agentNames, onEdit, onCreate, onChanged }: Props) {
   const { t, i18n } = useTranslation('nav')
   const [query, setQuery] = useState('')
+  const [searched, setSearched] = useState<Trigger[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    const q = query.trim()
+    if (!open || !q) {
+      setSearched(null)
+      return
+    }
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void listTriggers({ q, limit: 500 })
+        .then((rows) => {
+          if (!cancelled) setSearched(rows)
+        })
+        .catch((err) => {
+          if (!cancelled) setError(formatApiErrorMessage(err, t('agendaPage.updateTriggerError')))
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [open, query, t])
+
+  const source = searched ?? triggers
+
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const rows = triggers.filter((row) => !q || `${row.name} ${row.instructions}`.toLowerCase().includes(q))
+    const rows = source.filter((row) => !q || `${row.name} ${row.instructions}`.toLowerCase().includes(q))
     const map = new Map<string, Trigger[]>()
     for (const row of rows) {
       const key = row.agent_id ? agentNames.get(row.agent_id) ?? t('agendaPage.routines.otherAgent') : t('agendaPage.routines.noAgent')
       map.set(key, [...(map.get(key) ?? []), row])
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
-  }, [triggers, agentNames, query, t])
+  }, [source, agentNames, query, t])
 
   const toggle = async (row: Trigger) => {
     setBusy(row.id)
@@ -46,6 +71,7 @@ export default function RoutinesDialog({ open, onOpenChange, triggers, agentName
     try {
       await updateTrigger(row.id, { enabled: !row.enabled })
       onChanged()
+      if (query.trim()) setSearched(await listTriggers({ q: query.trim(), limit: 500 }))
     } catch (err) {
       setError(formatApiErrorMessage(err, t('agendaPage.updateTriggerError')))
     } finally {
@@ -73,6 +99,9 @@ export default function RoutinesDialog({ open, onOpenChange, triggers, agentName
           </Button>
         </div>
         {error ? <p className="text-xs text-status-error">{error}</p> : null}
+        {triggers.length >= 500 && !query.trim() ? (
+          <p className="text-xs text-text-muted">{t('agendaPage.routines.capped')}</p>
+        ) : null}
         <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
           {groups.length === 0 ? (
             <p className="py-6 text-center text-sm text-text-muted">

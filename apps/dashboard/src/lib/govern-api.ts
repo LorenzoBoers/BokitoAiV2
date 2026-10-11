@@ -169,8 +169,10 @@ export async function rollbackGovernChange(changeId: string) {
   })
 }
 
-export async function listGovernAudit(limit = 50) {
-  return governFetch<{ items: AuditEventRow[] }>(governRoutes.audit(limit))
+export async function listGovernAudit(limit = 200, q?: string, offset = 0) {
+  return governFetch<{ items: AuditEventRow[] }>(
+    governRoutes.audit({ limit, offset, q: q?.trim() || undefined }),
+  )
 }
 
 export async function listAgentPassports() {
@@ -248,8 +250,8 @@ export async function getGovernChange(changeId: string) {
   return governFetch<PlatformChangeRow>(governRoutes.change(changeId))
 }
 
-export async function listAcceptedChanges(limit = 20) {
+export async function listAcceptedChanges(limit = 100, q?: string, offset = 0) {
   return governFetch<{ items: PlatformChangeRow[] }>(
-    governRoutes.changes({ status: 'accepted', limit }),
+    governRoutes.changes({ status: 'accepted', limit, offset, q: q?.trim() || undefined }),
   )
 }

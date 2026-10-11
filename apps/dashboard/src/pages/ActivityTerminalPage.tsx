@@ -22,7 +22,16 @@ export default function ActivityTerminalPage() {
   const agentFilter = searchParams.get('agent')
   const query = searchParams.get('q') ?? ''
 
-  const { entries, loading, loadingOlder, hasMore, failed, load, loadOlder } = useActivityFeed()
+  const [debouncedQuery, setDebouncedQuery] = useState(query)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 300)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  const { entries, loading, loadingOlder, hasMore, failed, load, loadOlder } = useActivityFeed(150, {
+    q: debouncedQuery,
+    agentId: agentFilter,
+  })
   const [agents, setAgents] = useState<ChatTarget[]>([])
   const [follow, setFollow] = useState(true)
   const logRef = useRef<HTMLDivElement>(null)
@@ -71,19 +80,19 @@ export default function ActivityTerminalPage() {
   }, [agents])
 
   const visible = useMemo(() => {
-    let rows = entries
-    if (agentFilter) rows = rows.filter((e) => e.agentId === agentFilter)
-    const q = query.trim().toLowerCase()
-    if (q) {
-      rows = rows.filter(
-        (e) =>
-          e.message.toLowerCase().includes(q) ||
-          e.eventType.toLowerCase().includes(q) ||
-          (e.actorName ?? '').toLowerCase().includes(q),
+    const liveQ = query.trim().toLowerCase()
+    const histQ = debouncedQuery.trim().toLowerCase()
+    return entries.filter((entry) => {
+      if (agentFilter && entry.agentId !== agentFilter) return false
+      const q = entry.live ? liveQ : histQ
+      if (!q) return true
+      return (
+        entry.message.toLowerCase().includes(q) ||
+        entry.eventType.toLowerCase().includes(q) ||
+        (entry.actorName ?? '').toLowerCase().includes(q)
       )
-    }
-    return rows
-  }, [entries, agentFilter, query])
+    })
+  }, [entries, agentFilter, query, debouncedQuery])
 
   return (
     <div ref={logRef} className="h-full min-h-0 overflow-y-auto">

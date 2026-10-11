@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AgentPassport } from '../lib/workforce-api'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { Archive, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, RotateCcw, ShieldCheck } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -56,6 +57,8 @@ export default function AiAgentDetail() {
   const [agent, setAgent] = useState<RuntimeAgent | null>(null)
   const [passport, setPassport] = useState<AgentPassport | null>(null)
   const [runs, setRuns] = useState<WorkLogRow[]>([])
+  const [runsMore, setRunsMore] = useState(false)
+  const [loadingMoreRuns, setLoadingMoreRuns] = useState(false)
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
   const [openConversations, setOpenConversations] = useState<InboxThread[]>([])
@@ -101,13 +104,11 @@ export default function AiAgentDetail() {
           : Promise.resolve({ items: [] as InboxThread[], itemsTotal: 0 }),
       ])
       let runRows: WorkLogRow[] = []
+      let moreRuns = false
       try {
         runRows = await listWorkLogs({ agent_id: agentId, limit: 50 })
+        moreRuns = runRows.length === 50
       } catch {
-        const all = await listWorkLogs({ limit: 100 })
-        runRows = all.filter((r) => r.agent_id === agentId)
-      }
-      if (runRows.length === 0) {
         const all = await listWorkLogs({ limit: 100 })
         runRows = all.filter((r) => r.agent_id === agentId)
       }
@@ -116,6 +117,7 @@ export default function AiAgentDetail() {
       if (found) seedAgentPresence([found])
       setPassport(passportRows.find((p) => p.id === agentId) ?? null)
       setRuns(runRows)
+      setRunsMore(moreRuns)
       setProjects(projectRows)
       setInternalThreads(threadsResult.items)
       setOpenConversations(openThreadsResult.items)
@@ -126,6 +128,7 @@ export default function AiAgentDetail() {
     } catch (e) {
       setAgent(null)
       setRuns([])
+      setRunsMore(false)
       setError(
         e instanceof Error ? e.message : t('workforce.agents.detailLoadError'),
       )
@@ -137,6 +140,23 @@ export default function AiAgentDetail() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const loadMoreRuns = useCallback(async () => {
+    if (!agentId || loadingMoreRuns) return
+    setLoadingMoreRuns(true)
+    try {
+      const page = await listWorkLogs({ agent_id: agentId, limit: 50, offset: runs.length })
+      setRuns((prev) => {
+        const seen = new Set(prev.map((row) => row.id))
+        return [...prev, ...page.filter((row) => !seen.has(row.id))]
+      })
+      setRunsMore(page.length === 50)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('workforce.agents.detailLoadError'))
+    } finally {
+      setLoadingMoreRuns(false)
+    }
+  }, [agentId, loadingMoreRuns, runs.length, t])
 
   useEffect(() => {
     if (loading || typeof window === 'undefined') return
@@ -694,6 +714,17 @@ export default function AiAgentDetail() {
                 showProjectColumn
               />
             )}
+            {runsMore ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={loadingMoreRuns}
+                onClick={() => void loadMoreRuns()}
+              >
+                {loadingMoreRuns ? t('workforce.agents.loadingMoreRuns') : t('workforce.agents.loadMoreRuns')}
+              </Button>
+            ) : null}
           </div>
 
           <PageRelatedLinks

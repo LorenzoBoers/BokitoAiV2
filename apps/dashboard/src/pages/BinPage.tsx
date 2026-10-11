@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -26,7 +26,6 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import {
   BIN_TYPES,
   emptyTrash,
-  filterBinItems,
   getTrashSettings,
   listTrash,
   purgeTrashItem,
@@ -65,31 +64,63 @@ export default function BinPage() {
   const [error, setError] = useState<string | null>(null)
   const [type, setType] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
+  const [nextOffset, setNextOffset] = useState<number | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const confirm = useConfirm()
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 250)
+    return () => window.clearTimeout(timer)
+  }, [q])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const [list, nextSettings] = await Promise.all([
-        listTrash(),
+        listTrash({
+          ...(type ? { type } : {}),
+          ...(debouncedQ ? { q: debouncedQ } : {}),
+        }),
         getTrashSettings().catch(() => null),
       ])
       setItems(list.items)
+      setNextOffset(list.next_offset)
       setSettings(nextSettings)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('binPage.loadError')))
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [t, type, debouncedQ])
+
+  const loadMore = async () => {
+    if (nextOffset == null || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const list = await listTrash({
+        ...(type ? { type } : {}),
+        ...(debouncedQ ? { q: debouncedQ } : {}),
+        cursor: nextOffset,
+      })
+      setItems((prev) => {
+        const seen = new Set(prev.map((row) => row.id))
+        return [...prev, ...list.items.filter((row) => !seen.has(row.id))]
+      })
+      setNextOffset(list.next_offset)
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('binPage.loadError')))
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const visible = useMemo(() => filterBinItems(items, type, q), [items, type, q])
   const days = settings?.effective_days ?? 60
 
   const onRestore = async (id: string) => {
@@ -170,11 +201,11 @@ export default function BinPage() {
 
       {loading ? (
         <p className="text-sm text-text-muted">{t('binPage.loading')}</p>
-      ) : visible.length === 0 ? (
+      ) : items.length === 0 ? (
         <p className="text-sm text-text-muted">{t('binPage.empty')}</p>
       ) : (
         <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
-          {visible.map((row) => {
+          {items.map((row) => {
             const TypeIcon = iconForBinType(row.resource_type)
             return (
             <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
@@ -214,6 +245,14 @@ export default function BinPage() {
           })}
         </ul>
       )}
+
+      {nextOffset != null && !loading ? (
+        <div className="flex justify-center">
+          <Button size="sm" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
+            {loadingMore ? t('binPage.loadingMore') : t('binPage.loadMore')}
+          </Button>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
         <p className="text-xs text-text-muted">{t('binPage.retention', { days })}</p>

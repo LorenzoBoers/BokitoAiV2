@@ -290,7 +290,7 @@ export default function ProjectsPage() {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [description, setDescription] = useState('')
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [showSlug, setShowSlug] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null)
@@ -324,6 +324,26 @@ export default function ProjectsPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('q') ?? ''
+    setQuery((current) => (current === fromUrl ? current : fromUrl))
+  }, [searchParams])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchParams((prev) => {
+        const current = prev.get('q') ?? ''
+        const nextValue = query.trim()
+        if (current === nextValue) return prev
+        const next = new URLSearchParams(prev)
+        if (nextValue) next.set('q', nextValue)
+        else next.delete('q')
+        return next
+      }, { replace: true })
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [query, setSearchParams])
 
   useEffect(() => {
     if (searchParams.get('new') !== '1') return

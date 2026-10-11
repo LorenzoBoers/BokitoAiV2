@@ -725,6 +725,7 @@ async def list_work_logs(
     agent_id: str | None = None,
     status: str | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     query = select(AgentRun).where(AgentRun.tenant_id == tenant_id)
     if project_id:
@@ -739,7 +740,7 @@ async def list_work_logs(
             return []
     if status:
         query = query.where(AgentRun.status == status)
-    query = query.order_by(AgentRun.started_at.desc()).limit(min(limit, 200))
+    query = query.order_by(AgentRun.started_at.desc()).offset(max(0, int(offset))).limit(min(limit, 200))
     result = await session.execute(query)
     return [serialize_work_log(r) for r in result.scalars().all()]
 

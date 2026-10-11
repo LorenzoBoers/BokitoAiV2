@@ -97,6 +97,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
   const [connections, setConnections] = useState<IntegrationConnectionRow[]>([])
   const [providerSlugById, setProviderSlugById] = useState<Record<string, string>>({})
   const [recent, setRecent] = useState<InboxThread[]>([])
+  const [recentTotal, setRecentTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
 
@@ -127,10 +128,10 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
       ),
       listIntegrationConnections().catch(() => fallback([] as IntegrationConnectionRow[])),
       agentId
-        ? listSignalThreads(token ?? '', { agentId, perPage: 8 })
-            .then((r) => r.items)
-            .catch(() => fallback([] as InboxThread[]))
-        : Promise.resolve([] as InboxThread[]),
+        ? listSignalThreads(token ?? '', { agentId, perPage: 8 }).catch(() =>
+            fallback({ items: [] as InboxThread[], itemsTotal: null }),
+          )
+        : Promise.resolve({ items: [] as InboxThread[], itemsTotal: null }),
     ])
     setPassport(agentId ? (passports.find((p) => p.id === agentId) ?? null) : null)
     setToolCatalog(allowances)
@@ -143,7 +144,14 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
       if (provider.id) slugs[provider.id] = provider.slug
     }
     setProviderSlugById(slugs)
-    setRecent(threads.filter((t) => String(t.id) !== String(thread.id)))
+    const others = threads.items.filter((row) => String(row.id) !== String(thread.id))
+    const includesCurrent = threads.items.some((row) => String(row.id) === String(thread.id))
+    const total =
+      threads.itemsTotal != null
+        ? Math.max(others.length, threads.itemsTotal - (includesCurrent ? 1 : 0))
+        : others.length
+    setRecent(others)
+    setRecentTotal(total)
     setLoadFailed(failed)
     setLoading(false)
   }, [agentId, token, thread.id])
@@ -309,7 +317,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
         </div>
       ) : null}
 
-      <ConversationWorkSection thread={thread} />
+      <ConversationWorkSection thread={thread} onScheduleChanged={() => onThreadUpdated?.()} />
 
       {/* Recent conversations */}
       <div className="px-4 py-3">
@@ -346,7 +354,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
                 </span>
               </Link>
             ))}
-            {recent.length > 5 && agentId ? (
+            {(recentTotal > 5 || recent.length > 5) && agentId ? (
               <Link
                 to={`/agents/${agentId}#conversations`}
                 className="mt-1 block px-2.5 py-1 text-xs font-medium text-accent hover:underline"

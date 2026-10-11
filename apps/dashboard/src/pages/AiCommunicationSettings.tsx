@@ -380,9 +380,10 @@ export default function AiCommunicationSettings() {
     }
     setHandlingSaving(true)
     try {
-      await setAiHandling(token, 'workspace', 'current', mode)
+      const updated = await setAiHandling(token, 'workspace', 'current', mode)
       await loadOverview()
-      toast.success(tc('aiHandling.changed', { mode: tc(`aiHandling.modes.${mode}.label`) }))
+      const shown = updated?.effective ?? mode
+      toast.success(tc('aiHandling.changed', { mode: tc(`aiHandling.modes.${shown}.label`) }))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tc('aiHandling.saveError'))
     } finally {
@@ -393,9 +394,12 @@ export default function AiCommunicationSettings() {
   const clearException = async (scope: AiHandlingScope, row: AiHandlingException) => {
     if (!token) return
     try {
-      await setAiHandling(token, scope, row.id, null)
+      const updated = await setAiHandling(token, scope, row.id, null)
       await loadOverview()
-      toast.success(tc('aiHandling.cleared', { source: tc('aiHandling.sources.workspace') }))
+      const source =
+        updated?.inheritedSourceLabel ||
+        tc(`aiHandling.sources.${updated?.inheritedSource ?? 'workspace'}`)
+      toast.success(tc('aiHandling.cleared', { source }))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tc('aiHandling.saveError'))
     }

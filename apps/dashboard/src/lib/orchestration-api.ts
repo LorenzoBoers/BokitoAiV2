@@ -37,8 +37,13 @@ export type Trigger = {
   webhook_secret?: string
 }
 
-export async function listTriggers(): Promise<Trigger[]> {
-  const res = await apiGet<{ triggers: Trigger[] }>(appRoutes.triggers.list)
+export async function listTriggers(options?: { q?: string; limit?: number }): Promise<Trigger[]> {
+  const params = new URLSearchParams()
+  const q = options?.q?.trim()
+  if (q) params.set('q', q)
+  if (options?.limit != null) params.set('limit', String(options.limit))
+  const path = [...params.keys()].length ? appRoutes.triggers.listQuery(params) : appRoutes.triggers.list
+  const res = await apiGet<{ triggers: Trigger[] }>(path)
   return res.triggers ?? []
 }
 

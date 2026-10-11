@@ -35,6 +35,7 @@ export async function listWorkLogs(filters?: {
   agent_id?: string
   status?: string
   limit?: number
+  offset?: number
 }): Promise<WorkLogRow[]> {
   const data = await workforceGet<{ items: WorkLogRow[] } | WorkLogRow[]>(
     workforceRoutes.workLogs.list(filters)

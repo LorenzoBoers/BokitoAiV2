@@ -24,6 +24,8 @@ type Props = {
   onPatch?: (input: PatchThreadInput) => Promise<void>
   /** Opens the planner (date or repeat for this thread). */
   onPlan?: () => void
+  /** Pause, resume, clear, or run-now changed the schedule. Null asks for a refetch. */
+  onScheduleChanged?: (thread: InboxThread | null) => void
 }
 
 export const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
@@ -42,7 +44,7 @@ const VALUE_BUTTON = controlChipClass
  * Everything noted on this one conversation: AI summary, priority,
  * date or repeat, re-read, category (or ticket) and tags.
  */
-export function ConversationWorkSection({ thread, saving = false, onPatch, onPlan }: Props) {
+export function ConversationWorkSection({ thread, saving = false, onPatch, onPlan, onScheduleChanged }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [ticketBump, setTicketBump] = useState(0)
@@ -139,7 +141,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
           </>
         )}
 
-        <ScheduleSection thread={thread} onPlan={onPlan} />
+        <ScheduleSection thread={thread} onPlan={onPlan} onChanged={onScheduleChanged} />
 
         <Row label={t('tags.title')}>
           <ThreadTags

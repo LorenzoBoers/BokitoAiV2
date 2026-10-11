@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Bell, BellRing, RotateCcw, Volume2 } from 'lucide-react'
@@ -148,6 +148,7 @@ export default function NotificationSettings() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs)
+  const savedPrefs = useRef(prefs)
   const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<number | null>(null)
@@ -172,6 +173,7 @@ export default function NotificationSettings() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(t('notificationsPage.loadFailed')))))
       .then((data: unknown) => {
         const next = normalizeNotificationPrefs(data)
+        savedPrefs.current = next
         setNotificationSoundEnabled(next.sound)
         setPrefs(next)
       })
@@ -227,8 +229,14 @@ export default function NotificationSettings() {
         credentials: 'include',
         body: JSON.stringify(next),
       })
-      if (res.ok) setSavedAt(Date.now())
-      else setSaveError(t('notificationsPage.saveFailed'))
+      if (res.ok) {
+        savedPrefs.current = next
+        setSavedAt(Date.now())
+      } else {
+        setPrefs(savedPrefs.current)
+        setNotificationSoundEnabled(savedPrefs.current.sound)
+        setSaveError(t('notificationsPage.saveFailed'))
+      }
     },
     [token, t],
   )

@@ -29,7 +29,13 @@ import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { composeEmailPath, parseComposeIntent } from '../lib/compose-intent'
 import { writeLastInboxQueue } from '../lib/inbox-prefs'
-import { nextUnreadId, parseQuickFilterParam, toggleOrRangeSelect } from '../lib/inbox-ops'
+import {
+  nextUnreadId,
+  parseAssigneeParam,
+  parsePriorityParam,
+  parseQuickFilterParam,
+  toggleOrRangeSelect,
+} from '../lib/inbox-ops'
 import {
   focusInboxReply,
   scrollActiveThreadIntoView,
@@ -80,6 +86,7 @@ import {
   type MessageAttachment,
   type PatchThreadInput,
   type ThreadId,
+  type ThreadPriority,
 } from '../lib/inbox-api'
 import {
   bulkUpdateSignalThreads,
@@ -177,13 +184,92 @@ export default function Communication() {
 
   const { search, setSearch, listSearch, quickFilter, setQuickFilter, resetQuickFilter } =
     useInboxCommunication()
+  const [assigneeFilter, setAssigneeFilterState] = useState<number | null>(() =>
+    parseAssigneeParam(searchParams.get('assignee')),
+  )
+  const [priorityFilter, setPriorityFilterState] = useState<ThreadPriority | null>(() =>
+    parsePriorityParam(searchParams.get('priority')),
+  )
+  const writtenSearch = useRef<string | null>(null)
+
+  useEffect(() => {
+    const nextAssignee = parseAssigneeParam(searchParams.get('assignee'))
+    setAssigneeFilterState((prev) => (prev === nextAssignee ? prev : nextAssignee))
+    const nextPriority = parsePriorityParam(searchParams.get('priority'))
+    setPriorityFilterState((prev) => (prev === nextPriority ? prev : nextPriority))
+  }, [searchParams])
+
+  useEffect(() => {
+    const fromUrl = (searchParams.get('q') ?? '').trim()
+    if (writtenSearch.current === fromUrl) return
+    writtenSearch.current = fromUrl
+    setSearch(fromUrl)
+  }, [searchParams, setSearch])
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const wanted = search.trim()
+      writtenSearch.current = wanted
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          const current = (next.get('q') ?? '').trim()
+          if (current === wanted) return prev
+          if (wanted) next.set('q', wanted)
+          else next.delete('q')
+          return next
+        },
+        { replace: true },
+      )
+    }, 250)
+    return () => window.clearTimeout(handle)
+  }, [search, setSearchParams])
+
+  const setAssigneeFilter = useCallback(
+    (id: number | null) => {
+      setAssigneeFilterState(id)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (id) next.set('assignee', String(id))
+          else next.delete('assignee')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
+  const setPriorityFilter = useCallback(
+    (priority: string | null) => {
+      const nextPriority = parsePriorityParam(priority)
+      setPriorityFilterState(nextPriority)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (nextPriority) next.set('priority', nextPriority)
+          else next.delete('priority')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
   const inboxQuery = useMemo(() => {
     const params = new URLSearchParams(listFilterQuery(folderFilter))
     if (agentParam) params.set('agent', agentParam)
     if (needsDecisionParam) params.set('needs_decision', '1')
+    const q = search.trim()
+    if (q) params.set('q', q)
+    if (assigneeFilter) params.set('assignee', String(assigneeFilter))
+    if (priorityFilter) params.set('priority', priorityFilter)
+    if (quickFilter === 'unread' || quickFilter === 'pinned') params.set('filter', quickFilter)
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [folderFilter, agentParam, needsDecisionParam])
+  }, [folderFilter, agentParam, needsDecisionParam, search, assigneeFilter, priorityFilter, quickFilter])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
   // current browser session (sessionStorage), so it returns on the next visit.
@@ -230,32 +316,42 @@ export default function Communication() {
 
   const { pinnedIds, addPin, removePin } = usePinnedIds()
 
-  const [assigneeFilter, setAssigneeFilter] = useState<number | null>(null)
-  const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
   const lastBulkAnchorId = useRef<string | null>(null)
 
   const applyQuickFilterChange = useCallback(
     (value: InboxListQuickFilter) => {
       setQuickFilter(value)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (value === 'unread' || value === 'pinned') next.set('filter', value)
+          else next.delete('filter')
+          return next
+        },
+        { replace: true },
+      )
     },
-    [setQuickFilter],
+    [setQuickFilter, setSearchParams],
   )
 
-  // `?filter=` is a deep-link input (Cmd+K, old bookmarks), consumed once:
-  // unread / pinned apply to this folder; the legacy needs-reply and
-  // needs-decision values open For you instead.
+  // `?filter=` deep-links unread / pinned and survives refresh. Legacy
+  // needs-reply and needs-decision values still open For you.
   const urlFilter = searchParams.get('filter')
   useEffect(() => {
     const fromUrl = parseQuickFilterParam(urlFilter)
     if (!fromUrl) return
-    const next = new URLSearchParams(searchParams)
-    next.delete('filter')
     if (fromUrl === 'forYou') {
+      const next = new URLSearchParams(searchParams)
+      next.delete('filter')
       navigate(forYouPath(threadIdParam ?? undefined, next), { replace: true })
       return
     }
     setQuickFilter(fromUrl)
-    setSearchParams(next, { replace: true })
+    if (fromUrl === 'all') {
+      const next = new URLSearchParams(searchParams)
+      next.delete('filter')
+      setSearchParams(next, { replace: true })
+    }
   }, [urlFilter, setQuickFilter, setSearchParams, navigate, searchParams, threadIdParam])
 
   const {
@@ -280,13 +376,14 @@ export default function Communication() {
       unread: mode === 'customer' && quickFilter === 'unread',
       pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
+      priority: priorityFilter ?? undefined,
       agentId: agentParam,
       needsDecision: needsDecisionParam,
     }),
     pinnedIds,
   )
 
-  const listContextKey = `${leafKey(leaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}`
+  const listContextKey = `${leafKey(leaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}:${assigneeFilter ?? ''}:${priorityFilter ?? ''}`
 
   // The quick filter is per folder: every folder opens on "all", unless the
   // URL that opened it carries a deep-linked filter (consumed above).
@@ -315,12 +412,11 @@ export default function Communication() {
   }, [])
 
   const filteredThreads = useMemo(() => {
-    let next = mode === 'customer' ? applyQuickFilter(threads, quickFilter) : threads
-    if (priorityFilter) next = next.filter((thread) => thread.priority === priorityFilter)
+    const next = mode === 'customer' ? applyQuickFilter(threads, quickFilter) : threads
     // For you keeps the server order: your own turn first.
     if (leaf.type !== 'inbox' || leaf.queue === 'for_you') return next
     return customersFirst(next)
-  }, [threads, quickFilter, priorityFilter, leaf, mode])
+  }, [threads, quickFilter, leaf, mode])
 
   const handleToggleBulkSelect = useCallback(
     (id: ThreadId, shiftKey = false) => {
@@ -365,7 +461,10 @@ export default function Communication() {
     togglePin,
     changeAiHandling,
     unreadHighlightIds,
-  } = useThreadDetail(selectedThreadId, pinnedIds, { skipMarkRead })
+  } = useThreadDetail(selectedThreadId, pinnedIds, {
+    skipMarkRead,
+    onMarkReadFailed: (id) => setThreadReadState(id, true),
+  })
   const [aiHandlingSaving, setAiHandlingSaving] = useState(false)
 
   useEffect(() => {
@@ -495,6 +594,7 @@ export default function Communication() {
       toast.success(t('actions.bulkUpdated', { count: updated }))
       void refreshNavBadges()
     } catch (err) {
+      for (const thread of unread) setThreadReadState(thread.id, true)
       void refreshThreads()
       toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
     }
@@ -752,7 +852,7 @@ export default function Communication() {
   ])
 
   const handlePatch = useCallback(
-    async (input: PatchThreadInput) => {
+    async (input: PatchThreadInput): Promise<boolean> => {
       const resolving =
         input.status === 'closed' || input.status === 'spam' || input.status === 'pending'
       const fromId = selectedThreadId
@@ -789,12 +889,14 @@ export default function Communication() {
           }
           leaveResolvedThread(fromId, input.status)
         }
+        return true
       } catch (err) {
         const fallback =
           input.assignee !== undefined || input.assignedToUserId !== undefined
             ? t('threadChrome.assignError')
             : t('threadChrome.patchError')
         toast.error(formatApiErrorMessage(err, fallback))
+        return false
       } finally {
         advancingRef.current = false
       }
@@ -945,6 +1047,45 @@ export default function Communication() {
       if (action === 'trash') {
         if (!(await confirm({ description: t('bulkActions.trashConfirm', { count }), destructive: true }))) return
       }
+      if (action === 'close') {
+        let openTickets: Awaited<ReturnType<typeof loadOpenTickets>> = []
+        try {
+          const groups = await Promise.all([...bulkSelectedIds].map((id) => loadOpenTickets(String(id))))
+          openTickets = groups.flat()
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
+          return
+        }
+        if (openTickets.length > 0) {
+          if (
+            !(await confirm({
+              description: t('threadChrome.closeWithTicketShortcutConfirm', { count: openTickets.length }),
+            }))
+          ) {
+            return
+          }
+          if (
+            await confirm({
+              description: t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
+            })
+          ) {
+            try {
+              await resolveOpenTickets(openTickets, collectStageFields)
+            } catch (err) {
+              if (err instanceof TicketStageMoveCancelled) return
+              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
+              return
+            }
+          }
+        }
+      }
+      const unreadBeforeRead =
+        action === 'read'
+          ? filteredThreads.filter((thread) => bulkSelectedIds.has(String(thread.id)) && thread.hasUnread)
+          : []
+      if (action === 'read') {
+        for (const thread of unreadBeforeRead) setThreadReadState(thread.id, false)
+      }
       setBulkBusy(true)
       try {
         const updated = await bulkUpdateSignalThreads(
@@ -962,32 +1103,52 @@ export default function Communication() {
         void refreshThreads()
         void refreshNavBadges()
       } catch (err) {
+        if (action === 'read') {
+          for (const thread of unreadBeforeRead) setThreadReadState(thread.id, true)
+        }
         toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
       } finally {
         setBulkBusy(false)
       }
     },
-    [token, bulkSelectedIds, refreshThreads, refreshNavBadges, t, confirm],
+    [
+      token,
+      bulkSelectedIds,
+      filteredThreads,
+      setThreadReadState,
+      refreshThreads,
+      refreshNavBadges,
+      t,
+      confirm,
+      collectStageFields,
+    ],
   )
 
   const handleBulkPin = useCallback(
     async (nextPinned: boolean) => {
       if (!token || bulkSelectedIds.size === 0) return
+      const ids = [...bulkSelectedIds]
       setBulkBusy(true)
+      for (const id of ids) {
+        if (nextPinned) addPin(id)
+        else removePin(id)
+      }
       try {
-        await Promise.all(
-          [...bulkSelectedIds].map((id) => (nextPinned ? apiPinThread(token, id) : apiUnpinThread(token, id))),
-        )
-        toast.success(t('actions.bulkUpdated', { count: bulkSelectedIds.size }))
+        await Promise.all(ids.map((id) => (nextPinned ? apiPinThread(token, id) : apiUnpinThread(token, id))))
+        toast.success(t('actions.bulkUpdated', { count: ids.length }))
         setBulkSelectedIds(new Set())
         void refreshThreads()
       } catch (err) {
+        for (const id of ids) {
+          if (nextPinned) removePin(id)
+          else addPin(id)
+        }
         toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
       } finally {
         setBulkBusy(false)
       }
     },
-    [token, bulkSelectedIds, refreshThreads, t],
+    [token, bulkSelectedIds, refreshThreads, t, addPin, removePin],
   )
 
   const handleReply = useCallback(

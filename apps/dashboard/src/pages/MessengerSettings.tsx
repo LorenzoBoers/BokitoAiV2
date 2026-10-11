@@ -332,10 +332,11 @@ function MessengerSettingsContent({
       setWidgetBehaviour(behaviour)
       setSavedWidgetBehaviour(behaviour)
     } catch (err) {
+      if (savedWidgetBehaviour) setWidgetBehaviour(savedWidgetBehaviour)
       toast.error(err instanceof Error ? err.message : t('messengerPage.availabilityError'))
       throw err
     }
-  }, [token, widgetBehaviour, t, channelId])
+  }, [token, widgetBehaviour, savedWidgetBehaviour, t, channelId])
 
   const behaviourDirty = useMemo(
     () =>

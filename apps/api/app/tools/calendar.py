@@ -22,6 +22,58 @@ NO_CALENDAR = {
     ),
 }
 
+REPAIR_PATH = "/connections?kind=calendar"
+
+
+def _write_readiness_error(connection: dict[str, Any]) -> dict[str, Any] | None:
+    """Refuse create/update proposals when sync is broken or nothing is writable.
+
+    Agents still see the connection via calendar_list_events (so they can explain
+    the fault); they must not open a decision that can only fail on approve.
+    """
+    status = str(connection.get("sync_status") or "").strip().lower()
+    sync_error = str(connection.get("sync_error") or "").strip()
+    if status in ("error", "reconnect") or sync_error:
+        return {
+            "ok": False,
+            "error": "calendar_sync",
+            "message": sync_error
+            or (
+                "This calendar connection needs repair before new events can be "
+                "created. Open Connections (Agenda) and reconnect or fix the sync error."
+            ),
+            "connection_id": connection.get("id"),
+            "sync_status": status or "error",
+            "repair_path": REPAIR_PATH,
+        }
+    if not connection.get("default_write_calendar"):
+        return {
+            "ok": False,
+            "error": "no_writable_calendar",
+            "message": (
+                "None of the calendars on this account accepts new events. "
+                "Open Connections (Agenda), switch a writable calendar on, and set it as default."
+            ),
+            "connection_id": connection.get("id"),
+            "repair_path": REPAIR_PATH,
+        }
+    return None
+
+
+def _connection_sync_error(conn: Any) -> dict[str, Any] | None:
+    """Same readiness check for an IntegrationConnection ORM row (updates)."""
+    from app.services.calendar_sync import _parse_json, default_write_calendar
+
+    meta = _parse_json(getattr(conn, "metadata_json", None))
+    return _write_readiness_error(
+        {
+            "id": str(conn.id),
+            "sync_status": meta.get("sync_status") or "idle",
+            "sync_error": meta.get("sync_error") or "",
+            "default_write_calendar": default_write_calendar(conn),
+        }
+    )
+
 
 async def _calendar_list_events(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.calendar_sync import (
@@ -81,7 +133,11 @@ async def _writable_connection(
     ctx: ToolContext, connection_id: str
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """The connection to write to (named or first with a default calendar),
-    or an error payload when this caller may not write anywhere."""
+    or an error payload when this caller may not write anywhere.
+
+    Named connections are checked the same way as the default: sync must be
+    healthy and a writable default calendar must exist.
+    """
     from app.services.calendar_sync import list_calendar_connections, viewer_for_tool
 
     connections = await list_calendar_connections(ctx.session, ctx.tenant_id, viewer_for_tool(ctx))
@@ -95,14 +151,23 @@ async def _writable_connection(
                 "error": "calendar_access",
                 "message": "That calendar is not connected or you have no access to it.",
             }
-        return match, None
-    match = next((c for c in connections if c["default_write_calendar"]), None)
-    if match is None:
-        return None, {
-            "ok": False,
-            "error": "no_writable_calendar",
-            "message": "None of the connected calendars accepts new events.",
-        }
+    else:
+        match = next((c for c in connections if c["default_write_calendar"]), None)
+        if match is None:
+            # Prefer a sync/repair error when every connection is broken, so the
+            # agent can tell the operator what to fix instead of a blank "none writable".
+            broken = next((c for c in connections if _write_readiness_error(c)), None)
+            if broken is not None:
+                return None, _write_readiness_error(broken)
+            return None, {
+                "ok": False,
+                "error": "no_writable_calendar",
+                "message": "None of the connected calendars accepts new events.",
+                "repair_path": REPAIR_PATH,
+            }
+    readiness = _write_readiness_error(match)
+    if readiness:
+        return None, readiness
     return match, None
 
 
@@ -119,10 +184,17 @@ async def _calendar_propose_event(ctx: ToolContext, tool_input: dict[str, Any]) 
     )
     if error:
         return error
-    calendar_id = str(tool_input.get("calendar_id") or "").strip() or connection["default_write_calendar"]
+    calendar_id = (
+        str(tool_input.get("calendar_id") or "").strip() or connection["default_write_calendar"] or ""
+    )
     calendar = next((c for c in connection["calendars"] if c["id"] == calendar_id), None)
-    if connection["calendars"] and (calendar is None or not calendar["writable"]):
-        return {"ok": False, "error": "That calendar does not accept new events."}
+    if not calendar_id or calendar is None or not calendar.get("writable"):
+        return {
+            "ok": False,
+            "error": "no_writable_calendar",
+            "message": "That calendar does not accept new events.",
+            "repair_path": REPAIR_PATH,
+        }
     description = str(tool_input.get("description") or "").strip()
     location = str(tool_input.get("location") or "").strip()
     all_day = bool(tool_input.get("all_day"))
@@ -179,6 +251,9 @@ async def _calendar_propose_update(ctx: ToolContext, tool_input: dict[str, Any])
         return {"ok": False, "error": "Event not found; use an id from calendar_list_events"}
     if conn is None or await connection_level(ctx.session, conn, viewer_for_tool(ctx)) is None:
         return {"ok": False, "error": "You have no access to this calendar."}
+    sync_block = _connection_sync_error(conn)
+    if sync_block:
+        return sync_block
     title = str(tool_input.get("title") or "").strip()
     start_at = str(tool_input.get("start_at") or "").strip()
     end_at = str(tool_input.get("end_at") or "").strip()
@@ -267,7 +342,9 @@ register_tool(
         name="calendar_propose_event",
         description=(
             "Propose creating an event on a connected calendar. Always creates a "
-            "decision for human approval before writing to Google or Outlook."
+            "decision for human approval before writing to Google or Outlook. "
+            "Fails with calendar_sync when the connection has a sync error — tell "
+            "the user to repair it under Connections (Agenda) instead of proposing."
         ),
         category="integrations",
         input_schema={

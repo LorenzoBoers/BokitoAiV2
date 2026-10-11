@@ -28,7 +28,14 @@ export type WebhookDelivery = {
 }
 
 export async function listWebhooks() {
-  return settingsGet<{ items: WebhookEndpoint[]; events: string[] }>(settingsRoutes.webhooks.list)
+  return listWebhooksPage(0)
+}
+
+export async function listWebhooksPage(offset = 0) {
+  const params = new URLSearchParams({ limit: '50', offset: String(offset) })
+  return settingsGet<{ items: WebhookEndpoint[]; events: string[]; next_offset?: number | null }>(
+    settingsRoutes.webhooks.listQuery(params),
+  )
 }
 
 export async function createWebhook(body: { url: string; description?: string; events?: string[] }) {
@@ -50,6 +57,9 @@ export async function testWebhook(id: string) {
   return settingsPost<WebhookDelivery>(settingsRoutes.webhooks.test(id), {})
 }
 
-export async function listWebhookDeliveries(id: string) {
-  return settingsGet<{ items: WebhookDelivery[] }>(settingsRoutes.webhooks.deliveries(id))
+export async function listWebhookDeliveries(id: string, offset = 0) {
+  const params = new URLSearchParams({ limit: '20', offset: String(offset) })
+  return settingsGet<{ items: WebhookDelivery[]; next_offset?: number | null }>(
+    settingsRoutes.webhooks.deliveries(id, params),
+  )
 }

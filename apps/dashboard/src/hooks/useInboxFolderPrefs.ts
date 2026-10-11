@@ -49,11 +49,19 @@ export function useInboxFolderPrefs() {
 
   const update = useCallback(
     async (next: InboxFolderPrefs) => {
+      const previous = cached ?? prefs
       cached = next
       setPrefs(next)
-      if (token) await saveInboxFolderPrefs(token, next)
+      if (!token) return
+      try {
+        await saveInboxFolderPrefs(token, next)
+      } catch (err) {
+        cached = previous
+        setPrefs(previous)
+        throw err
+      }
     },
-    [token],
+    [token, prefs],
   )
 
   const defaultQueueFor = useCallback((leaf: HubLeaf): SubQueue => resolveDefaultQueue(prefs, leaf), [prefs])

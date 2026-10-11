@@ -121,6 +121,7 @@ export const appRoutes = {
   },
   triggers: {
     list: '/triggers',
+    listQuery: (params: URLSearchParams) => withQuery('/triggers', params),
     byId: (id: string) => `/triggers/${id}`,
     run: (id: string) => `/triggers/${id}/run`,
     rotateWebhookSecret: (id: string) => `/triggers/${id}/rotate-webhook-secret`,
@@ -149,8 +150,12 @@ export const appRoutes = {
   contacts: {
     list: '/channels/contacts',
     listQuery: (params: URLSearchParams) => withQuery('/channels/contacts', params),
+    bulkStatus: '/channels/contacts/bulk-status',
     byId: (id: string) => `/channels/contacts/${id}`,
-    threads: (id: string) => `/channels/contacts/${id}/threads`,
+    threads: (id: string, params?: URLSearchParams) =>
+      params && [...params.keys()].length > 0
+        ? withQuery(`/channels/contacts/${id}/threads`, params)
+        : `/channels/contacts/${id}/threads`,
     detachIdentity: (id: string, identityId: string) =>
       `/channels/contacts/${id}/identities/${identityId}/detach`,
   },
@@ -184,7 +189,9 @@ export const appRoutes = {
     byId: (id: string) => `/trash/${encodeURIComponent(id)}`,
   },
   notifications: {
-    list: '/notifications',
+    list: (params?: URLSearchParams) =>
+      params && [...params.keys()].length > 0 ? withQuery('/notifications', params) : '/notifications',
+    summary: '/notifications/summary',
     markRead: (id: string) => `/notifications/${id}/read`,
     markAllRead: '/notifications/read-all',
     decisionLearn: (decisionId: string) => `/notifications/decisions/${encodeURIComponent(decisionId)}/learn`,

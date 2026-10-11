@@ -67,8 +67,20 @@ export interface WorkspaceSearchHit {
 export async function listWorkspaceDocs(
   params?: WorkspaceDocsQuery | string,
 ): Promise<WorkspaceDocRow[]> {
-  const res = await apiGet<{ docs: WorkspaceDocRow[] }>(workspaceRoutes.docs(params))
-  return res.docs
+  const page = await listWorkspaceDocsPage(params)
+  return page.docs
+}
+
+export async function listWorkspaceDocsPage(
+  params?: WorkspaceDocsQuery | string,
+): Promise<{ docs: WorkspaceDocRow[]; nextOffset: number | null }> {
+  const res = await apiGet<{ docs: WorkspaceDocRow[]; next_offset?: number | null }>(
+    workspaceRoutes.docs(params),
+  )
+  return {
+    docs: res.docs,
+    nextOffset: typeof res.next_offset === 'number' ? res.next_offset : null,
+  }
 }
 
 export async function getWorkspaceDoc(docId: string): Promise<WorkspaceDocRow> {

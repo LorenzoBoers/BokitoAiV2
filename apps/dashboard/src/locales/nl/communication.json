@@ -27,7 +27,8 @@
   "decisionGroups": {
     "heading": "Dezelfde vraag, veel kaarten",
     "dismissAll": "Alles afwijzen",
-    "dismissing": "Afwijzen..."
+    "dismissing": "Afwijzen...",
+    "dismissError": "Deze kaarten konden niet worden afgewezen."
   },
   "loadingMailboxes": "Mailboxen laden...",
   "missingOrganisation": "Je account heeft nog geen organisatiecontext. Vraag een beheerder om je gebruiker aan een organisatie te koppelen, of log opnieuw in als je net een uitnodiging hebt geaccepteerd.",
@@ -274,7 +275,7 @@
     "allLoaded": "Alle {{total}} gesprekken geladen",
     "densityCompact": "Compacte lijst",
     "densityComfortable": "Ruime lijst",
-    "markAllRead": "Als gelezen markeren",
+    "markAllRead": "Geladen als gelezen markeren",
     "countsPartial": "Aantallen gelden alleen voor geladen gesprekken",
     "filterAssignee": "Filter op toegewezene",
     "filterAssigneeAll": "Iedereen",
@@ -766,6 +767,7 @@
     "emptyAsk": "Vraag de assistent hierover",
     "emptyAskPrefill": "Dit gesprek is leeg. Help me bedenken wat er nu moet gebeuren.",
     "loadOlder": "Oudere berichten laden",
+    "loadOlderError": "Oudere berichten konden niet geladen worden. Probeer het opnieuw.",
     "loadingOlder": "Oudere berichten laden…",
     "loadError": "Dit gesprek kon niet worden geladen.",
     "openEmailSettings": "E-mail en berichten openen",
@@ -1136,7 +1138,7 @@
     "noMembers": "Geen leden",
     "clear": "Wissen",
     "clearSelection": "Selectie wissen",
-    "selectAll": "Alles selecteren"
+    "selectAll": "Geladen selecteren"
   },
   "priority": {
     "normal": "Normaal",

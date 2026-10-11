@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, ExternalLink, Copy } from 'lucide-react'
@@ -129,6 +129,11 @@ export default function GovernPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab') ?? ''
   const query = searchParams.get('q') ?? ''
+  const [serverQuery, setServerQuery] = useState(query.trim())
+  useEffect(() => {
+    const timer = window.setTimeout(() => setServerQuery(query.trim()), 250)
+    return () => window.clearTimeout(timer)
+  }, [query])
   const [fallbackTab, setFallbackTab] = useState(() => readLastGovernTab() || 'policy')
   const tab = GOVERN_TABS.has(tabParam) ? tabParam : fallbackTab
   useEffect(() => {
@@ -175,6 +180,10 @@ export default function GovernPage() {
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
   const [showAllHistory, setShowAllHistory] = useState(false)
   const [showAllAudit, setShowAllAudit] = useState(false)
+  const [historyMore, setHistoryMore] = useState(false)
+  const [auditMore, setAuditMore] = useState(false)
+  const [loadingOlderHistory, setLoadingOlderHistory] = useState(false)
+  const [loadingOlderAudit, setLoadingOlderAudit] = useState(false)
   const { sendReady } = useChannelStatus()
   const { live: liveModelReady } = useLlmRuntime()
   const confirm = useConfirm()
@@ -184,13 +193,14 @@ export default function GovernPage() {
       ? t('posture.autonomousNeedsChannel')
       : null
 
+  const loadedOnce = useRef(false)
   const load = useCallback(() => {
-    setLoading(true)
+    if (!loadedOnce.current) setLoading(true)
     setError(null)
     Promise.all([
       listGovernChanges(),
-      listAcceptedChanges(),
-      listGovernAudit(),
+      listAcceptedChanges(100, serverQuery || undefined),
+      listGovernAudit(200, serverQuery || undefined),
       listAgentPassports(),
       getAllowances(),
       getAutonomyScopes(),
@@ -202,7 +212,9 @@ export default function GovernPage() {
           setFallbackTab('drafts')
         }
         setHistory(historyResp.items)
+        setHistoryMore(historyResp.items.length === 100)
         setAudit(auditResp.items)
+        setAuditMore(auditResp.items.length === 200)
         setPassports(passportResp.items)
         setAllowances(allowanceResp.allowances)
         setCategories(allowanceResp.categories)
@@ -214,12 +226,49 @@ export default function GovernPage() {
         setRefreshedAt(new Date())
       })
       .catch((err) => setError(formatApiErrorMessage(err, t('loadError'))))
-      .finally(() => setLoading(false))
-  }, [t])
+      .finally(() => {
+        loadedOnce.current = true
+        setLoading(false)
+      })
+  }, [t, serverQuery])
 
   useEffect(() => {
     load()
   }, [load])
+
+  const loadOlderHistory = useCallback(async () => {
+    if (loadingOlderHistory) return
+    setLoadingOlderHistory(true)
+    try {
+      const page = await listAcceptedChanges(100, serverQuery || undefined, history.length)
+      setHistory((prev) => {
+        const seen = new Set(prev.map((row) => row.id))
+        return [...prev, ...page.items.filter((row) => !seen.has(row.id))]
+      })
+      setHistoryMore(page.items.length === 100)
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('loadError')))
+    } finally {
+      setLoadingOlderHistory(false)
+    }
+  }, [history.length, loadingOlderHistory, serverQuery, t])
+
+  const loadOlderAudit = useCallback(async () => {
+    if (loadingOlderAudit) return
+    setLoadingOlderAudit(true)
+    try {
+      const page = await listGovernAudit(200, serverQuery || undefined, audit.length)
+      setAudit((prev) => {
+        const seen = new Set(prev.map((row) => row.id))
+        return [...prev, ...page.items.filter((row) => !seen.has(row.id))]
+      })
+      setAuditMore(page.items.length === 200)
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('loadError')))
+    } finally {
+      setLoadingOlderAudit(false)
+    }
+  }, [audit.length, loadingOlderAudit, serverQuery, t])
 
   async function handleAccept(change: PlatformChangeRow) {
     setBusyId(change.id)
@@ -848,6 +897,17 @@ export default function GovernPage() {
                             : t('showAll', { count: filteredHistory.length })}
                         </Button>
                       ) : null}
+                      {historyMore ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={loadingOlderHistory}
+                          onClick={() => void loadOlderHistory()}
+                        >
+                          {loadingOlderHistory ? t('loadingOlder') : t('loadOlder')}
+                        </Button>
+                      ) : null}
                     </>
                   )
                 )}
@@ -1017,6 +1077,17 @@ export default function GovernPage() {
                           {showAllAudit
                             ? t('showFewer')
                             : t('showAll', { count: filteredAudit.length })}
+                        </Button>
+                      ) : null}
+                      {auditMore ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={loadingOlderAudit}
+                          onClick={() => void loadOlderAudit()}
+                        >
+                          {loadingOlderAudit ? t('loadingOlder') : t('loadOlder')}
                         </Button>
                       ) : null}
                     </>

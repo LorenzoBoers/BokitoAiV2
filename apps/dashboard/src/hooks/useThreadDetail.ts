@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { onGatewayEvent, onGatewayStatus, type GatewayStatus } from '../lib/gateway'
 import {
@@ -96,9 +98,10 @@ function classifyOutboundSendFailure(err: unknown): `failed:${string}` {
 export function useThreadDetail(
   threadId: ThreadId | null,
   pinnedIds: ThreadId[] = [],
-  options?: { skipMarkRead?: boolean },
+  options?: { skipMarkRead?: boolean; onMarkReadFailed?: (threadId: ThreadId) => void },
 ) {
   const { token, user } = useAuth()
+  const { t } = useTranslation('communication')
   const [rawDetail, setRawDetail] = useState<ThreadDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -110,6 +113,16 @@ export function useThreadDetail(
   // responses for a previous thread cannot overwrite the current detail pane.
   const fetchGeneration = useRef(0)
   const unreadHighlightTimer = useRef<number | null>(null)
+  const onMarkReadFailedRef = useRef(options?.onMarkReadFailed)
+  onMarkReadFailedRef.current = options?.onMarkReadFailed
+
+  const restoreUnread = useCallback((id: ThreadId) => {
+    setRawDetail((prev) => {
+      if (!prev || String(prev.thread.id) !== String(id)) return prev
+      return { ...prev, thread: { ...prev.thread, hasUnread: true } }
+    })
+    onMarkReadFailedRef.current?.(id)
+  }, [])
 
   // Drop the previous conversation before paint when the route thread changes,
   // otherwise one frame still renders the old detail under the new URL.
@@ -206,7 +219,10 @@ export function useThreadDetail(
             }, 2600)
           }
           applyResult({ ...result, thread: { ...result.thread, hasUnread: false } })
-          void markThreadRead(token, threadId).catch(() => {})
+          void markThreadRead(token, threadId).catch(() => {
+            if (generation !== fetchGeneration.current) return
+            restoreUnread(threadId)
+          })
         } else {
           applyResult(result)
         }
@@ -220,7 +236,7 @@ export function useThreadDetail(
         if (!quiet && generation === fetchGeneration.current) setLoading(false)
       }
     },
-    [token, threadId, options?.skipMarkRead],
+    [token, threadId, options?.skipMarkRead, restoreUnread],
   )
 
   useEffect(() => {
@@ -313,7 +329,7 @@ export function useThreadDetail(
             }
           })
           if (!already && threadRow?.hasUnread) {
-            void markThreadRead(token, threadId).catch(() => {})
+            void markThreadRead(token, threadId).catch(() => restoreUnread(threadId))
           }
           return
         }
@@ -324,7 +340,7 @@ export function useThreadDetail(
       unsub()
       if (quietTimer != null) window.clearTimeout(quietTimer)
     }
-  }, [token, threadId, fetchDetail])
+  }, [token, threadId, fetchDetail, restoreUnread])
 
   // Quiet reconcile after tab focus and gateway reconnect (same pattern as useThreads).
   useEffect(() => {
@@ -703,10 +719,11 @@ export function useThreadDetail(
       })
     } catch {
       // Leave hasOlder true so the operator can retry.
+      toast.error(t('threadChrome.loadOlderError'))
     } finally {
       if (generation === fetchGeneration.current) setLoadingOlder(false)
     }
-  }, [token, threadId, loadingOlder, rawDetail?.hasOlder, rawDetail?.oldestMessageId, rawDetail?.messages])
+  }, [token, threadId, loadingOlder, rawDetail?.hasOlder, rawDetail?.oldestMessageId, rawDetail?.messages, t])
 
   return {
     detail,

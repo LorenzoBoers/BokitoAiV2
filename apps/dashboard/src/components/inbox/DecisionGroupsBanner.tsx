@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Layers } from 'lucide-react'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
   bulkDismissCandidates,
   dismissDecisions,
@@ -43,6 +45,8 @@ export default function DecisionGroupsBanner({ onDismissed }: Props) {
       const count = await dismissDecisions({ title: group.title })
       onDismissed?.(count)
       await load()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('decisionGroups.dismissError')))
     } finally {
       setBusy(null)
     }
@@ -55,7 +59,7 @@ export default function DecisionGroupsBanner({ onDismissed }: Props) {
         {t('decisionGroups.heading')}
       </div>
       <ul className="flex flex-col gap-1">
-        {groups.slice(0, 4).map((group) => (
+        {groups.map((group) => (
           <li key={group.title} className="flex items-center gap-2 text-xs">
             <span className="min-w-0 flex-1 truncate-fade text-text-primary" title={group.title}>
               {group.title}

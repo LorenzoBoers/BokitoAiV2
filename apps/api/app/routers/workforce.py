@@ -148,6 +148,7 @@ async def get_work_logs(
     agent_id: str | None = Query(default=None),
     status: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ):
     items = await svc.list_work_logs(
         session,
@@ -156,6 +157,7 @@ async def get_work_logs(
         agent_id=agent_id,
         status=status,
         limit=limit,
+        offset=offset,
     )
     return {"items": items}
 

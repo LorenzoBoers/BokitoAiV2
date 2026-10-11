@@ -26,7 +26,7 @@ import {
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import MailComposer, { type MailSendPayload } from './MailComposer'
 import { parseDecisionOptions, pickSoftDecisionTarget } from '../../lib/decision-options'
-import { getContactThreads, updateContact } from '../../lib/contacts-api'
+import { getContactThreadPage, updateContact } from '../../lib/contacts-api'
 import {
   humanizeContactName,
   isPlaceholderContactAddress,
@@ -48,7 +48,6 @@ import type { AiHandlingMode } from '../../lib/ai-handling'
 import {
   listSignalAssignees,
   listThreadAgentCandidates,
-  patchSignalThread,
   setThreadSchedule,
   type AssigneeCandidates,
   type ThreadAgentCandidate,
@@ -121,7 +120,7 @@ type Props = {
    */
   threadId: ThreadId | null
   saving: boolean
-  onPatch: (input: PatchThreadInput) => Promise<void>
+  onPatch: (input: PatchThreadInput) => Promise<boolean | void>
   onReply: (
     bodyText: string,
     action: 'send' | 'send_and_close' | 'send_and_pending',
@@ -826,11 +825,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     const currentId = String(detail.thread.id)
     const contactId = detail.thread.contactId
     let cancelled = false
-    void getContactThreads(token, contactId)
-      .then((rows) => {
-        if (!cancelled) {
-          setPreviousCount(rows.filter((row) => String(row.id) !== currentId).length)
-        }
+    void getContactThreadPage(token, contactId)
+      .then((page) => {
+        if (!cancelled) setPreviousCount(Math.max(0, page.total - 1))
       })
       .catch(() => {
         if (!cancelled) setPreviousCount(0)
@@ -974,6 +971,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           return true
         }
         await fileTicket(threadIdString, match.id)
+        onRefresh()
         toast.success(`#${match.name}`)
         return true
       }
@@ -992,7 +990,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           toast.error(t('actions.bulkFailed', { ns: 'communication', defaultValue: 'Could not assign.' }))
           return true
         }
-        await patchSignalThread(token, threadIdString, { assignedToUserId: target.id })
+        const assigned = await onPatch({ assignedToUserId: target.id })
+        if (assigned === false) return true
         toast.success(target.name || target.email || String(target.id))
         return true
       }
@@ -1011,7 +1010,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       }
       return false
     },
-    [token, threadIdString, membersById, user?.email, t, onChangeAiHandling],
+    [token, threadIdString, membersById, user?.email, t, onChangeAiHandling, onPatch, onRefresh],
   )
 
   const askAgentName = useMemo(() => {

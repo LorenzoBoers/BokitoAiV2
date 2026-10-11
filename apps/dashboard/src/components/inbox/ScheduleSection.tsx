@@ -67,6 +67,7 @@ export function ScheduleSection({ thread, onPlan, onChanged }: Props) {
       if (kind === 'run') {
         await runThreadSchedule(token, String(thread.id))
         toast.success(t('schedule.runStarted'))
+        onChanged?.(null)
       } else if (kind === 'toggle' && rule) {
         onChanged?.(await setThreadScheduleEnabled(token, String(thread.id), !rule.enabled))
       } else if (kind === 'clear') {

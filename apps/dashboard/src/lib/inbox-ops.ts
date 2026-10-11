@@ -54,6 +54,18 @@ export function nextUnreadId(
  * decision" values resolve to `forYou`: the caller redirects those to the
  * For you folder instead of filtering the current folder.
  */
+/** Assignee chip in the Communication URL (`?assignee=`). */
+export function parseAssigneeParam(raw: string | null | undefined): number | null {
+  if (!raw) return null
+  const n = Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : null
+}
+
+/** Priority chip in the Communication URL (`?priority=`). */
+export function parsePriorityParam(raw: string | null | undefined): 'normal' | 'high' | 'urgent' | null {
+  return raw === 'normal' || raw === 'high' || raw === 'urgent' ? raw : null
+}
+
 export function parseQuickFilterParam(
   raw: string | null | undefined,
 ): InboxListQuickFilter | 'forYou' | null {

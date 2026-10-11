@@ -1155,6 +1155,7 @@ async def list_threads(
     channel: str | None = None,
     search: str | None = None,
     assignee_id: int | None = None,
+    priority: str | None = None,
     tag: str | None = None,
     connection_id: str | None = None,
     email_connection_id: int | None = None,
@@ -1292,6 +1293,11 @@ async def list_threads(
             query = query.where(Signal.assigned_user_id == assignee_uuid)
         else:
             query = query.where(Signal.id.is_(None))
+
+    if priority:
+        if priority not in ("low", "normal", "high", "urgent"):
+            return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
+        query = query.where(Signal.priority == priority)
 
     if connection_id:
         try:
@@ -2301,8 +2307,9 @@ async def bulk_update_threads(
             signal.has_unread = False
         elif action == "unread":
             signal.has_unread = True
-        elif action == "assign":
-            signal.assigned_user_id = assignee_uuid
+        elif action == "assign" and assignee_uuid is not None:
+            # Same path as the person picker: owner, last human, and hand-back.
+            set_owner(signal, "user", assignee_uuid, by_user_id=user_id)
         if action == "close":
             handling_svc.on_status_change(session, signal, actor_id=str(user_id))
             from app.services.tickets import settle_ticket_on_close

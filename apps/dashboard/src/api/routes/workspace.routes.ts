@@ -9,6 +9,7 @@ export type WorkspaceDocsQuery = {
   agent_id?: string
   scope?: 'all'
   limit?: number
+  offset?: number
 }
 
 export const workspaceRoutes = {
@@ -22,6 +23,7 @@ export const workspaceRoutes = {
       if (params.agent_id) search.set('agent_id', params.agent_id)
       if (params.scope) search.set('scope', params.scope)
       if (params.limit != null) search.set('limit', String(params.limit))
+      if (params.offset != null) search.set('offset', String(params.offset))
     }
     return withQuery('/workspace/docs', search)
   },

@@ -59,9 +59,16 @@ function activityEntryFromGateway(event: GatewayEvent): ActivityEntry {
 
 const MAX_ENTRIES = 1000
 
+export type ActivityFeedQuery = {
+  q?: string
+  agentId?: string | null
+}
+
 /** Oldest-first activity history with paging and live run/decision events. */
-export function useActivityFeed(pageSize = 150) {
+export function useActivityFeed(pageSize = 150, query: ActivityFeedQuery = {}) {
   const { token } = useAuth()
+  const q = query.q?.trim() ?? ''
+  const agentId = query.agentId || ''
   const [entries, setEntries] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
@@ -73,7 +80,10 @@ export function useActivityFeed(pageSize = 150) {
     setLoading(true)
     setFailed(false)
     try {
-      const rows = await bokitoGetCockpitActivity(token, pageSize)
+      const rows = await bokitoGetCockpitActivity(token, pageSize, undefined, {
+        q: q || undefined,
+        agentId: agentId || undefined,
+      })
       setEntries(rows.map(activityEntryFromEvent).reverse())
       setHasMore(rows.length >= pageSize)
     } catch {
@@ -82,7 +92,7 @@ export function useActivityFeed(pageSize = 150) {
     } finally {
       setLoading(false)
     }
-  }, [token, pageSize])
+  }, [token, pageSize, q, agentId])
 
   useEffect(() => {
     void load()
@@ -94,7 +104,10 @@ export function useActivityFeed(pageSize = 150) {
     if (!oldest) return
     setLoadingOlder(true)
     try {
-      const rows = await bokitoGetCockpitActivity(token, pageSize, oldest.createdAt)
+      const rows = await bokitoGetCockpitActivity(token, pageSize, oldest.createdAt, {
+        q: q || undefined,
+        agentId: agentId || undefined,
+      })
       if (rows.length < pageSize) setHasMore(false)
       if (rows.length) {
         const older = rows.map(activityEntryFromEvent).reverse()
@@ -108,19 +121,25 @@ export function useActivityFeed(pageSize = 150) {
     } finally {
       setLoadingOlder(false)
     }
-  }, [token, loadingOlder, hasMore, entries, pageSize])
+  }, [token, loadingOlder, hasMore, entries, pageSize, q, agentId])
 
   useEffect(() => {
     if (!token) return
     const push = (event: GatewayEvent) => {
+      const row = activityEntryFromGateway(event)
+      if (agentId && row.agentId !== agentId) return
+      if (q) {
+        const hay = `${row.message}\n${row.eventType}\n${row.actorName ?? ''}`.toLowerCase()
+        if (!hay.includes(q.toLowerCase())) return
+      }
       setEntries((prev) => {
-        const next = [...prev, activityEntryFromGateway(event)]
+        const next = [...prev, row]
         return next.length > MAX_ENTRIES ? next.slice(next.length - MAX_ENTRIES) : next
       })
     }
     const unsubs = [onGatewayEvent('runs', push), onGatewayEvent('decisions', push)]
     return () => unsubs.forEach((u) => u())
-  }, [token])
+  }, [token, q, agentId])
 
   return { entries, loading, loadingOlder, hasMore, failed, load, loadOlder }
 }

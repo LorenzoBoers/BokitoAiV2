@@ -124,9 +124,16 @@ export type CockpitActivityEvent = {
   resource_id?: string | null
 }
 
-export async function bokitoGetCockpitActivity(token: string, limit = 50, before?: string) {
+export async function bokitoGetCockpitActivity(
+  token: string,
+  limit = 50,
+  before?: string,
+  query?: { q?: string; agentId?: string },
+) {
   const params = new URLSearchParams({ limit: String(limit) })
   if (before) params.set('before', before)
+  if (query?.q) params.set('q', query.q)
+  if (query?.agentId) params.set('agent_id', query.agentId)
   return bokitoFetch<CockpitActivityEvent[]>(
     `${APP_API_BASE}${appRoutes.cockpit.activity(params)}`,
     token,

@@ -3,6 +3,8 @@ import {
   isStoredDraftStale,
   nextUnreadId,
   parseComposerDraft,
+  parseAssigneeParam,
+  parsePriorityParam,
   parseQuickFilterParam,
   serializeComposerDraft,
   suggestSavedSearchName,
@@ -47,6 +49,23 @@ describe('nextUnreadId', () => {
 
   it('returns null when nothing is unread', () => {
     expect(nextUnreadId([{ id: '1', hasUnread: false }], '1', 1)).toBeNull()
+  })
+})
+
+describe('parseAssigneeParam', () => {
+  it('keeps a positive integer and drops junk', () => {
+    expect(parseAssigneeParam('12')).toBe(12)
+    expect(parseAssigneeParam('0')).toBeNull()
+    expect(parseAssigneeParam('nope')).toBeNull()
+    expect(parseAssigneeParam(null)).toBeNull()
+  })
+})
+
+describe('parsePriorityParam', () => {
+  it('keeps known priorities', () => {
+    expect(parsePriorityParam('urgent')).toBe('urgent')
+    expect(parsePriorityParam('low')).toBeNull()
+    expect(parsePriorityParam(null)).toBeNull()
   })
 })
 

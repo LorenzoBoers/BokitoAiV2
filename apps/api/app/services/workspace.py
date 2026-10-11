@@ -505,6 +505,7 @@ async def list_docs(
     agent_id: UUID | None = None,
     scope: str | None = None,
     limit: int | None = None,
+    offset: int = 0,
     include_external: bool = False,
 ) -> list[WorkspaceDoc]:
     """List knowledge docs with optional scope filters.
@@ -531,6 +532,8 @@ async def list_docs(
     if kind:
         stmt = stmt.where(WorkspaceDoc.kind == kind)
     stmt = stmt.order_by(WorkspaceDoc.sort_order, WorkspaceDoc.path)
+    if offset:
+        stmt = stmt.offset(max(0, int(offset)))
     if limit is not None:
         stmt = stmt.limit(max(1, min(int(limit), 100)))
     result = await session.execute(stmt)

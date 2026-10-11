@@ -140,6 +140,7 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.categoryId) params.set('category_id', filters.categoryId)
   if (filters.stage) params.set('stage', filters.stage)
   if (filters.assigneeId) params.set('assignee_id', String(filters.assigneeId))
+  if (filters.priority) params.set('priority', filters.priority)
   if (filters.search) params.set('search', filters.search)
   if (filters.unread) params.set('unread', '1')
   if (filters.needsReply) params.set('needs_reply', '1')

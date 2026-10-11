@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { appRoutes } from '../api/routes/app.routes';
 import { apiGet, apiPost } from '../lib/api';
@@ -178,21 +178,67 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { token } = useAuth();
   const rows = useLiveList<AppNotification>(TABLE);
   const notifications = useMemo(() => [...rows].sort(byBellOrder).slice(0, 100), [rows]);
+  const [badgeUnread, setBadgeUnread] = useState<number | null>(null);
+  const badgeRef = useRef<number | null>(null);
+  const seenUnreadRef = useRef<Set<string>>(new Set());
 
-  const unreadCount = notifications.filter((n) => n.status === 'unread' && n.tier < 3).length;
+  const unreadIds = useMemo(
+    () => notifications.filter((n) => n.status === 'unread' && n.tier < 3).map((n) => n.id),
+    [notifications],
+  );
+  const unreadCount = badgeUnread ?? unreadIds.length;
+
+  const rememberUnread = (items: AppNotification[]) => {
+    seenUnreadRef.current = new Set(
+      items.filter((n) => n.status === 'unread' && n.tier < 3).map((n) => n.id),
+    );
+  };
 
   const refresh = useCallback(async () => {
     if (!token) {
       seedLive<AppNotification>(TABLE, [], (n) => n.id);
+      badgeRef.current = null;
+      setBadgeUnread(null);
+      seenUnreadRef.current = new Set();
       return;
     }
     try {
-      const list = await apiGet<RawNotification[]>(appRoutes.notifications.list, token);
-      seedLive(TABLE, Array.isArray(list) ? list.map(normalize) : [], (n) => n.id);
+      const params = new URLSearchParams({ limit: '100' });
+      const [list, summary] = await Promise.all([
+        apiGet<RawNotification[]>(appRoutes.notifications.list(params), token),
+        apiGet<{ unread?: number }>(appRoutes.notifications.summary, token).catch(() => null),
+      ]);
+      const seeded = Array.isArray(list) ? list.map(normalize) : [];
+      rememberUnread(seeded);
+      seedLive(TABLE, seeded, (n) => n.id);
+      if (summary && typeof summary.unread === 'number') {
+        badgeRef.current = summary.unread;
+        setBadgeUnread(summary.unread);
+      } else {
+        badgeRef.current = null;
+        setBadgeUnread(null);
+      }
     } catch {
       // Keep the last known list; the bell is non-critical UI.
     }
   }, [token]);
+
+  useEffect(() => {
+    if (badgeRef.current == null) {
+      seenUnreadRef.current = new Set(unreadIds);
+      return;
+    }
+    let added = 0;
+    for (const id of unreadIds) {
+      if (!seenUnreadRef.current.has(id)) added += 1;
+    }
+    seenUnreadRef.current = new Set(unreadIds);
+    if (added > 0) {
+      const next = badgeRef.current + added;
+      badgeRef.current = next;
+      setBadgeUnread(next);
+    }
+  }, [unreadIds]);
 
   useEffect(() => {
     void refresh();
@@ -208,19 +254,51 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAsRead = useCallback(
     (id: string) => {
+      const previous = listLive<AppNotification>(TABLE).find((row) => row.id === id) ?? null;
+      const wasBadge = previous?.status === 'unread' && previous.tier < 3;
       patchStatus([id], 'read');
-      if (token) {
-        void apiPost(appRoutes.notifications.markRead(id), {}, token).catch(() => void refresh());
+      if (wasBadge && badgeRef.current != null) {
+        const next = Math.max(0, badgeRef.current - 1);
+        badgeRef.current = next;
+        setBadgeUnread(next);
       }
+      if (!token) return;
+      void apiPost(appRoutes.notifications.markRead(id), {}, token).catch(() => {
+        if (previous && wasBadge) seenUnreadRef.current.add(previous.id);
+        if (previous) applyLive(TABLE, previous.id, previous);
+        if (wasBadge && badgeRef.current != null) {
+          const next = badgeRef.current + 1;
+          badgeRef.current = next;
+          setBadgeUnread(next);
+        }
+        void refresh();
+      });
     },
     [token, refresh],
   );
 
   const markAllAsRead = useCallback(() => {
+    const snapshot = listLive<AppNotification>(TABLE)
+      .filter((row) => row.status === 'unread')
+      .map((row) => ({ ...row }));
+    const previousBadge = badgeRef.current;
     patchStatus('all', 'read');
-    if (token) {
-      void apiPost(appRoutes.notifications.markAllRead, {}, token).catch(() => void refresh());
+    if (previousBadge != null) {
+      badgeRef.current = 0;
+      setBadgeUnread(0);
     }
+    if (!token) return;
+    void apiPost(appRoutes.notifications.markAllRead, {}, token).catch(() => {
+      seenUnreadRef.current = new Set(
+        snapshot.filter((row) => row.status === 'unread' && row.tier < 3).map((row) => row.id),
+      );
+      for (const row of snapshot) applyLive(TABLE, row.id, row);
+      if (previousBadge != null) {
+        badgeRef.current = previousBadge;
+        setBadgeUnread(previousBadge);
+      }
+      void refresh();
+    });
   }, [token, refresh]);
 
   return (

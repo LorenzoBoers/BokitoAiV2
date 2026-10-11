@@ -262,7 +262,12 @@ async def test_bulk_assign_and_read(client: AsyncClient):
     items = await _list(client, owner, view="for_you")
     row = next(t for t in items if t["id"] == a)
     assert row["assigned_to_user_id"] == me
+    assert row["owner"]["kind"] == "user"
     assert row["has_unread"] is False
+
+    detail = await client.get(f"/api/signals/{a}", headers=owner)
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["last_human_owner"]["kind"] == "user"
 
 
 @pytest.mark.asyncio

@@ -120,6 +120,38 @@ function normalizeContact(row: unknown): ContactRow | null {
   }
 }
 
+export type ContactListPage = {
+  contacts: ContactRow[]
+  nextOffset: number | null
+}
+
+export async function listContactsPage(
+  token: string,
+  options: {
+    search?: string
+    status?: ContactStatus
+    channel?: string
+    aiHandling?: ContactAiHandlingFilter
+    offset?: number
+  } = {},
+): Promise<ContactListPage> {
+  const params = new URLSearchParams()
+  if (options.search) params.set('search', options.search)
+  if (options.status) params.set('status', options.status)
+  if (options.channel) params.set('channel', options.channel)
+  if (options.aiHandling) params.set('ai_handling', options.aiHandling)
+  if (options.offset) params.set('offset', String(options.offset))
+  const payload = await apiGet<{ contacts?: unknown[]; next_offset?: number | null }>(
+    appRoutes.contacts.listQuery(params),
+    token,
+  )
+  const rows = Array.isArray(payload.contacts) ? payload.contacts : []
+  return {
+    contacts: rows.map(normalizeContact).filter((c): c is ContactRow => c !== null),
+    nextOffset: typeof payload.next_offset === 'number' ? payload.next_offset : null,
+  }
+}
+
 export async function listContacts(
   token: string,
   options: {
@@ -129,14 +161,7 @@ export async function listContacts(
     aiHandling?: ContactAiHandlingFilter
   } = {},
 ): Promise<ContactRow[]> {
-  const params = new URLSearchParams()
-  if (options.search) params.set('search', options.search)
-  if (options.status) params.set('status', options.status)
-  if (options.channel) params.set('channel', options.channel)
-  if (options.aiHandling) params.set('ai_handling', options.aiHandling)
-  const payload = await apiGet<{ contacts?: unknown[] }>(appRoutes.contacts.listQuery(params), token)
-  const rows = Array.isArray(payload.contacts) ? payload.contacts : []
-  return rows.map(normalizeContact).filter((c): c is ContactRow => c !== null)
+  return (await listContactsPage(token, options)).contacts
 }
 
 export async function getContact(token: string, contactId: string): Promise<ContactRow | null> {
@@ -156,10 +181,27 @@ export async function getContact(token: string, contactId: string): Promise<Cont
   )
 }
 
-export async function getContactThreads(token: string, contactId: string): Promise<InboxThread[]> {
-  const payload = await apiGet<{ threads?: unknown[] }>(appRoutes.contacts.threads(contactId), token)
+export type ContactThreadPage = {
+  threads: InboxThread[]
+  total: number
+}
+
+export async function getContactThreadPage(token: string, contactId: string): Promise<ContactThreadPage> {
+  const params = new URLSearchParams({ limit: '100' })
+  const payload = await apiGet<{ threads?: unknown[]; total?: number }>(
+    appRoutes.contacts.threads(contactId, params),
+    token,
+  )
   const rows = Array.isArray(payload.threads) ? payload.threads : []
-  return rows.map(normalizeThreadRow).filter((t): t is InboxThread => t !== null)
+  const threads = rows.map(normalizeThreadRow).filter((t): t is InboxThread => t !== null)
+  return {
+    threads,
+    total: typeof payload.total === 'number' ? payload.total : threads.length,
+  }
+}
+
+export async function getContactThreads(token: string, contactId: string): Promise<InboxThread[]> {
+  return (await getContactThreadPage(token, contactId)).threads
 }
 
 export function compactRecordId(value: string): string {
@@ -317,6 +359,23 @@ export async function findThreadsForContact(token: string, contact: ContactRow):
   return sortThreadsByActivity(matched)
 }
 
+export async function bulkUpdatePendingContacts(
+  token: string,
+  status: 'approved' | 'blocked',
+  filters: { search?: string; aiHandling?: string } = {},
+): Promise<number> {
+  const payload = await apiPost<{ updated?: number }>(
+    appRoutes.contacts.bulkStatus,
+    {
+      status,
+      ...(filters.search ? { search: filters.search } : {}),
+      ...(filters.aiHandling && filters.aiHandling !== 'all' ? { ai_handling: filters.aiHandling } : {}),
+    },
+    token,
+  )
+  return payload.updated ?? 0
+}
+
 export async function updateContact(
   token: string,
   contactId: string,
@@ -432,6 +491,7 @@ export type CompanyRow = {
 export type CompanyDetail = CompanyRow & {
   contacts: ContactRow[]
   threads: InboxThread[]
+  threadsTruncated: boolean
 }
 
 function normalizeCompany(row: unknown): CompanyRow | null {
@@ -451,18 +511,34 @@ function normalizeCompany(row: unknown): CompanyRow | null {
   }
 }
 
-export async function listCompanies(
+export type CompanyListPage = {
+  companies: CompanyRow[]
+  nextOffset: number | null
+}
+
+export async function listCompaniesPage(
   token: string,
-  options: { search?: string } = {},
-): Promise<CompanyRow[]> {
+  options: { search?: string; offset?: number } = {},
+): Promise<CompanyListPage> {
   const params = new URLSearchParams()
   if (options.search) params.set('search', options.search)
-  const payload = await apiGet<{ companies?: unknown[] }>(
+  if (options.offset) params.set('offset', String(options.offset))
+  const payload = await apiGet<{ companies?: unknown[]; next_offset?: number | null }>(
     appRoutes.companies.listQuery(params),
     token,
   )
   const rows = Array.isArray(payload.companies) ? payload.companies : []
-  return rows.map(normalizeCompany).filter((c): c is CompanyRow => c !== null)
+  return {
+    companies: rows.map(normalizeCompany).filter((c): c is CompanyRow => c !== null),
+    nextOffset: typeof payload.next_offset === 'number' ? payload.next_offset : null,
+  }
+}
+
+export async function listCompanies(
+  token: string,
+  options: { search?: string } = {},
+): Promise<CompanyRow[]> {
+  return (await listCompaniesPage(token, options)).companies
 }
 
 export async function getCompany(token: string, companyId: string): Promise<CompanyDetail | null> {
@@ -475,7 +551,12 @@ export async function getCompany(token: string, companyId: string): Promise<Comp
   const threads = Array.isArray(payload.threads)
     ? payload.threads.map(normalizeThreadRow).filter((t): t is InboxThread => t !== null)
     : []
-  return { ...base, contacts, threads }
+  return {
+    ...base,
+    contacts,
+    threads,
+    threadsTruncated: payload.threads_truncated === true,
+  }
 }
 
 export async function updateCompany(

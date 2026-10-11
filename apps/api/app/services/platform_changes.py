@@ -8,7 +8,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
@@ -505,6 +505,7 @@ async def list_platform_changes(
     status: Optional[str] = None,
     resource_type: Optional[str] = None,
     resource_id: Optional[str] = None,
+    q: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> list[PlatformChange]:
@@ -515,6 +516,17 @@ async def list_platform_changes(
         stmt = stmt.where(PlatformChange.resource_type == resource_type)
     if resource_id:
         stmt = stmt.where(PlatformChange.resource_id == resource_id)
+    needle = (q or "").strip()
+    if needle:
+        like = f"%{needle}%"
+        stmt = stmt.where(
+            or_(
+                PlatformChange.summary.ilike(like),
+                PlatformChange.resource_type.ilike(like),
+                PlatformChange.change_kind.ilike(like),
+                cast(PlatformChange.id, String).ilike(like),
+            )
+        )
     stmt = stmt.order_by(PlatformChange.created_at.desc()).limit(min(limit, 500)).offset(offset)
     result = await session.execute(stmt)
     return list(result.scalars().all())

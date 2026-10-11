@@ -71,6 +71,7 @@ export async function listTimeItems(params: {
   from?: string
   to?: string
   agentId?: string
+  userId?: string
   sources?: TimeItemKind[]
   scheduledOnly?: boolean
   projectId?: string
@@ -79,6 +80,7 @@ export async function listTimeItems(params: {
   if (params.from) query.set('from', params.from)
   if (params.to) query.set('to', params.to)
   if (params.agentId) query.set('agent_id', params.agentId)
+  if (params.userId) query.set('user_id', params.userId)
   if (params.projectId) query.set('project_id', params.projectId)
   if (params.sources?.length) query.set('sources', params.sources.join(','))
   if (params.scheduledOnly) query.set('scheduled_only', 'true')

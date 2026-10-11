@@ -10,12 +10,14 @@ export const workforceRoutes = {
       agent_id?: string
       status?: string
       limit?: number
+      offset?: number
     }) => {
       const search = new URLSearchParams()
       if (params?.project_id) search.set('project_id', params.project_id)
       if (params?.agent_id) search.set('agent_id', params.agent_id)
       if (params?.status) search.set('status', params.status)
       if (params?.limit != null) search.set('limit', String(params.limit))
+      if (params?.offset != null) search.set('offset', String(params.offset))
       return withQuery('/work_logs', search)
     },
     events: (workLogId: string) => `/work_logs/${encodeURIComponent(workLogId)}/events`,

@@ -70,6 +70,7 @@ import {
   type AgendaView,
   type AgendaWho,
 } from '../lib/agenda-layout'
+import { hiddenCalendarKey, readHiddenCalendars, writeHiddenCalendars } from '../lib/agenda-hidden-calendars'
 import { cn } from '../lib/utils'
 
 const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'task', 'calendar', 'activity']
@@ -176,14 +177,15 @@ export default function AgendaPage() {
     else next.add(connectionId)
     setParams({ cals: calendarIdsParam(next, availableCalendarIds) ?? '' })
   }
-  // Calendars inside an account hidden for this view only (`connection|calendar`).
-  const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => new Set())
+  // Calendars inside an account (`connection|calendar`), remembered on this browser.
+  const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => readHiddenCalendars())
   const toggleSubCalendar = (connectionId: string, calendarId: string) =>
     setHiddenCalendars((prev) => {
-      const key = `${connectionId}|${calendarId}`
+      const key = hiddenCalendarKey(connectionId, calendarId)
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
+      writeHiddenCalendars(next)
       return next
     })
 
@@ -200,12 +202,21 @@ export default function AgendaPage() {
     setError(null)
     try {
       const now = Date.now()
+      const whoAgentId = who.startsWith('agent:') ? who.slice('agent:'.length) : undefined
+      const whoUserId =
+        who === 'me'
+          ? user?.uuid ?? undefined
+          : who.startsWith('user:')
+            ? who.slice('user:'.length)
+            : undefined
       const [window_, attention, triggerRows] = await Promise.all([
         listTimeItems({
           from: range.from.toISOString(),
           to: range.to.toISOString(),
           sources: ALL_SOURCES,
           projectId: projectId || undefined,
+          agentId: whoAgentId,
+          userId: whoUserId,
         }),
         listTimeItems({
           from: new Date(now - 30 * 86_400_000).toISOString(),
@@ -213,8 +224,10 @@ export default function AgendaPage() {
           sources: ['task', 'checkup', 'session'],
           scheduledOnly: true,
           projectId: projectId || undefined,
+          agentId: whoAgentId,
+          userId: whoUserId,
         }),
-        listTriggers(),
+        listTriggers({ limit: 500 }),
       ])
       setItems(window_.items)
       setAttentionItems(attention.items)
@@ -225,7 +238,7 @@ export default function AgendaPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, range, projectId, t])
+  }, [token, range, projectId, who, user?.uuid, t])
 
   useEffect(() => {
     void load()
@@ -295,7 +308,7 @@ export default function AgendaPage() {
         const layer = layerOf(item)
         if (layer === 'calendar') {
           if (!item.connection_id) return calendarIds.size > 0
-          if (hiddenCalendars.has(`${item.connection_id}|${item.calendar_id ?? ''}`)) return false
+          if (hiddenCalendars.has(hiddenCalendarKey(item.connection_id, item.calendar_id ?? ''))) return false
           return calendarIds.has(item.connection_id)
         }
         return layers.has(layer)
@@ -315,10 +328,11 @@ export default function AgendaPage() {
     const out: Record<string, number> = {}
     for (const item of byWho) {
       if (item.kind !== 'calendar' || !item.connection_id) continue
+      if (hiddenCalendars.has(hiddenCalendarKey(item.connection_id, item.calendar_id ?? ''))) continue
       out[item.connection_id] = (out[item.connection_id] || 0) + 1
     }
     return out
-  }, [byWho])
+  }, [byWho, hiddenCalendars])
   const attention = useMemo(
     () => attentionOf(attentionItems.filter((item) => matchesWho(item, who, meId)), nowMs),
     [attentionItems, who, meId, nowMs],

@@ -105,6 +105,7 @@ export function threadMatchesFilters(
     if (!thread.tags.includes(filters.tag)) return false
   }
   if (filters.assigneeId != null && thread.assignedToUserId !== filters.assigneeId) return false
+  if (filters.priority && thread.priority !== filters.priority) return false
   if (
     filters.connectionId != null &&
     filters.connectionId > 0 &&

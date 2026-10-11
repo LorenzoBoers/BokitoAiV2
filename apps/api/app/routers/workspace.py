@@ -68,6 +68,7 @@ async def list_workspace_docs(
     agent_id: UUID | None = Query(None),
     scope: str | None = Query(None, description="Pass 'all' to include every scope"),
     limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ):
     docs = await svc.list_docs(
         session,
@@ -77,12 +78,16 @@ async def list_workspace_docs(
         agent_id=agent_id,
         scope=scope,
         limit=limit,
+        offset=offset,
     )
     payloads = [svc.serialize_doc(d, include_content=False) for d in docs]
     linked = await _linked_requests_for_docs(session, auth.tenant.id, [d.id for d in docs])
     for payload, doc in zip(payloads, docs, strict=True):
         payload["linked_requests"] = linked.get(doc.id, [])
-    return {"docs": payloads}
+    return {
+        "docs": payloads,
+        "next_offset": offset + limit if len(docs) == limit else None,
+    }
 
 
 @router.post("/docs")
@@ -395,7 +400,7 @@ async def search_workspace(
         session,
         auth.tenant.id,
         body.query,
-        top_k=body.top_k,
+        top_k=max(1, min(body.top_k, 40)),
         source_types=body.source_types,
     )
     return {"results": results}

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -33,8 +34,12 @@ async def activity(
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = Query(50, le=200),
     before: datetime | None = Query(None),
+    q: str | None = Query(None),
+    agent_id: UUID | None = Query(None),
 ):
-    return await activity_timeline(session, auth.tenant.id, limit=limit, before=before)
+    return await activity_timeline(
+        session, auth.tenant.id, limit=limit, before=before, q=q, agent_id=agent_id
+    )
 
 
 @router.get("/usage")

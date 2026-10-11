@@ -4,7 +4,7 @@ import json
 from typing import Any, Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit import AuditEvent
@@ -73,8 +73,19 @@ async def search_audit(
         stmt = stmt.where(AuditEvent.agent_id == agent_id)
     if outcome:
         stmt = stmt.where(AuditEvent.outcome == outcome)
-    if q:
-        stmt = stmt.where(AuditEvent.summary.ilike(f"%{q}%"))
+    needle = (q or "").strip()
+    if needle:
+        like = f"%{needle}%"
+        stmt = stmt.where(
+            or_(
+                AuditEvent.summary.ilike(like),
+                AuditEvent.action.ilike(like),
+                AuditEvent.actor_type.ilike(like),
+                AuditEvent.outcome.ilike(like),
+                AuditEvent.resource_type.ilike(like),
+                cast(AuditEvent.id, String).ilike(like),
+            )
+        )
     stmt = stmt.order_by(AuditEvent.created_at.desc()).limit(min(limit, 500)).offset(offset)
     result = await session.execute(stmt)
     return result.scalars().all()

@@ -369,6 +369,7 @@ async def list_time_items(
     start: datetime,
     end: datetime,
     agent_id: UUID | None = None,
+    user_id: UUID | None = None,
     sources: Iterable[str] | None = None,
     scheduled_only: bool = False,
     project_id: UUID | None = None,
@@ -382,6 +383,8 @@ async def list_time_items(
     on-demand work such as email replies stays on the activity timeline.
     ``project_id`` keeps items tied to that project's conversations or runs.
     ``connection_ids`` limits calendar events to those connections (None = all).
+    ``user_id`` keeps activity and decisions for that person before the cap,
+    so Who = you does not lose their older events in the window.
     ``viewer`` (a ``CalendarViewer``) limits calendar events to connections
     that person or agent may use; None is system code and sees all.
     """
@@ -518,6 +521,8 @@ async def list_time_items(
             owner = names.owner(signal)
             if agent_id and owner[1] != str(agent_id):
                 continue
+            if user_id and not (owner[0] == "user" and owner[1] == str(user_id)):
+                continue
             base = dict(
                 kind="checkup",
                 trigger_kind="interval",
@@ -592,7 +597,7 @@ async def list_time_items(
                 row[key] = event.get(key)
             items.append(row)
 
-    if "task" in wanted and agent_id is None:
+    if "task" in wanted:
         from app.models.signal import Signal
         from app.services.thread_schedule import thread_details
 
@@ -615,6 +620,10 @@ async def list_time_items(
             at = signal.next_at
             assert at is not None
             owner = names.owner(signal)
+            if agent_id and owner[1] != str(agent_id):
+                continue
+            if user_id and not (owner[0] == "user" and owner[1] == str(user_id)):
+                continue
             row = _row(
                 id=f"thread:{signal.id}",
                 kind="task",
@@ -688,6 +697,7 @@ async def list_time_items(
                 start=start,
                 end=min(end, now),
                 agent_id=agent_id,
+                user_id=user_id,
                 project_id=project_id,
             )
         )
@@ -704,6 +714,7 @@ async def _activity(
     start: datetime,
     end: datetime,
     agent_id: UUID | None,
+    user_id: UUID | None,
     project_id: UUID | None,
 ) -> list[dict[str, Any]]:
     """What happened: ticket and ownership changes, closes, and decisions."""
@@ -712,34 +723,57 @@ async def _activity(
 
     if end <= start:
         return []
+    event_stmt = select(SignalEvent).where(
+        SignalEvent.tenant_id == tenant_id,
+        SignalEvent.event_type.in_(list(_ACTIVITY_EVENTS)),
+        SignalEvent.created_at >= start,
+        SignalEvent.created_at <= end,
+    )
+    if agent_id is not None:
+        from app.models.signal import Signal
+
+        owned = select(Signal.id).where(
+            Signal.tenant_id == tenant_id,
+            Signal.assignee_kind == "agent",
+            Signal.agent_id == agent_id,
+        )
+        event_stmt = event_stmt.where(
+            or_(SignalEvent.actor_id == str(agent_id), SignalEvent.signal_id.in_(owned))
+        )
+    if user_id is not None:
+        from app.models.signal import Signal
+
+        owned_by_user = select(Signal.id).where(
+            Signal.tenant_id == tenant_id,
+            Signal.assignee_kind == "user",
+            Signal.assigned_user_id == user_id,
+        )
+        event_stmt = event_stmt.where(
+            or_(SignalEvent.actor_id == str(user_id), SignalEvent.signal_id.in_(owned_by_user))
+        )
     events = list(
         (
-            await session.execute(
-                select(SignalEvent)
-                .where(
-                    SignalEvent.tenant_id == tenant_id,
-                    SignalEvent.event_type.in_(list(_ACTIVITY_EVENTS)),
-                    SignalEvent.created_at >= start,
-                    SignalEvent.created_at <= end,
-                )
-                .order_by(SignalEvent.created_at.desc())
-                .limit(MAX_ACTIVITY)
-            )
+            await session.execute(event_stmt.order_by(SignalEvent.created_at.desc()).limit(MAX_ACTIVITY))
         ).scalars()
     )
+    decision_stmt = select(DecisionRequest).where(
+        DecisionRequest.tenant_id == tenant_id,
+        or_(
+            (DecisionRequest.created_at >= start) & (DecisionRequest.created_at <= end),
+            (DecisionRequest.resolved_at >= start) & (DecisionRequest.resolved_at <= end),
+        ),
+    )
+    if user_id is not None:
+        decision_stmt = decision_stmt.where(
+            or_(
+                DecisionRequest.addressee_user_id == user_id,
+                DecisionRequest.resolved_by_user_id == user_id,
+            )
+        )
     decisions = list(
         (
             await session.execute(
-                select(DecisionRequest)
-                .where(
-                    DecisionRequest.tenant_id == tenant_id,
-                    or_(
-                        (DecisionRequest.created_at >= start) & (DecisionRequest.created_at <= end),
-                        (DecisionRequest.resolved_at >= start) & (DecisionRequest.resolved_at <= end),
-                    ),
-                )
-                .order_by(DecisionRequest.created_at.desc())
-                .limit(MAX_ACTIVITY)
+                decision_stmt.order_by(DecisionRequest.created_at.desc()).limit(MAX_ACTIVITY)
             )
         ).scalars()
     )
@@ -761,7 +795,12 @@ async def _activity(
         if signal is None or (project_id and signal.project_id != project_id):
             continue
         actor_kind, actor_id, actor_name = names.actor(event.actor_type, event.actor_id)
-        if agent_id and actor_id != str(agent_id):
+        owner = names.owner(signal)
+        if agent_id and actor_id != str(agent_id) and owner[1] != str(agent_id):
+            continue
+        if user_id and actor_id != str(user_id) and not (
+            owner[0] == "user" and owner[1] == str(user_id)
+        ):
             continue
         status = _ACTIVITY_EVENTS[event.event_type]
         detail = {
@@ -781,7 +820,7 @@ async def _activity(
             actor_name=actor_name,
             agent_id=actor_id if actor_kind == "agent" else None,
             agent_name=actor_name if actor_kind == "agent" else None,
-            owner=names.owner(signal),
+            owner=owner,
             project_id=signal.project_id,
             signal_id=str(signal.id),
             source="activity",
@@ -809,6 +848,15 @@ async def _activity(
         for status, at, actor in moments:
             if agent_id:
                 continue
+            if user_id:
+                uid = str(user_id)
+                asked_for_user = (
+                    decision.addressee_user_id is not None and str(decision.addressee_user_id) == uid
+                )
+                if status == "asked" and not asked_for_user:
+                    continue
+                if status == "answered" and actor[1] != uid and not asked_for_user:
+                    continue
             row = _row(
                 id=f"decision:{decision.id}:{status}",
                 kind="activity",

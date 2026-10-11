@@ -13,6 +13,8 @@
   "filterEmpty": "No rows match that search.",
   "showAll": "Show all ({{count}})",
   "showFewer": "Show fewer",
+  "loadOlder": "Load older",
+  "loadingOlder": "Loading older",
   "sections": {
     "ledger": "Ledger",
     "autonomy": "Autonomy"

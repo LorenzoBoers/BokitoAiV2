@@ -34,6 +34,10 @@ import { cn } from '../lib/utils'
 
 type AgentStatusFilter = 'all' | 'working' | 'deactivated'
 
+function agentStatusFromUrl(value: string | null): AgentStatusFilter {
+  return value === 'working' || value === 'deactivated' ? value : 'all'
+}
+
 function AgentQuickLinks({
   agentId,
   chatLabel,
@@ -230,9 +234,36 @@ export default function AiAgents() {
   const [error, setError] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [showNewAgent, setShowNewAgent] = useState(() => searchParams.get('new') === '1')
-  const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<AgentStatusFilter>('all')
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
+  const [statusFilter, setStatusFilter] = useState<AgentStatusFilter>(() =>
+    agentStatusFromUrl(searchParams.get('status')),
+  )
   const statusTick = useAgentLive()
+
+  useEffect(() => {
+    const fromQ = searchParams.get('q') ?? ''
+    const fromStatus = agentStatusFromUrl(searchParams.get('status'))
+    setQuery((current) => (current === fromQ ? current : fromQ))
+    setStatusFilter((current) => (current === fromStatus ? current : fromStatus))
+  }, [searchParams])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        const needle = query.trim()
+        if (needle) next.set('q', needle)
+        else next.delete('q')
+        if (statusFilter === 'all') next.delete('status')
+        else next.set('status', statusFilter)
+        const same =
+          (prev.get('q') ?? '') === (next.get('q') ?? '') &&
+          (prev.get('status') ?? '') === (next.get('status') ?? '')
+        return same ? prev : next
+      }, { replace: true })
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [query, statusFilter, setSearchParams])
   const visibleAgents = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return agents.filter((agent) => {

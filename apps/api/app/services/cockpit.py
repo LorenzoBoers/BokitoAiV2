@@ -452,18 +452,27 @@ async def activity_timeline(
     tenant_id: UUID,
     limit: int = 50,
     before: datetime | None = None,
+    q: str | None = None,
+    agent_id: UUID | None = None,
 ) -> list[dict[str, Any]]:
     """Unified newest-first activity: agent run events merged with human audit
     events, so the Cockpit shows one "who did what" timeline. `before` pages
-    further into history."""
+    further into history. `q` and `agent_id` narrow the query so search and the
+    agent chips reach history beyond the loaded page."""
     from app.models.agent import Agent, AgentRun
     from app.models.orchestration import AgentTask
 
     events: list[dict[str, Any]] = []
+    needle = (q or "").strip()
+    like = f"%{needle}%" if needle else None
 
     stmt = select(RunEvent).where(RunEvent.tenant_id == tenant_id)
     if before is not None:
         stmt = stmt.where(RunEvent.created_at < before)
+    if like:
+        stmt = stmt.where(RunEvent.message.ilike(like))
+    if agent_id is not None:
+        stmt = stmt.where(RunEvent.run_id.in_(select(AgentRun.id).where(AgentRun.agent_id == agent_id)))
     run_event_rows = list(
         (await session.execute(stmt.order_by(RunEvent.created_at.desc()).limit(limit))).scalars().all()
     )
@@ -519,6 +528,10 @@ async def activity_timeline(
     )
     if before is not None:
         audit_stmt = audit_stmt.where(AuditEvent.created_at < before)
+    if like:
+        audit_stmt = audit_stmt.where(or_(AuditEvent.summary.ilike(like), AuditEvent.action.ilike(like)))
+    if agent_id is not None:
+        audit_stmt = audit_stmt.where(AuditEvent.agent_id == agent_id)
     audit_rows = (
         await session.execute(audit_stmt.order_by(AuditEvent.created_at.desc()).limit(limit))
     ).scalars().all()

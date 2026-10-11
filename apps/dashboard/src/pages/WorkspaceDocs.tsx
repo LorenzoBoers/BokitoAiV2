@@ -33,7 +33,7 @@ import {
   createWorkspaceDoc,
   deleteWorkspaceDoc,
   getWorkspaceDoc,
-  listWorkspaceDocs,
+  listWorkspaceDocsPage,
   publishWorkspaceDoc,
   searchWorkspace,
   updateWorkspaceDoc,
@@ -121,6 +121,8 @@ export default function WorkspaceDocs() {
   }
   const [publishing, setPublishing] = useState(false)
   const [docs, setDocs] = useState<WorkspaceDocRow[]>([])
+  const [docsNext, setDocsNext] = useState<number | null>(null)
+  const [loadingMoreDocs, setLoadingMoreDocs] = useState(false)
   const [active, setActive] = useState<WorkspaceDocRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -129,6 +131,7 @@ export default function WorkspaceDocs() {
   const [saving, setSaving] = useState(false)
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<WorkspaceSearchHit[] | null>(null)
+  const [searchCapped, setSearchCapped] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -212,25 +215,51 @@ export default function WorkspaceDocs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, scopeProjectId, scopeAgentId, setSearchParams])
 
+  const docsParams = useCallback(
+    (offset?: number) => ({
+      ...(scope === 'project' && scopeProjectId
+        ? { project_id: scopeProjectId }
+        : scope === 'agent' && scopeAgentId
+          ? { agent_id: scopeAgentId }
+          : {}),
+      limit: 100,
+      ...(offset != null ? { offset } : {}),
+    }),
+    [scope, scopeProjectId, scopeAgentId],
+  )
+
   const refresh = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setDocsNext(null)
     try {
-      const rows = await listWorkspaceDocs(
-        scope === 'project' && scopeProjectId
-          ? { project_id: scopeProjectId }
-          : scope === 'agent' && scopeAgentId
-            ? { agent_id: scopeAgentId }
-            : undefined,
-      )
-      setDocs(rows)
+      const page = await listWorkspaceDocsPage(docsParams())
+      setDocs(page.docs)
+      setDocsNext(page.nextOffset)
       setRefreshedAt(new Date())
     } catch (err) {
       setError(err instanceof Error ? err.message : t('knowledgePage.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [scope, scopeProjectId, scopeAgentId, t])
+  }, [docsParams, t])
+
+  const loadMoreDocs = useCallback(async () => {
+    if (docsNext == null || loadingMoreDocs) return
+    setLoadingMoreDocs(true)
+    try {
+      const page = await listWorkspaceDocsPage(docsParams(docsNext))
+      setDocs((prev) => {
+        const seen = new Set(prev.map((doc) => doc.id))
+        return [...prev, ...page.docs.filter((doc) => !seen.has(doc.id))]
+      })
+      setDocsNext(page.nextOffset)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('knowledgePage.loadError'))
+    } finally {
+      setLoadingMoreDocs(false)
+    }
+  }, [docsNext, docsParams, loadingMoreDocs, t])
 
   useEffect(() => {
     void refresh()
@@ -309,12 +338,16 @@ export default function WorkspaceDocs() {
   const runSearch = useCallback(async () => {
     if (!query.trim()) {
       setHits(null)
+      setSearchCapped(false)
       return
     }
     try {
-      setHits(await searchWorkspace(query.trim()))
+      const found = await searchWorkspace(query.trim(), 40)
+      setHits(found)
+      setSearchCapped(found.length >= 40)
     } catch {
       setHits([])
+      setSearchCapped(false)
       toast.error(t('knowledgePage.searchError'))
     }
   }, [query, t])
@@ -635,6 +668,7 @@ export default function WorkspaceDocs() {
                   className="px-2 text-xs text-text-muted hover:text-text-secondary hover:underline"
                   onClick={() => {
                     setHits(null)
+                    setSearchCapped(false)
                     setQuery('')
                   }}
                 >
@@ -662,6 +696,9 @@ export default function WorkspaceDocs() {
                     </button>
                   ))
                 )}
+                {searchCapped ? (
+                  <p className="px-2 pt-1 text-xs text-text-muted">{t('knowledgePage.searchCapped')}</p>
+                ) : null}
               </div>
             ) : loading ? (
               <TableRowsSkeleton rows={7} className="px-1 py-2" />
@@ -703,6 +740,16 @@ export default function WorkspaceDocs() {
                   </div>
                 ))
             )}
+            {hits === null && docsNext != null ? (
+              <button
+                type="button"
+                className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs font-medium text-accent hover:underline disabled:opacity-60"
+                disabled={loadingMoreDocs}
+                onClick={() => void loadMoreDocs()}
+              >
+                {loadingMoreDocs ? t('knowledgePage.loadingMore') : t('knowledgePage.loadMore')}
+              </button>
+            ) : null}
           </div>
         </aside>
 

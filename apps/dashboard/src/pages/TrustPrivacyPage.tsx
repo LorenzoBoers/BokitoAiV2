@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
@@ -31,6 +31,7 @@ export default function TrustPrivacyPage() {
   const confirm = useConfirm()
   const isOwnerOrAdmin = currentTenantRole === 'owner' || currentTenantRole === 'admin'
   const [settings, setSettings] = useState<PrivacySettings | null>(null)
+  const savedSettings = useRef<PrivacySettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +49,7 @@ export default function TrustPrivacyPage() {
         getPrivacySettings(),
         getTenantModels(token).catch(() => null),
       ])
+      savedSettings.current = privacy
       setSettings(privacy)
       setRegion(models?.data_region ?? null)
     } catch (err) {
@@ -65,9 +67,11 @@ export default function TrustPrivacyPage() {
     setSaving(true)
     try {
       const next = await patchPrivacySettings(patch)
+      savedSettings.current = next
       setSettings(next)
       toast.success(t('trustPage.saved'))
     } catch (err) {
+      if (savedSettings.current) setSettings(savedSettings.current)
       toast.error(formatApiErrorMessage(err, t('trustPage.saveError')))
     } finally {
       setSaving(false)
@@ -191,9 +195,10 @@ export default function TrustPrivacyPage() {
                       workspace_retention_days: Number(e.target.value) || 365,
                     })
                   }
-                  onBlur={() =>
-                    void save({ workspace_retention_days: settings.workspace_retention_days })
-                  }
+                  onBlur={(e) => {
+                    const days = Number(e.currentTarget.value) || 365
+                    void save({ workspace_retention_days: days })
+                  }}
                 />
                 <p className="text-xs text-text-muted">{t('trustPage.retentionWorkspaceHint')}</p>
             </div>
