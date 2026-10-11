@@ -34,7 +34,7 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 - **Workforce** — de mensen, de agents en de teams die ze vormen, met wie nu beschikbaar is. Zie [Workforce](/docs/getting-started/team).
-- **Koppelingen** — marketplace-installaties, partnerlogins en tools. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Integraties](/docs/integrations/integrations).
+- **Koppelingen** — modules, partnerlogins, tools en AI-tools op één pagina. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Integraties](/docs/integrations/integrations).
 - **Instellingen** — gegroepeerd als Persoonlijk, Organisatie, Communicatie (**Kanalen**, **Chatwidget**, **AI-afhandeling**, **Actietags**), AI en controle (**Govern**, **Modellen**, **Data en privacy**) en Geavanceerd (**Voor ontwikkelaars**). **Support** staat onderaan en opent setupgids, producttour, documentatie, API-reference en contactopties. Zie [Actietags en tickets](/docs/ai/categories).
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).

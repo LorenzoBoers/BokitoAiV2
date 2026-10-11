@@ -2,7 +2,11 @@ import type { Integration } from '../data/integrations-data'
 import type { IntegrationProviderRow } from './integrations-api'
 import { hostSlugForProvider, resolveProviderBrand, type ResolvedIntegrationBrand } from './integration-brand'
 import { resolveIntegrationKind, type IntegrationKind } from './integration-kind'
-import { getRegistryEntryByStaticId, type ProviderRegistryEntry } from './integrations/registry'
+import {
+  SLUG_TO_STATIC_ID,
+  getRegistryEntryByStaticId,
+  type ProviderRegistryEntry,
+} from './integrations/registry'
 import { REMOTE_MCP_HOSTS, REMOTE_MCP_PROVIDERS } from './mcp-remote-providers'
 
 /** One connectable product under an application (maps to `integration_providers`). */
@@ -325,12 +329,12 @@ export function effectiveOfferKind(offer: IntegrationOffer): IntegrationKind {
 
 export function filterOfferRows(
   rows: ApplicationOfferRow[],
-  kind: IntegrationKind | 'all' | 'modules',
+  kind: IntegrationKind | 'all' | 'modules' | 'ai_tools',
   query: string,
   t: TranslateFn,
 ): ApplicationOfferRow[] {
-  // Marketplace Modules chip lists presets only — no integration cards.
-  if (kind === 'modules') return []
+  // The Modules and AI tools chips list presets / tools only — no integration cards.
+  if (kind === 'modules' || kind === 'ai_tools') return []
   let list = rows
   if (kind !== 'all') {
     list = list.filter((row) => effectiveOfferKind(row.offer) === kind)
@@ -376,7 +380,7 @@ export function findOfferInApplication(
   return app.offers.find((o) => o.integration.id === integrationId)
 }
 
-/** Legacy connect param may be static id or host slug. */
+/** Connect param may be a static id, host slug, or provider slug (`slack_mcp`). */
 export function resolveApplicationConnectTarget(
   apps: IntegrationApplication[],
   connectParam: string,
@@ -390,6 +394,23 @@ export function resolveApplicationConnectTarget(
   for (const app of apps) {
     const offer = findOfferInApplication(app, connectParam)
     if (offer) return { app, offer }
+  }
+
+  // Provider slugs from the API catalog (chat showcase cards, agent links).
+  for (const app of apps) {
+    const offer = app.offers.find(
+      (o) => o.provider?.slug === connectParam || o.registry?.platformSlug === connectParam,
+    )
+    if (offer) return { app, offer }
+  }
+  const staticId = SLUG_TO_STATIC_ID[connectParam]
+  if (staticId && staticId !== connectParam) {
+    return resolveApplicationConnectTarget(apps, staticId)
+  }
+  const hostSlug = hostSlugForProvider(connectParam)
+  if (hostSlug && hostSlug !== connectParam) {
+    const app = findApplicationByHostSlug(apps, hostSlug)
+    if (app) return { app, offer: app.offers[0] }
   }
   return null
 }

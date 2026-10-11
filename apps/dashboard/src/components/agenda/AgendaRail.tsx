@@ -7,7 +7,7 @@ import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
 import { Tip } from '../ui/Tip'
 import { formatAppDate } from '../../lib/app-locale'
-import { connectedPathWithKind } from '../../lib/integration-kind-url'
+import { connectionsPathWithKind } from '../../lib/integration-kind-url'
 import { AGENDA_LAYERS, addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
 import type { CalendarConnection } from '../../lib/calendars-api'
 import { calendarBrandSlug, syncAllCalendars, listCalendarConnections } from '../../lib/calendars-api'
@@ -201,7 +201,7 @@ export default function AgendaRail(props: Props) {
               </button>
               {connection.sync_status === 'reconnect' ? (
                 <Link
-                  to={connectedPathWithKind('calendar')}
+                  to={connectionsPathWithKind('calendar')}
                   className="ml-7 inline-flex items-center gap-1 text-2xs text-status-warning hover:underline"
                 >
                   <AlertTriangle className="h-3 w-3" aria-hidden />
@@ -294,7 +294,7 @@ export default function AgendaRail(props: Props) {
                   </Tip>
                 </p>
                 <Link
-                  to={connectedPathWithKind('calendar')}
+                  to={connectionsPathWithKind('calendar')}
                   className="mt-1 inline-block text-xs font-medium text-accent hover:underline"
                 >
                   {t('agendaPage.rail.openConnections')}

@@ -543,13 +543,15 @@ async def create_reply_suggestion(
     run_id: UUID | None = None,
     is_mock: bool = False,
     messages: list[str] | None = None,
+    activity: list[dict] | None = None,
 ) -> dict:
     """Persist an inline DecisionRequest for a drafted reply (suggest-only).
 
     Channel-agnostic: works for email, widget, chat, whatsapp, slack threads.
     Approving the `send` option executes the `send_reply` tool on the thread.
     Chat channels pass ``messages`` (the bubbles); the operator can edit or
-    drop each one before approving.
+    drop each one before approving. ``activity`` is the turn's tool/think trail
+    so it stays above the proposal after the live stream ends.
     """
     text = (reply_text or "").strip()
     if text in _SKIP_REPLIES and not messages:
@@ -658,7 +660,7 @@ async def create_reply_suggestion(
             "is_mock": is_mock,
         },
     )
-    if message is not None and (is_mock or based_on is not None):
+    if message is not None and (is_mock or based_on is not None or activity):
         try:
             meta = json.loads(message.metadata_json or "{}")
         except json.JSONDecodeError:
@@ -672,7 +674,9 @@ async def create_reply_suggestion(
             meta["llm_mode"] = "mock"
             meta["llm_configured"] = False
             message.auto_sent = False
-        message.metadata_json = json.dumps(meta)
+        if activity:
+            meta["activity"] = activity
+        message.metadata_json = json.dumps(meta, default=str)
         session.add(message)
 
     apply_suggested_actions(signal)
@@ -932,6 +936,8 @@ async def persist_inbound_agent_reply(
         chat_bubbles = plan_customer_bubbles(segments or [], fallback_text=text)
 
     if mode != "autonomous":
+        from app.services.agent.turn_persist import activity_from_segments
+
         outcome = await create_reply_suggestion(
             session,
             tenant_id,
@@ -941,6 +947,7 @@ async def persist_inbound_agent_reply(
             run_id=run_id,
             is_mock=is_mock_reply,
             messages=[b["text"] for b in chat_bubbles] or None,
+            activity=activity_from_segments(segments) or None,
         )
         if outcome.get("reason") == "meta_draft":
             return await create_human_attention_suggestion(

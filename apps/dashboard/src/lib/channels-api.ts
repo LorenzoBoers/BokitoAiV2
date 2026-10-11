@@ -57,8 +57,10 @@ export type ChannelRow = {
   /** AI handling at channel scope; ``breakerTrippedAt`` set while autonomous is paused. */
   aiHandling: AiHandling | null
   access: ChannelAccess
-  /** Team that owns new conversations; null means All people. */
+  /** Team that owns new conversations when a human must take over. */
   defaultTeamId: string | null
+  /** Person that owns new conversations when a human must take over. */
+  defaultUserId: string | null
   defaultAgentId: string | null
   createdAt: string
   /** Initial backfill window in days for sync channels; 0 = everything. */
@@ -130,6 +132,7 @@ export function normalizeChannelRow(raw: unknown): ChannelRow | null {
     aiHandling: normalizeAiHandling(value.ai_handling),
     access: normalizeAccess(value.access, value.access_is_default),
     defaultTeamId: asString(value.default_team_id) || null,
+    defaultUserId: asString(value.default_user_id) || null,
     defaultAgentId: asString(value.default_agent_id) || null,
     createdAt: asString(value.created_at),
     syncWindowDays:

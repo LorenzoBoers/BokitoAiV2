@@ -1171,8 +1171,8 @@
     "today": "Vandaag",
     "notDelivered": "Niet afgeleverd",
     "retrySend": "Opnieuw proberen",
-    "showQuoted": "Toon geciteerde tekst",
-    "hideQuoted": "Verberg geciteerde tekst",
+    "showQuoted": "Toon gesprekshistorie",
+    "hideQuoted": "Verberg gesprekshistorie",
     "showFullMessage": "Toon volledig bericht",
     "showLessMessage": "Toon minder",
     "deliveryFail": {

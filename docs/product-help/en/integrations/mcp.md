@@ -1,7 +1,7 @@
 ---
 title: Connect MCP servers
 intro: Give agents extra tools by connecting external MCP servers.
-description: Connect MCP servers from Marketplace; they appear under Custom MCP servers on Connections. Keep risky tools on Ask first in Govern.
+description: Connect MCP servers from the Tools category on Connections; custom servers appear under Custom MCP servers. Keep risky tools on Ask first in Govern.
 keywords: mcp, model context protocol, connected tools, integrations
 sort: 20
 related: integrations,agents,mcp-endpoint
@@ -16,11 +16,11 @@ MCP is how agents call external tools over a standard protocol. Those logins liv
 ![MCP servers](/api/docs/assets/mcp/servers.png)
 *Add the server URL and credentials.*
 
-1. Open **Connections** in the rail, then **Marketplace**, and filter **Tools**. Choose **Custom tool**, **Alpaca**, or another marketplace app (Notion, Linear, KING Accountancy).
+1. Open **Connections** in the rail and choose the **Tools** chip. Choose **Custom MCP**, **Alpaca**, or another catalog app (Notion, Linear, KING Accountancy); the panel opens on the right.
 2. Finish setup: for a custom server enter a **Display name**, **Server URL**, and **Authentication** (**API key** or **Bearer token**) plus **Secret / token**. For **Alpaca**, paste your Trading API **API key** and **Secret key** from the Alpaca dashboard (Paper Trading → API Keys — not an Alpaca Connect app). Use the same values as `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` in the [official Alpaca MCP server](https://github.com/alpacahq/alpaca-mcp-server); leave **Use paper trading** on until you are ready for live keys. When Bokito is listed as an Alpaca Connect app, setup can switch to **Sign in with Alpaca** without changing agent tools.
 3. **Save connection**. The row appears under **Custom MCP servers** on **Connections**. Choose **Disconnect** to remove it.
 
-Marketplace apps such as Alpaca, Notion, Linear, or KING Accountancy also land here after setup. Remote MCP apps with a public URL can be added to the platform catalog so they appear under **Marketplace** for every workspace. Open an app card to see the **Tool endpoint** and, once connected, the exact **Tools** discovered from the MCP server (refresh to re-run discovery). A misconfigured server often fails at call time, not at connect time.
+Catalog apps such as Alpaca, Notion, Linear, or KING Accountancy keep their own card after setup; only servers that are not in the catalog land under **Custom MCP servers**. Remote MCP apps with a public URL can be added to the platform catalog so they appear under **Tools** for every workspace. Open an app card to see the **Tool endpoint** and, once connected, the exact **Tools** discovered from the MCP server (refresh to re-run discovery). A misconfigured server often fails at call time, not at connect time.
 
 ## Test it once
 
@@ -34,4 +34,4 @@ External tools use the same policy as built-in tools. Keep a risky tool on **Ask
 
 ## What to do next
 
-Install a marketplace app first if you only need a common connector. See [Integrations](/docs/integrations/integrations).
+Connect a catalog app first if you only need a common connector. See [Integrations](/docs/integrations/integrations).

@@ -1989,10 +1989,13 @@
     "oauthFailedTitle": "Could not connect {{provider}}",
     "access": "Access",
     "accessHint": "Which people, agents and teams see or handle this channel.",
-    "team": "Owner team",
-    "teamHint": "This team gets the conversation when a person has to take over. All people means anyone in the company may pick it up.",
+    "team": "Owner",
+    "teamHint": "Who gets the conversation when a person has to take over: a person, a team, or All people so anyone in the company may pick it up.",
+    "ownerPeople": "People",
+    "ownerTeams": "Teams",
     "defaultBadge": "Default",
     "unknownTeam": "Unknown team",
+    "unknownPerson": "Unknown person",
     "widgetLive": "Live handoff",
     "widgetLiveHint": "Offered when someone with Handle access on the widget is available."
   },
@@ -2890,11 +2893,23 @@
     }
   },
   "integrations": {
-    "tabsAria": "Integrations sections",
-    "aiCodingTools": {
-      "title": "AI (coding) tools",
-      "body": "Connect Cursor, Claude, Codex, VS Code, Windsurf or ChatGPT so they can use this workspace under Govern. Hand a bug or feature from a conversation to a coding tool; Bokito starts the job and brings the pull request back.",
-      "cta": "Set up"
+    "aiTools": {
+      "kindInbound": "AI tool",
+      "kindOutbound": "Coding tool",
+      "inboundHint": "Uses this workspace over MCP",
+      "outboundHint": "Takes work from a conversation",
+      "setup": "Set up"
+    },
+    "connectedStrip": {
+      "title": "Connected",
+      "count_one": "{{count}} active",
+      "count_other": "{{count}} active",
+      "connections_one": "{{count}} connection",
+      "connections_other": "{{count}} connections"
+    },
+    "ask": {
+      "cta": "Ask which connection fits",
+      "prefill": "Which connection or module fits my work? Show me what you recommend and why."
     },
     "group": {
       "nav": "Integrations"
@@ -2909,7 +2924,7 @@
       "api": "API keys"
     },
     "kindNav": {
-      "label": "Integration type"
+      "label": "Category"
     },
     "kind": {
       "inbox": "Communication",
@@ -2928,13 +2943,14 @@
       "viewInConnected": "View in Connected",
       "comingSoon": "Coming soon",
       "disconnect": "Disconnect",
-      "disconnectConfirm": "Remove this connection? You can reconnect from the marketplace.",
+      "disconnectConfirm": "Remove this connection? You can reconnect from Connections.",
       "disconnected": "Connection removed",
       "disconnectFailed": "Could not disconnect"
     },
     "filters": {
-      "all": "All integrations",
+      "all": "All",
       "modules": "Modules",
+      "ai_tools": "AI tools",
       "inbox": "Communication",
       "repository": "Code",
       "calendar": "Agenda",
@@ -3245,7 +3261,8 @@
       "manageCta": "Manage {{name}}",
       "manage": "Manage",
       "openSetup": "Open {{name}}",
-      "browseMarketplace": "Browse integrations on Marketplace",
+      "kindBadge": "Module",
+      "openCatalog": "Open Connections",
       "helpLink": "How modules work",
       "notFound": "This module is not in the catalog.",
       "tabs": {
@@ -3502,17 +3519,10 @@
       }
     },
     "marketplace": {
-      "connectedCount": "{{count}} connected",
-      "searchPlaceholder": "Search integrations...",
-      "empty": "No integrations found.",
-      "emptyKind": "No integrations in this category.",
+      "searchPlaceholder": "Search modules, integrations and tools",
+      "empty": "Nothing to connect yet.",
       "emptyFiltered": "No matches for this search or filter.",
       "clearFilters": "Clear filters",
-      "openConnected": "Open connected integrations",
-      "modulesTitle": "Modules",
-      "modulesSubtitle": "Domain presets: tools, prompts, and decisions in one install.",
-      "integrationsTitle": "Integrations",
-      "integrationsSubtitle": "Sign in to a program so agents can read and act in it.",
       "catalogFallback": "Catalog API unavailable; using local list."
     },
     "categories": {
@@ -3533,12 +3543,8 @@
       "nextAgenda": "Connect Agenda",
       "nextModule": "Install a module",
       "yourList": "Connections",
-      "installedModulesTitle": "Installed modules",
-      "installedModulesHint": "Domain presets that are on for this workspace.",
-      "noInstalledModules": "No modules installed yet. Discover presets on the marketplace.",
       "mcpServersTitle": "Custom MCP servers",
       "emptyMcpDescription": "No custom MCP servers connected yet.",
-      "marketplaceHint": "Looking for something else? Add modules and connections on the marketplace.",
       "codeHint": "Only needed for code projects.",
       "mailboxProgram": "{{count}} mailboxes",
       "mailboxProgram_one": "{{count}} mailbox",
@@ -3568,12 +3574,7 @@
     "pageMeta": {
       "connected": {
         "title": "Connections",
-        "description": "Installed modules, partner logins, and tools for this workspace. Discover more on the marketplace."
-      },
-      "marketplace": {
-        "title": "Marketplace",
-        "description": "The full catalog of modules and integrations. Installed items live on Connections.",
-        "modulesHint": "Modules install a domain preset for agents. Integrations are the programs you sign in to; a module runs on top of them."
+        "description": "Modules, integrations and AI tools in one place. Connected items sit on top; open anything below to read what it does and connect it."
       },
       "connections": {
         "title": "Connected",
@@ -3635,8 +3636,8 @@
         "title": "Connected tools",
         "description": "Give your agents extra capabilities by connecting other apps.",
         "reachabilityHint": "Use an address Bokito can reach from its servers.",
-        "docsLink": "Browse Marketplace",
-        "openMarketplace": "Browse Marketplace",
+        "docsLink": "Browse tools",
+        "openMarketplace": "Browse tools",
         "openAgents": "Open Agents",
         "openGovern": "Open Govern",
         "search": "Filter connections",

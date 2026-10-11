@@ -108,6 +108,11 @@ export default {
           from: { opacity: '0', transform: 'translateX(-12px)' },
           to: { opacity: '1', transform: 'translateX(0)' },
         },
+        // Right-hand side panel (SidePanel) slides in from the edge.
+        'panel-in': {
+          from: { opacity: '0', transform: 'translateX(24px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
         'list-row-enter': {
           from: { opacity: '0', transform: 'translateX(-4px)' },
           to: { opacity: '1', transform: 'translateX(0)' },
@@ -120,6 +125,7 @@ export default {
         'page-enter': 'page-enter 340ms cubic-bezier(0.16, 1, 0.3, 1)',
         'content-enter': 'content-enter 280ms cubic-bezier(0.16, 1, 0.3, 1)',
         'slide-in-left': 'slide-in-left 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+        'panel-in': 'panel-in 240ms cubic-bezier(0.16, 1, 0.3, 1)',
         'list-row-enter': 'list-row-enter 280ms cubic-bezier(0.16, 1, 0.3, 1) both',
       },
     },

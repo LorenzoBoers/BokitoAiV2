@@ -57,11 +57,24 @@ async def _showcase_contacts(ctx: ToolContext, contact_ids: list[str]) -> list[d
 
 
 async def _find_contact(ctx: ToolContext, raw_id: str) -> Contact | None:
-    """Look a contact up by id, tolerating hyphen-less UUID text on SQLite."""
+    """Look a contact up by id (or email address), tolerating hyphen-less UUIDs."""
     try:
         contact_id = UUID(raw_id)
     except ValueError:
-        return None
+        # Models often pass the contact email when they do not have the id.
+        email = raw_id.strip().lower()
+        if "@" not in email:
+            return None
+        result = await ctx.session.execute(
+            select(Contact).where(
+                Contact.tenant_id == ctx.tenant_id,
+                Contact.channel == "email",
+                Contact.address == email,
+                Contact.merged_into_id.is_(None),
+                Contact.deleted_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()
     hyphenated = str(contact_id)
     result = await ctx.session.execute(
         select(Contact).where(
@@ -429,12 +442,18 @@ register_tool(
         name="get_contact",
         description=(
             "Read one contact: CRM profile fields plus how many threads it has. "
-            "Showcases the contact card under your reply."
+            "Pass the contact id, or their email address. Showcases the contact "
+            "card under your reply."
         ),
         category="messaging",
         input_schema={
             "type": "object",
-            "properties": {"contact_id": {"type": "string"}},
+            "properties": {
+                "contact_id": {
+                    "type": "string",
+                    "description": "Contact id or email address.",
+                }
+            },
             "required": ["contact_id"],
         },
         handler=_get_contact,

@@ -35,8 +35,8 @@ export function setupIntegrationHref(input: {
   const moduleSlug = input.module?.trim()
   const provider = input.provider?.trim()
   if (moduleSlug) return moduleSetupPath(moduleSlug, provider, provider ? 'setup' : undefined)
-  if (provider) return `/connections/marketplace?connect=${encodeURIComponent(provider)}`
-  return '/connections/marketplace'
+  if (provider) return `/connections?connect=${encodeURIComponent(provider)}`
+  return '/connections'
 }
 
 const RESERVED_MODULE_PATHS = new Set(['connected', 'marketplace', 'tools'])
@@ -57,7 +57,7 @@ export function buildIntegrationSetupReturnUrl(integrationId: string): string {
     step: 'detail',
   })
   const path = window.location.pathname
-  const base = path.startsWith('/connections/') ? path : '/connections/marketplace'
+  const base = path.startsWith('/connections/') ? path : '/connections'
   // A second OAuth login from any Modules-hub page should not reuse the first.
   if (path.startsWith('/connections/')) {
     params.set('bokito_create_new', '1')

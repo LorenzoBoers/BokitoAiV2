@@ -97,10 +97,10 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   channels: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/settings/channels', labelKey: 'pageGuides.related.widget' },
-    { to: '/connections/marketplace', labelKey: 'pageGuides.related.integrations' },
+    { to: '/connections', labelKey: 'pageGuides.related.integrations' },
   ],
   integrations: [
-    { to: '/connections/marketplace', labelKey: 'pageGuides.related.integrations' },
+    { to: '/connections', labelKey: 'pageGuides.related.integrations' },
     { to: '/settings/models', labelKey: 'pageGuides.related.models' },
     { to: '/settings/govern', labelKey: 'pageGuides.related.govern' },
   ],

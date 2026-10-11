@@ -14,9 +14,9 @@ describe('setupIntegrationHref', () => {
     )
   })
 
-  it('falls back to marketplace for a provider-only suggestion', () => {
-    expect(setupIntegrationHref({ provider: 'github' })).toBe('/connections/marketplace?connect=github')
-    expect(setupIntegrationHref({})).toBe('/connections/marketplace')
+  it('opens the Connections panel for a provider-only suggestion', () => {
+    expect(setupIntegrationHref({ provider: 'github' })).toBe('/connections?connect=github')
+    expect(setupIntegrationHref({})).toBe('/connections')
   })
 })
 

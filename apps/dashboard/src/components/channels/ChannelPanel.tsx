@@ -81,6 +81,7 @@ export default function ChannelPanel({
               <ChannelTeamPicker
                 accountId={row.id}
                 teamId={row.defaultTeamId}
+                userId={row.defaultUserId}
                 onChanged={() => actions.accessChanged(row)}
               />
             </ChannelSetting>

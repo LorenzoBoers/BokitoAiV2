@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import enNav from '../locales/en/nav.json'
 import nlNav from '../locales/nl/nav.json'
-import { AI_TOOL_PROVIDERS, matchingGrantName, WORKBENCH_PROVIDERS, aiCodingToolBrandSlugs } from './ai-tool-providers'
+import {
+  AI_TOOL_PROVIDERS,
+  aiToolCardRows,
+  filterAiToolRows,
+  matchingGrantName,
+  WORKBENCH_PROVIDERS,
+} from './ai-tool-providers'
 import { BRAND_ASSET_PATHS } from './brand-assets'
 import { MCP_TOKEN_PLACEHOLDER } from './api-token-mcp'
 
@@ -61,19 +67,20 @@ describe('ai-tool-providers', () => {
     expect(matchingGrantName(byId('generic'), grants)).toBeNull()
   })
 
-  it('lists unique brand logos for the hub banner, skipping generic', () => {
-    const slugs = aiCodingToolBrandSlugs()
-    expect(slugs).toContain('cursor')
-    expect(slugs).toContain('claude')
-    expect(slugs).toContain('openai')
-    expect(slugs).toContain('vscode')
-    expect(slugs).toContain('windsurf')
-    expect(slugs).toContain('copilot')
-    expect(slugs).not.toContain('custom')
-    expect(slugs).not.toContain('devin')
-    expect(new Set(slugs).size).toBe(slugs.length)
-    for (const slug of slugs) {
-      expect(BRAND_ASSET_PATHS[slug], slug).toBeDefined()
+  it('lists Connections cards for AI tools and phase-1 coding tools, skipping generic', () => {
+    const rows = aiToolCardRows()
+    const keys = rows.map((row) => row.key)
+    expect(keys).toContain('ai:cursor')
+    expect(keys).toContain('ai:claudeCode')
+    expect(keys).toContain('wb:devin')
+    expect(keys).not.toContain('ai:generic')
+    expect(keys).not.toContain('wb:copilot')
+    expect(new Set(keys).size).toBe(keys.length)
+    for (const row of rows) {
+      expect(row.href.startsWith('/settings/developers#')).toBe(true)
     }
+    const t = (key: string) => (key.endsWith('.name') ? key.split('.').at(-2) ?? '' : '')
+    expect(filterAiToolRows(rows, 'devin', t).map((row) => row.key)).toEqual(['wb:devin'])
+    expect(filterAiToolRows(rows, '', t)).toHaveLength(rows.length)
   })
 })

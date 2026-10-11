@@ -447,6 +447,9 @@ def resolve_channel(
         "default_team_id": (settings.get("routing") or {}).get("team_id")
         if isinstance(settings.get("routing"), dict)
         else None,
+        "default_user_id": (settings.get("routing") or {}).get("user_id")
+        if isinstance(settings.get("routing"), dict)
+        else None,
         "access": account_access(account),
         "access_is_default": is_default_access(account),
         "created_at": account.created_at.isoformat(),

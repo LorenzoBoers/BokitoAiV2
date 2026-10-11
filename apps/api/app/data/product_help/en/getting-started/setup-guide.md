@@ -50,7 +50,7 @@ New workspaces seed a daily **platform check-in** that starts **paused**. When y
 On first login, owners complete the **first-run wizard**, then the product tour. After that, Communication shows **Continue setup**. The same activation steps live under **Settings** → **Support** → **Setup guide**:
 
 1. **Finish first-run setup** — the wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**).
-2. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Channels**, not the module marketplace. See [Channels](/docs/inbox/channels).
+2. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Channels**, not from a module card on Connections. See [Channels](/docs/inbox/channels).
 3. **Talk with the assistant** — a short chat fills company knowledge. See [Knowledge](/docs/ai/knowledge).
 4. **Resolve your first decision** — the checklist card (and **Try the demo** where offered) starts a sample thread so you can approve a card.
 5. **Turn on check-in** — the daily check-in is seeded paused; turn it on when you want watching.

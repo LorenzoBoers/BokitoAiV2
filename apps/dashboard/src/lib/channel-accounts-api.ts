@@ -28,6 +28,7 @@ export type ChannelAccountRow = {
   isEnabled: boolean
   defaultAgentId: string | null
   defaultTeamId: string | null
+  defaultUserId: string | null
   access: ChannelAccess
 }
 
@@ -61,6 +62,7 @@ function normalizeAccount(row: unknown): ChannelAccountRow | null {
     isEnabled: raw.is_enabled !== false,
     defaultAgentId: typeof raw.default_agent_id === 'string' ? raw.default_agent_id : null,
     defaultTeamId: typeof raw.default_team_id === 'string' ? raw.default_team_id : null,
+    defaultUserId: typeof raw.default_user_id === 'string' ? raw.default_user_id : null,
     access: normalizeAccess(raw.access, raw.access_is_default),
   }
 }
@@ -83,7 +85,23 @@ export async function updateChannelDefaultTeam(
   accountId: string,
   defaultTeamId: string | null,
 ): Promise<void> {
-  await apiPatch(appRoutes.channelAccounts.byId(accountId), { default_team_id: defaultTeamId }, token)
+  await updateChannelDefaultOwner(token, accountId, { teamId: defaultTeamId, userId: null })
+}
+
+/** Set the channel's human owner: a person, a team, or All people (both null). */
+export async function updateChannelDefaultOwner(
+  token: string,
+  accountId: string,
+  owner: { userId: string | null; teamId: string | null },
+): Promise<void> {
+  await apiPatch(
+    appRoutes.channelAccounts.byId(accountId),
+    {
+      default_user_id: owner.userId,
+      default_team_id: owner.teamId,
+    },
+    token,
+  )
 }
 
 /** Replace who may view or handle a channel. `null` restores the default. */

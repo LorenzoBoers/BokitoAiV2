@@ -100,6 +100,54 @@ def plan_turn_messages(
     return bubbles
 
 
+def activity_from_segments(segments: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Flat activity list for a turn that lands as one card (reply suggestion).
+
+    Assisted inbound often creates only a decision_request (via
+    ``suggest_thread_reply``) with no agent speech bubble; without this the
+    live tool trail disappears when the turn ends.
+    """
+    if not segments:
+        return []
+    planned = plan_turn_messages(segments, "mail", fallback_text="")
+    if not planned:
+        return []
+    return list(planned[0].get("activity") or []) + list(planned[0].get("activity_after") or [])
+
+
+def attach_activity_to_message(message: SignalMessage, activity: list[dict[str, Any]]) -> bool:
+    """Write ``metadata.activity`` onto a saved message. Returns True when set."""
+    if not activity:
+        return False
+    try:
+        meta = json.loads(message.metadata_json or "{}")
+    except json.JSONDecodeError:
+        meta = {}
+    if not isinstance(meta, dict):
+        meta = {}
+    existing = meta.get("activity")
+    if isinstance(existing, list) and existing:
+        # Keep prior items; append only new ids so a second attach is idempotent.
+        seen = {
+            str(item.get("id"))
+            for item in existing
+            if isinstance(item, dict) and item.get("id")
+        }
+        merged = list(existing)
+        for item in activity:
+            if not isinstance(item, dict):
+                continue
+            iid = str(item.get("id") or "")
+            if iid and iid in seen:
+                continue
+            merged.append(item)
+        meta["activity"] = merged
+    else:
+        meta["activity"] = activity
+    message.metadata_json = json.dumps(meta, default=str)
+    return True
+
+
 def plan_customer_bubbles(
     segments: list[dict[str, Any]], *, fallback_text: str = ""
 ) -> list[dict[str, Any]]:

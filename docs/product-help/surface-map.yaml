@@ -453,15 +453,15 @@ integrations:
   section: integrations
   routes:
     - /connections
-    - /connections/marketplace
     - /connections/:slug
     - /ai/modules/:slug
   code_globs:
     - apps/dashboard/src/pages/ConnectionsHub.tsx
-    - apps/dashboard/src/pages/ConnectionsMarketplace.tsx
     - apps/dashboard/src/pages/ModuleSetupPage.tsx
     - apps/dashboard/src/components/integrations/**
-    - apps/dashboard/src/components/shell/IntegrationsTabs.tsx
+    - apps/dashboard/src/components/ui/side-panel.tsx
+    - apps/dashboard/src/lib/integration-kind-url.ts
+    - apps/dashboard/src/lib/ai-tool-providers.ts
     - apps/api/app/modules/**
     - apps/api/app/services/module_sources.py
     - apps/api/app/services/module_connections.py
@@ -477,8 +477,8 @@ integrations:
     - apps/dashboard/src/lib/calendars-api.ts
     - apps/api/app/services/calendar_sync.py
   screenshots:
-    - marketplace
-    - modules-hub
+    - connections
+    - connect-panel
     - module-home
     - provider-connections
     - calendar-accounts

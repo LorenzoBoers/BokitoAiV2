@@ -1,39 +1,47 @@
 ---
 title: Connect integrations
-intro: Give agents tools outside Bokito — marketplace apps and connected accounts.
-description: Use Connections and Marketplace to install modules, attach partner logins, and govern what agents may call.
-keywords: integrations, marketplace, connected, github, mcp, modules, accounting, moneybird, connections
+intro: Give agents tools outside Bokito — modules, partner logins and AI tools on one page.
+description: Use Connections to install modules, connect partner logins and AI tools, and govern what agents may call.
+keywords: integrations, connections, connected, github, slack, mcp, modules, accounting, moneybird, ai tools, cursor
 sort: 10
 related: mcp,models,channels,govern,categories
 ---
 
 # Connect integrations
 
-Integrations are partner logins. A **module** is one package of hashtags, playbooks, and an optional Project, plus the tools allowed for its listed partners. The **Connections** hub in the rail at `/connections` is the installed inventory: modules already on, partner logins, and custom MCP servers. **Marketplace** is the full catalog — every module and integration, with no connected/available status filter. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
+Integrations are partner logins. A **module** is one package of hashtags, playbooks, and an optional Project, plus the tools allowed for its listed partners. **Connections** in the rail at `/connections` is one page for all of it: what is connected on top, then one grid with every module, integration and AI tool. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
 
 ## See what is connected
 
-1. Open **Connections**. The **AI (coding) tools** banner sits above the **Connections** / **Marketplace** tabs: logos for Cursor, Claude, OpenAI, VS Code, Windsurf and Copilot, and **Set up** opens Developers. **Installed modules** uses the same cards as Marketplace: status (including **Installation incomplete** when no package is attached), partner logos, **Manage**, and **Uninstall**. Missing first steps may appear next (**Connect email or chat**, **Connect Agenda**, **Install a module**). Below that, **Connections** shows each connected integration as the same card as Marketplace — one card per product (Microsoft 365, Outlook Calendar, and Microsoft Graph are separate). Kind chips and search still apply. Mailboxes open **Channels** from the card dialog; Agenda apps open [Agenda](/docs/ai/agenda). **Custom MCP servers** stays a separate list for logins that are not in the catalog.
-2. Choose a card to see every registration to that provider in one list (see **Manage connections to one provider** below). Choose **New connection** on a card for a second login. Attach a partner to Accounting from the module page (**Use this connection**), not from a grouped program row. GitHub stays a **Code** card.
-3. Choose **Disconnect** on a custom MCP row when that login should stop (confirm **Remove this connection?**). Mailboxes are managed on Channels; calendar accounts under the **Agenda** filter (see **Connect calendar accounts** below).
+![Connections](/api/docs/assets/integrations/connections.png)
+*Connections: the Connected strip on top, then one grid with category chips and search.*
 
-## Install from the marketplace
+1. Open **Connections**. The **Connected** strip at the top lists every installed module and every connected integration as a compact tile with its logo and the number of connections. The strip only appears when something is connected, and only on **All** without a search term.
+2. Choose a module tile to open its module page; choose an integration tile to open its panel with every registration to that provider (see **Manage connections to one provider** below). Mailboxes open **Channels** from the panel; Agenda apps open [Agenda](/docs/ai/agenda).
+3. **Custom MCP servers** stays a separate list under the grid for logins that are not in the catalog. Choose **Disconnect** on a row when that login should stop (confirm **Remove this connection?**). Calendar accounts live under the **Agenda** chip (see **Connect calendar accounts** below).
+4. Not sure what to connect? Choose **Ask which connection fits** in the page header. A new conversation opens with the question ready; the agent answers with cards you can open from the thread.
 
-![Integrations marketplace](/api/docs/assets/integrations/marketplace.png)
-*Marketplace: modules on top, then every integration as a flat list.*
+## Find and connect something new
 
-1. Open **Marketplace**. You land on **Connections** for what is already installed; Marketplace lists **everything**. With **All integrations**, **Modules** sits on top and **Integrations** below as one flat list — never nested inside a module, and never grouped under a vendor. Microsoft 365, Outlook Calendar, and Microsoft Graph each have their own card. Filter by kind: **Modules** shows only modules; **Communication**, **Agenda**, **Apps**, **Tools**, or **Code** show only those integrations (no modules row). Search still applies; there is no connected/available status filter. **Connect** is the first login; if one exists, **New connection** plus the count. A module that is not installed shows only **Install**. An installed module shows **Manage** (grey) and **Uninstall** (red). **Investing**, **Documents**, and other coming-soon modules are faded. Their planned programs (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear as faded integration cards until they ship.
-2. Pick a card to open that product’s setup. **Works with modules** names the presets that can use this login, so you know what agents will do with it. Finish OAuth or the provider setup and you return on Connections. A login stays there until you attach it to a module.
-3. Communication apps add queues (email, WhatsApp). Code apps attach to a [project](/docs/ai/projects). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Custom MCP servers** or **Tools**. See [MCP](/docs/integrations/mcp).
+![Connect panel](/api/docs/assets/integrations/connect-panel.png)
+*Choosing a card opens a panel on the right: description, endpoint, capabilities and the connect button.*
 
-WhatsApp itself is configured under **Channels**, not only here. The marketplace card points you there.
+1. Under **All**, use the category chips: **Communication**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** and **AI tools**. Each chip shows its count. Search covers names and descriptions across every category. The chip lives in the URL (`/connections?kind=mcp` for Tools, `?kind=modules`, `?kind=ai_tools`), so a link always opens the category it names.
+2. Cards are one flat list — never nested inside a module, never grouped under a vendor. Microsoft 365, Outlook Calendar and Microsoft Graph each have their own card. A module card carries a **Module** label with its status; **Install** installs it, an installed module shows **Manage** and **Uninstall**. An integration card shows **Connect** for the first login, or **New connection** plus the count. Coming-soon modules and their planned programs (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) are faded until they ship.
+3. Choose an integration card. The panel opens on the right with the description, the **Tool endpoint** for remote MCP apps, **Capabilities**, **Works with modules** (the presets that can use this login), and **Set up new connection**. Finish OAuth or the provider setup and you return here with the panel open. A login stays on Connections until you attach it to a module.
+4. Agents link straight to this panel: a card in a conversation opens `/connections?connect=slack_mcp` with the Slack panel already open.
+5. Communication apps add queues (email, WhatsApp). Code apps attach to a [project](/docs/ai/projects). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Tools** or **Custom MCP servers**. See [MCP](/docs/integrations/mcp).
+
+WhatsApp itself is configured under **Channels**, not only here. The card points you there.
+
+## Connect an AI or coding tool
+
+1. Choose the **AI tools** chip. **AI tool** cards (Cursor, Claude Code, Claude Desktop, Codex CLI, VS Code, Windsurf, ChatGPT) use this workspace over MCP; **Coding tool** cards (Cursor Cloud Agents, Claude Managed Agents, Devin) take a bug or feature from a conversation and bring the pull request back.
+2. Choose **Set up** on a card. It opens the matching section on **Settings → Developers**, where the OAuth or token snippets live. See [Connect AI tools](/docs/developers/mcp-endpoint).
 
 ## Install a business module
 
-![Modules hub](/api/docs/assets/integrations/modules-hub.png)
-*Connections hub — installed modules as cards, then partner logins.*
-
-1. Open **Connections** in the rail under **Organization**. Installed module cards sit at the top with **Manage** and **Uninstall**. Use **Marketplace** (filter **Modules**, or **All integrations**) to install a new preset.
+1. Open **Connections** in the rail under **Organization**. Installed modules sit in the **Connected** strip; use the **Modules** chip to find a preset that is not installed yet.
 2. Open **Accounting** (or another live module), then choose **Install**. Status becomes **Needs setup**.
 3. Assign **at least one AI agent**. Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
 4. Review **What agents can do**: each module action shows a short description, the universal path (`accounting_list_companies`, …), and whether it is **Read** or **Needs approval**. When partners are attached, **Tools from connected MCP servers** lists the exact MCP tool names discovered from those servers.
@@ -57,10 +65,10 @@ WhatsApp itself is configured under **Channels**, not only here. The marketplace
 Open a provider card to manage every registration to it in one place.
 
 ![Provider connections](/api/docs/assets/integrations/provider-connections.png)
-*The provider dialog lists each registration with status, projects and actions.*
+*The provider panel lists each registration with status, projects and actions.*
 
 1. Open **Connections** and choose the provider card, for example **Moneybird**.
-2. The dialog lists every registration with its status, identity, administration number, projects, and the modules that use it. A **Restricted** badge means only some people or agents may use it.
+2. The panel lists every registration with its status, identity, administration number, projects, and the modules that use it. A **Restricted** badge means only some people or agents may use it.
 3. Use **Verify**, **Rename** or **Disconnect** on a row. Disconnecting clears it as a module default and drops its project links.
 4. Choose **Add another registration** to connect a second account. The same administration twice updates the existing row.
 
@@ -84,7 +92,7 @@ Set which people, agents and teams may use or manage a registration.
 3. Choose **Save**. **Back to default** gives all people and agents **Use** again. Owners and admins always manage every connection.
 4. An agent without access cannot reach the registration; the attempt appears in the audit log. Agents can propose a change with `set_connection_scope`, which always asks for approval.
 
-**Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; they and their planned packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear faded on Marketplace.
+**Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; they and their planned packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear faded on Connections.
 
 ## Connect calendar accounts
 
@@ -143,4 +151,4 @@ Modules ship one catalog package containing hashtags, pre-built playbooks, and o
 
 ## What to do next
 
-Connect one tool you already use. Add an [MCP server](/docs/integrations/mcp) from **Marketplace** when the listed apps are not enough. The server then appears under **Custom MCP servers** on Connections.
+Connect one tool you already use. Add an [MCP server](/docs/integrations/mcp) from the **Tools** chip when the listed apps are not enough. The server then appears under **Custom MCP servers** on Connections.

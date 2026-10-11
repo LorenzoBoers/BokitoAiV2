@@ -1,7 +1,7 @@
 import { integrationsRoutes } from '../api/routes'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 import { startIntegrationOAuth } from './integrations-api'
-import { connectedPathWithKind } from './integration-kind-url'
+import { connectionsPathWithKind } from './integration-kind-url'
 
 /** One calendar inside an account (Google calendarList / Graph calendars). */
 export type CalendarInfo = {
@@ -86,7 +86,7 @@ export async function saveAccountCalendars(
 /** Send the browser to Google or Microsoft. Signing in with an account that is
  * already connected refreshes it; another account becomes a new connection. */
 export async function startCalendarConnect(provider: CalendarProvider): Promise<void> {
-  const returnUrl = new URL(connectedPathWithKind('calendar'), window.location.origin).toString()
+  const returnUrl = new URL(connectionsPathWithKind('calendar'), window.location.origin).toString()
   const { authorize_url } = await startIntegrationOAuth(provider, returnUrl)
   window.location.assign(authorize_url)
 }

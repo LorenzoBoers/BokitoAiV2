@@ -238,8 +238,8 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
           >
             <Cpu size={12} className="shrink-0 text-text-muted" />
             <span className="inline-flex min-w-0 items-center gap-1 truncate-fade">
-              <ModelIcon modelId={model} provider={provider} size={16} className="shrink-0" />
               <span className="truncate">{formatAgentModelLine(model, provider, t)}</span>
+              <ModelIcon modelId={model} provider={provider} size={16} className="shrink-0" />
             </span>
           </Link>
         ) : null}

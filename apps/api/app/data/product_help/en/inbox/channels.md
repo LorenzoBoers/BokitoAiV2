@@ -106,7 +106,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 ## Set a signature and default agent
 
 1. Click a mailbox or Bokito address row. Under **Signature source**, choose **Mailbox signature** (one shared template for everyone, with placeholders such as `{{name}}`, `{{first_name}}` and `{{last_name}}` filled from the sender) or **Each person's signature** (uses **Profile**). With mailbox source, choose **Edit** next to **Signature** to set the template. In the editor, open **Preview** and use **Preview as** to check the template as yourself, another teammate, an agent, or sample data. Placeholders fill from that profile. **With profile photo** puts the sender's profile photo beside the name, or a circle with their initials when they have no photo. The greeting is written out in the template so you can edit it. If the template is empty, or the source is each person, Bokito uses the personal signature, then the Bokito default. Agent sends still use the agent signature. After send, Communication shows that same signature in the thread bubble (what the customer received).
-2. Under **General**, pick an **Owner team** and an **AI agent**. **Default** on the agent is the company default agent. The owner team gets the conversation when a person has to take over. On **Autonomous** or **Assisted** the agent owns new conversations (on Assisted only while it prepares the reply). If no agent may handle the channel, the owner team keeps it and the timeline says so.
+2. Under **General**, pick an **Owner** and an **AI agent**. **Default** on the agent is the company default agent. The owner — a person, a team, or **All people** — gets the conversation when a person has to take over. On **Autonomous** or **Assisted** the agent owns new conversations (on Assisted only while it prepares the reply). If no agent may handle the channel, the owner keeps it and the timeline says so.
 3. Choose **Access** to open the access matrix. Toggle **View** and **Handle** per team, person and agent. Handle means reply, take conversations and receive them; View is read only. Teams cover their members — a person with no own grant still follows **All people**. Owners and admins always handle every channel.
 4. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 
@@ -136,7 +136,7 @@ Contacts and single conversations can still differ from the channel. See [AI han
 
 ## Connect WhatsApp
 
-1. Choose **Add channel**, then **WhatsApp Business**. Marketplace cards for the app also send you here.
+1. Choose **Add channel**, then **WhatsApp Business**. The WhatsApp card on Connections also sends you here.
 2. WhatsApp is a guided setup: **Prepare in Meta** (app, number, Phone number ID, permanent System User token), then **Paste in Bokito** (display name, Phone number ID, optional WABA ID, access token) and **Connect number**. The Phone number ID is a long number from Meta → WhatsApp → API Setup — not your phone number.
 3. After connecting, Bokito shows **Webhook URL** and **Verify token**. Paste those in Meta under WhatsApp → Configuration, subscribe to **messages**, and send a test message. Temporary Meta tokens expire after 24 hours.
 4. Website chat is the [website widget](/docs/inbox/widget). **Add channel** then **Website chat** creates another channel with its own snippet. After you connect, these channels appear in the Communication sidebar.

@@ -63,7 +63,7 @@ export default function StaffIntegrationCatalog() {
   }, [isStaff, refresh])
 
   if (!isStaff) {
-    return <Navigate to="/connections/marketplace" replace />
+    return <Navigate to="/connections" replace />
   }
 
   const handleCreateHost = async () => {

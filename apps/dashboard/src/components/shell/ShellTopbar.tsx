@@ -32,8 +32,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   // Hide on the setup guide itself — repeating "Get started" there feels stuck.
   const setupIncomplete = Boolean(onboardingStatus && !onboardingStatus.completed) && !onSetupPage
   const tab = tabFromPath(pathname)
-  const onModuleWorkspace =
-    pathname.startsWith('/connections/') && !pathname.startsWith('/connections/marketplace')
+  const onModuleWorkspace = pathname.startsWith('/connections/')
   const pageTitle = tab
     ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
     : onModuleWorkspace

@@ -189,3 +189,33 @@ def test_attach_items_stash_and_take_roundtrip():
     taken = take_attach_items(signal_id)
     assert [i["id"] for i in taken] == ["a", "b"]
     assert take_attach_items(signal_id) == []
+
+
+@pytest.mark.asyncio
+async def test_marketplace_and_unconnected_integration_resolve_to_catalog(
+    client: AsyncClient, session_override
+):
+    from app.services.integrations_catalog import PROVIDER_BY_SLUG
+    from app.services.proposal_items import normalize_item_type
+
+    await _login(client)
+    assert normalize_item_type("koppeling") == "marketplace"
+    assert normalize_item_type("provider") == "marketplace"
+    assert "github" in PROVIDER_BY_SLUG
+    tenant = await _tenant(session_override)
+    items = await resolve_items(
+        session_override,
+        tenant.id,
+        [
+            {"type": "marketplace", "id": "github"},
+            {"type": "integration", "id": "slack"},
+            {"type": "koppeling", "id": "notion"},
+        ],
+    )
+    assert items[0]["type"] == "marketplace" and items[0]["provider"] == "github"
+    # Short names resolve to *_mcp catalog slugs when needed.
+    assert items[1]["provider"] in ("slack", "slack_mcp")
+    assert items[1]["type"] in ("integration", "marketplace")
+    assert items[2]["type"] == "marketplace" and items[2]["provider"] == "notion_mcp"
+    assert all(i.get("title") for i in items)
+    assert not any(i.get("missing") for i in items)

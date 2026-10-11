@@ -20,6 +20,7 @@ import type { ProposalItem } from '../../lib/inbox-api'
 import { openEntityPath, type EntityRef } from '../../lib/open-entity'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
+import { BrandTile } from '../integrations/BrandMark'
 import { EntityRow } from '../ui/entity-row'
 import { IconTile } from '../ui/icon-tile'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -92,6 +93,12 @@ function shortDate(iso: string | null | undefined, locale: string): string {
   return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
+function brandSlugForItem(item: ProposalItem): string | null {
+  if (item.type !== 'integration' && item.type !== 'marketplace') return null
+  const slug = (item.provider || item.slug || item.id || '').trim().toLowerCase()
+  return slug || null
+}
+
 function ItemLeading({ item }: { item: ProposalItem }) {
   if (item.type === 'user') {
     return <UserAvatar name={item.title} email={item.subtitle} avatarUrl={item.imageUrl} size={32} />
@@ -108,6 +115,10 @@ function ItemLeading({ item }: { item: ProposalItem }) {
         <img src={item.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
       </span>
     )
+  }
+  const brandSlug = brandSlugForItem(item)
+  if (brandSlug) {
+    return <BrandTile slug={brandSlug} size="sm" />
   }
   return <IconTile icon={TYPE_ICON[item.type] ?? FileText} tone={item.missing ? 'neutral' : 'accent'} />
 }
@@ -226,6 +237,37 @@ function ImageGallery({ items }: { items: ProposalItem[] }) {
   )
 }
 
+function isConnectorItem(item: ProposalItem): boolean {
+  return item.type === 'integration' || item.type === 'marketplace'
+}
+
+/** Compact logo grid when the agent showcases several connectors at once. */
+function ConnectorShowcase({
+  items,
+  onSelect,
+  selectedIds,
+}: {
+  items: ProposalItem[]
+  onSelect?: (item: ProposalItem) => void
+  selectedIds?: Set<string>
+}) {
+  return (
+    <div
+      className="mt-2 grid gap-1.5 [grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))]"
+      data-testid="proposal-connector-showcase"
+    >
+      {items.map((item) => (
+        <ProposalItemPreview
+          key={`${item.type}:${item.id}`}
+          item={item}
+          onSelect={onSelect}
+          selected={selectedIds?.has(item.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function ProposalItemList({
   items,
   onSelect,
@@ -241,6 +283,10 @@ export function ProposalItemList({
   // Pure image showcases (e.g. web_search + attach_items) get a photo grid.
   if (images.length > 0 && rest.length === 0 && !onSelect) {
     return <ImageGallery items={images} />
+  }
+  // Pure connector showcases get a logo grid (GitHub / Slack / …).
+  if (rest.length > 0 && rest.every(isConnectorItem) && images.length === 0) {
+    return <ConnectorShowcase items={rest} onSelect={onSelect} selectedIds={selectedIds} />
   }
   return (
     <div className="mt-2 space-y-1.5">

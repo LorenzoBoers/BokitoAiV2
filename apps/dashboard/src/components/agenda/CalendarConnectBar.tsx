@@ -9,7 +9,7 @@ import {
   syncAllCalendars,
   type CalendarConnection,
 } from '../../lib/calendars-api'
-import { connectedPathWithKind, marketplacePathWithKind } from '../../lib/integration-kind-url'
+import { connectionsPathWithKind } from '../../lib/integration-kind-url'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { cn } from '../../lib/utils'
 
@@ -108,7 +108,7 @@ export function CalendarConnectBar({
               </div>
             </div>
             <Link
-              to={connectedPathWithKind('calendar')}
+              to={connectionsPathWithKind('calendar')}
               className="inline-block text-xs font-medium text-accent hover:underline"
             >
               {t('agendaPage.rail.openConnections')}
@@ -137,10 +137,7 @@ export function CalendarConnectBar({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" size="sm" asChild>
-              <Link to={connectedPathWithKind('calendar')}>{t('agendaPage.rail.openConnections')}</Link>
-            </Button>
-            <Button type="button" size="sm" variant="ghost" asChild>
-              <Link to={marketplacePathWithKind('calendar')}>{t('agendaPage.calendar.openMarketplace')}</Link>
+              <Link to={connectionsPathWithKind('calendar')}>{t('agendaPage.rail.openConnections')}</Link>
             </Button>
           </div>
         </div>

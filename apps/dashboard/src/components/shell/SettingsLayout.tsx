@@ -80,11 +80,6 @@ export const SETTINGS_PALETTE_LINKS: SettingsLink[] = [
     hintKey: 'settings.hints.integrations',
   },
   {
-    labelKey: 'integrations.links.marketplace',
-    to: '/connections/marketplace',
-    hintKey: 'settings.hints.marketplace',
-  },
-  {
     labelKey: 'integrations.links.mcp',
     to: '/connections?kind=mcp',
     hintKey: 'settings.hints.connectedTools',

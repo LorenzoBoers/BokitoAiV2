@@ -78,6 +78,9 @@ def _serialize_account(row: ChannelAccount) -> dict:
         "default_team_id": settings.get("routing", {}).get("team_id")
         if isinstance(settings.get("routing"), dict)
         else None,
+        "default_user_id": settings.get("routing", {}).get("user_id")
+        if isinstance(settings.get("routing"), dict)
+        else None,
         "created_at": row.created_at.isoformat(),
     }
 
@@ -474,8 +477,10 @@ class ChannelRow(BaseModel):
     # Resolved AI handling at channel scope plus ``breaker_tripped_at``.
     ai_handling: dict[str, Any]
     default_agent_id: str | None = None
-    # Team that owns new conversations on this channel (None: All people).
+    # Team that owns new conversations on this channel (None unless a team is set).
     default_team_id: str | None = None
+    # Person that owns new conversations when a human must take over (None: team / All people).
+    default_user_id: str | None = None
     access: list[ChannelAccessEntry]
     access_is_default: bool = True
     created_at: str
@@ -502,6 +507,7 @@ class ChannelPatchBody(BaseModel):
     archive_automated_mail: bool | None = None
     default_agent_id: UUID | None = None
     default_team_id: UUID | None = None
+    default_user_id: UUID | None = None
 
 
 class ChannelSyncResponse(BaseModel):
@@ -684,16 +690,34 @@ async def patch_channel(
             if not selected:
                 raise HTTPException(status_code=400, detail="Default agent is unavailable")
         account.default_agent_id = body.default_agent_id
-    if "default_team_id" in body.model_fields_set:
+    if "default_team_id" in body.model_fields_set or "default_user_id" in body.model_fields_set:
         routing = settings.get("routing") if isinstance(settings.get("routing"), dict) else {}
-        if body.default_team_id is not None:
+        # Person and team are mutually exclusive; All people clears both.
+        if "default_user_id" in body.model_fields_set and body.default_user_id is not None:
+            from app.models.auth import Membership
+
+            member = (
+                await session.execute(
+                    select(Membership).where(
+                        Membership.tenant_id == auth.tenant.id,
+                        Membership.user_id == body.default_user_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if member is None:
+                raise HTTPException(status_code=400, detail="Person not found")
+            routing["user_id"] = str(body.default_user_id)
+            routing.pop("team_id", None)
+        elif "default_team_id" in body.model_fields_set and body.default_team_id is not None:
             from app.services.teams import get_team
 
             if await get_team(session, auth.tenant.id, body.default_team_id) is None:
                 raise HTTPException(status_code=400, detail="Team not found")
             routing["team_id"] = str(body.default_team_id)
+            routing.pop("user_id", None)
         else:
             routing.pop("team_id", None)
+            routing.pop("user_id", None)
         settings["routing"] = routing
     if body.is_primary is not None:
         settings["is_primary"] = bool(body.is_primary)

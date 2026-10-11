@@ -1104,6 +1104,11 @@ export default function ReplyComposer({
           onClick={(e) => {
             const el = e.currentTarget
             refreshMentionState(el.value, el.selectionStart ?? el.value.length)
+            // Click (not only focus) opens the mail client — focus alone is
+            // easy to miss when the field already held focus or had a draft.
+            if (!onPromoteEmailEdit || !isReply || replyBlocked || dictation.listening) return
+            if (surface.channel !== 'email') return
+            onPromoteEmailEdit(body)
           }}
           onFocus={() => {
             // Email reply editing belongs in the mail client — open it as soon

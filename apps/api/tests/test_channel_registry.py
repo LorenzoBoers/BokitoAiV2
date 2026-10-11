@@ -236,6 +236,60 @@ async def test_patch_channel_sets_backfill_window(
 
 
 @pytest.mark.asyncio
+async def test_patch_channel_sets_human_owner(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """Owner can be a person or a team; the other field clears."""
+    from app.models.auth import Membership, User
+    from app.services.auth import hash_password
+    from app.services.teams import create_team
+
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    account = _mailbox(tenant.id, address="owner@bokito.ai")
+    session_override.add(account)
+    person = User(
+        email=f"owner-{account.id.hex[:6]}@test.local",
+        password_hash=hash_password("pw-123456"),
+        display_name="Channel Owner",
+        email_verified=True,
+    )
+    session_override.add(person)
+    await session_override.flush()
+    session_override.add(Membership(tenant_id=tenant.id, user_id=person.id, role="member"))
+    team = await create_team(session_override, tenant.id, name="Support desk")
+    await session_override.commit()
+    await session_override.refresh(account)
+
+    as_person = await client.patch(
+        f"/api/channels/accounts/{account.id}",
+        headers=headers,
+        json={"default_user_id": str(person.id), "default_team_id": None},
+    )
+    assert as_person.status_code == 200, as_person.text
+    assert as_person.json()["default_user_id"] == str(person.id)
+    assert as_person.json()["default_team_id"] is None
+
+    as_team = await client.patch(
+        f"/api/channels/accounts/{account.id}",
+        headers=headers,
+        json={"default_team_id": str(team.id), "default_user_id": None},
+    )
+    assert as_team.status_code == 200, as_team.text
+    assert as_team.json()["default_team_id"] == str(team.id)
+    assert as_team.json()["default_user_id"] is None
+
+    cleared = await client.patch(
+        f"/api/channels/accounts/{account.id}",
+        headers=headers,
+        json={"default_team_id": None, "default_user_id": None},
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["default_team_id"] is None
+    assert cleared.json()["default_user_id"] is None
+
+
+@pytest.mark.asyncio
 async def test_sync_endpoint_rejects_channels_without_sync(
     client: AsyncClient, session_override: AsyncSession
 ):

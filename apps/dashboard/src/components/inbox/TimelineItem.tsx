@@ -683,27 +683,17 @@ a { color: #2563eb; }
   // Clip with the outer wrapper when content is tall; keep the iframe at the
   // full natural height so it never grows its own scrollbar.
   const heightCapped = !expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
+  const canCollapseHeight = expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
   const displayHeight = heightCapped ? EMAIL_HEIGHT_CAP_PX : naturalHeight
-  const showExpandToggle =
-    (hasQuotes && quotesCollapsed) ||
-    heightCapped ||
-    (expandedFull && (hasQuotes || naturalHeight > EMAIL_HEIGHT_CAP_PX)) ||
-    (hasQuotes && !quotesCollapsed)
 
   useEffect(() => {
     rememberEmailDisplayHeight(html, displayHeight)
     onDisplayHeightRef.current?.(displayHeight)
   }, [html, displayHeight])
 
-  const toggleFullMessage = () => {
-    if ((hasQuotes && quotesCollapsed) || heightCapped) {
-      if (hasQuotes && quotesCollapsed) applyQuoteCollapse(false)
-      setExpandedFull(true)
-      return
-    }
-    if (hasQuotes) applyQuoteCollapse(true)
-    setExpandedFull(false)
-  }
+  // Height and quoted history are separate: short replies with a trail must
+  // not look like a truncated long message.
+  const showQuoteToggle = hasQuotes
 
   return (
     <div className="space-y-1.5">
@@ -728,29 +718,38 @@ a { color: #2563eb; }
             overflow: 'hidden',
           }}
         />
-        {heightCapped && showExpandToggle ? (
+        {heightCapped ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-14 items-end bg-gradient-to-t from-bg-surface via-bg-surface/95 to-transparent pb-1.5">
             <button
               type="button"
               className="pointer-events-auto text-xs font-medium text-text-muted hover:text-text-primary"
-              onClick={toggleFullMessage}
+              onClick={() => setExpandedFull(true)}
             >
               {t('timeline.showFullMessage')}
             </button>
           </div>
         ) : null}
       </div>
-      {!heightCapped && showExpandToggle ? (
-        <div className="flex flex-wrap items-center gap-2 pb-1">
-          <button
-            type="button"
-            className="text-xs font-medium text-text-muted hover:text-text-primary"
-            onClick={toggleFullMessage}
-          >
-            {(hasQuotes && quotesCollapsed)
-              ? t('timeline.showFullMessage')
-              : t('timeline.showLessMessage')}
-          </button>
+      {canCollapseHeight || showQuoteToggle ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-1">
+          {canCollapseHeight ? (
+            <button
+              type="button"
+              className="text-xs font-medium text-text-muted hover:text-text-primary"
+              onClick={() => setExpandedFull(false)}
+            >
+              {t('timeline.showLessMessage')}
+            </button>
+          ) : null}
+          {showQuoteToggle ? (
+            <button
+              type="button"
+              className="text-xs font-medium text-text-muted hover:text-text-primary"
+              onClick={() => applyQuoteCollapse(!quotesCollapsed)}
+            >
+              {quotesCollapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -835,7 +834,7 @@ function LazyEmailHtmlFrame({
   )
 }
 
-/** Plain-text mail: fold the Outlook/Gmail quote trail behind "Show full message". */
+/** Plain-text mail: fold the Outlook/Gmail quote trail behind its own control. */
 function PlainMessageBody({ text, tags }: { text: string; tags?: ChatTagMap }) {
   const { t } = useTranslation('communication')
   const { head, quote } = useMemo(() => splitPlainEmailQuote(text), [text])
@@ -851,7 +850,7 @@ function PlainMessageBody({ text, tags }: { text: string; tags?: ChatTagMap }) {
         className="text-xs font-medium text-text-muted hover:text-text-primary"
         onClick={() => setExpanded((v) => !v)}
       >
-        {expanded ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
+        {expanded ? t('timeline.hideQuoted') : t('timeline.showQuoted')}
       </button>
     </div>
   )

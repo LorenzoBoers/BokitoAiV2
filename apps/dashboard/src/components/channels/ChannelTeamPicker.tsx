@@ -1,34 +1,49 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
-import { updateChannelDefaultTeam } from '../../lib/channel-accounts-api'
+import { useMembers } from '../../hooks/useMembers'
+import { updateChannelDefaultOwner } from '../../lib/channel-accounts-api'
 import { listTeams, type Team } from '../../lib/teams-api'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { DefaultBadge } from '../ui/DefaultBadge'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
 const PEOPLE = '__people__'
+const personValue = (id: string) => `user:${id}`
+const teamValue = (id: string) => `team:${id}`
 
-/** Team that owns new conversations on this channel. All people by default. */
+/** Who owns new conversations on this channel when a person must take over. */
 export default function ChannelTeamPicker({
   accountId,
   teamId,
+  userId,
   onChanged,
 }: {
   accountId: string
   teamId: string | null
+  userId?: string | null
   onChanged?: () => void
 }) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const isAdmin = useIsAdmin()
+  const { members } = useMembers()
   const [teams, setTeams] = useState<Team[]>([])
-  const [value, setValue] = useState(teamId)
+  const [value, setValue] = useState<{ kind: 'people' | 'user' | 'team'; id: string | null }>({
+    kind: userId ? 'user' : teamId ? 'team' : 'people',
+    id: userId || teamId || null,
+  })
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => setValue(teamId), [teamId])
+  useEffect(() => {
+    setValue({
+      kind: userId ? 'user' : teamId ? 'team' : 'people',
+      id: userId || teamId || null,
+    })
+  }, [teamId, userId])
+
   useEffect(() => {
     if (!token) return
     listTeams(token)
@@ -38,23 +53,47 @@ export default function ChannelTeamPicker({
 
   const peopleTeam = teams.find((tm) => tm.kind === 'people')
   const custom = teams.filter((tm) => !tm.system)
-  const current = !value || value === peopleTeam?.id ? PEOPLE : value
-  // Radix Select breaks when the controlled value has no SelectItem — keep orphans listed.
-  const knownIds = new Set(custom.map((team) => team.id))
-  const orphanTeam =
-    current !== PEOPLE && !knownIds.has(current)
-      ? teams.find((team) => team.id === current) ?? null
+  const current =
+    value.kind === 'user' && value.id
+      ? personValue(value.id)
+      : value.kind === 'team' && value.id && value.id !== peopleTeam?.id
+        ? teamValue(value.id)
+        : PEOPLE
+
+  const knownPeople = useMemo(() => new Set(members.map((m) => m.uuid)), [members])
+  const knownTeams = useMemo(() => new Set(custom.map((team) => team.id)), [custom])
+  const orphanPerson =
+    value.kind === 'user' && value.id && !knownPeople.has(value.id)
+      ? { id: value.id, name: t('channelsPage.unknownPerson') }
       : null
-  const orphanId = current !== PEOPLE && !knownIds.has(current) && !orphanTeam ? current : null
+  const orphanTeam =
+    value.kind === 'team' && value.id && !knownTeams.has(value.id)
+      ? teams.find((team) => team.id === value.id) ?? {
+          id: value.id,
+          name: t('channelsPage.unknownTeam'),
+        }
+      : null
 
   const change = async (next: string) => {
     if (!token || busy) return
     const previous = value
-    const id = next === PEOPLE ? null : next
-    setValue(id)
+    let owner: { kind: 'people' | 'user' | 'team'; id: string | null }
+    if (next === PEOPLE) {
+      owner = { kind: 'people', id: null }
+    } else if (next.startsWith('user:')) {
+      owner = { kind: 'user', id: next.slice(5) }
+    } else if (next.startsWith('team:')) {
+      owner = { kind: 'team', id: next.slice(5) }
+    } else {
+      return
+    }
+    setValue(owner)
     setBusy(true)
     try {
-      await updateChannelDefaultTeam(token, accountId, id)
+      await updateChannelDefaultOwner(token, accountId, {
+        userId: owner.kind === 'user' ? owner.id : null,
+        teamId: owner.kind === 'team' ? owner.id : null,
+      })
       onChanged?.()
     } catch (err) {
       setValue(previous)
@@ -81,21 +120,48 @@ export default function ChannelTeamPicker({
               team: peopleTeam ?? { name: t('teamPage.system.people') },
               trailing: <DefaultBadge>{t('channelsPage.defaultBadge')}</DefaultBadge>,
             },
-            ...(orphanTeam
-              ? [{ value: orphanTeam.id, label: orphanTeam.name, kind: 'team' as const, team: orphanTeam }]
-              : []),
-            ...(orphanId
+          ],
+        },
+        {
+          label: t('channelsPage.ownerPeople'),
+          items: [
+            ...(orphanPerson
               ? [
                   {
-                    value: orphanId,
-                    label: t('channelsPage.unknownTeam'),
+                    value: personValue(orphanPerson.id),
+                    label: orphanPerson.name,
+                    kind: 'person' as const,
+                    person: { name: orphanPerson.name },
+                  },
+                ]
+              : []),
+            ...members.map((member) => ({
+              value: personValue(member.uuid),
+              label: member.name || member.email,
+              kind: 'person' as const,
+              person: {
+                name: member.name || member.email,
+                email: member.email,
+                avatarUrl: member.avatarUrl,
+              },
+            })),
+          ],
+        },
+        {
+          label: t('channelsPage.ownerTeams'),
+          items: [
+            ...(orphanTeam
+              ? [
+                  {
+                    value: teamValue(orphanTeam.id),
+                    label: orphanTeam.name || t('channelsPage.unknownTeam'),
                     kind: 'team' as const,
-                    team: { name: t('channelsPage.unknownTeam') },
+                    team: orphanTeam,
                   },
                 ]
               : []),
             ...custom.map((team) => ({
-              value: team.id,
+              value: teamValue(team.id),
               label: team.name,
               kind: 'team' as const,
               team,

@@ -171,8 +171,7 @@ export function tabFromPath(pathname: string): Tab | null {
   )
     return 'knowledge'
   // Hub routes highlight Connections; installed module workspaces use their own rail item.
-  if (pathname === '/connections' || pathname.startsWith('/connections/marketplace'))
-    return 'modules'
+  if (pathname === '/connections') return 'modules'
   if (pathname.startsWith('/connections/')) return null
   // Installed module workspaces live under the Modules group, not Settings.
   if (pathname.startsWith('/ai/modules')) return null

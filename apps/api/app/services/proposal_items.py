@@ -48,6 +48,9 @@ _TYPE_ALIASES = {
     "workstream": "flow",
     "hashtag": "tag",
     "connection": "integration",
+    "provider": "marketplace",
+    "connector": "marketplace",
+    "koppeling": "marketplace",
     "docs": "help_doc",
     "article": "help_doc",
     "doc": "help_doc",
@@ -298,29 +301,55 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
 
     if item_type == "integration":
         from app.models.integration import IntegrationConnection
+        from app.services.integrations_catalog import PROVIDER_BY_SLUG, canonical_provider_slug
 
         query = select(IntegrationConnection).where(IntegrationConnection.tenant_id == tenant_id)
+        provider = ""
         if row_id:
             query = query.where(IntegrationConnection.id == row_id)
         else:
-            provider = str(ref.get("provider") or raw_id or "").strip().lower()
-            if not provider:
+            raw_provider = (
+                str(ref.get("provider") or raw_id or "").strip().lower().replace("-", "_").replace(" ", "_")
+            )
+            provider = canonical_provider_slug(raw_provider)
+            if not provider and not raw_provider:
                 return _missing(item_type, ref)
+            # Match either the short name or the catalog slug (e.g. slack / slack_mcp).
+            candidates = {p for p in (raw_provider, provider) if p}
             query = query.where(
-                func.lower(IntegrationConnection.provider) == provider,
+                func.lower(IntegrationConnection.provider).in_(candidates),
                 IntegrationConnection.status == "active",
             )
         row = (await session.execute(query.limit(1))).scalar_one_or_none()
-        if not row:
-            return _missing(item_type, ref)
-        return {
-            "type": item_type,
-            "id": str(row.id),
-            "title": _clip(row.display_name or row.provider),
-            "subtitle": _clip(f"{row.provider} · {row.status}"),
-            "kind": row.kind,
-            "provider": row.provider,
-        }
+        if row:
+            slug = canonical_provider_slug(row.provider) or row.provider
+            return {
+                "type": item_type,
+                "id": str(row.id),
+                "title": _clip(row.display_name or row.provider),
+                "subtitle": _clip(f"{slug} · {row.status}"),
+                "kind": row.kind,
+                "provider": slug,
+            }
+        # Not connected yet — fall back to a catalog showcase card with logo.
+        slug = provider or canonical_provider_slug(str(ref.get("provider") or raw_id or ""))
+        catalog = PROVIDER_BY_SLUG.get(slug) if slug else None
+        if isinstance(catalog, dict):
+            return {
+                "type": "marketplace",
+                "id": slug,
+                "title": _clip(catalog.get("name") or catalog.get("title") or slug),
+                "subtitle": _clip(
+                    catalog.get("summary") or catalog.get("description") or "Not connected"
+                ),
+                "kind": "marketplace",
+                "provider": slug,
+            }
+        missing = _missing(item_type, {**ref, "id": slug or str(raw_id or "")})
+        if slug:
+            missing["provider"] = slug
+            missing["title"] = missing["title"] or _clip(slug.replace("_", " ").title())
+        return missing
 
     if item_type == "marketplace":
         from app.services.integrations_catalog import PROVIDER_BY_SLUG, canonical_provider_slug
@@ -328,7 +357,11 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         slug = canonical_provider_slug(str(ref.get("slug") or ref.get("provider") or raw_id or ""))
         row = PROVIDER_BY_SLUG.get(slug) if slug else None
         if not isinstance(row, dict):
-            return _missing(item_type, {**ref, "id": slug or str(raw_id or "")})
+            missing = _missing(item_type, {**ref, "id": slug or str(raw_id or "")})
+            if slug:
+                missing["provider"] = slug
+                missing["title"] = missing["title"] or _clip(slug.replace("_", " ").title())
+            return missing
         return {
             "type": item_type,
             "id": slug,

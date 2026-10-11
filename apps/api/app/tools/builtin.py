@@ -34,8 +34,9 @@ PROPOSAL_ITEMS_SCHEMA = {
         "image | user | agent | tag | flow | project | contact | integration | "
         "marketplace | module | help_doc | message. Pass id (tag: name; file: "
         "message_id + name/index; image: https url in url or id; "
-        "marketplace/module/help_doc: slug or path). "
-        "Example: items:[{type:\"project\", id:\"<project_id>\"}] or "
+        "marketplace/module/help_doc: slug or path; marketplace id is the "
+        "catalog slug e.g. github). "
+        "Example: items:[{type:\"marketplace\", id:\"slack\"}] or "
         "[{type:\"image\", url:\"https://…\", title:\"…\"}]."
     ),
     "items": {
@@ -872,13 +873,9 @@ async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     from app.services.signals import get_triage_context, message_plain_text
     from app.models.signal import SignalMessage
 
-    signal_id = ctx.signal_id
-    raw_signal = tool_input.get("signal_id")
-    if raw_signal:
-        try:
-            signal_id = UUID(str(raw_signal))
-        except ValueError:
-            return {"error": "signal_id must be an id"}
+    # Same rule as other messaging tools: an invalid/non-UUID signal_id
+    # (models often pass the contact email) falls back to this turn's thread.
+    signal_id = _target_signal_id(ctx, tool_input)
     if not signal_id:
         return {"error": "signal_id required"}
 
@@ -2384,7 +2381,10 @@ register_tool(
         input_schema={
             "type": "object",
             "properties": {
-                "signal_id": {"type": "string"},
+                "signal_id": {
+                    "type": "string",
+                    "description": "Thread id. Omit to use the conversation you are on.",
+                },
                 "summary": {"type": "string"},
                 "certainty": {"type": "integer"},
                 "priority": {"type": "string", "enum": ["normal", "high", "urgent"]},
@@ -2856,12 +2856,16 @@ register_tool(
     ToolSpec(
         name="attach_items",
         description=(
-            "Show platform objects as showcase cards inside your last chat message "
-            "without asking for approval. Pass items [{type, id}]. Types: conversation, "
-            "trash_entry, trigger, file, image, user, agent, tag, flow, project, contact, "
-            "integration, marketplace, module, help_doc, message. For remote images pass "
-            "type image with url (https). For tags in prose use #name instead. "
-            "Use propose_action when you need the operator to choose."
+            "Preferred way to present platform objects in chat: showcase cards under "
+            "your last message (with logos for connectors). Call this whenever you "
+            "recommend, list, or point at objects — do not use a bullet list instead. "
+            "Pass items [{type, id}]. Types: conversation, trash_entry, trigger, file, "
+            "image, user, agent, tag, flow, project, contact, integration, marketplace, "
+            "module, help_doc, message. Connectors: type marketplace + catalog slug "
+            "(github, slack, notion, google_calendar, whatsapp, …). Type integration "
+            "only for a connected connection id (falls back to marketplace when not "
+            "connected). Remote images: type image with url (https). Tags in prose: "
+            "#name. Use propose_action when the operator must choose or approve."
         ),
         category="messaging",
         input_schema={

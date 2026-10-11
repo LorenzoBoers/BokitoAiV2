@@ -305,7 +305,7 @@ export default function InboxSettings() {
           { to: inboxPath('open'), label: t('channelsPage.crossLinks.communication') },
           { to: '/settings/communication', label: t('channelsPage.crossLinks.inboxAi') },
           { to: WEBSITE_WIDGET_PATH, label: t('channelsPage.crossLinks.widget') },
-          { to: '/connections/marketplace?kind=inbox', label: t('channelsPage.crossLinks.integrations') },
+          { to: '/connections?kind=inbox', label: t('channelsPage.crossLinks.integrations') },
         ]}
       />
     </PageContent>

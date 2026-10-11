@@ -66,7 +66,26 @@ def _people_team_id(connection: Any, tenant_id: UUID) -> UUID:
     return team_id
 
 
-def _channel_team_id(connection: Any, signal: Signal) -> UUID | None:
+def routing_human_owner(settings: dict[str, Any] | None) -> tuple[str, UUID] | None:
+    """Person or team set as the channel's human owner in ``settings.routing``.
+
+    ``user_id`` wins when both are present. Empty / invalid values mean All people.
+    """
+    routing = settings.get("routing") if isinstance(settings, dict) else None
+    if not isinstance(routing, dict):
+        return None
+    for kind, key in (("user", "user_id"), ("team", "team_id")):
+        raw = routing.get(key)
+        if not raw:
+            continue
+        try:
+            return kind, UUID(str(raw))
+        except (ValueError, AttributeError, TypeError):
+            continue
+    return None
+
+
+def _channel_human_owner(connection: Any, signal: Signal) -> tuple[str, UUID] | None:
     if not signal.channel_account_id:
         return None
     from app.models.channel import ChannelAccount
@@ -77,11 +96,14 @@ def _channel_team_id(connection: Any, signal: Signal) -> UUID | None:
     if not row:
         return None
     try:
-        settings = json.loads(row[0] or "{}")
-        raw = (settings.get("routing") or {}).get("team_id")
-        return UUID(str(raw)) if raw else None
-    except (ValueError, AttributeError, TypeError):
+        return routing_human_owner(json.loads(row[0] or "{}"))
+    except (ValueError, AttributeError, TypeError, json.JSONDecodeError):
         return None
+
+
+def _channel_team_id(connection: Any, signal: Signal) -> UUID | None:
+    owner = _channel_human_owner(connection, signal)
+    return owner[1] if owner and owner[0] == "team" else None
 
 
 def default_team_id(connection: Any, signal: Signal) -> UUID:
@@ -121,9 +143,18 @@ def _normalize_owner(connection: Any, target: Signal, *, is_insert: bool) -> Non
             else:
                 kind = "agent"
         else:
-            kind = "team"
-            if target.assignee_team_id is None:
-                target.assignee_team_id = default_team_id(connection, target)
+            channel_owner = _channel_human_owner(connection, target)
+            if channel_owner and channel_owner[0] == "user":
+                kind = "user"
+                target.assigned_user_id = channel_owner[1]
+            else:
+                kind = "team"
+                if target.assignee_team_id is None:
+                    target.assignee_team_id = (
+                        channel_owner[1]
+                        if channel_owner and channel_owner[0] == "team"
+                        else _people_team_id(connection, target.tenant_id)
+                    )
     if kind != "user" and target.assigned_user_id is not None:
         target.assigned_user_id = None
     if kind != "team" and target.assignee_team_id is not None:
@@ -445,13 +476,38 @@ async def contact_owner(
     return None
 
 
+async def channel_human_owner(
+    session: AsyncSession, signal: Signal
+) -> tuple[str, UUID] | None:
+    """Person or team set as the channel's human owner, when still valid."""
+    if not signal.channel_account_id:
+        return None
+    from app.models.channel import ChannelAccount
+
+    account = await session.get(ChannelAccount, signal.channel_account_id)
+    if account is None:
+        return None
+    try:
+        owner = routing_human_owner(json.loads(account.settings_json or "{}"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return None
+    if owner is None:
+        return None
+    kind, owner_id = owner
+    if kind == "user" and await _active_member(session, signal.tenant_id, owner_id):
+        return "user", owner_id
+    if kind == "team" and await _team_exists(session, signal.tenant_id, owner_id):
+        return "team", owner_id
+    return None
+
+
 async def human_fallback_owner(
     session: AsyncSession, signal: Signal, *, contact: Any = None
 ) -> tuple[str, UUID]:
     """Where a conversation lands when it leaves the agent.
 
     Chain: last human owner (still a member / existing team) -> contact owner
-    -> channel owner team -> All people. Never returns an agent.
+    -> channel owner (person or team) -> All people. Never returns an agent.
     """
     tenant_id = signal.tenant_id
     kind = signal.last_human_owner_kind or ""
@@ -466,6 +522,9 @@ async def human_fallback_owner(
     owner = await contact_owner(session, tenant_id, contact)
     if owner is not None:
         return owner
+    channel_owner = await channel_human_owner(session, signal)
+    if channel_owner is not None:
+        return channel_owner
     team_id = await resolve_assignee(session, tenant_id, signal, "team", None)
     return "team", team_id
 
@@ -653,23 +712,12 @@ async def resolve_assignee(
         raise ValueError("Invalid owner kind")
     if raw_id in (None, ""):
         if kind == "team":
-            account = (
-                await session.get(ChannelAccount, signal.channel_account_id)
-                if signal.channel_account_id
-                else None
-            )
-            team_id = None
-            if account is not None:
-                try:
-                    raw = (json.loads(account.settings_json or "{}").get("routing") or {}).get("team_id")
-                    team_id = UUID(str(raw)) if raw else None
-                except (ValueError, AttributeError, TypeError):
-                    team_id = None
-            if team_id is None:
-                from app.services.teams import people_team
+            channel_owner = await channel_human_owner(session, signal)
+            if channel_owner and channel_owner[0] == "team":
+                return channel_owner[1]
+            from app.services.teams import people_team
 
-                team_id = (await people_team(session, tenant_id)).id
-            return team_id
+            return (await people_team(session, tenant_id)).id
         raise ValueError("Missing owner id")
     account = (
         await session.get(ChannelAccount, signal.channel_account_id)

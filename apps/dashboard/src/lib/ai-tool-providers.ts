@@ -15,8 +15,6 @@ import {
   buildWindsurfMcpConfig,
   MCP_TOKEN_PLACEHOLDER,
 } from './api-token-mcp'
-import { BRAND_ASSET_PATHS } from './brand-assets'
-
 export type AiToolAuthMode = 'oauth' | 'token'
 
 export type AiToolSnippet = {
@@ -198,17 +196,55 @@ export const WORKBENCH_PROVIDERS: WorkbenchProvider[] = [
   { id: 'claudeCodeCi', brand: 'claude', phase: 2 },
 ]
 
-const HUB_BANNER_SKIP_BRANDS = new Set(['custom'])
+export type AiToolCardRow = {
+  key: string
+  brand: string
+  /** Locale key prefix, e.g. `developersPage.aiTools.providers.cursor`. */
+  copyKey: string
+  /** `inbound`: the tool uses this workspace over MCP. `outbound`: Bokito hands work to it. */
+  direction: 'inbound' | 'outbound'
+  /** Where setup happens (Settings → Developers section). */
+  href: string
+}
 
-/** Unique brand slugs for the Connections hub AI (coding) tools banner. */
-export function aiCodingToolBrandSlugs(): string[] {
-  const seen = new Set<string>()
-  const slugs: string[] = []
-  for (const row of [...AI_TOOL_PROVIDERS, ...WORKBENCH_PROVIDERS]) {
-    if (HUB_BANNER_SKIP_BRANDS.has(row.brand) || seen.has(row.brand)) continue
-    if (!BRAND_ASSET_PATHS[row.brand]) continue
-    seen.add(row.brand)
-    slugs.push(row.brand)
+/**
+ * AI and coding tools shown as cards on the Connections page. The generic
+ * MCP client row is a developer fallback and stays on the Developers page;
+ * workbench tools appear once they are connectable (phase 1).
+ */
+export function aiToolCardRows(): AiToolCardRow[] {
+  const rows: AiToolCardRow[] = []
+  for (const provider of AI_TOOL_PROVIDERS) {
+    if (provider.id === 'generic') continue
+    rows.push({
+      key: `ai:${provider.id}`,
+      brand: provider.brand,
+      copyKey: `developersPage.aiTools.providers.${provider.id}`,
+      direction: 'inbound',
+      href: '/settings/developers#connect-ai-tools',
+    })
   }
-  return slugs
+  for (const provider of WORKBENCH_PROVIDERS) {
+    if (provider.phase !== 1) continue
+    rows.push({
+      key: `wb:${provider.id}`,
+      brand: provider.brand,
+      copyKey: `developersPage.workbench.providers.${provider.id}`,
+      direction: 'outbound',
+      href: '/settings/developers#workbench',
+    })
+  }
+  return rows
+}
+
+export function filterAiToolRows(
+  rows: AiToolCardRow[],
+  query: string,
+  t: (key: string) => string,
+): AiToolCardRow[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return rows
+  return rows.filter((row) =>
+    `${t(`${row.copyKey}.name`)} ${t(`${row.copyKey}.description`)}`.toLowerCase().includes(q),
+  )
 }

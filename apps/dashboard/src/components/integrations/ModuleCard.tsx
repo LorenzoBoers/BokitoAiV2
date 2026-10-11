@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
 import { ModuleStatusBadge } from './ModuleStatusBadge'
+import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { IconTile } from '../ui/icon-tile'
 import {
@@ -103,10 +104,13 @@ export function MarketplaceModuleCard({
   module,
   applications,
   onAction,
+  showKindBadge = false,
 }: {
   module: IntegrationModuleRow
   applications: IntegrationApplication[]
   onAction: (slug: string, action: 'install' | 'complete_setup' | 'uninstall') => Promise<unknown>
+  /** In a mixed grid next to integrations: label the card as a module. */
+  showKindBadge?: boolean
 }) {
   const { t } = useTranslation('nav')
   const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
@@ -129,6 +133,11 @@ export function MarketplaceModuleCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
+            {showKindBadge ? (
+              <Badge variant="neutral" className="text-2xs font-medium">
+                {t('integrations.modules.kindBadge', { defaultValue: 'Module' })}
+              </Badge>
+            ) : null}
             <ModuleStatusBadge module={module} />
           </div>
           <p className="mt-1 line-clamp-2 text-sm leading-snug text-text-secondary">

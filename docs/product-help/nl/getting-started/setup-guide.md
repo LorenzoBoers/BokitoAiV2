@@ -50,7 +50,7 @@ Nieuwe workspaces krijgen een dagelijkse **platform-check-in** die **gepauzeerd*
 Bij de eerste login ronden owners de **eerste-setupwizard** af, daarna de producttour. Daarna toont Communicatie **Ga verder met setup**. Dezelfde activatiestappen staan onder **Instellingen** → **Support** → **Setupgids**:
 
 1. **Rond de eerste setup af** — de wizard (**Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal**).
-2. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **Kanalen**, niet via de module-marketplace. Zie [Kanalen](/docs/inbox/channels).
+2. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **Kanalen**, niet via een modulekaart op Koppelingen. Zie [Kanalen](/docs/inbox/channels).
 3. **Praat met de assistent** — een kort gesprek vult de bedrijfskennis. Zie [Kennis](/docs/ai/knowledge).
 4. **Los je eerste beslissing op** — de checklistkaart (en **Probeer de demo** waar die staat) start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
 5. **Zet check-in aan** — de dagelijkse check-in start gepauzeerd; zet hem aan wanneer je wilt dat de assistent waakt.

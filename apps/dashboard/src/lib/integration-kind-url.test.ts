@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  coerceHubKindFilter,
-  connectedPathWithKind,
+  connectionsPathWithKind,
   legacyModulesPath,
-  marketplacePathWithKind,
   parseKindFilter,
 } from './integration-kind-url'
 
@@ -12,34 +10,29 @@ describe('parseKindFilter', () => {
     expect(parseKindFilter('mcp')).toBe('mcp')
     expect(parseKindFilter('app')).toBe('app')
     expect(parseKindFilter('modules')).toBe('modules')
+    expect(parseKindFilter('ai_tools')).toBe('ai_tools')
     expect(parseKindFilter('nope')).toBe('all')
+    expect(parseKindFilter(null)).toBe('all')
   })
 })
 
-describe('coerceHubKindFilter', () => {
-  it('maps marketplace Modules chip away on the Connections hub', () => {
-    expect(coerceHubKindFilter('modules')).toBe('all')
-    expect(coerceHubKindFilter('calendar')).toBe('calendar')
-  })
-})
-
-describe('hub paths', () => {
-  it('builds hub paths under /connections', () => {
-    expect(connectedPathWithKind('all')).toBe('/connections')
-    expect(connectedPathWithKind('mcp')).toBe('/connections?kind=mcp')
-    expect(marketplacePathWithKind('all')).toBe('/connections/marketplace')
-    expect(marketplacePathWithKind('app')).toBe('/connections/marketplace?kind=app')
+describe('connectionsPathWithKind', () => {
+  it('builds paths under /connections with the kind in the URL only', () => {
+    expect(connectionsPathWithKind('all')).toBe('/connections')
+    expect(connectionsPathWithKind('mcp')).toBe('/connections?kind=mcp')
+    expect(connectionsPathWithKind('modules')).toBe('/connections?kind=modules')
   })
 })
 
 describe('legacyModulesPath', () => {
-  it('lands every legacy hub path on its /connections twin', () => {
+  it('lands every legacy hub path on /connections', () => {
     expect(legacyModulesPath('/modules')).toBe('/connections')
     expect(legacyModulesPath('/modules/connected')).toBe('/connections')
     expect(legacyModulesPath('/modules/tools')).toBe('/connections')
-    expect(legacyModulesPath('/modules/marketplace')).toBe('/connections/marketplace')
+    expect(legacyModulesPath('/modules/marketplace')).toBe('/connections')
     expect(legacyModulesPath('/connections/connected')).toBe('/connections')
     expect(legacyModulesPath('/connections/tools')).toBe('/connections')
+    expect(legacyModulesPath('/connections/marketplace')).toBe('/connections')
   })
 
   it('handles the older Settings-nested paths too', () => {
@@ -47,4 +40,3 @@ describe('legacyModulesPath', () => {
     expect(legacyModulesPath('/settings/modules/accounting')).toBe('/connections/accounting')
   })
 })
-

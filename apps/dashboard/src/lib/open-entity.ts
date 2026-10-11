@@ -79,10 +79,11 @@ export function openEntityPath(ref: EntityRef): string | null {
       return '/settings/bin'
     case 'user':
       return '/team'
+    // `connect` opens the integration dialog on both hub pages.
     case 'integration':
-      return ref.provider ? `/connections?provider=${enc(ref.provider)}` : '/connections'
+      return ref.provider ? `/connections?connect=${enc(ref.provider)}` : '/connections'
     case 'marketplace':
-      return `/connections?marketplace=${enc(ref.slug)}`
+      return `/connections?connect=${enc(ref.slug)}`
     case 'module':
       return `/connections/${enc(ref.slug)}`
     case 'help_doc': {

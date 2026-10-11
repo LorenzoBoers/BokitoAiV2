@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import {
-  ApplicationHubDialog,
+  ApplicationHubPanel,
   type ApplicationHubStep,
   type HubBanner,
-} from '../components/integrations/ApplicationHubDialog'
+} from '../components/integrations/ApplicationHubPanel'
 import { ModuleConnectionsPanel } from '../components/integrations/ModuleConnectionsPanel'
 import { ModuleSourcesPanel } from '../components/integrations/ModuleSourcesPanel'
 import { ModuleTemplatesPanel } from '../components/integrations/ModuleTemplatesPanel'
@@ -34,7 +34,7 @@ import {
   stripOAuthCallbackParams,
   type IntegrationHubStep,
 } from '../lib/integration-setup-url'
-import { connectedPathWithKind } from '../lib/integration-kind-url'
+import { connectionsPathWithKind } from '../lib/integration-kind-url'
 import { resolveIntegrationKind } from '../lib/integration-kind'
 import { parseIntegrationCallback } from '../lib/integrations-oauth'
 import { describeOAuthCallbackSummary, parseOAuthCallback } from '../lib/email-oauth'
@@ -252,7 +252,7 @@ export default function ModuleSetupPage() {
 
   const handleViewConnected = (offer: IntegrationOffer) => {
     const kind = offer.kind ?? resolveIntegrationKind(offer.integration.id)
-    navigate(connectedPathWithKind(kind))
+    navigate(connectionsPathWithKind(kind))
   }
 
   const openAddRegistration = () => {
@@ -371,11 +371,8 @@ export default function ModuleSetupPage() {
             })}
             action={
               <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">
-                <Link to="/connections" className="font-medium text-accent hover:underline">
-                  {t('integrations.modules.openCatalog', { defaultValue: 'Open Modules' })}
-                </Link>
-                <Link to="/connections/marketplace" className="font-medium text-accent hover:underline">
-                  {t('integrations.modules.openMarketplace', { defaultValue: 'Open Marketplace' })}
+                <Link to="/connections?kind=modules" className="font-medium text-accent hover:underline">
+                  {t('integrations.modules.openCatalog', { defaultValue: 'Open Connections' })}
                 </Link>
               </div>
             }
@@ -506,7 +503,7 @@ export default function ModuleSetupPage() {
         onSelect={openPackageItem}
       />
 
-      <ApplicationHubDialog
+      <ApplicationHubPanel
         key={
           hubApplication
             ? `${hubApplication.hostSlug}-${hubOffer?.integration.id ?? 'app'}-${hubStep}`

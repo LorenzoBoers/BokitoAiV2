@@ -510,9 +510,17 @@ def slug_for_provider_id(pid: str) -> str | None:
 
 def canonical_provider_slug(raw: str | None) -> str:
     """Map a stored provider column (slug or catalog UUID) to the catalog slug."""
-    value = (raw or "").strip()
+    value = (raw or "").strip().lower().replace("-", "_").replace(" ", "_")
     if not value:
         return ""
     if value in PROVIDER_BY_SLUG:
         return value
-    return slug_for_provider_id(value) or value
+    by_id = slug_for_provider_id(value)
+    if by_id:
+        return by_id
+    # Agents often pass short host names (slack, notion); remote MCP rows use *_mcp.
+    if not value.endswith("_mcp"):
+        mcp = f"{value}_mcp"
+        if mcp in PROVIDER_BY_SLUG:
+            return mcp
+    return value

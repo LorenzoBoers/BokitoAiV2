@@ -34,7 +34,7 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 At the bottom of the rail, **Organization** groups the workspace itself:
 
 - **Workforce** — the people, the agents and the teams they form, with who is available now. See [Workforce](/docs/getting-started/team).
-- **Connections** — marketplace installs, partner logins and tools. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Integrations](/docs/integrations/integrations).
+- **Connections** — modules, partner logins, tools and AI tools on one page. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Integrations](/docs/integrations/integrations).
 - **Settings** — grouped as Personal, Workspace, Communication (**Channels**, **Chat widget**, **AI handling**, **Action tags**), AI and control (**Govern**, **Models**, **Data & privacy**) and Advanced (**Developers**). **Support** at the bottom opens the setup guide, product tour, docs, API reference and contact options. See [Action tags and tickets](/docs/ai/categories).
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).

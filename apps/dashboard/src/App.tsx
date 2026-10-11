@@ -82,7 +82,6 @@ const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
 const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
-const ConnectionsMarketplace = lazy(() => import('./pages/ConnectionsMarketplace'))
 const ConnectionsHub = lazy(() => import('./pages/ConnectionsHub'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
@@ -433,7 +432,7 @@ export default function App() {
 
           {/* Modules hub (first-class product surface; one Connections story) */}
           <Route path="/connections" element={<ConnectionsHub />} />
-          <Route path="/connections/marketplace" element={<ConnectionsMarketplace />} />
+          <Route path="/connections/marketplace" element={<RedirectModulesLegacy />} />
           <Route path="/connections/connected" element={<RedirectModulesLegacy />} />
           <Route path="/connections/tools" element={<RedirectModulesLegacy />} />
           <Route path="/connections/:slug" element={<ModuleSetupPage />} />
@@ -465,10 +464,10 @@ export default function App() {
             <Route path="/settings/categories" element={<Navigate to="/settings/action-tags" replace />} />
             <Route path="/settings/help-centers" element={<Navigate to="/knowledge" replace />} />
             <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/connections" />} />
-            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
+            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
             <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/connections" />} />
-            <Route path="/settings/integrations/docs" element={<Navigate to="/connections/marketplace" replace />} />
-            <Route path="/settings/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
+            <Route path="/settings/integrations/docs" element={<Navigate to="/connections" replace />} />
+            <Route path="/settings/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
             <Route path="/settings/modules" element={<RedirectModulesLegacy />} />
             <Route path="/settings/modules/:slug" element={<RedirectModulesLegacy />} />
             <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/connections" />} />
@@ -505,9 +504,9 @@ export default function App() {
           <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
           <Route path="/integrations" element={<RedirectPreserveSearch to="/connections" />} />
           <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/connections" />} />
-          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
+          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
           <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/connections" />} />
-          <Route path="/marketplace" element={<RedirectPreserveSearch to="/connections/marketplace" />} />
+          <Route path="/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
           <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
           <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
           <Route path="/settings/privacy" element={<Navigate to="/settings/trust" replace />} />

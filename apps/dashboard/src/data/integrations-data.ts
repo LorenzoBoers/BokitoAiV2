@@ -81,7 +81,7 @@ export function isPlatformProviderSlug(slug: string): slug is PlatformProviderSl
 
 /**
  * Static display metadata for live platform integrations (fallback when providers API is unavailable).
- * API slugs `outlook` / `gmail` map to these ids via ConnectionsMarketplace SLUG_TO_STATIC_ID.
+ * API slugs `outlook` / `gmail` map to these ids via `integrations/registry` SLUG_TO_STATIC_ID.
  */
 function staticBrand(id: string): Pick<Integration, 'hostSlug' | 'logoUrl' | 'logoDarkUrl'> {
   const hostSlug = STATIC_HOST_SLUG[id] ?? id

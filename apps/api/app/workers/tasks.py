@@ -746,6 +746,30 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             agent_suggested_reply or agent_noted_no_reply or agent_created_decision
         ):
             # The channel agent already filed the action as a tool call.
+            # Attach the live tool trail onto that decision card — otherwise it
+            # vanishes when the stream ends (no agent speech bubble was saved).
+            from app.services.agent.turn_persist import (
+                activity_from_segments,
+                attach_activity_to_message,
+            )
+
+            activity = activity_from_segments(
+                list(loop.turn.segments) if loop.turn else None
+            )
+            if activity:
+                card = (
+                    await session.execute(
+                        select(SignalMessage)
+                        .where(
+                            SignalMessage.signal_id == signal.id,
+                            SignalMessage.kind == "decision_request",
+                        )
+                        .order_by(SignalMessage.created_at.desc())
+                        .limit(1)
+                    )
+                ).scalar_one_or_none()
+                if card is not None and attach_activity_to_message(card, activity):
+                    session.add(card)
             delivery = {
                 "via": "agent_tool",
                 "delivery": (

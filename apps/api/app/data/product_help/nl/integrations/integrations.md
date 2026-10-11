@@ -1,39 +1,47 @@
 ---
 title: Integraties koppelen
-intro: Geef agents tools buiten Bokito — marketplace-apps en gekoppelde accounts.
-description: Gebruik Koppelingen en Marketplace om modules te installeren, partnerlogins te koppelen en te sturen wat agents mogen aanroepen.
-keywords: integraties, marketplace, verbonden, github, mcp, modules, boekhouding, moneybird, koppelingen
+intro: Geef agents tools buiten Bokito — modules, partnerlogins en AI-tools op één pagina.
+description: Gebruik Koppelingen om modules te installeren, partnerlogins en AI-tools te koppelen en te sturen wat agents mogen aanroepen.
+keywords: integraties, koppelingen, verbonden, github, slack, mcp, modules, boekhouding, moneybird, ai-tools, cursor
 sort: 10
 related: mcp,models,channels,govern,categories
 ---
 
 # Integraties koppelen
 
-Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. De **Koppelingen**-hub in de zijbalk op `/connections` is de geïnstalleerde inventaris: modules die aan staan, partnerlogins en custom MCP-servers. **Marketplace** is de volledige catalogus — elke module en integratie, zonder filter Verbonden/Beschikbaar. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
+Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. **Koppelingen** in de zijbalk op `/connections` is één pagina voor dit alles: wat verbonden is bovenaan, daaronder één grid met elke module, integratie en AI-tool. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
 
 ## Zie wat gekoppeld is
 
-1. Open **Koppelingen**. De banner **AI (coding) tools** staat boven de tabs **Koppelingen** / **Marketplace**: logo's van Cursor, Claude, OpenAI, VS Code, Windsurf en Copilot, en **Koppelen** opent Developers. **Geïnstalleerde modules** gebruiken dezelfde kaarten als de Marketplace: status (inclusief **Installatie incompleet** zonder pakket), partnerlogo's, **Beheren** en **Deïnstalleren**. Ontbrekende eerste stappen kunnen daaronder staan (**Koppel e-mail of chat**, **Koppel Agenda**, **Installeer een module**). Daarna **Koppelingen**: elke gekoppelde integratie als dezelfde kaart als op Marketplace — één kaart per product (Microsoft 365, Outlook Calendar en Microsoft Graph staan los). Soort-chips en zoeken blijven. Mailboxen openen **Kanalen** vanuit de kaart; Agenda-apps openen [Agenda](/docs/ai/agenda). **Custom MCP-servers** blijft een aparte lijst voor logins die niet in de catalogus staan.
-2. Kies een kaart om elke registratie bij die provider in één lijst te zien (zie **Beheer koppelingen met één provider** hieronder). Kies **Nieuwe koppeling** op een kaart voor een tweede login. Hang een partner aan Boekhouding vanaf de modulepagina (**Deze koppeling gebruiken**), niet vanaf een gegroepeerde programmarij. GitHub blijft een **Code**-kaart.
-3. Kies **Ontkoppelen** op een custom MCP-rij wanneer die login moet stoppen (bevestig **Deze koppeling verwijderen?**). Mailboxen beheer je onder Kanalen; agenda-accounts onder het filter **Agenda** (zie **Agenda-accounts koppelen** hieronder).
+![Koppelingen](/api/docs/assets/integrations/connections.png)
+*Koppelingen: de strook Verbonden bovenaan, daaronder één grid met categorie-chips en zoeken.*
 
-## Installeer vanuit de marketplace
+1. Open **Koppelingen**. De strook **Verbonden** bovenaan toont elke geïnstalleerde module en elke gekoppelde integratie als compacte tegel met logo en het aantal koppelingen. De strook verschijnt alleen als er iets verbonden is, en alleen bij **Alles** zonder zoekterm.
+2. Kies een moduletegel om de modulepagina te openen; kies een integratietegel om het paneel met elke registratie bij die provider te openen (zie **Beheer koppelingen met één provider** hieronder). Mailboxen openen **Kanalen** vanuit het paneel; Agenda-apps openen [Agenda](/docs/ai/agenda).
+3. **Custom MCP-servers** blijft een aparte lijst onder het grid voor logins die niet in de catalogus staan. Kies **Ontkoppelen** op een rij wanneer die login moet stoppen (bevestig **Deze koppeling verwijderen?**). Agenda-accounts staan onder de chip **Agenda** (zie **Agenda-accounts koppelen** hieronder).
+4. Weet je niet wat je moet koppelen? Kies **Vraag welke koppeling past** in de paginakop. Er opent een nieuw gesprek met de vraag al ingevuld; de agent antwoordt met kaarten die je vanuit de thread opent.
 
-![Integraties-marketplace](/api/docs/assets/integrations/marketplace.png)
-*Marketplace: modules bovenaan, daaronder elke integratie in één platte lijst.*
+## Zoek en koppel iets nieuws
 
-1. Open **Marketplace**. Je landt op **Koppelingen** voor wat al geïnstalleerd is; Marketplace toont **alles**. Bij **Alle integraties** staan **Modules** bovenaan en **Integraties** eronder als één platte lijst — nooit genest in een module, en nooit gegroepeerd onder een vendor. Microsoft 365, Outlook Calendar en Microsoft Graph hebben elk een eigen kaart. Filter op soort: **Modules** toont alleen modules; **Communicatie**, **Agenda**, **Apps**, **Tools** of **Code** tonen alleen die integraties (geen modules-rij). Zoeken werkt nog; er is geen statusfilter Verbonden/Beschikbaar. **Koppelen** is de eerste login; staat er al een, dan **Nieuwe koppeling** plus het aantal. Een module die niet geïnstalleerd is toont alleen **Installeren**. Een geïnstalleerde module toont **Beheren** (grijs) en **Deïnstalleren** (rood). **Beleggen**, **Documenten** en andere coming-soon modules staan faded. Hun geplande programma's (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) verschijnen als faded integratiekaarten tot ze live gaan.
-2. Kies een kaart om de setup van dat product te openen. **Werkt met modules** noemt de presets die deze login kunnen gebruiken, zodat je weet wat agents ermee doen. Rond OAuth of de providersetup af; je keert terug op Koppelingen. Een login blijft daar tot je hem aan een module hangt.
-3. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [project](/docs/ai/projects). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Custom MCP-servers** of **Tools**. Zie [MCP](/docs/integrations/mcp).
+![Koppelpaneel](/api/docs/assets/integrations/connect-panel.png)
+*Een kaart kiezen opent rechts een paneel: beschrijving, endpoint, mogelijkheden en de koppelknop.*
 
-WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De marketplacekaart wijst je daarheen.
+1. Gebruik onder **Alles** de categorie-chips: **Communicatie**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** en **AI-tools**. Elke chip toont zijn aantal. Zoeken werkt op namen en beschrijvingen in elke categorie. De chip staat in de URL (`/connections?kind=tools`), dus een link opent altijd de categorie die hij noemt.
+2. Kaarten vormen één platte lijst — nooit genest in een module, nooit gegroepeerd onder een vendor. Microsoft 365, Outlook Calendar en Microsoft Graph hebben elk een eigen kaart. Een modulekaart draagt het label **Module** met zijn status; **Installeren** installeert hem, een geïnstalleerde module toont **Beheren** en **Deïnstalleren**. Een integratiekaart toont **Koppelen** voor de eerste login, of **Nieuwe koppeling** plus het aantal. Coming-soon modules en hun geplande programma's (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded tot ze live gaan.
+3. Kies een integratiekaart. Rechts opent het paneel met de beschrijving, het **Tool-endpoint** voor remote MCP-apps, **Mogelijkheden**, **Werkt met modules** (de presets die deze login kunnen gebruiken) en **Nieuwe verbinding instellen**. Rond OAuth of de providersetup af; je keert hier terug met het paneel open. Een login blijft op Koppelingen tot je hem aan een module hangt.
+4. Agents linken rechtstreeks naar dit paneel: een kaart in een gesprek opent `/connections?connect=slack_mcp` met het Slack-paneel al open.
+5. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [project](/docs/ai/projects). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Tools** of **Custom MCP-servers**. Zie [MCP](/docs/integrations/mcp).
+
+WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst je daarheen.
+
+## Koppel een AI- of codingtool
+
+1. Kies de chip **AI-tools**. **AI-tool**-kaarten (Cursor, Claude Code, Claude Desktop, Codex CLI, VS Code, Windsurf, ChatGPT) gebruiken deze workspace via MCP; **Codingtool**-kaarten (Cursor Cloud Agents, Claude Managed Agents, Devin) nemen een bug of feature over uit een gesprek en brengen de pull request terug.
+2. Kies **Instellen** op een kaart. Dat opent het bijbehorende onderdeel op **Instellingen → Developers**, waar de OAuth- of token-snippets staan. Zie [AI-tools koppelen](/docs/developers/mcp-endpoint).
 
 ## Installeer een bedrijfsmodule
 
-![Modules-hub](/api/docs/assets/integrations/modules-hub.png)
-*Koppelingen-hub — geïnstalleerde modules als kaarten, daarna partnerlogins.*
-
-1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modulekaarten staan bovenaan met **Beheren** en **Deïnstalleren**. Gebruik **Marketplace** (filter **Modules**, of **Alle integraties**) om een nieuwe preset te installeren.
+1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modules staan in de strook **Verbonden**; gebruik de chip **Modules** om een preset te vinden die nog niet geïnstalleerd is.
 2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Status wordt **Nog inrichten**.
 3. Wijs **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
 4. Bekijk **Wat agents kunnen doen**: elke module-actie toont een korte beschrijving, het universele pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is. Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de exacte MCP-toolnamen van die servers.
@@ -57,10 +65,10 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De marketplace
 Open een providerkaart om elke registratie bij die provider op één plek te beheren.
 
 ![Providerkoppelingen](/api/docs/assets/integrations/provider-connections.png)
-*Het providervenster toont elke registratie met status, projecten en acties.*
+*Het providerpaneel toont elke registratie met status, projecten en acties.*
 
 1. Open **Koppelingen** en kies de providerkaart, bijvoorbeeld **Moneybird**.
-2. Het venster toont elke registratie met status, identiteit, administratienummer, projecten en de modules die hem gebruiken. Een badge **Beperkt** betekent dat alleen sommige mensen of agents hem mogen gebruiken.
+2. Het paneel toont elke registratie met status, identiteit, administratienummer, projecten en de modules die hem gebruiken. Een badge **Beperkt** betekent dat alleen sommige mensen of agents hem mogen gebruiken.
 3. Gebruik **Verifiëren**, **Hernoemen** of **Ontkoppelen** op een rij. Ontkoppelen haalt hem weg als modulestandaard en verwijdert zijn projectkoppelingen.
 4. Kies **Nog een registratie toevoegen** om een tweede account te koppelen. Dezelfde administratie twee keer werkt de bestaande rij bij.
 
@@ -84,7 +92,7 @@ Bepaal welke mensen, agents en teams een registratie mogen gebruiken of beheren.
 3. Kies **Opslaan**. **Terug naar standaard** geeft alle mensen en agents weer **Gebruiken**. Eigenaren en beheerders beheren altijd elke koppeling.
 4. Een agent zonder toegang kan de registratie niet bereiken; de poging staat in het auditlog. Agents kunnen een wijziging voorstellen met `set_connection_scope`, wat altijd om goedkeuring vraagt.
 
-**Bankieren** is installeerbaar met een read-only GoCardless Bank Account Data-koppeling (saldi en transacties; betalingen verschijnen alleen als voorstel). **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar; zij en hun geplande packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded op Marketplace.
+**Bankieren** is installeerbaar met een read-only GoCardless Bank Account Data-koppeling (saldi en transacties; betalingen verschijnen alleen als voorstel). **Beleggen** en **Documenten** zijn klaargezet maar nog niet installeerbaar; zij en hun geplande packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded op Koppelingen.
 
 ## Agenda-accounts koppelen
 
@@ -143,4 +151,4 @@ Modules leveren één cataloguspakket met hashtags, voorgebouwde draaiboeken en 
 
 ## Wat nu
 
-Koppel één tool die je al gebruikt. Voeg een [MCP-server](/docs/integrations/mcp) toe via **Marketplace** wanneer de vermelde apps niet genoeg zijn. De server verschijnt daarna onder **Custom MCP-servers** op Koppelingen.
+Koppel één tool die je al gebruikt. Voeg een [MCP-server](/docs/integrations/mcp) toe via de chip **Tools** wanneer de vermelde apps niet genoeg zijn. De server verschijnt daarna onder **Custom MCP-servers** op Koppelingen.

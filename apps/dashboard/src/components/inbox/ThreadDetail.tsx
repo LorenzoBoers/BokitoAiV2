@@ -302,20 +302,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [detail],
   )
 
-  // Auto-fill the composer only when an agent finishes a draft while this
-  // thread stays open. Opening a thread (or returning after another chat)
-  // keeps the draft in the agent cloud until the operator taps Overnemen.
+  // Open reply proposals that still answer the newest inbound land in the
+  // mini composer (on thread open and when a live turn finishes). Email
+  // focus promotes that body into the mail client.
   const appliedProposalRef = useRef<string | null>(null)
   const seededProposalIdsRef = useRef<Set<string> | null>(null)
-  const wasStreamingRef = useRef(false)
   useEffect(() => {
     appliedProposalRef.current = null
     seededProposalIdsRef.current = null
-    wasStreamingRef.current = false
   }, [threadId])
-  useEffect(() => {
-    if (agentStreaming) wasStreamingRef.current = true
-  }, [agentStreaming])
   useEffect(() => {
     if (!detail) return
     const outdated = new Set(outdatedDecisionMessageIds)
@@ -326,8 +321,28 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (outdated.has(proposal.decisionMessageId)) continue
       openIds.push(proposal.decisionMessageId)
     }
+    const seedNewest = (keySuffix: string) => {
+      for (let i = detail.messages.length - 1; i >= 0; i -= 1) {
+        const proposal = replyProposalFromMessage(detail.messages[i], detail.events)
+        if (!proposal) continue
+        if (outdated.has(proposal.decisionMessageId)) continue
+        if (appliedProposalRef.current === proposal.decisionMessageId) return
+        if (agentStreamingRef.current) return
+        appliedProposalRef.current = proposal.decisionMessageId
+        applyComposerDraft({
+          body: proposal.body,
+          subject: proposal.subject,
+          key: `${proposal.decisionMessageId}-${keySuffix}`,
+          decisionMessageId: proposal.decisionMessageId,
+          basedOnMessageId: proposalBasedOnMessageId(detail.messages[i]) ?? undefined,
+        })
+        setComposerMode('reply')
+        return
+      }
+    }
     if (seededProposalIdsRef.current === null) {
       seededProposalIdsRef.current = new Set(openIds)
+      seedNewest('open')
       return
     }
     for (let i = detail.messages.length - 1; i >= 0; i -= 1) {
@@ -335,23 +350,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       if (!proposal) continue
       if (outdated.has(proposal.decisionMessageId)) continue
       if (seededProposalIdsRef.current.has(proposal.decisionMessageId)) continue
-      // Late-loading messages on open: absorb without filling the composer.
-      if (!wasStreamingRef.current) {
-        seededProposalIdsRef.current.add(proposal.decisionMessageId)
-        continue
-      }
-      if (appliedProposalRef.current === proposal.decisionMessageId) return
-      if (agentStreamingRef.current) return
-      appliedProposalRef.current = proposal.decisionMessageId
       seededProposalIdsRef.current.add(proposal.decisionMessageId)
-      applyComposerDraft({
-        body: proposal.body,
-        subject: proposal.subject,
-        key: `${proposal.decisionMessageId}-auto`,
-        decisionMessageId: proposal.decisionMessageId,
-        basedOnMessageId: proposalBasedOnMessageId(detail.messages[i]) ?? undefined,
-      })
-      setComposerMode('reply')
+      seedNewest('auto')
       return
     }
   }, [detail, applyComposerDraft, outdatedDecisionMessageIds])

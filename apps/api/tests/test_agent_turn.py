@@ -22,6 +22,8 @@ from app.services.agent.reply_mode import (
     split_chat_messages,
 )
 from app.services.agent.turn_persist import (
+    activity_from_segments,
+    attach_activity_to_message,
     message_activity,
     plan_customer_bubbles,
     plan_turn_messages,
@@ -119,6 +121,25 @@ def test_customer_bubbles_send_only_the_final_speech():
 
 def test_empty_turn_falls_back():
     assert plan_turn_messages([], CHAT, fallback_text="Done.")[0]["text"] == "Done."
+
+
+def test_activity_from_segments_flattens_mail_turn_for_suggestion_card():
+    """Assisted inbound often saves only a decision_request — keep the tool trail."""
+    items = activity_from_segments(_segments())
+    # Mail planning folds earlier speech into a note, then keeps tool work.
+    assert [a["id"] for a in items if a.get("id")] == ["think-1", "note-s1", "lookup", "status"]
+    assert any(a.get("label") == "note" for a in items)
+
+
+def test_attach_activity_to_message_is_idempotent():
+    msg = SimpleNamespace(metadata_json="{}")
+    assert attach_activity_to_message(msg, [_work("a"), _work("b")]) is True
+    meta = json.loads(msg.metadata_json)
+    assert [a["id"] for a in meta["activity"]] == ["a", "b"]
+    assert attach_activity_to_message(msg, [_work("b"), _work("c")]) is True
+    meta = json.loads(msg.metadata_json)
+    assert [a["id"] for a in meta["activity"]] == ["a", "b", "c"]
+    assert attach_activity_to_message(msg, []) is False
 
 
 # ── activity on saved messages ─────────────────────────────────────────────

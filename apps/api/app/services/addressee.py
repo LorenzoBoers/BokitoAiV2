@@ -122,21 +122,6 @@ async def _valid_team(session: AsyncSession, tenant_id: UUID, team_id: UUID | No
     return await get_team(session, tenant_id, team_id) is not None
 
 
-async def _channel_team(session: AsyncSession, signal: Signal) -> UUID | None:
-    if not signal.channel_account_id:
-        return None
-    from app.models.channel import ChannelAccount
-
-    account = await session.get(ChannelAccount, signal.channel_account_id)
-    if account is None:
-        return None
-    try:
-        raw = (json.loads(account.settings_json or "{}").get("routing") or {}).get("team_id")
-    except (json.JSONDecodeError, AttributeError):
-        return None
-    return _uuid(raw)
-
-
 async def parse_target(
     session: AsyncSession, tenant_id: UUID, raw: Any
 ) -> dict[str, Any] | None:
@@ -243,9 +228,14 @@ async def resolve_addressee(
                     return Addressee("team", team_id=owner_id)
         if signal.assignee_kind == "team" and await _valid_team(session, tenant_id, signal.assignee_team_id):
             return Addressee("team", team_id=signal.assignee_team_id)
-        channel_team = await _channel_team(session, signal)
-        if await _valid_team(session, tenant_id, channel_team):
-            return Addressee("team", team_id=channel_team)
+        from app.services.ownership import channel_human_owner
+
+        channel_owner = await channel_human_owner(session, signal)
+        if channel_owner is not None:
+            kind, owner_id = channel_owner
+            if kind == "user":
+                return Addressee("user", user_id=owner_id)
+            return Addressee("team", team_id=owner_id)
     from app.services.teams import people_team
 
     return Addressee("team", team_id=(await people_team(session, tenant_id)).id)

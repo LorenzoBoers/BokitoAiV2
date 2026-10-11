@@ -75,6 +75,7 @@ import { AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ChatMessageBubble } from './ChatBubble'
+import ActivityTrail from './ActivityTrail'
 
 type Props = {
   message: InboxMessage
@@ -665,6 +666,12 @@ export default function DecisionRequestMessage({
       decorative
     />
   )
+  const activityBefore = message.activity ?? []
+  const activityTrail =
+    activityBefore.length > 0 ? (
+      <ActivityTrail items={activityBefore} className="ml-9" />
+    ) : null
+
   if (asCompactProposal && !ruleSuggestion) {
     const takeOver = () => {
       const sendOpt = options.find(
@@ -679,55 +686,58 @@ export default function DecisionRequestMessage({
       })
     }
     return (
-      <ChatMessageBubble
-        side="left"
-        avatar={agentAvatar}
-        variant="external"
-        body={
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCompactOpen((open) => !open)}
-                className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent/40"
-                aria-expanded={compactOpen}
-              >
-                <AiMark size={12} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
-                  {t('decision.compactProposal')}
-                </span>
-                <ChevronDown
-                  size={14}
-                  className={cn(
-                    'shrink-0 text-text-muted transition-transform',
-                    compactOpen && 'rotate-180',
-                  )}
-                />
-              </button>
-              {onEditDraft ? (
-                <Button
+      <div className="flex flex-col gap-1">
+        {activityTrail}
+        <ChatMessageBubble
+          side="left"
+          avatar={agentAvatar}
+          variant="external"
+          body={
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <button
                   type="button"
-                  size="sm"
-                  variant={activeInComposer ? 'ghost' : 'secondary'}
-                  className="h-7 shrink-0 px-2 text-xs"
-                  onClick={takeOver}
+                  onClick={() => setCompactOpen((open) => !open)}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent/40"
+                  aria-expanded={compactOpen}
                 >
-                  {activeInComposer
-                    ? t('decision.draftInComposer')
-                    : t('decision.takeOverDraft')}
-                </Button>
+                  <AiMark size={12} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
+                    {t('decision.compactProposal')}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={cn(
+                      'shrink-0 text-text-muted transition-transform',
+                      compactOpen && 'rotate-180',
+                    )}
+                  />
+                </button>
+                {onEditDraft ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={activeInComposer ? 'ghost' : 'secondary'}
+                    className="h-7 shrink-0 px-2 text-xs"
+                    onClick={takeOver}
+                  >
+                    {activeInComposer
+                      ? t('decision.draftInComposer')
+                      : t('decision.takeOverDraft')}
+                  </Button>
+                ) : null}
+              </div>
+              {compactOpen ? (
+                <div className="rounded-md border border-border/60 bg-bg-surface/80 px-2.5 py-2">
+                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-text-secondary">
+                    {draftBody}
+                  </p>
+                </div>
               ) : null}
             </div>
-            {compactOpen ? (
-              <div className="rounded-md border border-border/60 bg-bg-surface/80 px-2.5 py-2">
-                <p className="whitespace-pre-wrap text-xs leading-relaxed text-text-secondary">
-                  {draftBody}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        }
-      />
+          }
+        />
+      </div>
     )
   }
 
@@ -758,36 +768,41 @@ export default function DecisionRequestMessage({
         ? forYouPath(siblingId)
         : null
     return (
-      <ChatMessageBubble
-        side="left"
-        avatar={agentAvatar}
-        variant="external"
-        body={
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
-              {resolvedLabel}
-              {excerpt ? ` — ${excerpt}` : ''}
-            </span>
-            {openSibling ? (
-              <Link
-                to={openSibling}
-                className="shrink-0 text-xs font-medium text-accent hover:underline"
-                data-testid="draft-open-active-thread"
-              >
-                {t('decisionCard.openActiveThread', { defaultValue: 'Open active' })}
-              </Link>
-            ) : null}
-            <span className="shrink-0 rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
-              {t('decisionCard.resolved')}
-            </span>
-          </div>
-        }
-      />
+      <div className="flex flex-col gap-1">
+        {activityTrail}
+        <ChatMessageBubble
+          side="left"
+          avatar={agentAvatar}
+          variant="external"
+          body={
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
+                {resolvedLabel}
+                {excerpt ? ` — ${excerpt}` : ''}
+              </span>
+              {openSibling ? (
+                <Link
+                  to={openSibling}
+                  className="shrink-0 text-xs font-medium text-accent hover:underline"
+                  data-testid="draft-open-active-thread"
+                >
+                  {t('decisionCard.openActiveThread', { defaultValue: 'Open active' })}
+                </Link>
+              ) : null}
+              <span className="shrink-0 rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                {t('decisionCard.resolved')}
+              </span>
+            </div>
+          }
+        />
+      </div>
     )
   }
 
   return (
-    <ChatMessageBubble
+    <div className="flex flex-col gap-1">
+      {activityTrail}
+      <ChatMessageBubble
       side="left"
       avatar={agentAvatar}
       variant={resolved ? 'external' : 'agent'}
@@ -1254,5 +1269,6 @@ export default function DecisionRequestMessage({
         </>
       }
     />
+    </div>
   )
 }

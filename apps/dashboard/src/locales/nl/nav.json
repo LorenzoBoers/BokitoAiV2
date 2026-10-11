@@ -1989,10 +1989,13 @@
     "oauthFailedTitle": "Kon {{provider}} niet koppelen",
     "access": "Toegang",
     "accessHint": "Welke mensen, agents en teams dit kanaal zien of afhandelen.",
-    "team": "Eigenaar-team",
-    "teamHint": "Dit team krijgt het gesprek als een mens het moet overnemen. Alle mensen betekent dat iedereen het mag oppakken.",
+    "team": "Eigenaar",
+    "teamHint": "Wie het gesprek krijgt als een mens het moet overnemen: een persoon, een team, of Alle mensen zodat iedereen het mag oppakken.",
+    "ownerPeople": "Mensen",
+    "ownerTeams": "Teams",
     "defaultBadge": "Standaard",
     "unknownTeam": "Onbekend team",
+    "unknownPerson": "Onbekende persoon",
     "widgetLive": "Live overdracht",
     "widgetLiveHint": "Beschikbaar zodra iemand met Afhandelen-toegang op de widget beschikbaar is."
   },
@@ -2890,11 +2893,23 @@
     }
   },
   "integrations": {
-    "tabsAria": "Integratie-onderdelen",
-    "aiCodingTools": {
-      "title": "AI (coding) tools",
-      "body": "Koppel Cursor, Claude, Codex, VS Code, Windsurf of ChatGPT zodat ze deze workspace onder Govern kunnen gebruiken. Geef een bug of feature uit een gesprek door aan een codingtool; Bokito start de job en brengt de pull request terug.",
-      "cta": "Koppelen"
+    "aiTools": {
+      "kindInbound": "AI-tool",
+      "kindOutbound": "Codingtool",
+      "inboundHint": "Gebruikt deze workspace via MCP",
+      "outboundHint": "Neemt werk over uit een gesprek",
+      "setup": "Instellen"
+    },
+    "connectedStrip": {
+      "title": "Verbonden",
+      "count_one": "{{count}} actief",
+      "count_other": "{{count}} actief",
+      "connections_one": "{{count}} koppeling",
+      "connections_other": "{{count}} koppelingen"
+    },
+    "ask": {
+      "cta": "Vraag welke koppeling past",
+      "prefill": "Welke koppeling of module past bij mijn werk? Laat zien wat je aanraadt en waarom."
     },
     "group": {
       "nav": "Integraties"
@@ -2909,7 +2924,7 @@
       "api": "API-sleutels"
     },
     "kindNav": {
-      "label": "Integratietype"
+      "label": "Categorie"
     },
     "kind": {
       "inbox": "Communicatie",
@@ -2928,13 +2943,14 @@
       "viewInConnected": "Bekijk bij Koppelingen",
       "comingSoon": "Binnenkort",
       "disconnect": "Ontkoppelen",
-      "disconnectConfirm": "Deze koppeling verwijderen? Je kunt opnieuw verbinden via de marketplace.",
+      "disconnectConfirm": "Deze koppeling verwijderen? Je kunt opnieuw verbinden via Koppelingen.",
       "disconnected": "Koppeling verwijderd",
       "disconnectFailed": "Verbinding verbreken mislukt"
     },
     "filters": {
-      "all": "Alle integraties",
+      "all": "Alles",
       "modules": "Modules",
+      "ai_tools": "AI-tools",
       "inbox": "Communicatie",
       "repository": "Code",
       "calendar": "Agenda",
@@ -3245,7 +3261,8 @@
       "manageCta": "{{name}} beheren",
       "manage": "Beheren",
       "openSetup": "{{name}} openen",
-      "browseMarketplace": "Integraties bekijken op Marketplace",
+      "kindBadge": "Module",
+      "openCatalog": "Koppelingen openen",
       "helpLink": "Hoe modules werken",
       "notFound": "Deze module staat niet in de catalogus.",
       "tabs": {
@@ -3502,17 +3519,10 @@
       }
     },
     "marketplace": {
-      "connectedCount": "{{count}} verbonden",
-      "searchPlaceholder": "Zoek integraties...",
-      "empty": "Geen integraties gevonden.",
-      "emptyKind": "Geen integraties in deze categorie.",
+      "searchPlaceholder": "Zoek modules, integraties en tools",
+      "empty": "Nog niets om te koppelen.",
       "emptyFiltered": "Geen treffers voor deze zoekopdracht of dit filter.",
       "clearFilters": "Filters wissen",
-      "openConnected": "Gekoppelde integraties openen",
-      "modulesTitle": "Modules",
-      "modulesSubtitle": "Vakgebied-presets: tools, prompts en beslissingen in één installatie.",
-      "integrationsTitle": "Integraties",
-      "integrationsSubtitle": "Log in bij een programma zodat agents erin kunnen lezen en handelen.",
       "catalogFallback": "Catalogus-API niet beschikbaar; lokale lijst wordt getoond."
     },
     "categories": {
@@ -3533,12 +3543,8 @@
       "nextAgenda": "Koppel Agenda",
       "nextModule": "Installeer een module",
       "yourList": "Koppelingen",
-      "installedModulesTitle": "Geïnstalleerde modules",
-      "installedModulesHint": "Vakgebied-presets die aan staan in deze workspace.",
-      "noInstalledModules": "Nog geen modules geïnstalleerd. Ontdek presets in de marketplace.",
       "mcpServersTitle": "Custom MCP-servers",
       "emptyMcpDescription": "Nog geen custom MCP-servers gekoppeld.",
-      "marketplaceHint": "Iets anders nodig? Voeg modules en koppelingen toe in de marketplace.",
       "codeHint": "Alleen nodig voor code-projecten.",
       "mailboxProgram": "{{count}} mailboxen",
       "mailboxProgram_one": "{{count}} mailbox",
@@ -3568,12 +3574,7 @@
     "pageMeta": {
       "connected": {
         "title": "Koppelingen",
-        "description": "Geïnstalleerde modules, partnerlogins en tools voor deze workspace. Ontdek meer in de marketplace."
-      },
-      "marketplace": {
-        "title": "Marketplace",
-        "description": "De volledige catalogus van modules en integraties. Wat al geïnstalleerd is staat op Koppelingen.",
-        "modulesHint": "Modules installeren een vakgebied-preset voor agents. Integraties zijn de programma's waar je inlogt; een module werkt daarbovenop."
+        "description": "Modules, integraties en AI-tools op één plek. Wat verbonden is staat bovenaan; open iets hieronder om te lezen wat het doet en het te koppelen."
       },
       "connections": {
         "title": "Verbonden",
@@ -3635,8 +3636,8 @@
         "title": "Gekoppelde tools",
         "description": "Geef je agents extra mogelijkheden door andere apps te koppelen.",
         "reachabilityHint": "Gebruik een adres dat Bokito vanaf de servers kan bereiken.",
-        "docsLink": "Marketplace bekijken",
-        "openMarketplace": "Marketplace bekijken",
+        "docsLink": "Tools bekijken",
+        "openMarketplace": "Tools bekijken",
         "openAgents": "Agents openen",
         "openGovern": "Govern openen",
         "search": "Koppelingen filteren",

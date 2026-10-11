@@ -1,6 +1,6 @@
 /**
  * Find the quoted reply trail in an email HTML document so the timeline can
- * show only the new message by default and offer "Show full message".
+ * show only the new message by default and offer "Show conversation history".
  *
  * Outlook, Apple Mail and Gmail each mark the trail differently; we wrap a
  * common `data-bokito-quote` root around whatever we find.
