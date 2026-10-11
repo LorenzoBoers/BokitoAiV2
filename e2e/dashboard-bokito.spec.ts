@@ -95,10 +95,12 @@ test.describe('Dashboard', () => {
 
   test('decisions queue lists seeded thread', async ({ page }) => {
     await loginDashboard(page)
+    // Legacy /decisions → For you; seed raises an inbox-rule card without a customer thread.
     await page.goto('/communication/decisions')
+    await expect(page).toHaveURL(/\/communication\/inbox\/for_you/, { timeout: 20000 })
     await expect(
       page
-        .getByText(/inbox-routeringregel|inbox routing rule|Inbox-doorstuurregel/i)
+        .getByText(/Auto-close mail from|automatisch sluiten|Nieuwsbrief leverancier/i)
         .first(),
     ).toBeVisible({ timeout: 60000 })
   })
