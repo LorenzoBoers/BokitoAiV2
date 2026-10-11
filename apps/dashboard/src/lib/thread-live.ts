@@ -140,9 +140,8 @@ export function threadMatchesFilters(
     case 'pending':
       viewMatch = thread.status === 'pending'
       break
-    case 'snoozed':
-      // Timed wake and "until the customer replies" both live here.
-      viewMatch = thread.status === 'pending'
+    case 'scheduled':
+      viewMatch = thread.nextAt != null && thread.status !== 'spam'
       break
     case 'closed':
       viewMatch = thread.status === 'closed'

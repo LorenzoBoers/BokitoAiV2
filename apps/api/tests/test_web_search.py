@@ -92,6 +92,41 @@ async def test_brave_search_parses_web_results():
     assert out["results"][0]["favicon_url"]
 
 
+@pytest.mark.asyncio
+async def test_brave_search_unwraps_nested_image_src():
+    payload = {
+        "results": [
+            {
+                "title": "Jet",
+                "url": "https://pixabay.com/jet/",
+                "src": {
+                    "src": "https://imgs.search.brave.com/jet.jpg",
+                    "width": 500,
+                    "height": 331,
+                },
+            }
+        ]
+    }
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = payload
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.get.return_value = response
+
+    with (
+        patch("app.services.web_search.get_settings") as settings,
+        patch("app.services.web_search.httpx.AsyncClient", return_value=mock_client),
+    ):
+        settings.return_value = MagicMock(brave_search_api_key="test-key")
+        out = await brave_search("jet", count=3, kind="images")
+
+    assert out["kind"] == "images"
+    assert out["results"][0]["image_url"] == "https://imgs.search.brave.com/jet.jpg"
+    assert out["results"][0]["url"] == "https://pixabay.com/jet/"
+
+
 def test_web_search_on_suggest_and_assistant_allowlists():
     from app.services.personal_assistant import TOOL_ALLOWLIST
     from app.workers.tasks import SUGGEST_MODE_TOOLS

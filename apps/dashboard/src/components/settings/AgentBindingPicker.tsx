@@ -20,8 +20,9 @@ type AgentOption = AgentVisualFields & {
 /**
  * Which agent handles this item (a mailbox, a WhatsApp number, the widget…).
  *
- * Writes `ChannelAccount.default_agent_id` (live routing). The empty option is
- * Front desk (customer-facing) when present, otherwise the lead agent.
+ * Writes `ChannelAccount.default_agent_id`. The empty option is Standaard:
+ * it stores null and the workspace lead handles the channel. Picking an
+ * agent, including the lead, stores that id.
  */
 export default function AgentBindingPicker({
   channel,
@@ -106,19 +107,12 @@ export default function AgentBindingPicker({
     void load()
   }, [load])
 
-  const frontDesk = useMemo(
-    () => agents.find((a) => a.slug === 'front-desk') ?? null,
-    [agents],
-  )
   const lead = useMemo(() => agents.find((a) => a.isLead) ?? null, [agents])
-  const defaultAgent = frontDesk ?? lead
-  const defaultLabel = defaultAgent?.name || t('bindingPicker.leadDefault')
-  const defaultBadge = defaultAgent ? t('bindingPicker.defaultBadge') : undefined
+  const defaultLabel = lead?.name || t('bindingPicker.leadDefault')
+  const defaultBadge = lead ? t('bindingPicker.defaultBadge') : undefined
 
   const currentAgentId = agentId ?? ''
-  // Bound-to-Front-desk looks like the empty default so the picker stays clear.
-  const selectValue =
-    frontDesk && currentAgentId === frontDesk.id ? '' : currentAgentId
+  const selectValue = currentAgentId
 
   const persist = async (nextAgentId: string) => {
     if (!token || !resolvedAccountId) {
@@ -128,10 +122,7 @@ export default function AgentBindingPicker({
     const previous = agentId
     setBusy(true)
     try {
-      const resolved =
-        !nextAgentId || nextAgentId === '__empty__'
-          ? frontDesk?.id ?? null
-          : nextAgentId
+      const resolved = !nextAgentId || nextAgentId === '__empty__' ? null : nextAgentId
       setAgentId(resolved)
       const changed = await updateChannelDefaultAgent(token, resolvedAccountId, resolved)
       if (changed) setAgentId(changed.defaultAgentId)
@@ -145,7 +136,7 @@ export default function AgentBindingPicker({
   }
 
   const selectable = useMemo(() => {
-    const base = agents.filter((a) => !frontDesk || a.id !== frontDesk.id)
+    const base = agents
     if (!selectValue) return base
     if (base.some((a) => a.id === selectValue)) return base
     const bound = agents.find((a) => a.id === selectValue)
@@ -159,7 +150,7 @@ export default function AgentBindingPicker({
         slug: '',
       },
     ]
-  }, [agents, frontDesk, selectValue, t])
+  }, [agents, selectValue, t])
 
   return (
     <AgentSelect
@@ -171,7 +162,7 @@ export default function AgentBindingPicker({
         value: '__empty__',
         label: defaultLabel,
         badge: defaultBadge,
-        agent: defaultAgent ?? undefined,
+        agent: lead ?? undefined,
       }}
       aria-label={ariaLabel ?? t('bindingPicker.ariaLabel')}
       triggerClassName={

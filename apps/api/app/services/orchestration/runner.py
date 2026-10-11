@@ -169,6 +169,7 @@ async def _execute_agent_segment(
         status="running",
         trigger_type=task.trigger_type,
         subject=task.title,
+        signal_id=task.signal_id,
     )
     session.add(run)
     from app.services.workforce_runtime import apply_agent_runtime, broadcast_agent_live

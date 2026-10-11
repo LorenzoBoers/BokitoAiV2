@@ -57,8 +57,8 @@ export function bulkActionsVisibility(
         showReopen: true,
         showSpam: false,
       }
-    case 'snoozed':
-      // Pending rows: Close parks them; Reopen wakes them to Open.
+    case 'scheduled':
+      // Dated rows can be open or closed until their moment.
       return {
         ...base,
         primary: 'close',

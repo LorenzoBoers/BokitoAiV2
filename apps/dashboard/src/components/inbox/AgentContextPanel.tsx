@@ -34,6 +34,7 @@ import { openEntityPath } from '../../lib/open-entity'
 import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { AiAvatar } from '../ui/AiAvatar'
+import { ModelIcon } from '../ui/ModelIcon'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { ConversationWorkSection } from './ConversationWorkSection'
 import { AgentActiveLine } from './IdentitySeenLine'
@@ -236,7 +237,10 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
             className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary"
           >
             <Cpu size={12} className="shrink-0 text-text-muted" />
-            <span className="min-w-0 truncate-fade">{formatAgentModelLine(model, provider, t)}</span>
+            <span className="inline-flex min-w-0 items-center gap-1 truncate-fade">
+              <ModelIcon modelId={model} provider={provider} size={16} className="shrink-0" />
+              <span className="truncate">{formatAgentModelLine(model, provider, t)}</span>
+            </span>
           </Link>
         ) : null}
         <div className="mt-2">

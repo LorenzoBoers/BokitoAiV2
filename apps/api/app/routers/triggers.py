@@ -157,6 +157,7 @@ async def create_trigger(
         instructions=body.instructions,
         enabled=body.enabled,
         run_at=_naive_utc(body.run_at),
+        created_by_user_id=auth.user.id if auth.user else None,
     )
     data = svc.serialize_trigger(trigger)
     # The webhook secret is only revealed once, at creation time.
@@ -193,6 +194,10 @@ async def update_trigger(
     else:
         trigger.next_run_at = svc.compute_next_run(trigger)
     session.add(trigger)
+    if not trigger.purpose:
+        from app.services.thread_schedule import ensure_trigger_thread
+
+        await ensure_trigger_thread(session, trigger)
     await session.commit()
     await session.refresh(trigger)
     return svc.serialize_trigger(trigger)
@@ -208,6 +213,13 @@ async def delete_trigger(
     from app.services.trash import load_tenant, move_to_bin
 
     trigger = await svc.get_trigger(session, auth.tenant.id, trigger_id)
+    if trigger.signal_id and not trigger.purpose:
+        from app.models.signal import Signal
+
+        signal = await session.get(Signal, trigger.signal_id)
+        if signal is not None and signal.next_at == trigger.next_run_at:
+            signal.next_at = None
+            session.add(signal)
     await move_to_bin(
         session,
         await load_tenant(session, auth.tenant.id),
@@ -226,7 +238,7 @@ async def run_trigger(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     trigger = await svc.get_trigger(session, auth.tenant.id, trigger_id)
-    return await svc.fire_trigger(session, trigger)
+    return await svc.fire_trigger(session, trigger, manual=True)
 
 
 @router.post("/triggers/{trigger_id}/rotate-webhook-secret")

@@ -1,4 +1,4 @@
-"""Cycle 12: full-text search, snooze, bulk actions and saved replies."""
+"""Cycle 12: full-text search, thread dates, bulk actions and saved replies."""
 
 from datetime import datetime, timedelta
 
@@ -73,33 +73,34 @@ async def test_search_matches_contact_name(client: AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# Snooze
+# Thread dates
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_snooze_marks_unread_keeps_open(client: AsyncClient):
-    """Snooze is retired: the patch marks unread and leaves the thread open."""
+async def test_thread_date_lists_under_scheduled(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     signal_id = await _create_thread(client, owner)
 
-    until = (datetime.utcnow() + timedelta(hours=2)).isoformat()
-    r = await client.patch(
-        f"/api/signals/{signal_id}", headers=owner, json={"snoozed_until": until}
-    )
+    at = (datetime.utcnow() + timedelta(hours=2)).isoformat()
+    r = await client.put(f"/api/signals/{signal_id}/schedule", headers=owner, json={"at": at})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["status"] == "open"
-    assert body["snoozed_until"] is None
-    assert body["has_unread"] is True
+    assert body["next_at"] is not None
 
-    # No longer parked in the snoozed view.
-    items = await _list(client, owner, view="snoozed")
+    items = await _list(client, owner, view="scheduled")
+    assert signal_id in [t["id"] for t in items]
+
+    r = await client.delete(f"/api/signals/{signal_id}/schedule", headers=owner)
+    assert r.status_code == 200, r.text
+    assert r.json()["next_at"] is None
+    items = await _list(client, owner, view="scheduled")
     assert signal_id not in [t["id"] for t in items]
 
 
 @pytest.mark.asyncio
-async def test_reply_send_and_pending_keeps_open(client: AsyncClient):
+async def test_reply_send_and_pending_sets_date(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     signal_id = await _create_thread(client, owner)
 
@@ -113,30 +114,30 @@ async def test_reply_send_and_pending_keeps_open(client: AsyncClient):
     r = await client.get(f"/api/signals/{signal_id}", headers=owner)
     thread = r.json()["thread"]
     assert thread["status"] == "open"
-    assert thread["snoozed_until"] is None
-    assert thread["has_unread"] is True
+    assert thread["next_at"] is not None
 
 
 @pytest.mark.asyncio
-async def test_wake_snoozed_threads_noops_when_snooze_retired(client: AsyncClient, session_override):
+async def test_due_thread_date_comes_back_unread(client: AsyncClient, session_override):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
     signal_id = await _create_thread(client, owner)
 
-    past = (datetime.utcnow() - timedelta(minutes=5)).isoformat()
-    r = await client.patch(
-        f"/api/signals/{signal_id}", headers=owner, json={"snoozed_until": past}
-    )
-    assert r.status_code == 200
+    from uuid import UUID
 
-    from app.services.signal_threads import wake_snoozed_threads
+    from app.models.signal import Signal
+    from app.services.thread_schedule import wake_due_threads
 
-    woken = await wake_snoozed_threads(session_override)
-    assert woken == 0
+    row = await session_override.get(Signal, UUID(signal_id))
+    row.next_at = datetime.utcnow() - timedelta(minutes=5)
+    session_override.add(row)
+    await session_override.commit()
+
+    assert await wake_due_threads(session_override) == 1
 
     r = await client.get(f"/api/signals/{signal_id}", headers=owner)
     thread = r.json()["thread"]
     assert thread["status"] == "open"
-    assert thread["snoozed_until"] is None
+    assert thread["next_at"] is None
     assert thread["has_unread"] is True
 
 
@@ -236,27 +237,6 @@ async def test_bulk_close_and_spam(client: AsyncClient):
     assert r.status_code == 200
     spam_ids = [t["id"] for t in await _list(client, owner, view="spam")]
     assert c in spam_ids
-
-
-@pytest.mark.asyncio
-async def test_bulk_snooze_marks_unread(client: AsyncClient):
-    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
-    a = await _create_thread(client, owner, subject="Snooze me")
-    wake = "2026-09-01T07:00:00Z"
-    r = await client.post(
-        "/api/signals/bulk",
-        headers=owner,
-        json={"signal_ids": [a], "action": "snooze", "snoozed_until": wake},
-    )
-    assert r.status_code == 200, r.text
-    assert r.json()["updated"] == 1
-    open_threads = await _list(client, owner, view="open")
-    row = next(t for t in open_threads if t["id"] == a)
-    assert row["status"] == "open"
-    assert row["has_unread"] is True
-    assert row["snoozed_until"] is None
-    snoozed = await _list(client, owner, view="snoozed")
-    assert a not in [t["id"] for t in snoozed]
 
 
 @pytest.mark.asyncio

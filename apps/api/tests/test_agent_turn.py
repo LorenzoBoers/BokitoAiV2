@@ -65,6 +65,14 @@ def test_split_chat_messages_merges_fragments_and_caps():
     assert split_chat_messages("Run:\n\n```\na\n\nb\n```") == ["Run:", "```\na\n\nb\n```"]
 
 
+def test_split_chat_messages_drops_blocks_without_text():
+    text = "Hier zijn suggesties:\n\n---\n\n#### Actietags\n- #feature\n\n***\n\n**"
+    assert split_chat_messages(text, max_messages=0) == [
+        "Hier zijn suggesties:",
+        "#### Actietags\n- #feature",
+    ]
+
+
 def test_format_for_channel_converts_markup():
     text = "## Status\n**Shipped** ~~late~~ see [track](https://x.test/t)\n\n---"
     assert format_for_channel(text, "whatsapp") == "*Status*\n*Shipped* ~late~ see track: https://x.test/t"

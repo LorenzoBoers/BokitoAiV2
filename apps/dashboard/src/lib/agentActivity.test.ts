@@ -78,6 +78,14 @@ function item(id: string, kind: ActivityItem['kind'], start: number, end: number
 }
 
 describe('isVisibleActivity', () => {
+  it('hides attach_items tool rows (showcase renders under the bubble)', () => {
+    expect(
+      isVisibleActivity(
+        item('a1', 'other', 0, 1, { tool: 'attach_items', label: 'Attach items' }),
+      ),
+    ).toBe(false)
+  })
+
   it('hides finished think items without reasoning text', () => {
     expect(isVisibleActivity(item('t', 'think', 0, 500, { text: '' }))).toBe(false)
     expect(isVisibleActivity(item('t', 'think', 0, 500, { hasText: false }))).toBe(false)

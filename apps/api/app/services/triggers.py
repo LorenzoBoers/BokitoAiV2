@@ -26,18 +26,20 @@ from app.models.trigger import TRIGGER_KINDS, Trigger
 
 HEARTBEAT_OK = "HEARTBEAT_OK"
 
-HEARTBEAT_PROMPT = (
-    "This is a scheduled heartbeat wake. Work through the checklist below. "
-    "Use your tools to check on anything that needs attention. "
-    f"If everything is fine and there is nothing to report, reply with exactly {HEARTBEAT_OK} "
-    "and nothing else. Otherwise describe what needs attention or what you did.\n"
-    "Report only what changed since the previous check-in: new threads, new "
-    "decisions, finished work. Do not repeat items the previous check-in already "
-    "listed, do not restate open counts, and never raise a proposal (module, "
-    "integration, rule) that is still awaiting an answer or was declined. "
-    "When a question concerns a conversation, pass its subject as thread_subject "
-    "to create_decision_request so the card lands on that thread. "
-    f"When nothing changed, reply {HEARTBEAT_OK}."
+SCHEDULED_WAKE_PREAMBLE = (
+    "This is a scheduled wake. You work inside this task's own conversation: "
+    "whatever you write lands there and is read by {recipient}. Write to them "
+    "directly, most important first, at most three points. Use your tools to "
+    "check what you need before you write.\n"
+    "Propose, do not act: before you set anything up (a flow, project, rule, "
+    "integration, agent), ask with create_decision_request so they can approve "
+    "in the conversation. When a question concerns another conversation, pass "
+    "its subject as thread_subject so the card lands there.\n"
+    "Report only what changed since the previous report: new conversations, "
+    "decisions, finished work. Never repeat a point or proposal that is still "
+    "open or was declined, and do not restate open counts.\n"
+    f"If there is nothing new worth their attention, reply with exactly {HEARTBEAT_OK} "
+    "and nothing else."
 )
 
 # A report that reads the same as the previous one (counts aside) is noise:
@@ -81,6 +83,8 @@ def serialize_trigger(row: Trigger) -> dict[str, Any]:
         "agent_role": row.agent_role,
         "workstream_id": str(row.workstream_id) if row.workstream_id else None,
         "signal_id": str(row.signal_id) if row.signal_id else None,
+        "recipient_kind": row.recipient_kind or None,
+        "recipient_id": str(row.recipient_user_id or row.recipient_team_id or "") or None,
         "purpose": row.purpose or None,
         "instructions": row.instructions,
         "has_webhook_secret": bool(row.webhook_secret),
@@ -226,7 +230,16 @@ async def create_trigger(
     instructions: str = "",
     enabled: bool = True,
     run_at: datetime | None = None,
+    signal_id: UUID | None = None,
+    created_by_user_id: UUID | None = None,
+    recipient: tuple[str, UUID] | None = None,
 ) -> Trigger:
+    """A rule always runs in a thread: ``signal_id`` or a new agenda thread.
+
+    ``event`` (a person's moment) is not a rule; it becomes a date on the thread.
+    """
+    from app.services.thread_schedule import convert_event_trigger, ensure_trigger_thread
+
     if kind not in TRIGGER_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid trigger kind: {kind}")
     if kind == "cron" and next_cron_run(cron_expr, datetime.utcnow()) is None:
@@ -245,12 +258,23 @@ async def create_trigger(
         instructions=instructions,
         webhook_secret=secrets.token_urlsafe(24) if kind == "webhook" else "",
         enabled=enabled,
+        signal_id=signal_id,
+        created_by_user_id=created_by_user_id,
     )
+    if recipient is not None:
+        trigger.recipient_kind = recipient[0]
+        trigger.recipient_user_id = recipient[1] if recipient[0] == "user" else None
+        trigger.recipient_team_id = recipient[1] if recipient[0] == "team" else None
     if kind in ("once", "event"):
         trigger.next_run_at = run_at
     else:
         trigger.next_run_at = compute_next_run(trigger)
     session.add(trigger)
+    await session.flush()
+    if kind == "event":
+        await convert_event_trigger(session, trigger)
+    else:
+        await ensure_trigger_thread(session, trigger)
     await session.commit()
     await session.refresh(trigger)
     return trigger
@@ -304,22 +328,6 @@ async def _heartbeat_checklist(session: AsyncSession, tenant_id: UUID) -> str:
     return "\n\n".join(with_heartbeat_module_hint(part) for part in parts)
 
 
-async def _operations_signal_id(session: AsyncSession, tenant_id: UUID) -> UUID | None:
-    from app.dependencies import tenant_settings
-    from app.models.auth import Tenant
-
-    tenant = await session.get(Tenant, tenant_id)
-    if not tenant:
-        return None
-    raw = tenant_settings(tenant).get("operations_signal_id")
-    if not raw:
-        return None
-    try:
-        return UUID(str(raw))
-    except ValueError:
-        return None
-
-
 async def previous_heartbeat_report(
     session: AsyncSession, trigger: Trigger
 ) -> tuple[str, datetime | None]:
@@ -350,81 +358,70 @@ async def previous_heartbeat_report(
     return "", None
 
 
+async def _recipient_label(session: AsyncSession, signal: Any) -> str:
+    """Who the wake writes to, for the prompt: a person, a team, or the team at large."""
+    from app.models.auth import User
+    from app.models.team import Team
+
+    if signal.assignee_kind == "user" and signal.assigned_user_id:
+        user = await session.get(User, signal.assigned_user_id)
+        if user is not None:
+            return f"{user.display_name or user.email} (a person)"
+    if signal.assignee_kind == "team" and signal.assignee_team_id:
+        team = await session.get(Team, signal.assignee_team_id)
+        if team is not None:
+            return f"the team {team.name}"
+    return "the people of this workspace"
+
+
 async def _surface_result(
-    session: AsyncSession, trigger: Trigger, agent: Agent, text: str
+    session: AsyncSession, trigger: Trigger, agent: Agent, loop: Any, text: str
 ) -> None:
-    """Post a non-OK trigger result into a Signal thread (Messages)."""
+    """The wake had something to say: save the turn in the thread and bring it back."""
     from app.models.signal import Signal
-    from app.services.assistant_threads import append_signal_chat_message
-    from app.services.platform_watch import ensure_agent_channel
-    from app.services.signal_decisions import get_or_create_internal_thread
+    from app.services.thread_schedule import ensure_trigger_thread, notify_moment, reopen_for_moment
 
-    signal: Signal | None = None
-    # Check-in findings land in the channel of the agent that ran the check-in,
-    # so they read as that assistant talking instead of as a separate mailbox.
-    if trigger.kind == "heartbeat":
-        channel = await ensure_agent_channel(session, trigger.tenant_id, agent=agent)
-        if channel.tenant_id == trigger.tenant_id:
-            signal = channel
-    # 1. Reuse the trigger's own thread so recurring fires land in one place.
-    if not signal and trigger.signal_id:
-        signal = await session.get(Signal, trigger.signal_id)
-        if signal and signal.tenant_id != trigger.tenant_id:
-            signal = None
-    # 2. Fall back to a tenant-wide operations thread when one is configured
-    #    (webhook tenants point `operations_signal_id` at their own thread).
-    if not signal:
-        ops_signal_id = await _operations_signal_id(session, trigger.tenant_id)
-        if ops_signal_id:
-            signal = await session.get(Signal, ops_signal_id)
-            if signal and signal.tenant_id != trigger.tenant_id:
-                signal = None
-    # 3. Otherwise create one thread for this trigger and remember it.
-    if not signal:
-        signal = await get_or_create_internal_thread(
-            session,
-            trigger.tenant_id,
-            subject=trigger.name,
-            contact_name=agent.name,
-            agent_id=agent.id,
+    signal = await ensure_trigger_thread(session, trigger, agent=agent)
+    meta = {"trigger_id": str(trigger.id), "trigger_kind": trigger.kind}
+    if loop is not None and loop.turn is not None and loop.turn.segments:
+        await loop.persist_turn(signal, metadata=meta, fallback_text=text)
+    else:
+        from app.services.assistant_threads import append_signal_chat_message
+
+        await append_signal_chat_message(
+            session, signal, role="assistant", content=text, author_agent_id=agent.id, metadata=meta
         )
-    if trigger.signal_id != signal.id:
-        trigger.signal_id = signal.id
-        session.add(trigger)
-    await append_signal_chat_message(
-        session,
-        signal,
-        role="assistant",
-        content=text,
-        author_agent_id=agent.id,
-        metadata={"trigger_id": str(trigger.id), "trigger_kind": trigger.kind},
-    )
-
-
-async def _fire_event(session: AsyncSession, trigger: Trigger, now: datetime) -> dict[str, Any]:
-    """Calendar events do not run agents; they surface a notification and complete."""
-    from app.gateway.publish import publish_notification
-    from app.models.notification import Notification
-
-    notification = Notification(
-        tenant_id=trigger.tenant_id,
-        kind="status_update",
-        tier=3,
-        title=trigger.name,
-        body=trigger.instructions or "Scheduled event",
-        payload_json=json.dumps({"trigger_id": str(trigger.id), "trigger_kind": "event"}),
-    )
-    session.add(notification)
-    trigger.last_run_at = now
-    trigger.last_status = "done"
-    trigger.next_run_at = None
-    trigger.enabled = False
-    trigger.updated_at = now
-    session.add(trigger)
+    reopen_for_moment(signal)
+    session.add(signal)
     await session.commit()
-    await session.refresh(notification)
-    await publish_notification(notification)
-    return {"status": "done"}
+    refreshed = await session.get(Signal, signal.id)
+    if refreshed is not None:
+        await notify_moment(
+            session, refreshed, title=refreshed.subject or trigger.name, body=text[:300]
+        )
+
+
+async def _wake_event(
+    session: AsyncSession, signal: Any, event_type: str, trigger: Trigger, agent: Agent | None
+) -> None:
+    from app.models.signal import SignalEvent
+
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=signal.tenant_id,
+            event_type=event_type,
+            actor_type="agent" if agent else "system",
+            actor_id=str(agent.id) if agent else "",
+            payload_json=json.dumps(
+                {
+                    "trigger_id": str(trigger.id),
+                    "name": trigger.name,
+                    "agent_name": agent.name if agent else "",
+                }
+            ),
+        )
+    )
 
 
 async def fire_trigger(
@@ -432,18 +429,37 @@ async def fire_trigger(
     trigger: Trigger,
     *,
     payload: dict[str, Any] | None = None,
+    manual: bool = False,
 ) -> dict[str, Any]:
+    """Run one moment of a thread's rule. The agent works live in the thread.
+
+    ``manual`` (Run now) keeps the schedule: the next moment stays where it was.
+    """
+    from app.gateway.publish import publish_thread_update
     from app.services.agent.loop import AgentLoop
+    from app.services.thread_schedule import convert_event_trigger, ensure_trigger_thread, mirror_next_at
 
     now = datetime.utcnow()
 
     if trigger.kind == "event":
-        return await _fire_event(session, trigger, now)
+        # A person moment is a date on its thread, not a rule.
+        signal = await convert_event_trigger(session, trigger)
+        await session.commit()
+        await publish_thread_update(signal)
+        return {"status": "converted", "signal_id": str(signal.id)}
 
     if trigger.purpose == "stage_checkup":
         from app.services.stage_checkups import fire_checkup
 
         return await fire_checkup(session, trigger)
+
+    def _advance() -> None:
+        if manual:
+            return
+        trigger.next_run_at = compute_next_run(trigger, now)
+        if trigger.kind == "once":
+            trigger.enabled = False
+            trigger.next_run_at = None
 
     if trigger.workstream_id:
         from app.services.outcomes import list_recent_outcomes, summarize_outcomes
@@ -456,11 +472,10 @@ async def fire_trigger(
 
         trigger.last_run_at = now
         trigger.last_status = "started"
-        trigger.next_run_at = compute_next_run(trigger, now)
-        if trigger.kind == "once":
-            trigger.enabled = False
+        _advance()
         trigger.updated_at = now
         session.add(trigger)
+        signal = await ensure_trigger_thread(session, trigger)
         await session.commit()
         run = await start_run(
             session,
@@ -472,7 +487,7 @@ async def fire_trigger(
             triggered_by_type="trigger",
             triggered_by_id=str(trigger.id),
         )
-        return {"run_id": str(run.id), "status": "started"}
+        return {"run_id": str(run.id), "status": "started", "signal_id": str(signal.id)}
 
     agent = await resolve_trigger_agent(session, trigger)
     if not agent:
@@ -488,10 +503,12 @@ async def fire_trigger(
             if bound and (not bound.is_active or bound.kind != "company"):
                 status = "agent_archived"
         trigger.last_status = status
-        trigger.next_run_at = compute_next_run(trigger, now)
+        if not manual:
+            trigger.next_run_at = compute_next_run(trigger, now)
         session.add(trigger)
+        signal = await ensure_trigger_thread(session, trigger)
         await session.commit()
-        return {"status": status}
+        return {"status": status, "signal_id": str(signal.id)}
 
     # Workspace LLM block (credits, key, spend cap): skip the run instead of
     # logging one more identical failure; the trigger simply fires next time.
@@ -501,47 +518,60 @@ async def fire_trigger(
     blocked = active_workspace_block(tenant) if tenant is not None else None
     if blocked:
         trigger.last_status = f"blocked:{blocked.get('kind')}"
-        trigger.next_run_at = compute_next_run(trigger, now)
+        if not manual:
+            trigger.next_run_at = compute_next_run(trigger, now)
         session.add(trigger)
+        signal = await ensure_trigger_thread(session, trigger, agent=agent)
+        mirror_next_at(signal, trigger)
         await session.commit()
         return {"status": "blocked", "block": blocked.get("kind")}
 
-    previous_report = ""
+    # The wake happens in its thread: a line marks the start, the agent's
+    # turn streams there, and the report (if any) is saved there.
+    signal = await ensure_trigger_thread(session, trigger, agent=agent)
+    await _wake_event(session, signal, "wake_started", trigger, agent)
+    await session.commit()
+    await publish_thread_update(signal)
+
+    recurring = trigger.kind in ("cron", "interval", "heartbeat")
+    prompt_parts = [
+        SCHEDULED_WAKE_PREAMBLE.format(recipient=await _recipient_label(session, signal)),
+    ]
     if trigger.kind == "heartbeat":
         checklist = await _heartbeat_checklist(session, trigger.tenant_id)
-        prompt_parts = [HEARTBEAT_PROMPT]
         if checklist:
             prompt_parts.append(f"## Checklist\n{checklist}")
-        if trigger.instructions.strip():
-            prompt_parts.append(trigger.instructions)
+    if trigger.instructions.strip():
+        prompt_parts.append(f"## Your task\n{trigger.instructions.strip()}")
+    elif trigger.kind != "heartbeat":
+        prompt_parts.append("## Your task\nExecute the scheduled wake.")
+    previous_report = ""
+    if recurring:
         previous_report, previous_at = await previous_heartbeat_report(session, trigger)
         if previous_report:
             stamp = previous_at.strftime("%Y-%m-%d %H:%M UTC") if previous_at else "earlier"
             prompt_parts.append(
-                f"## Previous check-in ({stamp})\n"
-                "Already reported; mention only what is new or resolved since.\n\n"
+                f"## Previous report ({stamp})\n"
+                "Already said; mention only what is new or resolved since.\n\n"
                 f"{previous_report[:4000]}"
             )
-        prompt = "\n\n".join(prompt_parts)
-    else:
-        prompt = trigger.instructions.strip() or "Execute the scheduled wake."
-        if payload:
-            if payload.get("kind") == "report":
-                from app.services.outcomes import ingest_trading_report
+    prompt = "\n\n".join(prompt_parts)
+    if payload:
+        if payload.get("kind") == "report":
+            from app.services.outcomes import ingest_trading_report
 
-                ops_signal_id = await _operations_signal_id(session, trigger.tenant_id)
-                outcome = await ingest_trading_report(
-                    session,
-                    trigger.tenant_id,
-                    payload,
-                    source="trading_webhook",
-                    signal_id=ops_signal_id,
-                )
-                prompt += (
-                    f"\n\nStructured report ingested (outcome_id={outcome.id}, kind={outcome.kind})."
-                    f"\nSummarize for the operator and note any follow-up actions."
-                )
-            prompt += f"\n\nWebhook payload:\n{json.dumps(payload)[:4000]}"
+            outcome = await ingest_trading_report(
+                session,
+                trigger.tenant_id,
+                payload,
+                source="trading_webhook",
+                signal_id=signal.id,
+            )
+            prompt += (
+                f"\n\nStructured report ingested (outcome_id={outcome.id}, kind={outcome.kind})."
+                f"\nSummarize for the operator and note any follow-up actions."
+            )
+        prompt += f"\n\nWebhook payload:\n{json.dumps(payload)[:4000]}"
 
     run = AgentRun(
         tenant_id=trigger.tenant_id,
@@ -549,15 +579,16 @@ async def fire_trigger(
         trigger_type=f"trigger_{trigger.kind}",
         trigger_id=str(trigger.id),
         subject=trigger.name[:120],
+        signal_id=signal.id,
     )
     session.add(run)
     await session.flush()
     await session.refresh(run)
 
-    # Scheduled jobs always land on the Task ledger. Heartbeats stay lazy:
-    # an all-clear check-in is not work, so the loop only promotes it when
-    # it actually does something.
-    if trigger.kind != "heartbeat":
+    # Scheduled jobs always land on the Task ledger. Recurring wakes stay
+    # lazy: an all-clear moment is not work, so the loop only promotes it
+    # when it actually does something.
+    if not recurring:
         from app.services.task_ledger import promote_run_to_task
 
         await promote_run_to_task(session, run, title=trigger.name)
@@ -568,7 +599,7 @@ async def fire_trigger(
         None,
         agent=agent,
         run=run,
-        signal_id=trigger.signal_id,
+        signal_id=signal.id,
     )
     try:
         text, _tokens = await loop.run_chat([{"role": "user", "content": prompt}])
@@ -587,8 +618,11 @@ async def fire_trigger(
             open_workspace_block(tenant, kind=block, error=exc)
             session.add(tenant)
         trigger.last_status = f"blocked:{block}" if block else "error"
-        trigger.next_run_at = compute_next_run(trigger, now)
+        if not manual:
+            trigger.next_run_at = compute_next_run(trigger, now)
         session.add(trigger)
+        mirror_next_at(signal, trigger)
+        session.add(signal)
         await session.commit()
         if block:
             from app.services.ops_alerts import alert_workspace_block
@@ -609,27 +643,32 @@ async def fire_trigger(
 
     await release_workspace_block(session, tenant)
 
-    suppressed = trigger.kind == "heartbeat" and text.strip().rstrip(".") == HEARTBEAT_OK
-    repeated = (
-        trigger.kind == "heartbeat"
-        and not suppressed
-        and is_repeat_heartbeat_report(previous_report, text)
-    )
+    suppressed = text.strip().rstrip(".") == HEARTBEAT_OK
+    repeated = recurring and not suppressed and is_repeat_heartbeat_report(previous_report, text)
     if not suppressed and not repeated and text.strip():
-        await _surface_result(session, trigger, agent, text)
+        await _surface_result(session, trigger, agent, loop, text)
+    else:
+        await _wake_event(session, signal, "wake_quiet", trigger, agent)
 
     trigger.last_run_at = now
     trigger.last_status = "ok" if suppressed else "unchanged" if repeated else "reported"
-    trigger.next_run_at = compute_next_run(trigger, now)
-    if trigger.kind == "once":
-        trigger.enabled = False
+    _advance()
     trigger.updated_at = now
     session.add(trigger)
+    from app.models.signal import Signal
+
+    current = await session.get(Signal, signal.id)
+    if current is not None:
+        mirror_next_at(current, trigger)
+        session.add(current)
     await session.commit()
+    if current is not None:
+        await publish_thread_update(current)
     return {
         "run_id": str(run.id),
         "status": trigger.last_status,
         "suppressed": suppressed or repeated,
+        "signal_id": str(signal.id),
     }
 
 

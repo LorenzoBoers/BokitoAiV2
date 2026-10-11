@@ -54,19 +54,12 @@ async def trigger_scheduler_loop() -> None:
                 if due_runs:
                     logger.info("Woke %s waiting workstream run(s)", due_runs)
 
-                from app.services.signal_threads import (
-                    deliver_due_outbound_messages,
-                    flag_due_follow_ups,
-                    wake_snoozed_threads,
-                )
+                from app.services.signal_threads import deliver_due_outbound_messages
+                from app.services.thread_schedule import wake_due_threads
 
-                woken = await wake_snoozed_threads(session)
+                woken = await wake_due_threads(session)
                 if woken:
-                    logger.info("Woke %s snoozed thread(s)", woken)
-
-                due_looks = await flag_due_follow_ups(session)
-                if due_looks:
-                    logger.info("Flagged %s due follow-up(s)", due_looks)
+                    logger.info("Brought back %s dated thread(s)", woken)
 
                 sent = await deliver_due_outbound_messages(session)
                 if sent:

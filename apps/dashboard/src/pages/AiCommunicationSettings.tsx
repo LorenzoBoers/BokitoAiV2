@@ -69,6 +69,9 @@ import {
 import { RoutingPolicyFields } from '../components/ai/RoutingPolicyFields'
 import { getAllowances, updateAllowances, type AllowanceMode } from '../lib/govern-api'
 import { listCategories, patchCategory, type CategoryRow } from '../lib/tickets-api'
+import { listAgents } from '../lib/agents-api'
+import { setLeadAgent } from '../lib/workforce-api'
+import { useIsAdmin } from '../hooks/useIsAdmin'
 import { Hashtag } from '../components/ui/HashtagMark'
 import { resetTenantDefaultSendAs } from '../lib/reply-send-as'
 import { WEBSITE_WIDGET_CUSTOMIZE_PATH } from '../lib/assistant-settings-path'
@@ -155,6 +158,7 @@ export default function AiCommunicationSettings() {
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation('common')
   const { token } = useAuth()
+  const isAdmin = useIsAdmin()
   const confirm = useConfirm()
   const { activeConnections: activeMailboxes, loading: mailboxesLoading } = useMailboxConnections()
 
@@ -169,6 +173,8 @@ export default function AiCommunicationSettings() {
   const [messagingMode, setMessagingMode] = useState<AllowanceMode | null>(null)
   const [messagingBusy, setMessagingBusy] = useState(false)
   const [categories, setCategories] = useState<CategoryRow[]>([])
+  const [companyAgents, setCompanyAgents] = useState<Array<{ id: string; name: string; isLead: boolean }>>([])
+  const [leadBusy, setLeadBusy] = useState(false)
   const [busyTypeId, setBusyTypeId] = useState<string | null>(null)
 
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null)
@@ -187,6 +193,23 @@ export default function AiCommunicationSettings() {
     setBreaker(next.breaker)
     setDisclosure(next.disclosure)
     setRouting(next.routing)
+  }, [])
+
+  const loadLeadAgents = useCallback(async () => {
+    try {
+      const rows = await listAgents()
+      setCompanyAgents(
+        rows
+          .filter((agent) => agent.kind === 'company' && agent.is_active !== false && !agent.acts_for_user)
+          .map((agent) => ({
+            id: agent.id,
+            name: agent.name,
+            isLead: Boolean(agent.is_lead),
+          })),
+      )
+    } catch {
+      setCompanyAgents([])
+    }
   }, [])
 
   const loadOverview = useCallback(async () => {
@@ -220,7 +243,8 @@ export default function AiCommunicationSettings() {
     void loadOverview()
     void loadGovernCeiling()
     void loadCategories()
-  }, [loadOverview, loadGovernCeiling, loadCategories])
+    void loadLeadAgents()
+  }, [loadOverview, loadGovernCeiling, loadCategories, loadLeadAgents])
 
   useEffect(() => {
     if (!token) return
@@ -481,6 +505,40 @@ export default function AiCommunicationSettings() {
                 onChange={changeWorkspaceMode}
                 testId="workspace-ai-handling"
               />
+              {companyAgents.length > 0 ? (
+                <div className="space-y-1.5">
+                  <Label>{t('ai.communication.defaultAgentTitle')}</Label>
+                  <Select
+                    value={companyAgents.find((agent) => agent.isLead)?.id ?? ''}
+                    disabled={!isAdmin || leadBusy}
+                    onValueChange={(agentId) => {
+                      if (!token || !agentId) return
+                      setLeadBusy(true)
+                      void setLeadAgent(token, agentId)
+                        .then(() => {
+                          setCompanyAgents((rows) =>
+                            rows.map((agent) => ({ ...agent, isLead: agent.id === agentId })),
+                          )
+                          toast.success(t('ai.communication.defaultAgentSaved'))
+                        })
+                        .catch(() => toast.error(t('ai.communication.defaultAgentError')))
+                        .finally(() => setLeadBusy(false))
+                    }}
+                  >
+                    <SelectTrigger className="h-9" data-testid="workspace-lead-agent">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companyAgents.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-text-muted">{t('ai.communication.defaultAgentHint')}</p>
+                </div>
+              ) : null}
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
                 <div className="flex min-w-0 items-start gap-2.5">
                   <AiHandlingIcon mode={overview.ceiling} size={16} className="mt-0.5" />

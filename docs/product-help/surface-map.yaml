@@ -147,6 +147,7 @@ communication:
     - apps/dashboard/src/lib/inbox-ops.ts
     - apps/api/app/services/related_conversations.py
     - apps/api/app/channels/base.py
+    - apps/api/app/services/thread_schedule.py
   screenshots:
     - decision-card
     - open-queue
@@ -278,9 +279,12 @@ decisions:
   code_globs:
     - apps/dashboard/src/components/inbox/DecisionRequestMessage.tsx
     - apps/dashboard/src/components/inbox/ProposalActions.tsx
+    - apps/dashboard/src/components/inbox/ActionBundleCard.tsx
     - apps/dashboard/src/components/inbox/ProposalItemPreview.tsx
     - apps/dashboard/src/components/inbox/useDecisionResolve.ts
     - apps/api/app/services/proposal_items.py
+    - apps/api/app/services/agent_rules.py
+    - apps/api/app/tools/decision_copy.py
     - apps/dashboard/src/components/inbox/MessagesHubNav.tsx
     - apps/dashboard/src/lib/messages-paths.ts
     - apps/dashboard/src/lib/hub-list-filters.ts
@@ -293,6 +297,7 @@ decisions:
   screenshots:
     - approve
     - inline-proposal
+    - action-bundle
 
 knowledge:
   section: ai
@@ -379,6 +384,9 @@ agenda:
     - apps/dashboard/src/lib/time-items.ts
     - apps/api/app/services/time_items.py
     - apps/api/app/routers/calendars.py
+    - apps/api/app/services/thread_schedule.py
+    - apps/dashboard/src/lib/thread-schedule.ts
+    - apps/dashboard/src/components/inbox/PlanDialog.tsx
   screenshots:
     - week
 
@@ -388,6 +396,7 @@ govern:
     - /settings/govern
   code_globs:
     - apps/dashboard/src/pages/GovernPage.tsx
+    - apps/dashboard/src/components/govern/AgentActionRulesCard.tsx
     - apps/api/app/services/platform_apply.py
     - apps/api/app/services/routing_learning.py
   screenshots:

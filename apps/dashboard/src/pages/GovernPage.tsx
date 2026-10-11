@@ -59,6 +59,7 @@ import { governHaystack, matchesGovernText } from '../lib/govern-list'
 import { useChannelStatus } from '../hooks/useChannelStatus'
 import { useLlmRuntime } from '../hooks/useLlmRuntime'
 import { Input } from '../components/ui/input'
+import { AgentActionRulesCard } from '../components/govern/AgentActionRulesCard'
 import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import type { AgentPassport } from '../lib/workforce-api'
@@ -73,7 +74,7 @@ import {
 
 const ALLOWANCE_OPTIONS: AllowanceMode[] = ['deny', 'ask', 'allow']
 const POSTURE_ORDER: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
-const SCOPE_LEVELS: AutonomyScopeLevel[] = ['manual', 'assisted', 'autonomous']
+const SCOPE_LEVELS: AutonomyScopeLevel[] = ['inherit', 'manual', 'assisted', 'autonomous']
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending_review: 'secondary',
@@ -665,6 +666,8 @@ export default function GovernPage() {
                 ))}
               </CardContent>
             </Card>
+
+            <AgentActionRulesCard isAdmin={isAdmin} />
 
             <AgentRulesEditor canEdit canGrant={isAdmin} />
 

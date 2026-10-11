@@ -56,7 +56,10 @@ async def _team_with_channel(session, user_ids: list[UUID], pickup: str):
         channel="whatsapp",
         provider="whatsapp_cloud",
         address=f"pn-{team.id.hex[:8]}",
-        settings_json=json.dumps({"routing": {"team_id": str(team.id)}}),
+        # Manual keeps the workspace lead agent out, so team pickup decides.
+        settings_json=json.dumps(
+            {"routing": {"team_id": str(team.id)}, "ai_config": {"ai_handling": "manual"}}
+        ),
     )
     session.add(account)
     await session.commit()

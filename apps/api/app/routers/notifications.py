@@ -274,7 +274,7 @@ async def reject_decision(
 
 
 class DecisionLearnBody(BaseModel):
-    choice: str  # allow | ask | unsure
+    choice: str  # allow | ask | deny | unsure
 
 
 class DecisionLearnResult(BaseModel):
@@ -282,6 +282,8 @@ class DecisionLearnResult(BaseModel):
     count: int | None = None
     change_id: str | None = None
     rule: dict[str, Any] | None = None
+    # True when an owner/admin applied the rule right away; False for a Govern draft.
+    applied: bool | None = None
 
 
 @router.post("/decisions/{decision_id}/learn", response_model=DecisionLearnResult)
@@ -293,22 +295,27 @@ async def learn_from_decision(
 ):
     """Teach the agent from a decision card.
 
-    ``allow`` (you may do this yourself from now on) and ``ask`` (always ask)
-    propose a rule as an inline Govern decision; a rule to Autonomous needs an
-    owner or admin to confirm. ``unsure`` collects the example; after a few the
-    agent proposes a rule based on how the team decided.
+    ``allow`` (do this yourself from now on), ``ask`` (always ask) and
+    ``deny`` (never do this) set a rule for this agent and this action. Owners
+    and admins apply it immediately; it lands in Govern as an applied change
+    with audit and rollback. Members propose it as a Govern draft. ``unsure``
+    collects the example; after a few the agent proposes a rule based on how
+    the team decided.
     """
     from app.services.agent_rules import learn_from_decision as learn
 
     decision = await session.get(DecisionRequest, decision_id)
     if decision is None or decision.tenant_id != auth.tenant.id:
         raise HTTPException(status_code=404, detail="Decision not found")
-    result = await learn(session, auth.tenant, decision, body.choice, user_id=auth.user.id)
+    result = await learn(
+        session, auth.tenant, decision, body.choice, user_id=auth.user.id, role=auth.role
+    )
     return {
         "status": str(result.get("status") or ""),
         "count": result.get("count"),
         "change_id": result.get("change_id"),
         "rule": result.get("rule"),
+        "applied": result.get("applied"),
     }
 
 

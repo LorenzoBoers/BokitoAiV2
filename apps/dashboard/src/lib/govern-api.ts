@@ -93,7 +93,7 @@ export type GovernToolRow = {
 
 export type AllowancesResponse = AllowanceState & { tools: GovernToolRow[] }
 
-export type AutonomyScopeLevel = 'manual' | 'assisted' | 'autonomous'
+export type AutonomyScopeLevel = 'inherit' | 'manual' | 'assisted' | 'autonomous'
 
 const LEGACY_SCOPE: Record<string, AutonomyScopeLevel> = {
   approval: 'assisted',
@@ -102,8 +102,9 @@ const LEGACY_SCOPE: Record<string, AutonomyScopeLevel> = {
 
 export function normalizeAutonomyScopeLevel(value: string | null | undefined): AutonomyScopeLevel {
   const raw = String(value || '').trim().toLowerCase()
-  if (raw === 'manual' || raw === 'assisted' || raw === 'autonomous') return raw
-  return LEGACY_SCOPE[raw] ?? 'assisted'
+  if (raw === 'inherit' || raw === 'manual' || raw === 'assisted' || raw === 'autonomous') return raw
+  if (!raw || raw === 'default') return 'inherit'
+  return LEGACY_SCOPE[raw] ?? 'inherit'
 }
 
 export type AutonomyScopeRow = {

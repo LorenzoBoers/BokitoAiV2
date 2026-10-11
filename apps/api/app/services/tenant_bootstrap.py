@@ -212,9 +212,11 @@ async def ensure_front_desk(
 async def ensure_widget_default_agent(
     session: AsyncSession, tenant_id: UUID, front_desk: Agent, *, commit: bool = False
 ) -> ChannelAccount | None:
-    """Bind an existing website chat to Front desk when unset or pointing at Bokito / inactive.
+    """Clear a website chat whose pinned agent can no longer handle it.
 
-    Does not create a widget channel — website chat is opt-in via Channels.
+    An empty ``default_agent_id`` means Standaard: the workspace lead. This
+    does not write an agent id onto that empty chat, and it does not create a
+    widget channel.
     """
     from sqlalchemy import select
 
@@ -233,9 +235,11 @@ async def ensure_widget_default_agent(
                 )
             )
         ).scalar_one_or_none()
-    needs_front_desk = current is None or current.acts_for_user or not current.is_active
-    if needs_front_desk and widget.default_agent_id != front_desk.id:
-        widget.default_agent_id = front_desk.id
+    # Null stays null so the channel keeps following the workspace lead.
+    if current is None:
+        return widget
+    if current.acts_for_user or not current.is_active:
+        widget.default_agent_id = None
         session.add(widget)
     if commit:
         await session.commit()

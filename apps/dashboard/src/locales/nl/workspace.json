@@ -73,6 +73,7 @@
     "title": "Branding",
     "subtitle": "Beheer de branding van je workspace, inclusief naam, logo en merkkleur.",
     "name": "Naam",
+    "nameOnGeneral": "Wijzig op Algemeen",
     "logo": "Logo",
     "logoHint": "Zichtbaar in de portal en widgets. PNG, JPG, JPEG, GIF, WebP of SVG (SVG wordt automatisch geoptimaliseerd voor upload).",
     "favicon": "Favicon",

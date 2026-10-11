@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Bell,
   Bot,
+  CalendarClock,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -12,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Repeat,
+  Webhook,
 } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
@@ -32,6 +34,10 @@ import AgendaMonthGrid from '../components/agenda/AgendaMonthGrid'
 import AgendaList from '../components/agenda/AgendaList'
 import AgendaItemPanel from '../components/agenda/AgendaItemPanel'
 import RoutinesDialog from '../components/agenda/RoutinesDialog'
+import PlanDialog, { type PlanSeed } from '../components/inbox/PlanDialog'
+import type { InboxThread } from '../lib/inbox-api'
+import { getSignalThread } from '../lib/signals-api'
+import { DEFAULT_REPEAT } from '../lib/thread-schedule'
 import { useAuth } from '../context/AuthContext'
 import { useMembers } from '../hooks/useMembers'
 import { isTypingTarget } from '../hooks/useInboxListShortcuts'
@@ -68,7 +74,6 @@ import { cn } from '../lib/utils'
 
 const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'task', 'calendar', 'activity']
 const VIEW_KEYS: Record<string, AgendaView> = { d: 'day', w: 'week', m: 'month', l: 'list' }
-const NEW_KINDS: TriggerKind[] = ['once', 'event', 'cron', 'interval']
 
 export default function AgendaPage() {
   const { t, i18n } = useTranslation('nav')
@@ -104,12 +109,9 @@ export default function AgendaPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [selection, setSelection] = useState<AgendaSelection | null>(null)
 
-  const [triggerDialog, setTriggerDialog] = useState<{
-    trigger: Trigger | null
-    at: Date | null
-    kind: TriggerKind
-    seed: string | null
-  } | null>(null)
+  // Webhooks and flow rules keep the trigger editor; everything else is a thread.
+  const [triggerDialog, setTriggerDialog] = useState<{ trigger: Trigger | null; kind: TriggerKind } | null>(null)
+  const [plan, setPlan] = useState<{ thread: InboxThread | null; seed?: PlanSeed } | null>(null)
   const [calendarDialogOpen, setCalendarDialogOpen] = useState(false)
   const [calendarEditEvent, setCalendarEditEvent] = useState<CalendarEventEditSeed | null>(null)
   const [calendarSeedAt, setCalendarSeedAt] = useState<Date | null>(null)
@@ -139,13 +141,10 @@ export default function AgendaPage() {
       setCalendarEditEvent(null)
       setCalendarSeedAt(null)
       setCalendarDialogOpen(true)
-    } else if (newParam && NEW_KINDS.includes(newParam as TriggerKind)) {
-      setTriggerDialog({
-        trigger: null,
-        at: null,
-        kind: newParam as TriggerKind,
-        seed: searchParams.get('seed'),
-      })
+    } else if (newParam === 'webhook') {
+      setTriggerDialog({ trigger: null, kind: 'webhook' })
+    } else if (newParam) {
+      openPlan({ repeat: newParam === 'cron' || newParam === 'interval' ? DEFAULT_REPEAT : null })
     }
     setParams({
       agent: null,
@@ -154,6 +153,8 @@ export default function AgendaPage() {
       source: null,
       ...(agentParam ? { who: `agent:${agentParam}` } : {}),
     })
+    // openPlan is stable enough for a one-off deep link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentParam, newParam, searchParams, setParams])
 
   const setView = (next: AgendaView) =>
@@ -282,7 +283,7 @@ export default function AgendaPage() {
     const item = items.find((row) => row.series_id === triggerParam || row.trigger_id === triggerParam)
     const trigger = triggers.find((row) => row.id === triggerParam)
     if (item) setSelection({ kind: 'item', item })
-    else if (trigger) setTriggerDialog({ trigger, at: null, kind: trigger.kind, seed: null })
+    else if (trigger) void editTrigger(trigger)
     setParams({ trigger: null })
   }, [triggerParam, loading, items, triggers, setParams])
 
@@ -337,8 +338,26 @@ export default function AgendaPage() {
   )
 
   const reload = () => setReloadKey((k) => k + 1)
-  const openNew = (kind: TriggerKind, at: Date | null = null) =>
-    setTriggerDialog({ trigger: null, at, kind, seed: null })
+  function openPlan(seed: PlanSeed = {}) {
+    const agentId = who.startsWith('agent:') ? who.slice('agent:'.length) : null
+    setPlan({ thread: null, seed: { agentId, ...seed } })
+  }
+  async function editThread(signalId: string) {
+    if (!token) return
+    try {
+      const detail = await getSignalThread(token, signalId, { limit: 1 })
+      if (detail) setPlan({ thread: detail.thread })
+    } catch (err) {
+      setError(formatApiErrorMessage(err, t('agendaPage.loadError')))
+    }
+  }
+  async function editTrigger(trigger: Trigger) {
+    if (trigger.kind === 'webhook' || trigger.workstream_id || !trigger.signal_id) {
+      setTriggerDialog({ trigger, kind: trigger.kind })
+      return
+    }
+    await editThread(trigger.signal_id)
+  }
   const openCalendarNew = (at: Date | null = null) => {
     setCalendarEditEvent(null)
     setCalendarSeedAt(at)
@@ -404,9 +423,9 @@ export default function AgendaPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <NewItem icon={Bot} title={t('agendaPage.newMenu.agent')} body={t('agendaPage.newMenu.agentBody')} onSelect={() => openNew('once')} />
-              <NewItem icon={Bell} title={t('agendaPage.newMenu.reminder')} body={t('agendaPage.newMenu.reminderBody')} onSelect={() => openNew('event')} />
-              <NewItem icon={Repeat} title={t('agendaPage.newMenu.routine')} body={t('agendaPage.newMenu.routineBody')} onSelect={() => openNew('cron')} />
+              <NewItem icon={CalendarClock} title={t('agendaPage.newMenu.item')} body={t('agendaPage.newMenu.itemBody')} onSelect={() => openPlan()} />
+              <NewItem icon={Repeat} title={t('agendaPage.newMenu.routine')} body={t('agendaPage.newMenu.routineBody')} onSelect={() => openPlan({ repeat: DEFAULT_REPEAT })} />
+              <NewItem icon={Webhook} title={t('agendaPage.newMenu.webhook')} body={t('agendaPage.newMenu.webhookBody')} onSelect={() => setTriggerDialog({ trigger: null, kind: 'webhook' })} />
               <NewItem
                 icon={CalendarDays}
                 title={t('agendaPage.newMenu.calendar')}
@@ -486,7 +505,7 @@ export default function AgendaPage() {
               nowMs={nowMs}
               selectedId={selectedId}
               onSelect={setSelection}
-              onCreateAt={(at) => openNew('once', at)}
+              onCreateAt={(at) => openPlan({ at })}
             />
           ) : view === 'month' ? (
             <AgendaMonthGrid
@@ -499,7 +518,7 @@ export default function AgendaPage() {
               onOpenDay={(day) => setParams({ view: 'day', date: dayKey(day) })}
             />
           ) : visible.length === 0 && !loading ? (
-            <EmptyAgenda onPlan={() => openNew('once')} />
+            <EmptyAgenda onPlan={() => openPlan()} />
           ) : (
             <AgendaList
               days={range.days}
@@ -522,7 +541,8 @@ export default function AgendaPage() {
               projectNames={projectNames}
               onSelect={setSelection}
               onClose={() => setSelection(null)}
-              onEditTrigger={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind, seed: null })}
+              onEditTrigger={(trigger) => void editTrigger(trigger)}
+              onEditThread={(signalId) => void editThread(signalId)}
               onOpenCalendar={(item) => setCalendarDetailItem(item)}
               onChanged={reload}
             />
@@ -538,10 +558,17 @@ export default function AgendaPage() {
         trigger={triggerDialog?.trigger ?? null}
         agents={agents}
         workstreams={workstreams}
-        initialRunAt={triggerDialog?.at ?? null}
         initialKind={triggerDialog?.kind}
-        initialSeed={triggerDialog?.seed}
         initialAgentId={who.startsWith('agent:') ? who.slice('agent:'.length) : null}
+        onSaved={reload}
+      />
+      <PlanDialog
+        open={plan != null}
+        onOpenChange={(open) => {
+          if (!open) setPlan(null)
+        }}
+        thread={plan?.thread ?? null}
+        seed={plan?.seed}
         onSaved={reload}
       />
       <RoutinesDialog
@@ -549,8 +576,8 @@ export default function AgendaPage() {
         onOpenChange={setRoutinesOpen}
         triggers={triggers.filter((row) => row.kind !== 'once' && row.kind !== 'event')}
         agentNames={agentNames}
-        onEdit={(trigger) => setTriggerDialog({ trigger, at: null, kind: trigger.kind, seed: null })}
-        onCreate={() => openNew('cron')}
+        onEdit={(trigger) => void editTrigger(trigger)}
+        onCreate={() => openPlan({ repeat: DEFAULT_REPEAT })}
         onChanged={reload}
       />
       <CalendarEventDialog

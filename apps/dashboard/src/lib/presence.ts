@@ -10,7 +10,7 @@ const DOT_CLASS: Record<PresenceKind, string> = {
   available: 'bg-status-success',
   away: 'bg-status-warning',
   offline: 'bg-text-muted/50',
-  standby: 'bg-ai',
+  standby: 'presence-standby-dot',
   working: 'presence-working-dot',
   error: 'bg-status-error',
   deactivated: 'bg-text-muted/50',

@@ -90,10 +90,20 @@ describe('timeItemHref', () => {
         [{ id: 'near', emailSubject: 'Check-in: Assistant', lastMessageAt: '2026-08-24T14:56:00Z' }],
         now,
       ),
-    ).toBe('/communication/agent/a1/t/chan-1')
+    ).toBe('/communication/inbox/all/t/chan-1')
   })
 
-  it('opens the conversation for a follow-up', () => {
+  it('opens the thread of a future wake', () => {
+    expect(
+      timeItemHref(
+        item({ id: 'wake:2', kind: 'wake', start: '2026-08-30T14:57:00Z', trigger_id: 't', signal_id: 'rule-thread' }),
+        [],
+        now,
+      ),
+    ).toBe('/communication/inbox/all/t/rule-thread')
+  })
+
+  it('opens the conversation for a dated thread', () => {
     expect(
       timeItemHref(item({ id: 'task:s', kind: 'task', start: '2026-08-27T10:00:00Z', signal_id: 's' })),
     ).toBe('/communication/inbox/all/t/s')
@@ -101,14 +111,9 @@ describe('timeItemHref', () => {
 })
 
 describe('triggerThreadPath', () => {
-  it('sends a check-in to the agent channel and other triggers to All communication', () => {
-    expect(triggerThreadPath({ trigger_kind: 'heartbeat', signal_id: 'chan-1', agent_id: 'agent-1' })).toBe(
-      '/communication/agent/agent-1/t/chan-1',
-    )
-    expect(triggerThreadPath({ trigger_kind: 'interval', signal_id: 'thread-1' })).toBe(
-      '/communication/inbox/all/t/thread-1',
-    )
-    expect(triggerThreadPath({ trigger_kind: 'heartbeat', signal_id: null })).toBeNull()
+  it('opens every rule thread in All communication', () => {
+    expect(triggerThreadPath({ signal_id: 'chan-1' })).toBe('/communication/inbox/all/t/chan-1')
+    expect(triggerThreadPath({ signal_id: null })).toBeNull()
   })
 })
 

@@ -1,11 +1,10 @@
-"""Platform check-in: one heartbeat trigger posting into the agent's own channel.
+"""Platform check-in: one heartbeat rule with a conversation of its own.
 
-Findings land in the channel of the assistant that runs the check-in — the
-conversation operators open at `/communication/agent/{agent_id}` — so a
-check-in reads as the assistant talking, not as a separate ops mailbox. The
-channel thread is tenant-wide (`owner_user_id` stays null), so every member
-sees the same history. Existing disabled heartbeats are never flipped on
-automatically.
+Like every recurring task, the check-in runs in its own internal thread
+(`thread_schedule.ensure_trigger_thread`): each wake works live there and only
+reopens the thread when it has something new. The agent's shared channel
+(`ensure_agent_channel`) stays a chat. Existing disabled heartbeats are never
+flipped on automatically.
 """
 
 from __future__ import annotations
@@ -201,23 +200,21 @@ async def ensure_heartbeat_trigger(
     Never changes `enabled` on an existing row. New rows follow
     `enable_if_created` (True for brand-new tenants, False for backfill).
     """
+    from app.services.thread_schedule import ensure_trigger_thread
+
     existing = await get_heartbeat_trigger(session, tenant_id)
-    # Bind to the channel of the agent that will actually run the check-in.
     agent = (
         await resolve_trigger_agent(session, existing)
         if existing
         else await lead_assistant(session, tenant_id)
     ) or await lead_assistant(session, tenant_id)
-    channel = await ensure_agent_channel(session, tenant_id, agent=agent)
     name = checkin_trigger_name(agent)
 
     if existing:
         if existing.name.strip() != name and _is_seeded_name(existing.name):
             existing.name = name
             session.add(existing)
-        if existing.signal_id != channel.id:
-            existing.signal_id = channel.id
-            session.add(existing)
+        await ensure_trigger_thread(session, existing, agent=agent)
         return existing
 
     trigger = Trigger(
@@ -227,11 +224,11 @@ async def ensure_heartbeat_trigger(
         interval_minutes=PLATFORM_CHECKIN_INTERVAL_MINUTES,
         agent_role="assistant",
         enabled=enable_if_created,
-        signal_id=channel.id,
     )
     trigger.next_run_at = compute_next_run(trigger) if enable_if_created else None
     session.add(trigger)
     await session.flush()
+    await ensure_trigger_thread(session, trigger, agent=agent)
     return trigger
 
 
@@ -243,7 +240,6 @@ def serialize_watch_status(trigger: Trigger, channel_signal_id: UUID | None) -> 
         "interval_minutes": trigger.interval_minutes,
         "next_run_at": _iso(trigger.next_run_at),
         "last_status": trigger.last_status,
-        # The conversation the findings land in: the assistant's own channel.
         "signal_id": str(channel_signal_id) if channel_signal_id else None,
         "trigger": serialize_trigger(trigger),
     }
@@ -267,15 +263,14 @@ async def set_platform_watch(
 
 
 async def bootstrap_new_tenant(session: AsyncSession, tenant_id: UUID) -> Trigger:
-    """New workspace: assistant channel + hourly check-in row (paused until enabled)."""
+    """New workspace: the daily check-in rule and its thread (paused until enabled)."""
     return await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=False)
 
 
 async def ensure_platform_watch(session: AsyncSession) -> None:
-    """Startup backfill: agent channel + check-in row. Never enable an existing one.
+    """Startup backfill: every tenant has the check-in rule and its thread.
 
-    Idempotent: a tenant already on the agent channel is left alone, and a
-    pre-migration Platform check-in thread is folded in exactly once.
+    Never enables an existing rule. Idempotent.
     """
     tenants = (await session.execute(select(Tenant))).scalars().all()
     for tenant in tenants:

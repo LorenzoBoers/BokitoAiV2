@@ -23,8 +23,7 @@ import DecisionGroupsBanner from '../components/inbox/DecisionGroupsBanner'
 import ThreadList from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
-import { WhatsNextDialog } from '../components/inbox/WhatsNextDialog'
-import { useFollowUpPlanner } from '../components/inbox/useFollowUpPlanner'
+import PlanDialog from '../components/inbox/PlanDialog'
 import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
 import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
 import { useMediaQuery } from '../hooks/useMediaQuery'
@@ -45,7 +44,6 @@ import {
 import {
   customersFirst,
   isAgentRunThread,
-  isInternalThread,
   pickPreferredInboxThread,
   threadHubPath,
 } from '../lib/message-composer'
@@ -815,16 +813,9 @@ export default function Communication() {
     ],
   )
 
-  const followUp = useFollowUpPlanner({
-    thread: detail?.thread ?? null,
-    onPatch: handlePatch,
-    onRefresh: refreshDetail,
-  })
-  const canPlanFollowUp =
-    Boolean(detail) &&
-    !isInternalThread(detail!.thread) &&
-    detail!.thread.status !== 'closed' &&
-    detail!.thread.status !== 'spam'
+  const [planOpen, setPlanOpen] = useState(false)
+  const [newPlanOpen, setNewPlanOpen] = useState(false)
+  const openPlanner = useCallback(() => setPlanOpen(true), [])
 
   useInboxListShortcuts({
     dialogOpen: composeOpen,
@@ -1241,11 +1232,11 @@ export default function Communication() {
     )
   }
 
-  // Secondary folders (snoozed / spam / closed) use queue empty copy — never the
+  // Secondary folders (scheduled / spam / closed) use queue empty copy — never the
   // first-run setup checklist (F-63). Setup belongs on Open / new chat only.
   const isSecondaryInboxQueue =
     leaf.type === 'inbox' &&
-    (leaf.queue === 'snoozed' || leaf.queue === 'spam' || leaf.queue === 'closed')
+    (leaf.queue === 'scheduled' || leaf.queue === 'spam' || leaf.queue === 'closed')
 
   const isInboxEmpty =
     leaf.type === 'inbox' &&
@@ -1474,8 +1465,8 @@ export default function Communication() {
                   ? t('threadList.emptyScoped')
                   : leaf.type === 'inbox' && leaf.queue === 'for_you'
                     ? t('threadList.emptyForYou')
-                    : leaf.type === 'inbox' && leaf.queue === 'snoozed'
-                      ? t('threadList.emptySnoozed')
+                    : leaf.type === 'inbox' && leaf.queue === 'scheduled'
+                      ? t('threadList.emptyScheduled')
                       : leaf.type === 'inbox' && leaf.queue === 'spam'
                         ? t('threadList.emptySpam')
                         : leaf.type === 'inbox' && leaf.queue === 'closed'
@@ -1499,15 +1490,16 @@ export default function Communication() {
                 >
                   {t('threadList.clearScope')}
                 </button>
-              ) : leaf.type === 'inbox' && leaf.queue === 'snoozed' ? (
+              ) : leaf.type === 'inbox' && leaf.queue === 'scheduled' ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
-                  <p className="text-xs text-text-muted">{t('threadList.emptySnoozedHint')}</p>
-                  <Link
-                    to={inboxPath('open')}
+                  <p className="text-xs text-text-muted">{t('threadList.emptyScheduledHint')}</p>
+                  <button
+                    type="button"
+                    onClick={() => setNewPlanOpen(true)}
                     className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
-                    {t('threadList.openInbox')}
-                  </Link>
+                    {t('plan.newTitle')}
+                  </button>
                 </div>
               ) : leaf.type === 'inbox' && leaf.queue === 'spam' ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
@@ -1610,7 +1602,7 @@ export default function Communication() {
             contactOpen={showContactPanel}
             onDecisionResolved={handleDecisionResolved}
             mode={mode}
-            onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
+            onPlan={detail ? openPlanner : undefined}
             canSendEmail={enabledConnections.length > 0}
             mailboxNeedsSetup={mailboxNeedsSetup}
             onForward={
@@ -1638,7 +1630,7 @@ export default function Communication() {
               onThreadUpdated={handleThreadUpdated}
               saving={saving}
               onPatch={handlePatch}
-              onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
+              onPlan={openPlanner}
               relatedConversations={detail.relatedConversations}
             />
           </SplitPane>
@@ -1660,24 +1652,28 @@ export default function Communication() {
               onThreadUpdated={handleThreadUpdated}
               saving={saving}
               onPatch={handlePatch}
-              onWhatsNext={canPlanFollowUp ? followUp.openPlanner : undefined}
+              onPlan={openPlanner}
               relatedConversations={detail.relatedConversations}
             />
           </div>
         </div>
       ) : null}
       {detail ? (
-        <WhatsNextDialog
-          open={followUp.open}
-          onOpenChange={followUp.setOpen}
-          signalId={String(detail.thread.id)}
-          defaultTitle={followUp.title}
-          saving={followUp.saving}
-          onSaveReminder={followUp.save}
-          onSignalCreated={refreshDetail}
-          onHandledExternally={() => void refreshDetail()}
+        <PlanDialog
+          open={planOpen}
+          onOpenChange={setPlanOpen}
+          thread={detail.thread}
+          onSaved={() => void refreshDetail()}
         />
       ) : null}
+      <PlanDialog
+        open={newPlanOpen}
+        onOpenChange={setNewPlanOpen}
+        onSaved={(created) => {
+          void refreshThreads()
+          if (created) navigate(`${inboxPath('scheduled', String(created.id))}${inboxQuery}`)
+        }}
+      />
       <ComposeEmailModal
         open={composeOpen}
         onClose={() => setComposeOpen(false)}

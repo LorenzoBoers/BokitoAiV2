@@ -90,6 +90,9 @@ async def get_or_create_widget_thread(
             contact_name=user.display_name or user.email,
             has_unread=False,
         )
+        from app.services.ownership import set_owner
+
+        set_owner(signal, "user", user.id, by_user_id=user.id)
         session.add(signal)
         await session.flush()
         return signal

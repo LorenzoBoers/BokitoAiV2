@@ -122,6 +122,8 @@ export function shouldShowWaitingTurn(
  * still streaming in). Models that think without exposing text leave none.
  */
 export function isVisibleActivity(item: ActivityItem): boolean {
+  // Showcase cards render under the bubble — the tool row is noise.
+  if (item.tool === 'attach_items') return false
   if (item.kind !== 'think' || item.status === 'running') return true
   if (item.text !== undefined) return Boolean(item.text.trim())
   return item.hasText !== false

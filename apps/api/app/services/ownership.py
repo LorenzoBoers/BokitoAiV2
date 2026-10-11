@@ -112,7 +112,14 @@ def _normalize_owner(connection: Any, target: Signal, *, is_insert: bool) -> Non
             and target.agent_id is not None
             and target.channel in INTERNAL_CHANNELS
         ):
-            kind = "agent"
+            # A person opening a chat with an agent owns that conversation;
+            # agent_id is the chat partner, not the assignee. Shared agent
+            # channels (owner_user_id null) stay with the agent.
+            if target.owner_user_id is not None:
+                kind = "user"
+                target.assigned_user_id = target.owner_user_id
+            else:
+                kind = "agent"
         else:
             kind = "team"
             if target.assignee_team_id is None:

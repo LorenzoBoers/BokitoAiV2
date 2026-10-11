@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import {
   Archive,
   ArrowLeft,
+  CalendarClock,
   Mail,
   MailOpen,
   MoreHorizontal,
   Pin,
   PinOff,
+  Repeat,
   Trash2,
 } from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
@@ -39,6 +41,7 @@ import {
 } from '../../lib/message-composer'
 import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
+import { parseServerTime, scheduleChipLabel, scheduleLongLabel } from '../../lib/thread-schedule'
 import { stageLabel } from '../../lib/tickets-api'
 import { HashtagMark } from '../ui/HashtagMark'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
@@ -122,7 +125,8 @@ const ROW_ICON_BUTTON = cn(
  * The lead slot carries one 8px state dot (unread, status, pinned). When the
  * list can bulk-select, the same slot turns into the checkbox on hover or
  * while a selection is active, so the avatar never shifts. Row actions
- * (read state, pin, snooze, close) sit in a hover cluster on the right.
+ * (read state, pin, close) sit in a hover cluster on the right. A dated
+ * thread shows its next moment; a repeat shows the repeat icon.
  */
 function ThreadListItem({
   thread,
@@ -155,6 +159,8 @@ function ThreadListItem({
   const { t, i18n } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
+  const scheduleAt = thread.schedule?.nextRunAt ?? thread.nextAt
+  const scheduleDue = (parseServerTime(scheduleAt)?.getTime() ?? Infinity) <= Date.now()
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
   const isAgentThread = isInternalThread(thread)
   const ticket =
@@ -424,6 +430,24 @@ function ThreadListItem({
             <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-secondary">
               {secondaryLabel}
             </span>
+            {scheduleAt ? (
+              <span
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1 text-2xs tabular-nums',
+                  scheduleDue ? 'text-status-warning' : 'text-text-muted',
+                  thread.schedule && !thread.schedule.enabled && 'line-through opacity-70',
+                )}
+                title={scheduleLongLabel(scheduleAt, i18n.language)}
+                data-testid="thread-row-schedule"
+              >
+                {thread.schedule?.repeat ? (
+                  <Repeat size={11} aria-hidden />
+                ) : (
+                  <CalendarClock size={11} aria-hidden />
+                )}
+                {scheduleChipLabel(scheduleAt, i18n.language)}
+              </span>
+            ) : null}
             {thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? (
               <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-2xs" data-testid="thread-row-human-requested">
                 {t('listItem.humanRequested')}

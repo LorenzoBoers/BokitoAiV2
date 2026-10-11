@@ -6,6 +6,7 @@ import {
   apiGet,
   apiPatch,
   apiPost,
+  apiPut,
   appScopedGet,
   buildAuthHeaders,
 } from './api'
@@ -22,6 +23,7 @@ import type {
   PagedThreadResult,
   RelatedConversation,
   ReplyInput,
+  ScheduleRecipient,
   ThreadDetail,
   ThreadFilters,
   ThreadRoutingPolicy,
@@ -408,9 +410,6 @@ export async function patchSignalThread(
   if (patch.tags !== undefined) body.tags = patch.tags
   if (patch.priority !== undefined) body.priority = patch.priority
   if (patch.projectId !== undefined) body.project_id = patch.projectId
-  if (patch.snoozedUntil !== undefined) body.snoozed_until = patch.snoozedUntil
-  if (patch.followUpAt !== undefined) body.follow_up_at = patch.followUpAt
-  if (patch.followUpTitle !== undefined) body.follow_up_title = patch.followUpTitle
   if (patch.channelAccountId !== undefined) body.channel_account_id = patch.channelAccountId
   const payload = await apiPatch<unknown>(appRoutes.signals.thread(threadId), body, token)
   return normalizeThreadRow(payload)
@@ -419,15 +418,90 @@ export async function patchSignalThread(
 export async function bulkUpdateSignalThreads(
   token: string,
   signalIds: string[],
-  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'snooze' | 'trash',
+  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'trash',
   assigneeId?: number,
-  extra?: { snoozedUntil?: string | null },
 ): Promise<number> {
   const body: Record<string, unknown> = { signal_ids: signalIds, action }
   if (assigneeId !== undefined) body.assignee_id = assigneeId
-  if (extra?.snoozedUntil !== undefined) body.snoozed_until = extra.snoozedUntil
   const payload = await apiPost<{ updated?: number }>(appRoutes.signals.bulk, body, token)
   return typeof payload.updated === 'number' ? payload.updated : 0
+}
+
+// ---------------------------------------------------------------------------
+// Thread schedule: a date makes an agenda item, a repeat a recurring task
+// ---------------------------------------------------------------------------
+
+export type ThreadScheduleInput = {
+  /** Subject; required for a new agenda thread. */
+  title?: string
+  /** ISO: the moment, or the first run of a repeat. */
+  at?: string | null
+  endsAt?: string | null
+  cron?: string | null
+  everyMinutes?: number | null
+  agentId?: string | null
+  instructions?: string | null
+  /** Person or team it is for; null = me. */
+  recipient?: ScheduleRecipient | null
+  note?: string | null
+  location?: string | null
+  projectId?: string | null
+  enabled?: boolean
+}
+
+function scheduleBody(input: ThreadScheduleInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {}
+  if (input.title !== undefined) body.title = input.title
+  if (input.at !== undefined) body.at = input.at
+  if (input.endsAt !== undefined) body.ends_at = input.endsAt
+  if (input.cron) body.cron = input.cron
+  if (input.everyMinutes) body.every_minutes = input.everyMinutes
+  if (input.agentId !== undefined) body.agent_id = input.agentId
+  if (input.instructions !== undefined) body.instructions = input.instructions
+  if (input.recipient) body.recipient = input.recipient
+  if (input.note !== undefined) body.note = input.note
+  if (input.location !== undefined) body.location = input.location
+  if (input.projectId !== undefined) body.project_id = input.projectId
+  if (input.enabled !== undefined) body.enabled = input.enabled
+  return body
+}
+
+/** Start a new thread with a date or repeat. */
+export async function createScheduledThread(
+  token: string,
+  input: ThreadScheduleInput,
+): Promise<InboxThread | null> {
+  const payload = await apiPost<unknown>(appRoutes.signals.scheduleNew, scheduleBody(input), token)
+  return normalizeThreadRow(payload)
+}
+
+/** Put (or replace) the date and repeat of a thread. */
+export async function setThreadSchedule(
+  token: string,
+  threadId: string,
+  input: ThreadScheduleInput,
+): Promise<InboxThread | null> {
+  const payload = await apiPut<unknown>(appRoutes.signals.threadSchedule(threadId), scheduleBody(input), token)
+  return normalizeThreadRow(payload)
+}
+
+export async function clearThreadSchedule(token: string, threadId: string): Promise<InboxThread | null> {
+  const payload = await apiDelete<unknown>(appRoutes.signals.threadSchedule(threadId), token)
+  return normalizeThreadRow(payload)
+}
+
+export async function setThreadScheduleEnabled(
+  token: string,
+  threadId: string,
+  enabled: boolean,
+): Promise<InboxThread | null> {
+  const payload = await apiPost<unknown>(appRoutes.signals.threadScheduleEnabled(threadId), { enabled }, token)
+  return normalizeThreadRow(payload)
+}
+
+/** Run the thread's agent wake now; the turn streams into the thread. */
+export async function runThreadSchedule(token: string, threadId: string): Promise<void> {
+  await apiPost<unknown>(appRoutes.signals.threadScheduleRun(threadId), {}, token)
 }
 
 // ---------------------------------------------------------------------------
@@ -787,6 +861,8 @@ export type SignalTag = {
   showInNav: boolean
   /** When false, triage does not offer or apply this tag. */
   aiAutoTag: boolean
+  /** draft/ask force a concept; send follows AI handling. */
+  sendMode: 'draft' | 'ask' | 'send'
 }
 
 function normalizeSignalTag(raw: unknown): SignalTag | null {
@@ -804,6 +880,7 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     pinned: row.pinned === true,
     showInNav: row.show_in_nav === true,
     aiAutoTag: row.ai_auto_tag !== false,
+    sendMode: row.send_mode === 'draft' || row.send_mode === 'ask' ? row.send_mode : 'send',
   }
 }
 
@@ -954,6 +1031,50 @@ export async function resolveSignalDecision(
       response && typeof response === 'object' && typeof response.task_id === 'string'
         ? response.task_id
         : null,
+  }
+}
+
+export type BundleResolveRow = {
+  decisionId: string
+  status: string
+  error: string | null
+  skipped: boolean
+}
+
+export type BundleResolveResult = {
+  ok: boolean
+  results: BundleResolveRow[]
+}
+
+/**
+ * Approve some or all action cards of one agent turn in a single call. Every
+ * decision not in `approve` is rejected when `reject` is `'rest'`.
+ */
+export async function resolveDecisionBundle(
+  token: string,
+  threadId: string,
+  input: { decisionIds: string[]; approve: 'all' | string[]; reject?: 'rest' | string[] },
+): Promise<BundleResolveResult> {
+  const response = await apiPost<Record<string, unknown>>(
+    appRoutes.signals.decisionsResolveBundle(threadId),
+    {
+      decision_ids: input.decisionIds,
+      approve: input.approve,
+      reject: input.reject ?? 'rest',
+    },
+    token,
+  )
+  const rows = Array.isArray(response?.results) ? response.results : []
+  return {
+    ok: response?.ok !== false,
+    results: rows
+      .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+      .map((row) => ({
+        decisionId: String(row.decision_id ?? ''),
+        status: String(row.status ?? ''),
+        error: typeof row.error === 'string' ? row.error : null,
+        skipped: row.skipped === true,
+      })),
   }
 }
 

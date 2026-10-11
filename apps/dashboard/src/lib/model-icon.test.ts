@@ -8,6 +8,11 @@ describe('resolveModelIcon', () => {
       src: '/models/maki.png',
       label: 'Maki',
     })
+    expect(resolveModelIcon({ modelId: 'ministral-3b-2410', provider: 'bokito' })).toMatchObject({
+      kind: 'managed',
+      src: '/models/maki.png',
+      label: 'Maki',
+    })
     expect(resolveModelIcon({ slug: 'bokito-ai-3-1' })).toMatchObject({
       kind: 'managed',
       src: '/models/bokito.png',

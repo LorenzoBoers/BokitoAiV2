@@ -915,6 +915,7 @@ async def _execute_agent_step(
         trigger_id=str(run.id),
         subject=f"{ws.name}: {step.name}",
         runtime_snapshot_json=json.dumps(snapshot),
+        signal_id=run.signal_id,
     )
     session.add(agent_run)
     from app.services.workforce_runtime import apply_agent_runtime, broadcast_agent_live
@@ -1193,14 +1194,27 @@ def _worklog_lines(run: WorkstreamRun) -> str:
 async def _announce_completion(
     session: AsyncSession, tenant_id: UUID, ws: Workstream, run: WorkstreamRun
 ) -> None:
-    """Report the finished run in the agent channel."""
+    """Report the finished run: in its rule's thread, otherwise the agent channel."""
     from app.services.assistant_threads import append_signal_chat_message
     from app.services.platform_watch import ensure_agent_channel
 
-    try:
-        channel = await ensure_agent_channel(session, tenant_id)
-    except ValueError:
-        return
+    channel = None
+    if run.triggered_by_type == "trigger" and run.triggered_by_id:
+        from app.models.trigger import Trigger
+        from app.services.thread_schedule import ensure_trigger_thread, reopen_for_moment
+
+        try:
+            trigger = await session.get(Trigger, UUID(str(run.triggered_by_id)))
+        except ValueError:
+            trigger = None
+        if trigger is not None and trigger.tenant_id == tenant_id:
+            channel = await ensure_trigger_thread(session, trigger)
+            reopen_for_moment(channel)
+    if channel is None:
+        try:
+            channel = await ensure_agent_channel(session, tenant_id)
+        except ValueError:
+            return
     body = f"Workstream '{ws.name}' completed.\n\n{run.summary}".strip()
     worklog = _worklog_lines(run)
     if worklog:

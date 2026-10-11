@@ -32,6 +32,23 @@ def _clip(value: Any, limit: int = 280) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+def _url_field(value: Any) -> str:
+    """Brave sometimes nests image urls as ``{src, width, height}`` objects."""
+    if isinstance(value, dict):
+        for key in ("src", "url", "thumbnail"):
+            nested = value.get(key)
+            if isinstance(nested, str) and nested.strip():
+                return nested.strip()
+            if isinstance(nested, dict):
+                found = _url_field(nested)
+                if found:
+                    return found
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
 async def brave_search(
     query: str,
     *,
@@ -83,10 +100,14 @@ async def brave_search(
         for row in (payload.get("results") or [])[:n]:
             if not isinstance(row, dict):
                 continue
-            href = str(row.get("url") or row.get("page_url") or "").strip()
-            image = str(row.get("src") or row.get("thumbnail") or row.get("properties", {}).get("url") or "").strip()
-            if isinstance(row.get("properties"), dict) and not image:
-                image = str(row["properties"].get("url") or "").strip()
+            href = _url_field(row.get("url")) or _url_field(row.get("page_url"))
+            props = row.get("properties") if isinstance(row.get("properties"), dict) else {}
+            image = (
+                _url_field(row.get("src"))
+                or _url_field(row.get("thumbnail"))
+                or _url_field(props.get("url"))
+                or _url_field(props.get("src"))
+            )
             if not href and not image:
                 continue
             host = _host(href or image)

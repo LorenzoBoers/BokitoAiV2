@@ -120,6 +120,22 @@
       }
     }
   },
+  "agentActionRules": {
+    "title": "Per agent: always, ask, never",
+    "intro": "Verdicts given on action cards in conversations. Each rule binds one agent to one action. Owners and admins apply them right away; members propose them as a draft.",
+    "empty": "No per-agent rules yet. Open the menu next to an action an agent proposes to set one.",
+    "mode": {
+      "autonomous": "Always",
+      "assisted": "Ask",
+      "manual": "Never"
+    },
+    "judgement": "Weighed per case",
+    "counts": "Used {{uses}}",
+    "remove": "Remove rule",
+    "removed": "Rule removed. The agent asks again.",
+    "removeError": "Could not remove the rule",
+    "loadError": "Could not load agent rules"
+  },
   "allowances": {
     "title": "Allowance sliders",
     "intro": "Per tool category: deny blocks the action, ask creates an inline decision, allow runs it automatically with an audit record.",
@@ -131,13 +147,14 @@
   },
   "scopes": {
     "title": "Autonomy per action tag and flow",
-    "intro": "Set a ceiling for each action tag and flow. These settings stay below the workspace posture.",
+    "intro": "Company default follows the conversation's AI handling. A chosen mode is a ceiling.",
     "types": "Action tags",
     "playbooks": "Flows",
     "empty": "No active items.",
     "saved": "Autonomy level updated.",
     "saveError": "Could not update this autonomy level.",
     "levels": {
+      "inherit": "Company default",
       "manual": "Manual",
       "assisted": "Assisted",
       "autonomous": "Autonomous"

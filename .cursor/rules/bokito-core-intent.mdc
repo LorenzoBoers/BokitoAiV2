@@ -26,6 +26,7 @@ Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on 
 7. **Ask inline; record in Govern**
 8. **Delete the old surface in the same change**
 9. **Hand work to tools people already use** — workbench connections, not an in-app IDE
+10. **Everything is a thread** — status = ticket (flow), date = agenda item, repeat = recurring item; an agent run lives in its thread (`Signal.next_at` + `Trigger.signal_id`)
 
 ## Operator vocabulary (Set C)
 

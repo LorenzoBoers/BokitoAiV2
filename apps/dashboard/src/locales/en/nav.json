@@ -484,7 +484,7 @@
       "sections": [
         {
           "title": "Inbox queues",
-          "body": "Open is customer work that still needs you. More hides Snoozed, Closed and Spam. Pin important threads, assign owners, and snooze what can wait."
+          "body": "Open is customer work that still needs you. Scheduled holds conversations with a date. Pin important threads, assign owners, and plan what can wait."
         },
         {
           "title": "Channels",
@@ -748,7 +748,9 @@
       "calendarName": "Calendar",
       "openExternal": "Open in calendar",
       "deleteConfirm": "Delete this calendar event?",
-      "deleteError": "Could not delete the calendar event."
+      "deleteError": "Could not delete the calendar event.",
+      "openThread": "Open as conversation",
+      "openThreadError": "Could not open the meeting as a conversation."
     },
     "schedule": {
       "webhook": "on webhook",
@@ -884,15 +886,15 @@
       "noAgent": "No agent"
     },
     "newMenu": {
-      "agent": "Agent task",
-      "agentBody": "An agent picks this up at a set moment.",
-      "reminder": "Reminder",
-      "reminderBody": "Fires on a platform event or a date.",
-      "routine": "Routine",
-      "routineBody": "An agent runs this on a repeating rhythm.",
+      "routine": "Recurring task",
+      "routineBody": "A conversation where an agent writes regularly.",
       "calendar": "Calendar block",
       "calendarBody": "Adds a block to your connected calendar.",
-      "calendarNeedsConnect": "Connect a calendar first."
+      "calendarNeedsConnect": "Connect a calendar first.",
+      "item": "Agenda item",
+      "itemBody": "A conversation with a date, optionally with an agent that writes then.",
+      "webhook": "Webhook",
+      "webhookBody": "An agent responds to a call from outside."
     },
     "attention": {
       "title": "Needs attention",
@@ -1436,11 +1438,11 @@
     "workspaceIdCopyFailed": "Could not copy",
     "showSetupAgain": "Show setup card",
     "recurringWake": {
-      "title": "Let an agent watch for you",
-      "body": "A recurring task keeps an eye on the workspace and reports only what needs attention.",
+      "title": "Let an agent help you move forward",
+      "body": "A standing thread where an agent writes to you regularly: what is open and which step moves your workspace forward.",
       "cta": "Set up task",
-      "promptDefault": "Look over the workspace. Report only what needs attention: conversations that are stuck, decisions that are waiting, and one concrete improvement. Write that in your channel. Do not repeat something you already reported.",
-      "taskName": "Workspace check",
+      "promptDefault": "Take a short look at how the workspace stands: channels, integrations, flows and action tags, projects, agents, and what keeps coming back in conversations. Name what is open and waiting on me. Then suggest at most three concrete steps that move the workspace forward, for example a flow for a question that comes back often, a project for work that now sits loose in conversations, or a marketplace integration that fits what we do. Say why for each step, and offer to set it up for me once I agree. Do not repeat a suggestion that is still open or that I turned down.",
+      "taskName": "Move the workspace forward",
       "dismiss": "Hide"
     },
     "loadError": "Could not load overview.",
@@ -1477,9 +1479,6 @@
     "postureAutonomous": "Act first",
     "needsAttention": "Needs attention",
     "needsAttentionHint": "Things waiting for you: a reply, a yes/no, or a draft to approve",
-    "snoozeTomorrow": "Snooze until tomorrow 9:00",
-    "snoozedUntilTomorrow": "Parked until tomorrow morning.",
-    "snoozeFailed": "Could not snooze that conversation.",
     "nothingAttention": "Nothing needs your attention right now.",
     "openCommunication": "Open Communication",
     "openGovernDrafts": "Review drafts",
@@ -1687,7 +1686,7 @@
     "widgetTabs": {
       "general": "General",
       "look": "Look",
-      "hours": "Voice and hours",
+      "hours": "Voice and availability",
       "install": "Install"
     },
     "back": "Back",
@@ -1704,11 +1703,11 @@
     "primary": "Primary",
     "history": "History",
     "historyAria": "How far back to sync mail history",
-    "historyAdvancedHint": "Applies to future backfills after reconnect. Day-to-day sync runs automatically.",
+    "historyAdvancedHint": "The first import stops at this window, at most one year, or 1,000 messages per folder. New mail after that keeps syncing on its own.",
     "archiveAutomated": "Archive automated mail",
     "archiveAutomatedHint": "Newsletters, receipts and no-reply mail are closed and tagged automated instead of staying in Open.",
     "installHistory": "How far back should we sync?",
-    "installHistoryHint": "Bokito imports this history once during install, then keeps the mailbox in sync automatically.",
+    "installHistoryHint": "The first import stops at this window, at most one year, or 1,000 messages per folder. New mail after that keeps syncing on its own.",
     "days": "{{count}} days",
     "daysRecommended": "{{count}} days (recommended)",
     "oneYear": "1 year",
@@ -1732,7 +1731,7 @@
     "name": "Name",
     "agent": "AI agent",
     "agentHint": "The agent that handles new conversations with AI handling. Without one, the workspace default agent does.",
-    "foldersHint": "Which folders Bokito keeps in sync.",
+    "foldersHint": "Inbox and Sent start on. Spam lands in Spam with no agent. Drafts and Trash are left out.",
     "signatureHint": "Shared template for replies from this address. Placeholders such as {{name}} fill from the sender.",
     "signatureHintSender": "This mailbox uses each person's own signature (Profile). The template below is unused until you switch back to mailbox signature.",
     "signatureSource": "Signature source",
@@ -1991,7 +1990,7 @@
     "access": "Access",
     "accessHint": "Which people, agents and teams see or handle this channel.",
     "team": "Owner team",
-    "teamHint": "The team that owns new conversations on this channel until someone takes them.",
+    "teamHint": "This team gets the conversation when a person has to take over. All people means anyone in the company may pick it up.",
     "defaultBadge": "Default",
     "unknownTeam": "Unknown team",
     "widgetLive": "Live handoff",
@@ -2066,6 +2065,7 @@
     "email": "Email",
     "push": "Push",
     "slack": "Slack",
+    "opsAlways": "Admins always see this notice in the app.",
     "soundTitle": "In-app sound",
     "soundBody": "Play a short chime (same as the chat widget) when a notice arrives while Bokito is open.",
     "soundTest": "Test sound",
@@ -2589,14 +2589,14 @@
       "openHint": "Still waiting for someone to finish them",
       "unassigned": "Unassigned",
       "unassignedHint": "Nobody owns these yet",
-      "snoozed": "Snoozed",
-      "snoozedHint": "Come back later",
       "closed": "Closed",
       "closedHint": "Finished conversations",
       "spam": "Spam",
       "spamHint": "Hidden from the open queue",
       "forYou": "For you",
-      "forYouHint": "Yours, your turn, your team's turn, questions to everyone and mentions"
+      "forYouHint": "Yours, your turn, your team's turn, questions to everyone and mentions",
+      "scheduled": "Scheduled",
+      "scheduledHint": "Conversations with a date or repeat"
     },
     "section": {
       "inbox": "Queues",
@@ -2743,6 +2743,10 @@
       "handlingDescription": "What the AI does with customer messages. A channel, a contact, or a single conversation can differ; the most specific setting wins.",
       "workspaceDefaultTitle": "Workspace default",
       "workspaceDefaultDescription": "Applies to every channel, contact, and conversation without its own setting.",
+      "defaultAgentTitle": "Default agent",
+      "defaultAgentHint": "Channels left on Default use this agent for new conversations with AI handling.",
+      "defaultAgentSaved": "Default agent updated.",
+      "defaultAgentError": "Could not change the default agent.",
       "governNote": "Govern sets the workspace ceiling for what agents may do. AI handling on this page stays at or below that ceiling.",
       "ceiling": "Ceiling: {{mode}}",
       "ceilingHint": "Comes from Govern messaging allowance. Pause caps every conversation at Assisted until you allow autonomous replies again.",
@@ -5626,11 +5630,12 @@
     "tonePlaceholder": "Professional and helpful",
     "do": "Do",
     "dont": "Do not",
-    "personaHint": "Saved with Save changes. The model is set on the agent page.",
+    "personaHint": "This is the company voice, for every agent. The model is set on the agent page.",
+    "offlineMessage": "Offline message",
+    "offlineMessageHint": "The chat shows this when the team is away.",
     "loading": "Loading...",
     "preChat": "Pre-chat form",
     "preChatHint": "Ask website visitors for a name and email before their first message.",
-    "offlineMessage": "Offline message",
     "offlinePlaceholder": "We are currently offline. Leave a message and we will get back to you.",
     "installInternalTitle": "Assistant for signed-in users",
     "installExternalTitle": "Widget for website visitors",
@@ -6216,12 +6221,12 @@
     "title": "When this agent acts on its own",
     "hint": "The ceiling caps everything this agent does. Rules make exceptions for specific actions or situations.",
     "workspaceTitle": "Rules for all agents",
-    "workspaceHint": "Exceptions every agent in this workspace follows, next to its own rules. Sending to customers always asks.",
+    "workspaceHint": "Exceptions every agent in this workspace follows, next to its own rules. AI handling, the action tag, and tools that always ask decide whether a reply stays a draft.",
     "ceiling": "Ceiling",
     "ceilingHint": {
       "manual": "This agent waits for you before it sends or changes anything.",
       "assisted": "This agent prepares the work and asks before actions that need approval.",
-      "autonomous": "This agent acts on its own within the Govern limits. Sending to customers still asks."
+      "autonomous": "This agent acts on its own within AI handling, the action tag, and tools that always ask."
     },
     "rulesTitle": "Rules",
     "empty": "No rules yet. The agent follows its ceiling and the Govern settings.",

@@ -183,7 +183,7 @@ function MailboxSettings(props: KindSettingsProps) {
       <PrimarySetting {...props} />
       <ChannelSetting label={t('channelsPage.history')} hint={t('channelsPage.historyAdvancedHint')}>
         <Select
-          value={String(row.syncWindowDays)}
+          value={String(!row.syncWindowDays || row.syncWindowDays > 365 ? 365 : row.syncWindowDays)}
           disabled={busy}
           onValueChange={(value) => actions.setSyncWindow(row, Number(value))}
         >

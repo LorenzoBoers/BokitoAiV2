@@ -175,11 +175,14 @@ async def _platform_change(
         tool_name=tool_name,
         mode=ctx.mode,
         signal_id=ctx.signal_id,
+        bundle_id=ctx.bundle_id,
     )
     if meta.get("mode") == "apply":
         return meta.get("applied", {"status": "applied", "mode": "apply"})
     return {
         "change_id": str(change.id),
+        # The card id lets the turn attach this ask to the agent's bubble.
+        "decision_request_id": str(change.decision_id) if change.decision_id else None,
         "status": change.status,
         "mode": meta.get("mode"),
         "message": "Change submitted for review",
@@ -774,7 +777,6 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     from app.services.ai_handling import on_status_change
 
     signal.status = "closed"
-    signal.snoozed_until = None
     signal.has_unread = False
     on_status_change(
         ctx.session, signal, actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or "")
@@ -973,6 +975,7 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     if not signal:
         return {"error": "Signal not found"}
 
+    create_missing = bool(tool_input.get("create_missing"))
     catalog = set(await allowed_tag_names(ctx.session, ctx.tenant_id))
     allowed: list[str] = []
     rejected: list[str] = []
@@ -980,16 +983,19 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
         name = normalize_tag(raw) if isinstance(raw, str) else ""
         if not name:
             continue
-        (allowed if name in catalog else rejected).append(name)
+        (allowed if (name in catalog or create_missing) else rejected).append(name)
     if not allowed:
         return {
-            "error": "None of the requested tags exist in the tag registry",
+            "error": (
+                "None of the requested tags exist in the tag registry. Pass "
+                "create_missing=true (or call create_tag first) to add new free tags."
+            ),
             "rejected": rejected,
             "catalog": sorted(catalog)[:30],
         }
 
     tags, added = await add_signal_tags(
-        ctx.session, ctx.tenant_id, signal.id, allowed, registered_only=True
+        ctx.session, ctx.tenant_id, signal.id, allowed, registered_only=not create_missing
     )
     if added:
         signal.updated_at = datetime.utcnow()
@@ -1266,15 +1272,17 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         # writes again before anyone resolved the previous draft.
         from datetime import datetime
 
-        stale_result = await ctx.session.execute(
-            select(DecisionRequest).where(
-                DecisionRequest.tenant_id == ctx.tenant_id,
-                DecisionRequest.signal_id == target_signal_id,
-                DecisionRequest.status == "awaiting_human",
-                DecisionRequest.platform_change_id.is_(None),
-                DecisionRequest.title == tool_input["title"],
-            )
+        stale_query = select(DecisionRequest).where(
+            DecisionRequest.tenant_id == ctx.tenant_id,
+            DecisionRequest.signal_id == target_signal_id,
+            DecisionRequest.status == "awaiting_human",
+            DecisionRequest.platform_change_id.is_(None),
+            DecisionRequest.title == tool_input["title"],
         )
+        if ctx.bundle_id:
+            # Cards of the same turn form one bundle; they never replace each other.
+            stale_query = stale_query.where(DecisionRequest.bundle_id != ctx.bundle_id)
+        stale_result = await ctx.session.execute(stale_query)
         for stale in stale_result.scalars().all():
             stale.status = "deferred"
             stale.resolved_at = datetime.utcnow()
@@ -1359,6 +1367,7 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         items=items,
         question=question,
         selection=selection,
+        bundle_id=ctx.bundle_id,
     )
     await ctx.session.commit()
     result: dict[str, Any] = {"decision_request_id": str(decision.id), "status": "awaiting_human"}
@@ -2411,8 +2420,9 @@ register_tool(
     ToolSpec(
         name="set_thread_tags",
         description=(
-            "Add free hashtags to a conversation. Only names that already exist in the "
-            "workspace hashtag catalog are applied; existing hashtags are never removed. "
+            "Add free hashtags to a conversation. Names that already exist in the "
+            "workspace hashtag catalog are applied; pass create_missing=true to register "
+            "new free tags on the fly. Existing hashtags are never removed. "
             "To start a ticket flow, use file_ticket with an action tag instead — do not "
             "treat action tags as ordinary labels here."
         ),
@@ -2422,6 +2432,10 @@ register_tool(
             "properties": {
                 "signal_id": {"type": "string"},
                 "tags": {"type": "array", "items": {"type": "string"}},
+                "create_missing": {
+                    "type": "boolean",
+                    "description": "Register tags the catalog does not have yet (free tags only).",
+                },
             },
             "required": ["tags"],
         },
@@ -2980,6 +2994,142 @@ register_tool(
         mutating=True,
         audience="both",
         display_name="Delete tag",
+    )
+)
+
+
+async def _find_tag_row(ctx: ToolContext, tool_input: dict[str, Any], *keys: str):
+    """Tag row by UUID (``tag_id`` / ``id``) or by name; ``(row, error)``."""
+    from sqlalchemy import func
+
+    from app.models.signal import SignalTag
+    from app.services.signal_tags import normalize_tag
+
+    raw_id = next((tool_input.get(k) for k in keys if tool_input.get(k)), None)
+    name = normalize_tag(str(tool_input.get("name") or ""))
+    row = None
+    if raw_id:
+        try:
+            tag_id = UUID(str(raw_id))
+        except (TypeError, ValueError):
+            return None, {"error": "invalid_id", "message": "tag_id must be a tag UUID"}
+        row = (
+            await ctx.session.execute(
+                select(SignalTag).where(SignalTag.id == tag_id, SignalTag.tenant_id == ctx.tenant_id)
+            )
+        ).scalar_one_or_none()
+    elif name:
+        row = (
+            await ctx.session.execute(
+                select(SignalTag)
+                .where(SignalTag.tenant_id == ctx.tenant_id, func.lower(SignalTag.name) == name)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+    else:
+        return None, {"error": "missing_tag", "message": "Pass tag_id or name."}
+    if row is None:
+        return None, {"error": "not_found", "message": "Tag not found in this workspace."}
+    return row, None
+
+
+async def _create_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.signal_tags import create_tag, normalize_tag, serialize_tag
+
+    name = normalize_tag(str(tool_input.get("name") or ""))
+    if not name:
+        return {"error": "missing_name", "message": "Pass the hashtag name without #."}
+    row = await create_tag(
+        ctx.session,
+        ctx.tenant_id,
+        name,
+        description=str(tool_input.get("description") or ""),
+        pinned=bool(tool_input.get("pinned")),
+        user_id=ctx.user_id,
+        commit=False,
+    )
+    return {
+        "ok": True,
+        "tag": serialize_tag(row),
+        "markup": f"#[[{row.name}]]({'action_tag' if row.workstream_id else 'tag'}:{row.id})",
+    }
+
+
+async def _update_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.signal_tags import serialize_tag, update_tag
+
+    row, error = await _find_tag_row(ctx, tool_input, "tag_id", "id")
+    if error:
+        return error
+    fields: dict[str, Any] = {}
+    if tool_input.get("new_name"):
+        fields["name"] = str(tool_input["new_name"])
+    if "description" in tool_input and tool_input["description"] is not None:
+        fields["description"] = str(tool_input["description"])
+    for key in ("pinned", "show_in_nav", "ai_auto_tag"):
+        if key in tool_input and tool_input[key] is not None:
+            fields[key] = bool(tool_input[key])
+    if not fields:
+        return {"error": "nothing_to_change", "message": "Pass new_name, description, pinned, show_in_nav or ai_auto_tag."}
+    try:
+        row = await update_tag(ctx.session, ctx.tenant_id, row.id, commit=False, **fields)
+    except ValueError as exc:
+        return {"error": "invalid", "message": str(exc)}
+    return {"ok": True, "tag": serialize_tag(row)}
+
+
+register_tool(
+    ToolSpec(
+        name="create_tag",
+        description=(
+            "Create a free hashtag (a plain label, no ticket flow) in the workspace "
+            "catalog. Use this for ordinary tags; use create_category for an action tag "
+            "that starts a ticket flow. Idempotent: an existing name is updated."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Hashtag name without #"},
+                "description": {"type": "string", "description": "When to apply it"},
+                "pinned": {"type": "boolean", "description": "Show in the hashtag rail"},
+            },
+            "required": ["name"],
+        },
+        handler=_create_tag,
+        gated=True,
+        mutating=True,
+        audience="both",
+        display_name="Create tag",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="update_tag",
+        description=(
+            "Rename or describe a hashtag, or change where it shows (pinned, show_in_nav, "
+            "ai_auto_tag). Pass tag_id or name to pick the tag and new_name to rename. "
+            "Renaming onto an existing free tag merges the two."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "tag_id": {"type": "string", "description": "Tag UUID"},
+                "name": {"type": "string", "description": "Current name without #"},
+                "new_name": {"type": "string", "description": "New name without #"},
+                "description": {"type": "string"},
+                "pinned": {"type": "boolean"},
+                "show_in_nav": {"type": "boolean"},
+                "ai_auto_tag": {"type": "boolean", "description": "Agents may apply it on their own"},
+            },
+        },
+        handler=_update_tag,
+        gated=True,
+        mutating=True,
+        audience="both",
+        display_name="Update tag",
     )
 )
 
@@ -3559,6 +3709,8 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
 
     older_raw = tool_input.get("older_than_days")
     older_than_days = int(older_raw) if older_raw is not None else None
+    scheduled_from = _parse_when(tool_input.get("scheduled_from"))
+    scheduled_to = _parse_when(tool_input.get("scheduled_to"))
     return await list_threads_summary(
         ctx.session,
         ctx.tenant_id,
@@ -3566,6 +3718,8 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         channel=tool_input.get("channel"),
         older_than_days=older_than_days,
         limit=int(tool_input.get("limit") or 25),
+        scheduled_from=scheduled_from,
+        scheduled_to=scheduled_to,
     )
 
 
@@ -3708,12 +3862,16 @@ register_tool(
     ToolSpec(
         name="list_threads",
         description=(
-            "Summarize Signal threads (subject, channel, status, last activity). "
+            "Summarize Signal threads (subject, channel, status, last activity, path). "
             "Defaults to open/pending threads. Does not include Bin items — use list_trash "
             "for deleted conversations (type conversation, alias signal). "
+            "In prose chip a thread with [Subject](/communication/inbox/open/t/{id}) from "
+            "path — never invent /threads/... paths. "
             "Optional channel filter (internal, assistant, widget, email). "
             "Use older_than_days to find stale threads; response includes matched/returned "
-            "so you know when to page with a higher limit (max 200)."
+            "so you know when to page with a higher limit (max 200). "
+            "scheduled_from / scheduled_to (ISO) list threads with a date in that window "
+            "(the agenda: appointments, planned tasks, recurring tasks), earliest first."
         ),
         category="messaging",
         input_schema={
@@ -3723,6 +3881,8 @@ register_tool(
                 "channel": {"type": "string"},
                 "older_than_days": {"type": "integer"},
                 "limit": {"type": "integer"},
+                "scheduled_from": {"type": "string"},
+                "scheduled_to": {"type": "string"},
             },
         },
         handler=_list_threads,
@@ -3767,9 +3927,9 @@ register_tool(
         name="get_platform_watch",
         description=(
             "Show whether the workspace check-in is on. The check-in is the "
-            "assistant waking on a timer, reading heartbeat.md, and posting "
-            "only when something needs attention — in your own channel in "
-            "Communication, where the operator already talks to you."
+            "assistant waking on a timer, reading heartbeat.md, and writing "
+            "only when something needs attention, in the check-in's own "
+            "conversation in Communication."
         ),
         category="triggers",
         input_schema={"type": "object", "properties": {}},
@@ -3785,7 +3945,7 @@ register_tool(
         description=(
             "Turn the workspace check-in on or off. This only toggles the "
             "seeded check-in (not other Agenda items). Use enabled true so you "
-            "watch the workspace yourself; findings land in your own channel."
+            "watch the workspace yourself; findings land in its own conversation."
         ),
         category="triggers",
         input_schema={
@@ -3812,7 +3972,9 @@ def _parse_when(raw: Any):
         return None
     # Store naive UTC like the rest of the schema.
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(tz=None).replace(tzinfo=None)
+        from datetime import timezone as _tz
+
+        parsed = parsed.astimezone(_tz.utc).replace(tzinfo=None)
     return parsed
 
 
@@ -3869,56 +4031,136 @@ async def _schedule_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     }
 
 
-async def _schedule_wake(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Create a Trigger that wakes an agent once or on a recurring schedule."""
+async def _set_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Put a date or a repeat on a conversation; a new one with ``new_thread``."""
     from uuid import UUID as _UUID
-
-    from app.services.triggers import create_trigger, serialize_trigger
-
-    agent_id = (
-        _UUID(str(tool_input["agent_id"]))
-        if tool_input.get("agent_id")
-        else (ctx.agent.id if ctx.agent else None)
-    )
-    if agent_id is None:
-        return {"error": "No agent to wake: pass agent_id or call as an agent."}
-    instructions = str(tool_input.get("instructions") or "").strip()
-    if not instructions:
-        return {"error": "instructions is required: what should the agent do on wake?"}
-    name = str(tool_input.get("name") or "").strip() or instructions[:60]
-
-    run_at = _parse_when(tool_input.get("at"))
-    cron_expr = str(tool_input.get("cron") or "").strip()
-    try:
-        every_minutes = int(tool_input.get("every_minutes") or 0)
-    except (TypeError, ValueError):
-        every_minutes = 0
-    if run_at is not None:
-        kind, interval = "once", 0
-    elif cron_expr:
-        kind, interval = "cron", 0
-    elif every_minutes > 0:
-        kind, interval = "interval", max(5, every_minutes)
-    else:
-        return {"error": "Pass one of: at (ISO datetime), cron (5-field), or every_minutes."}
 
     from fastapi import HTTPException
 
+    from app.models.signal import Signal
+    from app.services.agent.style import strip_emoji
+    from app.services.thread_schedule import apply_thread_schedule, resolve_recipient, schedule_payload
+
+    at = _parse_when(tool_input.get("at"))
+    if tool_input.get("at") and at is None:
+        return {"error": "at must be an ISO datetime, e.g. 2026-09-04T09:00:00+02:00"}
+    ends_at = _parse_when(tool_input.get("ends_at"))
+    cron = str(tool_input.get("cron") or "").strip() or None
     try:
-        trigger = await create_trigger(
+        every_minutes = int(tool_input.get("every_minutes") or 0) or None
+    except (TypeError, ValueError):
+        every_minutes = None
+    instructions = tool_input.get("instructions")
+    instructions = strip_emoji(str(instructions)).strip() if instructions is not None else None
+    title = strip_emoji(str(tool_input.get("title") or "")).strip()
+    try:
+        agent_id = _UUID(str(tool_input["agent_id"])) if tool_input.get("agent_id") else None
+    except ValueError:
+        return {"error": "agent_id is not a valid id"}
+    if agent_id is None and instructions and ctx.agent is not None:
+        agent_id = ctx.agent.id
+    wants_rule = bool(cron or every_minutes or (agent_id and instructions))
+
+    signal: Signal | None = None
+    raw_id = tool_input.get("signal_id")
+    if raw_id:
+        try:
+            signal = await ctx.session.get(Signal, _UUID(str(raw_id)))
+        except ValueError:
+            signal = None
+        if signal is None or signal.tenant_id != ctx.tenant_id or signal.deleted_at is not None:
+            return {"error": "Conversation not found"}
+    elif not tool_input.get("new_thread") and ctx.signal_id:
+        signal = await ctx.session.get(Signal, ctx.signal_id)
+    # A personal chat stays a chat: a recurring task gets its own conversation.
+    if signal is not None and signal.channel == "assistant" and wants_rule and not raw_id:
+        signal = None
+    if signal is None and not title:
+        title = (instructions or "")[:60].strip()
+    if not wants_rule and at is None and signal is not None and ends_at is None:
+        return {"error": "Pass at (a moment), cron or every_minutes."}
+
+    try:
+        if "recipient" in tool_input:
+            recipient = await resolve_recipient(ctx.session, ctx.tenant_id, tool_input.get("recipient"))
+            if recipient is None and ctx.user_id:
+                recipient = ("user", ctx.user_id)
+        elif signal is None and ctx.user_id:
+            recipient = ("user", ctx.user_id)
+        else:
+            recipient = ...
+        signal, rule = await apply_thread_schedule(
             ctx.session,
             ctx.tenant_id,
-            name=name,
-            kind=kind,
-            cron_expr=cron_expr,
-            interval_minutes=interval,
+            signal=signal,
+            title=title,
+            at=at,
+            ends_at=ends_at,
+            cron=cron,
+            every_minutes=every_minutes,
             agent_id=agent_id,
             instructions=instructions,
-            run_at=run_at,
+            recipient=recipient,
+            details={"note": str(tool_input["note"])} if tool_input.get("note") else None,
+            created_by_user_id=ctx.user_id,
+            project_id=_UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
+            actor_type="agent" if ctx.agent else "user",
+            actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+            enabled=tool_input.get("enabled") is not False,
         )
     except HTTPException as exc:
         return {"error": str(exc.detail)}
-    return {"trigger": serialize_trigger(trigger)}
+    await ctx.session.commit()
+    from app.gateway.publish import publish_thread_update
+
+    await publish_thread_update(signal)
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "subject": signal.subject,
+        "next_at": signal.next_at.isoformat() if signal.next_at else None,
+        "schedule": schedule_payload(rule),
+    }
+
+
+async def _clear_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
+    from app.models.signal import Signal
+    from app.services.thread_schedule import clear_thread_schedule
+
+    raw = tool_input.get("signal_id") or ctx.signal_id
+    if not raw:
+        return {"error": "signal_id is required"}
+    try:
+        signal = await ctx.session.get(Signal, _UUID(str(raw)))
+    except ValueError:
+        signal = None
+    if signal is None or signal.tenant_id != ctx.tenant_id:
+        return {"error": "Conversation not found"}
+    await clear_thread_schedule(
+        ctx.session,
+        signal,
+        actor_type="agent" if ctx.agent else "user",
+        actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
+    )
+    await ctx.session.commit()
+    from app.gateway.publish import publish_thread_update
+
+    await publish_thread_update(signal)
+    return {"ok": True, "signal_id": str(signal.id)}
+
+
+async def _schedule_wake(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Alias of set_thread_schedule with an agent wake (yourself by default)."""
+    if not str(tool_input.get("instructions") or "").strip():
+        return {"error": "instructions is required: what should the agent do on wake?"}
+    mapped = dict(tool_input)
+    if tool_input.get("name") and not tool_input.get("title"):
+        mapped["title"] = tool_input["name"]
+    if not mapped.get("agent_id") and ctx.agent is None:
+        return {"error": "No agent to wake: pass agent_id or call as an agent."}
+    return await _set_thread_schedule(ctx, mapped)
 
 
 register_tool(
@@ -3953,26 +4195,79 @@ register_tool(
     )
 )
 
+_THREAD_SCHEDULE_PROPS: dict[str, Any] = {
+    "signal_id": {
+        "type": "string",
+        "description": "Conversation to plan (default: this conversation).",
+    },
+    "new_thread": {
+        "type": "boolean",
+        "description": "Start a new agenda conversation instead (needs title).",
+    },
+    "title": {"type": "string", "description": "Subject of the (new) conversation."},
+    "at": {"type": "string", "description": "ISO datetime: the moment, or the first run of a repeat."},
+    "ends_at": {"type": "string", "description": "ISO datetime the appointment ends."},
+    "cron": {"type": "string", "description": "5-field cron (UTC) for a repeat, e.g. 0 7 * * 1-5."},
+    "every_minutes": {"type": "integer", "description": "Repeat every N minutes (min 5)."},
+    "agent_id": {
+        "type": "string",
+        "description": "Agent that works on each moment (default: yourself when instructions are set).",
+    },
+    "instructions": {"type": "string", "description": "What the agent does on each moment."},
+    "recipient": {
+        "type": "string",
+        "description": "Who it is for: a member's name or email, or a team name (default: the person asking).",
+    },
+    "note": {"type": "string", "description": "Short note shown with the date."},
+    "project_id": {"type": "string"},
+    "enabled": {"type": "boolean", "description": "false pauses the repeat."},
+}
+
+register_tool(
+    ToolSpec(
+        name="set_thread_schedule",
+        description=(
+            "Plan a conversation. A conversation with a date is an agenda item; with "
+            "a repeat (cron or every_minutes) it is a recurring task. Without an agent "
+            "the conversation comes back (open, unread, owner notified) at the moment. "
+            "With agent_id + instructions the agent works in the conversation on each "
+            "moment and writes to the recipient only when there is something new. "
+            "Use for reminders ('look at this Friday'), appointments, and recurring "
+            "tasks such as a weekly summary for a person or team. Edits the existing "
+            "schedule when called again on the same conversation."
+        ),
+        category="triggers",
+        input_schema={"type": "object", "properties": _THREAD_SCHEDULE_PROPS},
+        handler=_set_thread_schedule,
+        mutating=True,
+        gated=True,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="clear_thread_schedule",
+        description="Remove the date and any repeat from a conversation (default: this one).",
+        category="triggers",
+        input_schema={"type": "object", "properties": {"signal_id": {"type": "string"}}},
+        handler=_clear_thread_schedule,
+        mutating=True,
+        gated=True,
+    )
+)
+
 register_tool(
     ToolSpec(
         name="schedule_wake",
         description=(
-            "Schedule an agent wake as an Agenda trigger: once at a specific time "
-            "(at), on a cron schedule (cron), or every N minutes (every_minutes). "
-            "Wakes yourself by default or a peer agent via agent_id. Use for "
-            "'check this again Friday' or recurring follow-ups."
+            "Alias of set_thread_schedule for an agent wake (yourself by default): "
+            "once (at), cron, or every_minutes. The wake runs in a conversation of "
+            "its own, or in this one when it is not a personal chat."
         ),
         category="triggers",
         input_schema={
             "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "instructions": {"type": "string", "description": "What the agent should do on wake."},
-                "agent_id": {"type": "string", "description": "Peer agent to wake (default: yourself)."},
-                "at": {"type": "string", "description": "ISO datetime for a one-off wake."},
-                "cron": {"type": "string", "description": "5-field cron expression for recurring wakes."},
-                "every_minutes": {"type": "integer", "description": "Interval wake in minutes (min 5)."},
-            },
+            "properties": {**_THREAD_SCHEDULE_PROPS, "name": {"type": "string"}},
             "required": ["instructions"],
         },
         handler=_schedule_wake,
@@ -4003,7 +4298,7 @@ async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
 
 
 async def _upsert_trigger(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Same write path as schedule_wake: one Agenda Trigger."""
+    """Same write path as schedule_wake: a scheduled conversation."""
     return await _schedule_wake(ctx, tool_input)
 
 
@@ -4056,20 +4351,13 @@ register_tool(
     ToolSpec(
         name="upsert_trigger",
         description=(
-            "Create an Agenda trigger (one-off or recurring wake). Alias of "
-            "schedule_wake — same Trigger row, same Agenda timeline."
+            "Alias of set_thread_schedule for an agent wake (one-off or recurring); "
+            "same scheduled conversation, same Agenda."
         ),
         category="triggers",
         input_schema={
             "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "instructions": {"type": "string"},
-                "agent_id": {"type": "string"},
-                "at": {"type": "string"},
-                "cron": {"type": "string"},
-                "every_minutes": {"type": "integer"},
-            },
+            "properties": {**_THREAD_SCHEDULE_PROPS, "name": {"type": "string"}},
             "required": ["instructions"],
         },
         handler=_upsert_trigger,
@@ -4483,6 +4771,11 @@ def _serialize_agent_row(row: Any, *, detail: bool = False) -> dict[str, Any]:
     from app.services.workforce_runtime import serialize_agent
 
     data = {k: v for k, v in serialize_agent(row, view="passport").items() if k not in _AVATAR_KEYS}
+    agent_id = str(row.id)
+    name = str(row.name or "Agent")
+    # Inline chips: @[Name](agent:{id}) or [Name](/agents/{id}).
+    data["path"] = f"/agents/{agent_id}"
+    data["mention"] = f"@[{name}](agent:{agent_id})"
     if not detail:
         data.pop("tools", None)
         data.pop("permission_scopes", None)
@@ -4499,6 +4792,22 @@ def _serialize_agent_row(row: Any, *, detail: bool = False) -> dict[str, Any]:
     return data
 
 
+async def _showcase_agents(ctx: ToolContext, agent_ids: list[str]) -> list[dict[str, Any]]:
+    """Resolve and stash agent cards for the final reply bubble."""
+    from app.services.proposal_items import resolve_items, stash_attach_items
+
+    if not agent_ids:
+        return []
+    showcase = await resolve_items(
+        ctx.session,
+        ctx.tenant_id,
+        [{"type": "agent", "id": aid} for aid in agent_ids],
+    )
+    if showcase:
+        stash_attach_items(ctx.signal_id, showcase)
+    return showcase
+
+
 async def _list_agents(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.models.agent import Agent
 
@@ -4508,7 +4817,9 @@ async def _list_agents(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     rows = (
         await ctx.session.execute(stmt.order_by(Agent.name).limit(100))
     ).scalars().all()
-    return {"agents": [_serialize_agent_row(row) for row in rows]}
+    agents = [_serialize_agent_row(row) for row in rows]
+    showcase = await _showcase_agents(ctx, [a["id"] for a in agents if a.get("id")])
+    return {"agents": agents, "count": len(agents), "items": showcase}
 
 
 async def _get_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -4526,7 +4837,9 @@ async def _get_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
     row = (await ctx.session.execute(stmt)).scalar_one_or_none()
     if row is None:
         return {"error": "Agent not found"}
-    return _serialize_agent_row(row, detail=True)
+    payload = _serialize_agent_row(row, detail=True)
+    showcase = await _showcase_agents(ctx, [payload["id"]])
+    return {**payload, "items": showcase}
 
 
 async def _list_playbooks(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -4677,8 +4990,10 @@ register_tool(
         name="list_agents",
         description=(
             "List the agents in this workspace (name, description, slug, role, "
-            "autonomy level, active flag). Pass include_inactive to also see "
-            "paused agents."
+            "autonomy level, active flag, path, mention). Auto-showcases agent "
+            "cards on the reply. In prose chip one name with mention or "
+            "[Name](/agents/{id}) from path — never a plain bold name. Pass "
+            "include_inactive to also see paused agents."
         ),
         category="agents",
         input_schema={
@@ -4696,7 +5011,8 @@ register_tool(
         name="get_agent",
         description=(
             "Read one agent by id or slug, including its description, purpose "
-            "(system prompt) and tool passport."
+            "(system prompt), tool passport, path and mention. Showcases a card "
+            "and returns mention/path for an inline chip in chat."
         ),
         category="agents",
         input_schema={

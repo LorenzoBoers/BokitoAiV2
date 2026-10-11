@@ -720,8 +720,9 @@ def test_sync_window_days_defaults_and_clamps():
 
     assert account_sync_window_days({}) == 30
     assert account_sync_window_days({"sync_window_days": 90}) == 90
-    assert account_sync_window_days({"sync_window_days": 0}) == 0
-    assert account_sync_window_days({"sync_window_days": -5}) == 0
+    assert account_sync_window_days({"sync_window_days": 0}) == 365
+    assert account_sync_window_days({"sync_window_days": -5}) == 365
+    assert account_sync_window_days({"sync_window_days": 9999}) == 365
     assert account_sync_window_days({"sync_window_days": "garbage"}) == 30
 
 
@@ -787,13 +788,14 @@ def test_parse_address_list_and_sent_folder_default():
     ]
     assert parse_address_list("", None) == []
 
-    # Sent is on by default for Graph and Gmail, never for plain IMAP.
+    # Sent is on by default for Graph, Gmail and plain IMAP.
     sent = next(f for f in DEFAULT_SYNC_FOLDERS if f["id"] == "sent")
     assert sent["is_selected"] is True
     settings = ensure_sent_folder_default({}, "outlook")
     assert isinstance(settings, dict)
     assert any(f["id"] == "sent" and f["is_selected"] for f in account_sync_folders(settings, provider="outlook"))
-    assert [f["id"] for f in account_sync_folders({}, provider="smtp_imap")] == ["inbox"]
+    imap = account_sync_folders({}, provider="smtp_imap")
+    assert [f["id"] for f in imap if f["is_selected"]] == ["inbox", "sent"]
 
 
 @pytest.mark.asyncio

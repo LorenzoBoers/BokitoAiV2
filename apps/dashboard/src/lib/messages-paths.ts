@@ -2,7 +2,7 @@
  * Path helpers for the Communication hub (`/communication`).
  *
  * Sidebar folders:
- * - `inbox`   — All communication (For you / Open / Unassigned / Closed + Snoozed / Spam)
+ * - `inbox`   — All communication (For you / Open / Unassigned / Scheduled / Closed + Spam)
  * - `team`    — a pinned team, same sub-folders
  * - `channel` — one connected channel (mailbox, website chat, WhatsApp, …)
  * - `agent`   — chats with one company agent (same sub-folders + Activity)
@@ -10,7 +10,7 @@
  * - `project` — conversations filed on one project
  */
 
-export const INBOX_QUEUES = ['all', 'for_you', 'open', 'unassigned', 'snoozed', 'closed', 'spam'] as const
+export const INBOX_QUEUES = ['all', 'for_you', 'open', 'unassigned', 'scheduled', 'closed', 'spam'] as const
 export type InboxQueue = (typeof INBOX_QUEUES)[number]
 
 export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'slack', 'whatsapp'] as const
@@ -305,6 +305,7 @@ export function legacyHubRedirect(pathname: string, search = ''): string | null 
       return null
     case 'inbox':
       if (parts[0] === 'mine') return inboxPath('for_you', threadId)
+      if (parts[0] === 'snoozed') return inboxPath('scheduled', threadId)
       return null
     default:
       return null

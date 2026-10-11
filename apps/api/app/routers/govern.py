@@ -20,10 +20,11 @@ from app.models.auth import Tenant
 from app.models.signal import SignalTag
 from app.models.orchestra import Workstream
 from app.services.agent_rules import (
+    ADMIN_ROLES,
     AUTONOMY_MODES,
+    agent_rules,
     dry_run,
     normalize_autonomy,
-    parse_autonomy_level,
     set_rules,
     workspace_rules,
 )
@@ -213,7 +214,7 @@ async def list_autonomy_scopes(
             {
                 "id": str(row.id),
                 "name": row.name,
-                "autonomy_level": normalize_autonomy(row.autonomy_level),
+                "autonomy_level": row.autonomy_level or "",
                 # draft/ask: replies on tickets of this category never go out
                 # autonomously (AI handling safeguard).
                 "send_mode": row.send_mode,
@@ -221,7 +222,7 @@ async def list_autonomy_scopes(
             for row in categories
         ],
         "workstreams": [
-            {"id": str(row.id), "name": row.name, "autonomy_level": normalize_autonomy(row.autonomy_level)}
+            {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level or ""}
             for row in workstreams
         ],
     }
@@ -236,7 +237,9 @@ async def update_autonomy_scope(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     auth.require_role("owner", "admin")
-    level = parse_autonomy_level(body.autonomy_level)
+    from app.services.agent_rules import parse_scope_autonomy
+
+    level = parse_scope_autonomy(body.autonomy_level)
     model = SignalTag if scope_kind == "category" else Workstream if scope_kind == "workstream" else None
     if model is None:
         raise HTTPException(status_code=400, detail="Invalid autonomy scope")
@@ -247,7 +250,7 @@ async def update_autonomy_scope(
     ).scalar_one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="Autonomy scope not found")
-    previous = normalize_autonomy(row.autonomy_level)
+    previous = row.autonomy_level or ""
     row.autonomy_level = level
     row.updated_at = datetime.utcnow()
     session.add(row)
@@ -484,6 +487,80 @@ async def put_workspace_rules(
     )
     await session.commit()
     return {"rules": rules}
+
+
+class AgentRulesRow(BaseModel):
+    agent_id: str
+    agent_name: str
+    rules: list[dict]
+
+
+class AgentRulesListOut(BaseModel):
+    agents: list[AgentRulesRow]
+
+
+@router.get("/agent-rules", response_model=AgentRulesListOut)
+async def list_agent_rules(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Per-agent action rules (always / ask / never per tool), set from decision
+    cards or on the agent page. Agents without rules are left out."""
+    rows = (
+        await session.execute(
+            select(Agent).where(Agent.tenant_id == auth.tenant.id).order_by(Agent.name)
+        )
+    ).scalars().all()
+    out = []
+    for agent in rows:
+        rules = agent_rules(agent)
+        if rules:
+            out.append({"agent_id": str(agent.id), "agent_name": agent.name, "rules": rules})
+    return {"agents": out}
+
+
+@router.delete("/agent-rules/{agent_id}/{rule_id}", response_model=AgentRulesRow)
+async def delete_agent_rule(
+    agent_id: UUID,
+    rule_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Remove one agent rule. Dropping a rule that let the agent act on its own
+    is for everyone; dropping an ask/never rule loosens the agent and needs an
+    owner or admin."""
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    rules = agent_rules(agent)
+    rule = next((r for r in rules if r["id"] == rule_id), None)
+    if rule is None:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    if rule["mode"] != "autonomous" and auth.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Only owners and admins can loosen an agent's rules")
+    remaining = [r for r in rules if r["id"] != rule_id]
+    settings = json.loads(agent.settings_json or "{}") if agent.settings_json else {}
+    if not isinstance(settings, dict):
+        settings = {}
+    settings["rules"] = remaining
+    agent.settings_json = json.dumps(settings)
+    session.add(agent)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent_rule:delete",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        agent_id=agent.id,
+        resource_type="agent_rule",
+        resource_id=str(agent.id),
+        outcome="applied",
+        summary=f"Rule removed for {agent.name}: {rule['text']}"[:240],
+        before={"rule": rule},
+        commit=False,
+    )
+    await session.commit()
+    return {"agent_id": str(agent.id), "agent_name": agent.name, "rules": remaining}
 
 
 @router.post("/rules/test", response_model=RuleTestOut)

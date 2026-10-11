@@ -299,8 +299,8 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
         bits = []
         for a in agents[:12]:
             flag = "active" if a.get("is_active") else "paused"
-            bits.append(f"{a.get('name')} ({a.get('role')}/{a.get('kind')}, {flag})")
-        lines.append("Agents: " + "; ".join(bits))
+            bits.append(f"@[{a.get('name')}](agent:{a.get('id')}) ({a.get('role')}/{a.get('kind')}, {flag})")
+        lines.append("Agents (copy the @[Name](agent:id) chip exactly): " + "; ".join(bits))
     else:
         lines.append("Agents: none")
 
@@ -582,12 +582,16 @@ async def list_threads_summary(
     channel: str | None = None,
     older_than_days: int | None = None,
     limit: int = 25,
+    scheduled_from: datetime | None = None,
+    scheduled_to: datetime | None = None,
 ) -> dict[str, Any]:
     """Summarize threads for agents/MCP.
 
     Returns ``threads`` plus ``matched`` (total rows matching the filter) so
     callers know when ``limit`` truncated the page. ``older_than_days`` filters
-    on last message / update time.
+    on last message / update time. ``scheduled_from`` / ``scheduled_to`` keep
+    threads whose date (``next_at``) falls in that window, earliest first,
+    whatever their status.
     """
     from datetime import timedelta
 
@@ -595,6 +599,14 @@ async def list_threads_summary(
 
     limit = max(1, min(int(limit or 25), 200))
     filters = [Signal.tenant_id == tenant_id, Signal.deleted_at.is_(None)]
+    scheduled = scheduled_from is not None or scheduled_to is not None
+    if scheduled:
+        filters.append(Signal.next_at.is_not(None))
+        if scheduled_from is not None:
+            filters.append(Signal.next_at >= scheduled_from)
+        if scheduled_to is not None:
+            filters.append(Signal.next_at <= scheduled_to)
+        status = None
     if status:
         if status == "open":
             filters.append(Signal.status.in_(("open", "pending")))
@@ -613,7 +625,10 @@ async def list_threads_summary(
         or 0
     )
 
-    order = _signal_activity_expr().asc() if cutoff else Signal.updated_at.desc()
+    if scheduled:
+        order = Signal.next_at.asc()
+    else:
+        order = _signal_activity_expr().asc() if cutoff else Signal.updated_at.desc()
     rows = (
         await session.execute(select(Signal).where(*filters).order_by(order).limit(limit))
     ).scalars().all()
@@ -624,9 +639,12 @@ async def list_threads_summary(
             "channel": s.channel,
             "status": s.status,
             "folder": getattr(s, "folder", None) or "",
+            "next_at": _iso(s.next_at),
             "last_message_at": _iso(s.last_message_at),
             "project_id": str(s.project_id) if s.project_id else None,
             "agent_id": str(s.agent_id) if getattr(s, "agent_id", None) else None,
+            # In-app chip: [Subject](/communication/inbox/open/t/{id}).
+            "path": f"/communication/inbox/open/t/{s.id}",
         }
         for s in rows
     ]

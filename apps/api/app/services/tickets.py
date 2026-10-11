@@ -34,7 +34,6 @@ from app.models.signal import (
     SignalEvent,
     SignalTag,
 )
-from app.services.agent_rules import normalize_autonomy
 from app.services.customer_verify import thread_assurance_valid
 from app.services.stage_checkups import checkup_payload, checkup_trigger
 
@@ -400,8 +399,8 @@ def serialize_category(row: SignalTag, *, workstream: Workstream | None = None) 
             "create_mode": row.create_mode,
             "ask_threshold": row.ask_threshold,
             "auto_threshold": row.auto_threshold,
-            "send_mode": row.send_mode or "draft",
-            "autonomy_level": normalize_autonomy(row.autonomy_level or "assisted"),
+            "send_mode": row.send_mode or "send",
+            "autonomy_level": row.autonomy_level or "",
             "requires_verification": row.requires_verification,
             "module_slug": row.module_slug,
             "template_slug": row.template_slug,
@@ -516,7 +515,9 @@ def apply_category_config(row: SignalTag, patch: dict[str, Any]) -> None:
             raise HTTPException(status_code=400, detail="Invalid send_mode")
         row.send_mode = mode
     if "autonomy_level" in patch and patch["autonomy_level"] is not None:
-        row.autonomy_level = normalize_autonomy(str(patch["autonomy_level"]))
+        from app.services.agent_rules import parse_scope_autonomy
+
+        row.autonomy_level = parse_scope_autonomy(patch["autonomy_level"])
     if "requires_verification" in patch and patch["requires_verification"] is not None:
         row.requires_verification = bool(patch["requires_verification"])
     if "sort_order" in patch and patch["sort_order"] is not None:
@@ -916,7 +917,6 @@ def _auto_close_conversation_for_done_stage(
     from app.services.ai_handling import on_status_change
 
     signal.status = "closed"
-    signal.snoozed_until = None
     signal.has_unread = False
     on_status_change(session, signal, actor_id=actor_id or "")
     signal.updated_at = datetime.utcnow()

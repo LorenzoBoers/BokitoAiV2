@@ -228,6 +228,9 @@ async def start_session(
         context_signal_id=thread_id,
         session_state="active",
     )
+    from app.services.ownership import set_owner
+
+    set_owner(conversation, "user", user.id, by_user_id=user.id)
     session.add(conversation)
     await session.flush()
     session.add(

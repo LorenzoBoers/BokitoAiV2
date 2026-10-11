@@ -1,4 +1,4 @@
-"""Inbound auto-run requires an explicit channel agent (no lead fallback)."""
+"""Inbound auto-run uses the channel agent, then the workspace lead."""
 
 import pytest
 from sqlalchemy import select
@@ -16,7 +16,7 @@ from app.services.signals import create_inbound_signal
 
 
 @pytest.mark.asyncio
-async def test_resolve_inbound_skips_lead_fallback(session_override):
+async def test_resolve_inbound_uses_lead_when_channel_has_no_agent(session_override):
     tenant = Tenant(slug="inbound-route", name="Inbound Route")
     session_override.add(tenant)
     await session_override.commit()
@@ -61,7 +61,9 @@ async def test_resolve_inbound_skips_lead_fallback(session_override):
     await session_override.commit()
     await session_override.refresh(signal)
 
-    assert await resolve_inbound_agent_for_signal(session_override, signal) is None
+    resolved = await resolve_inbound_agent_for_signal(session_override, signal)
+    assert resolved is not None
+    assert resolved.id == lead.id
     # Bring-in / candidates may still resolve the lead.
     fallback = await resolve_agent_for_channel(
         session_override, tenant.id, "email", channel_account_id=account.id
@@ -115,9 +117,69 @@ async def test_resolve_inbound_uses_channel_default(session_override):
     await session_override.commit()
     await session_override.refresh(signal)
 
+    lead = Agent(
+        tenant_id=tenant.id,
+        name="Lead",
+        slug="lead-agent",
+        kind="company",
+        is_active=True,
+        is_lead=True,
+        acts_for_user=False,
+    )
+    session_override.add(lead)
+    await session_override.commit()
+
     agent = await resolve_inbound_agent_for_signal(session_override, signal)
     assert agent is not None
     assert agent.id == desk.id
+
+
+@pytest.mark.asyncio
+async def test_resolve_inbound_skips_lead_without_channel_access(session_override):
+    tenant = Tenant(slug="inbound-no-access", name="Inbound No Access")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+
+    lead = Agent(
+        tenant_id=tenant.id,
+        name="Lead",
+        slug="lead-agent",
+        kind="company",
+        is_active=True,
+        is_lead=True,
+        acts_for_user=False,
+    )
+    session_override.add(lead)
+    await session_override.commit()
+
+    account = ChannelAccount(
+        tenant_id=tenant.id,
+        channel="email",
+        provider="mock",
+        address="closed@example.com",
+        display_name="Closed",
+        is_enabled=True,
+        default_agent_id=None,
+        settings_json='{"access":[{"kind":"team","id":"people","level":"handle"}]}',
+    )
+    session_override.add(account)
+    await session_override.commit()
+    await session_override.refresh(account)
+
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        source="mock",
+        subject="Quiet",
+        contact_email="c@test.com",
+        status="open",
+        channel_account_id=account.id,
+    )
+    session_override.add(signal)
+    await session_override.commit()
+
+    assert await resolve_inbound_agent_for_signal(session_override, signal) is None
 
 
 @pytest.mark.asyncio

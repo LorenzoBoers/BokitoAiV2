@@ -121,10 +121,10 @@ async def test_previous_report_is_fed_back_into_the_prompt(session_override):
         await fire_trigger(session_override, trigger)
         await fire_trigger(session_override, trigger)
 
-    assert "Previous check-in" not in seen[0]
-    assert "Previous check-in" in seen[1]
+    assert "Previous report" not in seen[0]
+    assert "Previous report" in seen[1]
     assert "Bedrijfsbezoek SoestNetwerkt" in seen[1]
-    assert "Report only what changed" in seen[1]
+    assert "mention only what is new" in seen[1]
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 import { appRoutes } from '../api/routes'
 import { apiGet } from './api'
 import { formatAppTime, formatAppWeekdayDayMonth } from './app-locale'
-import { agentChatPath, inboxPath } from './messages-paths'
+import { inboxPath } from './messages-paths'
 import { openEntityPath, pickClosestThreadBySubject } from './open-entity'
 
 /** One shape for everything over time: Agenda, the agent timeline and agent detail. */
@@ -227,43 +227,28 @@ export function isAgentAutomation(item: TimeItem): boolean {
   return kind === 'cron' || kind === 'interval' || kind === 'heartbeat'
 }
 
-/**
- * The thread a trigger posts into, straight from `signal_id` instead of a
- * subject guess. Check-ins land in the agent's own channel; other triggers
- * keep their internal run thread.
- */
-export function triggerThreadPath(item: {
-  trigger_kind?: string | null
-  signal_id?: string | null
-  agent_id?: string | null
-}): string | null {
-  if (!item.signal_id) return null
-  if (item.trigger_kind === 'heartbeat' && item.agent_id) {
-    return agentChatPath(item.agent_id, item.signal_id)
-  }
-  return inboxPath('all', item.signal_id)
+/** The thread behind an agenda item: every dated item and every rule has one. */
+export function triggerThreadPath(item: { signal_id?: string | null }): string | null {
+  return item.signal_id ? inboxPath('all', item.signal_id) : null
 }
 
 type ThreadLike = { id: string | number; emailSubject?: string | null; lastMessageAt?: string | null }
 
 /**
- * Where a time item opens. Sessions and past wakes open their thread (or the
- * run page); future wakes stay on Agenda; follow-ups open the conversation.
+ * Where a time item opens: its thread when it has one (dated threads, rules,
+ * runs). Older sessions without a thread fall back to a subject match or the run.
  */
 export function timeItemHref(
   item: TimeItem,
   threads: ThreadLike[] = [],
   nowMs: number = Date.now(),
 ): string {
-  if ((item.kind === 'task' || item.kind === 'checkup' || item.kind === 'activity') && item.signal_id) {
-    return inboxPath('all', item.signal_id)
-  }
+  const direct = triggerThreadPath(item)
+  if (direct) return direct
   if (item.kind === 'calendar') return '/agenda'
   const atMs = parseTimelineMs(item.start)
   const isFuture = item.kind === 'wake' && Number.isFinite(atMs) && atMs > nowMs
   if (!isFuture) {
-    const direct = triggerThreadPath(item)
-    if (direct) return direct
     const match = pickClosestThreadBySubject(threads, item.title, item.start)
     if (match) return inboxPath('all', String(match.id))
     if (item.run_id && item.agent_id) return openEntityPath({ type: 'run', id: item.run_id, agentId: item.agent_id })

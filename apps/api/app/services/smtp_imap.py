@@ -194,6 +194,33 @@ async def verify_mailbox(creds: dict[str, Any]) -> dict[str, Any]:
     return await asyncio.to_thread(verify_mailbox_sync, creds)
 
 
+def _iter_mime_leaves(part: email.message.Message, *, inside_rfc822: bool = False):
+    """Yield ``(leaf, inside_rfc822)``. Nested ``message/rfc822`` is the original in a DSN."""
+    ctype = (part.get_content_type() or "").lower()
+    if part.is_multipart() or ctype == "message/rfc822":
+        child_inside = inside_rfc822 or ctype == "message/rfc822"
+        try:
+            children = list(part.iter_parts())
+        except Exception:
+            children = []
+        for child in children:
+            yield from _iter_mime_leaves(child, inside_rfc822=child_inside)
+        return
+    yield part, inside_rfc822
+
+
+def _part_text(part: email.message.Message) -> str:
+    try:
+        content = part.get_content()
+        if not isinstance(content, str):
+            content = str(content)
+        return content
+    except Exception:
+        payload = part.get_payload(decode=True) or b""
+        charset = part.get_content_charset() or "utf-8"
+        return payload.decode(charset, errors="replace")
+
+
 def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
     try:
         msg = email.message_from_bytes(raw, policy=email.policy.default)
@@ -225,27 +252,29 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
     attachments: list[dict[str, Any]] = []
 
     if msg.is_multipart():
-        for part in msg.walk():
+        outer_text = ""
+        outer_html = ""
+        nested_text = ""
+        nested_html = ""
+        for part, nested in _iter_mime_leaves(msg):
             ctype = (part.get_content_type() or "").lower()
             disp = str(part.get("Content-Disposition") or "").lower()
-            if ctype == "text/plain" and "attachment" not in disp and not body_text:
-                try:
-                    body_text = part.get_content()
-                    if not isinstance(body_text, str):
-                        body_text = str(body_text)
-                except Exception:
-                    payload = part.get_payload(decode=True) or b""
-                    charset = part.get_content_charset() or "utf-8"
-                    body_text = payload.decode(charset, errors="replace")
-            elif ctype == "text/html" and "attachment" not in disp and not body_html:
-                try:
-                    body_html = part.get_content()
-                    if not isinstance(body_html, str):
-                        body_html = str(body_html)
-                except Exception:
-                    payload = part.get_payload(decode=True) or b""
-                    charset = part.get_content_charset() or "utf-8"
-                    body_html = payload.decode(charset, errors="replace")
+            if ctype == "text/plain" and "attachment" not in disp:
+                text = _part_text(part)
+                if nested:
+                    if not nested_text:
+                        nested_text = text
+                elif not outer_text:
+                    outer_text = text
+            elif ctype == "text/html" and "attachment" not in disp:
+                html = _part_text(part)
+                if nested:
+                    if not nested_html:
+                        nested_html = html
+                elif not outer_html:
+                    outer_html = html
+            elif nested:
+                continue
             elif (
                 "attachment" in disp
                 or part.get_filename()
@@ -269,6 +298,10 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
                         "inline": "inline" in disp or bool(content_id),
                     }
                 )
+        # A delivery notice keeps its explanation. The nested original is only
+        # the body when the outer message has no text of its own.
+        body_text = outer_text or ("" if outer_html else nested_text)
+        body_html = outer_html or ("" if outer_text else nested_html)
     else:
         ctype = (msg.get_content_type() or "text/plain").lower()
         try:
@@ -328,6 +361,150 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
         "attachments": attachments,
         "imap_uid": uid,
     }
+
+
+def _mailbox_for_folder(client: imaplib.IMAP4, folder_id: str) -> str | None:
+    """IMAP mailbox for a Bokito folder id. Custom ids are the mailbox name."""
+    if folder_id == "inbox":
+        return "INBOX"
+    if folder_id == "sent":
+        return _find_sent_mailbox(client)
+    if folder_id == "junk":
+        return _find_flagged_mailbox(client, ("\\Junk", "\\Spam"))
+    if folder_id in ("drafts", "trash", "archive"):
+        return None
+    return folder_id
+
+
+def _find_flagged_mailbox(client: imaplib.IMAP4, flags: tuple[str, ...]) -> str | None:
+    try:
+        typ, data = client.list()
+    except Exception:
+        return None
+    if typ != "OK" or not data:
+        return None
+    for raw in data:
+        line = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
+        if not any(flag.lower() in line.lower() for flag in flags):
+            continue
+        name = _parse_list_mailbox(line)
+        if name:
+            return name
+    return None
+
+
+def list_imap_folders_sync(creds: dict[str, Any]) -> list[dict[str, Any]]:
+    """Real mailboxes, without Drafts or Trash. Inbox and Sent start selected."""
+    client = _imap_connect(creds)
+    try:
+        typ, data = client.list()
+        if typ != "OK" or not data:
+            return []
+        folders: list[dict[str, Any]] = []
+        for raw in data:
+            line = raw.decode("utf-8", "replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
+            name = _parse_list_mailbox(line)
+            if not name:
+                continue
+            lower_line = line.lower()
+            if "\\drafts" in lower_line or "\\trash" in lower_line or "\\deleted" in lower_line:
+                continue
+            folder_id = name
+            selected = False
+            if name.upper() == "INBOX" or "\\inbox" in lower_line:
+                folder_id, selected = "inbox", True
+            elif "\\sent" in lower_line:
+                folder_id, selected = "sent", True
+            elif "\\junk" in lower_line or "\\spam" in lower_line:
+                folder_id, selected = "junk", False
+            folders.append(
+                {
+                    "id": folder_id,
+                    "display_name": name,
+                    "is_selected": selected,
+                    "mailbox": name,
+                }
+            )
+        return folders
+    finally:
+        try:
+            client.logout()
+        except Exception:
+            pass
+
+
+def fetch_mailbox_since_sync(
+    creds: dict[str, Any],
+    uid_cursor: str,
+    folder_id: str,
+    *,
+    since: datetime | None = None,
+    limit: int = MAX_FETCH,
+    before_uid: int | None = None,
+) -> tuple[list[dict[str, Any]], str]:
+    """Fetch one mailbox. ``before_uid`` walks older mail for the history cap."""
+    client = _imap_connect(creds)
+    try:
+        mailbox = _mailbox_for_folder(client, folder_id)
+        if not mailbox:
+            return [], uid_cursor
+        typ, _ = client.select(mailbox, readonly=True)
+        if typ != "OK":
+            if folder_id == "inbox":
+                raise SmtpImapError("imap_select", "Could not open INBOX on this mailbox.")
+            return [], uid_cursor
+
+        last_uid = int(uid_cursor.strip()) if uid_cursor.strip().isdigit() else 0
+        since_part = f' SINCE "{since.strftime("%d-%b-%Y")}"' if since is not None else ""
+        if before_uid and before_uid > 1:
+            criteria = f"(UID 1:{before_uid - 1}{since_part})"
+        elif last_uid > 0 and before_uid is None:
+            criteria = f"(UID {last_uid + 1}:*)"
+        elif since is not None:
+            criteria = f'(SINCE "{since.strftime("%d-%b-%Y")}")'
+        else:
+            criteria = "ALL"
+
+        typ, data = client.uid("search", None, criteria)
+        if typ != "OK" or not data or not data[0]:
+            return [], uid_cursor or str(last_uid or "")
+
+        uids = [u.decode() if isinstance(u, bytes) else str(u) for u in data[0].split()]
+        if before_uid:
+            uids = [u for u in uids if u.isdigit() and int(u) < before_uid]
+        else:
+            uids = [u for u in uids if u.isdigit() and int(u) > last_uid]
+        if not uids:
+            return [], uid_cursor or str(last_uid or "")
+
+        uids = uids[-limit:]
+        items: list[dict[str, Any]] = []
+        new_cursor = uid_cursor or str(last_uid or "")
+        for uid in uids:
+            typ, fetched = client.uid("fetch", uid, "(RFC822)")
+            if typ != "OK" or not fetched:
+                continue
+            raw = None
+            for part in fetched:
+                if isinstance(part, tuple) and len(part) >= 2 and isinstance(part[1], (bytes, bytearray)):
+                    raw = bytes(part[1])
+                    break
+            if not raw:
+                continue
+            parsed = _parse_mime_bytes(raw, uid=uid)
+            if parsed:
+                items.append(parsed)
+            if before_uid is None:
+                new_cursor = uid
+        if before_uid is not None and items:
+            oldest = min(int(item["imap_uid"]) for item in items if str(item.get("imap_uid") or "").isdigit())
+            new_cursor = str(oldest)
+        return items, new_cursor
+    finally:
+        try:
+            client.logout()
+        except Exception:
+            pass
 
 
 def fetch_inbox_since_sync(
@@ -405,6 +582,34 @@ async def fetch_inbox_since(
     return await asyncio.to_thread(
         fetch_inbox_since_sync, creds, uid_cursor, since=since
     )
+
+
+async def fetch_mailbox_since(
+    account: ChannelAccount,
+    uid_cursor: str,
+    folder_id: str,
+    *,
+    since: datetime | None = None,
+    before_uid: int | None = None,
+) -> tuple[list[dict[str, Any]], str]:
+    creds = get_connection_credentials(account)
+    if not is_connected(creds) and not (creds.get("username") and creds.get("password")):
+        raise SmtpImapError("no_credentials", "Mailbox credentials are missing.")
+    return await asyncio.to_thread(
+        fetch_mailbox_since_sync,
+        creds,
+        uid_cursor,
+        folder_id,
+        since=since,
+        before_uid=before_uid,
+    )
+
+
+async def list_imap_folders(account: ChannelAccount) -> list[dict[str, Any]]:
+    creds = get_connection_credentials(account)
+    if not (creds.get("username") and creds.get("password")):
+        return []
+    return await asyncio.to_thread(list_imap_folders_sync, creds)
 
 
 def _build_outbound_message(

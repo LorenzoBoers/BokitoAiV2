@@ -20,7 +20,11 @@ import { TourProvider } from '../tour/TourContext'
 import { TicketStageGateProvider } from '../inbox/TicketStageGate'
 import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
 import { useShellLiveBus } from '../../hooks/useShellLiveBus'
-import { unlockNotificationAudio } from '../../lib/notification-sound'
+import { setNotificationSoundEnabled, unlockNotificationAudio } from '../../lib/notification-sound'
+import { useAuth } from '../../context/AuthContext'
+import { policyRoutes } from '../../api/routes/policy.routes'
+import { APP_API_BASE } from '../../lib/api.config'
+import { normalizeNotificationPrefs } from '../../lib/notification-prefs'
 import { cn } from '../../lib/utils'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
@@ -87,10 +91,30 @@ function contentEnterKey(pathname: string): string {
 }
 
 export default function AppShell() {
+  const { token } = useAuth()
   useShellLiveBus()
   useEffect(() => {
     unlockNotificationAudio()
   }, [])
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void fetch(`${APP_API_BASE}${policyRoutes.notificationPreferences()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return
+        setNotificationSoundEnabled(normalizeNotificationPrefs(data).sound)
+      })
+      .catch(() => {
+        // The notifications page still loads the preference later.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [token])
   const { t } = useTranslation('nav')
   const { pathname, search } = useLocation()
   const [navCollapsed, setNavCollapsed] = useState(loadNavCollapsed)

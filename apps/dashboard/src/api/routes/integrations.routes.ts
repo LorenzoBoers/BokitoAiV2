@@ -49,6 +49,7 @@ export const integrationsRoutes = {
         `/calendars/connections/${encodeURIComponent(connectionId)}/calendars`,
       events: '/calendars/events',
       eventById: (eventId: string) => `/calendars/events/${encodeURIComponent(eventId)}`,
+      eventThread: (eventId: string) => `/calendars/events/${encodeURIComponent(eventId)}/thread`,
     },
     connections: (provider?: string) => {
       const params = new URLSearchParams()

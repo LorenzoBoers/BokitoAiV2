@@ -8,11 +8,11 @@ import {
   ArrowLeft,
   Bot,
   BookMarked,
+  CalendarClock,
   Flag,
   Forward,
   Hash,
   Link2,
-  ListPlus,
   Mail,
   MoreHorizontal,
   OctagonAlert,
@@ -88,8 +88,8 @@ type Props = {
   /** Block the counterparty contact (external threads). */
   onBlockContact?: () => void | Promise<void>
   blockingContact?: boolean
-  /** Opens the look-again planner (external, open threads). */
-  onWhatsNext?: () => void
+  /** Opens the planner: a date or repeat for this thread. */
+  onPlan?: () => void
   /** Items under "This conversation" in the panel; shown while the panel is closed. */
   panelCount?: number
   /** After toggling the few-shot example flag on a closed conversation. */
@@ -119,7 +119,7 @@ export default function ThreadHeader({
   closingSender = false,
   onBlockContact,
   blockingContact = false,
-  onWhatsNext,
+  onPlan,
   panelCount = 0,
   onExampleChanged,
 }: Props) {
@@ -133,7 +133,6 @@ export default function ThreadHeader({
   const showHandling =
     !internal && Boolean(onChangeAiHandling) && AI_HANDLING_CHANNELS.has((thread.channel ?? '').toLowerCase())
   const held = handling?.own === 'manual'
-  const canSnooze = !internal && thread.status !== 'closed' && thread.status !== 'spam'
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
 
@@ -286,7 +285,7 @@ export default function ThreadHeader({
               disabled={saving || closeBusy}
               onClick={() => {
                 if (thread.status === 'closed' || thread.status === 'pending') {
-                  void onPatch({ status: 'open', snoozedUntil: null })
+                  void onPatch({ status: 'open' })
                   return
                 }
                 void onRequestClose()
@@ -352,10 +351,10 @@ export default function ThreadHeader({
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             ) : null}
-            {canSnooze && onWhatsNext ? (
-              <DropdownMenuItem className="gap-2" onClick={() => onWhatsNext()}>
-                <ListPlus size={13} />
-                {t('threadChrome.whatsNext')}
+            {onPlan && thread.status !== 'spam' ? (
+              <DropdownMenuItem className="gap-2" onClick={() => onPlan()}>
+                <CalendarClock size={13} />
+                {t('threadChrome.plan')}
               </DropdownMenuItem>
             ) : null}
             {!internal ? <DropdownMenuSeparator /> : null}

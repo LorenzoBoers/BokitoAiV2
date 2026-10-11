@@ -319,7 +319,6 @@ async def archive_automated_mail_if_enabled(
 
     if signal.status != "closed":
         signal.status = "closed"
-        signal.snoozed_until = None
         on_status_change(session, signal)
         from app.services.tickets import settle_ticket_on_close
 
@@ -1138,7 +1137,6 @@ async def close_after_agent_reply(
     if not policy.effective["close_after_agent_reply"]:
         return False
     signal.status = "closed"
-    signal.snoozed_until = None
     signal.has_unread = False
     signal.updated_at = datetime.utcnow()
     handling_svc.on_status_change(session, signal, actor_id=str(agent.id))

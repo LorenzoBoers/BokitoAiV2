@@ -331,6 +331,8 @@ def resolve_ai_handling(
     *,
     scope: str = "conversation",
     agent: Any = None,
+    tag_autonomy: str | None = None,
+    flow_autonomy: str | None = None,
 ) -> AiHandling:
     """Effective AI handling for the most specific target given.
 
@@ -369,6 +371,12 @@ def resolve_ai_handling(
         agent_level = normalize_autonomy(getattr(agent, "autonomy_level", None))
         if mode_rank(agent_level) < mode_rank(ceiling):
             ceiling, clamped_by = agent_level, "agent"
+    from app.services.agent_rules import scope_autonomy_ceiling
+
+    for level, reason in ((tag_autonomy, "tag"), (flow_autonomy, "flow")):
+        cap = scope_autonomy_ceiling(level)
+        if cap and mode_rank(cap) < mode_rank(ceiling):
+            ceiling, clamped_by = cap, reason
     effective = min_mode(requested, ceiling)
     return AiHandling(
         effective=effective,
@@ -424,7 +432,28 @@ async def resolve_for_signal(
 
     account, contact = await load_layers(session, signal.tenant_id, signal)
     agent = await session.get(Agent, signal.agent_id) if signal.agent_id else None
-    return resolve_ai_handling(tenant, account, contact, signal, agent=agent)
+    tag_autonomy = None
+    flow_autonomy = None
+    if signal.ticket_tag_id:
+        from app.models.orchestra import Workstream
+        from app.models.signal import SignalTag
+
+        tag = await session.get(SignalTag, signal.ticket_tag_id)
+        if tag is not None and tag.tenant_id == signal.tenant_id:
+            tag_autonomy = tag.autonomy_level
+            if tag.workstream_id:
+                flow = await session.get(Workstream, tag.workstream_id)
+                if flow is not None and flow.tenant_id == signal.tenant_id:
+                    flow_autonomy = flow.autonomy_level
+    return resolve_ai_handling(
+        tenant,
+        account,
+        contact,
+        signal,
+        agent=agent,
+        tag_autonomy=tag_autonomy,
+        flow_autonomy=flow_autonomy,
+    )
 
 
 # ---------------------------------------------------------------------------

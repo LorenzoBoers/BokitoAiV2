@@ -67,19 +67,22 @@ DEFAULT_SYNC_WINDOW_DAYS = 30
 # Consecutive sync failures after which a mailbox is paused automatically.
 # Polls run every few minutes, so this is roughly a few hours of outage.
 SYNC_AUTO_PAUSE_AFTER = 50
-# Presets offered during mailbox install (UI + OAuth). 0 = everything is
-# still allowed via advanced settings, but not as an install default.
+# Presets offered during mailbox install (UI + OAuth).
 INSTALL_SYNC_WINDOW_DAYS = (7, 30, 90, 365)
-MAX_SYNC_WINDOW_DAYS = 3650
+MAX_SYNC_WINDOW_DAYS = 365
+# First import, and a folder turned on later, stops at this many messages.
+HISTORY_MESSAGE_CAP = 1000
 
 
 def clamp_sync_window_days(value: Any, *, default: int = DEFAULT_SYNC_WINDOW_DAYS) -> int:
-    """Normalize a backfill window to 0..MAX (0 = unlimited)."""
+    """Normalize a backfill window. 0 and anything past a year become one year."""
     try:
         days = int(value)
     except (TypeError, ValueError):
         return default
-    return max(0, min(days, MAX_SYNC_WINDOW_DAYS))
+    if days <= 0:
+        return MAX_SYNC_WINDOW_DAYS
+    return min(days, MAX_SYNC_WINDOW_DAYS)
 
 # Standard folder set offered in "Select folders to sync". Each selected
 # folder is polled with its own cursor (settings_json["sync_cursors"]).
@@ -93,8 +96,8 @@ DEFAULT_SYNC_FOLDERS: list[dict[str, Any]] = [
     {"id": "junk", "display_name": "Spam", "is_selected": False},
 ]
 
-# Providers whose Sent folder Bokito can poll. SMTP/IMAP stays inbox-only.
-SENT_SYNC_PROVIDERS = ("gmail", "outlook")
+# Providers whose Sent folder Bokito can poll, including SMTP/IMAP.
+SENT_SYNC_PROVIDERS = ("gmail", "outlook", "smtp_imap")
 
 # settings_json flag: the Sent default was applied once to a stored selection.
 SENT_DEFAULT_FLAG = "sent_sync_default_applied"
@@ -121,20 +124,44 @@ def account_sync_folders(
 ) -> list[dict[str, Any]]:
     """Folder selection for a mailbox: stored choice or the default set.
 
-    SMTP/IMAP mailboxes only ever sync the inbox, so only that folder is
-    offered for them.
+    Inbox and Sent start on. Drafts and Trash are never offered. At least one
+    folder stays selected.
     """
     stored = settings.get("sync_folders")
     if isinstance(stored, list) and stored:
         folders = [dict(f) for f in stored if isinstance(f, dict) and f.get("id")]
     else:
         folders = [dict(f) for f in DEFAULT_SYNC_FOLDERS]
-    if provider == "smtp_imap":
-        inbox = [f for f in folders if str(f.get("id")) == "inbox"]
-        folders = inbox or [{"id": "inbox", "display_name": "Inbox", "is_selected": True}]
-        for f in folders:
-            f["is_selected"] = True
+    folders = [f for f in folders if str(f.get("id")) not in ("drafts", "trash")]
+    if folders and not any(f.get("is_selected") for f in folders):
+        folders[0]["is_selected"] = True
     return folders
+
+
+def merge_discovered_folders(
+    stored: list[dict[str, Any]], discovered: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Overlay the operator's selection on the mailboxes the provider has.
+
+    A folder the provider no longer has drops out. Newly seen folders stay off
+    unless the stored list is empty, in which case Inbox and Sent start on.
+    """
+    if not discovered:
+        return stored
+    chosen = {str(folder.get("id")): bool(folder.get("is_selected")) for folder in stored}
+    has_choice = bool(stored)
+    merged: list[dict[str, Any]] = []
+    for folder in discovered:
+        row = dict(folder)
+        folder_id = str(row.get("id") or "")
+        if has_choice and folder_id in chosen:
+            row["is_selected"] = chosen[folder_id]
+        elif has_choice:
+            row["is_selected"] = False
+        merged.append(row)
+    if merged and not any(row.get("is_selected") for row in merged):
+        merged[0]["is_selected"] = True
+    return merged
 
 
 def ensure_sent_folder_default(settings: dict[str, Any], provider: str) -> dict[str, Any]:
@@ -190,7 +217,7 @@ def parse_address_list(*raw_values: Any) -> list[str]:
 
 
 def account_sync_window_days(settings: dict[str, Any]) -> int:
-    """Backfill window in days for a mailbox (0 = unlimited)."""
+    """Backfill window in days for a mailbox (at most one year)."""
     return clamp_sync_window_days(
         settings.get("sync_window_days", DEFAULT_SYNC_WINDOW_DAYS)
     )
@@ -444,6 +471,10 @@ def _parse_gmail_message(msg: dict[str, Any]) -> dict[str, Any]:
     # snippet think the email was cut off mid-sentence. Convert the HTML body
     # to text before ever falling back to the snippet.
     body_text, text_attachment_id = _extract_gmail_body(payload)
+    # A bounce's only HTML is the nested original. Keep that HTML when the
+    # outer message has no text of its own (a plain forward).
+    if not body_html and not html_attachment_id and not body_text:
+        body_html, html_attachment_id = _extract_gmail_html(payload, skip_rfc822=False)
     if not body_text and body_html:
         body_text = html_to_text(body_html)
     if not body_text:
@@ -516,9 +547,18 @@ def _extract_gmail_body(payload: dict[str, Any]) -> tuple[str, str | None]:
     return "", None
 
 
-def _extract_gmail_html(payload: dict[str, Any]) -> tuple[str, str | None]:
-    """Depth-first search for the first text/html part; decode base64url."""
+def _extract_gmail_html(
+    payload: dict[str, Any], *, skip_rfc822: bool = True
+) -> tuple[str, str | None]:
+    """Depth-first search for the first text/html part; decode base64url.
+
+    ``message/rfc822`` is the original letter inside a bounce. Skip it when the
+    outer message already has its own text, so the failure explanation stays
+    the visible body.
+    """
     mime = payload.get("mimeType", "")
+    if skip_rfc822 and mime == "message/rfc822":
+        return "", None
     body = payload.get("body", {}) or {}
     data = body.get("data")
     attachment_id = body.get("attachmentId")
@@ -529,7 +569,7 @@ def _extract_gmail_html(payload: dict[str, Any]) -> tuple[str, str | None]:
         if attachment_id:
             return "", str(attachment_id)
     for part in payload.get("parts", []) or []:
-        html, aid = _extract_gmail_html(part)
+        html, aid = _extract_gmail_html(part, skip_rfc822=skip_rfc822)
         if html or aid:
             return html, aid
     return "", None
@@ -1009,13 +1049,10 @@ async def _fetch_messages(
             return None
         return await _fetch_graph(token, cursor, folder, since)
     if account.provider == "smtp_imap":
-        # V1: INBOX only (UID cursor). Other folder ids are skipped.
-        if folder_id != "inbox":
-            return None
-        from app.services.smtp_imap import SmtpImapError, fetch_inbox_since
+        from app.services.smtp_imap import SmtpImapError, fetch_mailbox_since
 
         try:
-            return await fetch_inbox_since(account, cursor, since=since)
+            return await fetch_mailbox_since(account, cursor, folder_id, since=since)
         except SmtpImapError:
             raise
     return None
@@ -1315,6 +1352,12 @@ async def _ingest_items(
         if outbound:
             ingested += 1
             continue
+        if folder_id == "junk":
+            # Spam stays in the Spam queue and does not start an agent.
+            _signal.status = "spam"
+            session.add(_signal)
+            ingested += 1
+            continue
         if should_process:
             ingested += 1
             # Backfilled history (older than the mailbox AI-live cutoff) is
@@ -1374,8 +1417,10 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
         for f in account_sync_folders(settings, provider=account.provider)
         if f.get("is_selected")
     ]
-    if account.provider not in SENT_SYNC_PROVIDERS:
-        folders = [f for f in folders if f == "inbox"] or ["inbox"]
+    stored_window = settings.get("sync_window_days", DEFAULT_SYNC_WINDOW_DAYS)
+    clamped_window = account_sync_window_days(settings)
+    if stored_window != clamped_window:
+        settings["sync_window_days"] = clamped_window
     cursors: dict[str, str] = (
         dict(settings.get("sync_cursors"))
         if isinstance(settings.get("sync_cursors"), dict)
@@ -1383,6 +1428,16 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     )
     window_days = account_sync_window_days(settings)
     since = datetime.utcnow() - timedelta(days=window_days) if window_days > 0 else None
+    backfill_cursors: dict[str, str] = (
+        dict(settings.get("backfill_cursors"))
+        if isinstance(settings.get("backfill_cursors"), dict)
+        else {}
+    )
+    backfill_counts: dict[str, int] = (
+        {str(k): int(v or 0) for k, v in settings.get("backfill_counts").items()}
+        if isinstance(settings.get("backfill_counts"), dict)
+        else {}
+    )
 
     ingested = 0
     fetched = 0
@@ -1509,6 +1564,47 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
             }
         if new_cursor:
             cursors[folder_id] = new_cursor
+        if not cursor:
+            backfill_counts[folder_id] = int(backfill_counts.get(folder_id) or 0) + len(new_items)
+            uids = [
+                int(item["imap_uid"])
+                for item in messages
+                if str(item.get("imap_uid") or "").isdigit()
+            ]
+            if (
+                account.provider == "smtp_imap"
+                and uids
+                and len(messages) >= MAX_FETCH
+                and backfill_counts[folder_id] < HISTORY_MESSAGE_CAP
+            ):
+                backfill_cursors[folder_id] = str(min(uids))
+            else:
+                backfill_cursors[folder_id] = "done"
+        marker = str(backfill_cursors.get(folder_id) or "")
+        if (
+            account.provider == "smtp_imap"
+            and marker.isdigit()
+            and int(backfill_counts.get(folder_id) or 0) < HISTORY_MESSAGE_CAP
+        ):
+            from app.services.smtp_imap import fetch_mailbox_since
+
+            older, oldest = await fetch_mailbox_since(
+                account,
+                "",
+                folder_id,
+                since=since,
+                before_uid=int(marker),
+            )
+            room = HISTORY_MESSAGE_CAP - int(backfill_counts.get(folder_id) or 0)
+            older = older[:room]
+            if older:
+                await _hydrate_attachments(account, token, older)
+                ingested += await _ingest_items(session, account, older, folder_id)
+                fetched += len(older)
+                backfill_counts[folder_id] = int(backfill_counts.get(folder_id) or 0) + len(older)
+                backfill_cursors[folder_id] = oldest if len(older) >= MAX_FETCH else "done"
+            else:
+                backfill_cursors[folder_id] = "done"
 
     settings = json.loads(account.settings_json or "{}")
     if not isinstance(settings, dict):
@@ -1516,6 +1612,10 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     settings["last_sync_at"] = datetime.utcnow().isoformat()
     settings["messages_synced"] = int(settings.get("messages_synced") or 0) + ingested
     settings["sync_cursors"] = cursors
+    settings["backfill_cursors"] = backfill_cursors
+    settings["backfill_counts"] = backfill_counts
+    if clamped_window:
+        settings["sync_window_days"] = clamped_window
     clear_sync_pause(settings)
     account.settings_json = json.dumps(settings)
     if cursors.get("inbox"):

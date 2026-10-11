@@ -12,7 +12,7 @@ describe('presence visual map', () => {
   it('maps agent idle to AI violet, people available to success', () => {
     expect(asPresenceKind('standby')).toBe('standby')
     expect(asPresenceKind('working')).toBe('working')
-    expect(presenceDotClass('standby')).toContain('bg-ai')
+    expect(presenceDotClass('standby')).toBe('presence-standby-dot')
     expect(presenceBadgeVariant('standby')).toBe('ai')
     expect(presenceBadgeVariant('available')).toBe('success')
     expect(presenceTextClass('standby')).toBe('text-ai-ink')

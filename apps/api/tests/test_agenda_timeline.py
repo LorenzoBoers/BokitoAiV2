@@ -180,7 +180,11 @@ async def test_create_agent_task_accepts_aware_scheduled_for(session_override: A
     )
     assert task.scheduled_for is not None
     assert task.scheduled_for.tzinfo is None
-    assert task.status == "queued"
+    # A planned look for a person is the thread's date; the task is a record.
+    assert task.status == "completed"
+    await session_override.refresh(signal)
+    assert signal.next_at is not None
+    assert signal.next_at.tzinfo is None
 
 
 @pytest.mark.asyncio
@@ -278,7 +282,8 @@ async def test_create_task_rejects_foreign_signal(session_override: AsyncSession
 @pytest.mark.asyncio
 async def test_agenda_includes_scheduled_human_tasks_only(session_override: AsyncSession):
     from app.models.signal import Signal
-    from app.services.orchestration.dispatcher import complete_agent_task, create_agent_task
+    from app.services.orchestration.dispatcher import create_agent_task
+    from app.services.thread_schedule import clear_thread_schedule
 
     tenant, _agent = await _tenant_and_agent(session_override)
     now = datetime.utcnow()
@@ -292,7 +297,7 @@ async def test_agenda_includes_scheduled_human_tasks_only(session_override: Asyn
     await session_override.commit()
     await session_override.refresh(signal)
 
-    scheduled = await create_agent_task(
+    await create_agent_task(
         session_override,
         tenant.id,
         title="Call customer Friday",
@@ -319,20 +324,22 @@ async def test_agenda_includes_scheduled_human_tasks_only(session_override: Asyn
         start=now - timedelta(hours=1),
         end=now + timedelta(days=1),
     )
-    tasks = [i for i in items if i.get("source") == "task"]
+    tasks = [i for i in items if i.get("source") in ("task", "thread")]
     assert len(tasks) == 1
-    assert tasks[0]["title"] == "Call customer Friday"
+    assert tasks[0]["source"] == "thread"
+    assert tasks[0]["instructions"] == "Call customer Friday"
     assert tasks[0]["signal_id"] == str(signal.id)
 
-    completed = await complete_agent_task(session_override, tenant.id, scheduled.id)
-    assert completed.status == "completed"
+    await session_override.refresh(signal)
+    await clear_thread_schedule(session_override, signal)
+    await session_override.commit()
     items_after = await list_time_items(
         session_override,
         tenant.id,
         start=now - timedelta(hours=1),
         end=now + timedelta(days=1),
     )
-    assert not [i for i in items_after if i.get("source") == "task"]
+    assert not [i for i in items_after if i.get("source") in ("task", "thread")]
 
 
 @pytest.mark.asyncio
@@ -370,10 +377,11 @@ async def test_agenda_includes_conversation_tasks(session_override: AsyncSession
         start=now - timedelta(hours=1),
         end=now + timedelta(days=1),
     )
-    tasks = [i for i in items if i.get("source") == "task"]
+    tasks = [i for i in items if i.get("source") == "thread"]
     assert len(tasks) == 1
     assert tasks[0]["kind"] == "task"
-    assert tasks[0]["title"] == "Complete trading account"
+    assert tasks[0]["title"] == "IB application"
+    assert tasks[0]["instructions"] == "Complete trading account"
     assert tasks[0]["signal_id"] == str(signal.id)
     assert tasks[0]["actor_kind"] == "person"
 

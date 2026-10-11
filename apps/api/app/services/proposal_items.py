@@ -135,12 +135,15 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         ).scalar_one_or_none() if row_id else None
         if not row:
             return _missing(item_type, ref)
+        path = f"/communication/inbox/open/t/{row.id}"
         return {
             "type": item_type,
             "id": str(row.id),
             "title": _clip(row.subject or "(No subject)"),
             "subtitle": _clip(row.contact_name or ""),
             "kind": row.channel,
+            "path": path,
+            "url": path,
         }
 
     if item_type == "trash_entry":

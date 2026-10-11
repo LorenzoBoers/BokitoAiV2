@@ -33,6 +33,7 @@ Apply these to every feature request.
 7. **Ask inline, record in Govern.** A human gate is a decision card in the thread. Govern is the ledger, not a second inbox.
 8. **Delete the old surface in the same change.** No compatibility twin.
 9. **Hand work to the tools people already use; do not rebuild them.** Code goes to Cursor, Claude, or ChatGPT environments through a connection. Bokito decides, dispatches, gates, and reports. It never hosts an IDE, a repo browser, or a diff viewer of its own.
+10. **Everything is a thread.** A thread with a status is a ticket and runs through a flow. A thread with a date is an agenda item; with a repeat it is a recurring agenda item. An agent run is a thread too: a recurring agent works in one long thread, so its history stays together. Agenda is a view on thread dates, not a second store. Plan, pause, and change all of it from the conversation.
 
 ### Operator vocabulary (Set C)
 

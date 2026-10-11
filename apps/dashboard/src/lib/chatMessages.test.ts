@@ -13,6 +13,12 @@ describe('splitChatMessages', () => {
     expect(splitChatMessages('Thanks for waiting\n\nok')).toEqual(['Thanks for waiting\nok'])
   })
 
+  it('drops blocks without text, such as a lone horizontal rule', () => {
+    expect(
+      splitChatMessages('Hier zijn suggesties:\n\n---\n\n#### Actietags\n- #feature\n\n***\n\n**', 0),
+    ).toEqual(['Hier zijn suggesties:', '#### Actietags\n- #feature'])
+  })
+
   it('keeps fenced code in one message', () => {
     expect(splitChatMessages('Run this:\n\n```\na\n\nb\n```')).toEqual(['Run this:', '```\na\n\nb\n```'])
   })

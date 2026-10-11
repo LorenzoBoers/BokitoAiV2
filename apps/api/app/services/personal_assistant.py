@@ -103,6 +103,8 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "update_workstream",
     "set_platform_watch",
     "schedule_wake",
+    "set_thread_schedule",
+    "clear_thread_schedule",
     "suggest_integration",
     "propose_integration",
     "recommend_module",

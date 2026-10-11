@@ -51,6 +51,7 @@ function MatrixRow({
   channels,
   channelLabel,
   onChannel,
+  locked,
 }: {
   title: string
   hint?: string
@@ -58,6 +59,7 @@ function MatrixRow({
   channels: Record<NotificationChannel, boolean>
   channelLabel: (channel: NotificationChannel) => string
   onChannel: (channel: NotificationChannel, value: boolean) => void
+  locked?: NotificationChannel[]
 }) {
   return (
     <div className={`grid ${GRID} items-center border-b border-border/60 px-5 py-3 last:border-b-0`}>
@@ -69,8 +71,9 @@ function MatrixRow({
         <Cell
           key={channel}
           allowed={allowed.includes(channel)}
-          checked={channels[channel]}
+          checked={channels[channel] || locked?.includes(channel) === true}
           label={channelLabel(channel)}
+          disabled={locked?.includes(channel)}
           onChange={(value) => onChannel(channel, value)}
         />
       ))}
@@ -403,8 +406,10 @@ export default function NotificationSettings() {
                 <MatrixRow
                   key={id}
                   title={label}
+                  hint={id.startsWith('ops-') ? t('notificationsPage.opsAlways') : undefined}
                   allowed={CATEGORY_ALLOWED[id] ?? []}
                   channels={row.channels}
+                  locked={id.startsWith('ops-') ? ['inapp'] : undefined}
                   channelLabel={(channel) => `${label} ${channelLabel(channel)}`}
                   onChannel={(channel, value) =>
                     void apply(setCategoryChannel(prefs, id, channel, value), {

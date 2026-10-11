@@ -316,9 +316,11 @@ function MessengerSettingsContent({
   const handleSaveWidgetBehaviour = useCallback(async () => {
     if (!token || !widgetBehaviour || !channelId) return
     try {
+      const showOffline =
+        !widgetBehaviour.teamAvailable || Boolean(widgetBehaviour.offlineMessage.trim())
       const next = await saveChannelWidget(token, channelId, {
         preChatForm: widgetBehaviour.preChatForm,
-        offlineMessage: widgetBehaviour.offlineMessage,
+        ...(showOffline ? { offlineMessage: widgetBehaviour.offlineMessage } : {}),
         whatsappHandover: widgetBehaviour.whatsappHandover,
       })
       const behaviour: WidgetSettings = {
@@ -774,6 +776,19 @@ function MessengerSettingsContent({
                           aria-label={t('messengerPage.preChat')}
                         />
                       </div>
+                      {!widgetBehaviour.teamAvailable || widgetBehaviour.offlineMessage.trim() ? (
+                        <label className="block space-y-1">
+                          <span className="text-sm text-text-primary">{t('messengerPage.offlineMessage')}</span>
+                          <textarea
+                            className="w-full min-h-[72px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
+                            value={widgetBehaviour.offlineMessage}
+                            onChange={(e) =>
+                              setWidgetBehaviour({ ...widgetBehaviour, offlineMessage: e.target.value })
+                            }
+                          />
+                          <p className="text-2xs text-text-muted">{t('messengerPage.offlineMessageHint')}</p>
+                        </label>
+                      ) : null}
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
                           <span className="text-sm text-text-primary">{t('messengerPage.liveHandoff')}</span>

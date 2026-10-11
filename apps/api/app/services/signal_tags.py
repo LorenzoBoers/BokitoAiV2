@@ -247,6 +247,7 @@ def serialize_tag(row: SignalTag, count: int = 0) -> dict[str, Any]:
         "pinned": bool(row.pinned),
         "show_in_nav": bool(row.show_in_nav),
         "ai_auto_tag": bool(row.ai_auto_tag),
+        "send_mode": row.send_mode or "send",
     }
 
 
@@ -265,6 +266,7 @@ async def create_tag(
     description: str = "",
     pinned: bool = False,
     user_id: UUID | None = None,
+    commit: bool = True,
 ) -> SignalTag:
     clean = normalize_tag(name)
     if not clean:
@@ -278,7 +280,10 @@ async def create_tag(
     if pinned:
         row.pinned = True
     row.updated_at = datetime.utcnow()
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return row
 
 

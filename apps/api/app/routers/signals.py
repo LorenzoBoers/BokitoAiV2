@@ -14,6 +14,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth, require_verified_email
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import user_numeric_id
+from app.models.signal import Signal
 from app.routers.signal_chat import router as chat_router
 from app.services import signal_threads as svc
 from app.services.channel_access import handled_channel_account_ids, visible_channel_account_ids
@@ -278,20 +279,40 @@ class ThreadPatch(BaseModel):
     tags: list[str] | None = None
     priority: str | None = None
     project_id: UUID | None = None
-    # Set a wake time to snooze (status flips to pending); null clears it.
-    snoozed_until: datetime | None = None
-    # Next look-at while the conversation stays open (not snooze, not AgentTask).
-    follow_up_at: datetime | None = None
-    follow_up_title: str | None = None
     # Email-only: bind the thread to this mailbox (From + channel folder).
     channel_account_id: UUID | None = None
 
 
 class BulkBody(BaseModel):
     signal_ids: list[UUID]
-    action: str  # close | reopen | spam | read | unread | assign | snooze | trash
+    action: str  # close | reopen | spam | read | unread | assign | trash
     assignee_id: int | None = None
-    snoozed_until: datetime | None = None
+
+
+class RecipientRef(BaseModel):
+    kind: str  # user | team
+    id: str | int
+
+
+class ScheduleBody(BaseModel):
+    """A date and/or repeat on a thread. Omit ``signal_id`` paths to start a new one."""
+
+    title: str = ""
+    at: datetime | None = None
+    ends_at: datetime | None = None
+    cron: str | None = None
+    every_minutes: int | None = None
+    agent_id: UUID | None = None
+    instructions: str | None = None
+    recipient: RecipientRef | None = None
+    note: str | None = None
+    location: str | None = None
+    project_id: UUID | None = None
+    enabled: bool = True
+
+
+class ScheduleEnabledBody(BaseModel):
+    enabled: bool
 
 
 class ReplyBody(BaseModel):
@@ -299,7 +320,8 @@ class ReplyBody(BaseModel):
     body_html: str | None = None
     action: str = "send"
     attachments: list[dict] | None = None
-    # For action=send_and_pending: optional snooze duration (wake time).
+    # For action=send_and_pending: minutes until the thread's date (it comes
+    # back unread then unless the customer answered).
     snooze_minutes: int | None = None
     # Email-only: comma-separated extra recipients.
     cc: str | None = None
@@ -364,6 +386,16 @@ class ResolveBody(BaseModel):
     send_as: str | None = None
     # Chat-mode reply drafts: the edited bubbles, sent in order.
     messages: list[str] | None = None
+
+
+class ResolveBundleBody(BaseModel):
+    """Approve all / some of the action cards an agent raised in one turn."""
+
+    decision_ids: list[UUID] = Field(min_length=1)
+    # "all" or the decision ids to approve.
+    approve: list[UUID] | Literal["all"] = "all"
+    # "rest" (every listed card not approved) or the decision ids to reject.
+    reject: list[UUID] | Literal["rest"] = "rest"
 
 
 class SessionStartBody(BaseModel):
@@ -679,6 +711,8 @@ async def list_signal_threads(
     needs_decision: bool = Query(False),
     pinned: bool = Query(False),
     team_id: str | None = Query(None),
+    scheduled_from: datetime | None = Query(None),
+    scheduled_to: datetime | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=1, le=100),
 ):
@@ -686,10 +720,14 @@ async def list_signal_threads(
 
     ``view``: ``for_you`` (yours: owned, your turn, your team's turn, mentions),
     ``all_open``, ``unassigned`` (team-owned, not picked up), ``closed``,
-    ``snoozed``, ``spam``, ``all``. ``team_id`` narrows to one team's work.
+    ``scheduled`` (threads with a date, soonest first), ``spam``, ``all``.
+    ``team_id`` narrows to one team's work. ``scheduled_from`` / ``scheduled_to``
+    narrow to threads whose next date falls in the window.
     Folder filters: ``project_id`` (linked, or a ticket in the project),
     ``category_id``, ``tag`` and ``stage`` (a stage key or kind).
     """
+    from app.services.thread_schedule import naive_utc
+
     return await svc.list_threads(
         session,
         auth.tenant.id,
@@ -712,6 +750,8 @@ async def list_signal_threads(
         needs_decision=needs_decision,
         pinned_only=pinned,
         team_id=team_id,
+        scheduled_from=naive_utc(scheduled_from),
+        scheduled_to=naive_utc(scheduled_to),
         page=page,
         per_page=per_page,
         visible_account_ids=await visible_channel_account_ids(
@@ -797,11 +837,6 @@ async def patch_signal(
     updates = body.model_dump(exclude_unset=True)
     project_id_set = "project_id" in updates
     project_id = updates.pop("project_id", None)
-    snoozed_until_set = "snoozed_until" in updates
-    snoozed_until = updates.pop("snoozed_until", None)
-    follow_up_at_set = "follow_up_at" in updates
-    follow_up_at = updates.pop("follow_up_at", None)
-    follow_up_title = updates.pop("follow_up_title", None)
     channel_account_id_set = "channel_account_id" in updates
     channel_account_id = updates.pop("channel_account_id", None)
     thread = await svc.patch_thread(
@@ -817,11 +852,6 @@ async def patch_signal(
         priority=updates.get("priority"),
         project_id=project_id,
         project_id_set=project_id_set,
-        snoozed_until=snoozed_until,
-        snoozed_until_set=snoozed_until_set,
-        follow_up_at=follow_up_at,
-        follow_up_at_set=follow_up_at_set,
-        follow_up_title=follow_up_title,
         channel_account_id=channel_account_id,
         channel_account_id_set=channel_account_id_set,
         actor_role=auth.role,
@@ -837,7 +867,7 @@ async def bulk_update(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Bulk operator actions on threads (close/reopen/spam/read/unread/assign/snooze/trash)."""
+    """Bulk operator actions on threads (close/reopen/spam/read/unread/assign/trash)."""
     return await svc.bulk_update_threads(
         session,
         auth.tenant.id,
@@ -845,8 +875,162 @@ async def bulk_update(
         signal_ids=body.signal_ids,
         action=body.action,
         assignee_id=body.assignee_id,
-        snoozed_until=body.snoozed_until,
     )
+
+
+async def _schedule_response(session: AsyncSession, auth: AuthContext, signal_id: UUID) -> dict:
+    from app.services.thread_schedule import rules_by_signal, schedule_payload
+
+    signal = await session.get(Signal, signal_id)
+    rules = await rules_by_signal(session, auth.tenant.id, [signal_id])
+    return svc.serialize_thread(
+        signal, user_num=_num(auth), schedule=schedule_payload(rules.get(signal_id))
+    )
+
+
+async def _apply_schedule(
+    session: AsyncSession, auth: AuthContext, body: ScheduleBody, signal: Signal | None
+) -> dict:
+    from app.services.thread_schedule import apply_thread_schedule, resolve_recipient
+
+    recipient = (
+        await resolve_recipient(session, auth.tenant.id, body.recipient.model_dump())
+        if body.recipient
+        else None
+    )
+    details: dict = {}
+    if body.note is not None:
+        details["note"] = body.note
+    if body.location is not None:
+        details["location"] = body.location
+    updated, _rule = await apply_thread_schedule(
+        session,
+        auth.tenant.id,
+        signal=signal,
+        title=body.title,
+        at=body.at,
+        ends_at=body.ends_at,
+        cron=body.cron,
+        every_minutes=body.every_minutes,
+        agent_id=body.agent_id,
+        instructions=body.instructions,
+        recipient=recipient,
+        details=details,
+        created_by_user_id=auth.user.id,
+        project_id=body.project_id,
+        actor_id=str(auth.user.id),
+        enabled=body.enabled,
+    )
+    await session.commit()
+    from app.gateway.publish import publish_thread_update
+
+    await publish_thread_update(updated)
+    return await _schedule_response(session, auth, updated.id)
+
+
+@router.post("/schedule")
+async def create_scheduled_thread(
+    body: ScheduleBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Start a new thread with a date or repeat (an agenda item)."""
+    return await _apply_schedule(session, auth, body, None)
+
+
+@router.put("/{signal_id}/schedule")
+async def set_thread_schedule(
+    signal_id: UUID,
+    body: ScheduleBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Put a date and/or repeat on this thread. Replaces the previous one."""
+    await _require_handle(session, auth, signal_id)
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return await _apply_schedule(session, auth, body, signal)
+
+
+@router.delete("/{signal_id}/schedule")
+async def clear_thread_schedule(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.gateway.publish import publish_thread_update
+    from app.services.thread_schedule import clear_thread_schedule as clear
+
+    await _require_handle(session, auth, signal_id)
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    await clear(session, signal, actor_id=str(auth.user.id))
+    await session.commit()
+    await publish_thread_update(signal)
+    return await _schedule_response(session, auth, signal_id)
+
+
+@router.post("/{signal_id}/schedule/enabled")
+async def set_thread_schedule_enabled(
+    signal_id: UUID,
+    body: ScheduleEnabledBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Pause or resume the repeat of this thread (closing is not pausing)."""
+    from app.gateway.publish import publish_thread_update
+    from app.services.thread_schedule import set_rule_enabled
+
+    await _require_handle(session, auth, signal_id)
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    await set_rule_enabled(session, signal, body.enabled)
+    await session.commit()
+    await publish_thread_update(signal)
+    return await _schedule_response(session, auth, signal_id)
+
+
+@router.post("/{signal_id}/schedule/run")
+async def run_thread_schedule(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Run this thread's agent wake now. Returns at once; the agent works live
+    in the thread and the next scheduled moment stays where it was."""
+    import asyncio
+
+    from app.services.thread_schedule import thread_rule
+
+    await _require_handle(session, auth, signal_id)
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    rule = await thread_rule(session, signal_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail="This thread has no agent wake")
+    rule_id = rule.id
+
+    async def _run() -> None:
+        from app.db.session import async_session_factory
+        from app.models.trigger import Trigger
+        from app.services.triggers import fire_trigger
+
+        async with async_session_factory() as bg:
+            row = await bg.get(Trigger, rule_id)
+            if row is not None:
+                try:
+                    await fire_trigger(bg, row, manual=True)
+                except Exception:  # noqa: BLE001 - the run records its own failure
+                    import logging
+
+                    logging.getLogger(__name__).exception("Run now failed for trigger %s", rule_id)
+
+    asyncio.get_running_loop().create_task(_run())
+    return {"status": "started", "signal_id": str(signal_id)}
 
 
 @router.delete("/{signal_id}")
@@ -1492,6 +1676,29 @@ async def resolve_decision(
         response_text=body.response_text,
         send_as=body.send_as,
         messages=body.messages,
+    )
+
+
+@router.post("/{signal_id}/decisions/resolve-bundle")
+async def resolve_decision_bundle(
+    signal_id: UUID,
+    body: ResolveBundleBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Resolve the action cards of one agent turn together.
+
+    Each card runs through the normal approve/reject path; the response lists
+    the outcome per decision and one operator bubble sums it up in the thread.
+    """
+    return await svc.resolve_decision_bundle(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        signal_id,
+        decision_ids=body.decision_ids,
+        approve="all" if body.approve == "all" else [str(x) for x in body.approve],
+        reject="rest" if body.reject == "rest" else [str(x) for x in body.reject],
     )
 
 

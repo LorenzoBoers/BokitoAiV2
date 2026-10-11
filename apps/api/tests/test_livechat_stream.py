@@ -32,9 +32,7 @@ async def test_stream_chat_returns_sse_done(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_customer_reply_wakes_snoozed_widget_thread(session_override):
-    """Snoozed-until-reply threads must reopen when the visitor writes again."""
-    from datetime import datetime, timedelta
-
+    """Pending threads must reopen when the visitor writes again."""
     from app.models.auth import Tenant
     from app.models.signal import Signal
     from app.services.assistant_threads import append_signal_chat_message
@@ -50,7 +48,6 @@ async def test_customer_reply_wakes_snoozed_widget_thread(session_override):
         source="widget",
         subject="Website chat",
         status="pending",
-        snoozed_until=datetime.utcnow() + timedelta(hours=4),
         has_unread=False,
     )
     session_override.add(snoozed)
@@ -61,7 +58,6 @@ async def test_customer_reply_wakes_snoozed_widget_thread(session_override):
         session_override, snoozed, role="user", content="Are you there?"
     )
     assert snoozed.status == "open"
-    assert snoozed.snoozed_until is None
     assert snoozed.has_unread is True
 
     # Personal assistant threads stay untouched: there the "user" is the operator.

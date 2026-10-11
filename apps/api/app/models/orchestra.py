@@ -47,7 +47,7 @@ class Workstream(SQLModel, table=True):
     # integration connected, agents available).
     module_slug: str = ""
     template_slug: str = ""
-    autonomy_level: str = Field(default="assisted")  # manual | assisted | autonomous
+    autonomy_level: str = Field(default="")  # empty follows the company; else a ceiling
     # Ticket pipeline: [{"key", "name", "kind": open|waiting|done}]; "[]" means
     # the default Open / Waiting / Done.
     stages_json: str = Field(default="[]")

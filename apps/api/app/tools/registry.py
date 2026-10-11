@@ -61,6 +61,13 @@ class ToolContext:
     assurance_expires_at: datetime | None = None
     assurance_email: str = ""
     surface: str = ""
+    # Agent turn this call belongs to (stream id). Decisions raised in one
+    # turn share a bundle and render as one approval card.
+    turn_id: str | None = None
+
+    @property
+    def bundle_id(self) -> str:
+        return self.turn_id or (str(self.run_id) if self.run_id else "")
 
 
 ToolHandler = Callable[[ToolContext, dict[str, Any]], Awaitable[dict[str, Any]]]

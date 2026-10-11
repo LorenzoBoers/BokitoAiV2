@@ -410,7 +410,6 @@ async def create_inbound_signal(
     if existing:
         existing.has_unread = True
         existing.status = "open"
-        existing.snoozed_until = None
         existing.last_message_at = now
         existing.updated_at = now
         if contact_name and not existing.contact_name:

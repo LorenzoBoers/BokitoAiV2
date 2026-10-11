@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { WebPageLinkIcon } from '../ui/DomainFavicon'
 
 /**
  * Standard renderer for AI-generated text in chat surfaces (assistant panel,
@@ -20,8 +21,7 @@ export function isAppPath(href: string): boolean {
   return href.startsWith('/') && !href.startsWith('//')
 }
 
-const APP_LINK_CLASS =
-  'md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 align-baseline text-xs font-medium text-accent no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70'
+const APP_LINK_CLASS = 'md-app-link'
 
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -67,8 +67,9 @@ function renderInline(text: string): ReactNode[] {
             href={href}
             target="_blank"
             rel="noreferrer noopener"
-            className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+            className="inline text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
           >
+            <WebPageLinkIcon href={href} className="mr-[0.28em]" />
             {label}
           </a>,
         )
@@ -222,9 +223,14 @@ function ChatMarkdownImpl({ content, className }: { content: string; className?:
         i += 1
       }
       blocks.push(
-        <ul key={key++} className="list-disc space-y-1 pl-5">
+        <ul key={key++} className="chat-list chat-list--bullet">
           {items.map((item, idx) => (
-            <li key={idx}>{renderInline(item)}</li>
+            <li key={idx} className="chat-list-row">
+              <span className="chat-list-mark" aria-hidden>
+                •
+              </span>
+              <span className="chat-list-body">{renderInline(item)}</span>
+            </li>
           ))}
         </ul>,
       )
@@ -239,9 +245,14 @@ function ChatMarkdownImpl({ content, className }: { content: string; className?:
         i += 1
       }
       blocks.push(
-        <ol key={key++} className="list-decimal space-y-1 pl-5">
+        <ol key={key++} className="chat-list chat-list--ordered">
           {items.map((item, idx) => (
-            <li key={idx}>{renderInline(item)}</li>
+            <li key={idx} className="chat-list-row">
+              <span className="chat-list-mark" aria-hidden>
+                {idx + 1}.
+              </span>
+              <span className="chat-list-body">{renderInline(item)}</span>
+            </li>
           ))}
         </ol>,
       )

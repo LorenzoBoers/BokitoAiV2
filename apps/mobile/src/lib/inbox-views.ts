@@ -3,7 +3,7 @@ export const CUSTOMER_VIEWS = [
   'all_open',
   'unassigned',
   'pinned',
-  'snoozed',
+  'scheduled',
   'closed',
   'spam',
 ] as const
@@ -18,7 +18,7 @@ export const ALL_FOLDER_VIEWS = [
   'updates',
   'results',
   'pinned',
-  'snoozed',
+  'scheduled',
   'closed',
   'spam',
 ] as const

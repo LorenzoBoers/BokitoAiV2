@@ -161,10 +161,11 @@ function QuotedMailFrame({ html, title }: { html: string; title: string }) {
   )
 }
 
-const FIELD_ROW = 'flex items-center gap-2 border-b border-border/40 px-3 py-1.5 text-xs'
-const FIELD_LABEL = 'w-14 shrink-0 font-medium text-text-muted'
+const FIELD_ROW = 'flex items-center gap-3 border-b border-border/40 px-3 py-1.5 text-xs'
+/** Wide enough for NL "Onderwerp" so label→value gap stays even across rows. */
+const FIELD_LABEL = 'w-[5.5rem] shrink-0 font-normal text-text-muted'
 const FIELD_INPUT =
-  'min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-muted focus:outline-none'
+  'min-w-0 flex-1 bg-transparent font-normal text-text-primary placeholder:text-text-muted focus:outline-none'
 
 /**
  * Comma-separated entries that do not contain a usable address. The trailing
@@ -299,7 +300,7 @@ function RecipientField({
         data-testid={testId}
       />
       {open && matches.length ? (
-        <div className="absolute left-14 right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
+        <div className="absolute left-[calc(0.75rem+5.5rem+0.75rem)] right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
           <div className="max-h-56 overflow-y-auto p-1">
             {matches.map((s, index) => (
               <button
@@ -935,7 +936,7 @@ export default function MailComposer({
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              className={cn(FIELD_INPUT, 'font-medium')}
+              className={FIELD_INPUT}
               data-testid="mail-composer-subject"
             />
           </div>

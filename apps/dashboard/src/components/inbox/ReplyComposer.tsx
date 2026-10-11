@@ -53,6 +53,7 @@ import {
   type StoredComposerDraft,
 } from '../../lib/inbox-ops'
 import { draftThreadReply } from '../../lib/inbox-api'
+import { plainTextToQuotedHtml } from '../../lib/mail-quote'
 import { uploadAttachment } from '../../lib/uploads-api'
 import { parseComposerVerb, composerVerbHelp } from '../../lib/composer-verbs'
 import ComposerWriteAssist from './ComposerWriteAssist'
@@ -76,6 +77,7 @@ type Props = {
       channelAccountId?: string
       handback?: boolean
       keepOpen?: boolean
+      quotedHtml?: string
     },
   ) => Promise<void>
   onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
@@ -222,6 +224,7 @@ export default function ReplyComposer({
   // `body` keeps the raw mention markup (storage/API format); the textarea
   // shows `displayBody` where mentions read as `@Name` pills.
   const [body, setBody] = useState('')
+  const [quoteIncluded, setQuoteIncluded] = useState(false)
   const displayBody = useMemo(() => displayFromRaw(body), [body])
   // Caret to restore after an edit rewrote the display text (atomic mention
   // deletion or mention insertion make our text differ from the browser's).
@@ -440,6 +443,7 @@ export default function ReplyComposer({
     // write the restored draft back, not an empty one.
     draftRef.current = { body: stored.body, cc: stored.cc, bcc: stored.bcc }
     setBody(stored.body)
+    setQuoteIncluded(false)
     setCc(stored.cc)
     setBcc(stored.bcc)
     setCcBccOpen(Boolean(stored.cc || stored.bcc))
@@ -512,6 +516,7 @@ export default function ReplyComposer({
     // otherwise write the sent text back and restore it on the next open.
     draftRef.current = { body: '', cc: '', bcc: '' }
     setBody('')
+    setQuoteIncluded(false)
     setCc('')
     setBcc('')
     setCcBccOpen(false)
@@ -662,12 +667,17 @@ export default function ReplyComposer({
       } else {
         // Customer reply: never treat structured mentions as agent invokes.
         const replyText = stripMentionMarkup(text)
+        const quotedSource = lastInboundText?.trim() || ''
         const mailExtras =
           surface.channel === 'email'
             ? {
                 cc: cc.trim() || undefined,
                 bcc: bcc.trim() || undefined,
                 channelAccountId: selectedChannelAccountId || undefined,
+                quotedHtml:
+                  quoteIncluded && quotedSource
+                    ? plainTextToQuotedHtml(quotedSource)
+                    : undefined,
               }
             : {}
         const extras =
@@ -949,17 +959,12 @@ export default function ReplyComposer({
                   {lastInboundText?.trim() ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        const quoted = lastInboundText
-                          .trim()
-                          .split('\n')
-                          .slice(0, 8)
-                          .map((line) => `> ${line}`)
-                          .join('\n')
-                        setBody((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${quoted}` : quoted))
-                        requestAnimationFrame(() => textareaRef.current?.focus())
-                      }}
-                      className="inline-flex items-center gap-1 text-2xs font-medium text-text-muted hover:text-text-primary"
+                      aria-pressed={quoteIncluded}
+                      onClick={() => setQuoteIncluded((on) => !on)}
+                      className={cn(
+                        'inline-flex items-center gap-1 text-2xs font-medium',
+                        quoteIncluded ? 'text-accent' : 'text-text-muted hover:text-text-primary',
+                      )}
                     >
                       <Quote size={10} />
                       {t('composer.quote')}
@@ -1062,6 +1067,14 @@ export default function ReplyComposer({
               </button>
             </span>
           </div>
+        ) : null}
+
+        {quoteIncluded && !isNote && !isAsk && lastInboundText?.trim() ? (
+          <p className="mb-1.5 truncate text-2xs text-text-muted" data-testid="composer-quote-preview">
+            {t('composer.quoteIncluded')}
+            {' · '}
+            {lastInboundText.trim().split('\n').map((line) => line.trim()).find(Boolean)}
+          </p>
         ) : null}
 
         {!isNote && !isAsk && replyBlocked ? null : (

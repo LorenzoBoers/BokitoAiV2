@@ -432,3 +432,31 @@ async def test_verify_rolls_back_when_first_sync_fails(client):
     assert row["state"] != "connecting"
     assert row["state"] == "action_required"
     assert next(c for c in row["checks"] if c["id"] == "credentials")["state"] == "fail"
+
+
+def test_dsn_keeps_failure_text_instead_of_nested_original():
+    from email.message import EmailMessage
+
+    original = EmailMessage()
+    original["From"] = "Lorenzo <admin@bokito.ai>"
+    original["To"] = "nobody@example.com"
+    original["Subject"] = "QA undo"
+    original.set_content("plain original")
+    original.add_alternative("<p>QA undo2 — retract</p>", subtype="html")
+
+    dsn = EmailMessage()
+    dsn["From"] = "Mail Delivery System <MAILER-DAEMON@relay.mailchannels.net>"
+    dsn["To"] = "admin@bokito.ai"
+    dsn["Subject"] = "Undelivered Mail Returned to Sender"
+    dsn.set_content(
+        "This is the mail system at host relay.mailchannels.net.\n\n"
+        "your message could not be delivered to one or more recipients.\n"
+    )
+    dsn.make_mixed()
+    dsn.add_attachment(original)
+
+    parsed = smtp_imap._parse_mime_bytes(dsn.as_bytes(), uid="1")
+    assert parsed is not None
+    assert "mail system" in parsed["body_text"]
+    assert "QA undo2" not in (parsed["body_html"] or "")
+    assert "QA undo2" not in (parsed["body_text"] or "")

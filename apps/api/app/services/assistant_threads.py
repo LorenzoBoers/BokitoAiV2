@@ -86,6 +86,8 @@ def serialize_chat_message(
     for key, items in message_activity(meta, detail=True).items():
         if items:
             out[key] = items
+    if isinstance(meta.get("items"), list) and meta["items"]:
+        out["items"] = meta["items"]
     if meta.get("turn_id"):
         out["turn_id"] = meta["turn_id"]
     return out
@@ -132,11 +134,10 @@ async def append_signal_chat_message(
         and signal.status in ("pending", "closed")
         and not is_decision_response
     ):
-        # A customer reply wakes a snoozed thread and reopens a closed one,
+        # A customer reply reopens a pending or closed thread,
         # matching the email inbound path in services/signals.py. Personal
         # assistant threads are excluded: there the "user" is the operator.
         signal.status = "open"
-        signal.snoozed_until = None
         signal.has_unread = True
         session.add(
             SignalEvent(

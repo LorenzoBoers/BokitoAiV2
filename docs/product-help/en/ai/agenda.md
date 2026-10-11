@@ -35,14 +35,17 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 3. The ticket panel in Communication shows when the next follow-up is due. A Flow with check-ups links to **Check-ups on Agenda** under its title. See [Flows](/docs/ai/workstreams).
 4. On a contact page, each conversation shows its action tag, stage and next planned task.
 
-## Plan a task
+## Plan an agenda item or a recurring task
 
-1. Choose **New** and pick a one-off agent task, a reminder (fires on a date or a platform event), a recurring agent scan, or a **Calendar block** on a connected calendar.
-2. Fill the name, who (person or agent), when, and the instructions. For a calendar block, pick the **Calendar** (it starts on the account's default calendar), title, start and end. Turn on **All day** to put it in the top row under the date headers. Choose **Save** or **Create**.
-3. **Tasks** and **Activity** under **Show**, and each connected calendar you leave on, appear in the grid at their own time; only all-day items sit in the top row. Manage recurring agent scans under **Manage tasks** on the left.
-4. From a conversation, use **What next** to plan a task for yourself. Shortcuts: **Plan an agent task** in the command palette (Ctrl+K), or **Schedule on Agenda** on an agent's page.
+Every agenda item is a conversation with a date. With a repeat it becomes a recurring task: the agent writes in that one conversation each time, so the history stays together.
 
-Agents plan work too: ask one in a conversation to "check this again on Friday". Depending on your [autonomy posture](/docs/govern/autonomy), the plan is created directly or arrives as a decision in Communication first.
+1. Choose **New** and pick **Agenda item**, **Recurring task**, **Webhook** or **Calendar block**.
+2. For an agenda item or recurring task, fill **Title**, **When** (**One moment** or **Repeat**, for example **Every weekday** at 09:00), **For whom** (you, a teammate or a team) and optionally an **Agent** with a **Task for the agent**. Without an agent the conversation comes back unread for whoever you chose. Choose **Save**.
+3. Choosing an agenda item opens its conversation in Communication, where you change the date, pause the repeat or choose **Run now**. Calendar meetings have **Open as conversation** to discuss them with colleagues or an agent.
+4. For a calendar block, pick the **Calendar**, title, start and end. Turn on **All day** to put it in the top row under the date headers.
+5. **Tasks** and **Activity** under **Show**, and each connected calendar you leave on, appear in the grid at their own time. Manage recurring tasks under **Manage tasks** on the left.
+
+You plan the same way from a conversation: choose **Plan** in the thread menu. See [Communication](/docs/inbox/communication). Agents plan work too: ask one in a conversation to "check this again on Friday" or "send me an overview of open quotes every Monday". Depending on your [autonomy posture](/docs/govern/autonomy), the plan is created directly or arrives as a decision in Communication first.
 
 ## Show your Google or Outlook calendars
 

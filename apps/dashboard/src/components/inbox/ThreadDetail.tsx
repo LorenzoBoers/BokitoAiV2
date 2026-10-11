@@ -49,6 +49,7 @@ import {
   listSignalAssignees,
   listThreadAgentCandidates,
   patchSignalThread,
+  setThreadSchedule,
   type AssigneeCandidates,
   type ThreadAgentCandidate,
 } from '../../lib/signals-api'
@@ -62,7 +63,11 @@ import RelatedConversationBanner from './RelatedConversationBanner'
 import { HandledExternallyDialog } from './HandledExternallyForm'
 import ReplyComposer from './ReplyComposer'
 import ThreadHeader from './ThreadHeader'
-import ThreadTimeline, { buildTimelineRows, type ThreadTimelineHandle } from './ThreadTimeline'
+import ThreadTimeline, {
+  buildTimelineRows,
+  liveRunContinues,
+  type ThreadTimelineHandle,
+} from './ThreadTimeline'
 import type { ChatTagMap } from '../../lib/chatText'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { Button } from '../ui/button'
@@ -180,13 +185,13 @@ type Props = {
    * "Ask assistant" action.
    */
   mode?: 'customer' | 'agent'
-  /** Opens the look-again planner (owned by the page; also reachable from the panel). */
-  onWhatsNext?: () => void
+  /** Opens the planner (owned by the page; also reachable from the panel). */
+  onPlan?: () => void
   /** Trailing unread inbound messages briefly flash when the thread opens. */
   unreadHighlightIds?: string[]
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onWhatsNext, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
+export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onPlan, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { token, user } = useAuth()
@@ -1425,6 +1430,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     sessionStream.thinking,
   ])
   const liveTurnIsSession = threadLiveTurn != null && threadLiveTurn === sessionTurn
+  // Turns the reader watched stream in: their saved bubbles land without the
+  // enter animation, so the live -> saved hand-off does not flash.
+  const watchedTurnIdsRef = useRef<Set<string>>(new Set())
+  if (liveTurn.streamId) watchedTurnIdsRef.current.add(liveTurn.streamId)
+  if (sessionTurn.streamId) watchedTurnIdsRef.current.add(sessionTurn.streamId)
+  // Whether the live turn joins the last saved agent bubble's run (no avatar
+  // or author line, flattened top corner), as the saved bubble will.
+  const liveContinuesRun = useMemo(() => liveRunContinues(rows), [rows])
 
   // Pulse avatar corners as soon as this thread sees a live turn / Ask stream.
   // The API also broadcasts agent.status; this covers the same browser before
@@ -1514,13 +1527,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         onDecisionResolved?.()
         if (action === 'send_and_close') {
           await requestCloseThread()
-        } else if (action === 'send_and_pending') {
-          await onPatch({
-            status: 'pending',
-            snoozedUntil:
-              snoozeMinutes && snoozeMinutes > 0
-                ? new Date(Date.now() + snoozeMinutes * 60_000).toISOString()
-                : null,
+        } else if (action === 'send_and_pending' && snoozeMinutes && snoozeMinutes > 0 && !detail.thread.schedule) {
+          await setThreadSchedule(token, String(detail.thread.id), {
+            at: new Date(Date.now() + snoozeMinutes * 60_000).toISOString(),
           })
         }
         window.setTimeout(() => scrollToBottom('smooth'), 80)
@@ -1676,8 +1685,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         closingSender={closingSender}
         onBlockContact={handleBlockContact}
         blockingContact={blockingContact}
-        onWhatsNext={onWhatsNext}
-        panelCount={openSignalCount + (thread.followUpAt ? 1 : 0)}
+        onPlan={onPlan}
+        panelCount={openSignalCount + (thread.nextAt || thread.schedule ? 1 : 0)}
         onExampleChanged={() => {
           void onRefresh()
         }}
@@ -1757,10 +1766,15 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onAtBottomChange={(atBottom) => {
             anchorToBottomRef.current = atBottom
           }}
+          quietTurnIds={watchedTurnIdsRef.current}
           liveTrace={
             threadLiveTurn ? (
               <AgentTurnLive
                 turn={threadLiveTurn}
+                continuesRun={liveContinuesRun}
+                // Same source as the saved author line (TimelineItem), so the
+                // hand-off keeps the name.
+                agentName={thread.agentName ?? activeSession?.agentName ?? askAgentName}
                 avatar={
                   liveTurnIsSession || agentStreaming ? (
                     <AiAvatar

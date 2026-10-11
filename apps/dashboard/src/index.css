@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Animatable angle for the working-agent orbit ring (.ai-avatar). */
+@property --ai-orbit {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 @layer base {
   :root {
     color-scheme: dark;
@@ -68,48 +75,57 @@
   :root[data-theme='light'] {
     color-scheme: light;
     /*
-     * Light theme: warm paper canvas, white reserved for cards and sheets.
+     * Light theme mirrors the dark ladder: a grey chrome everything sits in,
+     * white sheets that float on it with a whisper of shadow, near-black ink.
      *
-     *   bg / sidebar / canvas   #FAFAF9
-     *   bg-surface              #FFFFFF
-     *   bg-elevated / input     #F4F4F2
-     *   bg-hover                #EEEEEB
+     *   bg / sidebar / canvas   #F3F3F1  chrome, thread canvas
+     *   bg-surface              #FFFFFF  cards, lists, composer, bubbles
+     *   bg-elevated             #F6F6F4  insets inside a white sheet
+     *   bg-hover                #E9E9E6  hover / selected rows
+     *
+     * Accent is a deeper emerald than dark so white text on it stays legible.
      */
-    --color-bg: 250 250 249;
-    --color-bg-root: 250 250 249;
-    --color-bg-sidebar: 250 250 249;
-    --color-bg-canvas: 250 250 249;
+    --color-bg: 243 243 241;
+    --color-bg-root: 243 243 241;
+    --color-bg-sidebar: 243 243 241;
+    --color-bg-canvas: 243 243 241;
     --color-bg-surface: 255 255 255;
-    --color-bg-elevated: 244 244 242;
-    --color-bg-hover: 238 238 235;
+    --color-bg-elevated: 246 246 244;
+    --color-bg-hover: 233 233 230;
     --color-bg-input: 255 255 255;
-    --color-border: 228 228 225;
-    --color-border-light: 210 210 206;
-    --color-border-focus: 50 191 142;
-    --color-text-primary: 38 38 36;
-    --color-text-secondary: 100 100 96;
-    --color-text-muted: 134 134 128;
-    --color-text-heading: 24 24 22;
-    --color-accent: 50 191 142;
-    --color-accent-hover: 38 168 122;
-    --color-accent-dark: 28 140 100;
+    --color-border: 225 225 221;
+    --color-border-light: 207 207 202;
+    --color-border-focus: 20 166 116;
+    --color-text-primary: 30 30 28;
+    --color-text-secondary: 86 86 82;
+    --color-text-muted: 124 124 118;
+    --color-text-heading: 14 14 13;
+    --color-accent: 20 166 116;
+    --color-accent-hover: 15 148 103;
+    --color-accent-dark: 12 128 89;
     --color-accent-fg: 255 255 255;
-    --color-accent-ink: 20 120 88;
+    --color-accent-ink: 8 112 78;
     --color-ai: 109 40 217;
     --color-ai-ink: 76 29 149;
     --color-ai-fg: 255 255 255;
-    --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    --shadow-btn:
+      0 1px 0 rgba(255, 255, 255, 0.18) inset,
+      0 1px 2px rgba(20, 20, 18, 0.14);
     --color-status-success: 22 163 113;
     --color-status-warning: 217 119 6;
     --color-status-error: 220 38 38;
     --color-status-info: 37 99 235;
-    --body-bg: #fafaf9;
+    --body-bg: #f3f3f1;
     --body-glow-top: transparent;
     --body-glow-bottom: transparent;
     --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
     --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
-    --shadow-card: 0 0 0 0 transparent;
-    --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.9);
+    --shadow-card:
+      0 1px 2px rgba(20, 20, 18, 0.04),
+      0 1px 3px -1px rgba(20, 20, 18, 0.05);
+    --shadow-card-hover:
+      0 0 0 1px rgb(var(--color-border-light) / 0.9),
+      0 6px 16px -8px rgba(20, 20, 18, 0.12);
     --shadow-overlay:
       0 0 0 1px rgba(24, 24, 22, 0.04),
       0 12px 32px -12px rgba(24, 24, 22, 0.18);
@@ -176,6 +192,11 @@
    */
   .panel {
     @apply bg-bg-surface border border-border/70 rounded-lg;
+  }
+  /* Light: sheets float on the grey chrome (dark keeps the flat hairline). */
+  :root[data-theme='light'] .panel {
+    border-color: rgb(var(--color-border) / 0.9);
+    box-shadow: var(--shadow-card);
   }
 
   /*
@@ -527,6 +548,226 @@
       0 10px 28px -14px rgb(var(--color-ai) / 0.38);
   }
 
+  /* Agent chat bubbles: paper surface with a gradient hairline that glows
+     violet at the leading (avatar) corner and fades into the normal border,
+     plus a faint violet sheen in that corner and a soft lift. No lavender wash. */
+  .chat-bubble-agent {
+    position: relative;
+    isolation: isolate;
+    color: rgb(var(--color-text-primary));
+    background:
+      radial-gradient(
+        140% 120% at 0% 0%,
+        rgb(var(--color-ai) / 0.1) 0%,
+        rgb(var(--color-ai) / 0.03) 38%,
+        transparent 62%
+      ),
+      rgb(var(--color-bg-surface));
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.06),
+      0 12px 32px -22px rgb(var(--color-ai) / 0.5);
+  }
+  .chat-bubble-agent::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      135deg,
+      rgb(var(--color-ai) / 0.85) 0%,
+      rgb(var(--color-ai) / 0.4) 22%,
+      rgb(var(--color-border-light) / 0.7) 55%,
+      rgb(var(--color-border) / 0.7) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    z-index: -1;
+  }
+  :root[data-theme='light'] .chat-bubble-agent {
+    background:
+      radial-gradient(
+        140% 120% at 0% 0%,
+        rgb(var(--color-ai) / 0.08) 0%,
+        rgb(var(--color-ai) / 0.02) 38%,
+        transparent 62%
+      ),
+      rgb(var(--color-bg-surface));
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.04),
+      0 10px 28px -20px rgb(var(--color-ai) / 0.35);
+  }
+  :root[data-theme='light'] .chat-bubble-agent::before {
+    background: linear-gradient(
+      135deg,
+      rgb(var(--color-ai) / 0.7) 0%,
+      rgb(var(--color-ai) / 0.3) 22%,
+      rgb(var(--color-border) / 0.95) 55%,
+      rgb(var(--color-border) / 0.95) 100%
+    );
+  }
+  /* Corners flip start/middle/end while a run grows; ease them. */
+  .chat-bubble-agent {
+    transition: border-radius 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Follow-up bubbles in a run share the lead bubble's glow: no second
+     corner sheen, only its tail entering from above and a hairline that
+     keeps a trace of violet on the leading edge, fading down the run. */
+  .chat-bubble-agent[data-stack='middle'],
+  .chat-bubble-agent[data-stack='end'] {
+    background:
+      radial-gradient(
+        120% 70% at 0% -30%,
+        rgb(var(--color-ai) / 0.05) 0%,
+        transparent 60%
+      ),
+      rgb(var(--color-bg-surface));
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.05),
+      0 10px 28px -22px rgb(var(--color-ai) / 0.3);
+  }
+  .chat-bubble-agent[data-stack='middle']::before,
+  .chat-bubble-agent[data-stack='end']::before {
+    background: linear-gradient(
+      165deg,
+      rgb(var(--color-ai) / 0.38) 0%,
+      rgb(var(--color-ai) / 0.16) 18%,
+      rgb(var(--color-border-light) / 0.7) 48%,
+      rgb(var(--color-border) / 0.7) 100%
+    );
+  }
+  .chat-bubble-agent[data-stack='end'] {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.05),
+      0 10px 28px -22px rgb(var(--color-ai) / 0.22);
+  }
+  .chat-bubble-agent[data-stack='end']::before {
+    background: linear-gradient(
+      165deg,
+      rgb(var(--color-ai) / 0.26) 0%,
+      rgb(var(--color-ai) / 0.1) 16%,
+      rgb(var(--color-border-light) / 0.7) 46%,
+      rgb(var(--color-border) / 0.7) 100%
+    );
+  }
+  :root[data-theme='light'] .chat-bubble-agent[data-stack='middle'],
+  :root[data-theme='light'] .chat-bubble-agent[data-stack='end'] {
+    background:
+      radial-gradient(
+        120% 70% at 0% -30%,
+        rgb(var(--color-ai) / 0.04) 0%,
+        transparent 60%
+      ),
+      rgb(var(--color-bg-surface));
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.03),
+      0 8px 24px -20px rgb(var(--color-ai) / 0.2);
+  }
+  :root[data-theme='light'] .chat-bubble-agent[data-stack='middle']::before {
+    background: linear-gradient(
+      165deg,
+      rgb(var(--color-ai) / 0.32) 0%,
+      rgb(var(--color-ai) / 0.12) 18%,
+      rgb(var(--color-border) / 0.95) 48%,
+      rgb(var(--color-border) / 0.95) 100%
+    );
+  }
+  :root[data-theme='light'] .chat-bubble-agent[data-stack='end']::before {
+    background: linear-gradient(
+      165deg,
+      rgb(var(--color-ai) / 0.22) 0%,
+      rgb(var(--color-ai) / 0.08) 16%,
+      rgb(var(--color-border) / 0.95) 46%,
+      rgb(var(--color-border) / 0.95) 100%
+    );
+  }
+
+  /* Agent avatar: a round disc like people avatars, but the inverse of their
+     solid fill: an opaque violet tint of the surface, a crisp 1.5px violet
+     ring and a violet glyph, with a faint breath of glow outside the ring.
+     The tint is mixed (not alpha) so it looks the same on every background. */
+  .ai-avatar {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: rgb(var(--color-ai-ink));
+    background: color-mix(in oklab, rgb(var(--color-ai)) 18%, rgb(var(--color-bg-surface)));
+    box-shadow:
+      inset 0 0 0 1.5px rgb(var(--color-ai) / 0.55),
+      inset 0 1px 0 rgb(255 255 255 / 0.05),
+      0 0 0 1px rgb(var(--color-ai) / 0.08),
+      0 0 calc(var(--ai-halo, 3px) * 2.5) rgb(var(--color-ai) / 0.22);
+  }
+  .ai-avatar > svg {
+    position: relative;
+  }
+  .ai-avatar-image {
+    background: rgb(var(--color-bg-elevated));
+  }
+  .ai-avatar-image > img {
+    border-radius: inherit;
+  }
+  :root[data-theme='light'] .ai-avatar {
+    background: color-mix(in oklab, rgb(var(--color-ai)) 10%, rgb(var(--color-bg-surface)));
+    box-shadow:
+      inset 0 0 0 1.5px rgb(var(--color-ai) / 0.45),
+      0 0 0 1px rgb(var(--color-ai) / 0.06),
+      0 0 calc(var(--ai-halo, 3px) * 2.5) rgb(var(--color-ai) / 0.16);
+  }
+  :root[data-theme='light'] .ai-avatar-image {
+    background: rgb(var(--color-bg-elevated));
+  }
+  /* Working: the ring softens and a violet streak orbits along it. The angle
+     animates (not the element) so nothing else moves. */
+  .ai-avatar[data-working] {
+    box-shadow:
+      inset 0 0 0 1.5px rgb(var(--color-ai) / 0.3),
+      0 0 0 1px rgb(var(--color-ai) / 0.08),
+      0 0 calc(var(--ai-halo, 3px) * 2.5) rgb(var(--color-ai) / 0.3);
+  }
+  .ai-avatar[data-working]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 1.5px;
+    background: conic-gradient(
+      from var(--ai-orbit),
+      transparent 0%,
+      transparent 58%,
+      rgb(var(--color-ai)) 88%,
+      transparent 100%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: ai-avatar-orbit 1.5s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes ai-avatar-orbit {
+    to {
+      --ai-orbit: 360deg;
+    }
+  }
+
   /* Direct box-shadow — Tailwind shadow-* composes --tw-shadow and drops multi-layer tokens. */
   .btn-elevated {
     box-shadow: var(--shadow-btn);
@@ -547,24 +788,159 @@
     }
   }
 
-  /* Inline @mention chip in message bodies (users and agents). */
-  .mention-chip {
-    @apply inline rounded-md bg-accent/10 px-1 py-[1px] text-[0.94em] font-medium text-accent;
-  }
-  .mention-chip[data-mention-type='agent'] {
-    @apply bg-ai/10 text-ai-ink;
+  /* Inline entity chips in chat (@mentions, app links, #tags): one family.
+     Horizontal pad only — no vertical pad/flex so line-height stays calm. */
+  .mention-chip,
+  .md-app-link,
+  .chat-tag-chip {
+    @apply inline rounded-md px-1.5 font-medium no-underline;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    transition:
+      background-color 120ms ease,
+      box-shadow 120ms ease,
+      color 120ms ease;
   }
 
-  /* Composer mention pill: drawn in the highlighter layer behind the
-     textarea, so it must not change text metrics (no padding, no font
-     size/weight changes). The ring comes from a box-shadow. */
+  /* People — accent tint (same as composer tagging). */
+  .mention-chip {
+    color: rgb(var(--color-accent));
+    background: rgb(var(--color-accent) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.28);
+  }
+  .mention-chip:hover {
+    background: rgb(var(--color-accent) / 0.18);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.4);
+  }
+  /* Agents — AI violet. */
+  .mention-chip[data-mention-type='agent'] {
+    color: rgb(var(--color-ai-ink));
+    background: rgb(var(--color-ai) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-ai) / 0.3);
+  }
+  .mention-chip[data-mention-type='agent']:hover {
+    background: rgb(var(--color-ai) / 0.18);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-ai) / 0.42);
+  }
+
+  /* Projects / docs / threads / contacts — quiet surface + muted icon. */
+  .md-app-link {
+    color: rgb(var(--color-text-heading));
+    background: rgb(var(--color-bg-elevated));
+    box-shadow: inset 0 0 0 1px rgb(var(--color-border-light) / 0.9);
+  }
+  .md-app-link:hover {
+    background: rgb(var(--color-bg-hover));
+    box-shadow: inset 0 0 0 1px rgb(var(--color-border-light));
+  }
+  .md-app-link .md-app-link-icon {
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-right: 0.28em;
+    vertical-align: -0.08em;
+    color: rgb(var(--color-text-muted));
+    opacity: 0.9;
+  }
+
+  /* #tags — free muted; action tags share accent with people mentions. */
+  .chat-tag-chip {
+    color: rgb(var(--color-text-secondary));
+    background: rgb(var(--color-bg-elevated));
+    box-shadow: inset 0 0 0 1px rgb(var(--color-border) / 0.75);
+  }
+  .chat-tag-chip:hover {
+    color: rgb(var(--color-text-heading));
+    background: rgb(var(--color-bg-hover));
+    box-shadow: inset 0 0 0 1px rgb(var(--color-border-light));
+  }
+  .chat-tag-chip[data-tag-kind='action_tag'] {
+    color: rgb(var(--color-accent));
+    background: rgb(var(--color-accent) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.28);
+  }
+  .chat-tag-chip[data-tag-kind='action_tag']:hover {
+    background: rgb(var(--color-accent) / 0.18);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.4);
+  }
+
+  /* Chips inside the operator's own (accent-filled) bubble: white glass. */
+  .chat-bubble-self :is(.chat-tag-chip, .mention-chip, .md-app-link),
+  .chat-bubble-self .chat-tag-chip[data-tag-kind='action_tag'],
+  .chat-bubble-self .mention-chip[data-mention-type='agent'] {
+    color: rgb(var(--color-accent-fg));
+    background: rgb(255 255 255 / 0.18);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.32);
+  }
+  .chat-bubble-self :is(.chat-tag-chip, .mention-chip, .md-app-link):hover {
+    background: rgb(255 255 255 / 0.26);
+  }
+  .chat-bubble-self .md-app-link .md-app-link-icon {
+    color: inherit;
+  }
+  :root[data-theme='light'] .chat-bubble-self {
+    box-shadow:
+      0 1px 2px rgb(20 20 18 / 0.08),
+      0 10px 24px -14px rgb(var(--color-accent) / 0.55);
+  }
+
+  /* Chat bubble lists — aligned columns, no double bullet+chip clutter. */
+  .chat-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35em;
+  }
+  .chat-text-gap {
+    height: 0.55em;
+  }
+  .chat-list {
+    margin: 0.15em 0 0.25em;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.4em 0.7em;
+  }
+  .chat-list--bullet,
+  .chat-list--ordered {
+    grid-template-columns: 1.1em minmax(0, 1fr);
+  }
+  .chat-list--tagged {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+  .chat-list-row {
+    display: contents;
+  }
+  .chat-list-mark {
+    justify-self: start;
+    align-self: start;
+    line-height: 1.5;
+    color: rgb(var(--color-text-muted));
+    font-variant-numeric: tabular-nums;
+  }
+  .chat-list--bullet .chat-list-mark {
+    text-align: center;
+    opacity: 0.7;
+  }
+  .chat-list-body {
+    min-width: 0;
+    line-height: 1.5;
+    color: rgb(var(--color-text-secondary));
+  }
+  .chat-list--tagged .chat-list-mark {
+    padding-top: 0.05em;
+  }
+
+  /* Composer mention pill: same paint as chat mentions, but no padding so the
+     highlighter layer does not shift textarea metrics. */
   .composer-mention-pill {
-    @apply rounded bg-accent/15 text-accent;
-    box-shadow: 0 0 0 1px rgb(var(--color-accent) / 0.2);
+    @apply rounded-md text-accent;
+    background: rgb(var(--color-accent) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.28);
   }
   .composer-mention-pill[data-mention-type='agent'] {
-    @apply bg-ai/15 text-ai-ink;
-    box-shadow: 0 0 0 1px rgb(var(--color-ai) / 0.22);
+    color: rgb(var(--color-ai-ink));
+    background: rgb(var(--color-ai) / 0.12);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-ai) / 0.3);
   }
 
   /* Brief cue when an AI draft lands in the composer (proposal or write-assist). */
@@ -755,6 +1131,7 @@
     .animate-slide-in-left,
     .animate-list-row-enter,
     .msg-bubble-enter,
+    .bubble-pop-enter,
     .list-row-enter,
     .stream-caret,
     .ai-glow,
@@ -769,6 +1146,7 @@
     .dictation-wave-bar,
     .activity-live-icon,
     .activity-live-label,
+    .ai-avatar[data-working]::after,
     .typing-dots > span {
       animation: none;
     }
@@ -835,6 +1213,27 @@
 
 .msg-bubble-enter {
   animation: msg-bubble-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Live agent bubbles: grow out of the leading corner with a soft settle,
+   like a message landing rather than a block appearing. */
+@keyframes bubble-pop-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.965);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.bubble-pop-enter {
+  transform-origin: 0 0;
+  animation: bubble-pop-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes list-row-enter {
@@ -1030,6 +1429,10 @@
 }
 
 /** Avatar corner pulse — sized by inline width/height. */
+/* Agent corner dots: solid AI violet on the tinted avatar disc. */
+.presence-standby-dot {
+  background: rgb(var(--color-ai));
+}
 .presence-working-dot {
   background: rgb(var(--color-ai));
   box-shadow: 0 0 8px 1px rgb(var(--color-ai) / 0.55);

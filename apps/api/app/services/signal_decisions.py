@@ -444,6 +444,7 @@ async def create_decision(
     items: list[dict[str, Any]] | None = None,
     question: str | None = None,
     selection: str | None = None,
+    bundle_id: str = "",
 ) -> tuple[DecisionRequest, SignalMessage]:
     """The single write path for human decisions.
 
@@ -503,6 +504,7 @@ async def create_decision(
         signal_id=signal_id,
         source_type=source_type,
         source_id=source_id,
+        bundle_id=bundle_id or "",
     )
     addressee.apply(decision)
     session.add(decision)

@@ -120,6 +120,17 @@ async def _next_version(
 async def _supersede_pending(
     session: AsyncSession, tenant_id: UUID, resource_type: str, resource_id: str
 ) -> None:
+    """A newer pending change to the same existing resource replaces the older one.
+
+    Creates carry no resource id yet: two "create category" asks in one turn
+    are different resources, so nothing is superseded (an earlier version
+    matched them all on the empty id, which left their cards pointing at
+    superseded changes that could no longer be accepted).
+    """
+    if not resource_id:
+        return
+    from app.models.notification import DecisionRequest
+
     result = await session.execute(
         select(PlatformChange).where(
             PlatformChange.tenant_id == tenant_id,
@@ -128,9 +139,18 @@ async def _supersede_pending(
             PlatformChange.status.in_(("draft", "pending_review")),
         )
     )
+    now = datetime.utcnow()
     for row in result.scalars().all():
         row.status = "superseded"
-        row.resolved_at = datetime.utcnow()
+        row.resolved_at = now
+        if row.decision_id:
+            # The inline card follows the change it belongs to.
+            decision = await session.get(DecisionRequest, row.decision_id)
+            if decision is not None and decision.status == "awaiting_human":
+                decision.status = "deferred"
+                decision.chosen_option_id = "superseded"
+                decision.resolved_at = now
+                session.add(decision)
 
 
 async def propose_platform_change(
@@ -149,6 +169,7 @@ async def propose_platform_change(
     tool_name: str | None = None,
     mode: str = "apply",
     signal_id: UUID | None = None,
+    bundle_id: str = "",
 ) -> tuple[PlatformChange, dict[str, Any]]:
     """Record (and apply or queue) a platform mutation.
 
@@ -257,6 +278,27 @@ async def propose_platform_change(
                 "label": "Approve",
                 "action_type": "accept_platform_change",
                 "payload": {"platform_change_id": str(change.id)},
+                # What the change does, for the bundle card label and for
+                # "always allow" on the tool behind it.
+                **(
+                    {
+                        "describe": {"tool": tool_name, "input": after},
+                        **(
+                            {
+                                "learn": {
+                                    "tool": tool_name,
+                                    "agent_id": str(agent.id),
+                                    "reason": "",
+                                    "rule_text": "",
+                                }
+                            }
+                            if agent is not None
+                            else {}
+                        ),
+                    }
+                    if tool_name
+                    else {}
+                ),
             },
             {"id": "reject", "label": "Reject", "action_type": "reject"},
         ],
@@ -265,6 +307,7 @@ async def propose_platform_change(
         signal_id=signal_id,
         platform_change_id=change.id,
         notification_payload={"platform_change_id": str(change.id)},
+        bundle_id=bundle_id,
     )
     change.decision_id = decision.id
     await session.flush()

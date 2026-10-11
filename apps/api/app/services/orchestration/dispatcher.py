@@ -99,10 +99,28 @@ async def create_agent_task(
     scheduled_for = _naive_utc(scheduled_for)
     is_human = assignee_kind == "human"
     is_dormant = scheduled_for is not None and scheduled_for > datetime.utcnow()
-    # Human tasks that are due now surface as human work immediately;
-    # scheduled tasks (either kind) stay queued until the scheduler tick
-    # promotes them at scheduled_for.
+    # A planned look for a person is a date on the conversation: the thread
+    # comes back at that moment. The task row stays only as a settled record.
+    # Agent tasks that are scheduled stay queued until the scheduler tick.
     status = "awaiting_human" if is_human and not is_dormant else "queued"
+    if is_human and is_dormant:
+        from app.models.signal import Signal
+        from app.services.thread_schedule import apply_thread_schedule
+
+        thread = await session.get(Signal, signal_id)
+        if thread is not None:
+            await apply_thread_schedule(
+                session,
+                tenant_id,
+                signal=thread,
+                at=scheduled_for,
+                recipient=("user", assignee_user_id) if assignee_user_id else ...,
+                details={"note": title},
+                created_by_user_id=created_by,
+                actor_type="user" if created_by else "system",
+                actor_id=str(created_by or ""),
+            )
+        status = "completed"
     ctx: dict[str, Any] = {"agent_id": str(agent_id) if agent_id else None}
     if context:
         ctx.update(context)
@@ -177,15 +195,16 @@ async def create_agent_task(
 async def process_due_scheduled_tasks(
     session: AsyncSession, tenant_id: UUID | None = None
 ) -> int:
-    """Promote planned Tasks whose scheduled_for has arrived.
+    """Wake planned agent Tasks whose scheduled_for has arrived.
 
-    Agent tasks wake (enqueue a run segment); human tasks flip to
-    awaiting_human and notify the assignee. Called from the scheduler tick,
-    next to trigger firing.
+    A planned look for a person is a date on its conversation
+    (``thread_schedule.wake_due_threads``), not a task. Called from the
+    scheduler tick, next to trigger firing.
     """
     now = datetime.utcnow()
     conditions = [
         AgentTask.status == "queued",
+        AgentTask.assignee_kind != "human",
         AgentTask.scheduled_for.is_not(None),  # type: ignore[union-attr]
         AgentTask.scheduled_for <= now,
     ]
@@ -195,71 +214,34 @@ async def process_due_scheduled_tasks(
     woken = 0
     for task in rows:
         task.updated_at = now
-        if task.assignee_kind == "human":
-            # Keep scheduled_for for Agenda display; only flip status so a
-            # crashed notify cannot leave the task invisible forever.
-            task.status = "awaiting_human"
-            session.add(task)
-            await session.commit()
-            # Same fire as a stage follow-up for a person: mark the conversation
-            # unread so it surfaces in For you / Open.
-            if task.signal_id:
-                from app.models.signal import Signal
+        # Promote to running before clearing the schedule so a crash after
+        # clear cannot leave the task stuck in queued forever.
+        task.status = "running"
+        due_at = task.scheduled_for
+        task.scheduled_for = None
+        session.add(task)
+        await session.commit()
+        from app.services.orchestration.queue import enqueue_agent_task_segment
 
-                signal = await session.get(Signal, task.signal_id)
-                if signal is not None and signal.tenant_id == task.tenant_id:
-                    signal.has_unread = True
-                    signal.updated_at = now
-                    session.add(signal)
-                    await session.commit()
-            if task.assignee_user_id:
-                from app.models.notification import Notification
+        enqueued = await enqueue_agent_task_segment(str(task.tenant_id), str(task.id))
+        if not enqueued:
+            try:
+                from app.services.orchestration.runner import run_agent_task_segment
 
-                session.add(
-                    Notification(
-                        tenant_id=task.tenant_id,
-                        user_id=task.assignee_user_id,
-                        kind="task_due",
-                        title=task.title,
-                        body=(task.description or task.title)[:500],
-                        payload_json=json.dumps(
-                            {
-                                "task_id": str(task.id),
-                                "signal_id": str(task.signal_id) if task.signal_id else None,
-                            }
-                        ),
+                await run_agent_task_segment(session, task.tenant_id, task.id)
+            except Exception:
+                # Restore a due stamp so the next scheduler tick retries.
+                task = (
+                    await session.execute(
+                        select(AgentTask).where(AgentTask.id == task.id)
                     )
-                )
-                await session.commit()
-        else:
-            # Promote to running before clearing the schedule so a crash after
-            # clear cannot leave the task stuck in queued forever.
-            task.status = "running"
-            due_at = task.scheduled_for
-            task.scheduled_for = None
-            session.add(task)
-            await session.commit()
-            from app.services.orchestration.queue import enqueue_agent_task_segment
-
-            enqueued = await enqueue_agent_task_segment(str(task.tenant_id), str(task.id))
-            if not enqueued:
-                try:
-                    from app.services.orchestration.runner import run_agent_task_segment
-
-                    await run_agent_task_segment(session, task.tenant_id, task.id)
-                except Exception:
-                    # Restore a due stamp so the next scheduler tick retries.
-                    task = (
-                        await session.execute(
-                            select(AgentTask).where(AgentTask.id == task.id)
-                        )
-                    ).scalar_one_or_none()
-                    if task and task.status == "running":
-                        task.status = "queued"
-                        task.scheduled_for = due_at or now
-                        session.add(task)
-                        await session.commit()
-                    raise
+                ).scalar_one_or_none()
+                if task and task.status == "running":
+                    task.status = "queued"
+                    task.scheduled_for = due_at or now
+                    session.add(task)
+                    await session.commit()
+                raise
         woken += 1
     return woken
 

@@ -1,8 +1,8 @@
 ---
 title: How Communication works
 intro: The hub for every conversation — customers and agents in one place.
-description: Work customer email, chat and internal threads from Communication, including compose, notes, snooze and saved replies.
-keywords: inbox, communication, messages, threads, email, chat, compose, snooze, saved replies
+description: Work customer email, chat and internal threads from Communication, including compose, notes, planning and saved replies.
+keywords: inbox, communication, messages, threads, email, chat, compose, plan, agenda item, saved replies
 sort: 10
 related: agent-runs,channels,inbox-ai,contacts,decisions,categories
 ---
@@ -28,10 +28,20 @@ Open is conversation work that still needs you — customer channels and agent c
 2. Stay on **For you** for your work: conversations you own, conversations where it is your turn or a team you belong to (including **All people**), work owned by your custom teams, mentions, and open decision cards. The bell badge mirrors this list and opens **For you** from the top. Rows where you must act now sort first. **Unassigned** holds conversations a team owns that nobody picked up yet — those can also appear in **For you** when that team is up. Teams shown in the sidebar get their own folder under **Teams** (see [Team](/docs/getting-started/team)); **Group chat** in that folder opens the team's standing internal conversation.
 3. Scan the list. Each row shows the last real message, prefixed with **You:** when you sent it and **AI:** when an agent did. Next to **Filters**, the list-layout control switches **Compact list** and **Comfortable list**. Compact keeps assignee, ticket and hashtags on a bottom row that only appears when you hover, focus or select a conversation; Comfortable keeps that row visible. A follow-up from the same website visitor stays in that Open thread. Opening a conversation lands at the latest messages. A new inbound email opens at the start of that mail, not the signature. Use the search field at the top of the list, then open **Filters** for **Your turn**, **Unread** or **Pinned** — they apply on top of For you, Open or any other queue. Filters do not stick across folders. A **Needs decision** badge marks rows with an open card. Press **?** for inbox shortcuts: **J**/**K** move, **]**/**[** jump unread, **E** closes (Undo in the toast), **X** selects, **Shift-click** selects a range, **Cmd+A** selects loaded rows, **U** marks unread, **Shift+U** marks all loaded read when nothing is selected, **A** assigns to you, **Shift+A** opens the assignee list, **P** pins, **R** focuses the reply, **C** composes a new email, **N** starts a new conversation, **L** copies the link, **#** copies the thread id, **/** searches, **Esc** returns to the list (it does not leave the thread while a menu is open). Assistant chats use the same move, pin, unread, reply and search keys.
 4. The **Channels** section lists only channels you have configured: each mailbox or Bokito address, **Website chat** when the widget channel is on, and WhatsApp after you connect it. When nothing is connected yet, **Add a channel** sits at the top of that list. Every channel is a folder with the same sub-views: **For you**, **Open**, **Unassigned** and **Closed** — and each folder lists only threads from that channel (Website chat never mixes in mailbox mail). Sub-views stay hidden until you click the channel — that expands the list and opens the default sub-view; click again to collapse. Only one folder stays expanded at a time. Change the default (globally or per row) under **Settings**, then **Channels** (Tags and Communication). The **Chat with agents** section (company agents you may chat with) uses the same folder pattern, plus an **Activity** row that opens that agent's work log. A conversation can carry one action tag, which makes it a ticket, shown under **Ticket** and as a chip on the list row; see [Action tags and tickets](/docs/ai/categories).
-5. Pin what matters, choose **Assign** or **Assign to me**, or **What next** to plan a task on [Agenda](/docs/ai/agenda) without hiding the thread from Open. After a reply, the arrow next to **Send** offers **Send and close**. **Close** (or **Send and close**) removes the conversation from the folder you are in and opens the next one — it does not jump you to **Closed**. **Mark loaded as read** clears unread on the conversations already in the list. To come back later, mark the conversation unread or plan a task — there is no separate snooze park.
+5. Pin what matters, choose **Assign** or **Assign to me**, or **Plan** to give it a date on [Agenda](/docs/ai/agenda) without hiding the thread from Open. After a reply, the arrow next to **Send** offers **Send and close**. **Close** (or **Send and close**) removes the conversation from the folder you are in and opens the next one — it does not jump you to **Closed**. **Mark loaded as read** clears unread on the conversations already in the list. To come back later, mark the conversation unread or plan it — it stays in Open and shows under **Scheduled** too.
 6. Select several rows for bulk actions that fit the folder you are in. In **Open**, **For you** or **Unassigned** you get **Close**; in **Closed** you get **Reopen** instead; in **Spam** you get **Not spam**. **Read**, **Pin**, **Assign**, **Mark as spam** (outside Spam), **Mark unread** and **Move to Bin** stay under the bar or **More actions** (Bin asks twice). On the **Pinned** filter the bar offers **Unpin**; on **Unread** it hides **Mark unread**. Shift-click a checkbox to take the range from the last selected row. Row actions (close or reopen, assign) live on the row menu and the thread toolbar. **Spam** sits under All communication with Closed. Restore from **Settings** → **Bin**. The command palette also jumps to Closed, Spam, Activity, New conversation, Your turn and Decisions, and can open a conversation or run by ID.
 
 A closed conversation reopens on its own when the customer replies in the same email thread, so a late "thanks, one more thing" lands back in Open instead of starting a new conversation.
+
+## Plan a conversation
+
+A conversation with a date is an agenda item; with a repeat it is a recurring task. You plan it from the conversation itself and it shows on [Agenda](/docs/ai/agenda).
+
+1. Open the conversation and choose **Plan** in the thread menu (or the **Plan** chip in the side panel).
+2. Pick **One moment** or **Repeat** (for example **Every weekday** at 09:00), choose **For whom**, and optionally an **Agent** with a **Task for the agent**. Choose **Save**.
+3. The row in the list shows the date. At that moment the conversation comes back unread for whoever you chose, or the agent writes in this same conversation, so every run stays in one history.
+4. The side panel shows the next moment and the last run. Choose **Run now**, **Pause**, **Stop repeat** or **Clear date** there. **Scheduled** under All communication lists every conversation with a date or repeat.
+5. Start a fresh one from **New conversation** with **Agenda item**, or ask an agent: "send me an overview of open quotes every Monday".
 
 ## Hand a conversation to a person, agent or team
 
@@ -126,7 +136,7 @@ An agent turn reads like a chat: a few short messages, with one line between the
 ## Review an AI-suggested reply
 
 1. When the channel agent suggests a reply, the draft appears in the composer. The text glows purple for a couple of seconds so you can see it was generated. The timeline shows that action next to that agent's avatar: **Suggested a reply**. The first line of the timeline is **Conversation started by {name}**.
-2. Edit the text if needed, then **Send** (or use the send menu for close / snooze). Sending resolves the decision and delivers the reply. An edited send is kept as an example: the next similar reply starts from that wording.
+2. Edit the text if needed, then **Send** (or use the send menu to send and close). Sending resolves the decision and delivers the reply. An edited send is kept as an example: the next similar reply starts from that wording.
 3. **Discard** on the restored-draft bar rejects the proposal without sending. Other decisions (platform, module, agenda, checkout) stay as cards titled **Waiting for your OK** with plain verb buttons — no tool names in the copy.
 
 ## Handle an outdated draft
@@ -146,7 +156,7 @@ A draft answers one customer message. When the customer writes again, a colleagu
 
 You called the customer, answered from a personal WhatsApp or settled it from another mailbox. Log it so the conversation stops asking for a reply.
 
-1. Open the conversation. Choose **Already handled outside Bokito** in the arrow menu next to **Send** (it works with an empty composer), or open **What next** in the thread menu and pick **Handled elsewhere**.
+1. Open the conversation. Choose **Already handled outside Bokito** in the arrow menu next to **Send** (it works with an empty composer).
 2. Pick where it was handled: **Phone**, **WhatsApp**, **Other mailbox** or **Elsewhere**. Add what was agreed in one line if you like.
 3. Keep **Also close the conversation** on to close it in the same step, or turn it off to leave it in Open with you as owner.
 4. Choose **Log as handled**. The timeline shows **Handled by phone by {name}** with your note, the conversation is marked read, open AI proposals are set aside with reason **handled outside Bokito**, and the thread leaves **Your turn**.
@@ -159,7 +169,7 @@ You called the customer, answered from a personal WhatsApp or settled it from an
 
 1. A decision bubble appears when an agent needs your judgment.
 2. Read the proposal. When the card offers several concrete choices, each button keeps its own label (for example send vs cancel vs ask the customer). Approve, edit or decline. **Later** / **Not now** keeps the conversation in Open and marks it unread. The single **I'll handle it myself** button sets the conversation to Manual and assigns you.
-3. Nothing customer-facing goes out until you answer, unless autonomy allows it. Approving **What next** (or the old Create task choice) plans a task on this conversation — a title and when — and shows it on [Agenda](/docs/ai/agenda). From the thread menu choose **What next** to plan a task or file a ticket. Choose **Add to project** in the same menu to link the thread to a project. See [Decisions](/docs/ai/decisions).
+3. Nothing customer-facing goes out until you answer, unless autonomy allows it. Approving **Plan** gives this conversation a date and shows it on [Agenda](/docs/ai/agenda). From the thread menu choose **Plan** to set a date or repeat yourself. Choose **Add to project** in the same menu to link the thread to a project. See [Decisions](/docs/ai/decisions).
 
 ## Link a visitor to a contact
 
@@ -172,7 +182,7 @@ You called the customer, answered from a personal WhatsApp or settled it from an
 1. Open a customer conversation. The side panel **This conversation** shows the AI summary when the channel agent has read the thread, then priority, look-again, tags and the ticket. Choose **Add tags** for free tags and action tags (action tags start a ticket flow); see [Action tags and tickets](/docs/ai/categories). On a closed conversation, the ⋯ menu offers **Use as example** so the next similar reply can learn from it.
 2. Type with a soft `#`. Pick a free tag or an action tag (label **Action tag**). An unknown name asks whether to add it as a tag or **Make action tag**. When the flow has projects, pick one or **No project**.
 3. The action-tag chip is locked on the conversation. Change it by replacing in the picker, or **Split** when a second request needs its own ticket. Free tags show a muted `#` and an **x** to remove.
-4. Manage the list under **Settings** → **# Tags**: rename a tag, add a description agents read, pin a free tag to Communication, choose **Create flow** / **Open flow**, or delete it from every conversation.
+4. Manage the list under **Settings** → **# Tags**: rename a tag, add a description agents read, pin a free tag to Communication, choose **Create flow** / **Open flow**, or delete it from every conversation. You can also ask an agent in chat (*add the tags #vip and #partner*): it proposes **Create hashtag #vip** and the rest as rows on one card you approve in the thread; see [Decisions](/docs/ai/decisions). Agents propose action tags the same way, through Govern.
 5. To tag automatically, add an automation rule with the action **Add tags** under **Settings** → **Channels**. The rule tags matching conversations and the normal flow continues; the timeline shows a line such as **Tagged billing by rule**.
 6. When a second request shows up in the same thread, choose **Split from here** on the message where it starts, so each conversation keeps one ticket.
 

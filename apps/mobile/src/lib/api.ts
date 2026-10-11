@@ -176,7 +176,8 @@ export type Thread = {
   ai_summary?: string | null
   category?: string | null
   urgency?: number | string | null
-  snoozed_until?: string | null
+  /** The thread's date (agenda item, look-again, or a repeat's next run). */
+  next_at?: string | null
 }
 
 export type DecisionOption = {
@@ -259,7 +260,6 @@ export type PatchThreadInput = {
   assigned_to_user_id?: number | null
   tags?: string[]
   priority?: string
-  snoozed_until?: string | null
 }
 
 export type ReplyAction = 'send' | 'send_and_close' | 'send_and_pending'
@@ -285,6 +285,10 @@ export const getThread = (id: string) => apiGet<ThreadDetail>(`/api/signals/${id
 
 export const patchThread = (id: string, patch: PatchThreadInput) =>
   apiPatch<Thread>(`/api/signals/${id}`, patch)
+
+/** Give a thread a date (it comes back unread then), or clear it with null. */
+export const setThreadDate = (id: string, at: string | null) =>
+  at ? apiPut<Thread>(`/api/signals/${id}/schedule`, { at }) : apiDelete<Thread>(`/api/signals/${id}/schedule`)
 
 export const markThreadRead = (id: string) => apiPatch<Thread>(`/api/signals/${id}/mark-read`)
 

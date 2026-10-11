@@ -827,24 +827,6 @@ export default function DecisionRequestMessage({
             </span>
           </div>
         ) : null}
-        {decisionSource && !isChatAsk ? (
-          <p className="mb-1.5 text-xs text-text-muted">
-            {t('decisionCard.source.prefix', { defaultValue: 'From' })}{' '}
-            <Link
-              to={openEntityPath(decisionSourceRef(decisionSource))}
-              className="font-medium text-accent hover:underline"
-            >
-              {t(decisionSourceLabelKey(decisionSource), {
-                defaultValue: decisionSource.type.replace('_', ' '),
-              })}
-            </Link>
-          </p>
-        ) : null}
-        {!resolved && addresseeName && !isChatAsk ? (
-          <p className="mb-1.5 text-xs text-text-muted" data-testid="decision-addressee">
-            {t('decisionCard.askedTo', { name: addresseeName })}
-          </p>
-        ) : null}
         {!resolved && outdated && isSuggestion ? (
           <p
             className="mb-1.5 rounded-md border border-status-warning/40 bg-status-warning/10 px-2 py-1 text-xs text-text-secondary"
@@ -858,6 +840,26 @@ export default function DecisionRequestMessage({
             <summary className="cursor-pointer list-none text-2xs font-medium text-text-muted/80 hover:text-text-muted [&::-webkit-details-marker]:hidden">
               {t('decisionCard.technical', { defaultValue: 'Technical' })}
             </summary>
+            {/* Origin and addressee are context, not the question: folded here
+                so the card reads as one calm ask. */}
+            {decisionSource ? (
+              <p className="mt-1 text-xs text-text-muted">
+                {t('decisionCard.source.prefix', { defaultValue: 'From' })}{' '}
+                <Link
+                  to={openEntityPath(decisionSourceRef(decisionSource))}
+                  className="font-medium text-accent hover:underline"
+                >
+                  {t(decisionSourceLabelKey(decisionSource), {
+                    defaultValue: decisionSource.type.replace('_', ' '),
+                  })}
+                </Link>
+              </p>
+            ) : null}
+            {!resolved && addresseeName ? (
+              <p className="mt-1 text-xs text-text-muted" data-testid="decision-addressee">
+                {t('decisionCard.askedTo', { name: addresseeName })}
+              </p>
+            ) : null}
             <div className="mt-1 flex items-center gap-1.5">
               <span className="truncate-fade font-mono text-2xs text-text-muted">
                 {String(message.decisionId)}
@@ -973,7 +975,7 @@ export default function DecisionRequestMessage({
                     </div>
                     <Link
                       to={signatureSettingsPath}
-                      className="md-app-link inline-flex items-center gap-1 rounded-md border border-border/55 bg-bg-elevated px-1.5 py-0.5 text-xs font-medium text-accent no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70"
+                      className="md-app-link"
                     >
                       {signatureIsDefault
                         ? t('decisionCard.sendAs.customizeSignature')
@@ -1130,6 +1132,14 @@ export default function DecisionRequestMessage({
                   onClick={() => void teach('ask')}
                 >
                   {t('decisionCard.learn.ask')}
+                </button>
+                <button
+                  type="button"
+                  disabled={learnBusy || busy}
+                  className="text-accent hover:underline disabled:opacity-50"
+                  onClick={() => void teach('deny')}
+                >
+                  {t('decisionCard.learn.deny')}
                 </button>
               </>
             )}

@@ -13,7 +13,7 @@ import {
   updateSignalTag,
   type SignalTag,
 } from '../../lib/signals-api'
-import { promoteTag } from '../../lib/tickets-api'
+import { patchCategory, promoteTag } from '../../lib/tickets-api'
 import { listWorkstreams, type WorkstreamRow } from '../../lib/workstreams-api'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -265,6 +265,20 @@ export function TagRegistrySection({
                   {inCommunication(tag) ? <PinOff size={12} /> : <Pin size={12} />}
                 </Button>
               </Tip>
+              {tag.isCategory ? (
+                <Tip label={t('ai.communication.alwaysReview')}>
+                  <Switch
+                    checked={tag.sendMode !== 'send'}
+                    disabled={busy}
+                    aria-label={t('ai.communication.alwaysReview')}
+                    onCheckedChange={(checked) => {
+                      void run(async () => {
+                        await patchCategory(tag.id, { send_mode: checked ? 'draft' : 'send' })
+                      })
+                    }}
+                  />
+                </Tip>
+              ) : null}
               {tag.isCategory && tag.workstreamId ? (
                 <Button size="sm" variant="outline" className={FLOW_BTN} asChild>
                   <Link to={workstreamPath(tag.workstreamId)}>

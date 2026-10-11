@@ -33,7 +33,7 @@ De chat gebruikt hetzelfde wolkjesontwerp als [Communicatie](/docs/inbox/communi
 
 ## Zet Stem, live overdracht en het vooraf-formulier
 
-1. Open **Stem en uren**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in — ze worden automatisch opgeslagen. Het model zelf zet je op de agentpagina.
+1. Open **Stem en beschikbaarheid**. Onder **Stem** vul je **Toon**, **Wel** en **Niet** in — ze worden automatisch opgeslagen. Het model zelf zet je op de agentpagina.
 2. Onder **Beschikbaarheid** toont **Live overdracht** **Iemand beschikbaar** of **Niemand beschikbaar**. Er zijn geen vaste uren: een bezoeker kan om een mens vragen zodra iemand met Afhandelen-toegang op de widget beschikbaar is (zie [Team](/docs/getting-started/team) voor **Afwezig**). Anders zegt de agent dat eerlijk en biedt opvolging per e-mail, een terugbelverzoek of doorgaan op WhatsApp aan.
 3. **Vooraf-formulier** staat aan op een nieuwe widget. Het vraagt één keer om een e-mailadres vóór het eerste bericht; de naam is optioneel. **Start met chatten** heeft een geldig e-mailadres nodig. **Overslaan** gaat verder zonder en vraagt in die browser niet opnieuw. Een opgegeven e-mailadres wordt een [contact](/docs/inbox/contacts). Zet het formulier hier uit wanneer je het niet wilt.
 4. In de chatcomposer kunnen bezoekers dicteren met de microfoon als de browser spraakherkenning ondersteunt (zelfde patroon op de websitewidget en de in-app-assistent): houd ingedrukt om te praten of klik om te starten; tijdens luisteren toont de knop een groene glow en golfbalken, met een vinkje bij hover om te bevestigen. Commit-/dedupe-regels en golfgeometrie delen Messages en de widget via `@bokito/shared`.
@@ -46,7 +46,7 @@ De websitewidget volgt het lichte of donkere systeemthema van de bezoeker. Er zi
 Als niemand beschikbaar is, kan de agent het gesprek naar WhatsApp verplaatsen zodat de bezoeker niet op de website hoeft te wachten.
 
 1. Koppel eerst een WhatsApp-kanaal (zie [Kanalen](/docs/inbox/channels)).
-2. Open **Stem en uren**. Zet onder **Beschikbaarheid** **Doorgaan op WhatsApp** aan en kies het **WhatsApp-kanaal**. Vul **WhatsApp-nummer** alleen in als de pagina erom vraagt; na het eerste WhatsApp-bericht kent het kanaal zijn eigen nummer. Kies **Beschikbaarheid opslaan**.
+2. Open **Stem en beschikbaarheid**. Zet onder **Beschikbaarheid** **Doorgaan op WhatsApp** aan en kies het **WhatsApp-kanaal**. Vul **WhatsApp-nummer** alleen in als de pagina erom vraagt; na het eerste WhatsApp-bericht kent het kanaal zijn eigen nummer. Kies **Beschikbaarheid opslaan**.
 3. Vraagt een bezoeker om een mens terwijl niemand beschikbaar is, dan biedt de agent een WhatsApp-link aan met het bericht al ingevuld. De bezoeker drukt alleen op versturen.
 4. Dat bericht start een WhatsApp-gesprek met hetzelfde contact en dezelfde eigenaar. Het begint met een korte samenvatting, wacht op een mens, en de websitechat sluit met **Doorgezet naar WhatsApp**.
 

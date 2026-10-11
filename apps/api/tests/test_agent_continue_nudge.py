@@ -19,3 +19,12 @@ def test_chat_style_requires_same_turn_tools():
 
     assert "same turn" in CHAT_STYLE.lower() or "in the same turn" in CHAT_STYLE
     assert "Never end after only announcing" in CHAT_STYLE
+
+
+def test_chat_style_requires_inline_platform_chips():
+    from app.services.agent.style import CHAT_STYLE
+
+    assert "@[Name](agent:{id})" in CHAT_STYLE
+    assert "never plain bold names" in CHAT_STYLE.lower()
+    assert "list_agents" in CHAT_STYLE
+    assert "attach_items" in CHAT_STYLE

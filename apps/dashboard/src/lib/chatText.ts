@@ -21,6 +21,8 @@ export type ChatInline =
 
 export type ChatBlock =
   | { type: 'line'; inline: ChatInline[]; bold?: boolean; quote?: boolean }
+  /** Consecutive bullet / numbered lines, rendered as one calm list. */
+  | { type: 'list'; ordered: boolean; items: ChatInline[][] }
   | { type: 'code'; text: string }
   | { type: 'gap' }
 
@@ -29,6 +31,7 @@ export type ChatTagMap = Record<string, ChatTagKind>
 
 const TOKEN_RE = new RegExp(
   [
+    String.raw`\[@\[[^\]]+\]\((?:user|agent|team):[^)\s]+\)\]`, // bracket-wrapped mention
     String.raw`@\[[^\]]+\]\((?:user|agent|team):[^)\s]+\)`, // mention
     String.raw`#\[\[[^\]]+\]\]\((?:tag|action_tag):[^)\s]+\)`, // structured tag
     String.raw`\[[^\]]+\]\(status:[^)\s]+\)`, // status pill
@@ -45,7 +48,7 @@ const TOKEN_RE = new RegExp(
   'gu',
 )
 
-const MENTION_RE = /^@\[([^\]]+)\]\((user|agent|team):([^)\s]+)\)$/
+const MENTION_RE = /^\[?@\[([^\]]+)\]\((user|agent|team):([^)\s]+)\)\]?$/
 const STRUCT_TAG_RE = /^#\[\[([^\]]+)\]\]\((tag|action_tag):([^)\s]+)\)$/
 const STATUS_RE = /^\[([^\]]+)\]\(status:([^)\s]+)\)$/
 const LINK_RE = /^\[([^\]]+)\]\(([^)\s]+)\)$/
@@ -143,6 +146,39 @@ const RULE_RE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/
 const HEADING_RE = /^\s*#{1,6}\s+(.*)$/
 const TABLE_SEP_RE = /^\s*\|?(\s*:?-{2,}:?\s*\|)+\s*:?-*:?\s*$/
 const TABLE_ROW_RE = /^\s*\|.*\|\s*$/
+const BULLET_RE = /^\s*[-*+]\s+(.*)$/
+const ORDERED_RE = /^\s*\d+[.)]\s+(.*)$/
+
+/** Peel a leading #tag (+ optional dash/colon) so lists can align tag | description. */
+export function splitTagLedInline(inline: ChatInline[]): {
+  tag: Extract<ChatInline, { type: 'tag' }> | null
+  rest: ChatInline[]
+} {
+  let i = 0
+  while (i < inline.length) {
+    const node = inline[i]
+    if (node.type === 'text' && !node.text.trim()) {
+      i += 1
+      continue
+    }
+    break
+  }
+  const first = inline[i]
+  if (!first || first.type !== 'tag') return { tag: null, rest: inline }
+  const rest = inline.slice(i + 1).map((node, index) => {
+    if (index !== 0 || node.type !== 'text') return node
+    return { type: 'text' as const, text: node.text.replace(/^\s*[–—\-:]\s*/, '') }
+  })
+  while (rest.length) {
+    const head = rest[0]
+    if (head.type === 'text' && !head.text.trim()) {
+      rest.shift()
+      continue
+    }
+    break
+  }
+  return { tag: first, rest }
+}
 
 export function parseChatText(
   text: string,
@@ -164,30 +200,51 @@ export function parseChatText(
       blocks.push({ type: 'code', text: code.join('\n') })
       continue
     }
-    i += 1
-    if (RULE_RE.test(line) || TABLE_SEP_RE.test(line)) continue
+    if (RULE_RE.test(line) || TABLE_SEP_RE.test(line)) {
+      i += 1
+      continue
+    }
     if (!line.trim()) {
       if (blocks.length && blocks[blocks.length - 1].type !== 'gap') blocks.push({ type: 'gap' })
+      i += 1
       continue
     }
     const heading = line.match(HEADING_RE)
     if (heading) {
       blocks.push({ type: 'line', inline: parseChatInline(heading[1], opts), bold: true })
+      i += 1
       continue
     }
     if (TABLE_ROW_RE.test(line)) {
       const cells = line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim())
       blocks.push({ type: 'line', inline: parseChatInline(cells.filter(Boolean).join(' · '), opts) })
+      i += 1
       continue
     }
     const quote = line.match(/^\s*>\s?(.*)$/)
     if (quote) {
       blocks.push({ type: 'line', inline: parseChatInline(quote[1], opts), quote: true })
+      i += 1
       continue
     }
-    const bullet = line.match(/^(\s*)[-*+]\s+(.*)$/)
-    const body = bullet ? `${bullet[1]}• ${bullet[2]}` : line
-    blocks.push({ type: 'line', inline: parseChatInline(body, opts) })
+    const bullet = line.match(BULLET_RE)
+    const ordered = line.match(ORDERED_RE)
+    if (bullet || ordered) {
+      const isOrdered = Boolean(ordered)
+      const items: ChatInline[][] = []
+      while (i < lines.length) {
+        const row = lines[i]
+        const b = row.match(BULLET_RE)
+        const o = row.match(ORDERED_RE)
+        if (isOrdered ? !o : !b) break
+        items.push(parseChatInline((isOrdered ? o![1] : b![1]) ?? '', opts))
+        i += 1
+      }
+      blocks.push({ type: 'list', ordered: isOrdered, items })
+      continue
+    }
+    blocks.push({ type: 'line', inline: parseChatInline(line, opts) })
+    i += 1
   }
   while (blocks.length && blocks[blocks.length - 1].type === 'gap') blocks.pop()
   return blocks
@@ -202,6 +259,7 @@ export type AppLinkKind =
   | 'flow'
   | 'inbox'
   | 'contact'
+  | 'agent'
   | 'other'
 
 export function appLinkKind(href: string): AppLinkKind {
@@ -210,8 +268,16 @@ export function appLinkKind(href: string): AppLinkKind {
   if (href.startsWith('/settings')) return 'settings'
   if (href.startsWith('/projects')) return 'project'
   if (href.startsWith('/workstreams') || href.startsWith('/flows')) return 'flow'
-  if (href.startsWith('/communication') || href.startsWith('/inbox')) return 'inbox'
+  // Conversations: hub paths and the short /threads/{id} form agents sometimes emit.
+  if (
+    href.startsWith('/communication') ||
+    href.startsWith('/inbox') ||
+    href.startsWith('/threads/')
+  ) {
+    return 'inbox'
+  }
   // Person page; companies stay "other" (folder icon would be wrong).
   if (/^\/contacts\/(?!companies(?:\/|$))[^/]+/.test(href)) return 'contact'
+  if (/^\/agents\/[^/]+/.test(href)) return 'agent'
   return 'other'
 }

@@ -37,14 +37,10 @@ type TriggerDialogProps = {
   trigger: Trigger | null
   agents: TargetOption[]
   workstreams: TargetOption[]
-  /** Preselected moment for new items (from clicking a calendar day). */
-  initialRunAt?: Date | null
-  /** Kind for a new item (a reminder is ``event``, a routine ``cron``). */
+  /** Kind for a new item (new items from Agenda are webhooks). */
   initialKind?: TriggerKind
   /** Agent to target for a new item (Agenda filtered to one agent). */
   initialAgentId?: string | null
-  /** ``watch`` prefills a daily workspace check in this dialog. */
-  initialSeed?: string | null
   onSaved: () => void
 }
 
@@ -76,10 +72,8 @@ export default function TriggerDialog({
   trigger,
   agents,
   workstreams,
-  initialRunAt,
-  initialKind = 'once',
+  initialKind = 'webhook',
   initialAgentId = null,
-  initialSeed = null,
   onSaved,
 }: TriggerDialogProps) {
   const { t } = useTranslation('nav')
@@ -115,22 +109,20 @@ export default function TriggerDialog({
       setInstructions(trigger.instructions)
       setEnabled(trigger.enabled)
     } else {
-      const base = initialRunAt ?? new Date(Date.now() + 60 * 60 * 1000)
-      const watch = initialSeed === 'watch'
-      setName(watch ? t('cockpitPage.recurringWake.taskName') : '')
+      setName('')
       setKind(initialKind)
-      setRunAt(dateToLocalInputValue(base))
+      setRunAt(dateToLocalInputValue(new Date(Date.now() + 60 * 60 * 1000)))
       setCronExpr('0 9 * * 1-5')
-      setIntervalMinutes(watch ? 1440 : 60)
+      setIntervalMinutes(60)
       const preferred = initialAgentId ? agents.find((agent) => agent.id === initialAgentId) : undefined
       const firstAgent = preferred ?? agents[0]
       setTarget(firstAgent ? `agent:${firstAgent.id}` : workstreams[0] ? `ws:${workstreams[0].id}` : 'none')
-      setInstructions(watch ? t('cockpitPage.recurringWake.promptDefault') : '')
+      setInstructions('')
       setEnabled(true)
     }
     setSavedWebhook(null)
     setRevealedSecret(null)
-  }, [open, trigger, initialRunAt, initialKind, initialAgentId, initialSeed, agents, workstreams, t])
+  }, [open, trigger, initialKind, initialAgentId, agents, workstreams])
 
   const kindHint = t(`triggerDialog.hints.${kind}`)
   const needsRunAt = kind === 'once' || kind === 'event'

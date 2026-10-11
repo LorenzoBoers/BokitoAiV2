@@ -484,7 +484,7 @@
       "sections": [
         {
           "title": "Inbox-wachtrijen",
-          "body": "Open is klantwerk dat nog jou nodig heeft. Meer verbergt Uitgesteld, Gesloten en Spam. Pin belangrijke gesprekken, wijs eigenaren toe en stel uit wat kan wachten."
+          "body": "Open is klantwerk dat nog jou nodig heeft. Gepland bevat gesprekken met een datum. Pin belangrijke gesprekken, wijs eigenaren toe en plan wat kan wachten."
         },
         {
           "title": "Kanalen",
@@ -748,7 +748,9 @@
       "calendarName": "Kalender",
       "openExternal": "Openen in kalender",
       "deleteConfirm": "Deze kalenderafspraak verwijderen?",
-      "deleteError": "Kalenderafspraak verwijderen mislukt."
+      "deleteError": "Kalenderafspraak verwijderen mislukt.",
+      "openThread": "Open als gesprek",
+      "openThreadError": "Kon de afspraak niet als gesprek openen."
     },
     "schedule": {
       "webhook": "bij webhook",
@@ -884,15 +886,15 @@
       "noAgent": "Geen agent"
     },
     "newMenu": {
-      "agent": "Agenttaak",
-      "agentBody": "Een agent pakt dit op een vast moment op.",
-      "reminder": "Herinnering",
-      "reminderBody": "Gaat af bij een platformgebeurtenis of datum.",
-      "routine": "Routine",
-      "routineBody": "Een agent doet dit in een vast ritme.",
+      "routine": "Terugkerende taak",
+      "routineBody": "Een gesprek waarin een agent geregeld schrijft.",
       "calendar": "Agendablok",
       "calendarBody": "Zet een blok in je gekoppelde agenda.",
-      "calendarNeedsConnect": "Koppel eerst een agenda."
+      "calendarNeedsConnect": "Koppel eerst een agenda.",
+      "item": "Agenda-item",
+      "itemBody": "Een gesprek met een datum, eventueel met een agent die dan schrijft.",
+      "webhook": "Webhook",
+      "webhookBody": "Een agent reageert op een oproep van buiten."
     },
     "attention": {
       "title": "Vraagt aandacht",
@@ -1436,11 +1438,11 @@
     "workspaceIdCopyFailed": "Kon niet kopiëren",
     "showSetupAgain": "Setupkaart tonen",
     "recurringWake": {
-      "title": "Laat een agent voor je waken",
-      "body": "Een terugkerende taak houdt de workspace in de gaten en meldt alleen wat aandacht nodig heeft.",
+      "title": "Laat een agent je verder helpen",
+      "body": "Een vaste thread waarin een agent je geregeld schrijft: wat open staat en welke stap je workspace verder brengt.",
       "cta": "Taak instellen",
-      "promptDefault": "Bekijk de workspace. Meld alleen wat aandacht nodig heeft: gesprekken die vastzitten, beslissingen die wachten, en één concrete verbetering. Schrijf dat in je kanaal. Herhaal niets dat je al hebt gemeld.",
-      "taskName": "Workspace nalopen",
+      "promptDefault": "Bekijk kort hoe de workspace ervoor staat: kanalen, integraties, flows en actietags, projecten, agents en wat er in gesprekken steeds terugkomt. Noem wat er open staat dat op mij wacht. Stel daarna hooguit drie concrete stappen voor die de workspace verder brengen, bijvoorbeeld een flow voor een vraag die vaak terugkomt, een project voor werk dat nu los in gesprekken zit, of een integratie uit de marketplace die past bij wat we doen. Zeg per stap waarom, en bied aan het voor me in te stellen nadat ik akkoord geef. Herhaal geen voorstel dat nog openstaat of dat ik heb afgewezen.",
+      "taskName": "Workspace verder brengen",
       "dismiss": "Verbergen"
     },
     "loadError": "Kon overzicht niet laden.",
@@ -1477,9 +1479,6 @@
     "postureAutonomous": "Doet het zelf",
     "needsAttention": "Vraagt aandacht",
     "needsAttentionHint": "Dingen die op jou wachten: een antwoord, een ja/nee, of een concept om goed te keuren",
-    "snoozeTomorrow": "Uitstellen tot morgen 9:00",
-    "snoozedUntilTomorrow": "Staat tot morgenochtend in Uitgesteld.",
-    "snoozeFailed": "Kon dat gesprek niet uitstellen.",
     "nothingAttention": "Niets vraagt nu je aandacht.",
     "openCommunication": "Communicatie openen",
     "openGovernDrafts": "Concepten bekijken",
@@ -1687,7 +1686,7 @@
     "widgetTabs": {
       "general": "Algemeen",
       "look": "Uiterlijk",
-      "hours": "Stem en uren",
+      "hours": "Stem en beschikbaarheid",
       "install": "Installatie"
     },
     "back": "Terug",
@@ -1704,11 +1703,11 @@
     "primary": "Primair",
     "history": "Geschiedenis",
     "historyAria": "Hoe ver terug mailgeschiedenis synchroniseren",
-    "historyAdvancedHint": "Geldt voor toekomstige backfills na opnieuw koppelen. Dagelijkse sync loopt automatisch.",
+    "historyAdvancedHint": "De eerste import stopt bij dit venster, maximaal een jaar, of 1.000 berichten per map. Nieuwe mail daarna loopt apart door.",
     "archiveAutomated": "Automatische mail archiveren",
     "archiveAutomatedHint": "Nieuwsbrieven, bonnetjes en no-reply mail worden gesloten en getagd met automated in plaats van in Open te blijven staan.",
     "installHistory": "Hoe ver terug synchroniseren?",
-    "installHistoryHint": "Bokito haalt deze geschiedenis eenmalig op tijdens installatie en houdt de mailbox daarna automatisch bij.",
+    "installHistoryHint": "De eerste import stopt bij dit venster, maximaal een jaar, of 1.000 berichten per map. Nieuwe mail daarna loopt apart door.",
     "days": "{{count}} dagen",
     "daysRecommended": "{{count}} dagen (aanbevolen)",
     "oneYear": "1 jaar",
@@ -1732,7 +1731,7 @@
     "name": "Naam",
     "agent": "AI-agent",
     "agentHint": "De agent die nieuwe gesprekken met AI-afhandeling oppakt. Zonder keuze doet de standaardagent van de werkruimte dat.",
-    "foldersHint": "Welke mappen Bokito bijhoudt.",
+    "foldersHint": "Inbox en Verzonden staan aan. Spam komt in Spam zonder agent. Concepten en prullenbak niet.",
     "signatureHint": "Gedeelde template voor antwoorden vanaf dit adres. Placeholders zoals {{name}} worden per afzender ingevuld.",
     "signatureHintSender": "Deze mailbox gebruikt ieders eigen handtekening (Profiel). De template hieronder geldt pas weer als je terugschakelt naar mailbox-handtekening.",
     "signatureSource": "Handtekeningbron",
@@ -1991,7 +1990,7 @@
     "access": "Toegang",
     "accessHint": "Welke mensen, agents en teams dit kanaal zien of afhandelen.",
     "team": "Eigenaar-team",
-    "teamHint": "Het team dat nieuwe gesprekken op dit kanaal bezit tot iemand ze oppakt.",
+    "teamHint": "Dit team krijgt het gesprek als een mens het moet overnemen. Alle mensen betekent dat iedereen het mag oppakken.",
     "defaultBadge": "Standaard",
     "unknownTeam": "Onbekend team",
     "widgetLive": "Live overdracht",
@@ -2066,6 +2065,7 @@
     "email": "E-mail",
     "push": "Push",
     "slack": "Slack",
+    "opsAlways": "Beheerders zien deze melding altijd in de app.",
     "soundTitle": "Geluid in de app",
     "soundBody": "Speel een kort geluidje (zoals in de chatwidget) wanneer er een melding binnenkomt terwijl Bokito open staat.",
     "soundTest": "Testgeluid",
@@ -2589,14 +2589,14 @@
       "openHint": "Wachten nog tot iemand ze afrondt",
       "unassigned": "Niet toegewezen",
       "unassignedHint": "Niemand is hier nog eigenaar van",
-      "snoozed": "Uitgesteld",
-      "snoozedHint": "Kom later terug",
       "closed": "Gesloten",
       "closedHint": "Afgeronde gesprekken",
       "spam": "Spam",
       "spamHint": "Verborgen uit de open wachtrij",
       "forYou": "Voor jou",
-      "forYouHint": "Van jou, jouw beurt, de beurt van je team, vragen aan iedereen en vermeldingen"
+      "forYouHint": "Van jou, jouw beurt, de beurt van je team, vragen aan iedereen en vermeldingen",
+      "scheduled": "Gepland",
+      "scheduledHint": "Gesprekken met een datum of herhaling"
     },
     "section": {
       "inbox": "Wachtrijen",
@@ -2743,6 +2743,10 @@
       "handlingDescription": "Wat de AI met klantberichten doet. Een kanaal, een contact of een enkel gesprek kan afwijken; de meest specifieke instelling wint.",
       "workspaceDefaultTitle": "Workspace-standaard",
       "workspaceDefaultDescription": "Geldt voor elk kanaal, contact en gesprek zonder eigen instelling.",
+      "defaultAgentTitle": "Standaardagent",
+      "defaultAgentHint": "Kanalen op Standaard gebruiken deze agent voor nieuwe gesprekken met AI-afhandeling.",
+      "defaultAgentSaved": "Standaardagent bijgewerkt.",
+      "defaultAgentError": "Kon de standaardagent niet wijzigen.",
       "governNote": "Govern bepaalt het workspace-plafond voor wat agents mogen doen. AI-afhandeling op deze pagina blijft op of onder dat plafond.",
       "ceiling": "Plafond: {{mode}}",
       "ceilingHint": "Volgt uit de berichtentoestemming in Govern. Pauzeren beperkt elk gesprek tot Geassisteerd tot je autonome antwoorden weer toestaat.",
@@ -5626,11 +5630,12 @@
     "tonePlaceholder": "Professioneel en behulpzaam",
     "do": "Wel",
     "dont": "Niet",
-    "personaHint": "Opgeslagen met Wijzigingen opslaan. Het model stel je in op de agentpagina.",
+    "personaHint": "Dit is de stem van het hele bedrijf, voor elke agent. Het model stel je in op de agentpagina.",
+    "offlineMessage": "Offlinebericht",
+    "offlineMessageHint": "De chat toont dit wanneer het team er niet is.",
     "loading": "Laden...",
     "preChat": "Vooraf-formulier",
     "preChatHint": "Vraag websitebezoekers om naam en e-mail voor hun eerste bericht.",
-    "offlineMessage": "Offlinebericht",
     "offlinePlaceholder": "We zijn nu offline. Laat een bericht achter, dan komen we bij je terug.",
     "installInternalTitle": "Assistent voor ingelogde gebruikers",
     "installExternalTitle": "Widget voor websitebezoekers",
@@ -6216,12 +6221,12 @@
     "title": "Wanneer deze agent zelf handelt",
     "hint": "Het plafond begrenst alles wat deze agent doet. Regels maken uitzonderingen voor bepaalde acties of situaties.",
     "workspaceTitle": "Regels voor alle agents",
-    "workspaceHint": "Uitzonderingen die elke agent in deze workspace volgt, naast zijn eigen regels. Versturen naar klanten vraagt altijd.",
+    "workspaceHint": "Uitzonderingen die elke agent in deze workspace volgt, naast zijn eigen regels. AI-afhandeling, de actietag en tools die altijd vragen bepalen of er een concept komt.",
     "ceiling": "Plafond",
     "ceilingHint": {
       "manual": "Deze agent wacht op jou voordat hij iets verstuurt of wijzigt.",
       "assisted": "Deze agent bereidt het werk voor en vraagt voor acties die goedkeuring nodig hebben.",
-      "autonomous": "Deze agent handelt zelf binnen de grenzen van Govern. Versturen naar klanten vraagt nog steeds."
+      "autonomous": "Deze agent handelt zelf binnen AI-afhandeling, de actietag en tools die altijd vragen."
     },
     "rulesTitle": "Regels",
     "empty": "Nog geen regels. De agent volgt zijn plafond en de instellingen in Govern.",

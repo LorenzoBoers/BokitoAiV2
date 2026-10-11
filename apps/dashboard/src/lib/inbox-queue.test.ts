@@ -50,10 +50,19 @@ describe('resolvedStatusLeavesInboxQueue', () => {
     expect(resolvedStatusLeavesInboxQueue('closed', 'closed')).toBe(false)
   })
 
-  it('parks pending threads out of Open into Snoozed', () => {
-    expect(resolvedStatusLeavesInboxQueue('pending', 'open')).toBe(true)
-    expect(resolvedStatusLeavesInboxQueue('pending', 'snoozed')).toBe(false)
-    expect(dedicatedInboxQueueForStatus('pending')).toBe('snoozed')
+  it('has no park queue for pending threads', () => {
+    expect(resolvedStatusLeavesInboxQueue('pending', 'open')).toBe(false)
+    expect(dedicatedInboxQueueForStatus('pending')).toBeNull()
+  })
+})
+
+describe('scheduled queue', () => {
+  it('keeps every dated thread, closed ones included', () => {
+    const base = { assignedToUserId: null, channel: 'internal', folder: 'internal' }
+    expect(threadFitsInboxQueue({ ...base, status: 'closed', nextAt: '2026-10-12T07:00:00Z' }, 'scheduled', 1)).toBe(
+      true,
+    )
+    expect(threadFitsInboxQueue({ ...base, status: 'open', nextAt: null }, 'scheduled', 1)).toBe(false)
   })
 })
 

@@ -10,7 +10,7 @@ from app.models.project import Project
 from app.models.signal import Signal
 from app.models.trigger import Trigger
 from app.services.auth import decode_access_token
-from app.services.platform_watch import AGENT_CHANNEL_SOURCE
+from app.services.thread_schedule import SCHEDULE_SOURCE
 
 
 @pytest.mark.asyncio
@@ -42,11 +42,10 @@ async def test_signup_creates_empty_tenant(client: AsyncClient, session_override
     signals = (
         await session_override.execute(select(Signal).where(Signal.tenant_id == tenant.id))
     ).scalars().all()
-    # The only seeded thread is the assistant's own channel; the check-in posts
-    # there instead of into a separate operations conversation.
-    assert len(signals) == 1, "fresh tenant has one assistant channel conversation"
-    assert signals[0].channel == "assistant"
-    assert signals[0].source == AGENT_CHANNEL_SOURCE
+    # The only seeded thread is the paused check-in's own thread.
+    assert len(signals) == 1, "fresh tenant has one check-in conversation"
+    assert signals[0].channel == "internal"
+    assert signals[0].source == SCHEDULE_SOURCE
     assert signals[0].owner_user_id is None
 
     triggers = (
@@ -163,9 +162,9 @@ async def test_trigger_results_reuse_single_thread(client: AsyncClient, session_
     session_override.add(trigger)
     await session_override.commit()
 
-    await _surface_result(session_override, trigger, agent, "First result")
+    await _surface_result(session_override, trigger, agent, None, "First result")
     await session_override.commit()
-    await _surface_result(session_override, trigger, agent, "Second result")
+    await _surface_result(session_override, trigger, agent, None, "Second result")
     await session_override.commit()
 
     threads = (

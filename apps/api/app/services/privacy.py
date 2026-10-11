@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.audit import AuditEvent
 from app.models.auth import Membership, Tenant, User
 from app.models.calendar import CalendarEvent
 from app.models.channel import Contact
@@ -19,7 +20,7 @@ from app.services.audit import record_audit
 
 DEFAULT_RETENTION_MESSAGES_DAYS = 365
 DEFAULT_RETENTION_CALENDAR_DAYS = 365
-DEFAULT_RETENTION_AUDIT_DAYS = 730  # soft policy; not hard-deleted in v1
+DEFAULT_RETENTION_AUDIT_DAYS = 730
 
 
 def privacy_settings_from_tenant(tenant: Tenant) -> dict[str, Any]:
@@ -365,6 +366,7 @@ async def purge_expired_for_tenant(
     privacy = privacy_settings_from_tenant(tenant)
     msg_cut = datetime.utcnow() - timedelta(days=privacy["retention_messages_days"])
     cal_cut = datetime.utcnow() - timedelta(days=privacy["retention_calendar_days"])
+    audit_cut = datetime.utcnow() - timedelta(days=privacy["retention_audit_days"])
 
     msg_result = await session.execute(
         delete(SignalMessage).where(
@@ -380,10 +382,17 @@ async def purge_expired_for_tenant(
             CalendarEvent.end_at < cal_cut,
         )
     )
+    audit_result = await session.execute(
+        delete(AuditEvent).where(
+            AuditEvent.tenant_id == tenant.id,
+            AuditEvent.created_at < audit_cut,
+        )
+    )
     await session.commit()
     return {
         "messages_deleted": int(msg_result.rowcount or 0),
         "calendar_deleted": int(cal_result.rowcount or 0),
+        "audit_deleted": int(audit_result.rowcount or 0),
     }
 
 

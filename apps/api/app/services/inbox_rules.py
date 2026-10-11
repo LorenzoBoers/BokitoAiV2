@@ -384,9 +384,107 @@ ACTIVATE_RULE_ACTION = "activate_inbox_rule"
 BULK_SENDER_THRESHOLD = 3
 
 
-def rule_decision_title(rule_payload: dict[str, Any]) -> str:
-    action_label = ACTION_LABELS.get(str(rule_payload.get("action")), str(rule_payload.get("action")))
-    return f"{action_label} mail from {rule_payload.get('label') or rule_payload.get('match_value')}?"
+_RULE_CARD_TEXT: dict[str, dict[str, Any]] = {
+    "en": {
+        "title": {
+            "auto_close": "Auto-close mail from {who}?",
+            "auto_task": "Plan a task for mail from {who}?",
+            "mute_ai": "Skip AI for mail from {who}?",
+            "tag": "Tag mail from {who}?",
+            "route": "Assign mail from {who}?",
+        },
+        "match": {
+            "sender": "from {value}",
+            "domain": "from any address at {value}",
+            "list_id": "through the mailing list {value}",
+        },
+        "action": {
+            "auto_close": "Bokito closes the conversation right away, without a reply",
+            "auto_task": "Bokito plans a follow-up task in 4 hours for whoever owns the conversation",
+            "mute_ai": "the AI drafts no reply and the conversation stays with people",
+            "tag": "Bokito adds {tags}",
+            "route": "Bokito assigns the conversation",
+        },
+        "rule": "Rule: when new mail arrives {match}, {action}.",
+        "tags_suffix": " and adds {tags}",
+        "why": "Why: {reason}",
+        "observed": "{count} messages from this sender needed no reply.",
+        "footer": "Only new mail is affected. Edit or pause the rule later under Automation rules.",
+        "activate": "Yes, always",
+        "later": "Not now",
+    },
+    "nl": {
+        "title": {
+            "auto_close": "Mail van {who} automatisch sluiten?",
+            "auto_task": "Taak plannen voor mail van {who}?",
+            "mute_ai": "AI overslaan voor mail van {who}?",
+            "tag": "Mail van {who} taggen?",
+            "route": "Mail van {who} toewijzen?",
+        },
+        "match": {
+            "sender": "van {value}",
+            "domain": "van een adres op {value}",
+            "list_id": "via de mailinglijst {value}",
+        },
+        "action": {
+            "auto_close": "sluit Bokito het gesprek direct, zonder antwoord",
+            "auto_task": "plant Bokito over 4 uur een opvolgtaak voor wie het gesprek heeft",
+            "mute_ai": "maakt de AI geen antwoordvoorstel en blijft het gesprek bij mensen",
+            "tag": "voegt Bokito {tags} toe",
+            "route": "wijst Bokito het gesprek toe",
+        },
+        "rule": "Regel: komt er nieuwe mail binnen {match}, dan {action}.",
+        "tags_suffix": " en voegt {tags} toe",
+        "why": "Waarom: {reason}",
+        "observed": "{count} berichten van deze afzender hadden geen antwoord nodig.",
+        "footer": "Dit geldt alleen voor nieuwe mail. Pas de regel later aan of pauzeer hem onder Automatiseringsregels.",
+        "activate": "Ja, altijd",
+        "later": "Niet nu",
+    },
+}
+
+
+def _card_text(lang: str) -> dict[str, Any]:
+    return _RULE_CARD_TEXT["nl" if str(lang or "").lower().startswith("nl") else "en"]
+
+
+def rule_decision_title(rule_payload: dict[str, Any], *, lang: str = "en") -> str:
+    text = _card_text(lang)
+    action = str(rule_payload.get("action"))
+    who = rule_payload.get("label") or rule_payload.get("match_value")
+    template = text["title"].get(action)
+    if template is None:
+        return f"{ACTION_LABELS.get(action, action)} mail from {who}?"
+    return template.format(who=who)
+
+
+def describe_rule(rule_payload: dict[str, Any], *, lang: str = "en") -> str:
+    """One sentence that says exactly when the rule fires and what it does."""
+    text = _card_text(lang)
+    action = str(rule_payload.get("action"))
+    tags = ", ".join(f"#{t}" for t in rule_payload.get("labels") or [] if isinstance(t, str))
+    match = text["match"].get(str(rule_payload.get("match_type")), text["match"]["sender"]).format(
+        value=rule_payload.get("match_value") or ""
+    )
+    effect = text["action"].get(action, ACTION_LABELS.get(action, action)).format(tags=tags)
+    if tags and action != "tag":
+        effect += text["tags_suffix"].format(tags=tags)
+    return text["rule"].format(match=match, action=effect)
+
+
+def rule_decision_summary(
+    rule_payload: dict[str, Any], *, reason: str = "", lang: str = "en"
+) -> str:
+    text = _card_text(lang)
+    observations = int(rule_payload.get("observations") or 0)
+    why = (reason or "").strip()
+    if not why and observations > 1:
+        why = text["observed"].format(count=observations)
+    parts = [describe_rule(rule_payload, lang=lang)]
+    if why:
+        parts.append(text["why"].format(reason=why[:300]))
+    parts.append(text["footer"])
+    return "\n\n".join(parts)
 
 
 async def raise_rule_decision(
@@ -411,15 +509,21 @@ async def raise_rule_decision(
         recently_declined_decision,
     )
 
-    title = rule_decision_title(rule_payload)
+    from app.models.auth import Tenant
+    from app.services.language import resolve_workspace_language
+
+    tenant = await session.get(Tenant, tenant_id)
+    lang = resolve_workspace_language(tenant)
+    text = _card_text(lang)
+    title = rule_decision_title(rule_payload, lang=lang)
     options = [
         {
             "id": "activate",
-            "label": "Yes, always",
+            "label": text["activate"],
             "action_type": ACTIVATE_RULE_ACTION,
             "payload": {"rule_id": rule_payload["id"]},
         },
-        {"id": "later", "label": "Not now", "action_type": "defer"},
+        {"id": "later", "label": text["later"], "action_type": "defer"},
     ]
     if await recently_declined_decision(session, tenant_id, title=title):
         return None
@@ -448,12 +552,7 @@ async def raise_rule_decision(
         session,
         tenant_id,
         title=title,
-        summary=summary
-        or (
-            f"{rule_payload.get('observations', 1)} messages from this sender needed no reply. "
-            "Approve to handle the next ones automatically; the rule stays editable under "
-            "Settings > Email & messages > Automation rules."
-        ),
+        summary=rule_decision_summary(rule_payload, reason=summary, lang=lang),
         options=options,
         agent_id=agent_id,
         signal_id=signal_id,
@@ -720,7 +819,6 @@ async def apply_rule_to_signal(
 
         signal.status = "closed"
         signal.has_unread = False
-        signal.snoozed_until = None
         on_status_change(session, signal)
         from app.services.tickets import settle_ticket_on_close
 

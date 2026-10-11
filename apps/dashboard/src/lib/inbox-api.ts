@@ -75,6 +75,85 @@ export function normalizeTurn(value: unknown): ThreadTurn {
   }
 }
 
+export type ThreadScheduleDetails = {
+  note?: string
+  location?: string
+  htmlLink?: string
+  allDay?: boolean
+  calendarEventId?: string
+}
+
+export type ScheduleRepeat =
+  | { kind: 'cron'; cron: string }
+  | { kind: 'interval'; everyMinutes: number }
+
+export type ScheduleRecipient = { kind: 'user' | 'team'; id: string }
+
+/** The repeat rule / agent wake bound to a thread (a Trigger server-side). */
+export type ThreadSchedule = {
+  triggerId: string
+  name: string
+  kind: string
+  purpose: string
+  repeat: ScheduleRepeat | null
+  enabled: boolean
+  nextRunAt: string | null
+  lastRunAt: string | null
+  lastStatus: string
+  agentId: string | null
+  instructions: string
+  recipient: ScheduleRecipient | null
+  webhook: boolean
+}
+
+export function normalizeThreadSchedule(value: unknown): ThreadSchedule | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === 'string' ? v : '')
+  const repeatRaw = raw.repeat && typeof raw.repeat === 'object' ? (raw.repeat as Record<string, unknown>) : null
+  let repeat: ScheduleRepeat | null = null
+  if (repeatRaw?.kind === 'cron' && typeof repeatRaw.cron === 'string') {
+    repeat = { kind: 'cron', cron: repeatRaw.cron }
+  } else if (repeatRaw?.kind === 'interval') {
+    repeat = { kind: 'interval', everyMinutes: Number(repeatRaw.every_minutes) || 60 }
+  }
+  const recipientRaw =
+    raw.recipient && typeof raw.recipient === 'object' ? (raw.recipient as Record<string, unknown>) : null
+  const recipient: ScheduleRecipient | null =
+    recipientRaw && (recipientRaw.kind === 'user' || recipientRaw.kind === 'team') && typeof recipientRaw.id === 'string'
+      ? { kind: recipientRaw.kind, id: recipientRaw.id }
+      : null
+  return {
+    triggerId: str(raw.trigger_id),
+    name: str(raw.name),
+    kind: str(raw.kind),
+    purpose: str(raw.purpose),
+    repeat,
+    enabled: raw.enabled === true,
+    nextRunAt: str(raw.next_run_at) || null,
+    lastRunAt: str(raw.last_run_at) || null,
+    lastStatus: str(raw.last_status),
+    agentId: str(raw.agent_id) || null,
+    instructions: str(raw.instructions),
+    recipient,
+    webhook: raw.webhook === true,
+  }
+}
+
+function normalizeScheduleDetails(value: unknown): ThreadScheduleDetails {
+  if (!value || typeof value !== 'object') return {}
+  const raw = value as Record<string, unknown>
+  const out: ThreadScheduleDetails = {}
+  if (typeof raw.note === 'string' && raw.note) out.note = raw.note
+  if (typeof raw.location === 'string' && raw.location) out.location = raw.location
+  if (typeof raw.html_link === 'string' && raw.html_link) out.htmlLink = raw.html_link
+  if (raw.all_day === true) out.allDay = true
+  if (typeof raw.calendar_event_id === 'string' && raw.calendar_event_id) {
+    out.calendarEventId = raw.calendar_event_id
+  }
+  return out
+}
+
 /** New owner for a conversation; a team without id means the channel's owner team. */
 export type AssigneeInput = {
   kind: OwnerKind
@@ -103,11 +182,14 @@ export type InboxThread = {
   /** How the thread is linked to its contact: verified | claimed | manual; '' = inbound address. */
   contactBasis: string
   status: ThreadStatus
-  /** ISO wake time while snoozed (status pending); null = wait for reply. */
-  snoozedUntil: string | null
-  /** Next look-at while the conversation stays open (not snooze). */
-  followUpAt: string | null
-  followUpTitle: string
+  /** The thread's date: an agenda item, a look-again, or a repeat's next run. */
+  nextAt: string | null
+  /** End of an appointment. */
+  endsAt: string | null
+  /** Appointment details next to the date (note, location, calendar link). */
+  scheduleDetails: ThreadScheduleDetails
+  /** The thread's repeat rule or agent wake; `undefined` when the row did not carry it. */
+  schedule?: ThreadSchedule | null
   priority: ThreadPriority
   assignedToUserId: number | null
   owner?: ThreadOwner
@@ -247,6 +329,31 @@ export type ProposalItem = {
   missing?: boolean
 }
 
+/** Server-side description of the tool call behind an action row. */
+export type ProposalActionDescription = {
+  tool: string
+  key: string
+  args: Record<string, string>
+  fallback: string
+}
+
+/** One action an agent asked approval for; several of one turn form a bundle. */
+export type ProposalBundleEntry = {
+  decisionId: string
+  cardMessageId: string | null
+  title: string
+  summary: string
+  status: string
+  chosenOptionId: string | null
+  resolvedAt: string | null
+  approveOptionId: string
+  rejectOptionId: string
+  actionType: string
+  action: ProposalActionDescription | null
+  learn: { tool: string; agentId: string } | null
+  platformChangeId: string | null
+}
+
 export type MessageProposal = {
   decisionId: string
   /** The decision card message; the resolve endpoint is keyed on it. */
@@ -260,6 +367,46 @@ export type MessageProposal = {
   chosenOptionIds: string[]
   resolvedAt: string | null
   resolvedBy: string | null
+  /** Every action card of the agent turn, oldest first. Empty for plain proposals. */
+  bundle: ProposalBundleEntry[]
+  bundleId: string | null
+}
+
+function normalizeActionDescription(value: unknown): ProposalActionDescription | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const tool = asString(raw.tool)
+  if (!tool) return null
+  const args: Record<string, string> = {}
+  if (raw.args && typeof raw.args === 'object') {
+    for (const [key, val] of Object.entries(raw.args as Record<string, unknown>)) {
+      if (val != null) args[key] = String(val)
+    }
+  }
+  return { tool, key: asString(raw.key) || tool, args, fallback: asString(raw.fallback) || tool }
+}
+
+export function normalizeBundleEntry(value: unknown): ProposalBundleEntry | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const decisionId = asString(raw.decision_id)
+  if (!decisionId) return null
+  const learn = raw.learn && typeof raw.learn === 'object' ? (raw.learn as Record<string, unknown>) : null
+  return {
+    decisionId,
+    cardMessageId: asNullableString(raw.card_message_id),
+    title: asString(raw.title),
+    summary: asString(raw.summary),
+    status: asString(raw.status) || 'missing',
+    chosenOptionId: asNullableString(raw.chosen_option_id),
+    resolvedAt: asNullableString(raw.resolved_at),
+    approveOptionId: asString(raw.approve_option_id) || 'approve',
+    rejectOptionId: asString(raw.reject_option_id) || 'reject',
+    actionType: asString(raw.action_type),
+    action: normalizeActionDescription(raw.action),
+    learn: learn && asString(learn.agent_id) ? { tool: asString(learn.tool), agentId: asString(learn.agent_id) } : null,
+    platformChangeId: asNullableString(raw.platform_change_id),
+  }
 }
 
 const PROPOSAL_ITEM_TYPES = new Set<ProposalItemType>([
@@ -354,6 +501,10 @@ export function normalizeProposal(value: unknown): MessageProposal | null {
     chosenOptionIds: chosenIds,
     resolvedAt: asNullableString(raw.resolved_at),
     resolvedBy: asNullableString(raw.resolved_by),
+    bundle: Array.isArray(raw.bundle)
+      ? raw.bundle.map(normalizeBundleEntry).filter((x): x is ProposalBundleEntry => x !== null)
+      : [],
+    bundleId: asNullableString(raw.bundle_id),
   }
 }
 
@@ -434,7 +585,8 @@ export type ThreadFilters = {
     /** Yours: owned, your turn or your team's, questions to All people, mentions. */
     | 'for_you'
     | 'pending'
-    | 'snoozed'
+    /** Threads with a date: agenda items, look-agains, recurring tasks. */
+    | 'scheduled'
     | 'closed'
     | 'spam'
     | 'outbound'
@@ -517,7 +669,7 @@ export type ReplyInput = {
   attachments?: MessageAttachment[]
   /** When `email`, a mailbox signature may be appended. Plain chat/internal skips it. */
   format?: 'email' | 'plain'
-  /** With action=send_and_pending: snooze duration; omit = until customer replies. */
+  /** With action=send_and_pending: minutes until the thread's date; omit = no date. */
   snoozeMinutes?: number
   /** Email-only: comma-separated extra recipients. */
   cc?: string
@@ -560,11 +712,6 @@ export type PatchThreadInput = {
   tags?: string[]
   priority?: ThreadPriority
   projectId?: string | null
-  /** ISO wake time to snooze the thread; null clears the wake time. */
-  snoozedUntil?: string | null
-  /** Next look-at while open; null clears it. */
-  followUpAt?: string | null
-  followUpTitle?: string
   /** Email-only: bind the thread to this mailbox (From + channel folder). */
   channelAccountId?: string
 }
@@ -576,7 +723,6 @@ export type BulkThreadAction =
   | 'read'
   | 'unread'
   | 'assign'
-  | 'snooze'
   | 'trash'
 
 export type SavedReply = {
@@ -692,9 +838,10 @@ function normalizeThread(row: unknown): InboxThread | null {
     contactPhone: asString(raw.contact_phone),
     contactBasis: asString(raw.contact_basis),
     status,
-    snoozedUntil: asNullableTimestampString(raw.snoozed_until),
-    followUpAt: asNullableTimestampString(raw.follow_up_at),
-    followUpTitle: asString(raw.follow_up_title),
+    nextAt: asNullableTimestampString(raw.next_at),
+    endsAt: asNullableTimestampString(raw.ends_at),
+    scheduleDetails: normalizeScheduleDetails(raw.schedule_details),
+    schedule: 'schedule' in raw ? normalizeThreadSchedule(raw.schedule) : undefined,
     priority,
     assignedToUserId:
       raw.assigned_to_user_id == null || raw.assigned_to_user_id === 0 ? null : asNumber(raw.assigned_to_user_id),

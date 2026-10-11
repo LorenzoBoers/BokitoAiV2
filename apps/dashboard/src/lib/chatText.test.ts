@@ -4,6 +4,7 @@ import {
   parseChatInline,
   parseChatText,
   plainChatText,
+  splitTagLedInline,
   type ChatInline,
 } from './chatText'
 
@@ -24,6 +25,12 @@ describe('plainChatText', () => {
 })
 
 describe('parseChatInline', () => {
+  it('reads a mention wrapped in brackets as a chip', () => {
+    const nodes = parseChatInline('Ask [@[Support](agent:abc)] now')
+    expect(kinds(nodes)).toEqual(['text', 'mention', 'text'])
+    expect(nodes[1]).toEqual({ type: 'mention', name: 'Support', kind: 'agent', id: 'abc' })
+  })
+
   it('reads WhatsApp-style bold, italic and strike', () => {
     expect(kinds(parseChatInline('a *b* _c_ ~d~ e'))).toEqual([
       'text',
@@ -78,7 +85,25 @@ describe('parseChatText', () => {
     const text = lines.map((b) =>
       b.type === 'line' ? b.inline.map((n) => (n.type === 'text' ? n.text : '')).join('') : '',
     )
-    expect(text).toEqual(['Title', 'a · b', '1 · 2', '• item'])
+    expect(text).toEqual(['Title', 'a · b', '1 · 2'])
+    const list = blocks.find((b) => b.type === 'list')
+    expect(list).toMatchObject({
+      type: 'list',
+      ordered: false,
+      items: [[{ type: 'text', text: 'item' }]],
+    })
+  })
+
+  it('groups consecutive bullets and peels tag-led rows', () => {
+    const blocks = parseChatText('- #feature – New work\n- #api – Docs', {
+      tags: { feature: 'action_tag', api: 'tag' },
+    })
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].type).toBe('list')
+    if (blocks[0].type !== 'list') return
+    const first = splitTagLedInline(blocks[0].items[0])
+    expect(first.tag).toMatchObject({ name: 'feature', kind: 'action_tag' })
+    expect(first.rest).toEqual([{ type: 'text', text: 'New work' }])
   })
 
   it('keeps fenced code whole and collapses blank lines to one gap', () => {
@@ -93,5 +118,9 @@ describe('appLinkKind', () => {
     expect(appLinkKind('/contacts/abc-123')).toBe('contact')
     expect(appLinkKind('/contacts/companies/acme')).toBe('other')
     expect(appLinkKind('/projects/p1')).toBe('project')
+    expect(appLinkKind('/agents/a1')).toBe('agent')
+    expect(appLinkKind('/agents')).toBe('other')
+    expect(appLinkKind('/communication/inbox/open/t/abc')).toBe('inbox')
+    expect(appLinkKind('/threads/abc')).toBe('inbox')
   })
 })

@@ -38,7 +38,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
                 Signal.channel.in_(EXTERNAL_CHANNELS),
                 Signal.source != "demo",
                 Signal.status.notin_(("closed", "spam")),
-                Signal.snoozed_until.is_(None),
+                Signal.next_at.is_(None),
             )
         )
     ).scalar_one()

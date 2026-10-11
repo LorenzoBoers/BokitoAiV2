@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
+import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { agentPresenceOf, seedAgentPresence, useAgentPresence } from '../../hooks/useAgentPresence'
@@ -44,6 +45,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
   const { token, user } = useAuth()
   const { members } = useMembers()
   const { teams } = useTeams()
+  const { agents } = useAgents()
   const [candidates, setCandidates] = useState<AssigneeCandidates | null>(null)
   const [handover, setHandover] = useState<Handover | null>(null)
   const [message, setMessage] = useState('')
@@ -107,10 +109,20 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
         : t('threadChrome.assign')
   const owned = Boolean(currentMember) || owner?.kind === 'agent' || owner?.kind === 'team'
   const blocked = t('threadChrome.noChannelAccess')
-  const currentAgent =
-    owner?.kind === 'agent' && owner.agentId
-      ? candidates?.agents.find((a) => a.id === owner.agentId) ?? null
-      : null
+  const currentAgent = useMemo(() => {
+    if (owner?.kind !== 'agent' || !owner.agentId) return null
+    const fromCandidates = candidates?.agents.find((a) => a.id === owner.agentId)
+    if (fromCandidates) {
+      return {
+        id: fromCandidates.id,
+        name: fromCandidates.name,
+        avatar_kind: fromCandidates.avatarKind,
+        avatar_icon: fromCandidates.avatarIcon,
+        avatar_image_url: fromCandidates.avatarImageUrl,
+      }
+    }
+    return agents.find((a) => a.id === owner.agentId) ?? null
+  }, [owner, candidates, agents])
 
   const triggerMark = currentMember ? (
     <UserAvatar
@@ -133,9 +145,9 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
       {...toAiAvatarProps({
         id: owner.agentId,
         name: currentAgent?.name ?? owner.agentId,
-        avatar_kind: currentAgent?.avatarKind,
-        avatar_icon: currentAgent?.avatarIcon,
-        avatar_image_url: currentAgent?.avatarImageUrl,
+        avatar_kind: currentAgent?.avatar_kind,
+        avatar_icon: currentAgent?.avatar_icon,
+        avatar_image_url: currentAgent?.avatar_image_url,
       })}
       size={18}
       decorative

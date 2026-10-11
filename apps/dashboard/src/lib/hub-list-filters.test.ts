@@ -10,7 +10,7 @@ describe('configForLeaf', () => {
   it('maps All communication sub-folders to list views', () => {
     expect(configForLeaf({ type: 'inbox', queue: 'for_you' }).filters).toEqual({ folder: 'inbox', view: 'for_you' })
     expect(configForLeaf({ type: 'inbox', queue: 'open' }).filters).toEqual({ folder: 'inbox', view: 'all_open' })
-    expect(configForLeaf({ type: 'inbox', queue: 'snoozed' }).filters.view).toBe('snoozed')
+    expect(configForLeaf({ type: 'inbox', queue: 'scheduled' }).filters.view).toBe('scheduled')
     expect(configForLeaf({ type: 'inbox' }).filters.view).toBe('all')
   })
 

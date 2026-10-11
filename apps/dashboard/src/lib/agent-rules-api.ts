@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, workforceGet, workforcePost, workforcePut } from './api'
+import { apiDelete, apiGet, apiPost, apiPut, workforceGet, workforcePost, workforcePut } from './api'
 import { appRoutes, governRoutes, workforceRoutes } from '../api/routes'
 
 /** Agent ceiling and rule modes share the AI handling vocabulary. */
@@ -31,12 +31,14 @@ export type RuleTestOutcome = {
   rule: AgentRule | null
 }
 
-export type LearnChoice = 'allow' | 'ask' | 'unsure'
+export type LearnChoice = 'allow' | 'ask' | 'deny' | 'unsure'
 
 export type LearnResult = {
   status: string
   count: number | null
   changeId: string | null
+  /** True when an owner/admin applied the rule right away; false for a Govern draft. */
+  applied: boolean | null
 }
 
 const MODES: AutonomyMode[] = ['manual', 'assisted', 'autonomous']
@@ -146,10 +148,40 @@ export async function testWorkspaceRules(input: {
   )
 }
 
+export type AgentRulesRow = { agentId: string; agentName: string; rules: AgentRule[] }
+
+function toAgentRow(raw: Record<string, unknown>): AgentRulesRow {
+  return {
+    agentId: String(raw.agent_id ?? ''),
+    agentName: String(raw.agent_name ?? ''),
+    rules: toRules(raw.rules),
+  }
+}
+
+/** Every agent that has its own rules (always / ask / never per action). */
+export async function listAgentRules(): Promise<AgentRulesRow[]> {
+  const raw = await apiGet<{ agents?: unknown }>(governRoutes.agentRules)
+  return Array.isArray(raw.agents)
+    ? raw.agents.filter((r) => r && typeof r === 'object').map((r) => toAgentRow(r as Record<string, unknown>))
+    : []
+}
+
+export async function deleteAgentRule(agentId: string, ruleId: string): Promise<AgentRulesRow> {
+  const raw = await apiDelete<Record<string, unknown>>(governRoutes.agentRule(agentId, ruleId))
+  return toAgentRow((raw ?? {}) as Record<string, unknown>)
+}
+
 export async function learnFromDecision(decisionId: string, choice: LearnChoice): Promise<LearnResult> {
-  const raw = await apiPost<{ status?: string; count?: number | null; change_id?: string | null }>(
-    appRoutes.notifications.decisionLearn(decisionId),
-    { choice },
-  )
-  return { status: String(raw.status ?? ''), count: raw.count ?? null, changeId: raw.change_id ?? null }
+  const raw = await apiPost<{
+    status?: string
+    count?: number | null
+    change_id?: string | null
+    applied?: boolean | null
+  }>(appRoutes.notifications.decisionLearn(decisionId), { choice })
+  return {
+    status: String(raw.status ?? ''),
+    count: raw.count ?? null,
+    changeId: raw.change_id ?? null,
+    applied: typeof raw.applied === 'boolean' ? raw.applied : null,
+  }
 }

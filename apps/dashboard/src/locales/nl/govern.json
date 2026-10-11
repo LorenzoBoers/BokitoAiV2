@@ -120,6 +120,22 @@
       }
     }
   },
+  "agentActionRules": {
+    "title": "Per agent: altijd, vragen, nooit",
+    "intro": "Oordelen die je gaf op actiekaarten in gesprekken. Elke regel bindt één agent aan één actie. Owners en admins passen ze direct toe; members stellen ze voor als concept.",
+    "empty": "Nog geen regels per agent. Open het menu naast een actie die een agent voorstelt om er een in te stellen.",
+    "mode": {
+      "autonomous": "Altijd",
+      "assisted": "Vragen",
+      "manual": "Nooit"
+    },
+    "judgement": "Per geval gewogen",
+    "counts": "{{uses}} keer gebruikt",
+    "remove": "Regel verwijderen",
+    "removed": "Regel verwijderd. De agent vraagt weer.",
+    "removeError": "Kon de regel niet verwijderen",
+    "loadError": "Kon de agentregels niet laden"
+  },
   "allowances": {
     "title": "Toestemmingsniveaus",
     "intro": "Per toolcategorie: weigeren blokkeert de actie, vragen maakt een inline beslissing aan, toestaan voert de actie automatisch uit met een auditrecord.",
@@ -131,13 +147,14 @@
   },
   "scopes": {
     "title": "Autonomie per actietag en flow",
-    "intro": "Stel een plafond in per actietag en flow. Deze instellingen blijven onder de houding van de workspace.",
+    "intro": "Bedrijfsstandaard volgt de AI-afhandeling van het gesprek. Een gekozen modus is een plafond.",
     "types": "Actietags",
     "playbooks": "Flows",
     "empty": "Geen actieve items.",
     "saved": "Autonomieniveau bijgewerkt.",
     "saveError": "Kon dit autonomieniveau niet bijwerken.",
     "levels": {
+      "inherit": "Bedrijfsstandaard",
       "manual": "Handmatig",
       "assisted": "Geassisteerd",
       "autonomous": "Autonoom"

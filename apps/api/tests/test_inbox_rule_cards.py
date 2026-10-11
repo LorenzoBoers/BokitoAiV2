@@ -50,6 +50,29 @@ def test_normalize_match_value_per_type():
     assert inbox_rules.normalize_match_value("subject", "x") == ""
 
 
+def test_rule_card_spells_out_the_rule():
+    rule = {
+        "match_type": "domain",
+        "match_value": "shop.nl",
+        "action": "auto_task",
+        "label": "",
+        "labels": ["billing"],
+        "observations": 1,
+    }
+    en = inbox_rules.rule_decision_summary(rule, reason="Invoices need a check", lang="en")
+    assert en.startswith("Rule: when new mail arrives from any address at shop.nl, Bokito plans a follow-up task")
+    assert "adds #billing" in en
+    assert "Why: Invoices need a check" in en
+    assert "Automation rules" in en
+
+    nl = inbox_rules.rule_decision_summary({**rule, "action": "auto_close", "labels": []}, lang="nl")
+    assert nl.startswith("Regel: komt er nieuwe mail binnen van een adres op shop.nl, dan sluit Bokito")
+    assert "Waarom" not in nl
+    assert inbox_rules.rule_decision_title({**rule, "action": "auto_close"}, lang="nl") == (
+        "Mail van shop.nl automatisch sluiten?"
+    )
+
+
 @pytest.mark.asyncio
 async def test_suggest_tool_rejects_values_that_cannot_match(client: AsyncClient, session_override):
     tenant = await _tenant(session_override)
@@ -100,6 +123,8 @@ async def test_suggest_tool_in_conversation_raises_inline_card(client: AsyncClie
     decision = await session_override.get(DecisionRequest, UUID(result["decision"]["decision_request_id"]))
     assert decision.signal_id == signal.id
     assert decision.status == "awaiting_human"
+    assert "news.shop.nl" in decision.summary
+    assert "Weekly newsletter" in decision.summary
     options = json.loads(decision.options_json)
     assert options[0]["action_type"] == "activate_inbox_rule"
     assert options[0]["payload"]["rule_id"] == result["rule"]["id"]
@@ -200,7 +225,12 @@ async def test_third_automated_thread_proposes_auto_close(client: AsyncClient, s
     ).scalars().all()
     assert len(cards) == 1
     assert cards[0].signal_id == threads[2].id
-    assert cards[0].title == inbox_rules.rule_decision_title(inbox_rules.serialize_rule(rule))
+    from app.services.language import resolve_workspace_language
+
+    lang = resolve_workspace_language(tenant)
+    assert cards[0].title == inbox_rules.rule_decision_title(inbox_rules.serialize_rule(rule), lang=lang)
+    assert sender in cards[0].summary
+    assert "3" in cards[0].summary
 
     # A fourth message does not stack a second card while the first is open.
     fourth = _signal(tenant.id, sender, "Statement 4")

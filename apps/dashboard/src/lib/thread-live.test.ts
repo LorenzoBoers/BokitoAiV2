@@ -22,9 +22,9 @@ function thread(overrides: Partial<InboxThread> = {}): InboxThread {
     contactName: 'Klant',
     contactPhone: '',
     status: 'open',
-    snoozedUntil: null,
-    followUpAt: null,
-    followUpTitle: '',
+    nextAt: null,
+    endsAt: null,
+    scheduleDetails: {},
     priority: 'normal',
     assignedToUserId: null,
     tags: [],
@@ -108,13 +108,9 @@ describe('threadMatchesFilters', () => {
     expect(threadMatchesFilters(thread({ status: 'spam' }), { view: 'spam' }, me)).toBe(true)
     expect(threadMatchesFilters(thread({ status: 'pending' }), { view: 'pending' }, me)).toBe(true)
     expect(
-      threadMatchesFilters(
-        thread({ status: 'pending', snoozedUntil: '2026-08-20T08:00:00Z' }),
-        { view: 'snoozed' },
-        me,
-      ),
+      threadMatchesFilters(thread({ status: 'closed', nextAt: '2026-08-20T08:00:00Z' }), { view: 'scheduled' }, me),
     ).toBe(true)
-    expect(threadMatchesFilters(thread({ status: 'pending' }), { view: 'snoozed' }, me)).toBe(true)
+    expect(threadMatchesFilters(thread({ status: 'open' }), { view: 'scheduled' }, me)).toBe(false)
   })
 
   it('resolves for_you / unassigned against the signed-in user', () => {

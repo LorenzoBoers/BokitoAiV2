@@ -285,7 +285,7 @@ def _resolve_widget(ctx: ChannelContext) -> ChannelFacts:
     return ChannelFacts(
         capabilities=("receive", "send"),
         checks=checks,
-        actions=["pause", "configure"],
+        actions=["pause", "configure", "archive"],
         configure_href="",
     )
 
@@ -413,8 +413,6 @@ def resolve_channel(
         actions = list(facts.actions)
         if not account.is_enabled:
             actions = ["resume" if a == "pause" else a for a in actions]
-        if kind == "widget" and widget_count is not None and widget_count > 1 and "archive" not in actions:
-            actions.append("archive")
 
     # The widget's address is the internal tenant key, not something an
     # operator shares or copies, so the row keeps it out of the UI.

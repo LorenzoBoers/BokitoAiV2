@@ -473,7 +473,6 @@ async def ingest_inbound(
         # Spam stays parked, and backfilled older mail never reopens a thread.
         reopened_from_closed = signal.status == "closed"
         signal.status = "open"
-        signal.snoozed_until = None
         if reopened_from_closed:
             from app.services.handover import apply_reopen_policy
 

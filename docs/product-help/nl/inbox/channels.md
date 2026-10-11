@@ -9,7 +9,7 @@ related: communication,inbox-ai,widget,integrations
 
 # Kanalen koppelen
 
-Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de pagina te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**. Websitechat voegt **Uiterlijk**, **Stem en uren** en **Installatie** toe op die pagina. Een nieuwe workspace start zonder kanalen; voeg e-mail of websitechat toe via **Kanaal toevoegen** wanneer je ze nodig hebt.
+Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de pagina te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**. Websitechat voegt **Uiterlijk**, **Stem en beschikbaarheid** en **Installatie** toe op die pagina. Een nieuwe workspace start zonder kanalen; voeg e-mail of websitechat toe via **Kanaal toevoegen** wanneer je ze nodig hebt.
 
 ## Voeg een kanaal toe
 
@@ -83,14 +83,14 @@ Setupgids, Koppelingen, Kanalen en de reply-composer gebruiken dezelfde kanaalst
 1. Bekijk de status rechts op de rij: **Actief**, **Instellen nodig**, **Verbinden**, **Verminderd**, **Actie nodig**, **Uit**, **Fout** of **Ontkoppeld**. **Verbinden** hoort alleen tijdens een installatie die nog loopt — na een geslaagde koppeling zie je **Actief**.
 2. Heeft een kanaal een mens nodig, dan toont de rij één herstelknop naast de status: **Opnieuw koppelen**, **Sync opnieuw proberen** of **Aanzetten**. Een gele melding boven de lijst telt de kanalen die nog niet klaar zijn, en de eerste daarvan gaat vanzelf open.
 3. Klik op de rij en lees **Status**. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
-4. Bij een mailbox staat **Geschiedenis** in de sectie **Mailbox** voor latere backfills na opnieuw koppelen. Hoe ver terug bij de eerste installatie kies je tijdens **Kanaal toevoegen**.
+4. Bij een mailbox staat **Geschiedenis** in de sectie **Mailbox**. De eerste import stopt bij het gekozen venster, maximaal een jaar, of 1.000 berichten per map. Nieuwe mail daarna loopt apart door.
 5. Een mailbox die 50 keer achter elkaar niet kan synchroniseren zet zichzelf uit in plaats van eindeloos opnieuw te proberen. De rij toont **Uit**, **Syncfouten** toont de reden en er komt een melding in Communicatie. Herstel de aanmelding of server en kies **Aanzetten**; een geslaagde sync zet de teller op nul.
 
 ## Zet een kanaal uit of koppel het los
 
 1. Klik op de kanaalrij en scroll naar **Beheer**.
 2. Zet onder **Ontvangen en verzenden** de schakelaar uit voor een korte pauze. Er komt en gaat niets nieuws; de inlog blijft staan zodat je het met één klik weer aanzet. Een uitgezette mailbox is ook geen primaire afzender meer.
-3. Kies **Loskoppelen** als je het kanaal niet meer gebruikt. Synchroniseren en verzenden stoppen, en Bokito vergeet de inlog. De websitechat kun je alleen loskoppelen als de workspace er nog een heeft.
+3. Kies **Loskoppelen** als je het kanaal niet meer gebruikt. Synchroniseren en verzenden stoppen, en Bokito vergeet de inlog. De websitechat kun je loskoppelen en daarna verwijderen, ook als het de enige is.
 4. De rij zakt naar onderen in de lijst en toont **Ontkoppeld**. De gesprekken blijven in Communicatie, en **Toegang** op de kanaalpagina bepaalt nog steeds wie ze ziet.
 5. Kies **Terugzetten** om het kanaal terug te zetten als **Uit**, en koppel het account opnieuw of zet ontvangen aan. Dezelfde mailbox opnieuw koppelen via **Kanaal toevoegen** wist de ontkoppeling ook.
 
@@ -106,7 +106,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 ## Zet een handtekening en standaardagent
 
 1. Klik op de rij van een mailbox of Bokito-adres. Onder **Handtekeningbron** kies je **Mailbox-handtekening** (één gedeelde template voor iedereen; placeholders zoals `{{name}}`, `{{first_name}}` en `{{last_name}}` worden per afzender ingevuld) of **Ieders eigen handtekening** (via **Profiel**). Bij mailboxbron kies je **Wijzigen** naast **Handtekening** voor de template. In de editor open je **Voorbeeld** en kies je met **Voorbeeld als** jezelf, een teamlid, een agent of voorbeeldgegevens. Placeholders komen uit dat profiel. **Met profielfoto** zet de profielfoto van de afzender naast de naam, of een cirkel met initialen als er geen foto is. De groet staat als gewone tekst in de template, zodat je die kunt aanpassen. Is de template leeg, of staat de bron op ieders eigen, dan gebruikt Bokito de persoonlijke handtekening en daarna de Bokito-standaard. Agent-sends blijven de agenthandtekening gebruiken. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
-2. Kies onder **Algemeen** een **Eigenaar-team** voor nieuwe gesprekken tot iemand ze oppakt, en een **AI-agent** voor inbound lezen en AI-afhandeling. Op een kanaal met **Autonoom** of **Geassisteerd** is de agent zelf eigenaar van nieuwe gesprekken (bij Geassisteerd alleen zolang hij het antwoord voorbereidt); het eigenaar-team is waar ze landen wanneer de agent overdraagt en er geen dichterbij staande eigenaar is. Zonder agent op het kanaal interpreteert of beantwoordt Bokito nieuwe inbound berichten niet. Je kunt nog wel handmatig een agent in een gesprek halen.
+2. Kies onder **Algemeen** een **Eigenaar-team** en een **AI-agent**. **Standaard** bij de agent is de standaardagent van het bedrijf. Het eigenaar-team krijgt het gesprek als een mens het moet overnemen. Op **Autonoom** of **Geassisteerd** is de agent zelf eigenaar van nieuwe gesprekken (bij Geassisteerd alleen zolang hij het antwoord voorbereidt). Ontbreekt een agent die het kanaal mag afhandelen, dan blijft het eigenaar-team eigenaar en komt er een regel in de tijdlijn.
 3. Kies **Toegang** om de toegangsmatrix te openen. Zet **Zien** en **Afhandelen** per team, persoon en agent aan of uit. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Teams dekken hun leden — iemand zonder eigen toekenning volgt nog steeds **Alle mensen**. Eigenaren en beheerders handelen altijd elk kanaal af.
 4. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
 

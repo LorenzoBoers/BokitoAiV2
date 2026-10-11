@@ -1,4 +1,4 @@
-"""Platform check-in: seed, toggle, and the assistant's own channel thread."""
+"""Platform check-in: seed, toggle, its own thread, and the assistant channel."""
 
 import json
 
@@ -20,6 +20,7 @@ from app.services.platform_watch import (
     set_platform_watch,
     watch_status,
 )
+from app.services.thread_schedule import SCHEDULE_SOURCE
 from app.services.triggers import _surface_result
 from app.tools.registry import get_tool_spec
 
@@ -57,14 +58,13 @@ async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_o
     assert trigger.name == checkin_trigger_name(assistant)
     assert trigger.interval_minutes == 24 * 60
 
-    channel = await session_override.get(Signal, trigger.signal_id)
-    assert channel is not None
-    # The check-in posts into the assistant channel behind /communication/agent.
-    assert channel.channel == "assistant"
-    assert channel.source == AGENT_CHANNEL_SOURCE
-    assert channel.agent_id == assistant.id
-    # Tenant-wide: no owner, so every member reads the same history.
-    assert channel.owner_user_id is None
+    thread = await session_override.get(Signal, trigger.signal_id)
+    assert thread is not None
+    # The check-in works in its own thread; the assistant chat stays a chat.
+    assert thread.channel == "internal"
+    assert thread.source == SCHEDULE_SOURCE
+    assert thread.agent_id == assistant.id
+    assert thread.owner_user_id is None
 
 
 @pytest.mark.asyncio
@@ -105,7 +105,7 @@ async def test_ensure_does_not_enable_existing_heartbeat(
 async def test_backfill_migrates_legacy_operations_thread(
     client: AsyncClient, session_override: AsyncSession
 ):
-    """An existing Platform check-in thread becomes the assistant channel."""
+    """An existing Platform check-in thread becomes the assistant channel; the rule gets its own thread."""
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
     ).scalar_one()
@@ -140,7 +140,8 @@ async def test_backfill_migrates_legacy_operations_thread(
     session_override.add(tenant)
     await session_override.commit()
 
-    await ensure_platform_watch(session_override)
+    await ensure_agent_channel(session_override, tenant.id)
+    await session_override.commit()
 
     await session_override.refresh(legacy)
     await session_override.refresh(tenant)
@@ -157,15 +158,19 @@ async def test_backfill_migrates_legacy_operations_thread(
     assert len(messages) == 1
     assert OPERATIONS_SETTINGS_KEY not in json.loads(tenant.settings_json or "{}")
 
+    await ensure_platform_watch(session_override)
     trigger = (
         await session_override.execute(
             select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.kind == "heartbeat")
         )
     ).scalar_one()
-    assert trigger.signal_id == legacy.id
+    assert trigger.signal_id is not None
+    assert trigger.signal_id != legacy.id
 
-    # Running the backfill twice creates no second channel.
+    # Running both twice creates no second channel.
     await ensure_platform_watch(session_override)
+    await ensure_agent_channel(session_override, tenant.id)
+    await session_override.commit()
     channels = (
         await session_override.execute(
             select(Signal).where(
@@ -197,7 +202,7 @@ async def test_set_platform_watch_toggles(client: AsyncClient, session_override:
 
 
 @pytest.mark.asyncio
-async def test_heartbeat_findings_land_in_agent_channel(
+async def test_heartbeat_findings_land_in_their_own_thread(
     client: AsyncClient, session_override: AsyncSession
 ):
     tenant = (
@@ -214,25 +219,16 @@ async def test_heartbeat_findings_land_in_agent_channel(
     trigger = await session_override.get(Trigger, UUID(first["trigger"]["id"]))
     assert trigger is not None
 
-    await _surface_result(session_override, trigger, agent, "Inbox is backing up")
+    await _surface_result(session_override, trigger, agent, None, "Inbox is backing up")
     await session_override.commit()
-    await _surface_result(session_override, trigger, agent, "A decision is still waiting")
+    await _surface_result(session_override, trigger, agent, None, "A decision is still waiting")
     await session_override.commit()
 
-    channel = await ensure_agent_channel(session_override, tenant.id)
-    assert str(channel.id) == first["signal_id"]
-    # Both findings share the one channel thread.
-    channels = (
-        await session_override.execute(
-            select(Signal).where(
-                Signal.tenant_id == tenant.id, Signal.source == AGENT_CHANNEL_SOURCE
-            )
-        )
-    ).scalars().all()
-    assert len(channels) == 1
+    # Both findings share the check-in's one thread.
+    assert str(trigger.signal_id) == first["signal_id"]
     messages = (
         await session_override.execute(
-            select(SignalMessage).where(SignalMessage.signal_id == channel.id)
+            select(SignalMessage).where(SignalMessage.signal_id == trigger.signal_id)
         )
     ).scalars().all()
     bodies = [m.body_text for m in messages]

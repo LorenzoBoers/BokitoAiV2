@@ -68,6 +68,9 @@ class DecisionRequest(SQLModel, table=True):
     routed_by: str = ""  # auto | fixed | rule
     # Rule that turned the action into a question (agent or workspace rule id).
     rule_id: str = ""
+    # Cards raised in the same agent turn share a bundle (turn stream id, else
+    # run id) and render as one card with approve-all / pick-some.
+    bundle_id: str = Field(default="", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     resolved_at: Optional[datetime] = None
     resolved_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)

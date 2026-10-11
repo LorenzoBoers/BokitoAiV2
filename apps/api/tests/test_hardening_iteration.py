@@ -5,7 +5,7 @@ fixes surfaced by the backend audit.
 - Malformed UUID filters narrow to empty results instead of widening them.
 - Workforce config persists across requests.
 - Body UUIDs return 400 instead of 500.
-- Defer with days snoozes the linked thread.
+- Defer with days gives the linked thread a date.
 """
 
 import uuid as uuid_lib
@@ -129,7 +129,7 @@ async def test_trigger_agent_bad_uuid_is_400(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_defer_with_days_snoozes_thread(client: AsyncClient, session_override):
+async def test_defer_with_days_dates_thread(client: AsyncClient, session_override):
     headers = await _login(client)
 
     from app.models.auth import Tenant
@@ -156,6 +156,6 @@ async def test_defer_with_days_snoozes_thread(client: AsyncClient, session_overr
     assert r.status_code == 200, r.text
 
     await session_override.refresh(signal)
-    assert signal.status == "pending"
-    assert signal.snoozed_until is not None
-    assert signal.snoozed_until > datetime.utcnow()
+    assert signal.status == "open"
+    assert signal.next_at is not None
+    assert signal.next_at > datetime.utcnow()

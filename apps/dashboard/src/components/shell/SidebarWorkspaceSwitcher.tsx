@@ -2,9 +2,11 @@ import { Check, ChevronsUpDown, LayoutGrid, Gauge } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
+import { getAvatarColor } from '../../lib/avatar'
 import { buildControlPlaneUrl } from '../../lib/host-routing'
 import { REPORTS_PATH } from '../../lib/navigation'
 import { DEFAULT_BRAND_MARK, resolveBrandIconUrl, workspaceBrandName } from '../../lib/tenant-branding'
+import type { Workspace } from '../../types/workspace'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +15,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { ChoiceOption } from '../ui/ChoiceOption'
 import { Tip } from '../ui/Tip'
+
+/** Logo / favicon when set; otherwise colored initial (same idea as the workspaces hub). */
+function WorkspaceListMark({ workspace, size = 16 }: { workspace: Workspace; size?: number }) {
+  const iconUrl = resolveBrandIconUrl({
+    logo: workspace.logo,
+    favicon: workspace.favicon,
+    widgetFaviconUrl: workspace.messengerAppearance?.widget_favicon_url,
+  })
+  if (iconUrl) {
+    return (
+      <img
+        src={iconUrl}
+        alt=""
+        className="shrink-0 rounded-full object-contain bg-bg-elevated"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  const { bg, text } = getAvatarColor(workspace.name || '?')
+  const initial = (workspace.name || '?').trim().slice(0, 1).toUpperCase() || '?'
+  return (
+    <span
+      className="inline-flex shrink-0 items-center justify-center rounded-full font-medium"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(8, Math.round(size * 0.42)),
+        background: bg,
+        color: text,
+      }}
+      aria-hidden
+    >
+      {initial}
+    </span>
+  )
+}
 
 /** Navigates to the workspaces hub, cross-host when running on a tenant subdomain. */
 export function useGoToWorkspacesHub() {
@@ -108,11 +145,10 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
               }}
               className={current ? 'text-text-heading' : undefined}
             >
-              <ChoiceOption
-                item={{ value: String(workspace.id), label: workspace.name, kind: 'icon' }}
-                size={16}
-                className="min-w-0 flex-1"
-              />
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <WorkspaceListMark workspace={workspace} size={16} />
+                <span className="min-w-0 flex-1 truncate-fade text-text-primary">{workspace.name}</span>
+              </span>
               {current ? <Check size={14} className="ml-auto shrink-0 text-text-muted" aria-hidden /> : null}
             </DropdownMenuItem>
           )

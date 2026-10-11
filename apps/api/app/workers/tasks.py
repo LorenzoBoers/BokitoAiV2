@@ -363,9 +363,22 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             await session.commit()
             return {"processed": True, "signal_id": signal_id, "delivery": delivery}
 
-        # Explicit channel agent (or thread pin) only — no lead/Front desk fallback.
+        # Thread pin, channel agent, or the workspace lead.
         agent = await resolve_inbound_agent_for_signal(session, signal)
         if not agent:
+            session.add(
+                SignalEvent(
+                    signal_id=signal.id,
+                    tenant_id=UUID(tenant_id),
+                    event_type="agent_processed",
+                    actor_type="system",
+                    actor_id="",
+                    payload_json=json.dumps(
+                        {"delivery": "skipped", "reason": "no_channel_agent"}
+                    ),
+                )
+            )
+            await session.commit()
             return {"skipped": True, "reason": "no_channel_agent"}
 
         # Match the composer: never draft/auto-send when the bound channel
@@ -428,6 +441,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             trigger_type=signal.channel,
             trigger_id=signal_id,
             subject=f"{signal.channel.title()}: {signal.subject[:80]}",
+            signal_id=signal.id,
         )
         session.add(run)
         await session.commit()
@@ -1156,6 +1170,47 @@ async def close_arq_pool() -> None:
         await _arq_pool.close()
         _arq_pool = None
     _arq_pool_unavailable = False
+
+
+async def assignment_should_wake_agent(session, signal) -> bool:
+    """An agent just became owner of an open external thread that still needs a reply.
+
+    A run already in progress for this conversation is left alone.
+    """
+    from sqlalchemy import select
+
+    from app.models.agent import AgentRun
+    from app.models.signal import EXTERNAL_CHANNELS, SignalMessage
+
+    if signal.assignee_kind != "agent" or not signal.agent_id:
+        return False
+    if signal.status != "open" or signal.channel not in EXTERNAL_CHANNELS:
+        return False
+    last = (
+        await session.execute(
+            select(SignalMessage.direction)
+            .where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.kind.in_(("user_message", "agent_message")),
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(1)
+        )
+    ).first()
+    if last is None or last.direction != "inbound":
+        return False
+    running = (
+        await session.execute(
+            select(AgentRun.id)
+            .where(
+                AgentRun.tenant_id == signal.tenant_id,
+                AgentRun.trigger_id == str(signal.id),
+                AgentRun.status == "running",
+            )
+            .limit(1)
+        )
+    ).first()
+    return running is None
 
 
 async def enqueue_signal_processing(tenant_id: str, signal_id: str):

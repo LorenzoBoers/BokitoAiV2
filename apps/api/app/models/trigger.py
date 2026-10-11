@@ -38,9 +38,14 @@ class Trigger(SQLModel, table=True):
     # Webhook triggers are fired via POST /api/hooks/{id} with this shared secret.
     webhook_secret: str = ""
 
-    # Internal Signal thread that collects this trigger's results. Reused on
-    # every fire so a recurring trigger never floods Messages with new threads.
-    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id")
+    # The thread this rule is the schedule of. Every trigger has one: the wake
+    # runs and reports there, and closing the thread lasts until the next run.
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
+    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    # Who the thread is for (its owner): a person or a team. Empty = the creator.
+    recipient_kind: str = ""
+    recipient_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    recipient_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id")
 
     # "" for operator/agent wakes; "stage_checkup" for the recurring look at a
     # ticket in a flow stage. It goes to the conversation's owner at fire time

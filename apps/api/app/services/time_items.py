@@ -15,14 +15,15 @@ plus calendar and check-up extras.
   (shown on Agenda under the Tasks layer).
 - ``checkup``: a stage follow-up trigger (``Trigger.purpose=stage_checkup``);
   Agenda folds it into Tasks — same concept as a recurring task.
-- ``task``: an ``AgentTask`` with ``scheduled_for`` (human or agent).
+- ``task``: a thread with a date (``Signal.next_at``) and no rule of its
+  own (``source="thread"``), or an agent ``AgentTask`` with ``scheduled_for``.
 - ``calendar``: an external calendar event (merged across connections).
 - ``activity``: something that happened (ticket filed or moved, owner
   changed, conversation closed, decision asked or answered). Only returned
   when asked for, so planning views stay calm.
 
-Look-ats (``Signal.follow_up_at``) are retired: create a human ``AgentTask``
-instead. The Agenda UI no longer has separate reminder/checkup/routine layers.
+Every row that belongs to a conversation carries ``signal_id``: clicking an
+agenda item opens its thread.
 """
 
 from __future__ import annotations
@@ -242,12 +243,12 @@ async def _names(session: AsyncSession, tenant_id: UUID, agents: Iterable[Agent]
 async def _session_signal_ids(
     session: AsyncSession, runs: Iterable[AgentRun], triggers: dict[str, Trigger]
 ) -> dict[UUID, str]:
-    """One resolution order: trigger thread, then task thread, then the
-    conversation an on-demand run answered."""
+    """The run's own thread; older runs fall back to trigger thread, task
+    thread, then the conversation an on-demand run answered."""
     from app.models.orchestration import AgentTask
 
     runs = list(runs)
-    task_ids = {run.task_id for run in runs if run.task_id}
+    task_ids = {run.task_id for run in runs if run.task_id and not run.signal_id}
     task_signal: dict[UUID, str] = {}
     if task_ids:
         rows = await session.execute(
@@ -257,7 +258,9 @@ async def _session_signal_ids(
     out: dict[UUID, str] = {}
     for run in runs:
         trigger = triggers.get(run.trigger_id or "")
-        if trigger is not None and trigger.signal_id:
+        if run.signal_id:
+            out[run.id] = str(run.signal_id)
+        elif trigger is not None and trigger.signal_id:
             out[run.id] = str(trigger.signal_id)
         elif run.task_id and run.task_id in task_signal:
             out[run.id] = task_signal[run.task_id]
@@ -311,14 +314,13 @@ DUE_WINDOW_DAYS = 30
 
 
 async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> int:
-    """Agenda items waiting on this person now: due human tasks and due
-    stage follow-ups on open conversations assigned to them (last 30 days)."""
+    """Agenda items waiting on this person now: their scheduled threads that
+    came back unread, and due stage follow-ups on their open conversations."""
     from datetime import timedelta
 
     from sqlalchemy import func
 
-    from app.models.orchestration import AgentTask
-    from app.models.signal import Signal
+    from app.models.signal import Signal, SignalEvent
 
     now = datetime.utcnow()
     mine = (
@@ -327,17 +329,17 @@ async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) ->
         Signal.assigned_user_id == user_id,
         Signal.status == "open",
     )
-    tasks = (
+    came_back = (
         await session.execute(
-            select(func.count()).select_from(AgentTask).where(
-                AgentTask.tenant_id == tenant_id,
-                AgentTask.assignee_kind == "human",
-                AgentTask.assignee_user_id == user_id,
-                AgentTask.deleted_at.is_(None),
-                AgentTask.status.in_(("queued", "awaiting_human")),
-                AgentTask.scheduled_for.is_not(None),
-                AgentTask.scheduled_for <= now,
-                AgentTask.scheduled_for >= now - timedelta(days=DUE_WINDOW_DAYS),
+            select(func.count(func.distinct(Signal.id)))
+            .select_from(Signal)
+            .join(SignalEvent, SignalEvent.signal_id == Signal.id)
+            .where(
+                *mine,
+                Signal.deleted_at.is_(None),
+                Signal.has_unread.is_(True),
+                SignalEvent.event_type == "due",
+                SignalEvent.created_at >= now - timedelta(days=DUE_WINDOW_DAYS),
             )
         )
     ).scalar_one()
@@ -357,7 +359,7 @@ async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) ->
             )
         )
     ).scalar_one()
-    return int(tasks or 0) + int(checkups or 0)
+    return int(came_back or 0) + int(checkups or 0)
 
 
 async def list_time_items(
@@ -585,8 +587,50 @@ async def list_time_items(
                 "connection_id",
                 "external_id",
                 "can_edit",
+                "signal_id",
             ):
                 row[key] = event.get(key)
+            items.append(row)
+
+    if "task" in wanted and agent_id is None:
+        from app.models.signal import Signal
+        from app.services.thread_schedule import thread_details
+
+        ruled = {t.signal_id for t in triggers if t.signal_id and not t.purpose}
+        thread_stmt = select(Signal).where(
+            Signal.tenant_id == tenant_id,
+            Signal.deleted_at.is_(None),
+            Signal.next_at.is_not(None),
+            Signal.next_at >= start,
+            Signal.next_at <= end,
+            Signal.status.notin_(("spam", "archived")),
+        )
+        if project_id:
+            thread_stmt = thread_stmt.where(Signal.project_id == project_id)
+        for signal in (await session.execute(thread_stmt)).scalars().all():
+            details = thread_details(signal)
+            # A meeting opened as a conversation shows once: as the calendar row.
+            if signal.id in ruled or details.get("calendar_event_id"):
+                continue
+            at = signal.next_at
+            assert at is not None
+            owner = names.owner(signal)
+            row = _row(
+                id=f"thread:{signal.id}",
+                kind="task",
+                start=at,
+                end=signal.ends_at,
+                title=signal.subject or "Agenda",
+                status="due" if at <= now else "planned",
+                actor_kind="agent" if owner[0] == "agent" else "person",
+                actor_name=owner[2],
+                owner=owner,
+                project_id=signal.project_id,
+                signal_id=str(signal.id),
+                instructions=str(details.get("note") or ""),
+                source="thread",
+            )
+            row["location"] = details.get("location")
             items.append(row)
 
     if "task" in wanted:
@@ -595,6 +639,7 @@ async def list_time_items(
         task_stmt = select(AgentTask).where(
             AgentTask.tenant_id == tenant_id,
             AgentTask.deleted_at.is_(None),
+            AgentTask.assignee_kind != "human",
             AgentTask.scheduled_for.is_not(None),
             AgentTask.scheduled_for >= start,
             AgentTask.scheduled_for <= end,

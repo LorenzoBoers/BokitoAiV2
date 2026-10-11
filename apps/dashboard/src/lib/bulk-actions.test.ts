@@ -27,8 +27,8 @@ describe('bulkActionsVisibility', () => {
     }
   })
 
-  it('keeps Close and Reopen in Snoozed', () => {
-    const v = bulkActionsVisibility('snoozed')
+  it('keeps Close and Reopen in Scheduled', () => {
+    const v = bulkActionsVisibility('scheduled')
     expect(v.showClose).toBe(true)
     expect(v.showReopen).toBe(true)
     expect(v.primary).toBe('close')

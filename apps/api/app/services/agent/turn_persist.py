@@ -20,6 +20,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage, is_internal_channel
 from app.services.agent.reply_mode import CHAT, MAX_CHAT_MESSAGES, split_chat_messages
 
@@ -304,8 +305,18 @@ async def place_turn_decisions(
         ):
             card.received_at = created
     if is_internal_channel(signal.channel or ""):
-        _attach_proposal(turn_messages[-1], [c for c in cards if c.decision_id and str(c.decision_id) in anchors])
-    _attach_showcase_items(signal.id, turn_messages[-1])
+        turn_cards = [c for c in cards if c.decision_id and str(c.decision_id) in anchors]
+        decisions: dict[str, DecisionRequest] = {}
+        if turn_cards:
+            rows = (
+                await session.execute(
+                    select(DecisionRequest).where(
+                        DecisionRequest.id.in_([c.decision_id for c in turn_cards])
+                    )
+                )
+            ).scalars().all()
+            decisions = {str(d.id): d for d in rows}
+        _attach_proposal(turn_messages[-1], turn_cards, decisions)
 
 
 def _json_meta(row: SignalMessage) -> dict[str, Any]:
@@ -335,16 +346,46 @@ def _merge_items(*groups: list[Any] | None) -> list[dict[str, Any]]:
     return out
 
 
-def _attach_showcase_items(signal_id: Any, last_bubble: SignalMessage) -> None:
+def _items_from_attach_activity(messages: list[SignalMessage]) -> list[dict[str, Any]]:
+    """Rebuild showcase rows from attach_items activity when the in-memory stash is empty."""
+    out: list[dict[str, Any]] = []
+    for msg in messages:
+        meta = _json_meta(msg)
+        for key in ("activity", "activity_after"):
+            for entry in meta.get(key) or []:
+                if not isinstance(entry, dict) or entry.get("tool") != "attach_items":
+                    continue
+                result = entry.get("result")
+                if isinstance(result, str):
+                    try:
+                        result = json.loads(result)
+                    except json.JSONDecodeError:
+                        continue
+                if not isinstance(result, dict):
+                    continue
+                for row in result.get("items") or []:
+                    if isinstance(row, dict) and row.get("type"):
+                        out.append(row)
+    return out
+
+
+def _attach_showcase_items(
+    signal_id: Any,
+    last_bubble: SignalMessage,
+    *,
+    extra_items: list[dict[str, Any]] | None = None,
+    turn_messages: list[SignalMessage] | None = None,
+) -> None:
     """Write pending attach_items (and proposal items) onto the last bubble."""
     from app.services.proposal_items import take_attach_items
 
     bubble_meta = _json_meta(last_bubble)
     proposal = bubble_meta.get("proposal") if isinstance(bubble_meta.get("proposal"), dict) else {}
     pending = take_attach_items(signal_id)
+    from_activity = _items_from_attach_activity(turn_messages or [last_bubble])
     proposal_items = proposal.get("items") if isinstance(proposal.get("items"), list) else []
     existing = bubble_meta.get("items") if isinstance(bubble_meta.get("items"), list) else []
-    items = _merge_items(existing, pending, proposal_items)
+    items = _merge_items(existing, pending, extra_items, from_activity, proposal_items)
     if not items:
         return
     bubble_meta["items"] = items
@@ -376,17 +417,57 @@ def strip_choice_echo(text: str) -> str:
     return cleaned
 
 
-def _attach_proposal(last_bubble: SignalMessage, turn_cards: list[SignalMessage]) -> None:
-    """The newest card raised in this turn becomes the proposal on the turn's
-    last bubble: its buttons render under that message instead of as a
-    separate card. Customer-facing threads keep the card, since the bubble
-    there is addressed to the customer, not to the operator."""
+def _is_action_decision(decision: DecisionRequest | None) -> bool:
+    """A card whose approve runs a platform tool or applies a platform change."""
+    if decision is None:
+        return False
+    try:
+        options = json.loads(decision.options_json or "[]")
+    except json.JSONDecodeError:
+        return False
+    from app.tools.builtin import executable_option_actions
+
+    actions = executable_option_actions(options if isinstance(options, list) else [])
+    return any(a not in ("text",) for a in actions) or decision.platform_change_id is not None
+
+
+def _attach_proposal(
+    last_bubble: SignalMessage,
+    turn_cards: list[SignalMessage],
+    decisions: dict[str, DecisionRequest] | None = None,
+) -> None:
+    """The cards raised in this turn become the proposal on the turn's last
+    bubble: their buttons render under that message instead of as separate
+    cards. Every card whose approve runs a tool joins ``proposal.bundle`` so
+    the operator can approve all or pick some; the newest card stays the
+    primary ``decision_id`` for soft questions. Customer-facing threads keep
+    the card, since the bubble there is addressed to the customer, not to the
+    operator."""
     if not turn_cards:
         return
-    card = max(turn_cards, key=lambda c: c.created_at or datetime.min)
+    decisions = decisions or {}
+    ordered = sorted(turn_cards, key=lambda c: c.created_at or datetime.min)
+    card = ordered[-1]
     card_meta = _json_meta(card)
     bubble_meta = _json_meta(last_bubble)
     proposal: dict[str, Any] = {"decision_id": str(card.decision_id)}
+    bundle = [
+        {"decision_id": str(c.decision_id), "card_message_id": str(c.id)}
+        for c in ordered
+        if _is_action_decision(decisions.get(str(c.decision_id)))
+    ]
+    if bundle:
+        proposal["bundle"] = bundle
+        bundle_ids = {d.bundle_id for d in decisions.values() if d.bundle_id}
+        if len(bundle_ids) == 1:
+            proposal["bundle_id"] = next(iter(bundle_ids))
+    bundled_ids = {row["decision_id"] for row in bundle}
+    for other in ordered[:-1]:
+        if str(other.decision_id) not in bundled_ids:
+            continue
+        other_meta = _json_meta(other)
+        other_meta["attached_to_message_id"] = str(last_bubble.id)
+        other.metadata_json = json.dumps(other_meta, default=str)
     if card_meta.get("proposal_items"):
         proposal["items"] = card_meta["proposal_items"]
     if card_meta.get("question"):
@@ -426,12 +507,14 @@ async def persist_agent_turn(
     turn_id: str | None = None,
     fallback_text: str = "Done.",
     append_to_last: str = "",
+    showcase_items: list[dict[str, Any]] | None = None,
 ) -> list[SignalMessage]:
     """Append the turn's bubbles to the thread. ``first_metadata`` (AI
     disclosure) lands on the first message, ``final_metadata`` (usage,
     thinking) on the last; ``append_to_last`` extends the last bubble's text.
     Caller commits."""
     from app.services.assistant_threads import append_signal_chat_message
+    from app.services.agent.mention_repair import repair_mentions
     from app.services.agent.style import strip_emoji
 
     planned = plan_turn_messages(segments, reply_mode, fallback_text=fallback_text)
@@ -456,6 +539,7 @@ async def persist_agent_turn(
             meta.update(final_metadata)
         # AI speech only — never strip operator/customer content here.
         speech = strip_emoji(bubble["text"] or "") or (bubble["text"] or "")
+        speech = await repair_mentions(session, signal.tenant_id, speech)
         msg = await append_signal_chat_message(
             session,
             signal,
@@ -470,5 +554,13 @@ async def persist_agent_turn(
                 msg.received_at = prev_t + timedelta(milliseconds=20)
         messages.append(msg)
     await place_turn_decisions(session, signal, messages)
+    # Attach after place_turn_decisions so decision cards can also contribute items.
+    if messages:
+        _attach_showcase_items(
+            signal.id,
+            messages[-1],
+            extra_items=showcase_items,
+            turn_messages=messages,
+        )
     await touch_agent_activity(session, author_agent_id)
     return messages

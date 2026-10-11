@@ -20,7 +20,7 @@ Owners en admins beheren bewaartermijnen, dataregio en verzoeken van betrokkenen
 ## Bewaartermijn en AI-tekstgebruik instellen
 
 1. Open **Bewaartermijn en AI**. Stel **Bewaartermijn workspace (dagen)** in (standaard 365). Eén termijn geldt voor berichten, agenda-items en auditgegevens in deze workspace.
-2. Oudere gegevens die onder het beleid vallen worden door de bewaartaak gepurged; de thread-schil kan blijven.
+2. De bewaartaak wist oudere berichten, agenda-items en auditrijen. Platformwijzigingen en beslissingen blijven. De gespreksschil kan blijven.
 3. Zet **AI mag berichtteksten gebruiken** aan of uit. Uit = AI-afhandeling toont Handmatig op elk gesprek en er worden geen concepten geschreven; metadata-only stromen kunnen doorgaan.
 4. Verlaat het veld om op te slaan. Wijzigingen gelden alleen voor deze workspace.
 

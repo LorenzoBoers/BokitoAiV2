@@ -17,7 +17,7 @@ type Props = {
   /** External threads: edits under "This conversation" (priority, look again). */
   saving?: boolean
   onPatch?: (input: PatchThreadInput) => Promise<void>
-  onWhatsNext?: () => void
+  onPlan?: () => void
   /** Other conversations with this person (from the thread payload). */
   relatedConversations?: RelatedConversation[]
 }
@@ -28,7 +28,7 @@ export default function AgentThreadPanel({
   onThreadUpdated,
   saving,
   onPatch,
-  onWhatsNext,
+  onPlan,
   relatedConversations,
 }: Props) {
   const { t } = useTranslation(['nav', 'communication'])
@@ -157,7 +157,7 @@ export default function AgentThreadPanel({
                 thread={thread}
                 saving={saving}
                 onPatch={onPatch}
-                onWhatsNext={onWhatsNext}
+                onPlan={onPlan}
               />
             </ContactPanel>
           </>

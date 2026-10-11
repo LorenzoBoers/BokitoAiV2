@@ -35,14 +35,17 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Flow met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Flows](/docs/ai/workstreams).
 4. Op een contactpagina toont elk gesprek zijn actietag, fase en volgende geplande taak.
 
-## Plan een taak
+## Plan een agenda-item of terugkerende taak
 
-1. Kies **Nieuw** en daarna een eenmalige agenttaak, een herinnering (gaat af op een datum of bij een platformgebeurtenis), een terugkerende agentscan, of een **Agendablok** in een gekoppelde agenda.
-2. Vul de naam, wie (persoon of agent), wanneer, en de instructies in. Voor een agendablok kies je de **Agenda** (standaard de standaardagenda van het account), titel, start en eind. Zet **Hele dag** aan om hem in de bovenste rij onder de datumheaders te zetten. Kies **Opslaan** of **Aanmaken**.
-3. **Taken** en **Activiteit** onder **Tonen**, en elke gekoppelde agenda die je aanzet, staan in het rooster op hun eigen tijd; alleen items voor de hele dag staan in de bovenste rij. Beheer terugkerende agentscans links onder **Taken beheren**.
-4. Vanuit een gesprek gebruik je **Wat nu** om een taak voor jezelf te plannen. Snelkoppelingen: **Agenttaak plannen** in het opdrachtenpalet (Ctrl+K), of **Plannen op Agenda** op de pagina van een agent.
+Elk agenda-item is een gesprek met een datum. Met een herhaling wordt het een terugkerende taak: de agent schrijft elke keer in dat ene gesprek, zodat de geschiedenis bij elkaar blijft.
 
-Agents plannen ook werk: vraag er een in een gesprek om "dit vrijdag opnieuw te bekijken". Afhankelijk van je [autonomiehouding](/docs/govern/autonomy) wordt het plan direct aangemaakt of komt het eerst als beslissing in Communicatie.
+1. Kies **Nieuw** en daarna **Agenda-item**, **Terugkerende taak**, **Webhook** of **Agendablok**.
+2. Vul voor een agenda-item of terugkerende taak **Titel**, **Wanneer** (**Eén moment** of **Herhalen**, bijvoorbeeld **Elke werkdag** om 09:00), **Voor wie** (jij, een collega of een team) en eventueel een **Agent** met een **Opdracht voor de agent** in. Zonder agent komt het gesprek ongelezen terug bij wie je koos. Kies **Opslaan**.
+3. Een agenda-item kiezen opent het gesprek in Communicatie, waar je de datum wijzigt, de herhaling pauzeert of **Nu uitvoeren** kiest. Agenda-afspraken hebben **Open als gesprek** om ze met collega's of een agent te bespreken.
+4. Voor een agendablok kies je de **Agenda**, titel, start en eind. Zet **Hele dag** aan om hem in de bovenste rij onder de datumheaders te zetten.
+5. **Taken** en **Activiteit** onder **Tonen**, en elke gekoppelde agenda die je aanzet, staan in het rooster op hun eigen tijd. Beheer terugkerende taken links onder **Taken beheren**.
+
+Vanuit een gesprek plan je op dezelfde manier: kies **Plannen** in het gespreksmenu. Zie [Communicatie](/docs/inbox/communication). Agents plannen ook werk: vraag er een in een gesprek om "dit vrijdag opnieuw te bekijken" of "stuur me elke maandag een overzicht van open offertes". Afhankelijk van je [autonomiehouding](/docs/govern/autonomy) wordt het plan direct aangemaakt of komt het eerst als beslissing in Communicatie.
 
 ## Toon je Google- of Outlook-agenda's
 

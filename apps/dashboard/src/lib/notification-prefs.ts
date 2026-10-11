@@ -114,7 +114,9 @@ export function normalizeNotificationPrefs(raw: unknown): NotificationPrefs {
     if (row.id === 'new-message' && storedVersion < 2) {
       return { id: row.id, channels: { ...defaults.rows.find((r) => r.id === 'new-message')!.channels } }
     }
-    return { id: row.id, channels: switches(stored?.channels, row.channels) }
+    const channels = switches(stored?.channels, row.channels)
+    if (row.id.startsWith('ops-')) channels.inapp = true
+    return { id: row.id, channels }
   })
   return {
     version: NOTIFICATION_PREFS_VERSION,
@@ -177,6 +179,7 @@ export function setCategoryCells(
       if (!wanted.has(row.id)) return row
       const next = { ...row.channels }
       for (const channel of channels) {
+        if (channel === 'inapp' && row.id.startsWith('ops-')) continue
         if (allowedFor(row.id, channel)) next[channel] = value
       }
       return { ...row, channels: next }

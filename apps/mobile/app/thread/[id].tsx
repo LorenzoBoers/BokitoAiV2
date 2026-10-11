@@ -343,14 +343,10 @@ export default function ThreadScreen() {
             },
           },
           {
-            label: thread.snoozed_until ? t('thread.unsnooze') : t('thread.snooze'),
+            label: thread.next_at ? t('thread.clearDate') : t('thread.planTomorrow'),
             onPress: () => {
               closeMenu()
-              runAction(
-                mutations.patch.mutateAsync({
-                  snoozed_until: thread.snoozed_until ? null : tomorrowMorningIso(),
-                }),
-              )
+              runAction(mutations.setDate.mutateAsync(thread.next_at ? null : tomorrowMorningIso()))
             },
           },
           {

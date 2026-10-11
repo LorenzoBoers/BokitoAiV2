@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Bot,
+  CalendarClock,
   Check,
   ChevronDown,
   Hash,
@@ -23,7 +24,8 @@ import {
 } from '../lib/signals-api'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { lastInboxPath } from '../lib/inbox-prefs'
-import { agentChatPath, channelPath } from '../lib/messages-paths'
+import { agentChatPath, channelPath, inboxPath } from '../lib/messages-paths'
+import PlanDialog from '../components/inbox/PlanDialog'
 import { ComposerCard } from '../components/ui/ComposerCard'
 import { canComposeToAddress } from '../lib/compose-intent'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
@@ -88,6 +90,7 @@ export default function NewConversationPage() {
     [activeConnections],
   )
   const canSendEmail = sendableMailboxes.length > 0
+  const [planOpen, setPlanOpen] = useState(false)
 
   const intent = parseIntent(searchParams.get('intent'))
   const agentParam = searchParams.get('agent')?.trim() || ''
@@ -606,6 +609,12 @@ export default function NewConversationPage() {
                   hint={t('newConversation.intentAgentHint')}
                   onClick={() => setIntent('agent')}
                 />
+                <IntentCard
+                  icon={<CalendarClock size={22} />}
+                  title={t('newConversation.intentPlan')}
+                  hint={t('newConversation.intentPlanHint')}
+                  onClick={() => setPlanOpen(true)}
+                />
               </div>
               {!canSendEmail ? (
                 <p className="text-xs text-text-muted">
@@ -923,6 +932,13 @@ export default function NewConversationPage() {
           ) : null}
         </div>
       </div>
+      <PlanDialog
+        open={planOpen}
+        onOpenChange={setPlanOpen}
+        onSaved={(created) => {
+          if (created) navigate(inboxPath('scheduled', String(created.id)))
+        }}
+      />
     </div>
   )
 }

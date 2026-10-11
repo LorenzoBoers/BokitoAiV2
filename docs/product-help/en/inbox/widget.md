@@ -9,7 +9,7 @@ related: channels,communication,widget-embed,categories,assistant
 
 # Install the website widget
 
-The widget is a small script on your site. Visitors chat with your assistant. Those threads appear in Communication. Add **Website chat** under **Settings → Channels → Add channel** first; a new workspace does not create it automatically. Open that row for look, hours and the embed snippet. Add another **Website chat** when a second site needs its own embed.
+The widget is a small script on your site. Visitors chat with your assistant. Those threads appear in Communication. Add **Website chat** under **Settings → Channels → Add channel** first; a new workspace does not create it automatically. Open that row for look, voice and availability, and the embed snippet. Add another **Website chat** when a second site needs its own embed.
 
 ## Copy the embed snippet
 
@@ -33,7 +33,7 @@ The chat itself uses the same bubble design as [Communication](/docs/inbox/commu
 
 ## Set Voice, live handoff and the pre-chat form
 
-1. Open **Voice & hours**. Under **Voice**, fill **Tone**, **Do** and **Do not** — they save automatically. The model itself is set on the agent page.
+1. Open **Voice and availability**. Under **Voice**, fill **Tone**, **Do** and **Do not** — they save automatically. The model itself is set on the agent page.
 2. Under **Availability**, **Live handoff** shows **Someone is available** or **Nobody available**. There are no fixed hours: a visitor can ask for a person when someone with Handle access on the widget is available (see [Team](/docs/getting-started/team) for **Away**). Otherwise the agent says so and offers an email follow-up, a callback, or continuing on WhatsApp.
 3. **Pre-chat form** is on for a new widget. It asks once for an email before the first message; the name is optional. **Start chatting** needs a valid email. **Skip** continues without one and does not ask again in that browser. A given email becomes a [contact](/docs/inbox/contacts). Turn the form off here when you do not want it.
 4. In the chat composer, visitors can dictate with the microphone when the browser supports speech recognition (same pattern on the website widget and the in-app assistant): hold to talk or click to start; while listening the button shows a green glow and animated wave bars, with a check on hover to confirm. Commit/dedupe rules and wave geometry are shared via `@bokito/shared` with the Messages composer.
@@ -46,7 +46,7 @@ The website widget follows the visitor's system light or dark setting. There is 
 When nobody is available, the agent can move the chat to WhatsApp so the visitor does not wait on the website.
 
 1. Connect a WhatsApp channel first (see [Channels](/docs/inbox/channels)).
-2. Open **Voice & hours**. Under **Availability**, switch on **Continue on WhatsApp** and choose the **WhatsApp channel**. Fill **WhatsApp number** only when the page asks for it; after the first WhatsApp message the channel knows its own number. Choose **Save availability**.
+2. Open **Voice and availability**. Under **Availability**, switch on **Continue on WhatsApp** and choose the **WhatsApp channel**. Fill **WhatsApp number** only when the page asks for it; after the first WhatsApp message the channel knows its own number. Choose **Save availability**.
 3. When a visitor asks for a person and nobody is available, the agent offers a WhatsApp link with the message already filled in. The visitor only presses send.
 4. That message starts a WhatsApp conversation linked to the same contact and owner. It opens with a short summary, waits for a person, and the website chat closes with **Continued on WhatsApp**.
 

@@ -274,6 +274,52 @@ async def update_event(
     return {"event": updated}
 
 
+@router.post("/events/{event_id}/thread")
+async def open_event_thread(
+    event_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Open the meeting as a conversation: a thread dated at the meeting.
+
+    The second call returns the same thread. Prepare, take notes or hand the
+    meeting to an agent from there.
+    """
+    from app.models.calendar import CalendarEvent
+    from app.models.signal import Signal
+    from app.services.thread_schedule import apply_thread_schedule
+
+    await _event_access(session, auth, event_id)
+    row = await session.get(CalendarEvent, event_id)
+    if row is None or row.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Calendar event not found")
+    if row.signal_id:
+        existing = await session.get(Signal, row.signal_id)
+        if existing is not None and existing.deleted_at is None:
+            return {"signal_id": str(existing.id)}
+    signal, _ = await apply_thread_schedule(
+        session,
+        auth.tenant.id,
+        title=row.title or "Meeting",
+        at=row.start_at,
+        ends_at=row.end_at,
+        recipient=("user", auth.user.id),
+        details={
+            "note": row.description[:2000],
+            "location": row.location,
+            "html_link": row.html_link,
+            "all_day": row.all_day,
+            "calendar_event_id": str(row.id),
+        },
+        created_by_user_id=auth.user.id,
+        actor_id=str(auth.user.id),
+    )
+    row.signal_id = signal.id
+    session.add(row)
+    await session.commit()
+    return {"signal_id": str(signal.id)}
+
+
 @router.delete("/events/{event_id}")
 async def delete_event(
     event_id: UUID,

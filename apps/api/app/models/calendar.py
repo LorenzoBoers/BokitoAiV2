@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -30,6 +31,8 @@ class CalendarEvent(SQLModel, table=True):
     html_link: str = ""
     attendees_json: str = Field(default="[]")
     metadata_json: str = Field(default="{}")
+    # Set once someone opens the meeting as a conversation.
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     synced_at: datetime = Field(default_factory=datetime.utcnow)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

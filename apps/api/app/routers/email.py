@@ -541,13 +541,23 @@ async def list_connection_folders(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from app.services.email_sync import account_sync_folders
+    from app.services.email_sync import account_sync_folders, merge_discovered_folders
 
     account = await _require_account(session, auth.tenant.id, connection_id)
     settings = _load_settings(account)
+    discovered: list[dict] = []
+    if account.provider == "smtp_imap":
+        from app.services.smtp_imap import list_imap_folders
+
+        try:
+            discovered = await list_imap_folders(account)
+        except Exception:
+            discovered = []
     last_sync_at = settings.get("last_sync_at")
     folders = []
-    for folder in account_sync_folders(settings, provider=account.provider):
+    for folder in merge_discovered_folders(
+        account_sync_folders(settings, provider=account.provider), discovered
+    ):
         selected = bool(folder.get("is_selected"))
         folders.append(
             {

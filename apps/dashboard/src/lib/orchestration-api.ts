@@ -21,6 +21,12 @@ export type Trigger = {
   agent_id: string | null
   agent_role: string
   workstream_id: string | null
+  /** The thread this rule repeats (every rule has one). */
+  signal_id?: string | null
+  recipient_kind?: 'user' | 'team' | null
+  recipient_id?: string | null
+  /** System purpose (e.g. `platform_watch`), null for operator rules. */
+  purpose?: string | null
   instructions: string
   has_webhook_secret: boolean
   enabled: boolean

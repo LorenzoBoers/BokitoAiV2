@@ -1,4 +1,4 @@
-import { ChevronDown, ListPlus, Sparkles } from 'lucide-react'
+import { ChevronDown, Sparkles } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -6,7 +6,6 @@ import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
 import { isInternalThread } from '../../lib/message-composer'
 import { queueThreadTriage } from '../../lib/signals-api'
-import { formatWakeTime } from '../../lib/snooze'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +14,7 @@ import {
 } from '../ui/dropdown-menu'
 import { SettingRow } from '../ui/entity-row'
 import { controlChipClass } from '../ui/select'
+import { ScheduleSection } from './ScheduleSection'
 import { ThreadCategory } from './ThreadCategory'
 import { ThreadTags } from './ThreadTags'
 
@@ -22,8 +22,8 @@ type Props = {
   thread: InboxThread
   saving?: boolean
   onPatch?: (input: PatchThreadInput) => Promise<void>
-  /** Opens the "look again" planner; absent on closed/spam threads. */
-  onWhatsNext?: () => void
+  /** Opens the planner (date or repeat for this thread). */
+  onPlan?: () => void
 }
 
 export const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = {
@@ -40,16 +40,15 @@ const VALUE_BUTTON = controlChipClass
 
 /**
  * Everything noted on this one conversation: AI summary, priority,
- * look-again / re-read, category (or ticket) and tags.
+ * date or repeat, re-read, category (or ticket) and tags.
  */
-export function ConversationWorkSection({ thread, saving = false, onPatch, onWhatsNext }: Props) {
-  const { t, i18n } = useTranslation('communication')
+export function ConversationWorkSection({ thread, saving = false, onPatch, onPlan }: Props) {
+  const { t } = useTranslation('communication')
   const { token } = useAuth()
   const [ticketBump, setTicketBump] = useState(0)
   const [rereading, setRereading] = useState(false)
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
-  const followUpWake = thread.followUpAt ? formatWakeTime(thread.followUpAt, t, i18n.language) : null
   const internal = isInternalThread(thread)
 
   async function handleReread() {
@@ -137,28 +136,10 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onWha
                 </span>
               )}
             </Row>
-
-            <Row label={t('sidePanel.lookAgain', { defaultValue: 'Look again' })}>
-              {thread.followUpAt ? (
-                <button
-                  type="button"
-                  onClick={onWhatsNext}
-                  disabled={!onWhatsNext}
-                  title={thread.followUpTitle || undefined}
-                  className={VALUE_BUTTON}
-                >
-                  <ListPlus size={11} className="shrink-0 text-text-muted" />
-                  <span className="truncate-fade">{followUpWake ?? thread.followUpTitle}</span>
-                </button>
-              ) : onWhatsNext ? (
-                <button type="button" onClick={onWhatsNext} className={`${VALUE_BUTTON} text-text-secondary`}>
-                  <ListPlus size={11} />
-                  <span className="truncate">{t('sidePanel.plan', { defaultValue: 'Plan' })}</span>
-                </button>
-              ) : null}
-            </Row>
           </>
         )}
+
+        <ScheduleSection thread={thread} onPlan={onPlan} />
 
         <Row label={t('tags.title')}>
           <ThreadTags

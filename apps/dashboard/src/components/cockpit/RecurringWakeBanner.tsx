@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { listTriggers, type Trigger } from '../../lib/orchestration-api'
+import { inboxPath } from '../../lib/messages-paths'
+import { DEFAULT_REPEAT } from '../../lib/thread-schedule'
+import PlanDialog, { type PlanSeed } from '../inbox/PlanDialog'
 import { Button } from '../ui/button'
 
 function dismissKey(workspaceId: string | number | null): string {
@@ -26,8 +30,8 @@ function writeDismissed(workspaceId: string | number | null): void {
   }
 }
 
-function hasRecurringWake(triggers: Trigger[]): boolean {
-  return triggers.some((row) => row.kind === 'interval' || row.kind === 'cron')
+function hasRecurringThread(triggers: Trigger[]): boolean {
+  return triggers.some((row) => (row.kind === 'interval' || row.kind === 'cron') && row.signal_id && !row.purpose)
 }
 
 function WatchMark() {
@@ -44,13 +48,19 @@ function WatchMark() {
   )
 }
 
-/** Promo for a recurring agent wake. Setup happens in the Agenda trigger dialog. */
+/**
+ * One-time start for new workspaces: a recurring thread in which the lead
+ * agent writes to you. Hidden once any recurring thread exists or after dismiss.
+ */
 export function RecurringWakeBanner() {
   const { t } = useTranslation('nav')
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const { currentWorkspace } = useWorkspace()
   const workspaceId = currentWorkspace?.id ?? null
   const [dismissed, setDismissed] = useState(() => readDismissed(workspaceId))
   const [hidden, setHidden] = useState(true)
+  const [planOpen, setPlanOpen] = useState(false)
 
   useEffect(() => {
     setDismissed(readDismissed(workspaceId))
@@ -64,7 +74,7 @@ export function RecurringWakeBanner() {
     let cancelled = false
     void listTriggers()
       .then((triggers) => {
-        if (!cancelled) setHidden(hasRecurringWake(triggers))
+        if (!cancelled) setHidden(hasRecurringThread(triggers))
       })
       .catch(() => {
         if (!cancelled) setHidden(true)
@@ -73,6 +83,17 @@ export function RecurringWakeBanner() {
       cancelled = true
     }
   }, [dismissed])
+
+  const seed = useMemo<PlanSeed>(
+    () => ({
+      title: t('cockpitPage.recurringWake.taskName'),
+      repeat: DEFAULT_REPEAT,
+      agentId: 'lead',
+      instructions: t('cockpitPage.recurringWake.promptDefault'),
+      recipient: user?.uuid ? { kind: 'user', id: user.uuid } : null,
+    }),
+    [t, user?.uuid],
+  )
 
   if (hidden || dismissed) return null
 
@@ -98,11 +119,21 @@ export function RecurringWakeBanner() {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-text-heading">{t('cockpitPage.recurringWake.title')}</p>
           <p className="mt-1 max-w-xl text-xs leading-5 text-text-secondary">{t('cockpitPage.recurringWake.body')}</p>
-          <Button type="button" size="sm" className="mt-3" asChild>
-            <Link to="/agenda?new=interval&seed=watch">{t('cockpitPage.recurringWake.cta')}</Link>
+          <Button type="button" size="sm" className="mt-3" onClick={() => setPlanOpen(true)}>
+            {t('cockpitPage.recurringWake.cta')}
           </Button>
         </div>
       </div>
+      <PlanDialog
+        open={planOpen}
+        onOpenChange={setPlanOpen}
+        seed={seed}
+        onSaved={(created) => {
+          writeDismissed(workspaceId)
+          setDismissed(true)
+          if (created) navigate(inboxPath('scheduled', String(created.id)))
+        }}
+      />
     </div>
   )
 }

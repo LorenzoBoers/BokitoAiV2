@@ -140,24 +140,51 @@ async def resolve_channel_default_agent(
     return None
 
 
+async def _workspace_default_agent(
+    session: AsyncSession, tenant_id: UUID, account: ChannelAccount | None
+) -> Agent | None:
+    """The workspace lead, when that agent may handle this channel.
+
+    A channel with no explicit agent follows this lead. ``Standaard`` on the
+    channel page is the same agent.
+    """
+    from app.services.channel_access import agent_can_handle
+    from app.services.lead_agent import get_lead_agent
+
+    lead = await get_lead_agent(session, tenant_id)
+    if lead is None:
+        return None
+    if await agent_can_handle(session, account, lead.id):
+        return lead
+    return None
+
+
 async def resolve_inbound_agent_for_signal(
     session: AsyncSession, signal: Signal
 ) -> Agent | None:
-    """Agent for automatic inbound AI: thread pin or explicit channel default only.
+    """Agent for automatic inbound AI.
 
-    Lead / Front desk fallback is intentionally omitted so a channel without a
-    linked agent gets no interpretation and no reply. Manual "Bring in an agent"
-    still uses ``resolve_agent_for_signal`` / ``resolve_agent_for_channel``.
+    Thread pin, then the channel's own agent, then the workspace lead. Each
+    step only counts when that agent may handle the channel. A channel left on
+    Standaard therefore uses the workspace lead.
     """
     pinned = await _pinned_company_agent(session, signal)
     if pinned is not None:
         return pinned
-    return await resolve_channel_default_agent(
+    explicit = await resolve_channel_default_agent(
         session,
         signal.tenant_id,
         channel_account_id=signal.channel_account_id,
         channel=signal.channel or "",
     )
+    if explicit is not None:
+        return explicit
+    account = (
+        await session.get(ChannelAccount, signal.channel_account_id)
+        if signal.channel_account_id
+        else None
+    )
+    return await _workspace_default_agent(session, signal.tenant_id, account)
 
 
 async def resolve_agent_for_signal(session: AsyncSession, signal: Signal) -> Agent | None:

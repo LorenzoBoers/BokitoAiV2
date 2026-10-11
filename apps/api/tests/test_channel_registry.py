@@ -264,7 +264,7 @@ async def test_sync_endpoint_rejects_channels_without_sync(
 
 
 @pytest.mark.asyncio
-async def test_widget_channel_cannot_be_removed(
+async def test_last_widget_channel_can_be_removed(
     client: AsyncClient, session_override: AsyncSession
 ):
     headers = await _login(client)
@@ -273,4 +273,4 @@ async def test_widget_channel_cannot_be_removed(
 
     widget = await ensure_widget_channel(session_override, tenant.id)
     res = await client.delete(f"/api/channels/accounts/{widget.id}", headers=headers)
-    assert res.status_code == 400
+    assert res.status_code == 200, res.text

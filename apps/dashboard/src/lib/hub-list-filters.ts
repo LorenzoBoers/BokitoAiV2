@@ -19,7 +19,7 @@ const INBOX_QUEUE_TO_VIEW: Record<InboxQueue, View> = {
   for_you: 'for_you',
   open: 'all_open',
   unassigned: 'unassigned',
-  snoozed: 'snoozed',
+  scheduled: 'scheduled',
   closed: 'closed',
   spam: 'spam',
 }

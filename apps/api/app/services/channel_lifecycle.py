@@ -48,18 +48,6 @@ async def conversation_count(session: AsyncSession, account: ChannelAccount) -> 
     return int(result.scalar_one() or 0)
 
 
-async def _guard_last_widget(session: AsyncSession, account: ChannelAccount) -> None:
-    if account.channel != "widget":
-        return
-    from app.services.widget_channel import count_widget_channels
-
-    if await count_widget_channels(session, account.tenant_id) <= 1:
-        raise HTTPException(
-            status_code=400,
-            detail="The last website chat cannot be removed. You can pause it instead.",
-        )
-
-
 def _settings(account: ChannelAccount) -> dict:
     try:
         data = json.loads(account.settings_json or "{}")
@@ -74,7 +62,6 @@ async def archive_channel(
     """Stop the channel for good but keep its conversations and access list."""
     if is_archived(account):
         return account
-    await _guard_last_widget(session, account)
     from app.services.email_sync import clear_sync_pause
 
     settings = _settings(account)
@@ -147,9 +134,6 @@ async def delete_channel_permanently(
             status_code=409,
             detail="Archive the channel before deleting it with its conversations.",
         )
-    if not is_archived(account):
-        await _guard_last_widget(session, account)
-
     signal_ids = list(
         (
             await session.execute(

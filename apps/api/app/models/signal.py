@@ -85,13 +85,15 @@ class Signal(SQLModel, table=True):
     contact_basis: str = ""
 
     status: str = Field(default="open", index=True)
-    # Snooze: while status is "pending" a wake time may be set; the scheduler
-    # reopens the thread (status -> open, unread) once it passes.
-    snoozed_until: Optional[datetime] = Field(default=None, index=True)
-    # Free next look-at on this conversation (stays open). Not an AgentTask and
-    # not snooze: typed work is a ticket; this is only "look again at …".
-    follow_up_at: Optional[datetime] = Field(default=None, index=True)
-    follow_up_title: str = Field(default="")
+    # A thread with a date is an agenda item: the moment it comes back (reopens,
+    # unread) or starts. A repeat rule (Trigger with this signal_id) owns the
+    # value and writes its next run here; without one the scheduler clears it
+    # once the moment passed.
+    next_at: Optional[datetime] = Field(default=None, index=True)
+    # Appointments only: when the moment ends.
+    ends_at: Optional[datetime] = Field(default=None)
+    # Appointment details: {"note", "location", "attendees", "html_link", "all_day"}.
+    schedule_json: str = Field(default="{}")
     priority: str = Field(default="normal", index=True)
     assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     # Owner: user (assigned_user_id), agent (agent_id) or team (assignee_team_id).
@@ -282,9 +284,11 @@ class SignalTag(SQLModel, table=True):
     create_mode: str = "ask_customer"
     ask_threshold: int = 6
     auto_threshold: int = 9
-    # Outbound policy on a ticket of this category: draft | ask | send.
-    send_mode: str = "draft"
-    autonomy_level: str = "assisted"  # manual | assisted | autonomous
+    # Outbound policy on a ticket of this category: send follows AI handling;
+    # draft and ask force a concept.
+    send_mode: str = "send"
+    # Empty follows the company. A mode is a ceiling under AI handling.
+    autonomy_level: str = ""
     requires_verification: bool = False
     module_slug: str = ""
     template_slug: str = ""

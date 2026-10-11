@@ -237,12 +237,11 @@ async def test_signal_badge_counts(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_agenda_due_counts_overdue_tasks_for_assignee(session_override):
+async def test_agenda_due_counts_threads_that_came_back(session_override):
     from datetime import datetime, timedelta
 
     from app.models.auth import Tenant, User
-    from app.models.orchestration import AgentTask
-    from app.services.time_items import due_for_user
+    from app.models.signal import Signal, SignalEvent
 
     tenant = Tenant(slug="agenda-due", name="Agenda Due")
     user = User(email="due@test.local", password_hash="x", display_name="Due")
@@ -251,27 +250,36 @@ async def test_agenda_due_counts_overdue_tasks_for_assignee(session_override):
     await session_override.flush()
     now = datetime.utcnow()
 
-    def task(title: str, *, user_id, when: datetime) -> AgentTask:
-        return AgentTask(
+    async def thread(subject: str, *, owner, unread: bool, due_at: datetime) -> None:
+        signal = Signal(
             tenant_id=tenant.id,
-            title=title,
-            kind="task",
-            origin="conversation",
-            status="awaiting_human",
-            assignee_kind="human",
-            assignee_user_id=user_id,
-            scheduled_for=when,
+            channel="internal",
+            source="schedule",
+            subject=subject,
+            status="open",
+            assignee_kind="user",
+            assigned_user_id=owner,
+            has_unread=unread,
+        )
+        session_override.add(signal)
+        await session_override.flush()
+        session_override.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=tenant.id,
+                event_type="due",
+                actor_type="system",
+                created_at=due_at,
+            )
         )
 
-    session_override.add_all(
-        [
-            task("overdue", user_id=user.id, when=now - timedelta(hours=2)),
-            task("later", user_id=user.id, when=now + timedelta(days=1)),
-            task("stale", user_id=user.id, when=now - timedelta(days=60)),
-            task("someone else", user_id=other.id, when=now - timedelta(hours=1)),
-        ]
-    )
+    await thread("came back", owner=user.id, unread=True, due_at=now - timedelta(hours=2))
+    await thread("already read", owner=user.id, unread=False, due_at=now - timedelta(hours=1))
+    await thread("stale", owner=user.id, unread=True, due_at=now - timedelta(days=60))
+    await thread("someone else", owner=other.id, unread=True, due_at=now - timedelta(hours=1))
     await session_override.commit()
+
+    from app.services.time_items import due_for_user
 
     assert await due_for_user(session_override, tenant.id, user.id) == 1
 

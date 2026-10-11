@@ -16,7 +16,9 @@ export function isCustomerChannel(channel: string | null | undefined): boolean {
 }
 
 const FENCE_RE = /^\s*```/
+const VISIBLE_RE = /[\p{L}\p{N}]/u
 
+/** Blocks without a letter or digit (a lone `---` rule, `**`) are dropped: alone they render as an empty bubble. */
 function blocks(text: string): string[] {
   const out: string[] = []
   let current: string[] = []
@@ -37,7 +39,7 @@ function blocks(text: string): string[] {
     current.push(line)
   }
   if (current.length) out.push(current.join('\n').trim())
-  return out.filter(Boolean)
+  return out.filter((block) => VISIBLE_RE.test(block))
 }
 
 /** Blank line = new message (as on WhatsApp). Lists and code stay together. */

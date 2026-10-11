@@ -51,8 +51,9 @@ async def test_schedule_wake_creates_trigger(session_override: AsyncSession):
     # One-off wake for self.
     at = (datetime.utcnow() + timedelta(hours=2)).isoformat()
     result = await _schedule_wake(ctx, {"instructions": "Check the VAT thread again", "at": at})
-    assert result["trigger"]["kind"] == "once"
-    assert result["trigger"]["agent_id"] == str(agent.id)
+    assert result["schedule"]["kind"] == "once"
+    assert result["schedule"]["agent_id"] == str(agent.id)
+    assert result["signal_id"]
 
     # Recurring cron wake for a peer.
     peer = Agent(tenant_id=tenant.id, name="Peer", kind="company")
@@ -63,8 +64,8 @@ async def test_schedule_wake_creates_trigger(session_override: AsyncSession):
         ctx,
         {"instructions": "Weekly outstanding check", "cron": "0 9 * * 1", "agent_id": str(peer.id)},
     )
-    assert result["trigger"]["kind"] == "cron"
-    assert result["trigger"]["agent_id"] == str(peer.id)
+    assert result["schedule"]["kind"] == "cron"
+    assert result["schedule"]["agent_id"] == str(peer.id)
 
     rows = (
         await session_override.execute(select(Trigger).where(Trigger.tenant_id == tenant.id))
@@ -126,7 +127,9 @@ async def test_schedule_task_dormant_until_due(session_override: AsyncSession, m
 async def test_schedule_task_for_human(session_override: AsyncSession):
     from app.models.auth import Membership, User
     from app.models.orchestration import AgentTask
+    from app.models.signal import Signal
     from app.services.orchestration import dispatcher
+    from app.services.thread_schedule import wake_due_threads
 
     tenant, agent = await _tenant_and_agent(session_override)
     user = User(email=f"human-{uuid4().hex[:8]}@test.local", password_hash="x", display_name="Human")
@@ -144,32 +147,37 @@ async def test_schedule_task_for_human(session_override: AsyncSession):
     assert result["status"] == "awaiting_human"
     assert result["assignee_kind"] == "human"
 
-    # Scheduled human task stays dormant, then flips + notifies at due time.
+    # A scheduled human task is a date on its thread: it comes back then.
     future = (datetime.utcnow() + timedelta(days=1)).isoformat()
     result = await _schedule_task(
         ctx,
         {"title": "Check bank export Friday", "assignee": "human", "scheduled_for": future},
     )
-    assert result["status"] == "queued"
+    assert result["status"] == "completed"
     task = await session_override.get(AgentTask, UUID(result["task_id"]))
     assert task.assignee_user_id == user.id
-    task.scheduled_for = datetime.utcnow() - timedelta(minutes=1)
-    session_override.add(task)
-    await session_override.commit()
+    thread = await session_override.get(Signal, task.signal_id)
+    assert thread.next_at is not None
+    assert thread.assigned_user_id == user.id
+    assert await dispatcher.process_due_scheduled_tasks(session_override, tenant.id) == 0
 
-    assert await dispatcher.process_due_scheduled_tasks(session_override, tenant.id) == 1
-    await session_override.refresh(task)
-    assert task.status == "awaiting_human"
+    thread.next_at = datetime.utcnow() - timedelta(minutes=1)
+    session_override.add(thread)
+    await session_override.commit()
+    assert await wake_due_threads(session_override) == 1
+    await session_override.refresh(thread)
+    assert thread.next_at is None
+    assert thread.has_unread is True
 
     notif = (
         await session_override.execute(
             select(Notification).where(
-                Notification.tenant_id == tenant.id, Notification.kind == "task_due"
+                Notification.tenant_id == tenant.id, Notification.user_id == user.id
             )
         )
-    ).scalar_one()
-    assert notif.title == "Check bank export Friday"
-    assert notif.user_id == user.id
+    ).scalars().first()
+    assert notif is not None
+    assert notif.title == thread.subject
 
 
 @pytest.mark.asyncio
@@ -180,8 +188,8 @@ async def test_upsert_trigger_aliases_schedule_wake(session_override: AsyncSessi
     ctx = _ctx(session_override, tenant, agent)
     at = (datetime.utcnow() + timedelta(hours=3)).isoformat()
     result = await _upsert_trigger(ctx, {"instructions": "Look at the VAT thread", "at": at})
-    assert result["trigger"]["kind"] == "once"
-    assert result["trigger"]["agent_id"] == str(agent.id)
+    assert result["schedule"]["kind"] == "once"
+    assert result["schedule"]["agent_id"] == str(agent.id)
     wake = get_tool_spec("schedule_wake")
     alias = get_tool_spec("upsert_trigger")
     assert wake is not None and alias is not None

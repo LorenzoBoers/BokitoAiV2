@@ -86,6 +86,79 @@ def _format_args(arguments: Any, *, limit: int = 8) -> list[str]:
     return lines
 
 
+# Argument names the client interpolates into ``actions.{tool}`` labels.
+_LABEL_ARGS = (
+    "name",
+    "new_name",
+    "tag",
+    "tags",
+    "subject",
+    "title",
+    "label",
+    "path",
+    "server_name",
+    "tool_name",
+    "status",
+    "mode",
+    "kind",
+    "to",
+    "email",
+    "stage",
+    "stage_key",
+)
+
+
+def _short(value: Any, limit: int = 60) -> str:
+    if isinstance(value, list):
+        text = ", ".join(str(v) for v in value[:6])
+        if len(value) > 6:
+            text += f" +{len(value) - 6}"
+    elif isinstance(value, dict):
+        text = ", ".join(f"{k}: {v}" for k, v in list(value.items())[:3])
+    else:
+        text = str(value)
+    text = text.strip()
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+# Tools whose title reads better with the hashtag they touch: "Create tag #vip".
+_HASHTAG_TOOLS = frozenset(
+    {"create_tag", "update_tag", "delete_tag", "create_category", "update_category", "delete_category"}
+)
+
+
+def _named_target(tool_name: str, payload: dict[str, Any]) -> str:
+    if tool_name not in _HASHTAG_TOOLS:
+        return ""
+    name = str(payload.get("name") or payload.get("tag") or "").strip().lstrip("#")
+    new_name = str(payload.get("new_name") or "").strip().lstrip("#")
+    if name and new_name:
+        return f"#{name} -> #{new_name}"
+    if name:
+        return f"#{name}"
+    return ""
+
+
+def describe_action(tool_name: str, tool_input: dict[str, Any] | None) -> dict[str, Any]:
+    """Structured description of a tool call for client-side labels.
+
+    ``key`` is the tool name (client renders ``actions.{key}`` in the workspace
+    language), ``args`` holds the short values that label may interpolate, and
+    ``fallback`` is the English title when the client has no label for it.
+    """
+    payload = tool_input if isinstance(tool_input, dict) else {}
+    args: dict[str, str] = {}
+    for key in _LABEL_ARGS:
+        if key in payload and payload[key] not in (None, "", [], {}):
+            args[key] = _short(payload[key])
+    if tool_name == "call_mcp_tool":
+        args.setdefault("server_name", str(payload.get("server_name") or "integration"))
+        args["tool_name"] = _humanize_token(str(payload.get("tool_name") or "tool"))
+    title, _ = format_policy_decision(tool_name, payload)
+    fallback = title[len("Approve: "):] if title.startswith("Approve: ") else title
+    return {"tool": tool_name, "key": tool_name, "args": args, "fallback": fallback}
+
+
 def format_policy_decision(tool_name: str, tool_input: dict[str, Any] | None) -> tuple[str, str]:
     """Return ``(title, summary)`` for a gated tool DecisionRequest."""
     payload = tool_input if isinstance(tool_input, dict) else {}
@@ -108,6 +181,9 @@ def format_policy_decision(tool_name: str, tool_input: dict[str, Any] | None) ->
         return title, "\n".join(lines)[:500]
 
     verb = _TOOL_VERBS.get(tool_name) or _humanize_token(tool_name)
+    named = _named_target(tool_name, payload)
+    if named:
+        verb = f"{verb} {named}"
     title = f"Approve: {verb}"
     arg_lines = _format_args(payload)
     if arg_lines:

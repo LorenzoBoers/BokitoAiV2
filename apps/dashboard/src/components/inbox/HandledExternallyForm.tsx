@@ -39,8 +39,7 @@ type FormProps = {
 
 /**
  * "Already handled outside Bokito": pick where it was settled, add an
- * optional note, choose whether to close. Shared by the Wat nu dialog and
- * the composer menu.
+ * optional note, choose whether to close. Used from the composer menu.
  */
 export function HandledExternallyForm({ threadId, onDone, onCancel, footer }: FormProps) {
   const { t, i18n } = useTranslation('communication')

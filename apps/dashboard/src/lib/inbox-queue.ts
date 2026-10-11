@@ -3,7 +3,8 @@ import { isAgentRunThread } from './message-composer'
 import type { InboxQueue } from './messages-paths'
 
 export function threadFitsInboxQueue(
-  thread: Pick<InboxThread, 'status' | 'assignedToUserId' | 'channel' | 'folder' | 'owner' | 'turn'>,
+  thread: Pick<InboxThread, 'status' | 'assignedToUserId' | 'channel' | 'folder' | 'owner' | 'turn'> &
+    Partial<Pick<InboxThread, 'nextAt' | 'schedule'>>,
   queue: InboxQueue,
   userId: number | null,
 ): boolean {
@@ -28,8 +29,8 @@ export function threadFitsInboxQueue(
       )
     case 'unassigned':
       return thread.status === 'open' && (thread.owner ? thread.owner.kind === 'team' : thread.assignedToUserId == null)
-    case 'snoozed':
-      return thread.status === 'pending'
+    case 'scheduled':
+      return (thread.nextAt != null || thread.schedule != null) && thread.status !== 'spam'
     case 'closed':
       return thread.status === 'closed'
     case 'spam':
@@ -39,13 +40,12 @@ export function threadFitsInboxQueue(
   }
 }
 
-/** Dedicated inbox queue for a parked or resolved status. */
+/** Dedicated inbox queue for a resolved status. */
 export function dedicatedInboxQueueForStatus(
   status: InboxThread['status'],
 ): InboxQueue | null {
   if (status === 'closed') return 'closed'
   if (status === 'spam') return 'spam'
-  if (status === 'pending') return 'snoozed'
   return null
 }
 

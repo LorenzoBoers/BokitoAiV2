@@ -5,8 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 export const INSTALL_SYNC_WINDOW_OPTIONS = [7, 30, 90, 365] as const
 export const DEFAULT_INSTALL_SYNC_WINDOW_DAYS = 30
 
-/** Full set for post-install advanced settings (includes unlimited). */
-export const CHANNEL_SYNC_WINDOW_OPTIONS = [7, 30, 90, 365, 0] as const
+/** History window. A year is the longest import. */
+export const CHANNEL_SYNC_WINDOW_OPTIONS = [7, 30, 90, 365] as const
 
 type Props = {
   value: number

@@ -1,8 +1,8 @@
 ---
 title: Zo werkt Communicatie
 intro: De hub voor elk gesprek — klanten en agents op één plek.
-description: Werk klantmail, chat en interne gesprekken af in Communicatie, inclusief opstellen, notities, uitstellen en sjablonen.
-keywords: inbox, communicatie, gesprekken, email, chat, opstellen, uitstellen, sjablonen, beslissingen
+description: Werk klantmail, chat en interne gesprekken af in Communicatie, inclusief opstellen, notities, plannen en sjablonen.
+keywords: inbox, communicatie, gesprekken, email, chat, opstellen, plannen, agenda-item, sjablonen, beslissingen
 sort: 10
 related: agent-runs,channels,inbox-ai,contacts,decisions,categories
 ---
@@ -28,10 +28,20 @@ Open is gesprekswerk dat nog jou nodig heeft — klantkanalen én agentchats. Ac
 2. Blijf op **Voor jou** voor jouw werk: gesprekken die van jou zijn, gesprekken waar jij of een team waar je in zit (inclusief **Alle mensen**) aan de beurt is, werk van je eigen teams, vermeldingen en open beslissingskaarten. De belbadge volgt deze lijst en opent **Voor jou** vanuit de topbalk. Rijen waar jij nu iets moet doen staan bovenaan. **Niet toegewezen** bevat gesprekken van een team die nog niemand oppakte — die kunnen tegelijk in **Voor jou** staan wanneer dat team aan zet is. Teams die in de zijbalk staan krijgen een eigen map onder **Teams** (zie [Team](/docs/getting-started/team)); **Groepschat** in die map opent het vaste interne gesprek van het team.
 3. Scan de lijst. Elke rij toont het laatste echte bericht, met **Jij:** als jij het stuurde en **AI:** als een agent het stuurde. Naast **Filters** wisselt de lijstweergave tussen **Compacte lijst** en **Ruime lijst**. Compact houdt toegewezene, ticket en hashtags op een onderste rij die alleen verschijnt als je een gesprek aanwijst, focust of selecteert; **Ruime lijst** houdt die rij zichtbaar. Openen van een gesprek landt bij de nieuwste berichten. Een nieuwe inkomende e-mail opent bij het begin van die mail, niet bij de handtekening. Gebruik het zoekveld boven de lijst, en open daarna **Filters** voor **Jij aan zet**, **Ongelezen** of **Gepind** — ze werken bovenop Voor jou, Open of een andere wachtrij. Filters plakken niet meer over mappen heen. Een badge **Wacht op beslissing** markeert rijen met een open kaart. Druk **?** voor sneltoetsen: **J**/**K** navigeren, **]**/**[** naar ongelezen, **E** sluiten, **X** selecteren, **U** ongelezen, **A** toewijzen, **P** pinnen, **R** antwoord, **/** zoeken.
 4. Onder **Kanalen** staan alleen kanalen die je hebt geconfigureerd: elke mailbox of Bokito-adres, **Websitechat** wanneer het widgetkanaal aan staat, en WhatsApp nadat je die koppelt. Zonder gekoppeld kanaal staat **Kanaal toevoegen** bovenaan die lijst. Elk kanaal is een map met dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten** — en elke map toont alleen gesprekken van dat kanaal (Websitechat mengt geen mailbox-mail). Submappen blijven verborgen tot je op het kanaal klikt — dan klapt de lijst uit en opent de standaard submap; opnieuw klikken klapt in. Er staat maar één map tegelijk open. Stel de standaard in (globaal of per rij) onder **Instellingen**, dan **Kanalen** (Tags en Communicatie). De sectie **Chat met agents** (bedrijfsagents waarmee je mag chatten) werkt hetzelfde, plus een rij **Activiteit** naar het werklog van die agent. Een gesprek kan één categorie hebben, die er een ticket van maakt, zichtbaar onder **Ticket** en als chip op de rij in de lijst; zie [Categorieën en tickets](/docs/ai/categories).
-5. Pin wat telt, kies **Toewijzen** of **Aan mij toewijzen**, of **Wat nu** om een taak te plannen op de [Agenda](/docs/ai/agenda) zonder het gesprek uit Open te verbergen. Na een antwoord biedt het pijltje naast **Versturen** **Versturen en sluiten**. **Sluiten** (of **Versturen en sluiten**) haalt het gesprek uit de map waar je zit en opent het volgende — je springt niet naar **Gesloten**. **Geladen als gelezen markeren** wist ongelezen op de gesprekken die al in de lijst staan. Om later terug te komen: markeer ongelezen of plan een taak — er is geen apart uitstel-park.
+5. Pin wat telt, kies **Toewijzen** of **Aan mij toewijzen**, of **Plannen** om het een datum op de [Agenda](/docs/ai/agenda) te geven zonder het gesprek uit Open te verbergen. Na een antwoord biedt het pijltje naast **Versturen** **Versturen en sluiten**. **Sluiten** (of **Versturen en sluiten**) haalt het gesprek uit de map waar je zit en opent het volgende — je springt niet naar **Gesloten**. **Geladen als gelezen markeren** wist ongelezen op de gesprekken die al in de lijst staan. Om later terug te komen: markeer ongelezen of plan het — het blijft in Open en staat ook onder **Gepland**.
 6. Selecteer meerdere rijen voor bulkacties die bij de map passen. In **Open**, **Voor jou** of **Niet toegewezen** krijg je **Sluiten**; in **Gesloten** **Heropenen** in plaats daarvan; in **Spam** **Geen spam**. **Gelezen**, **Vastzetten**, **Toewijzen**, **Markeer als spam** (buiten Spam), **Markeer ongelezen** en **Naar prullenbak verplaatsen** blijven in de balk of onder **Meer acties** (prullenbak vraagt twee keer). Op het filter **Vastgezet** biedt de balk **Losmaken**; op **Ongelezen** verdwijnt **Markeer ongelezen**. Shift-klik een selectievakje om het bereik vanaf de laatste selectie te nemen. Rijacties (sluiten of heropenen, toewijzen) zitten in het rijmenu en de thread-toolbar. **Spam** staat onder Alle communicatie naast Gesloten. Herstellen via **Instellingen** → **Prullenbak**. Het commandopalet springt ook naar Gesloten, Spam, Activiteit, Assistent, Jij aan zet en Beslissingen, en kan een gesprek of run openen op ID.
 
 Een gesloten gesprek heropent vanzelf wanneer de klant in dezelfde e-mailthread antwoordt, zodat een laat "bedankt, nog één ding" terug in Open landt in plaats van een nieuw gesprek te starten.
+
+## Plan een gesprek
+
+Een gesprek met een datum is een agenda-item; met een herhaling is het een terugkerende taak. Je plant het vanuit het gesprek zelf en het staat op de [Agenda](/docs/ai/agenda).
+
+1. Open het gesprek en kies **Plannen** in het gespreksmenu (of de chip **Plannen** in het zijpaneel).
+2. Kies **Eén moment** of **Herhalen** (bijvoorbeeld **Elke werkdag** om 09:00), kies **Voor wie**, en eventueel een **Agent** met een **Opdracht voor de agent**. Kies **Opslaan**.
+3. De rij in de lijst toont de datum. Op dat moment komt het gesprek ongelezen terug bij wie je koos, of schrijft de agent in ditzelfde gesprek, zodat elke run in één geschiedenis blijft.
+4. Het zijpaneel toont het volgende moment en de laatste run. Kies daar **Nu uitvoeren**, **Pauzeren**, **Herhaling stoppen** of **Datum wissen**. **Gepland** onder Alle communicatie toont elk gesprek met een datum of herhaling.
+5. Begin een nieuw gesprek via **Nieuw gesprek** met **Agenda-item**, of vraag een agent: "stuur me elke maandag een overzicht van open offertes".
 
 ## Geef een gesprek aan een persoon, agent of team
 
@@ -126,7 +136,7 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 ## Keur een AI-voorstel goed vanuit de composer
 
 1. Als de kanaalagent een antwoord voorstelt, verschijnt het concept in de composer. De tekst gloeit een paar seconden paars, zodat je ziet dat het gegenereerd is. In de tijdlijn staat die actie naast de avatar van die agent: **Antwoord voorgesteld**. Bovenaan de tijdlijn staat **Gesprek gestart door {naam}**.
-2. Pas de tekst zo nodig aan en kies **Versturen** (of het verstuurmenu voor sluiten / uitstellen). Versturen lost de beslissing op en levert het antwoord af. Een aangepast verstuurbericht blijft een voorbeeld: het volgende vergelijkbare antwoord begint bij die formulering.
+2. Pas de tekst zo nodig aan en kies **Versturen** (of het verstuurmenu om te versturen en sluiten). Versturen lost de beslissing op en levert het antwoord af. Een aangepast verstuurbericht blijft een voorbeeld: het volgende vergelijkbare antwoord begint bij die formulering.
 3. **Verwerpen** op de conceptbalk wijst het voorstel af zonder te versturen. Andere beslissingen (platform, module, agenda, afronding) blijven kaarten met de kop **Wacht op jouw OK** en gewone werkwoordknoppen — geen toolnamen in de copy.
 
 ## Een verouderd concept
@@ -146,7 +156,7 @@ Een concept beantwoordt één klantbericht. Schrijft de klant opnieuw, antwoordt
 
 Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld vanuit een andere mailbox. Leg het vast zodat het gesprek niet meer om een antwoord vraagt.
 
-1. Open het gesprek. Kies **Al afgehandeld buiten Bokito** in het pijlmenu naast **Versturen** (werkt ook met een lege composer), of open **Wat nu** in het gespreksmenu en kies **Buitenom afgehandeld**.
+1. Open het gesprek. Kies **Al afgehandeld buiten Bokito** in het pijlmenu naast **Versturen** (werkt ook met een lege composer).
 2. Kies waar het is afgehandeld: **Telefoon**, **WhatsApp**, **Andere mailbox** of **Elders**. Zet er desgewenst in één regel bij wat is afgesproken.
 3. Laat **Gesprek ook sluiten** aan om het in dezelfde stap te sluiten, of zet het uit om het in Open te laten met jou als eigenaar.
 4. Kies **Vastleggen als afgehandeld**. De tijdlijn toont **Afgehandeld via telefoon door {naam}** met je notitie, het gesprek is gelezen, open AI-voorstellen gaan opzij met reden **afgehandeld buiten Bokito**, en het gesprek verdwijnt uit **Jij aan zet**.
@@ -159,7 +169,7 @@ Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld va
 
 1. Een keuzebubbel verschijnt wanneer een agent jouw oordeel nodig heeft.
 2. Lees het voorstel. Bij meerdere concrete keuzes houdt elke knop z’n eigen label (bijvoorbeeld versturen vs annuleren vs klant vragen). Keur goed, pas aan of wijs af. **Later** / **Niet nu** houdt het gesprek in Open en markeert het ongelezen. De enkele knop **Ik doe het zelf** zet het gesprek op Handmatig en wijst het aan jou toe.
-3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Wat nu** goedkeuren (of de oude keuze Taak aanmaken) plant een taak op dit gesprek — titel en wanneer — en toont die op de [Agenda](/docs/ai/agenda). Kies in het gespreksmenu **Wat nu** om een taak te plannen of een ticket vast te leggen. Kies **Toevoegen aan project** in hetzelfde menu om het gesprek aan een project te koppelen. Zie [Beslissingen](/docs/ai/decisions).
+3. Niets klantgericht gaat de deur uit tot jij antwoordt, tenzij autonomie dat toestaat. **Plannen** goedkeuren geeft dit gesprek een datum en toont het op de [Agenda](/docs/ai/agenda). Kies in het gespreksmenu **Plannen** om zelf een datum of herhaling te zetten. Kies **Toevoegen aan project** in hetzelfde menu om het gesprek aan een project te koppelen. Zie [Beslissingen](/docs/ai/decisions).
 
 ## Koppel een bezoeker aan een contact
 
@@ -172,7 +182,7 @@ Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld va
 1. Open een klantgesprek. Het zijpaneel **Dit gesprek** toont de AI-samenvatting wanneer de kanaalagent het gesprek heeft gelezen, daarna prioriteit, opnieuw kijken, tags en het ticket. Kies **Tags toevoegen** voor vrije tags en actietags (actietags starten een ticketflow); zie [Actietags en tickets](/docs/ai/categories). Op een gesloten gesprek biedt het ⋯-menu **Gebruik als voorbeeld**, zodat het volgende vergelijkbare antwoord daarvan kan leren.
 2. Typ met een zachte `#`. Kies een vrije tag of een actietag (label **Actietag**). Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**. Als de flow projecten heeft, kies er een of **Geen project**.
 3. De actietag-chip is vergrendeld op het gesprek. Wijzig die door te vervangen in de picker, of **Splits** als een tweede verzoek een eigen ticket nodig heeft. Vrije tags tonen een gedempte `#` en een **x** om te verwijderen.
-4. Beheer de lijst onder **Instellingen** → **# Tags**: hernoem een tag, voeg een omschrijving toe die agents lezen, zet een vrije tag vast in Communicatie, kies **Flow aanmaken** / **Flow openen**, of verwijder hem van alle gesprekken.
+4. Beheer de lijst onder **Instellingen** → **# Tags**: hernoem een tag, voeg een omschrijving toe die agents lezen, zet een vrije tag vast in Communicatie, kies **Flow aanmaken** / **Flow openen**, of verwijder hem van alle gesprekken. Je kunt het ook een agent in de chat vragen (*voeg de tags #vip en #partner toe*): die stelt **Hashtag #vip aanmaken** en de rest voor als rijen op één kaart die je in het gesprek goedkeurt; zie [Beslissingen](/docs/ai/decisions). Actietags stellen agents op dezelfde manier voor, via Govern.
 5. Om automatisch te taggen voeg je onder **Instellingen** → **Kanalen** een automatiseringsregel toe met de actie **Tags toevoegen**. De regel tagt passende gesprekken en de normale afhandeling gaat door; de tijdlijn toont een regel zoals **Getagd met factuur door regel**.
 6. Duikt er een tweede verzoek op in hetzelfde gesprek, kies dan **Hier splitsen** op het bericht waar het begint, zodat elk gesprek één ticket houdt.
 

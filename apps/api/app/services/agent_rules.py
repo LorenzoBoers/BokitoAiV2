@@ -51,6 +51,23 @@ def parse_autonomy_level(value: Any) -> str:
     return mapped
 
 
+def scope_autonomy_ceiling(value: Any) -> str | None:
+    """Tag or flow autonomy. Empty means follow the company, not a ceiling."""
+    raw = str(value or "").strip().lower()
+    if raw in ("", "inherit", "default"):
+        return None
+    raw = LEGACY_AUTONOMY.get(raw, raw)
+    return raw if raw in AUTONOMY_MODES else None
+
+
+def parse_scope_autonomy(value: Any) -> str:
+    """Store ``inherit`` as empty. A real mode is a ceiling."""
+    raw = str(value or "").strip().lower()
+    if raw in ("", "inherit", "default"):
+        return ""
+    return parse_autonomy_level(raw)
+
+
 def _json(raw: str | None) -> dict[str, Any]:
     try:
         data = json.loads(raw or "{}")
@@ -294,6 +311,60 @@ def _learn_option(options: list[dict[str, Any]]) -> dict[str, Any] | None:
     return next((o for o in options if isinstance(o, dict) and isinstance(o.get("learn"), dict)), None)
 
 
+LEARN_CHOICES = ("allow", "ask", "deny", "unsure")
+_CHOICE_MODE = {"allow": "autonomous", "ask": "assisted", "deny": "manual"}
+
+
+def _rule_text(choice: str, title: str) -> str:
+    if choice == "allow":
+        return f"{title} without asking"
+    if choice == "deny":
+        return f"Never: {title}"
+    return f"Always ask before: {title}"
+
+
+async def apply_rule_now(
+    session: AsyncSession,
+    tenant: Tenant,
+    *,
+    rule: dict[str, Any],
+    agent: Agent | None,
+    user_id: UUID | None,
+    signal_id: UUID | None = None,
+    example: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Owner/admin path: the rule applies right away and lands in Govern as an
+    applied change (audit + rollback window) instead of a draft."""
+    from app.services.platform_changes import propose_platform_change
+
+    cleaned = _clean_rule(rule)
+    target = agent.name if agent is not None else "all agents"
+    verb = {"manual": "never do", "assisted": "ask before", "autonomous": "may do on its own"}[cleaned["mode"]]
+    change, outcome = await propose_platform_change(
+        session,
+        tenant,
+        resource_type="agent_rule",
+        change_kind="create",
+        resource_id=str(agent.id) if agent is not None else "",
+        after={"agent_id": str(agent.id) if agent is not None else None, "rule": cleaned, "example": example or {}},
+        summary=f"Rule for {target}: {verb}: {cleaned['text']}"[:240],
+        user_id=user_id,
+        mode="apply",
+        signal_id=signal_id,
+    )
+    applied = outcome.get("applied") if isinstance(outcome, dict) else None
+    stored = applied.get("rule") if isinstance(applied, dict) and isinstance(applied.get("rule"), dict) else cleaned
+    return {"change_id": str(change.id), "status": "applied", "applied": True, "rule": stored}
+
+
+def existing_tool_rule_id(agent: Agent | None, tool: str) -> str | None:
+    """A hard rule bound to ``tool`` on this agent, so a new verdict replaces it instead of stacking."""
+    for rule in agent_rules(agent):
+        if rule["kind"] == "hard" and rule["tool"] == tool:
+            return rule["id"]
+    return None
+
+
 async def learn_from_decision(
     session: AsyncSession,
     tenant: Tenant,
@@ -301,15 +372,20 @@ async def learn_from_decision(
     choice: str,
     *,
     user_id: UUID,
+    role: str | None = None,
 ) -> dict[str, Any]:
-    """The three buttons next to a decision: allow from now on, always ask, not sure yet."""
+    """The verdict next to an action: allow from now on, always ask, never, or not sure yet.
+
+    Owners and admins apply the rule immediately (recorded in Govern as an
+    applied change); members propose it as a Govern draft.
+    """
     from sqlalchemy import select
 
     from app.models.notification import DecisionRequest
     from app.tools.decision_copy import format_policy_decision
 
-    if choice not in ("allow", "ask", "unsure"):
-        raise HTTPException(status_code=422, detail="choice must be allow, ask or unsure")
+    if choice not in LEARN_CHOICES:
+        raise HTTPException(status_code=422, detail="choice must be allow, ask, deny or unsure")
     options = json.loads(decision.options_json or "[]")
     option = _learn_option(options)
     agent_id = None
@@ -355,17 +431,36 @@ async def learn_from_decision(
         mode = "autonomous" if rows and approved == len(rows) else "assisted"
         choice = "allow" if mode == "autonomous" else "ask"
 
-    mode = "autonomous" if choice == "allow" else "assisted"
-    text = f"{title} without asking" if mode == "autonomous" else f"Always ask before: {title}"
-    return await propose_rule(
+    rule = {
+        "text": _rule_text(choice, title),
+        "mode": _CHOICE_MODE[choice],
+        "kind": "hard",
+        "tool": tool,
+        "created_by": str(user_id),
+    }
+    previous_id = existing_tool_rule_id(agent, tool)
+    if previous_id:
+        rule["id"] = previous_id
+    if role in ADMIN_ROLES:
+        return await apply_rule_now(
+            session,
+            tenant,
+            rule=rule,
+            agent=agent,
+            user_id=user_id,
+            signal_id=decision.signal_id,
+            example=example,
+        )
+    result = await propose_rule(
         session,
         tenant,
-        rule={"text": text, "mode": mode, "kind": "hard", "tool": tool},
+        rule=rule,
         agent=agent,
         user_id=user_id,
         signal_id=decision.signal_id,
         example=example,
     )
+    return {**result, "applied": False}
 
 
 async def dry_run(

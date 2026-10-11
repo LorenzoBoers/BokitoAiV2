@@ -9,7 +9,7 @@ related: communication,inbox-ai,widget,integrations
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and hours** and **Install** on that page. A new workspace starts with no channels; add email or website chat via **Add channel** when you need them.
+Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and availability** and **Install** on that page. A new workspace starts with no channels; add email or website chat via **Add channel** when you need them.
 
 ## Add a channel
 
@@ -83,14 +83,14 @@ Setup, Connections, Channels and the reply composer all use the same channel sta
 1. Look at the state on the right of the row: **Active**, **Setup required**, **Connecting**, **Degraded**, **Action needed**, **Off**, **Error** or **Disconnected**. **Connecting** is only for an install still in progress — after a successful connect you see **Active**.
 2. When a channel needs a human, the row shows one repair button next to the state: **Reconnect**, **Retry sync** or **Turn on**. A yellow notice above the list counts channels that still need setup, and the first of them opens automatically.
 3. Click the row and read **Status**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
-4. For a mailbox, **History** in the **Mailbox** section is for later backfills after reconnect. How far back on first install is chosen during **Add channel**.
+4. For a mailbox, **History** in the **Mailbox** section sets the first import. That import stops at the chosen window, at most one year, or 1,000 messages per folder. New mail after that keeps syncing on its own.
 5. A mailbox that fails 50 syncs in a row turns itself off instead of retrying forever. The row reads **Off**, **Sync errors** shows the reason, and an alert lands in Communication. Fix the sign-in or server and choose **Turn on**; a successful sync clears the counter.
 
 ## Turn off or disconnect a channel
 
 1. Click the channel row and scroll to **Manage**.
 2. Under **Receiving and sending**, turn the switch off for a short break. Nothing new arrives or goes out; the sign-in stays so you can turn it back on in one click. A mailbox that is off also stops being the primary sender.
-3. Choose **Disconnect** when you stop using the channel. Sync and sending stop, and Bokito forgets the sign-in. The website chat can be disconnected only when the workspace has another one.
+3. Choose **Disconnect** when you stop using the channel. Sync and sending stop, and Bokito forgets the sign-in. The website chat can be disconnected and then deleted, even when it is the only one.
 4. The row moves to the bottom of the list and reads **Disconnected**. Its conversations stay in Communication, and **Access** on the channel page still decides who sees them.
 5. Choose **Bring back** to return the channel as **Off**, then reconnect the account or turn receiving on. Connecting the same mailbox again through **Add channel** also clears the disconnect.
 
@@ -106,7 +106,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 ## Set a signature and default agent
 
 1. Click a mailbox or Bokito address row. Under **Signature source**, choose **Mailbox signature** (one shared template for everyone, with placeholders such as `{{name}}`, `{{first_name}}` and `{{last_name}}` filled from the sender) or **Each person's signature** (uses **Profile**). With mailbox source, choose **Edit** next to **Signature** to set the template. In the editor, open **Preview** and use **Preview as** to check the template as yourself, another teammate, an agent, or sample data. Placeholders fill from that profile. **With profile photo** puts the sender's profile photo beside the name, or a circle with their initials when they have no photo. The greeting is written out in the template so you can edit it. If the template is empty, or the source is each person, Bokito uses the personal signature, then the Bokito default. Agent sends still use the agent signature. After send, Communication shows that same signature in the thread bubble (what the customer received).
-2. Under **General**, pick an **Owner team** for new conversations until someone takes them, and an **AI agent** for inbound reading and AI handling. On an **Autonomous** or **Assisted** channel the agent itself owns new conversations (on Assisted only while it prepares the reply); the owner team is where they land when the agent hands over and no closer owner exists. Without an agent on the channel, Bokito does not interpret or reply to new inbound messages. You can still bring an agent into a conversation manually.
+2. Under **General**, pick an **Owner team** and an **AI agent**. **Default** on the agent is the company default agent. The owner team gets the conversation when a person has to take over. On **Autonomous** or **Assisted** the agent owns new conversations (on Assisted only while it prepares the reply). If no agent may handle the channel, the owner team keeps it and the timeline says so.
 3. Choose **Access** to open the access matrix. Toggle **View** and **Handle** per team, person and agent. Handle means reply, take conversations and receive them; View is read only. Teams cover their members — a person with no own grant still follows **All people**. Owners and admins always handle every channel.
 4. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
 

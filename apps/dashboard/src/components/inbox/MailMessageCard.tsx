@@ -1,7 +1,6 @@
 import { ChevronDown } from 'lucide-react'
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
-import { BubbleHoverToolbar } from './ChatBubble'
 
 /**
  * Email on the timeline: "coloured envelope, white letter".
@@ -11,6 +10,7 @@ import { BubbleHoverToolbar } from './ChatBubble'
  * neutral paper. The author shows in the envelope band on top (accent for
  * you, AI tint for agents, neutral for everyone else) and in a tightened
  * top corner on the side the card hangs from — same grammar as chat bubbles.
+ * Reply / forward / copy sit at the bottom of the letter, next to the time.
  */
 
 export type MailCardTone = 'self' | 'agent' | 'team' | 'external'
@@ -19,14 +19,14 @@ export type EnvelopeRow = { key: string; label: string; value: string }
 
 const CARD_TONE: Record<MailCardTone, string> = {
   self: 'ring-accent/30',
-  agent: 'ring-ai/25',
+  agent: 'ring-border/55 shadow-[inset_2.5px_0_0_0_rgb(var(--color-ai)/0.72)]',
   team: 'ring-border/60',
   external: 'ring-border/60',
 }
 
 const BAND_TONE: Record<MailCardTone, string> = {
   self: 'bg-accent/[0.08]',
-  agent: 'bg-ai/[0.07]',
+  agent: 'bg-bg-elevated',
   team: 'bg-bg-elevated',
   external: 'bg-bg-elevated',
 }
@@ -60,9 +60,9 @@ export function MailMessageCard({
   envelopeRows: EnvelopeRow[]
   envelopeAria: string
   body: ReactNode
-  /** Time + delivery state, right side of the band. */
+  /** Time + delivery state, bottom-right of the letter. */
   meta?: ReactNode
-  /** Hover toolbar above the card. */
+  /** Reply / forward / copy — bottom-right, beside the time. */
   actions?: ReactNode
   /** Older mail folds to its band; click re-opens it. */
   collapsed?: boolean
@@ -72,32 +72,7 @@ export function MailMessageCard({
   expandAria?: string
 }) {
   const isRight = side === 'right'
-  const cardRef = useRef<HTMLDivElement>(null)
   const [envelopeOpen, setEnvelopeOpen] = useState(false)
-  const [actionsOpen, setActionsOpen] = useState(false)
-  const hideTimer = useRef(0)
-  const showActions = useCallback(() => {
-    if (hideTimer.current) window.clearTimeout(hideTimer.current)
-    hideTimer.current = 0
-    setActionsOpen(true)
-  }, [])
-  const hideActions = useCallback(() => {
-    if (hideTimer.current) window.clearTimeout(hideTimer.current)
-    hideTimer.current = window.setTimeout(() => setActionsOpen(false), 140)
-  }, [])
-  const dismissActions = useCallback(() => {
-    if (hideTimer.current) window.clearTimeout(hideTimer.current)
-    hideTimer.current = 0
-    setActionsOpen(false)
-  }, [])
-  useEffect(
-    () => () => {
-      if (hideTimer.current) window.clearTimeout(hideTimer.current)
-    },
-    [],
-  )
-
-  const hoverBind = actions && !collapsed ? { onMouseEnter: showActions, onMouseLeave: hideActions } : {}
   const canOpenEnvelope = envelopeRows.length > 0
 
   const bandButton = collapsed ? (
@@ -155,11 +130,9 @@ export function MailMessageCard({
         'msg-bubble-enter group/bubble flex items-start gap-2',
         isRight ? 'flex-row-reverse' : 'flex-row',
       )}
-      {...hoverBind}
     >
       {isRight ? null : <span className="flex w-7 shrink-0 justify-center">{avatar}</span>}
       <div
-        ref={cardRef}
         data-testid="mail-card"
         data-tone={tone}
         data-collapsed={collapsed || undefined}
@@ -179,28 +152,31 @@ export function MailMessageCard({
           )}
         >
           {bandButton}
-          {meta ? (
+          {collapsed && meta ? (
             <span className="flex shrink-0 items-center gap-1 text-2xs leading-4 tabular-nums text-text-muted">
               {meta}
             </span>
           ) : null}
         </div>
         {collapsed ? null : (
-          <div className="px-3.5 py-2.5 text-base leading-relaxed">{body}</div>
+          <div className="px-3.5 py-2.5 text-base leading-relaxed">
+            {body}
+            {actions || meta ? (
+              <div className="mt-1.5 flex items-center justify-end gap-1.5 text-2xs leading-none tabular-nums text-text-muted">
+                {actions ? (
+                  <div
+                    className="flex shrink-0 items-center gap-px"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {actions}
+                  </div>
+                ) : null}
+                {meta ? <span className="flex shrink-0 items-center gap-1">{meta}</span> : null}
+              </div>
+            ) : null}
+          </div>
         )}
       </div>
-      {actions && !collapsed ? (
-        <BubbleHoverToolbar
-          open={actionsOpen}
-          anchorRef={cardRef}
-          side={side}
-          onEnter={showActions}
-          onLeave={hideActions}
-          onDismiss={dismissActions}
-        >
-          {actions}
-        </BubbleHoverToolbar>
-      ) : null}
     </div>
   )
 }

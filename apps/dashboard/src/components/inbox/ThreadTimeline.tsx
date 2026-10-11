@@ -5,7 +5,6 @@
  * so react-virtuoso can keep long threads cheap without a second code path.
  */
 import {
-  createContext,
   forwardRef,
   useCallback,
   useContext,
@@ -14,12 +13,12 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type HTMLAttributes,
-  type MutableRefObject,
   type ReactNode,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
+import { Virtuoso, type ListRange, type VirtuosoHandle } from 'react-virtuoso'
 import type {
   InboxEvent,
   InboxMember,
@@ -37,6 +36,7 @@ import { cn } from '../../lib/utils'
 import { EventClusterTimelineItem, MessageTimelineItem, isAgentSideEvent } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import SessionMarker from './SessionMarker'
+import { TimelineScrollContext, type TimelineScrollApi } from './timeline-scroll'
 import type { NoteActions } from './TimelineItem'
 import type { BubbleStack } from './ChatBubble'
 
@@ -277,6 +277,19 @@ function messageStackKey(message: InboxMessage): string | null {
   return `${scope}${lane}:kind:${message.kind || 'message'}`
 }
 
+/**
+ * True when a live agent turn would join the run of the last saved row: an
+ * agent bubble within the stack gap. The live view then skips avatar and
+ * author line and opens with a flattened corner, like the saved bubble will.
+ */
+export function liveRunContinues(rows: TimelineRow[], now: number = Date.now()): boolean {
+  const last = rows[rows.length - 1]
+  if (!last || last.kind !== 'message') return false
+  const key = messageStackKey(last.data)
+  if (!key || !key.includes('agent:')) return false
+  return now - new Date(last.time).getTime() <= CHAT_STACK_GAP_MS
+}
+
 /** Assign start/middle/end/single for consecutive same-author chat bubbles. */
 function stacksForRows(rows: TimelineRow[]): Map<string, BubbleStack> {
   return assignBubbleStacks(
@@ -454,22 +467,25 @@ type Props = {
   outdatedDecisionMessageIds?: string[]
   /** Live AI strip pinned under the last row while a reply streams. */
   liveTrace?: ReactNode
+  /**
+   * Turn ids the reader already watched stream in. Their saved bubbles land
+   * without the enter animation so the hand-off from live to saved is still.
+   */
+  quietTurnIds?: Set<string>
   emptyState?: ReactNode
   onAtBottomChange?: (atBottom: boolean) => void
 }
 
-const ScrollerNodeContext = createContext<MutableRefObject<HTMLDivElement | null> | null>(null)
-
 const TimelineScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   function TimelineScroller({ className, style, ...props }, ref) {
-    const holder = useContext(ScrollerNodeContext)
+    const holder = useContext(TimelineScrollContext)
     return (
       <div
         {...props}
         ref={(node) => {
           if (typeof ref === 'function') ref(node)
           else if (ref) ref.current = node
-          if (holder) holder.current = node
+          if (holder) holder.scroller.current = node
         }}
         className={cn('overflow-x-hidden overflow-y-auto', className)}
         style={{
@@ -523,6 +539,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     composerDecisionMessageId = null,
     outdatedDecisionMessageIds,
     liveTrace,
+    quietTurnIds,
     emptyState,
     onAtBottomChange,
   },
@@ -536,6 +553,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   /** True after the operator scrolls away from the latest row. */
   const readingHistoryRef = useRef(false)
   const atBottomRef = useRef(true)
+  /** Wheel-down shortly before a scroll means the operator returned to the end. */
+  const userWheelDownUntilRef = useRef(0)
   /** Programmatic land may keep snapping until this instant, unless the user scrolls. */
   const settleUntilRef = useRef(0)
   const bubbleStacks = useMemo(() => stacksForRows(rows), [rows])
@@ -549,6 +568,26 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     extra.push({ kind: 'end', id: '__end__' })
     return [...rows, ...extra]
   }, [rows, liveTrace])
+  /** Day stuck under the top fade; the next day pill replaces it (relay). */
+  const [stickyDay, setStickyDay] = useState<{ id: string; label: string } | null>(null)
+  const updateStickyDay = useCallback(
+    (range: ListRange) => {
+      for (let i = range.startIndex; i >= 0; i -= 1) {
+        const row = virtuosoData[i]
+        if (row && row.kind === 'day') {
+          setStickyDay((prev) =>
+            prev?.id === row.id ? prev : { id: row.id, label: row.label },
+          )
+          return
+        }
+      }
+      setStickyDay(null)
+    },
+    [virtuosoData],
+  )
+  useEffect(() => {
+    setStickyDay(null)
+  }, [threadId])
 
   const landing = useMemo(
     () =>
@@ -568,6 +607,23 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     for (const id of bottomTimersRef.current) window.clearTimeout(id)
     bottomTimersRef.current = []
   }, [])
+
+  const releaseFollow = useCallback(() => {
+    readingHistoryRef.current = true
+    atBottomRef.current = false
+    stopSettling()
+    onAtBottomChange?.(false)
+  }, [onAtBottomChange, stopSettling])
+
+  const noteWheel = useCallback((deltaY: number) => {
+    if (deltaY > 6) userWheelDownUntilRef.current = Date.now() + 500
+    if (deltaY < -6) releaseFollow()
+  }, [releaseFollow])
+
+  const scrollApi = useMemo<TimelineScrollApi>(
+    () => ({ scroller: scrollerNode, releaseFollow, noteWheel }),
+    [noteWheel, releaseFollow],
+  )
 
   const snapScrollerToEnd = useCallback(() => {
     if (readingHistoryRef.current) return
@@ -634,19 +690,16 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     if (!el) return
     const releaseIfScrollingUp = (delta: number) => {
       if (delta >= -6) return
-      readingHistoryRef.current = true
-      atBottomRef.current = false
-      stopSettling()
-      onAtBottomChange?.(false)
+      releaseFollow()
     }
-    const onWheel = (event: WheelEvent) => releaseIfScrollingUp(event.deltaY)
+    const onWheel = (event: WheelEvent) => noteWheel(event.deltaY)
     let touchY = 0
     const onTouchStart = (event: TouchEvent) => {
       touchY = event.touches[0]?.clientY ?? 0
     }
     const onTouchMove = (event: TouchEvent) => {
       const y = event.touches[0]?.clientY ?? touchY
-      releaseIfScrollingUp(touchY - y)
+      noteWheel(touchY - y)
       touchY = y
     }
     // Scrollbar drags and keyboard scrolling have no wheel/touch event: treat
@@ -658,8 +711,22 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     }
     const onScroll = () => {
       const top = el.scrollTop
-      if (Date.now() < gestureUntil) releaseIfScrollingUp(top - lastTop)
+      const delta = top - lastTop
       lastTop = top
+      if (Date.now() < gestureUntil) releaseIfScrollingUp(delta)
+      // A snap-to-end also increases scrollTop. Only a recent wheel-down
+      // means the operator came back and wants new rows to follow again.
+      const nearBottom = el.scrollHeight - top - el.clientHeight < 72
+      if (
+        delta > 6 &&
+        nearBottom &&
+        Date.now() < userWheelDownUntilRef.current &&
+        readingHistoryRef.current
+      ) {
+        readingHistoryRef.current = false
+        atBottomRef.current = true
+        onAtBottomChange?.(true)
+      }
     }
     el.addEventListener('wheel', onWheel, { passive: true })
     el.addEventListener('touchstart', onTouchStart, { passive: true })
@@ -686,7 +753,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       el.removeEventListener('scroll', onScroll)
       ro.disconnect()
     }
-  }, [threadId, virtuosoData.length, snapScrollerToEnd, stopSettling, onAtBottomChange])
+  }, [threadId, virtuosoData.length, noteWheel, releaseFollow, snapScrollerToEnd, onAtBottomChange])
 
   useImperativeHandle(
     ref,
@@ -783,6 +850,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       onMailAction={onMailAction}
       mailOwnAddresses={mailOwnAddresses}
       onRetrySend={onRetrySend}
+      enterAnimation={!(message.turnId && quietTurnIds?.has(message.turnId))}
       mailCollapsedByDefault={
         openMailIds != null &&
         opts.rowId != null &&
@@ -794,13 +862,16 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     />
   )
 
+  const dayPillClass =
+    'rounded-lg bg-bg-elevated/90 px-2.5 py-0.5 text-2xs font-medium text-text-muted shadow-sm ring-1 ring-border/40 backdrop-blur'
+
   const renderRow = (row: TimelineRow) => {
     if (row.kind === 'day') {
+      // In-flow marker; hide while the sticky overlay shows the same day.
+      const isSticky = stickyDay?.id === row.id
       return (
         <div className="flex justify-center pb-3 pt-2">
-          <span className="rounded-lg bg-bg-elevated/80 px-2.5 py-0.5 text-2xs font-medium text-text-muted backdrop-blur">
-            {row.label}
-          </span>
+          <span className={cn(dayPillClass, isSticky && 'opacity-0')}>{row.label}</span>
         </div>
       )
     }
@@ -875,7 +946,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   }
 
   return (
-    <ScrollerNodeContext.Provider value={scrollerNode}>
+    <TimelineScrollContext.Provider value={scrollApi}>
     <div className="relative h-full min-h-0">
       <Virtuoso
         key={String(threadId)}
@@ -894,19 +965,19 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         atBottomThreshold={72}
         atBottomStateChange={(atBottom) => {
           atBottomRef.current = atBottom
+          // Growing an expanded mail while the operator is still near the
+          // end also reports "at bottom". That must not resume follow —
+          // the next measure would yank the view back down the message.
           if (atBottom) {
-            readingHistoryRef.current = false
-            onAtBottomChange?.(true)
+            if (!readingHistoryRef.current) onAtBottomChange?.(true)
             return
           }
-          // Content growing past the threshold (a long answer arriving) also
-          // reports "not at bottom". Only operator input means reading, and
-          // that already flipped `readingHistoryRef` in the scroll listeners.
           if (readingHistoryRef.current) onAtBottomChange?.(false)
         }}
         // Email bodies render in iframes that measure asynchronously; a
         // generous viewport keeps them mounted so heights stay stable.
         increaseViewportBy={{ top: 1200, bottom: 1200 }}
+        rangeChanged={updateStickyDay}
         startReached={() => {
           if (hasOlder && !loadingOlder && onLoadOlder) void onLoadOlder()
         }}
@@ -936,14 +1007,15 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             return (
               <div className="px-4">
                 <div className={CHAT_COLUMN_CLASS}>
-                  <div className="mb-3">{liveTrace}</div>
+                  {/* Same bottom gap as a run-closing bubble: the saved rows land in place. */}
+                  <div className="mb-4">{liveTrace}</div>
                 </div>
               </div>
             )
           }
           if (row.kind === 'end') {
-            // Room for the composer mode-tab fade so the last bubble can sit in it.
-            return <div className="h-10" aria-hidden />
+            // Clears the composer and its top fade so the last control stays clickable.
+            return <div className="h-20" aria-hidden />
           }
           return (
             <div className="px-4">
@@ -952,13 +1024,18 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
           )
         }}
       />
-      {/* Fade at the top so messages recede under the day pill. */}
+      {/* Fade + sticky day pill: messages recede under the active day. */}
       <div
         aria-hidden
         className="pointer-events-none absolute left-0 right-0 top-0 z-[5] h-10 bg-gradient-to-b from-bg via-bg/85 to-transparent"
       />
+      {stickyDay ? (
+        <div className="pointer-events-none absolute left-0 right-0 top-2 z-[6] flex justify-center px-4">
+          <span className={dayPillClass}>{stickyDay.label}</span>
+        </div>
+      ) : null}
     </div>
-    </ScrollerNodeContext.Provider>
+    </TimelineScrollContext.Provider>
   )
 })
 

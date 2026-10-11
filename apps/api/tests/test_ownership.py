@@ -251,6 +251,53 @@ async def test_for_you_predicate(client: AsyncClient, session_override: AsyncSes
 
 
 @pytest.mark.asyncio
+async def test_personal_agent_chat_assigns_opener_not_agent(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """Opening a chat with an agent assigns the person; shared agent channels stay with the agent."""
+    from app.models.agent import Agent
+    from app.models.signal import Signal
+
+    tenant, user = await _tenant_and_user(session_override)
+    agent = (
+        await session_override.execute(
+            select(Agent).where(Agent.tenant_id == tenant.id, Agent.kind == "company")
+        )
+    ).scalars().first()
+    assert agent is not None
+
+    personal = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        source="chat",
+        subject="My chat",
+        owner_user_id=user.id,
+        agent_id=agent.id,
+    )
+    session_override.add(personal)
+    await session_override.commit()
+    await session_override.refresh(personal)
+    assert personal.assignee_kind == "user"
+    assert personal.assigned_user_id == user.id
+    assert personal.agent_id == agent.id
+
+    shared = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        source="agent_channel",
+        subject=agent.name,
+        owner_user_id=None,
+        agent_id=agent.id,
+    )
+    session_override.add(shared)
+    await session_override.commit()
+    await session_override.refresh(shared)
+    assert shared.assignee_kind == "agent"
+    assert shared.assigned_user_id is None
+    assert shared.agent_id == agent.id
+
+
+@pytest.mark.asyncio
 async def test_for_you_includes_all_people_team_turn(
     client: AsyncClient, session_override: AsyncSession
 ):

@@ -11,10 +11,11 @@ import {
   resolveThreadDecision,
   updateInboxRule,
   type InboxRuleSuggestion,
+  type ProposalBundleEntry,
   type ReplySendAs,
   type ThreadId,
 } from '../../lib/inbox-api'
-import { bulkUpdateSignalThreads } from '../../lib/signals-api'
+import { bulkUpdateSignalThreads, resolveDecisionBundle, type BundleResolveRow } from '../../lib/signals-api'
 
 export type DecisionAction = 'approve' | 'defer' | 'reject'
 
@@ -44,6 +45,14 @@ type Args = {
   decisionId: string | null
   resolved: boolean
   onResolved?: (info?: { closed?: boolean }) => void
+}
+
+/** Strip the "Review: " / "Approve: " prefix the server puts on action titles. */
+export function actionTitle(title: string): string {
+  for (const prefix of ['Review: ', 'Approve: ']) {
+    if (title.startsWith(prefix)) return title.slice(prefix.length)
+  }
+  return title
 }
 
 /**
@@ -93,7 +102,7 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
             : t('decisionCard.toastRejected'))
       if (action === 'defer') {
         // Park-until-date retired: keep the thread in Open and mark unread.
-        await patchThread(token, threadId, { status: 'open', snoozedUntil: null })
+        await patchThread(token, threadId, { status: 'open' })
         await bulkUpdateSignalThreads(token, [String(threadId)], 'unread')
       }
       toast.success(toastLabel, {
@@ -211,10 +220,78 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
       const result = await learnFromDecision(decisionId, choice)
       setLearned(choice)
       toast.success(
-        result.status === 'collected' ? t('decisionCard.learn.collected') : t('decisionCard.learn.proposed'),
+        result.status === 'collected'
+          ? t('decisionCard.learn.collected')
+          : result.applied
+            ? t('decisionCard.learn.applied')
+            : t('decisionCard.learn.proposed'),
       )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('decisionCard.learn.error'))
+    } finally {
+      setLearnBusy(false)
+    }
+  }
+
+  /**
+   * Resolve several action cards of one agent turn together. Rows that failed
+   * stay open on the server and come back with `error`.
+   */
+  async function resolveBundle(
+    entries: ProposalBundleEntry[],
+    approve: 'all' | string[],
+    reject: 'rest' | string[] = 'rest',
+  ): Promise<BundleResolveRow[]> {
+    if (!token || busy) return []
+    const openIds = entries.filter((e) => e.status === 'awaiting_human').map((e) => e.decisionId)
+    if (!openIds.length) return []
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await resolveDecisionBundle(token, String(threadId), {
+        decisionIds: openIds,
+        approve: approve === 'all' ? 'all' : approve.filter((id) => openIds.includes(id)),
+        reject,
+      })
+      const failed = result.results.filter((row) => row.error)
+      const approved = result.results.filter((row) => row.status === 'approved').length
+      const rejected = result.results.filter((row) => row.status === 'rejected').length
+      if (failed.length) {
+        toast.error(t('actionBundle.toastPartial', { count: failed.length }))
+      } else if (approved && !rejected) {
+        toast.success(t('actionBundle.toastApproved', { count: approved }))
+      } else if (rejected && !approved) {
+        toast.success(t('actionBundle.toastRejected', { count: rejected }))
+      } else {
+        toast.success(t('actionBundle.summary', { approved, rejected }))
+      }
+      onResolved?.(undefined)
+      return result.results
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('decisionCard.resolveError'))
+      return []
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Teach a rule for one action row (allow / ask / deny); independent of this hook's decision. */
+  async function teachEntry(entry: ProposalBundleEntry, choice: LearnChoice) {
+    if (learnBusy) return null
+    setLearnBusy(true)
+    try {
+      const result = await learnFromDecision(entry.decisionId, choice)
+      toast.success(
+        result.status === 'collected'
+          ? t('decisionCard.learn.collected')
+          : result.applied
+            ? t('decisionCard.learn.applied')
+            : t('decisionCard.learn.proposed'),
+      )
+      return result
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('decisionCard.learn.error'))
+      return null
     } finally {
       setLearnBusy(false)
     }
@@ -249,6 +326,8 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
     submitText,
     cancelText,
     teach,
+    teachEntry,
+    resolveBundle,
     learned,
     learnBusy,
     ruleSuggestion,

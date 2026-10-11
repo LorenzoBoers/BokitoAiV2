@@ -1,6 +1,7 @@
+import { Globe } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { getInitials, getAvatarColor } from '../../lib/avatar'
-import { getDomainFaviconUrl, getHostFaviconUrl } from '../../lib/domain-favicon'
+import { getDomainFaviconUrl, getHostFaviconUrl, normalizeFaviconHost } from '../../lib/domain-favicon'
 import { cn } from '../../lib/utils'
 
 type Props = {
@@ -56,5 +57,63 @@ export function DomainFavicon({ email, host, name, size = 28, className }: Props
         className="object-contain"
       />
     </span>
+  )
+}
+
+function hostFromHref(href: string): string | null {
+  try {
+    return normalizeFaviconHost(new URL(href).hostname)
+  } catch {
+    return normalizeFaviconHost(href)
+  }
+}
+
+/**
+ * Inline mark for http(s) links in chat: site favicon when Google S2 has one,
+ * otherwise a globe. Mailto and non-http schemes get no icon.
+ */
+export function WebPageLinkIcon({
+  href,
+  className,
+}: {
+  href: string
+  className?: string
+}) {
+  const [failed, setFailed] = useState(false)
+  const host = useMemo(() => hostFromHref(href), [href])
+  const faviconUrl = useMemo(() => getHostFaviconUrl(host, 32), [host])
+  const iconClass = cn(
+    'inline-block shrink-0 align-[-0.12em]',
+    className,
+  )
+  const sizeStyle = { width: '0.875em', height: '0.875em' } as const
+
+  if (!host || !/^https?:\/\//i.test(href.trim())) return null
+
+  if (!faviconUrl || failed) {
+    return (
+      <Globe
+        size={12}
+        aria-hidden
+        className={cn(iconClass, 'text-current opacity-80')}
+        style={sizeStyle}
+      />
+    )
+  }
+
+  return (
+    <img
+      src={faviconUrl}
+      alt=""
+      aria-hidden
+      loading="lazy"
+      className={cn(iconClass, 'rounded-[2px] object-contain')}
+      style={sizeStyle}
+      onError={() => setFailed(true)}
+      onLoad={(event) => {
+        // Same miss signal as DomainFavicon: S2's default globe is tiny.
+        if (event.currentTarget.naturalWidth <= 16) setFailed(true)
+      }}
+    />
   )
 }

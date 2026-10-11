@@ -252,7 +252,7 @@ export function ProposalActions({
               <DropdownMenuLabel className="text-2xs font-medium text-text-muted">
                 {learned ? t(`decisionCard.learn.done.${learned}`) : t('decisionCard.learn.label')}
               </DropdownMenuLabel>
-              {(['allow', 'ask', 'unsure'] as const).map((choice) => (
+              {(['allow', 'ask', 'deny', 'unsure'] as const).map((choice) => (
                 <DropdownMenuItem
                   key={choice}
                   disabled={learnBusy || learned !== null}

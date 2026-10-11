@@ -121,3 +121,9 @@ export async function updateCalendarEvent(
 export async function deleteCalendarEvent(eventId: string): Promise<void> {
   await apiDelete(integrationsRoutes.platform.calendars.eventById(eventId))
 }
+
+/** The meeting as a conversation dated at the meeting (same thread on repeat calls). */
+export async function openCalendarEventThread(eventId: string): Promise<string> {
+  const res = await apiPost<{ signal_id: string }>(integrationsRoutes.platform.calendars.eventThread(eventId), {})
+  return res.signal_id
+}

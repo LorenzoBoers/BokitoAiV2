@@ -131,7 +131,7 @@ async def test_create_task_on_conversation_creates_human_task(session_override):
     assert result.get("signal_id") == str(signal.id)
     assert result.get("task_id")
     await session_override.refresh(signal)
-    assert signal.follow_up_at is None
+    assert signal.next_at is not None
     task = (
         await session_override.execute(select(AgentTask).where(AgentTask.signal_id == signal.id))
     ).scalars().one()

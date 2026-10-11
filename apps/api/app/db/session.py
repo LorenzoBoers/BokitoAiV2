@@ -103,10 +103,43 @@ async def init_db() -> None:
         await ensure_front_desks(session)
         await ensure_lead_agents(session)
         await ensure_flow_stages(session)
+        from sqlalchemy import text as sql_text
+
+        await session.execute(
+            sql_text(
+                """
+                UPDATE signal_tags
+                SET autonomy_level = ''
+                WHERE autonomy_level = 'assisted' AND updated_at = created_at
+                """
+            )
+        )
+        await session.execute(
+            sql_text(
+                """
+                UPDATE signal_tags
+                SET send_mode = 'send'
+                WHERE send_mode = 'draft' AND updated_at = created_at
+                """
+            )
+        )
+        await session.execute(
+            sql_text(
+                """
+                UPDATE workstreams
+                SET autonomy_level = ''
+                WHERE autonomy_level = 'assisted' AND updated_at = created_at
+                """
+            )
+        )
+        await session.commit()
         # Platform-owned Bokito helper per tenant; also refreshes its prompt
         # and passport so a shipped improvement reaches every workspace.
         await ensure_personal_assistants(session)
         await ensure_platform_watch(session)
+        from app.services.thread_schedule import ensure_rule_threads
+
+        await ensure_rule_threads(session)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

@@ -494,26 +494,27 @@ async def _seed_workforce_demo(session, tenant, project, po_agent):
         select(DecisionRequest).where(DecisionRequest.tenant_id == tenant.id).limit(1)
     )
     if not dec_exists.scalar_one_or_none():
-        from app.services.signal_decisions import create_decision
+        from app.services.inbox_rules import raise_rule_decision, suggest_rule
 
-        await create_decision(
+        rule = await suggest_rule(
             session,
             tenant.id,
-            title="Goedkeuring: inbox-routeringregel",
-            summary="De agent stelt voor een nieuwe routingregel aan te maken voor high-priority e-mail.",
-            options=[
-                {
-                    "id": "approve",
-                    "label": "Goedkeuren",
-                    "action_type": "create_task",
-                    "payload": {"title": "Routeringregel toepassen", "project_id": str(project.id)},
-                },
-                {"id": "reject", "label": "Afwijzen", "action_type": "reject"},
-            ],
-            agent_id=po_agent.id,
-            project_id=project.id,
-            notification_payload={"proposal_type": "routing_rule"},
+            match_type="sender",
+            match_value="nieuwsbrief@leverancier.example",
+            action="auto_close",
+            label="Nieuwsbrief leverancier",
+            source="agent",
+            reason="De laatste 4 nieuwsbrieven van deze afzender zijn zonder antwoord gesloten.",
         )
+        if rule is not None:
+            await raise_rule_decision(
+                session,
+                tenant.id,
+                rule,
+                signal_id=None,
+                agent_id=po_agent.id,
+                summary="De laatste 4 nieuwsbrieven van deze afzender zijn zonder antwoord gesloten.",
+            )
 
     run_exists = await session.execute(
         select(AgentRun).where(AgentRun.tenant_id == tenant.id, AgentRun.project_id == project.id).limit(1)

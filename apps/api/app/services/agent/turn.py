@@ -78,22 +78,27 @@ def _activity_result(tool: str, result: Any) -> Any:
     """Keep activity payloads small but keep fields the UI needs (e.g. favicons)."""
     if tool == "web_search" and isinstance(result, dict):
         rows: list[dict[str, Any]] = []
+        kind = str(result.get("kind") or "web")[:20]
         for row in result.get("results") or []:
             if not isinstance(row, dict):
                 continue
-            rows.append(
-                {
-                    "host": str(row.get("host") or "")[:120],
-                    "favicon_url": str(row.get("favicon_url") or "")[:240],
-                    "title": str(row.get("title") or "")[:80],
-                    "url": str(row.get("url") or "")[:240],
-                }
-            )
+            entry = {
+                "host": str(row.get("host") or "")[:120],
+                "favicon_url": str(row.get("favicon_url") or "")[:240],
+                "title": str(row.get("title") or "")[:80],
+                "url": str(row.get("url") or "")[:240],
+            }
+            # Image hits need the CDN url so attach_items / UI can show them.
+            if kind == "images":
+                image = str(row.get("image_url") or row.get("url") or "")[:400]
+                if image:
+                    entry["image_url"] = image
+            rows.append(entry)
             if len(rows) >= 3:
                 break
         slim: dict[str, Any] = {
             "query": str(result.get("query") or "")[:200],
-            "kind": str(result.get("kind") or "web")[:20],
+            "kind": kind,
             "count": result.get("count") if isinstance(result.get("count"), int) else len(rows),
             "results": rows,
         }
@@ -102,6 +107,29 @@ def _activity_result(tool: str, result: Any) -> Any:
             if result.get("message"):
                 slim["message"] = str(result.get("message"))[:200]
         return slim
+    if tool == "attach_items" and isinstance(result, dict):
+        # Keep enough to rebuild showcase cards if the in-memory stash is lost.
+        rows: list[dict[str, Any]] = []
+        for row in result.get("items") or []:
+            if not isinstance(row, dict):
+                continue
+            rows.append(
+                {
+                    "type": str(row.get("type") or "")[:40],
+                    "id": str(row.get("id") or "")[:400],
+                    "title": str(row.get("title") or "")[:80],
+                    "subtitle": str(row.get("subtitle") or "")[:80],
+                    "url": str(row.get("url") or "")[:400],
+                    "image_url": str(row.get("image_url") or row.get("url") or "")[:400],
+                }
+            )
+            if len(rows) >= 6:
+                break
+        return {
+            "ok": bool(result.get("ok", True)),
+            "attached": result.get("attached") if isinstance(result.get("attached"), int) else len(rows),
+            "items": rows,
+        }
     return _compact(result)
 
 

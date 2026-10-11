@@ -34,6 +34,8 @@ type Props = {
   onSelect: (selection: AgendaSelection) => void
   onClose: () => void
   onEditTrigger: (trigger: Trigger) => void
+  /** Plan a dated thread again (its date, repeat or agent). */
+  onEditThread: (signalId: string) => void
   onOpenCalendar: (item: TimeItem) => void
   onChanged: () => void
 }
@@ -91,6 +93,7 @@ function ItemBody({
   triggers,
   projectNames,
   onEditTrigger,
+  onEditThread,
   onOpenCalendar,
   onChanged,
 }: Props & { item: TimeItem }) {
@@ -102,7 +105,7 @@ function ItemBody({
   const end = itemEnd(item)
   const trigger = item.trigger_id ? triggers.find((row) => row.id === item.trigger_id) ?? null : null
   const isCheckup = item.kind === 'checkup'
-  const conversation = item.kind !== 'calendar' ? triggerThreadPath(item) : null
+  const conversation = triggerThreadPath(item)
   const projectName = item.project_id ? projectNames.get(item.project_id) : undefined
   const isPast = start.getTime() < nowMs
   const pointInTime = item.kind !== 'calendar' && !(item.end && end.getTime() - start.getTime() > 120_000)
@@ -251,6 +254,12 @@ function ItemBody({
           >
             <Play className="mr-1.5 h-3.5 w-3.5" aria-hidden />
             {busy === 'run' ? t('agendaPage.running') : isCheckup ? t('agendaPage.panel.checkNow') : t('agendaPage.runNow')}
+          </Button>
+        ) : null}
+        {!trigger && item.source === 'thread' && item.signal_id ? (
+          <Button type="button" size="sm" variant="outline" onClick={() => onEditThread(item.signal_id as string)}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            {t('agendaPage.edit')}
           </Button>
         ) : null}
         {trigger && !isCheckup ? (

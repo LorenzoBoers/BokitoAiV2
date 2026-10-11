@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { getInitials } from '../../lib/avatar'
 import { resolveAgentAvatarIcon, type AgentAvatarKind } from '../../lib/agent-avatar'
 import type { AgentPresenceStatus } from '../../lib/teams-api'
@@ -35,8 +36,11 @@ function resolveKind(
 }
 
 /**
- * Agent mark: image, Lucide icon, or initials — always platform AI violet.
- * Optional activity corner for standby / working / error.
+ * Agent mark. A round disc like people avatars, but inverted: a violet tint
+ * of the surface with a crisp violet ring and a violet glyph, plus a faint
+ * glow (`.ai-avatar`, see index.css). Images keep the ring. Optional
+ * activity corner for standby / working / error; while working a violet
+ * streak orbits the ring.
  */
 export function AiAvatar({
   name,
@@ -55,34 +59,40 @@ export function AiAvatar({
   const resolved = resolveKind(kind, icon, imageUrl)
   const Icon = resolved === 'icon' ? resolveAgentAvatarIcon(icon) : null
   const fontSize = Math.round(size * 0.36)
-  const iconSize = Math.round(size * 0.48)
-  const borderRadius = Math.round(size * 0.5)
+  const iconSize = Math.round(size * 0.5)
+  const borderRadius = Math.round(size / 2)
+  // Glow reach scales with the mark: 2px at 14, 3px at 28, 4px at 40.
+  const halo = Math.max(2, Math.round(size * 0.1))
+  const style = {
+    width: size,
+    height: size,
+    borderRadius,
+    fontSize,
+    '--ai-halo': `${halo}px`,
+  } as CSSProperties
   const a11yProps = decorative
     ? { 'aria-hidden': true as const }
     : { 'aria-label': displayName, title: displayName }
+  const working = activity === 'working'
 
   const face =
     resolved === 'image' && imageUrl ? (
       <span
-        style={{ width: size, height: size, borderRadius }}
-        className={cn(
-          'inline-flex shrink-0 overflow-hidden border border-ai/35',
-          activity ? '' : className,
-        )}
+        style={style}
+        className={cn('ai-avatar ai-avatar-image', activity ? '' : className)}
+        data-working={working || undefined}
         {...a11yProps}
       >
         <img src={imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />
       </span>
     ) : (
       <span
-        style={{ width: size, height: size, borderRadius, fontSize }}
-        className={cn(
-          'inline-flex shrink-0 select-none items-center justify-center border border-ai/35 bg-ai/10 font-semibold text-ai-ink',
-          activity ? '' : className,
-        )}
+        style={style}
+        className={cn('ai-avatar', activity ? '' : className)}
+        data-working={working || undefined}
         {...a11yProps}
       >
-        {Icon ? <Icon size={iconSize} strokeWidth={1.75} aria-hidden /> : initials}
+        {Icon ? <Icon size={iconSize} strokeWidth={2} aria-hidden /> : initials}
       </span>
     )
 

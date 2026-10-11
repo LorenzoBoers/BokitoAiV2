@@ -478,7 +478,7 @@ async def test_apply_rule_auto_task_creates_agent_task(client: AsyncClient, sess
     assert "Follow up" in (task.title or "")
 
     await session_override.refresh(signal)
-    assert signal.follow_up_at is None
+    assert signal.next_at is not None
     assert signal.status == "open"
 
 

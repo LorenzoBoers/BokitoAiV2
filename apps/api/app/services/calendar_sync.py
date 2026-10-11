@@ -945,6 +945,7 @@ async def calendar_events_in_window(
                 "external_id": ev.external_id,
                 "ical_uid": str(_parse_json(ev.metadata_json).get("ical_uid") or ""),
                 "can_edit": bool(level) and (not cal or bool(cal.get("writable", True))),
+                "signal_id": str(ev.signal_id) if ev.signal_id else None,
             }
         )
     return items

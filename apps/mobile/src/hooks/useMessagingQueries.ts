@@ -22,6 +22,7 @@ import {
   markThreadRead,
   markThreadUnread,
   patchThread,
+  setThreadDate,
   pinThread,
   renameConversation,
   replyToThread,
@@ -236,6 +237,11 @@ export function useThreadMutations(threadId: string) {
     onSuccess: invalidate,
   })
 
+  const setDate = useMutation({
+    mutationFn: (at: string | null) => setThreadDate(threadId, at),
+    onSuccess: invalidate,
+  })
+
   const reply = useMutation({
     mutationFn: ({
       bodyText,
@@ -312,7 +318,7 @@ export function useThreadMutations(threadId: string) {
     onSuccess: invalidate,
   })
 
-  return { patch, reply, note, resolveDecision, pin, takeover, markUnread, remove, updateNote, removeNote }
+  return { patch, setDate, reply, note, resolveDecision, pin, takeover, markUnread, remove, updateNote, removeNote }
 }
 
 export function useConversationMutations() {

@@ -73,6 +73,7 @@
     "title": "Branding",
     "subtitle": "Manage your workspace branding, including name, logo and brand color.",
     "name": "Name",
+    "nameOnGeneral": "Change on General",
     "logo": "Logo",
     "logoHint": "Shown in the portal and widgets. PNG, JPG, JPEG, GIF, WebP or SVG (SVG is automatically optimized for upload).",
     "favicon": "Favicon",

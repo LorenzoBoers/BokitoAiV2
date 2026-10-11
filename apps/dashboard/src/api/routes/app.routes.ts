@@ -76,6 +76,10 @@ export const appRoutes = {
     threadAssignees: (threadId: string) => `/signals/${threadId}/assignees`,
     threadSessions: (threadId: string) => `/signals/${threadId}/sessions`,
     threadContactLink: (threadId: string) => `/signals/${threadId}/contact-link`,
+    scheduleNew: '/signals/schedule',
+    threadSchedule: (threadId: string) => `/signals/${threadId}/schedule`,
+    threadScheduleEnabled: (threadId: string) => `/signals/${threadId}/schedule/enabled`,
+    threadScheduleRun: (threadId: string) => `/signals/${threadId}/schedule/run`,
     threadSession: (threadId: string, sessionId: string) =>
       `/signals/${threadId}/sessions/${sessionId}`,
     threadSessionClose: (threadId: string, sessionId: string) =>
@@ -84,6 +88,7 @@ export const appRoutes = {
       `/signals/${threadId}/messages/${messageId}`,
     messageResolve: (threadId: string, messageId: string) =>
       `/signals/${threadId}/messages/${messageId}/resolve`,
+    decisionsResolveBundle: (threadId: string) => `/signals/${threadId}/decisions/resolve-bundle`,
     pins: '/signals/pins',
     members: '/signals/members',
     badgeCounts: '/signals/badge-counts',

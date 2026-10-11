@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
+import { MessageSquare } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -9,7 +11,8 @@ import {
 } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
-import { deleteCalendarEvent } from '../../lib/calendars-api'
+import { deleteCalendarEvent, openCalendarEventThread } from '../../lib/calendars-api'
+import { inboxPath } from '../../lib/messages-paths'
 import type { TimeItem } from '../../lib/time-items'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -44,6 +47,7 @@ export default function CalendarEventDetailDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const confirm = useConfirm()
+  const navigate = useNavigate()
 
   if (!item) return null
 
@@ -64,6 +68,24 @@ export default function CalendarEventDetailDialog({
     } catch (err) {
       setError(formatApiErrorMessage(err, t('agendaPage.calendar.deleteError')))
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const openThread = async () => {
+    if (item.signal_id) {
+      navigate(inboxPath('all', item.signal_id))
+      return
+    }
+    const id = calendarEventId(item)
+    if (!id) return
+    setBusy(true)
+    setError(null)
+    try {
+      const signalId = await openCalendarEventThread(id)
+      navigate(inboxPath('all', signalId))
+    } catch (err) {
+      setError(formatApiErrorMessage(err, t('agendaPage.calendar.openThreadError')))
       setBusy(false)
     }
   }
@@ -139,6 +161,10 @@ export default function CalendarEventDetailDialog({
         <DialogFooter className="flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {t('agendaPage.cancel', { defaultValue: 'Close' })}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void openThread()} disabled={busy}>
+            <MessageSquare className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            {t('agendaPage.calendar.openThread')}
           </Button>
           {item.can_edit !== false ? (
             <>

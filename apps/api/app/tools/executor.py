@@ -111,6 +111,7 @@ async def execute_tool(
     approved: bool = False,
     user_role: str | None = None,
     surface: str = "",
+    turn_id: str | None = None,
 ) -> dict[str, Any]:
     """Execute a registered tool under the allowance policy.
 
@@ -328,6 +329,7 @@ async def execute_tool(
         assurance_expires_at=signal.assurance_expires_at if signal else None,
         assurance_email=(signal.assurance_email or "") if signal else "",
         surface=surface,
+        turn_id=turn_id,
     )
 
     if mode == "ask":

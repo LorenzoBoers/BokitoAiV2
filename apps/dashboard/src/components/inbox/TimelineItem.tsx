@@ -1,6 +1,7 @@
-import { AlertCircle, BookOpen, Check, Copy, EyeOff, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, X as XIcon } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { AlertCircle, BookOpen, Check, Copy, EyeOff, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, Users, X as XIcon } from 'lucide-react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labels'
 import { cn } from '../../lib/utils'
@@ -12,8 +13,16 @@ import { Tip } from '../ui/Tip'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { TFunction } from 'i18next'
-import { useTranslation } from 'react-i18next'
 import { formatAppTime } from '../../lib/app-locale'
+import { scheduleLongLabel } from '../../lib/thread-schedule'
+import { useAgents } from '../../hooks/useAgents'
+import { useMembers } from '../../hooks/useMembers'
+import { useTeams } from '../../hooks/useTeams'
+import { toTeamAvatarProps } from '../../lib/team-avatar'
+import { inboxPath, teamPath } from '../../lib/messages-paths'
+import { openEntityPath } from '../../lib/open-entity'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { TeamAvatar } from '../ui/TeamAvatar'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import type {
@@ -28,21 +37,22 @@ import { asMessageAttachments, getMessage } from '../../lib/inbox-api'
 import type { ChatTagMap } from '../../lib/chatText'
 import { optionIdForProposalItem, stripChoiceEcho } from '../../lib/decision-options'
 import { mentionMarkupToHtmlChips } from '../../lib/mentions'
-import { AI_PILL_CLASS, AiMark } from '../ai/AiMark'
+import { AiMark } from '../ai/AiMark'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import { normalizeMode, type AiHandlingMode } from '../../lib/ai-handling'
 import { AiAvatar } from '../ui/AiAvatar'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
 import {
   BubbleAction,
   BubbleHeader,
   ChatMessageBubble,
+  RoleChip,
   type BubbleStack,
   type BubbleVariant,
 } from './ChatBubble'
 import MessageAttachments from './MessageAttachments'
 import ChatText from './ChatText'
 import ActivityTrail from './ActivityTrail'
+import { TimelineScrollContext } from './timeline-scroll'
 import { isCustomerChannel } from '../../lib/chatMessages'
 import { isSessionMessage } from '../../lib/session-timeline'
 import { authorizeUploadUrls } from '../../lib/email-upload-auth'
@@ -52,13 +62,20 @@ import {
   parseAddressList,
   type MailDraftMode,
 } from '../../lib/mail-reply'
+import {
+  findEmailQuoteRoots,
+  hasEmailQuoteMarkers,
+  preferPlainDeliveryNotice,
+  setQuoteRootsCollapsed,
+  splitPlainEmailQuote,
+} from '../../lib/mail-quote'
 import { MailMessageCard, type EnvelopeRow, type MailCardTone } from './MailMessageCard'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
-import { inboxPath } from '../../lib/messages-paths'
 import { stageLabel, type TicketStageKind } from '../../lib/tickets-api'
 import { SplitConversationAction } from './SplitConversationAction'
 import { ProposalItemList } from './ProposalItemPreview'
+import { ActionBundleCard } from './ActionBundleCard'
 import { ProposalActions } from './ProposalActions'
 
 type MessageLayout = 'chat' | 'email'
@@ -100,6 +117,8 @@ type MessageItemProps = {
   mailOwnAddresses?: string[]
   /** Older mail in an email thread opens folded to its envelope band. */
   mailCollapsedByDefault?: boolean
+  /** False when this bubble replaces a live turn the reader already watched. */
+  enterAnimation?: boolean
   /** Retry a failed outbound send from the bubble. */
   onRetrySend?: (messageId: string) => void | Promise<void>
 }
@@ -197,20 +216,6 @@ function ContactAvatarWithHover({
       </TooltipContent>
     </Tooltip>
   )
-}
-
-/** Outlook / Apple / Gmail reply trail markers — needs the iframe quote collapse. */
-function hasEmailQuoteMarkers(html: string): boolean {
-  const raw = html.trim()
-  if (!raw) return false
-  if (/gmail_quote|blockquote\s[^>]*type\s*=\s*["']?cite|divRplyFwdMsg|Original Message|appendonsend/i.test(raw)) {
-    return true
-  }
-  // Dutch/English Outlook headers after an hr or on their own.
-  if (/\b(?:Van|From)\s*:/i.test(raw) && /\b(?:Verzonden|Sent|Aan|To|Onderwerp|Subject)\s*:/i.test(raw)) {
-    return true
-  }
-  return false
 }
 
 function isSimpleMessageHtml(html: string): boolean {
@@ -398,16 +403,6 @@ function flipLightness(rgb: Rgb, minL: number, maxL: number): Rgb {
 
 const cssRgb = ({ r, g, b }: Rgb) => `rgb(${r} ${g} ${b})`
 
-const EMAIL_QUOTE_SELECTORS = [
-  '.gmail_quote',
-  '.gmail_quote_container',
-  '.gmail_extra',
-  '#divRplyFwdMsg',
-  '#mail-editor-reference-message-container',
-  'blockquote[type="cite"]',
-  'div[id="appendonsend"]',
-].join(',')
-
 const EMAIL_HEIGHT_CAP_PX = 480
 /** Remember measured email heights so Virtuoso remounts do not collapse to 80px. */
 const emailDisplayHeightCache = new Map<string, number>()
@@ -430,125 +425,6 @@ function rememberEmailDisplayHeight(html: string, height: number) {
     const first = emailDisplayHeightCache.keys().next().value
     if (first != null) emailDisplayHeightCache.delete(first)
   }
-}
-
-/** Outlook / Apple Mail reply header block (Van:/From: + Sent/To/Subject). */
-function looksLikeOutlookHeaderText(text: string): boolean {
-  const t = text.replace(/\s+/g, ' ').trim()
-  if (!t || t.length > 900) return false
-  if (!/\b(?:Van|From)\s*:/i.test(t)) return false
-  return /\b(?:Verzonden|Sent|Aan|To|Onderwerp|Subject)\s*:/i.test(t)
-}
-
-function looksLikeWroteLine(text: string): boolean {
-  const t = text.replace(/\s+/g, ' ').trim()
-  return (
-    /^On .{10,120} wrote:$/i.test(t) ||
-    /^Op .{10,120} schreef .+:$/i.test(t) ||
-    /^-----Original Message-----$/i.test(t)
-  )
-}
-
-/**
- * Wrap `start` and every following sibling into one quote container so we can
- * hide the whole trail (Outlook often starts with <hr> then Van:/Verzonden:).
- */
-function wrapFromNodeThroughEnd(start: Node): HTMLElement | null {
-  const parent = start.parentNode
-  if (!parent || !(parent instanceof HTMLElement)) return null
-  if (start.parentElement?.closest('[data-bokito-quote]')) return null
-  const doc = start.ownerDocument
-  if (!doc) return null
-  const wrapper = doc.createElement('div')
-  wrapper.setAttribute('data-bokito-quote', '1')
-  parent.insertBefore(wrapper, start)
-  let node: ChildNode | null = start as ChildNode
-  while (node) {
-    const next: ChildNode | null = node.nextSibling
-    wrapper.appendChild(node)
-    node = next
-  }
-  return wrapper
-}
-
-function findEmailQuoteRoots(doc: Document): HTMLElement[] {
-  const roots: HTMLElement[] = []
-  const seen = new Set<HTMLElement>()
-  const add = (el: HTMLElement | null) => {
-    if (!el || seen.has(el)) return
-    // Prefer outermost quote block when nested.
-    for (const existing of roots) {
-      if (existing.contains(el)) return
-      if (el.contains(existing)) {
-        seen.delete(existing)
-        roots.splice(roots.indexOf(existing), 1)
-      }
-    }
-    seen.add(el)
-    roots.push(el)
-  }
-
-  doc.querySelectorAll(EMAIL_QUOTE_SELECTORS).forEach((node) => {
-    if (node instanceof HTMLElement) add(node)
-  })
-
-  // Horizontal rule that starts the quoted trail (common in Outlook replies).
-  doc.querySelectorAll('hr').forEach((hr) => {
-    if (!(hr instanceof HTMLElement)) return
-    if (hr.closest(EMAIL_QUOTE_SELECTORS) || hr.closest('[data-bokito-quote]')) return
-    let peek = ''
-    let sib: ChildNode | null = hr.nextSibling
-    for (let i = 0; i < 6 && sib; i += 1, sib = sib.nextSibling) {
-      peek += sib.textContent || ''
-    }
-    if (!looksLikeOutlookHeaderText(peek) && !looksLikeWroteLine(peek.trim())) return
-    add(wrapFromNodeThroughEnd(hr))
-  })
-
-  // Outlook / Apple Mail plain wrappers: "On … wrote" / "Op … schreef" /
-  // Van:/From: header blocks without a leading <hr>.
-  const walk = doc.body ? Array.from(doc.body.querySelectorAll('div, p, span, blockquote')) : []
-  for (const node of walk) {
-    if (!(node instanceof HTMLElement)) continue
-    if (node.closest(EMAIL_QUOTE_SELECTORS) || node.closest('[data-bokito-quote]')) continue
-    const text = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim()
-    if (looksLikeWroteLine(text) || looksLikeOutlookHeaderText(text)) {
-      // From this marker through the rest of the letter (siblings after it).
-      add(wrapFromNodeThroughEnd(node) ?? node)
-    }
-  }
-
-  // Outlook often splits Van:/Verzonden:/Aan:/Onderwerp: across sibling <p>s
-  // — no single node holds the full header. Scan sibling windows.
-  if (roots.length === 0) {
-    const containers = [
-      doc.getElementById('bokito-email-root'),
-      doc.body,
-      ...Array.from(doc.body?.querySelectorAll('div, td, blockquote') ?? []),
-    ].filter((el): el is HTMLElement => el instanceof HTMLElement)
-    for (const container of containers) {
-      if (container.closest('[data-bokito-quote]')) continue
-      const kids = Array.from(container.childNodes).filter((n) => {
-        if (n.nodeType === Node.ELEMENT_NODE) return true
-        return n.nodeType === Node.TEXT_NODE && Boolean(n.textContent?.trim())
-      })
-      for (let i = 0; i < kids.length; i += 1) {
-        let joined = ''
-        for (let j = i; j < Math.min(i + 8, kids.length); j += 1) {
-          joined += `${kids[j].textContent || ''}\n`
-          if (!looksLikeOutlookHeaderText(joined)) continue
-          // Need some real reply above this trail (signature / new text).
-          const before = kids.slice(0, i).map((n) => n.textContent || '').join('').trim()
-          if (before.length < 2) break
-          add(wrapFromNodeThroughEnd(kids[i]))
-          break
-        }
-        if (roots.length > 0) break
-      }
-      if (roots.length > 0) break
-    }
-  }
-  return roots
 }
 
 // Renders email HTML inside a sandboxed iframe so the email's <style> tags,
@@ -577,18 +453,27 @@ function EmailHtmlFrame({
   const [naturalHeight, setNaturalHeight] = useState(
     () => initialHeight ?? cachedEmailDisplayHeight(html) ?? 80,
   )
-  const quotesCollapsedRef = useRef(true)
+  const [hasQuotes, setHasQuotes] = useState(false)
+  const [quotesCollapsed, setQuotesCollapsed] = useState(true)
   const [expandedFull, setExpandedFull] = useState(false)
   const onDisplayHeightRef = useRef(onDisplayHeight)
   onDisplayHeightRef.current = onDisplayHeight
+  const timelineScroll = useContext(TimelineScrollContext)
+  const timelineScrollRef = useRef(timelineScroll)
+  timelineScrollRef.current = timelineScroll
+  const wheelAbortRef = useRef<AbortController | null>(null)
 
   const measure = useCallback(() => {
     const iframe = iframeRef.current
     if (!iframe) return
     const doc = iframe.contentDocument
     if (!doc) return
+    // Prefer the email root's layout height so empty quote wrappers and
+    // scrollbar gutters do not inflate the bubble.
+    const root = doc.getElementById('bokito-email-root')
     const next = Math.max(
-      doc.documentElement?.scrollHeight ?? 0,
+      root?.scrollHeight ?? 0,
+      root?.offsetHeight ?? 0,
       doc.body?.scrollHeight ?? 0,
       40,
     )
@@ -663,64 +548,17 @@ a { color: #60a5fa; }
     doc.head.appendChild(style)
   }, [])
 
-  const quoteToggleRef = useRef<HTMLButtonElement | null>(null)
-
   const applyQuoteCollapse = useCallback(
     (collapsed: boolean) => {
-      for (const el of quoteRootsRef.current) {
-        el.style.display = collapsed ? 'none' : ''
-      }
-      const btn = quoteToggleRef.current
-      if (btn) {
-        btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
-        btn.title = collapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')
-      }
-      measure()
+      setQuoteRootsCollapsed(quoteRootsRef.current, collapsed)
+      setQuotesCollapsed(collapsed)
+      // Remeasure after layout settles (display:none collapses height).
+      requestAnimationFrame(() => {
+        measure()
+        window.setTimeout(measure, 50)
+      })
     },
-    [measure, t],
-  )
-
-  const placeQuoteDots = useCallback(
-    (doc: Document, firstRoot: HTMLElement, collapsed: boolean) => {
-      doc.getElementById('bokito-quote-dots')?.remove()
-      const btn = doc.createElement('button')
-      btn.id = 'bokito-quote-dots'
-      btn.type = 'button'
-      btn.textContent = '···'
-      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
-      btn.setAttribute('aria-label', collapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted'))
-      btn.title = collapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')
-      btn.style.cssText = [
-        'display:inline-flex',
-        'align-items:center',
-        'justify-content:center',
-        'margin:6px 0 2px',
-        'padding:2px 10px',
-        'border:0',
-        'border-radius:999px',
-        'background:transparent',
-        'color:#6b7280',
-        'font:600 16px/1.2 ui-sans-serif,system-ui,sans-serif',
-        'letter-spacing:0.12em',
-        'cursor:pointer',
-      ].join(';')
-      btn.addEventListener('mouseenter', () => {
-        btn.style.background = 'rgba(107,114,128,0.12)'
-      })
-      btn.addEventListener('mouseleave', () => {
-        btn.style.background = 'transparent'
-      })
-      btn.addEventListener('click', (event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        const next = !quotesCollapsedRef.current
-        quotesCollapsedRef.current = next
-        applyQuoteCollapse(next)
-      })
-      firstRoot.parentNode?.insertBefore(btn, firstRoot)
-      quoteToggleRef.current = btn
-    },
-    [applyQuoteCollapse, t],
+    [measure],
   )
 
   const handleLoad = useCallback(() => {
@@ -731,18 +569,40 @@ a { color: #60a5fa; }
       measure()
       return
     }
+    doc.getElementById('bokito-quote-dots')?.remove()
+    // The mail document swallows wheel events. Forward them to the timeline
+    // and stop follow-on-resize, otherwise expanding a long mail yanks the
+    // view back to the bottom on every remeasure.
+    wheelAbortRef.current?.abort()
+    const wheelAbort = new AbortController()
+    wheelAbortRef.current = wheelAbort
+    doc.addEventListener(
+      'wheel',
+      (event) => {
+        const api = timelineScrollRef.current
+        const scroller = api?.scroller.current
+        if (!api || !scroller || event.deltaY === 0) return
+        const dy =
+          event.deltaMode === 1
+            ? event.deltaY * 16
+            : event.deltaMode === 2
+              ? event.deltaY * scroller.clientHeight
+              : event.deltaY
+        api.noteWheel(dy)
+        event.preventDefault()
+        scroller.scrollTop += dy
+      },
+      { passive: false, signal: wheelAbort.signal },
+    )
     const roots = findEmailQuoteRoots(doc)
     quoteRootsRef.current = roots
-    quotesCollapsedRef.current = true
+    setHasQuotes(roots.length > 0)
     setExpandedFull(false)
-    quoteToggleRef.current = null
     if (roots.length > 0) {
-      // Earliest quote in document order — cut the letter there.
-      const first = roots.reduce((a, b) =>
-        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? a : b,
-      )
-      for (const el of roots) el.style.display = 'none'
-      placeQuoteDots(doc, first, true)
+      setQuoteRootsCollapsed(roots, true)
+      setQuotesCollapsed(true)
+    } else {
+      setQuotesCollapsed(false)
     }
     measure()
     // Remote CDNs (Google, ESP trackers) often block hotlinks when the
@@ -760,7 +620,7 @@ a { color: #60a5fa; }
       a.setAttribute('target', '_blank')
       a.setAttribute('rel', 'noopener noreferrer')
     })
-  }, [applyDarkTheme, isDark, measure, placeQuoteDots])
+  }, [applyDarkTheme, isDark, measure])
 
   useEffect(() => {
     const id = window.setTimeout(measure, 250)
@@ -768,11 +628,13 @@ a { color: #60a5fa; }
   }, [measure, html])
 
   useEffect(() => {
-    quotesCollapsedRef.current = true
     setExpandedFull(false)
+    setHasQuotes(false)
+    setQuotesCollapsed(true)
     quoteRootsRef.current = []
-    quoteToggleRef.current = null
   }, [html])
+
+  useEffect(() => () => wheelAbortRef.current?.abort(), [])
 
   // Theme switches without a reload: (re)apply on an already-loaded document.
   useEffect(() => {
@@ -806,52 +668,88 @@ a { color: #60a5fa; }
 
   // Base document renders the email as designed (light defaults); the
   // dark-mode style sheet injected on load decides invert vs. blend.
+  // overflow:hidden keeps short bubbles free of a phantom vertical scrollbar;
+  // tall mail is clipped by the outer wrapper, not by the iframe itself.
   const wrappedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><base target="_blank"><style>
-html { background: transparent; }
-html, body { margin: 0; padding: 0; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; }
+html { background: transparent; overflow: hidden !important; }
+html, body { margin: 0; padding: 0; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; overflow: hidden !important; }
 body { padding: 2px 0; background: transparent; }
 img { max-width: 100%; height: auto; }
 table { max-width: 100% !important; }
 a { color: #2563eb; }
+[data-bokito-quote][hidden] { display: none !important; }
 </style></head><body><div id="bokito-email-root">${html}</div></body></html>`
 
-  const capped = !expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
-  const displayHeight = capped ? EMAIL_HEIGHT_CAP_PX : naturalHeight
+  // Clip with the outer wrapper when content is tall; keep the iframe at the
+  // full natural height so it never grows its own scrollbar.
+  const heightCapped = !expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
+  const displayHeight = heightCapped ? EMAIL_HEIGHT_CAP_PX : naturalHeight
+  const showExpandToggle =
+    (hasQuotes && quotesCollapsed) ||
+    heightCapped ||
+    (expandedFull && (hasQuotes || naturalHeight > EMAIL_HEIGHT_CAP_PX)) ||
+    (hasQuotes && !quotesCollapsed)
 
   useEffect(() => {
     rememberEmailDisplayHeight(html, displayHeight)
     onDisplayHeightRef.current?.(displayHeight)
   }, [html, displayHeight])
 
+  const toggleFullMessage = () => {
+    if ((hasQuotes && quotesCollapsed) || heightCapped) {
+      if (hasQuotes && quotesCollapsed) applyQuoteCollapse(false)
+      setExpandedFull(true)
+      return
+    }
+    if (hasQuotes) applyQuoteCollapse(true)
+    setExpandedFull(false)
+  }
+
   return (
     <div className="space-y-1.5">
-      <div className={cn('relative overflow-hidden', capped && 'max-h-[480px]')}>
+      <div
+        className={cn('relative overflow-hidden', heightCapped && 'max-h-[480px]')}
+        style={heightCapped ? { maxHeight: EMAIL_HEIGHT_CAP_PX } : undefined}
+      >
         <iframe
           ref={iframeRef}
           sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           srcDoc={wrappedHtml}
           onLoad={handleLoad}
-          title={t('timeline.events.emailContent')}
+          scrolling="no"
           className="block w-full bg-transparent"
           style={{
-            height: `${displayHeight}px`,
+            // Always size to the (possibly quote-collapsed) content. The outer
+            // wrapper clips when capped — never the iframe document.
+            height: `${naturalHeight}px`,
             border: 0,
             background: 'transparent',
             colorScheme: 'light',
+            overflow: 'hidden',
           }}
         />
-        {capped ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-bg-surface to-transparent" />
+        {heightCapped && showExpandToggle ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-14 items-end bg-gradient-to-t from-bg-surface via-bg-surface/95 to-transparent pb-1.5">
+            <button
+              type="button"
+              className="pointer-events-auto text-xs font-medium text-text-muted hover:text-text-primary"
+              onClick={toggleFullMessage}
+            >
+              {t('timeline.showFullMessage')}
+            </button>
+          </div>
         ) : null}
       </div>
-      {capped || (expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX) ? (
-        <div className="flex flex-wrap items-center gap-2">
+      {!heightCapped && showExpandToggle ? (
+        <div className="flex flex-wrap items-center gap-2 pb-1">
           <button
             type="button"
             className="text-xs font-medium text-text-muted hover:text-text-primary"
-            onClick={() => setExpandedFull((v) => !v)}
+            onClick={toggleFullMessage}
           >
-            {expandedFull ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
+            {(hasQuotes && quotesCollapsed)
+              ? t('timeline.showFullMessage')
+              : t('timeline.showLessMessage')}
           </button>
         </div>
       ) : null}
@@ -933,6 +831,28 @@ function LazyEmailHtmlFrame({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Plain-text mail: fold the Outlook/Gmail quote trail behind "Show full message". */
+function PlainMessageBody({ text, tags }: { text: string; tags?: ChatTagMap }) {
+  const { t } = useTranslation('communication')
+  const { head, quote } = useMemo(() => splitPlainEmailQuote(text), [text])
+  const [expanded, setExpanded] = useState(false)
+  if (!quote) {
+    return <ChatText content={text} tags={tags} />
+  }
+  return (
+    <div className="space-y-1.5">
+      <ChatText content={expanded ? text : head} tags={tags} />
+      <button
+        type="button"
+        className="text-xs font-medium text-text-muted hover:text-text-primary"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
+      </button>
     </div>
   )
 }
@@ -1028,7 +948,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     const bulk = typeof p.bulk === 'string' ? p.bulk : null
     if (status === 'closed' || bulk === 'close') return t('timeline.events.threadClosed')
     if (status === 'spam' || bulk === 'spam') return t('timeline.events.markedSpam')
-    if (status === 'pending') return t('timeline.events.threadSnoozed')
+    if (status === 'pending') return t('timeline.events.threadPending')
     if (status === 'open' || bulk === 'reopen') return t('timeline.events.threadReopened')
     if (p.assigned_to === 0) return t('timeline.events.unassigned')
     if (bulk === 'assign' || p.assigned_to != null) {
@@ -1049,8 +969,27 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     return t('timeline.events.threadUpdated')
   },
   snooze_expired: (t) => t('timeline.events.snoozeExpired'),
+  scheduled: (t, p) => {
+    const repeat = p.repeat && typeof p.repeat === 'object' ? (p.repeat as Record<string, unknown>) : null
+    const at = scheduleLongLabel(typeof p.at === 'string' ? p.at : null)
+    if (repeat) return t('timeline.events.scheduledRepeat')
+    return at ? t('timeline.events.scheduledAt', { when: at }) : t('timeline.events.scheduled')
+  },
+  schedule_cleared: (t) => t('timeline.events.scheduleCleared'),
+  due: (t) => t('timeline.events.due'),
+  wake_started: (t, p) => {
+    const agent = typeof p.agent_name === 'string' && p.agent_name ? p.agent_name : ''
+    return agent ? t('timeline.events.wakeStartedBy', { name: agent }) : t('timeline.events.wakeStarted')
+  },
+  wake_quiet: (t, p) => {
+    const agent = typeof p.agent_name === 'string' && p.agent_name ? p.agent_name : ''
+    return agent ? t('timeline.events.wakeQuietBy', { name: agent }) : t('timeline.events.wakeQuiet')
+  },
   widget_seen: (t) => t('timeline.events.widgetSeen'),
-  agent_processed: (t) => t('timeline.events.agentReviewed'),
+  agent_processed: (t, p) =>
+    p.delivery === 'skipped' && p.reason === 'no_channel_agent'
+      ? t('timeline.events.noChannelAgent')
+      : t('timeline.events.agentReviewed'),
   agent_blocked: (t, p) =>
     t(`timeline.events.agentBlocked.${typeof p.block === 'string' ? p.block : 'other'}`, {
       defaultValue: t('timeline.events.agentBlocked.other'),
@@ -1181,18 +1120,8 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
           : t('timeline.events.returnedToAgentGeneric')
     }
     if (p.bounce_limited) return t('timeline.events.escalatedBounceLimit')
-    if (p.via === 'assisted') {
-      // Routine end of an assisted run: the agent prepared, a person is up.
-      const owner =
-        (typeof p.owner_name === 'string' && p.owner_name) || t('timeline.events.assistTeam')
-      const agent =
-        (typeof p.agent_name === 'string' && p.agent_name) || t('aiChat.title', { defaultValue: 'AI' })
-      if (reason === 'draft_ready') return t('timeline.events.assistDraftReady', { owner })
-      if (reason === 'pending_decision') return t('timeline.events.assistDecision', { owner })
-      if (reason === 'no_reply_needed') return t('timeline.events.assistNoReply', { owner })
-      if (reason === 'run_failed') return t('timeline.events.assistRunFailed', { owner })
-      return t('timeline.events.assistNeedsPerson', { agent, owner })
-    }
+    // Assisted handovers render a rich Trans label in EventPill (inline owner chip).
+    if (p.via === 'assisted') return ''
     if (typeof p.policy === 'string' || reason === 'human_replied' || reason === 'hand_back') {
       return name
         ? t('timeline.events.keptByHuman', { name })
@@ -1288,6 +1217,111 @@ function eventLabel(
   return t('timeline.events.messageAdded')
 }
 
+const OWNER_CHIP_CLASS =
+  'inline-flex items-center gap-0.5 rounded-md border border-border/55 bg-bg-elevated px-1 py-px align-baseline text-2xs font-medium text-text-heading no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70 hover:text-text-heading'
+
+type OwnerChipKind = 'team' | 'user' | 'agent'
+
+/** Inline avatar + name chip (team / person / agent), same visual language as chat app links. */
+function OwnerInlineChip({
+  kind,
+  id,
+  name,
+}: {
+  kind: OwnerChipKind
+  id?: string | null
+  name: string
+}) {
+  const { t } = useTranslation('communication')
+  const { user } = useAuth()
+  const { teams } = useTeams()
+  const { members } = useMembers()
+  const { agents } = useAgents()
+  const label = name.trim() || t('timeline.events.assistTeam')
+  const href =
+    kind === 'team' && id
+      ? teamPath(id)
+      : kind === 'agent' && id
+        ? openEntityPath({ type: 'agent', id })
+        : kind === 'user' && id
+          ? openEntityPath({ type: 'user', id })
+          : null
+
+  let face: ReactNode
+  let display = label
+  if (kind === 'team') {
+    const team = id ? teams.find((row) => row.id === id) : undefined
+    display = team?.kind === 'people' ? t('nav:teamPage.system.people') : team?.name || label
+    face = (
+      <TeamAvatar
+        {...toTeamAvatarProps(team ?? { id: id ?? display, name: display })}
+        size={12}
+        decorative
+      />
+    )
+  } else if (kind === 'agent') {
+    const agent = id ? agents.find((row) => row.id === id) : undefined
+    display = agent?.name || label
+    face = (
+      <AiAvatar
+        {...toAiAvatarProps(agent ?? { id: id ?? display, name: display }, display)}
+        size={12}
+        decorative
+      />
+    )
+  } else {
+    const member = id ? members.find((row) => row.uuid === id) : undefined
+    const self = id && user?.uuid === id ? user : undefined
+    display = member?.name || self?.name || label
+    const email = member?.email || self?.email || display
+    const avatarUrl = member?.avatarUrl ?? self?.avatarUrl ?? null
+    face = display ? (
+      <UserAvatar name={display} email={email} avatarUrl={avatarUrl} size={12} decorative />
+    ) : (
+      <Users size={10} className="shrink-0 opacity-80" aria-hidden />
+    )
+  }
+
+  const inner = (
+    <>
+      {face}
+      <span className="max-w-[10rem] truncate">{display}</span>
+    </>
+  )
+  if (href) {
+    return (
+      <Link to={href} className={OWNER_CHIP_CLASS} onClick={(e) => e.stopPropagation()}>
+        {inner}
+      </Link>
+    )
+  }
+  return <span className={OWNER_CHIP_CLASS}>{inner}</span>
+}
+
+function assistedHandoverLabel(event: InboxEvent, t: TFunction): ReactNode | null {
+  const p = event.payload ?? {}
+  if (event.eventType !== 'owner_handover' || p.via !== 'assisted') return null
+  const to = p.to && typeof p.to === 'object' ? (p.to as Record<string, unknown>) : {}
+  const ownerKind: OwnerChipKind =
+    to.kind === 'user' || to.kind === 'agent' || to.kind === 'team' ? to.kind : 'team'
+  const ownerId =
+    ownerKind === 'user'
+      ? typeof to.user_id === 'string'
+        ? to.user_id
+        : null
+      : ownerKind === 'agent'
+        ? typeof to.agent_id === 'string'
+          ? to.agent_id
+          : null
+        : typeof to.team_id === 'string'
+          ? to.team_id
+          : null
+  const ownerName =
+    (typeof p.owner_name === 'string' && p.owner_name) || t('timeline.events.assistTeam')
+  const owner = <OwnerInlineChip kind={ownerKind} id={ownerId} name={ownerName} />
+  return <Trans t={t} i18nKey="timeline.events.assistDecision" components={{ owner }} />
+}
+
 // Compact centered pill shared by SignalEvents and system_event messages.
 // AI-flow events share one accent-tinted style; plain system activity stays muted.
 function ActivityPill({
@@ -1296,7 +1330,7 @@ function ActivityPill({
   icon = null,
   tip,
 }: {
-  label: string
+  label: ReactNode
   ai?: boolean
   icon?: ReactNode
   /** Optional human-readable hover hint — never raw JSON / dumps. */
@@ -1306,12 +1340,12 @@ function ActivityPill({
     <Tip label={tip}>
       <span
         className={cn(
-          'inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-2xs leading-4 whitespace-nowrap',
+          'inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-2xs leading-4',
           ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
         )}
       >
         {icon}
-        {label}
+        <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">{label}</span>
       </span>
     </Tip>
   )
@@ -1338,9 +1372,10 @@ function EventPill({
     event.eventType === 'signal_created' && startedByName && !event.payload?.started_by
       ? { ...event, payload: { ...event.payload, started_by: startedByName } }
       : event
+  const richLabel = assistedHandoverLabel(labelEvent, t)
   const pill = (
     <ActivityPill
-      label={eventLabel(labelEvent, t, memberName, memberNameFor)}
+      label={richLabel ?? eventLabel(labelEvent, t, memberName, memberNameFor)}
       ai={ai}
       icon={icon}
       tip={when}
@@ -1416,21 +1451,6 @@ function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
   )
 }
 
-// Small role chip next to the author name ("Team" / "AI").
-function RoleChip({ kind }: { kind: 'team' | 'ai' }) {
-  const { t } = useTranslation('communication')
-  return (
-    <span
-      className={cn(
-        'shrink-0 rounded-lg border-0 px-2 py-0.5 text-2xs font-medium leading-none',
-        kind === 'ai' ? AI_PILL_CLASS : 'bg-bg-elevated text-text-muted',
-      )}
-    >
-      {kind === 'ai' ? t('timeline.roleAi') : t('timeline.roleTeam')}
-    </span>
-  )
-}
-
 // Thumbs up/down on agent replies. Votes feed the learning loop
 // (`POST /api/messages/{id}/feedback`) and drive the Usage "Avg feedback" metric.
 // The correct-interpretation action opens a chat with the responsible agent,
@@ -1477,14 +1497,14 @@ function MessageFeedbackControls({
 
   const buttonClass = (active: boolean) =>
     cn(
-      'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+      'flex h-5 w-5 items-center justify-center rounded transition-colors [&_svg]:h-2.5 [&_svg]:w-2.5',
       active ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
     )
 
   const correctLabel = t('decisionCard.correctInterpretation')
 
   return (
-    <div className="flex items-center gap-0.5 border-r border-border/50 pr-0.5">
+    <div className="flex items-center gap-px border-r border-border/40 pr-1">
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -1493,10 +1513,10 @@ function MessageFeedbackControls({
             className={buttonClass(sentiment === 'up')}
             onClick={() => vote('up')}
           >
-            <ThumbsUp size={12} />
+            <ThumbsUp size={10} />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">{t('decisionCard.feedbackGood')}</TooltipContent>
+        <TooltipContent side="top">{t('decisionCard.feedbackGood')}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -1506,10 +1526,10 @@ function MessageFeedbackControls({
             className={buttonClass(sentiment === 'down')}
             onClick={() => vote('down')}
           >
-            <ThumbsDown size={12} />
+            <ThumbsDown size={10} />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">{t('decisionCard.feedbackPoor')}</TooltipContent>
+        <TooltipContent side="top">{t('decisionCard.feedbackPoor')}</TooltipContent>
       </Tooltip>
       {threadId ? (
         <Tooltip>
@@ -1518,7 +1538,7 @@ function MessageFeedbackControls({
               type="button"
               aria-label={correctLabel}
               disabled={starting}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
+              className="flex h-5 w-5 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-50 [&_svg]:h-2.5 [&_svg]:w-2.5"
               onClick={() =>
                 void startCorrection({
                   threadId,
@@ -1530,10 +1550,10 @@ function MessageFeedbackControls({
                 })
               }
             >
-              {starting ? <Loader2 size={12} className="animate-spin" /> : <MessageSquareWarning size={12} />}
+              {starting ? <Loader2 size={10} className="animate-spin" /> : <MessageSquareWarning size={10} />}
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">{correctLabel}</TooltipContent>
+          <TooltipContent side="top">{correctLabel}</TooltipContent>
         </Tooltip>
       ) : null}
     </div>
@@ -1562,6 +1582,7 @@ export function MessageTimelineItem({
   onMailAction,
   mailOwnAddresses,
   mailCollapsedByDefault = false,
+  enterAnimation = true,
   onRetrySend,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation('communication')
@@ -1655,6 +1676,10 @@ export function MessageTimelineItem({
     message.kind === 'internal_note' &&
     noteActions != null &&
     typeof message.id === 'string'
+  const [showDeliveryOriginal, setShowDeliveryOriginal] = useState(false)
+  useEffect(() => {
+    setShowDeliveryOriginal(false)
+  }, [message.id])
   const [editingNote, setEditingNote] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
   const [noteBusy, setNoteBusy] = useState(false)
@@ -1765,7 +1790,12 @@ export function MessageTimelineItem({
     (looksLikeEmailHtml(message.bodyText) ? message.bodyText!.trim() : '') ||
     ''
   const mockPlainOverride = isMockAgentBody(plainBody) && displayBody !== plainBody
-  const usePlainBody = !htmlSource || mockPlainOverride
+  // Bounces store the failure as plain text and the original letter as HTML.
+  const deliveryNotice = preferPlainDeliveryNotice(
+    message.bodyText || message.bodyPreview || '',
+    htmlSource ? htmlToPlainPreview(htmlSource).slice(0, 500) : '',
+  )
+  const usePlainBody = deliveryNotice || !htmlSource || mockPlainOverride
 
   const bubbleBody = editingNote ? (
     <div className="space-y-1.5">
@@ -1804,8 +1834,28 @@ export function MessageTimelineItem({
           <span>{t('timeline.events.emailContent')}</span>
         </div>
       ) : (
-        <ChatText content={displayBody} tags={chatTags} />
+        <PlainMessageBody text={displayBody} tags={chatTags} />
       )}
+      {deliveryNotice && htmlSource ? (
+        <div className="pt-1">
+          <button
+            type="button"
+            className="text-xs font-medium text-text-muted hover:text-text-primary"
+            onClick={() => setShowDeliveryOriginal((open) => !open)}
+          >
+            {showDeliveryOriginal ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
+          </button>
+          {showDeliveryOriginal ? (
+            <div className="pt-1.5">
+              <MessageHtmlBody
+                html={htmlSource}
+                plainText={message.bodyText || message.bodyPreview || undefined}
+                attachments={attachmentItems}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <MessageAttachments attachments={attachmentItems.filter((a) => !a.inline)} />
     </div>
   ) : (
@@ -2409,6 +2459,7 @@ export function MessageTimelineItem({
       actions={actions}
       variant={variant}
       stack={stack}
+      enter={enterAnimation}
     />
   )
 
@@ -2434,15 +2485,24 @@ export function MessageTimelineItem({
   const traceIndent = isOwn ? 'ml-auto' : 'ml-9'
   const proposalActions =
     proposal && threadId ? (
-      <div className={cn(traceIndent, 'mb-1')}>
-        <ProposalActions
-          proposal={proposal}
-          threadId={threadId}
-          onResolved={onProposalResolved}
-          picked={proposalPicked}
-          setPicked={setProposalPicked}
-          chooseOptionRef={chooseOptionRef}
-        />
+      <div className={cn(traceIndent, 'mb-1 min-w-0 max-w-full', proposal.bundle.length > 0 && 'self-stretch')}>
+        {proposal.bundle.length > 0 ? (
+          <ActionBundleCard
+            proposal={proposal}
+            threadId={threadId}
+            agentName={agentName}
+            onResolved={onProposalResolved}
+          />
+        ) : (
+          <ProposalActions
+            proposal={proposal}
+            threadId={threadId}
+            onResolved={onProposalResolved}
+            picked={proposalPicked}
+            setPicked={setProposalPicked}
+            chooseOptionRef={chooseOptionRef}
+          />
+        )}
       </div>
     ) : null
 

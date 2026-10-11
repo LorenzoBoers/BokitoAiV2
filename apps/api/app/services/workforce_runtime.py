@@ -862,8 +862,8 @@ async def resolve_message(
         action=action_map.get(new_status, new_status),
         user_id=user_id,
     )
-    # A defer with a horizon snoozes the linked thread until then, so it
-    # resurfaces in the inbox instead of silently disappearing.
+    # A defer with a horizon gives the linked thread that date, so it comes
+    # back unread then instead of silently disappearing.
     if new_status == "deferred" and defer_days and defer_days > 0:
         from app.models.signal import Signal
 
@@ -883,9 +883,8 @@ async def resolve_message(
                     )
                 )
             ).scalar_one_or_none()
-            if signal and signal.status == "open":
-                signal.status = "pending"
-                signal.snoozed_until = datetime.utcnow() + timedelta(days=defer_days)
+            if signal and signal.status in ("open", "pending"):
+                signal.next_at = datetime.utcnow() + timedelta(days=defer_days)
                 signal.updated_at = datetime.utcnow()
                 session.add(signal)
                 await session.commit()

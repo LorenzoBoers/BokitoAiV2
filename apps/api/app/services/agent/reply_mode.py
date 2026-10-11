@@ -42,10 +42,15 @@ def is_customer_channel(channel: str | None) -> bool:
 
 
 _FENCE_RE = re.compile(r"^\s*```")
+_VISIBLE_RE = re.compile(r"[^\W_]")
 
 
 def _blocks(text: str) -> list[str]:
-    """Split on blank lines, keeping fenced code blocks whole."""
+    """Split on blank lines, keeping fenced code blocks whole.
+
+    Blocks without a letter or digit (a lone ``---`` rule, ``**``) are dropped:
+    on their own they render as an empty bubble.
+    """
     blocks: list[str] = []
     current: list[str] = []
     in_fence = False
@@ -62,7 +67,7 @@ def _blocks(text: str) -> list[str]:
         current.append(line)
     if current:
         blocks.append("\n".join(current).strip())
-    return [b for b in blocks if b]
+    return [b for b in blocks if _VISIBLE_RE.search(b)]
 
 
 def split_chat_messages(text: str, max_messages: int = MAX_CHAT_MESSAGES) -> list[str]:

@@ -79,6 +79,36 @@ async def test_chat_message_accepts_page_context(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_starting_an_agent_chat_assigns_the_opener(
+    client: AsyncClient, session_override
+):
+    """The person who opens a DM with an agent owns that conversation."""
+    from uuid import UUID
+
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+    from app.models.auth import User
+    from app.models.signal import Signal
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+
+    targets = await client.get("/api/signals/chat/targets", headers=headers)
+    agent_id = targets.json()["items"][0]["id"]
+    conv = await client.post(
+        "/api/signals/conversations",
+        json={"title": "Assign me", "agent_id": agent_id},
+        headers=headers,
+    )
+    assert conv.status_code == 200, conv.text
+    signal = await session_override.get(Signal, UUID(conv.json()["id"]))
+    assert signal is not None
+    assert signal.assignee_kind == "user"
+    assert signal.assigned_user_id == user.id
+    assert str(signal.agent_id) == agent_id
+
+
+@pytest.mark.asyncio
 async def test_chat_targets_company_only_and_create_requires_agent(
     client: AsyncClient, session_override
 ):

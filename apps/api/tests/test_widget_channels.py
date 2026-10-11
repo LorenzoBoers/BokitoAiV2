@@ -26,7 +26,7 @@ async def test_widget_channel_page_and_extra_site(client: AsyncClient):
     assert len(widgets) >= 1
     first = widgets[0]
     assert first["configure_href"] == f"/settings/channels/{first['id']}"
-    assert "archive" not in first["actions"]
+    assert "archive" in first["actions"]
 
     got = await client.get(f"/api/channels/accounts/{first['id']}/widget", headers=headers)
     assert got.status_code == 200, got.text
@@ -70,7 +70,7 @@ async def test_widget_channel_page_and_extra_site(client: AsyncClient):
     theme = session.json()["agent_config"]["theme"]
     assert theme["surface"] == "site"
 
-    blocked = await client.delete(f"/api/channels/accounts/{first['id']}", headers=headers)
-    assert blocked.status_code == 200, blocked.text
+    removed = await client.delete(f"/api/channels/accounts/{first['id']}", headers=headers)
+    assert removed.status_code == 200, removed.text
     last = await client.delete(f"/api/channels/accounts/{extra['id']}", headers=headers)
-    assert last.status_code == 400, last.text
+    assert last.status_code == 200, last.text

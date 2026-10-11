@@ -15,6 +15,8 @@ export type ModelIconRef = {
 
 const MANAGED_BY_SLUG: Array<{ test: RegExp; src: string; label: string }> = [
   { test: /^bokito-maki/i, src: '/models/maki.png', label: 'Maki' },
+  // Platform Maki often stores the upstream id; same mark as bokito-maki.
+  { test: /^ministral/i, src: '/models/maki.png', label: 'Maki' },
   { test: /^bokito-kong/i, src: '/models/kong.png', label: 'Kong' },
   { test: /^bokito-ai/i, src: '/models/bokito.png', label: 'Bokito' },
 ]

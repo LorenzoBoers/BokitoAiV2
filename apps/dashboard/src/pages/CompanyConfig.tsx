@@ -368,12 +368,12 @@ export default function CompanyConfig() {
 
             <div className="rounded-lg border border-border/60 bg-bg-elevated/30 px-5">
               <SettingRow label={t('brandingPage.name')}>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-bg-input border border-border/60 rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
-                />
+                <p className="text-sm text-text-primary">
+                  {savedName}{' '}
+                  <Link to="/settings/general" className="font-medium text-accent hover:underline">
+                    {t('brandingPage.nameOnGeneral')}
+                  </Link>
+                </p>
               </SettingRow>
 
               <SettingRow label={t('brandingPage.logo')} description={t('brandingPage.logoHint')}>

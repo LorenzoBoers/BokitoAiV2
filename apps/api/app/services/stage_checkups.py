@@ -300,6 +300,7 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
                 trigger_type="trigger_interval",
                 trigger_id=str(trigger.id),
                 subject=trigger.name[:120],
+                signal_id=signal.id,
             )
             session.add(run)
             trigger.last_status = "started"

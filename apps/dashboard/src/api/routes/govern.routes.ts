@@ -26,6 +26,9 @@ export const governRoutes = {
     `/govern/autonomy-scopes/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,
   rules: '/govern/rules',
   rulesTest: '/govern/rules/test',
+  agentRules: '/govern/agent-rules',
+  agentRule: (agentId: string, ruleId: string) =>
+    `/govern/agent-rules/${encodeURIComponent(agentId)}/${encodeURIComponent(ruleId)}`,
   tokens: '/govern/tokens',
   token: (tokenId: string) => `/govern/tokens/${encodeURIComponent(tokenId)}`,
 }

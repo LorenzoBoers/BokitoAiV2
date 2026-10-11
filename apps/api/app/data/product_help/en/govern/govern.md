@@ -40,6 +40,7 @@ Per-agent overrides live on the agent page under Tools and permissions.
 2. Add a rule the same way as on an agent: the situation, **What the agent does** and the **Kind of rule**. Choose **Add rule**.
 3. Use **Try out** to check an action before you rely on it.
 4. Proposed rules (from an agent or from the **Next time:** buttons on a card) and proposed routing rules (*Questions about invoices go to Lisa*) arrive as cards to confirm and are recorded under **Ledger**.
+5. **Per agent: always, ask, never** lists the verdicts given on action cards in conversations, one agent and one action per rule (**Always**, **Ask** or **Never**). An owner or admin's verdict is applied right away and appears here at once; a member's verdict arrives as a draft first. Choose the bin icon to remove a rule so the agent asks again. Anyone can remove an **Always** rule; removing **Ask** or **Never** loosens the agent and needs an owner or admin.
 
 Sending to customers always asks. See [Agents](/docs/ai/agents) for rules on one agent.
 

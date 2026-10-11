@@ -218,6 +218,10 @@ async def create_conversation(
         has_unread=False,
         context_signal_id=context_signal_id,
     )
+    # Opener owns the conversation; agent_id is the chat partner.
+    from app.services.ownership import set_owner
+
+    set_owner(signal, "user", auth.user.id, by_user_id=auth.user.id)
     session.add(signal)
     await session.commit()
     await session.refresh(signal)
@@ -797,6 +801,7 @@ async def _agent_run(session, auth, signal: Signal, content: str):
             trigger_type="chat",
             trigger_id=str(signal.id),
             subject=f"Chat: {content[:80]}",
+            signal_id=signal.id,
         )
         session.add(run)
         await session.commit()

@@ -112,6 +112,9 @@ class AgentLoop:
         self.trust = trust
         self.surface = surface
         self.audience = audience_for_trust(trust)
+        # Showcase cards from attach_items for this turn (request-scoped backup
+        # for the module-level stash that persist_agent_turn consumes).
+        self._showcase_items: list[dict[str, Any]] = []
         # Membership role of the session user; explicit when the caller has an
         # AuthContext (staff sessions map to admin there), else resolved from
         # the membership row on first tool call. Autonomous runs stay None.
@@ -304,6 +307,8 @@ class AgentLoop:
         from app.services.agent.turn_persist import persist_agent_turn
 
         turn = self.turn
+        showcase = list(self._showcase_items)
+        self._showcase_items = []
         return await persist_agent_turn(
             self.session,
             signal,
@@ -316,6 +321,7 @@ class AgentLoop:
             turn_id=turn.stream_id if turn else None,
             fallback_text=fallback_text,
             append_to_last=append_to_last,
+            showcase_items=showcase,
         )
 
     async def _resolve_reply_mode(self) -> str:
@@ -479,6 +485,16 @@ class AgentLoop:
         )
         base = self.agent.system_prompt if self.agent and self.agent.system_prompt else default_prompt
         parts = [base]
+        if self.agent is not None:
+            if self.trust == "external":
+                parts.append(f"## You\nYour name is {self.agent.name}.")
+            else:
+                parts.append(
+                    "## You\n"
+                    f"You are @[{self.agent.name}](agent:{self.agent.id}), not any other agent "
+                    "in the workspace. Refer to yourself or a colleague with the chip from the "
+                    "Tenant snapshot or a tool result, copied exactly; never make up an id."
+                )
         if workspace:
             parts.append(workspace)
         # Always remind agents with custom prompts that live tenant tools exist.
@@ -987,7 +1003,16 @@ class AgentLoop:
                 trust=self.trust,
                 user_role=await self._session_user_role(),
                 surface=self.surface,
+                turn_id=self.turn.stream_id if self.turn is not None else None,
             )
+            if (
+                tool_use["name"] == "attach_items"
+                and isinstance(result, dict)
+                and isinstance(result.get("items"), list)
+            ):
+                for row in result["items"]:
+                    if isinstance(row, dict):
+                        self._showcase_items.append(row)
             self._append_trace_step("tool_result", name=tool_use["name"], payload={"result": result})
             if self.turn is not None and item is not None:
                 await self.turn.tool_end(item, result)

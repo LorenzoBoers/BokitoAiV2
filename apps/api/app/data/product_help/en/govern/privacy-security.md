@@ -20,7 +20,7 @@ Owners and admins manage retention, data region, and data subject requests under
 ## Set retention and AI body use
 
 1. Open **Retention and AI**. Set **Workspace retention (days)** (default 365). One period applies to messages, calendar events, and audit data across this workspace.
-2. Older eligible data is purged by the retention job; thread shells can remain.
+2. The retention job deletes older messages, calendar events, and audit rows. Platform changes and decisions stay. Thread shells can remain.
 3. Toggle **Allow AI to use message bodies**. When off, AI handling shows Manual on every conversation and no drafts are written; metadata-only flows may still run.
 4. Leave the field to save. Changes apply to this workspace only.
 

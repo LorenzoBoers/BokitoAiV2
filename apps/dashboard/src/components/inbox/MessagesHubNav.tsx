@@ -45,6 +45,7 @@ import ScrollFade from '../ui/ScrollFade'
 import { Tip } from '../ui/Tip'
 
 const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
+  { queue: 'scheduled', labelKey: 'support.inbox.scheduled' },
   { queue: 'spam', labelKey: 'support.inbox.spam' },
 ]
 

@@ -260,21 +260,6 @@ async def _latest_message_previews(
     return out
 
 
-def set_conversation_look_at(
-    signal: Signal, *, title: str | None = None, when: datetime | None = None
-) -> None:
-    """Deprecated: look-ats are AgentTasks. Clears any leftover follow_up fields.
-
-    Callers that still schedule a next look must use ``create_agent_task`` with
-    ``assignee_kind=human`` and ``scheduled_for``. The ``title``/``when`` args
-    are ignored; kept so old call sites fail closed instead of writing look-ats.
-    """
-    del title, when
-    signal.follow_up_at = None
-    signal.follow_up_title = ""
-    signal.updated_at = datetime.utcnow()
-
-
 _OMIT = object()
 
 
@@ -291,7 +276,10 @@ def serialize_thread(
     ai_handling: dict[str, Any] | None = None,
     ticket: dict[str, Any] | None | object = _OMIT,
     tags: list[str] | object = _OMIT,
+    schedule: dict[str, Any] | None | object = _OMIT,
 ) -> dict[str, Any]:
+    from app.services.thread_schedule import thread_details
+
     assignee_num = user_numeric_id(signal.assigned_user_id) if signal.assigned_user_id else None
     email_conn_id = user_numeric_id(signal.channel_account_id) if signal.channel_account_id else None
     # Assistant chats are conversations (Alle communicatie + Agents folder);
@@ -319,9 +307,9 @@ def serialize_thread(
         "contact_phone": signal.contact_phone,
         "contact_basis": signal.contact_basis or "",
         "status": signal.status,
-        "snoozed_until": _iso(signal.snoozed_until),
-        "follow_up_at": _iso(signal.follow_up_at),
-        "follow_up_title": signal.follow_up_title or "",
+        "next_at": _iso(signal.next_at),
+        "ends_at": _iso(signal.ends_at),
+        "schedule_details": thread_details(signal),
         "priority": signal.priority,
         "assigned_to_user_id": assignee_num,
         "owner": owner_payload(signal),
@@ -359,6 +347,8 @@ def serialize_thread(
         payload["ticket"] = ticket
     if tags is not _OMIT:
         payload["tags"] = tags
+    if schedule is not _OMIT:
+        payload["schedule"] = schedule
     if agent:
         from app.services.agent_avatar import avatar_payload
 
@@ -384,6 +374,70 @@ def message_proposal_ids(messages: list[SignalMessage]) -> dict[UUID, UUID]:
     return found
 
 
+def message_bundle_ids(messages: list[SignalMessage]) -> dict[UUID, list[UUID]]:
+    """Message id -> decision ids of the action bundle an agent bubble carries."""
+    found: dict[UUID, list[UUID]] = {}
+    for message in messages:
+        if message.decision_id or '"bundle"' not in (message.metadata_json or ""):
+            continue
+        try:
+            meta = json.loads(message.metadata_json or "{}")
+            rows = meta["proposal"]["bundle"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            continue
+        ids: list[UUID] = []
+        for row in rows if isinstance(rows, list) else []:
+            try:
+                ids.append(UUID(str(row["decision_id"])))
+            except (KeyError, TypeError, ValueError):
+                continue
+        if ids:
+            found[message.id] = ids
+    return found
+
+
+def bundle_entry_payload(decision: DecisionRequest, *, card_message_id: str | None = None) -> dict[str, Any]:
+    """One action in a bundle: what approving runs, its state and learn hook."""
+    from app.tools.decision_copy import describe_action
+
+    try:
+        options = json.loads(decision.options_json or "[]")
+    except json.JSONDecodeError:
+        options = []
+    options = [o for o in (options if isinstance(options, list) else []) if isinstance(o, dict)]
+    approve = next(
+        (o for o in options if str(o.get("action_type") or "") not in ("", "reject", "defer", "escalate")),
+        None,
+    )
+    reject = next((o for o in options if str(o.get("action_type") or "") == "reject"), None)
+    action_type = str(approve.get("action_type") or "") if approve else ""
+    payload = approve.get("payload") if approve and isinstance(approve.get("payload"), dict) else {}
+    tool = action_type
+    tool_input: dict[str, Any] = payload
+    describe = approve.get("describe") if approve and isinstance(approve.get("describe"), dict) else None
+    if describe and describe.get("tool"):
+        # Platform changes carry the tool call behind them.
+        tool = str(describe["tool"])
+        tool_input = describe.get("input") if isinstance(describe.get("input"), dict) else {}
+    elif action_type == "accept_platform_change":
+        tool = ""
+    return {
+        "decision_id": str(decision.id),
+        "card_message_id": card_message_id or (str(decision.message_id) if decision.message_id else None),
+        "title": decision.title,
+        "summary": decision.summary,
+        "status": decision.status,
+        "chosen_option_id": decision.chosen_option_id,
+        "resolved_at": _iso(decision.resolved_at),
+        "approve_option_id": approve.get("id") if approve else "approve",
+        "reject_option_id": reject.get("id") if reject else "reject",
+        "action_type": action_type,
+        "action": describe_action(tool, tool_input) if tool else None,
+        "learn": approve.get("learn") if approve and isinstance(approve.get("learn"), dict) else None,
+        "platform_change_id": str(decision.platform_change_id) if decision.platform_change_id else None,
+    }
+
+
 async def _user_display_names(session: AsyncSession, user_ids: list[UUID]) -> dict[UUID, str]:
     ids = list({uid for uid in user_ids if uid})
     if not ids:
@@ -399,9 +453,11 @@ def proposal_payload(
     decision: DecisionRequest | None,
     *,
     resolved_by_name: str | None = None,
+    bundle_decisions: list[DecisionRequest] | None = None,
 ) -> dict[str, Any]:
     """The proposal an agent bubble carries: its decision's live state plus the
-    item snapshot taken when the agent raised it."""
+    item snapshot taken when the agent raised it. ``bundle`` lists every action
+    card of the turn so the client renders one approve-all / pick-some card."""
     selection = str(proposal_meta.get("selection") or "single").lower()
     if selection not in ("single", "multiple"):
         selection = "single"
@@ -413,6 +469,21 @@ def proposal_payload(
         "status": "missing",
         "options": [],
     }
+    bundle_meta = proposal_meta.get("bundle") if isinstance(proposal_meta.get("bundle"), list) else []
+    if bundle_meta:
+        by_id = {str(d.id): d for d in bundle_decisions or []}
+        rows: list[dict[str, Any]] = []
+        for row in bundle_meta:
+            if not isinstance(row, dict) or not row.get("decision_id"):
+                continue
+            found = by_id.get(str(row["decision_id"]))
+            if found is None:
+                rows.append({"decision_id": str(row["decision_id"]), "status": "missing"})
+            else:
+                rows.append(bundle_entry_payload(found, card_message_id=row.get("card_message_id")))
+        out["bundle"] = rows
+        if proposal_meta.get("bundle_id"):
+            out["bundle_id"] = str(proposal_meta["bundle_id"])
     if decision is None:
         return out
     try:
@@ -448,6 +519,7 @@ def serialize_message(
     channel: str | None = None,
     proposal_decision: DecisionRequest | None = None,
     proposal_resolved_by: str | None = None,
+    bundle_decisions: list[DecisionRequest] | None = None,
 ) -> dict[str, Any]:
     """Serialize a message for the timeline.
 
@@ -529,7 +601,10 @@ def serialize_message(
         if isinstance(meta.get("items"), list) and meta["items"]:
             proposal_meta = {**proposal_meta, "items": meta["items"]}
         payload["proposal"] = proposal_payload(
-            proposal_meta, proposal_decision, resolved_by_name=proposal_resolved_by
+            proposal_meta,
+            proposal_decision,
+            resolved_by_name=proposal_resolved_by,
+            bundle_decisions=bundle_decisions,
         )
     from app.services.agent.turn_persist import message_activity
 
@@ -1037,11 +1112,13 @@ def _hub_predicate(user_id: UUID, *, include_runs: bool = False):
 
     Customer channels, assistant chats the operator may see (not inline
     agent sessions — those live on their host thread), and agent work
-    threads once a person must act on them. Filtering on one agent shows all
-    of that agent's threads, including its runs. Private Bokito helper
+    threads once a person must act on them. Agenda threads (tasks,
+    appointments, repeating wakes) always show. Filtering on one agent shows
+    all of that agent's threads, including its runs. Private Bokito helper
     chats (source=personal) stay in the in-app widget, not this hub.
     """
     from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
+    from app.services.thread_schedule import SCHEDULE_SOURCE
 
     clauses = [
         Signal.channel.notin_(("internal", "assistant")),
@@ -1060,7 +1137,7 @@ def _hub_predicate(user_id: UUID, *, include_runs: bool = False):
                 Signal.channel == "internal",
                 or_(
                     Signal.turn_kind.in_(("user", "team")),
-                    Signal.source == "team",
+                    Signal.source.in_(("team", SCHEDULE_SOURCE)),
                 ),
             )
         )
@@ -1093,6 +1170,8 @@ async def list_threads(
     per_page: int = 30,
     visible_account_ids: set[UUID] | None = None,
     team_id: str | None = None,
+    scheduled_from: datetime | None = None,
+    scheduled_to: datetime | None = None,
 ) -> dict[str, Any]:
     pinned = await _pinned_ids(session, tenant_id, user_id)
     from app.services.trash import alive
@@ -1166,9 +1245,21 @@ async def list_threads(
         query = query.where(Signal.status == "open", unassigned_predicate())
     elif view == "pending":
         query = query.where(Signal.status == "pending")
-    elif view == "snoozed":
-        # Parked conversations: timed wake or wait-until-reply (no wake time).
-        query = query.where(Signal.status == "pending")
+    elif view == "scheduled":
+        # Threads with a date: agenda items, look-agains, repeating tasks
+        # (paused repeats have no next moment but still belong here).
+        from app.models.trigger import Trigger
+
+        rule_threads = select(Trigger.signal_id).where(
+            Trigger.tenant_id == tenant_id,
+            Trigger.signal_id.is_not(None),
+            Trigger.deleted_at.is_(None),
+            Trigger.kind != "webhook",
+        )
+        query = query.where(
+            or_(Signal.next_at.is_not(None), Signal.id.in_(rule_threads)),
+            Signal.status.notin_(("spam",)),
+        )
     elif view == "closed":
         query = query.where(Signal.status == "closed")
     elif view == "spam":
@@ -1223,6 +1314,10 @@ async def list_threads(
         except ValueError:
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
 
+    if scheduled_from is not None:
+        query = query.where(Signal.next_at >= scheduled_from)
+    if scheduled_to is not None:
+        query = query.where(Signal.next_at <= scheduled_to)
     if unread:
         query = query.where(Signal.has_unread.is_(True))
     if pinned_only:
@@ -1291,7 +1386,9 @@ async def list_threads(
         (Signal.ai_handling_reason.in_(("handoff_requested", "escalated")), 0),
         else_=1,
     )
-    if mine_first is not None:
+    if view == "scheduled":
+        query = query.order_by(Signal.next_at.asc())
+    elif mine_first is not None:
         # For you: a customer waiting on a person, then what waits on you now,
         # then what you merely own.
         query = query.order_by(
@@ -1380,6 +1477,9 @@ async def list_threads(
     from app.services.signal_tags import tags_by_signal
 
     tags_map = await tags_by_signal(session, [t.id for t in threads])
+    from app.services.thread_schedule import rules_by_signal, schedule_payload
+
+    rules = await rules_by_signal(session, tenant_id, [t.id for t in threads])
 
     items = []
     for t in threads:
@@ -1405,6 +1505,7 @@ async def list_threads(
                 ai_handling=handling,
                 ticket=tickets.get(t.id),
                 tags=tags_map.get(t.id, []),
+                schedule=schedule_payload(rules.get(t.id)),
             )
         )
     next_page = page + 1 if page * per_page < items_total else None
@@ -1483,6 +1584,9 @@ async def get_thread(
     decision_ids = [m.decision_id for m in messages if m.decision_id]
     proposal_ids = message_proposal_ids(messages)
     decision_ids.extend(proposal_ids.values())
+    bundle_ids = message_bundle_ids(messages)
+    for ids in bundle_ids.values():
+        decision_ids.extend(ids)
     decisions_by_id: dict[UUID, DecisionRequest] = {}
     if decision_ids:
         dr = await session.execute(
@@ -1564,6 +1668,9 @@ async def get_thread(
                 if proposal_decision and proposal_decision.resolved_by_user_id
                 else None
             ),
+            bundle_decisions=[
+                decisions_by_id[did] for did in bundle_ids.get(m.id, []) if did in decisions_by_id
+            ],
         )
         fb = feedback_by_subject.get(str(m.id))
         if fb:
@@ -1614,6 +1721,7 @@ async def get_thread(
     thread_tags = await signal_tag_names(session, signal.id)
     routing_policy = (await handling_svc.routing_for_signal(session, tenant, signal)).effective
     from app.services.ownership import human_owner_payload
+    from app.services.thread_schedule import rules_by_signal, schedule_payload
 
     return {
         "thread": serialize_thread(
@@ -1624,6 +1732,9 @@ async def get_thread(
             ai_handling=handling,
             ticket=await ticket_payload(session, signal),
             tags=thread_tags,
+            schedule=schedule_payload(
+                (await rules_by_signal(session, tenant_id, [signal.id])).get(signal.id)
+            ),
         ),
         # Channel routing policy for the composer (send split at "ask",
         # "Send and close" default) and the last person/team that handled it.
@@ -1700,6 +1811,18 @@ async def get_message(
     resolver_names = await _user_display_names(
         session, [proposal_decision.resolved_by_user_id] if proposal_decision else []
     )
+    bundle_decisions: list[DecisionRequest] = []
+    bundle_ids = message_bundle_ids([message]).get(message.id, [])
+    if bundle_ids:
+        bundle_decisions = list(
+            (
+                await session.execute(
+                    select(DecisionRequest).where(
+                        DecisionRequest.id.in_(bundle_ids), DecisionRequest.tenant_id == tenant_id
+                    )
+                )
+            ).scalars().all()
+        )
     return serialize_message(
         message,
         decision=decision,
@@ -1712,6 +1835,7 @@ async def get_message(
             if proposal_decision and proposal_decision.resolved_by_user_id
             else None
         ),
+        bundle_decisions=bundle_decisions,
     )
 
 
@@ -1830,11 +1954,6 @@ async def patch_thread(
     priority: str | None = None,
     project_id: UUID | None = None,
     project_id_set: bool = False,
-    snoozed_until: datetime | None = None,
-    snoozed_until_set: bool = False,
-    follow_up_at: datetime | None = None,
-    follow_up_at_set: bool = False,
-    follow_up_title: str | None = None,
     assignee: dict[str, Any] | None = None,
     channel_account_id: UUID | None = None,
     channel_account_id_set: bool = False,
@@ -1856,20 +1975,8 @@ async def patch_thread(
             user_id=user_id,
             actor_role=actor_role,
         )
-    if snoozed_until_set:
-        # Snooze is retired: mark unread instead of parking as pending.
-        signal.snoozed_until = None
-        if snoozed_until is not None:
-            signal.has_unread = True
-    # follow_up_* patches are retired — clients create AgentTasks via
-    # POST /orchestration/tasks. Clear leftover stamps if a client still sends them.
-    if follow_up_at_set or follow_up_title is not None:
-        signal.follow_up_at = None
-        signal.follow_up_title = ""
     if status is not None:
         signal.status = status
-        if status != "pending":
-            signal.snoozed_until = None
     newly_assigned: UUID | None = None
     if assignee is None and assigned_to_user_id is not None:
         # Shorthand from the person picker: 0 clears to the channel's owner team.
@@ -1991,6 +2098,11 @@ async def patch_thread(
         )
     await session.commit()
     await session.refresh(signal)
+    if owner_changed and signal.assignee_kind == "agent":
+        from app.workers.tasks import assignment_should_wake_agent, enqueue_signal_processing
+
+        if await assignment_should_wake_agent(session, signal):
+            await enqueue_signal_processing(str(tenant_id), str(signal.id))
     from app.models.auth import Tenant
 
     handling = (
@@ -2104,64 +2216,7 @@ async def set_read(
     return serialize_thread(signal, is_pinned=signal_id in pinned, user_num=user_num)
 
 
-async def wake_snoozed_threads(session: AsyncSession) -> int:
-    """Reopen snoozed threads whose wake time passed (all tenants; scheduler tick)."""
-    now = datetime.utcnow()
-    result = await session.execute(
-        select(Signal).where(
-            Signal.status == "pending",
-            Signal.snoozed_until.is_not(None),
-            Signal.snoozed_until <= now,
-        )
-    )
-    woken = list(result.scalars().all())
-    for signal in woken:
-        signal.status = "open"
-        signal.snoozed_until = None
-        signal.has_unread = True
-        signal.updated_at = now
-        session.add(signal)
-        session.add(
-            SignalEvent(
-                signal_id=signal.id,
-                tenant_id=signal.tenant_id,
-                event_type="snooze_expired",
-                actor_type="system",
-                actor_id="",
-                payload_json="{}",
-            )
-        )
-    if woken:
-        await session.commit()
-        for signal in woken:
-            await publish_thread_update(signal)
-    return len(woken)
-
-
-async def flag_due_follow_ups(session: AsyncSession) -> int:
-    """Mark conversations unread when their next look-at time has passed."""
-    now = datetime.utcnow()
-    result = await session.execute(
-        select(Signal).where(
-            Signal.follow_up_at.is_not(None),
-            Signal.follow_up_at <= now,
-            Signal.has_unread.is_(False),
-            Signal.status.in_(("open", "pending")),
-        )
-    )
-    due = list(result.scalars().all())
-    for signal in due:
-        signal.has_unread = True
-        signal.updated_at = now
-        session.add(signal)
-    if due:
-        await session.commit()
-        for signal in due:
-            await publish_thread_update(signal)
-    return len(due)
-
-
-BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "snooze", "trash")
+BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "trash")
 
 
 async def bulk_update_threads(
@@ -2172,7 +2227,6 @@ async def bulk_update_threads(
     signal_ids: list[UUID],
     action: str,
     assignee_id: int | None = None,
-    snoozed_until: datetime | None = None,
 ) -> dict[str, Any]:
     """Apply one operator action to many threads at once (inbox bulk bar)."""
     if action not in BULK_ACTIONS:
@@ -2237,14 +2291,11 @@ async def bulk_update_threads(
         before_assignee = signal.assigned_user_id
         if action == "close":
             signal.status = "closed"
-            signal.snoozed_until = None
             signal.has_unread = False
         elif action == "reopen":
             signal.status = "open"
-            signal.snoozed_until = None
         elif action == "spam":
             signal.status = "spam"
-            signal.snoozed_until = None
             signal.has_unread = False
         elif action == "read":
             signal.has_unread = False
@@ -2252,13 +2303,6 @@ async def bulk_update_threads(
             signal.has_unread = True
         elif action == "assign":
             signal.assigned_user_id = assignee_uuid
-        elif action == "snooze":
-            # Snooze retired: mark unread so the thread stays in Open / For you.
-            del snoozed_until
-            signal.snoozed_until = None
-            signal.has_unread = True
-            if signal.status == "pending":
-                signal.status = "open"
         if action == "close":
             handling_svc.on_status_change(session, signal, actor_id=str(user_id))
             from app.services.tickets import settle_ticket_on_close
@@ -2276,7 +2320,7 @@ async def bulk_update_threads(
             await _defer_open_reply_suggestions(
                 session, tenant_id, signal.id, reason="thread_closed"
             )
-        if action in ("close", "reopen", "spam", "assign", "snooze"):
+        if action in ("close", "reopen", "spam", "assign"):
             event_payload: dict[str, Any] = {"bulk": action}
             if action == "assign" and assignee_id is not None:
                 # The timeline chip names the assignee from this field.
@@ -2293,7 +2337,7 @@ async def bulk_update_threads(
             )
     # One audit event per bulk action with the before-states; mark-read noise
     # (read/unread) is intentionally excluded from the govern audit.
-    if signals and action in ("close", "reopen", "spam", "assign", "snooze"):
+    if signals and action in ("close", "reopen", "spam", "assign"):
         from app.services.audit import record_audit
 
         await record_audit(
@@ -2683,18 +2727,19 @@ async def reply_to_thread(
         from app.services.ai_handling import on_status_change
 
         signal.status = "closed"
-        signal.snoozed_until = None
         signal.has_unread = False
         on_status_change(session, signal, actor_id=str(user_id))
         from app.services.tickets import settle_ticket_on_close
 
         await settle_ticket_on_close(session, signal, actor_type="user", actor_id=str(user_id))
     elif action == "send_and_pending":
-        # Snooze-as-park retired: keep the thread open and visible.
+        # No park: the thread stays open and visible; a wait time becomes
+        # its date, so it comes back unread when the customer stays quiet.
         if signal.status == "pending":
             signal.status = "open"
-        signal.snoozed_until = None
         signal.has_unread = True
+        if snooze_minutes and snooze_minutes > 0:
+            signal.next_at = datetime.utcnow() + timedelta(minutes=int(snooze_minutes))
     session.add(signal)
     session.add(
         SignalEvent(
@@ -2867,7 +2912,6 @@ async def mark_handled_externally(
         from app.services.ai_handling import on_status_change
 
         signal.status = "closed"
-        signal.snoozed_until = None
         on_status_change(session, signal, actor_id=str(user_id))
         from app.services.tickets import settle_ticket_on_close
 
@@ -3200,7 +3244,10 @@ async def _generate_agent_reply(
         )
         tokens: dict = {"input_tokens": 0, "output_tokens": 0}
         thinking_meta = None
-        async for event in loop.stream_chat(history, attachments=attachments):
+        from app.services.thread_schedule import rule_context
+
+        context = await rule_context(session, signal)
+        async for event in loop.stream_chat(history, extra_context=context, attachments=attachments):
             if event["type"] == "done":
                 tokens = event.get("usage", tokens)
                 thinking_meta = loop.thinking_payload()
@@ -3566,39 +3613,29 @@ async def resolve_message_decision(
 
     await session.commit()
 
-    # Approving "create a task" / legacy look_at creates a human AgentTask.
+    # Approving "create a task" / legacy look_at puts a date on the conversation.
     created_task_id: str | None = None
     continue_signal: Signal | None = None
     if user_id and action in ("approved", "approve") and primary_option_id in ("create_task", "look_at"):
         from datetime import timedelta
 
-        from app.services.orchestration.dispatcher import create_agent_task
+        from app.services.thread_schedule import apply_thread_schedule
 
         sig_result = await session.execute(
             select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
         )
         signal = sig_result.scalar_one_or_none()
         if signal:
-            who = signal.contact_email or signal.contact_name or "conversation"
-            title = f"Follow up: {signal.subject or who}"[:120]
-            # Clear any leftover look-at stamp from older builds.
-            signal.follow_up_at = None
-            signal.follow_up_title = ""
-            session.add(signal)
-            task = await create_agent_task(
+            await apply_thread_schedule(
                 session,
                 tenant_id,
-                title=title,
-                signal_id=signal.id,
-                created_by=user_id,
-                kind="task",
-                origin="conversation",
-                assignee_kind="human",
-                assignee_user_id=user_id,
-                scheduled_for=datetime.utcnow() + timedelta(hours=4),
-                auto_start=False,
+                signal=signal,
+                at=datetime.utcnow() + timedelta(hours=4),
+                recipient=("user", user_id),
+                created_by_user_id=user_id,
+                actor_id=str(user_id),
             )
-            created_task_id = str(task.id)
+            await session.commit()
 
     # Chat / Ask threads: after Ja/Nee the operator bubble is not enough —
     # wake the agent so it confirms (and finishes work if the option had no tool).
@@ -3700,6 +3737,150 @@ async def resolve_message_decision(
         "rule_suggestion": rule_suggestion,
         "task_id": created_task_id,
     }
+
+
+_BUNDLE_COPY = {
+    "en": {"approved": "Approved", "rejected": "Rejected", "failed": "Failed"},
+    "nl": {"approved": "Goedgekeurd", "rejected": "Afgewezen", "failed": "Mislukt"},
+}
+
+
+def _bundle_action_label(decision: DecisionRequest) -> str:
+    entry = bundle_entry_payload(decision)
+    action = entry.get("action") if isinstance(entry.get("action"), dict) else None
+    if action and action.get("fallback"):
+        return str(action["fallback"])
+    title = decision.title or ""
+    for prefix in ("Review: ", "Approve: "):
+        if title.startswith(prefix):
+            return title[len(prefix):]
+    return title
+
+
+async def resolve_decision_bundle(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID | None,
+    signal_id: UUID,
+    *,
+    decision_ids: list[UUID],
+    approve: list[str] | str,
+    reject: list[str] | str,
+) -> dict[str, Any]:
+    """Resolve several action cards of one agent turn in one go.
+
+    ``approve`` is ``"all"`` or a list of decision ids; ``reject`` is
+    ``"rest"`` (every listed card not approved) or a list. Each card runs
+    through the normal resolve path, so platform changes and tool calls
+    execute exactly as a single Approve would; one failing action leaves the
+    others resolved and comes back as ``error`` on its row. One operator
+    bubble sums up the outcome."""
+    from app.models.auth import Tenant
+    from app.services.decisions import resolve_decision_message
+    from app.services.language import resolve_workspace_language
+
+    rows = list(
+        (
+            await session.execute(
+                select(DecisionRequest).where(
+                    DecisionRequest.id.in_(decision_ids),
+                    DecisionRequest.tenant_id == tenant_id,
+                    DecisionRequest.signal_id == signal_id,
+                )
+            )
+        ).scalars().all()
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="No decisions found for this bundle")
+    by_id = {str(d.id): d for d in rows}
+    ordered_ids = [str(did) for did in decision_ids if str(did) in by_id]
+    approve_ids = ordered_ids if approve == "all" else [str(x) for x in approve if str(x) in by_id]
+    if reject == "rest":
+        reject_ids = [did for did in ordered_ids if did not in approve_ids]
+    else:
+        reject_ids = [str(x) for x in reject if str(x) in by_id and str(x) not in approve_ids]
+
+    results: list[dict[str, Any]] = []
+    approved_labels: list[str] = []
+    rejected_labels: list[str] = []
+    failed_labels: list[str] = []
+    for did in approve_ids + reject_ids:
+        decision = by_id[did]
+        label = _bundle_action_label(decision)
+        if decision.status != "awaiting_human":
+            results.append({"decision_id": did, "status": decision.status, "skipped": True})
+            continue
+        entry = bundle_entry_payload(decision)
+        approving = did in approve_ids
+        option_id = entry["approve_option_id"] if approving else entry["reject_option_id"]
+        try:
+            await resolve_decision_message(
+                session,
+                tenant_id,
+                decision.id,
+                action="approved" if approving else "rejected",
+                user_id=user_id,
+                option_id=option_id,
+            )
+        except HTTPException as exc:
+            # The resolver already reopened the card and committed.
+            failed_labels.append(label)
+            results.append({"decision_id": did, "status": "awaiting_human", "error": str(exc.detail)})
+            continue
+        refreshed = await session.get(DecisionRequest, decision.id)
+        status = refreshed.status if refreshed else ("approved" if approving else "rejected")
+        results.append({"decision_id": did, "status": status})
+        (approved_labels if approving else rejected_labels).append(label)
+        session.add(
+            SignalEvent(
+                signal_id=signal_id,
+                tenant_id=tenant_id,
+                event_type=f"decision_{'approved' if approving else 'rejected'}",
+                actor_type="user",
+                actor_id=str(user_id) if user_id else "",
+                payload_json=json.dumps(
+                    {
+                        "decision_id": did,
+                        "action": "approved" if approving else "rejected",
+                        "option_id": option_id,
+                        "bundle": True,
+                        "has_reply_message": False,
+                    }
+                ),
+            )
+        )
+        await session.commit()
+
+    signal = (
+        await session.execute(select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id))
+    ).scalar_one_or_none()
+    if signal and user_id and (approved_labels or rejected_labels):
+        tenant = await session.get(Tenant, tenant_id)
+        copy = _BUNDLE_COPY.get(resolve_workspace_language(tenant) if tenant else "en", _BUNDLE_COPY["en"])
+        parts: list[str] = []
+        if approved_labels:
+            parts.append(f"{copy['approved']}: {', '.join(approved_labels)}")
+        if rejected_labels:
+            parts.append(f"{copy['rejected']}: {', '.join(rejected_labels)}")
+        if failed_labels:
+            parts.append(f"{copy['failed']}: {', '.join(failed_labels)}")
+        from app.services.assistant_threads import append_signal_chat_message
+
+        await append_signal_chat_message(
+            session,
+            signal,
+            role="user",
+            content=" · ".join(parts),
+            author_user_id=user_id,
+            metadata={
+                "decision_response": True,
+                "decision_bundle": True,
+                "decision_ids": approve_ids + reject_ids,
+                "decision_action": "approved" if approved_labels else "rejected",
+            },
+        )
+        await session.commit()
+    return {"ok": not failed_labels, "results": results}
 
 
 def _should_continue_chat_after_decision(signal: Signal) -> bool:

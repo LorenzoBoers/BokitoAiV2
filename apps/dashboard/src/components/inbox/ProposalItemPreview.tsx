@@ -196,6 +196,36 @@ export function ProposalItemPreview({
   )
 }
 
+function ImageGallery({ items }: { items: ProposalItem[] }) {
+  return (
+    <div className="mt-2 grid grid-cols-3 gap-1.5" data-testid="proposal-image-gallery">
+      {items.map((item) => {
+        const src = item.imageUrl || item.url || ''
+        const href = item.url || item.imageUrl || src
+        if (!src) return null
+        return (
+          <a
+            key={`${item.type}:${item.id}`}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="group relative aspect-square overflow-hidden rounded-lg border border-border/60 bg-bg-elevated no-underline"
+            title={item.title || undefined}
+          >
+            <img
+              src={src}
+              alt={item.title || ''}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+            />
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
 export function ProposalItemList({
   items,
   onSelect,
@@ -206,9 +236,16 @@ export function ProposalItemList({
   selectedIds?: Set<string>
 }) {
   if (!items.length) return null
+  const images = items.filter((item) => item.type === 'image' && (item.imageUrl || item.url))
+  const rest = items.filter((item) => !(item.type === 'image' && (item.imageUrl || item.url)))
+  // Pure image showcases (e.g. web_search + attach_items) get a photo grid.
+  if (images.length > 0 && rest.length === 0 && !onSelect) {
+    return <ImageGallery items={images} />
+  }
   return (
     <div className="mt-2 space-y-1.5">
-      {items.map((item) => (
+      {images.length > 0 && !onSelect ? <ImageGallery items={images} /> : null}
+      {(onSelect ? items : rest).map((item) => (
         <ProposalItemPreview
           key={`${item.type}:${item.id}`}
           item={item}

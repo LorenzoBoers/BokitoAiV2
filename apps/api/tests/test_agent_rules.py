@@ -173,7 +173,7 @@ async def test_workspace_rules_endpoints(client: AsyncClient, session_override):
     assert r.json()["reason"].startswith("rule:")
 
 
-async def test_learn_from_card_proposes_rule_and_owner_confirms(client: AsyncClient, session_override):
+async def test_learn_from_card_owner_applies_rule_now(client: AsyncClient, session_override):
     owner = await _login(client)
     tenant_id, agent_id = await _agent(session_override)
     await _pin_ask(client, owner)
@@ -195,14 +195,16 @@ async def test_learn_from_card_proposes_rule_and_owner_confirms(client: AsyncCli
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "collected"
 
+    # An owner's verdict applies right away; Govern keeps it as an applied
+    # change (audit + rollback) instead of a draft to confirm.
     r = await client.post(f"/api/notifications/decisions/{decision_id}/learn", headers=owner, json={"choice": "allow"})
     assert r.status_code == 200, r.text
+    assert r.json()["applied"] is True
     change_id = r.json()["change_id"]
     change = await session_override.get(PlatformChange, UUID(change_id))
     assert change.resource_type == "agent_rule"
+    assert change.status == "applied_yolo"
 
-    r = await client.post(f"/api/govern/changes/{change_id}/accept", headers=owner)
-    assert r.status_code == 200, r.text
     session_override.expire_all()
     agent = await session_override.get(Agent, agent_id)
     rules = agent_rules(agent)
