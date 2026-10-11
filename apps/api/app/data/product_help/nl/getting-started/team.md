@@ -53,6 +53,7 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
    - **Minst open**: elk nieuw gesprek gaat naar het beschikbare lid met de minste open gesprekken.
 4. Zet **Tonen in de zijbalk van Communicatie** aan om iedereen een map voor dit team te geven met **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies **Opslaan**.
 5. Open in **Communicatie** die teammap en kies **Groepschat**. Bokito opent (of maakt) één vast intern gesprek van het team, zodat leden kunnen praten zonder een klantgesprek.
+6. Terug op **Workforce** openen de naam van een eigen team en de knop **Gesprekken** diezelfde teammap in Communicatie, ook als de zijbalk-optie uit staat. Agentmarkeringen in de ledenrij openen de agentpagina. De systeemteams **Alle mensen** en **Alle agents** hebben geen map; hun naam blijft gewone tekst.
 
 Om de beurt en minst open geven alleen werk aan mensen die beschikbaar zijn en agents die het kanaal mogen afhandelen. Past niemand, dan blijft het gesprek bij het team. Elke toewijzing staat in de tijdlijn en in het auditlog. Maak een team eigenaar van een kanaal onder **Instellingen**, **Kanalen** (zie [Kanalen](/docs/inbox/channels)).
 

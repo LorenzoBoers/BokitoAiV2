@@ -9,7 +9,7 @@ related: communication,inbox-ai,widget,integrations
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and availability** and **Install** on that page. A new workspace starts with no channels; add email or website chat via **Add channel** when you need them.
+Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and availability** and **Install** on that page. A new workspace starts with no channels; add email or website chat via **Add channel** when you need them. When the list has more than three rows, search by name or address and use **Needs attention only**. Pausing or turning a channel on confirms in a short message. A failed load offers **Try again**.
 
 ## Add a channel
 
@@ -85,6 +85,7 @@ Setup, Connections, Channels and the reply composer all use the same channel sta
 3. Click the row and read **Status**. Each check is one line, for example **Sign-in**, **Synced folders**, **Last sync**, **Sync errors** for a mailbox, or **Incoming mail**, **Outgoing mail** and **Mail received** for a Bokito address.
 4. For a mailbox, **History** in the **Mailbox** section sets the first import. That import stops at the chosen window, at most one year, or 1,000 messages per folder. New mail after that keeps syncing on its own.
 5. A mailbox that fails 50 syncs in a row turns itself off instead of retrying forever. The row reads **Off**, **Sync errors** shows the reason, and an alert lands in Communication. Fix the sign-in or server and choose **Turn on**; a successful sync clears the counter.
+6. To see the conversations themselves, use the speech-bubble icon at the end of the row, or the **N conversations in Communication** link under the channel name on its page. Both open the channel's folder in Communication (mailbox, website chat, WhatsApp or Slack); archived channels have no folder link.
 
 ## Turn off or disconnect a channel
 

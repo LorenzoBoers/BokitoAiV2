@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Activity, ChevronDown, FolderKanban, Inbox, Plus, Settings, Users } from 'lucide-react'
+import { Activity, ChevronDown, Inbox, Plus, Settings } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
 import { TeamAvatar } from '../ui/TeamAvatar'
@@ -43,6 +44,9 @@ import NavCountBadge from '../layout/NavCountBadge'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import ScrollFade from '../ui/ScrollFade'
 import { Tip } from '../ui/Tip'
+
+const FolderKanban = ENTITY_ICONS.project
+const Users = ENTITY_ICONS.team
 
 const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
   { queue: 'scheduled', labelKey: 'support.inbox.scheduled' },
@@ -568,6 +572,54 @@ function HashtagsSection({
   )
 }
 
+function projectTreeHas(rows: NavRow[], id: string): boolean {
+  return rows.some((row) => row.id === id || projectTreeHas(row.children ?? [], id))
+}
+
+function projectScopeKeys(row: NavRow): string[] {
+  return [`project:${row.id}`, ...(row.children ?? []).flatMap(projectScopeKeys)]
+}
+
+function ProjectFolderRow({
+  row,
+  ancestors,
+  activeLeaf,
+  defaultQueueFor,
+}: {
+  row: NavRow
+  ancestors: string[]
+  activeLeaf: HubLeaf | null
+  defaultQueueFor: (leaf: HubLeaf) => SubQueue
+}) {
+  const children = row.children ?? []
+  const leaf: HubLeaf = { type: 'project', projectId: row.id }
+  return (
+    <SidebarFolder
+      baseLeaf={leaf}
+      label={row.name}
+      icon={<FolderKanban size={14} className="shrink-0 text-text-muted" aria-hidden />}
+      activeLeaf={activeLeaf}
+      defaultQueue={defaultQueueFor(leaf)}
+      badgeCount={row.count}
+      retainOnExpand={ancestors}
+      closeOnCollapse={children.flatMap(projectScopeKeys)}
+      leading={
+        children.length > 0
+          ? children.map((child) => (
+              <ProjectFolderRow
+                key={child.id}
+                row={child}
+                ancestors={[...ancestors, `project:${row.id}`]}
+                activeLeaf={activeLeaf}
+                defaultQueueFor={defaultQueueFor}
+              />
+            ))
+          : null
+      }
+    />
+  )
+}
+
 function ProjectsSection({
   projects,
   loading,
@@ -582,7 +634,7 @@ function ProjectsSection({
   t: TFn
 }) {
   const extraProject =
-    activeLeaf?.type === 'project' && !projects.some((row) => row.id === activeLeaf.projectId)
+    activeLeaf?.type === 'project' && !projectTreeHas(projects, activeLeaf.projectId)
       ? [{ id: activeLeaf.projectId, name: activeLeaf.projectId.slice(0, 8), count: 0 }]
       : []
   return (
@@ -594,13 +646,15 @@ function ProjectsSection({
           <span className="min-w-0 flex-1 truncate-fade">{t('support.projects.empty')}</span>
         </Link>
       ) : null}
-      <NavRowFolders
-        rows={[...projects, ...extraProject]}
-        leafFor={(row) => ({ type: 'project', projectId: row.id })}
-        icon={() => <FolderKanban size={14} className="shrink-0 text-text-muted" aria-hidden />}
-        activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
-      />
+      {[...projects, ...extraProject].map((row) => (
+        <ProjectFolderRow
+          key={row.id}
+          row={row}
+          ancestors={[]}
+          activeLeaf={activeLeaf}
+          defaultQueueFor={defaultQueueFor}
+        />
+      ))}
     </div>
   )
 }

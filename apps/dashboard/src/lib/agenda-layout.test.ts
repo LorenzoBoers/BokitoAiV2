@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   attentionOf,
+  calendarIdsParam,
   dayKey,
   isAllDay,
   itemEnd,
@@ -10,6 +11,7 @@ import {
   layersParam,
   layoutDay,
   matchesWho,
+  parseCalendarIds,
   parseLayers,
   viewRange,
 } from './agenda-layout'
@@ -42,10 +44,23 @@ describe('layerOf', () => {
 })
 
 describe('layers param', () => {
-  it('omits the param when every layer is on', () => {
+  it('omits the param when every layer is on and keeps none off', () => {
     expect(layersParam(parseLayers(null))).toBeNull()
     expect(layersParam(parseLayers('tasks'))).toBe('tasks')
     expect([...parseLayers('calendar,checkups')].sort()).toEqual(['tasks'])
+    expect([...parseLayers('none')]).toEqual([])
+    expect(layersParam(new Set())).toBe('none')
+  })
+})
+
+describe('calendar ids param', () => {
+  const available = ['g', 'o']
+  it('treats a missing param as all and none as empty', () => {
+    expect([...parseCalendarIds(null, available)].sort()).toEqual(['g', 'o'])
+    expect([...parseCalendarIds('none', available)]).toEqual([])
+    expect(calendarIdsParam(new Set(['g', 'o']), available)).toBeNull()
+    expect(calendarIdsParam(new Set(), available)).toBe('none')
+    expect(calendarIdsParam(new Set(['g']), available)).toBe('g')
   })
 })
 

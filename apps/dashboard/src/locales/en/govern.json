@@ -148,6 +148,8 @@
     "learningIntro": "Recent automatic tightenings (allow to ask first). Loosening stays a manual edit here."
   },
   "scopes": {
+    "openTag": "Open the conversations with this action tag",
+    "openFlow": "Open the flow",
     "title": "Autonomy per action tag and flow",
     "intro": "Company default follows the conversation's AI handling. A chosen mode is a ceiling.",
     "types": "Action tags",

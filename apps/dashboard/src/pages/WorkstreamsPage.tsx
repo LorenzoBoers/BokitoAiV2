@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronRight, FolderKanban, Loader2, Plus, Workflow } from 'lucide-react'
+import { ChevronRight, Loader2, Plus } from 'lucide-react'
+import { ENTITY_ICONS } from '../lib/entity-icons'
+import { openEntityPath } from '../lib/open-entity'
+
+const FolderKanban = ENTITY_ICONS.project
+const Workflow = ENTITY_ICONS.flow
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import ContentHeader from '../components/shell/ContentHeader'
@@ -321,18 +326,33 @@ function CreateFlowDialog({
 
 function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<string, string> }) {
   const { t } = useTranslation('nav')
+  const navigate = useNavigate()
   const counts = ws.ticket_counts ?? {}
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0)
-  const names = ws.project_ids.map((id) => projectNames.get(id)).filter((n): n is string => Boolean(n))
+  const linked = ws.project_ids
+    .map((id) => ({ id, name: projectNames.get(id) }))
+    .filter((p): p is { id: string; name: string } => Boolean(p.name))
+  const href = workstreamPath(ws.id)
 
+  // The row opens the flow; the project chips inside open their folder.
   return (
-    <Link
-      to={workstreamPath(ws.id)}
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label={flowTitle(ws)}
+      onClick={() => navigate(href)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          navigate(href)
+        }
+      }}
       className={cn(
-        'panel hover-lift group flex items-center gap-4 px-4 py-3 transition',
-        'hover:border-border',
+        'panel hover-lift group flex cursor-pointer items-center gap-4 px-4 py-3 transition',
+        'hover:border-border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent',
         !ws.enabled && 'opacity-70',
       )}
+      data-testid="flow-row"
     >
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex items-center gap-2">
@@ -369,16 +389,28 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
           {t('workstreamsPage.list.tickets', { count: total })}
           {ws.last_activity_at ? ` · ${timeAgo(ws.last_activity_at, t)}` : ''}
         </span>
-        {names.length > 0 ? (
-          <span className="inline-flex max-w-[16rem] items-center gap-1 truncate">
-            <FolderKanban size={11} aria-hidden />
-            <span className="truncate">{names.join(', ')}</span>
+        {linked.length > 0 ? (
+          <span className="flex max-w-[18rem] flex-wrap items-center justify-end gap-1" data-testid="flow-row-projects">
+            {linked.slice(0, 3).map((project) => (
+              <Link
+                key={project.id}
+                to={openEntityPath({ type: 'project', id: project.id })}
+                className="inline-flex max-w-[9rem] items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-2xs text-text-secondary transition hover:border-accent/50 hover:text-accent"
+                title={t('workstreamsPage.meta.openProject', { name: project.name })}
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <FolderKanban size={11} aria-hidden />
+                <span className="truncate">{project.name}</span>
+              </Link>
+            ))}
+            {linked.length > 3 ? <span className="tabular-nums">+{linked.length - 3}</span> : null}
           </span>
         ) : (
           <span className="italic">{t('workstreamsPage.meta.noProjects')}</span>
         )}
       </div>
       <ChevronRight size={15} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" />
-    </Link>
+    </div>
   )
 }

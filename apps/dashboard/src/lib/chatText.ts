@@ -256,6 +256,7 @@ export type AppLinkKind =
   | 'connections'
   | 'settings'
   | 'project'
+  | 'canvas'
   | 'flow'
   | 'inbox'
   | 'contact'
@@ -266,6 +267,9 @@ export function appLinkKind(href: string): AppLinkKind {
   if (href.startsWith('/docs') || href.startsWith('/learn')) return 'docs'
   if (href.startsWith('/connections') || href.startsWith('/integrations')) return 'connections'
   if (href.startsWith('/settings')) return 'settings'
+  // Snapshot canvas before generic /projects (project pages may use ?tab=canvas).
+  if (href.startsWith('/cockpit/canvas')) return 'canvas'
+  if (/^\/projects\/[^/?#]+/.test(href) && /(?:\?|&)tab=canvas(?:&|#|$)/.test(href)) return 'canvas'
   if (href.startsWith('/projects')) return 'project'
   if (href.startsWith('/workstreams') || href.startsWith('/flows')) return 'flow'
   // Conversations: hub paths and the short /threads/{id} form agents sometimes emit.

@@ -79,6 +79,8 @@ export default function ModelsSettings() {
   const [customModelId, setCustomModelId] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [testMessage, setTestMessage] = useState<string | null>(null)
+  const [rotateId, setRotateId] = useState<string | null>(null)
+  const [rotateKey, setRotateKey] = useState('')
 
   const load = useCallback(async () => {
     if (!token) return
@@ -128,6 +130,24 @@ export default function ModelsSettings() {
     setCustomModelId('')
     setDisplayName('')
     setTestMessage(null)
+    setShowKey(false)
+  }
+
+  const wizardDirty =
+    label.trim() !== '' ||
+    baseUrl.trim() !== '' ||
+    apiKey.trim() !== '' ||
+    customModelId.trim() !== '' ||
+    displayName.trim() !== '' ||
+    pickedModelId !== '' ||
+    providerType !== 'mistral'
+
+  const closeWizard = async () => {
+    if (wizardDirty) {
+      const ok = await confirm({ description: t('modelsPage.custom.discardWizard') })
+      if (!ok) return
+    }
+    resetWizard()
   }
 
   const handleOptIn = async (enabled: boolean) => {
@@ -248,6 +268,8 @@ export default function ModelsSettings() {
     setBusy(true)
     try {
       await updateProvider(token, id, { api_key: key.trim() })
+      setRotateId(null)
+      setRotateKey('')
       flashSaved()
       await load()
     } catch (err) {
@@ -527,18 +549,59 @@ export default function ModelsSettings() {
                     {conn.is_set ? ` · ${t('modelsPage.keySet', { last4: conn.last4 })}` : ''}
                   </span>
                   <div className="flex gap-2">
+                    {rotateId === conn.id ? (
+                      <form
+                        className="flex flex-wrap items-center gap-2"
+                        onSubmit={(event) => {
+                          event.preventDefault()
+                          void handleRotateKey(conn.id, rotateKey)
+                        }}
+                      >
+                        <Input
+                          type="password"
+                          value={rotateKey}
+                          autoFocus
+                          autoComplete="new-password"
+                          aria-label={t('modelsPage.custom.replaceKeyLabel')}
+                          placeholder={t('modelsPage.apiKeyPlaceholder')}
+                          onChange={(event) => setRotateKey(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                              setRotateId(null)
+                              setRotateKey('')
+                            }
+                          }}
+                          className="h-8 w-48"
+                        />
+                        <Button type="submit" size="sm" disabled={busy || !rotateKey.trim()}>
+                          {t('modelsPage.custom.replaceKeySave')}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setRotateId(null)
+                            setRotateKey('')
+                          }}
+                        >
+                          {t('modelsPage.cancel')}
+                        </Button>
+                      </form>
+                    ) : (
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
                       disabled={busy}
                       onClick={() => {
-                        const next = window.prompt(t('modelsPage.apiKeyPlaceholder'))
-                        if (next) void handleRotateKey(conn.id, next)
+                        setRotateId(conn.id)
+                        setRotateKey('')
                       }}
                     >
                       {t('modelsPage.custom.replaceKey')}
                     </Button>
+                    )}
                     <Button
                       type="button"
                       size="sm"
@@ -558,12 +621,17 @@ export default function ModelsSettings() {
                   {t('modelsPage.custom.addModel')}
                 </Button>
               ) : (
-                <InsetPanel className="space-y-3 p-4">
+                <InsetPanel
+                  className="space-y-3 p-4"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') void closeWizard()
+                  }}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium text-text-heading">
                       {t('modelsPage.custom.wizardTitle', { step })}
                     </p>
-                    <Button type="button" size="sm" variant="ghost" onClick={resetWizard}>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => void closeWizard()}>
                       {t('modelsPage.cancel')}
                     </Button>
                   </div>
@@ -594,6 +662,12 @@ export default function ModelsSettings() {
                           onChange={(e) => setLabel(e.target.value)}
                           placeholder={t('modelsPage.labelPlaceholder')}
                           className="mt-1"
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !(needsBaseUrl && !baseUrl.trim())) {
+                              event.preventDefault()
+                              setStep(2)
+                            }
+                          }}
                         />
                       </div>
                       {needsBaseUrl ? (

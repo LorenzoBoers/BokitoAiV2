@@ -14,6 +14,7 @@
     "lastNamePlaceholder": "Achternaam",
     "jobTitle": "Functietitel",
     "jobTitlePlaceholder": "Functie",
+    "emptyValue": "Niet ingevuld",
     "descriptionLabel": "Bio",
     "descriptionPlaceholder": "Een korte bio of omschrijving",
     "saveChanges": "Wijzigingen opslaan",
@@ -68,6 +69,8 @@
     "newPassword": "Nieuw wachtwoord",
     "confirmPassword": "Bevestig nieuw wachtwoord",
     "passwordMismatch": "Wachtwoorden komen niet overeen",
+    "passwordTooShort": "Gebruik minstens 8 tekens.",
+    "passwordHint": "Minstens 8 tekens. Enter slaat op.",
     "passwordSuccess": "Wachtwoord gewijzigd",
     "passwordSetSuccess": "Wachtwoord ingesteld",
     "cancel": "Annuleren",
@@ -114,6 +117,7 @@
     "deleteDescription": "Verwijder je account en alle gekoppelde data permanent. Dit kan niet ongedaan worden gemaakt.",
     "deleteConfirm": "Je account permanent verwijderen? Dit kan niet ongedaan worden gemaakt.",
     "deletePasswordPrompt": "Voer je wachtwoord in om verwijdering te bevestigen:",
+    "deletePasswordLabel": "Wachtwoord",
     "deleting": "Verwijderen..."
   },
   "errors": {

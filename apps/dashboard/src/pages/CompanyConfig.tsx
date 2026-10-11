@@ -363,9 +363,6 @@ export default function CompanyConfig() {
 
           {/* ── Branding ─────────────────────────────────────────────────── */}
           <div>
-            <h2 className="text-lg font-semibold text-text-heading mb-1">{t('brandingPage.title')}</h2>
-            <p className="text-sm text-text-secondary mb-4">{t('brandingPage.subtitle')}</p>
-
             <div className="rounded-lg border border-border/60 bg-bg-elevated/30 px-5">
               <SettingRow label={t('brandingPage.name')}>
                 <p className="text-sm text-text-primary">
@@ -384,6 +381,14 @@ export default function CompanyConfig() {
                       : <Image size={16} className="text-text-muted" />
                     }
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
+                  >
+                    <Upload size={12} />
+                    {logoSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
+                  </button>
                   {logoSrc ? (
                     <button
                       type="button"
@@ -396,16 +401,7 @@ export default function CompanyConfig() {
                     >
                       {t('brandingPage.delete')}
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
-                    >
-                      <Upload size={12} />
-                      {t('brandingPage.upload')}
-                    </button>
-                  )}
+                  ) : null}
                   <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleLogoUpload(e) }} />
                 </div>
               </SettingRow>
@@ -418,6 +414,14 @@ export default function CompanyConfig() {
                       : <Image size={16} className="text-text-muted" />
                     }
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => faviconInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
+                  >
+                    <Upload size={12} />
+                    {faviconSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
+                  </button>
                   {faviconSrc ? (
                     <button
                       type="button"
@@ -430,16 +434,7 @@ export default function CompanyConfig() {
                     >
                       {t('brandingPage.delete')}
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => faviconInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
-                    >
-                      <Upload size={12} />
-                      {t('brandingPage.upload')}
-                    </button>
-                  )}
+                  ) : null}
                   <input ref={faviconInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleFaviconUpload(e) }} />
                 </div>
               </SettingRow>
@@ -484,6 +479,7 @@ export default function CompanyConfig() {
                       setSubdomain(next)
                       if (subdomainError) setSubdomainError(validateSubdomain(next, t))
                     }}
+                    onBlur={() => setSubdomainError(validateSubdomain(subdomain.trim().toLowerCase(), t))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && brandingDirty) {
                         e.preventDefault()

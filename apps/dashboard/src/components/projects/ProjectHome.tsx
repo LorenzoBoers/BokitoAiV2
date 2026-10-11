@@ -9,10 +9,10 @@ import {
   ProjectAgentEditButton,
   ProjectOrchestratorSection,
 } from './ProjectOrchestratorSection'
-import { ProjectFlowBoards } from './ProjectFlowBoards'
 import type { ProjectBudgetResponse, ProjectRow } from '../../lib/projects-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 
+/** Who runs it, what is due, and what it may spend — the project's status row. */
 export function ProjectHome({
   project,
   budget,
@@ -30,8 +30,7 @@ export function ProjectHome({
   const [budgetOpen, setBudgetOpen] = useState(false)
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>{t('projects.detail.leadLabel')}</CardTitle>
@@ -80,17 +79,6 @@ export function ProjectHome({
             />
           </CardContent>
         </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('projects.home.ticketsBoard')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-xs text-text-muted">{t('projects.home.ticketsHint')}</p>
-          <ProjectFlowBoards projectId={project.id} canEdit={canEdit} onFlowsChanged={() => void onChanged()} />
-        </CardContent>
-      </Card>
     </div>
   )
 }

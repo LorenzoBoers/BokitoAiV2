@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import AppShell from './components/shell/AppShell'
 import MessagesHub from './components/shell/MessagesHub'
 import SettingsLayout, { SettingsHomeRedirect } from './components/shell/SettingsLayout'
+import ProjectsLayout from './components/projects/ProjectsLayout'
 import WorkspaceHubLayout from './components/layout/WorkspaceHubLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import ControlPlaneRoute from './components/auth/ControlPlaneRoute'
@@ -422,8 +423,10 @@ export default function App() {
           <Route path="/agents" element={<AiAgents />} />
           <Route path="/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/:projectId" element={<ProjectDetail />} />
+          <Route element={<ProjectsLayout />}>
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/projects/:projectId" element={<ProjectDetail />} />
+          </Route>
           <Route path="/knowledge" element={<WorkspaceDocs />} />
           <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
           <Route path="/workstreams" element={<WorkstreamsPage />} />

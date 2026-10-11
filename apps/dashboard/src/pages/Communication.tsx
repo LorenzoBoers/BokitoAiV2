@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { toastMovedToBin } from '../lib/bin-toast'
 import {
   forYouPath,
   inboxPath,
@@ -25,6 +26,7 @@ import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import PlanDialog from '../components/inbox/PlanDialog'
 import ComposeEmailModal, { type ComposePrefill } from '../components/inbox/ComposeEmailModal'
+import FileInFolderDialog from '../components/inbox/FileInFolderDialog'
 import InboxShortcutHelp from '../components/inbox/InboxShortcutHelp'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { composeEmailPath, parseComposeIntent } from '../lib/compose-intent'
@@ -91,6 +93,7 @@ import {
 import {
   bulkUpdateSignalThreads,
   cancelScheduledMessage,
+  findNavRowPath,
   LIST_FILTER_KEYS,
   listFilterFromParams,
   listFilterQuery,
@@ -159,7 +162,9 @@ export default function Communication() {
     const onlyProject = projectId && !categoryId && !tagParam && !stageParam
     const onlyTag = tagParam && !projectId && !categoryId && !stageParam
     if (onlyProject) {
-      const name = communicationNav.projects.find((row) => row.id === projectId)?.name
+      // Subfolders sit under their parent row, so search the whole tree.
+      const chain = findNavRowPath(communicationNav.projects, projectId)
+      const name = chain ? chain[chain.length - 1].name : undefined
       return t('threadList.scopeProject', { name: name ?? t('threadList.scopeProjectFallback') })
     }
     if (onlyTag) return t('threadList.scopeFolder', { name: `#${tagParam}` })
@@ -401,6 +406,7 @@ export default function Communication() {
   // Bulk selection lives per list context; switching leaves clears it.
   const [bulkSelectedIds, setBulkSelectedIds] = useState<ReadonlySet<string>>(new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkFileOpen, setBulkFileOpen] = useState(false)
   useEffect(() => {
     setBulkSelectedIds(new Set())
     lastBulkAnchorId.current = null
@@ -680,6 +686,7 @@ export default function Communication() {
         if (String(selectedThreadId) === String(id)) {
           navigate(`${leafPath(leaf)}${inboxQuery}`)
         }
+        toastMovedToBin(t('actions.deleted'), navigate)
         void refreshNavBadges()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : t('actions.deleteFailed'))
@@ -1041,8 +1048,12 @@ export default function Communication() {
   })
 
   const handleBulkAction = useCallback(
-    async (action: BulkThreadAction, assigneeId?: number) => {
+    async (action: BulkThreadAction, assigneeId?: number, projectId?: string) => {
       if (!token || bulkSelectedIds.size === 0) return
+      if (action === 'file' && !projectId) {
+        setBulkFileOpen(true)
+        return
+      }
       const count = bulkSelectedIds.size
       if (action === 'trash') {
         if (!(await confirm({ description: t('bulkActions.trashConfirm', { count }), destructive: true }))) return
@@ -1093,6 +1104,7 @@ export default function Communication() {
           [...bulkSelectedIds],
           action,
           assigneeId,
+          projectId,
         )
         toast.success(
           action === 'trash'
@@ -1542,6 +1554,7 @@ export default function Communication() {
             onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
             bulkBusy={bulkBusy}
             listQueue={leaf.queue ?? null}
+            scopedProjectId={projectId ?? null}
             scrollKey={leafKey(leaf)}
             assigneeFilter={assigneeFilter}
             onAssigneeFilter={setAssigneeFilter}
@@ -1842,6 +1855,16 @@ export default function Communication() {
         prefill={composePrefill}
       />
       <InboxShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
+      <FileInFolderDialog
+        open={bulkFileOpen}
+        onOpenChange={setBulkFileOpen}
+        title={t('threadChrome.fileInFolder')}
+        confirmLabel={t('threadChrome.fileConfirm')}
+        onConfirm={async (projectId) => {
+          if (!projectId) return
+          await handleBulkAction('file', undefined, projectId)
+        }}
+      />
     </div>
   )
 }

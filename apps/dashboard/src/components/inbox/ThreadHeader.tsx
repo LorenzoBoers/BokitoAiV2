@@ -30,6 +30,8 @@ import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput, ThreadDetail as ThreadDetailType } from '../../lib/inbox-api'
 import { setThreadExample } from '../../lib/signals-api'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { openEntityPath } from '../../lib/open-entity'
 import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../../lib/contact-label'
 import { isInternalThread, threadCounterpartyName, threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
@@ -57,6 +59,7 @@ import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { PRIORITY_META } from './ConversationWorkSection'
 
 const HEADER_ICON = THREAD_HEADER_ICON_CLASS
+const FolderIcon = ENTITY_ICONS.project
 
 type Props = {
   thread: InboxThread
@@ -68,6 +71,10 @@ type Props = {
   onPatch: (input: PatchThreadInput) => Promise<void>
   /** Close flow that first asks about still-open Signals. */
   onRequestClose: () => void | Promise<void>
+  /** File this conversation in a project folder. */
+  onFileInFolder?: () => void
+  /** Close and file in one step. */
+  onCloseAndFile?: () => void
   closeBusy?: boolean
   onBack?: () => void
   onToggleContact?: () => void
@@ -94,6 +101,26 @@ type Props = {
   panelCount?: number
   /** After toggling the few-shot example flag on a closed conversation. */
   onExampleChanged?: (isExample: boolean) => void
+  /** The project folder this conversation is filed in; `path` is the ancestor chain. */
+  folder?: { id: string; name: string; path: string } | null
+}
+
+/** " · [folder] Name" after the status: where this conversation is filed. */
+function FolderLink({ folder, label }: { folder: { id: string; name: string; path: string }; label: string }) {
+  return (
+    <>
+      {' · '}
+      <Link
+        to={openEntityPath({ type: 'project', id: folder.id })}
+        className="inline-flex max-w-[12rem] items-center gap-1 align-bottom hover:text-accent hover:underline"
+        title={`${label}: ${folder.path}`}
+        data-testid="thread-folder-link"
+      >
+        <FolderIcon size={11} className="shrink-0" aria-hidden />
+        <span className="truncate">{folder.name}</span>
+      </Link>
+    </>
+  )
 }
 
 export default function ThreadHeader({
@@ -104,6 +131,8 @@ export default function ThreadHeader({
   previousCount,
   onPatch,
   onRequestClose,
+  onFileInFolder,
+  onCloseAndFile,
   closeBusy = false,
   onBack,
   onToggleContact,
@@ -122,6 +151,7 @@ export default function ThreadHeader({
   onPlan,
   panelCount = 0,
   onExampleChanged,
+  folder = null,
 }: Props) {
   const { t } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
@@ -172,6 +202,7 @@ export default function ThreadHeader({
                 {' · '}
                 {threadStatusLabel(thread.status, t)}
               </span>
+              {folder ? <FolderLink folder={folder} label={t('threadChrome.filedIn')} /> : null}
             </>
           ) : (
             <>
@@ -223,6 +254,7 @@ export default function ThreadHeader({
                 {' · '}
                 {threadStatusLabel(thread.status, t)}
               </span>
+              {folder ? <FolderLink folder={folder} label={t('threadChrome.filedIn')} /> : null}
             </>
           )}
         </p>
@@ -355,6 +387,18 @@ export default function ThreadHeader({
               <DropdownMenuItem className="gap-2" onClick={() => onPlan()}>
                 <CalendarClock size={13} />
                 {t('threadChrome.plan')}
+              </DropdownMenuItem>
+            ) : null}
+            {onFileInFolder ? (
+              <DropdownMenuItem className="gap-2" onClick={() => onFileInFolder()}>
+                <FolderIcon size={13} />
+                {t('threadChrome.fileInFolder')}
+              </DropdownMenuItem>
+            ) : null}
+            {onCloseAndFile && thread.status !== 'closed' && thread.status !== 'spam' ? (
+              <DropdownMenuItem className="gap-2" onClick={() => onCloseAndFile()}>
+                <Archive size={13} />
+                {t('threadChrome.closeAndFile')}
               </DropdownMenuItem>
             ) : null}
             {!internal ? <DropdownMenuSeparator /> : null}

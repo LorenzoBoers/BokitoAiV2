@@ -30,7 +30,7 @@ from datetime import datetime, timedelta
 from typing import Any, Callable
 from uuid import UUID
 
-from app.models.auth import Tenant
+from app.models.auth import Tenant, user_numeric_id
 from app.models.channel import ChannelAccount
 
 CHANNEL_STATES = (
@@ -456,6 +456,9 @@ def resolve_channel(
         "sync_window_days": account_sync_window_days(settings),
         "archive_automated_mail": account_archives_automated_mail(settings),
         "archived_at": _iso(account.archived_at),
+        # Mailbox folder in Communication (`email_connection_id` on /api/signals
+        # and `/communication/channel/email/{id}`); other kinds have one folder per channel.
+        "hub_connection_id": user_numeric_id(account.id) if account.channel == "email" else None,
     }
 
 

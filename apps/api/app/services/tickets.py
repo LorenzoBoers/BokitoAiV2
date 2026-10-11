@@ -642,6 +642,48 @@ async def playbook_project_ids(
     return list(rows.scalars().all())
 
 
+def _folder_choices(
+    linked_ids: list[UUID],
+    by_id: dict[UUID, Project],
+    children_of: dict[UUID, list[UUID]],
+) -> list[dict[str, Any]]:
+    """Linked projects plus every folder inside them, indented by depth."""
+    depth_of: dict[UUID, int] = {}
+
+    def walk(project_id: UUID, depth: int) -> None:
+        if project_id not in by_id:
+            return
+        previous = depth_of.get(project_id)
+        if previous is not None and previous <= depth:
+            return
+        depth_of[project_id] = depth
+        for child_id in children_of.get(project_id, []):
+            walk(child_id, depth + 1)
+
+    for project_id in linked_ids:
+        walk(project_id, 0)
+
+    def emit(project_id: UUID, rows: list[dict[str, Any]]) -> None:
+        project = by_id[project_id]
+        rows.append({"id": str(project.id), "name": project.name, "depth": depth_of[project_id]})
+        for child_id in sorted(
+            children_of.get(project_id, []),
+            key=lambda cid: by_id[cid].name.lower() if cid in by_id else "",
+        ):
+            if child_id in depth_of:
+                emit(child_id, rows)
+
+    roots = [
+        project_id
+        for project_id in depth_of
+        if by_id[project_id].parent_id not in depth_of
+    ]
+    rows: list[dict[str, Any]] = []
+    for project_id in sorted(roots, key=lambda pid: by_id[pid].name.lower()):
+        emit(project_id, rows)
+    return rows
+
+
 async def project_choices_by_workstream(
     session: AsyncSession, tenant_id: UUID, workstream_ids: list[UUID]
 ) -> dict[UUID, list[dict[str, Any]]]:
@@ -658,9 +700,17 @@ async def project_choices_by_workstream(
         )
         .order_by(Project.name)
     )
-    out: dict[UUID, list[dict[str, Any]]] = {wid: [] for wid in unique}
-    for ws_id, pid, name in rows.all():
-        out.setdefault(ws_id, []).append({"id": str(pid), "name": name})
+    linked: dict[UUID, list[UUID]] = {wid: [] for wid in unique}
+    for ws_id, pid, _name in rows.all():
+        linked.setdefault(ws_id, []).append(pid)
+    from app.services.projects import _alive_projects, _children_of
+
+    projects = await _alive_projects(session, tenant_id)
+    by_id = {project.id: project for project in projects}
+    children_of = _children_of(projects)
+    out: dict[UUID, list[dict[str, Any]]] = {}
+    for wid in unique:
+        out[wid] = _folder_choices(linked.get(wid, []), by_id, children_of)
     return out
 
 
@@ -681,13 +731,29 @@ async def _validate_project(
 ) -> UUID | None:
     if project_id is None:
         return None
-    allowed = await playbook_project_ids(session, tenant_id, tag.workstream_id)
-    if project_id not in allowed:
-        raise HTTPException(
-            status_code=400,
-            detail="This project does not use the category's playbook. Pick one of its projects or No project.",
-        )
-    return project_id
+    allowed = set(await playbook_project_ids(session, tenant_id, tag.workstream_id))
+    current_id: UUID | None = project_id
+    seen: set[UUID] = set()
+    while current_id is not None and current_id not in seen:
+        if current_id in allowed:
+            return project_id
+        seen.add(current_id)
+        row = (
+            await session.execute(
+                select(Project).where(
+                    Project.id == current_id,
+                    Project.tenant_id == tenant_id,
+                    Project.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            break
+        current_id = row.parent_id
+    raise HTTPException(
+        status_code=400,
+        detail="This project does not use the category's playbook. Pick one of its projects or No project.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1440,6 +1506,7 @@ def _board_cards(
                 "signal_id": str(signal.id),
                 "subject": signal.subject,
                 "contact_name": signal.contact_name or signal.contact_email,
+                "contact_id": str(signal.contact_id) if signal.contact_id else None,
                 "channel": signal.channel,
                 "tag_id": str(tag.id),
                 "tag": tag.name,

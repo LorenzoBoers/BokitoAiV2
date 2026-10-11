@@ -65,6 +65,7 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
                 <button
                   key={item.id}
                   type="button"
+                  title={[item.title, item.calendar_name, item.location].filter(Boolean).join(' · ')}
                   onClick={() => onSelect({ kind: 'item', item })}
                   className={cn(
                     'flex min-w-0 items-center gap-1 rounded px-1 text-left text-2xs hover:bg-bg-elevated',
@@ -80,7 +81,7 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
                     aria-hidden
                   />
                   <span className="shrink-0 tabular-nums text-text-muted">
-                    {item.all_day ? '' : formatAppTime(itemStart(item), i18n.language)}
+                    {item.all_day ? t('agendaPage.grid.allDayShort') : formatAppTime(itemStart(item), i18n.language)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-text-heading">{item.title}</span>
                   {owner ? <AgendaOwnerMark owner={owner} size={12} /> : null}

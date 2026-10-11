@@ -9,7 +9,7 @@ related: agents,projects,workstreams,communication,agent-runs,integrations
 
 # Zo werkt Agenda
 
-Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en agents. Je gekoppelde agenda's staan in hetzelfde rooster, zodat afspraken en werk niet om aandacht strijden.
+Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en agents. Je gekoppelde agenda's staan in hetzelfde rooster, zodat afspraken en werk niet om aandacht strijden. De lijst links zet agenda's, taken en activiteit aan en uit, inclusief elke agenda binnen een Google- of Outlook-account. **Sync** haalt de afgelopen 90 dagen en de komende 180 dagen op. Agenda's die uit staan tonen **Uit**; aanzetten start de synchronisatie. **Vandaag** springt terug naar de huidige dag, en het zoekveld filtert de periode die je bekijkt.
 
 ## Zie wat er wanneer gebeurt
 

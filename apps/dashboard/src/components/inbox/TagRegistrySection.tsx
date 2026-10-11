@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Check, Pencil, Pin, PinOff, Plus, Sparkles, Trash2, Workflow, X } from 'lucide-react'
+import { Check, Pencil, Pin, PinOff, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { openEntityPath } from '../../lib/open-entity'
 import { useEntityRefresh } from '../../lib/live-store'
 import { normalizeHashtag, stripHash } from '../../lib/hashtag'
 import {
@@ -36,6 +38,7 @@ import { Tip } from '../ui/Tip'
 type Draft = { name: string; description: string }
 
 const NEW_PLAYBOOK = '__new__'
+const Workflow = ENTITY_ICONS.flow
 /** Shared width so "Flow openen" / "Flow aanmaken" keep one column. */
 const FLOW_BTN = 'h-7 w-[8.75rem] justify-center gap-1 px-2 text-2xs'
 
@@ -227,9 +230,20 @@ export function TagRegistrySection({
                   <p className="truncate-fade text-2xs text-text-muted">{tag.description}</p>
                 ) : null}
               </div>
-              <span className="shrink-0 text-2xs text-text-muted">
-                {t('tagRegistry.count', { count: tag.count })}
-              </span>
+              {tag.count > 0 ? (
+                <Link
+                  to={openEntityPath({ type: 'tag', name: tag.name })}
+                  className="shrink-0 text-2xs text-text-muted hover:text-accent hover:underline"
+                  title={t('tagRegistry.openConversations', { name: tag.name })}
+                  data-testid="tag-registry-count-link"
+                >
+                  {t('tagRegistry.count', { count: tag.count })}
+                </Link>
+              ) : (
+                <span className="shrink-0 text-2xs text-text-muted">
+                  {t('tagRegistry.count', { count: tag.count })}
+                </span>
+              )}
               <Tip label={tag.aiAutoTag ? t('tagRegistry.aiAutoOn') : t('tagRegistry.aiAutoOff')}>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Sparkles

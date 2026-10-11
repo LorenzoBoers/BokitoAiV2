@@ -27,9 +27,10 @@ type Props = {
   selectedId: string | null
   onSelect: (selection: AgendaSelection) => void
   onCreateAt: (at: Date) => void
+  onOpenDay?: (day: Date) => void
 }
 
-export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelect, onCreateAt }: Props) {
+export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelect, onCreateAt, onOpenDay }: Props) {
   const { t, i18n } = useTranslation('nav')
   const scrollRef = useRef<HTMLDivElement>(null)
   const todayKey = dayKey(new Date(nowMs))
@@ -80,7 +81,12 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
             {perDay.map(({ day, key }) => {
               const isToday = key === todayKey
               return (
-                <div key={key} className="flex items-baseline justify-center gap-1.5 border-l border-border/40 py-2">
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onOpenDay?.(day)}
+                  className="flex items-baseline justify-center gap-1.5 border-l border-border/40 py-2 hover:bg-bg-elevated"
+                >
                   <span className={cn('text-xs uppercase tracking-wide', isToday ? 'text-accent' : 'text-text-muted')}>
                     {formatAppDate(day, i18n.language, { weekday: 'short' })}
                   </span>
@@ -92,7 +98,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                   >
                     {day.getDate()}
                   </span>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -147,17 +153,23 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                     onClick={(event) => {
                       if (event.target !== event.currentTarget) return
                       const rect = event.currentTarget.getBoundingClientRect()
-                      const minutes = Math.floor(((event.clientY - rect.top) / HOUR_PX) * 2) * 30
+                      const raw = ((event.clientY - rect.top) / HOUR_PX) * 60
+                      const minutes = Math.max(0, Math.min(24 * 60 - 15, Math.round(raw / 15) * 15))
                       onCreateAt(new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, minutes))
                     }}
                     title={t('agendaPage.grid.clickToPlan')}
                   >
                     {Array.from({ length: 24 }, (_, hour) => (
-                      <div
-                        key={hour}
-                        className="pointer-events-none absolute inset-x-0 border-t border-border/30"
-                        style={{ top: hour * HOUR_PX }}
-                      />
+                      <div key={hour}>
+                        <div
+                          className="pointer-events-none absolute inset-x-0 border-t border-border/30"
+                          style={{ top: hour * HOUR_PX }}
+                        />
+                        <div
+                          className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/20"
+                          style={{ top: hour * HOUR_PX + HOUR_PX / 2 }}
+                        />
+                      </div>
                     ))}
                     {placed.map(({ item, top, height, col, cols }) => {
                       const layer = layerOf(item)
@@ -179,9 +191,10 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                           )}
                           style={{
                             top: (top / 60) * HOUR_PX + 1,
-                            height: px - 2,
+                            height: Math.max(px - 2, 18),
                             left: `calc(${(col / cols) * 100}% + 2px)`,
                             width: `calc(${100 / cols}% - 4px)`,
+                            borderLeftColor: item.calendar_color || undefined,
                           }}
                         >
                           <span className="flex items-center gap-1 font-medium text-text-heading">
@@ -208,6 +221,9 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                       >
                         <span className="-ml-1 h-2 w-2 rounded-full bg-status-error" />
                         <span className="h-px flex-1 bg-status-error" />
+                        <span className="ml-1 rounded bg-status-error px-1 text-2xs font-medium text-white">
+                          {formatAppTime(new Date(nowMs), i18n.language)}
+                        </span>
                       </div>
                     ) : null}
                   </div>

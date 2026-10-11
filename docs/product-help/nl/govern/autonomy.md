@@ -23,7 +23,7 @@ Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Gove
 ## Stel de drie lagen in
 
 1. Blijf op Govern, daarna **Beleid**.
-2. Stel eerst de workspace-houding in en maak daarna waar nodig strenger beleid voor een categorie of draaiboek.
+2. Stel eerst de workspace-houding in en maak daarna waar nodig strenger beleid voor een categorie of draaiboek. De scopenaam op elke beleidsrij is een link: een actietag opent de gesprekken in Communicatie, een flow opent de flowpagina. Agentnamen in de paspoorttabel openen de agent.
 3. Zet op elke agent **Autonomieniveau** (**Handmatig — altijd vragen**, **Goedkeuring — begrensde acties**, **Automatisch — zelfstandig handelen**, of **Workspace-standaard**) en de tool-allowlist. Er zijn geen autonomie-overschrijvingen per tool.
 4. **Eerst vragen** maakt de [beslissingskaart](/docs/ai/decisions) in het gesprek.
 

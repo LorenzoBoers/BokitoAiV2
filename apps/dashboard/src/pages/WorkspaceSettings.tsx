@@ -147,7 +147,11 @@ export default function WorkspaceSettings() {
         title={t('generalTitle')}
         actions={
           canManageWorkspace ? (
-            <Button onClick={() => void handleSave()} size="sm" disabled={saving || !currentWorkspace}>
+            <Button
+              onClick={() => void handleSave()}
+              size="sm"
+              disabled={saving || !currentWorkspace || !nameDirty || !workspaceName.trim()}
+            >
               {t('saveSettings')}
             </Button>
           ) : null
@@ -161,9 +165,19 @@ export default function WorkspaceSettings() {
             <Input
               value={workspaceName}
               onChange={(e) => setWorkspaceName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && nameDirty && workspaceName.trim() && !saving) {
+                  e.preventDefault()
+                  void handleSave()
+                }
+              }}
               disabled={!canManageWorkspace}
+              aria-invalid={canManageWorkspace && !workspaceName.trim()}
               className="max-w-md"
             />
+            {canManageWorkspace && !workspaceName.trim() ? (
+              <p className="mt-1 text-xs text-status-error">{t('nameRequired')}</p>
+            ) : null}
           </div>
 
           <div>
@@ -197,8 +211,7 @@ export default function WorkspaceSettings() {
                 <Shield size={15} className="text-accent" />
               </div>
               <div>
-                <p className="text-sm font-medium text-text-heading">{t('platformSupportTitle')}</p>
-                <p className="mt-1 text-sm text-text-secondary">{t('platformSupportBody')}</p>
+                <p className="text-sm text-text-secondary">{t('platformSupportBody')}</p>
                 <p className="mt-2 text-xs text-text-muted">
                   {allowPlatformSupport ? t('platformSupportOn') : t('platformSupportOff')}
                 </p>
@@ -231,7 +244,10 @@ export default function WorkspaceSettings() {
                 </p>
                 <Button
                   variant="destructive"
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={() => {
+                    setDeleteConfirmation('')
+                    setShowDeleteDialog(true)
+                  }}
                 >
                   {t('deleteWorkspaceButton')}
                 </Button>
@@ -242,22 +258,56 @@ export default function WorkspaceSettings() {
       )}
 
       {showDeleteDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-text-heading mb-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowDeleteDialog(false)
+              setDeleteConfirmation('')
+            }
+          }}
+        >
+          <Card
+            className="mx-4 w-full max-w-md p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-workspace-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                setShowDeleteDialog(false)
+                setDeleteConfirmation('')
+              }
+            }}
+          >
+            <h3 id="delete-workspace-title" className="mb-4 text-lg font-semibold text-text-heading">
               {t('deleteDialogTitle')}
             </h3>
-            <p className="text-sm text-text-secondary mb-4">
+            <p className="mb-4 text-sm text-text-secondary">
               {t('deleteDialogPrompt', { name: workspaceName })}
             </p>
+            <label htmlFor="delete-workspace-name" className="mb-1.5 block text-sm font-medium text-text-heading">
+              {t('deleteDialogLabel')}
+            </label>
             <Input
+              id="delete-workspace-name"
               value={deleteConfirmation}
+              autoFocus
               onChange={(e) => setDeleteConfirmation(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setShowDeleteDialog(false)
+                  setDeleteConfirmation('')
+                }
+                if (e.key === 'Enter' && deleteConfirmation === workspaceName && !deleting) {
+                  e.preventDefault()
+                  void handleDeleteWorkspace()
+                }
+              }}
               placeholder={workspaceName}
               className="mb-4"
             />
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setShowDeleteDialog(false)}>
+              <Button variant="secondary" onClick={() => { setShowDeleteDialog(false); setDeleteConfirmation('') }}>
                 {t('common:cancel')}
               </Button>
               <Button

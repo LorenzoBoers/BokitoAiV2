@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.agent import Agent
-from app.models.auth import Tenant, User
+from app.models.auth import Membership, Tenant, User
 from app.models.team import Team
 from app.services import presence
 from app.services import teams as teams_svc
@@ -182,6 +182,67 @@ async def test_presence_status_rules(session_override):
     assert presence.user_status(user, now=now) == "away"
     user.away_until = now - timedelta(minutes=1)
     assert presence.user_status(user, now=now) == "available"
+    user.away = False
+    user.last_seen_at = None
+    assert presence.visible_user_status(user, connected=True, now=now) == "available"
+    assert presence.visible_user_status(user, connected=False, now=now) == "offline"
+
+
+async def test_mark_offline_keeps_a_fresh_connection(session_override):
+    user = User(email="live-presence@example.com", last_seen_at=datetime.utcnow())
+    session_override.add(user)
+    await session_override.commit()
+    assert await presence.mark_offline(session_override, user.id) is False
+    await session_override.refresh(user)
+    assert presence.user_status(user) == "available"
+
+
+async def test_mark_offline_expires_an_idle_connection(session_override):
+    user = User(
+        email="idle-presence@example.com",
+        last_seen_at=datetime.utcnow() - timedelta(seconds=30),
+    )
+    session_override.add(user)
+    await session_override.commit()
+    assert await presence.mark_offline(session_override, user.id) is True
+    await session_override.refresh(user)
+    assert presence.user_status(user) == "offline"
+
+
+async def test_presence_snapshot_includes_connected_people_and_agents(session_override):
+    tenant = Tenant(slug="presence-snap", name="Presence")
+    user = User(email="snap-presence@example.com")
+    session_override.add(tenant)
+    session_override.add(user)
+    await session_override.commit()
+    session_override.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
+    agent = Agent(
+        tenant_id=tenant.id,
+        name="Snap agent",
+        kind="company",
+        is_active=True,
+        runtime_status="working",
+    )
+    session_override.add(agent)
+    await session_override.commit()
+
+    events = await presence.presence_snapshot(
+        session_override,
+        tenant.id,
+        connected_user_ids={str(user.id)},
+    )
+    people = [data for kind, data in events if kind == "presence"]
+    agents = [data for kind, data in events if kind == "agent.status"]
+    assert people == [
+        {
+            "user_id": str(user.id),
+            "device": "dashboard",
+            "online": True,
+            "status": "available",
+        }
+    ]
+    assert agents[0]["agent_id"] == str(agent.id)
+    assert agents[0]["status"] == "working"
 
 
 async def test_user_team_ids_includes_people_team(client: AsyncClient, session_override):

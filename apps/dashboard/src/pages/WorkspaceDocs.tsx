@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { toastMovedToBin } from '../lib/bin-toast'
 import {
+  ArrowUpRight,
   Copy,
   ExternalLink,
   FilePlus,
@@ -45,7 +47,9 @@ import {
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listAgents } from '../lib/agents-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
+import { ENTITY_ICONS } from '../lib/entity-icons'
 import { activityTerminalPath } from '../lib/messages-paths'
+import { openEntityPath } from '../lib/open-entity'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { titleToDocPath } from '../lib/workspace-doc-path'
 import { cn } from '../lib/utils'
@@ -175,6 +179,15 @@ export default function WorkspaceDocs() {
         ? 'border-border-light bg-bg-hover text-text-heading'
         : 'border-border/60 text-text-muted hover:text-text-secondary',
     )
+
+  // The selected scope chip filters; this is the way to the entity itself.
+  const scopeEntityHref =
+    scope === 'project' && scopeProjectId
+      ? openEntityPath({ type: 'project', id: scopeProjectId })
+      : scope === 'agent' && scopeAgentId
+        ? openEntityPath({ type: 'agent', id: scopeAgentId })
+        : null
+  const ScopeIcon = scope === 'project' ? ENTITY_ICONS.project : ENTITY_ICONS.agent
 
   const scopeTypeLabel = (value: KnowledgeScope) =>
     t(
@@ -481,7 +494,7 @@ export default function WorkspaceDocs() {
       await deleteWorkspaceDoc(active.id)
       setActive(null)
       setError(null)
-      toast.success(t('knowledgePage.deleted'))
+      toastMovedToBin(t('knowledgePage.deleted'), navigate)
       await refresh()
       navigate('/knowledge')
     } catch (err) {
@@ -637,6 +650,17 @@ export default function WorkspaceDocs() {
                 )
               })}
             </div>
+            {scopeEntityHref ? (
+              <Link
+                to={scopeEntityHref}
+                className="inline-flex items-center gap-1 self-start text-2xs text-text-muted hover:text-accent hover:underline"
+                data-testid="knowledge-open-scope"
+              >
+                <ScopeIcon size={11} aria-hidden />
+                {scope === 'project' ? t('knowledgePage.openProject') : t('knowledgePage.openAgent')}
+                <ArrowUpRight size={11} aria-hidden />
+              </Link>
+            ) : null}
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />

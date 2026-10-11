@@ -3,21 +3,25 @@ import { timeAgo } from '../lib/time-ago'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { toastMovedToBin } from '../lib/bin-toast'
+import { ENTITY_ICONS } from '../lib/entity-icons'
+import { openEntityPath } from '../lib/open-entity'
 import {
   ArrowLeft,
-  Building2,
   Check,
   Loader2,
   Mail,
-  MessageSquare,
   Plus,
   RefreshCw,
   ShieldBan,
   ShieldCheck,
   Trash2,
-  UserRound,
   X,
 } from 'lucide-react'
+
+const Building2 = ENTITY_ICONS.company
+const MessageSquare = ENTITY_ICONS.conversation
+const UserRound = ENTITY_ICONS.contact
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
 import { ChannelGlyph, ChannelLabel, channelKind } from '../components/ui/ChannelGlyph'
@@ -84,7 +88,7 @@ import { withoutParkedChannels } from '../lib/channel-surface'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import type { InboxThread } from '../lib/inbox-api'
 import { listSignalThreads } from '../lib/signals-api'
-import { ThreadLookAt, ThreadTicketPrefix } from '../components/contacts/ContactThreadMeta'
+import { ContactFolderChips, ThreadLookAt, ThreadTicketPrefix } from '../components/contacts/ContactThreadMeta'
 
 const STATUS_TONE: Record<ContactStatus, BadgeTone> = {
   approved: 'success',
@@ -256,7 +260,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
     setSaving(true)
     try {
       await deleteContact(token, contact.id)
-      toast.success(t('contactsPage.deletedContact'))
+      toastMovedToBin(t('contactsPage.deletedContact'), navigate)
       navigate('/contacts')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('contactsPage.deleteContactError')))
@@ -317,7 +321,30 @@ function ContactDetail({ contactId }: { contactId: string }) {
     <PageContent width="xl">
       <ContentHeader
         title={contact.displayName || contact.address || t('contactsPage.newContact')}
-        subtitle={[contact.title, contact.company].filter(Boolean).join(' - ') || t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
+        subtitle={
+          contact.title || contact.company ? (
+            <>
+              {contact.title}
+              {contact.title && contact.company ? ' - ' : null}
+              {contact.company ? (
+                contact.companyId ? (
+                  <Link
+                    to={openEntityPath({ type: 'company', id: contact.companyId })}
+                    className="hover:text-accent hover:underline"
+                    title={t('contactsPage.openCompany', { name: contact.company })}
+                    data-testid="contact-company-link"
+                  >
+                    {contact.company}
+                  </Link>
+                ) : (
+                  contact.company
+                )
+              ) : null}
+            </>
+          ) : (
+            t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })
+          )
+        }
         meta={
           <>
             <Link
@@ -533,6 +560,9 @@ function ContactDetail({ contactId }: { contactId: string }) {
               ? t('contactsPage.threadCountPartial', { shown: threads.length, count: threadTotal })
               : t('contactsPage.threadCount', { count: threadTotal })}
           </p>
+          <div className="mt-2">
+            <ContactFolderChips threads={threads} />
+          </div>
           <div className="mt-3 space-y-1.5">
             {threads.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
@@ -655,7 +685,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
     setSaving(true)
     try {
       await deleteCompany(token, company.id)
-      toast.success(t('contactsPage.deletedCompany'))
+      toastMovedToBin(t('contactsPage.deletedCompany'), navigate)
       navigate('/contacts')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('contactsPage.deleteCompanyError')))
@@ -822,6 +852,9 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
               ? t('contactsPage.companyThreadsTruncated', { count: company.threads.length })
               : t('contactsPage.companyThreadsHint')}
           </p>
+          <div className="mt-2">
+            <ContactFolderChips threads={company.threads} />
+          </div>
           <div className="mt-3 space-y-1.5">
             {company.threads.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
@@ -1587,7 +1620,17 @@ export default function ContactsPage() {
                     />
                   </td>
                   <td className="hidden px-4 py-2.5 md:table-cell">
-                    {contact.company ? (
+                    {contact.company && contact.companyId ? (
+                      <Link
+                        to={openEntityPath({ type: 'company', id: contact.companyId })}
+                        onClick={(event) => event.stopPropagation()}
+                        className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent hover:underline"
+                        title={t('contactsPage.openCompany', { name: contact.company })}
+                      >
+                        <Building2 size={12} className="text-text-muted" />
+                        {contact.company}
+                      </Link>
+                    ) : contact.company ? (
                       <span className="flex items-center gap-1.5 text-sm text-text-secondary">
                         <Building2 size={12} className="text-text-muted" />
                         {contact.company}

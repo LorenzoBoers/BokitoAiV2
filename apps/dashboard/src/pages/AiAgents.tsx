@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Bot, CalendarDays, Inbox, MessageSquare, Plus, RefreshCw } from 'lucide-react'
+import { CalendarDays, Inbox, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { AiAvatar } from '../components/ui/AiAvatar'
@@ -20,6 +20,7 @@ import { listAgents } from '../lib/agents-api'
 import { formatAgentModelLine } from '../lib/model-label'
 import { activityTerminalPath, agentChatPath, forYouPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
+import { ENTITY_ICONS } from '../lib/entity-icons'
 import { openEntityPath } from '../lib/open-entity'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
@@ -33,6 +34,10 @@ import { AgentActiveLine } from '../components/inbox/IdentitySeenLine'
 import { cn } from '../lib/utils'
 
 type AgentStatusFilter = 'all' | 'working' | 'deactivated'
+
+const FolderIcon = ENTITY_ICONS.project
+const Bot = ENTITY_ICONS.agent
+const MessageSquare = ENTITY_ICONS.conversation
 
 function agentStatusFromUrl(value: string | null): AgentStatusFilter {
   return value === 'working' || value === 'deactivated' ? value : 'all'
@@ -83,10 +88,11 @@ function AgentQuickLinks({
 
 function AgentLibraryCard({
   agent,
-  projectName,
+  project,
 }: {
   agent: RuntimeAgent
-  projectName?: string
+  /** The project folder this agent leads, when it is a lead. */
+  project?: { id: string; name: string } | null
 }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
@@ -154,10 +160,21 @@ function AgentLibraryCard({
                   {presenceLabel(work, t)}
                 </span>
               )}
-              {projectName ? (
-                <span className="truncate text-2xs text-text-muted">
-                  {t('workforce.agents.projectLink', { name: projectName })}
-                </span>
+              {project ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    // The card itself is a link; open the folder instead.
+                    e.preventDefault()
+                    e.stopPropagation()
+                    navigate(openEntityPath({ type: 'project', id: project.id }))
+                  }}
+                  className="inline-flex min-w-0 items-center gap-1 truncate rounded text-2xs text-text-muted hover:text-accent hover:underline"
+                  title={t('workforce.agents.openProject', { name: project.name })}
+                >
+                  <FolderIcon size={11} aria-hidden className="shrink-0" />
+                  <span className="truncate">{project.name}</span>
+                </button>
               ) : null}
             </div>
             {!isDeactivatedAgent(agent) ? (
@@ -464,7 +481,7 @@ export default function AiAgents() {
             <AgentLibraryCard
               key={agent.id}
               agent={agent}
-              projectName={projects.find((project) => project.po_agent_id === agent.id)?.name}
+              project={projects.find((project) => project.po_agent_id === agent.id) ?? null}
             />
           ))}
         </div>

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Loader2, Unlink, Workflow } from 'lucide-react'
+import { Loader2, Unlink } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
@@ -25,6 +26,8 @@ import { FlowTicketCard } from '../workstreams/FlowTicketCard'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 import { ProjectKanbanColumn } from './ProjectKanbanColumn'
 import { useCollectStageFields } from '../inbox/TicketStageGate'
+
+const Workflow = ENTITY_ICONS.flow
 
 const COLUMN_PREFIX = 'stage-col:'
 

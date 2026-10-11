@@ -34,7 +34,6 @@ import {
 function EditableField({
   label,
   value,
-  placeholder,
   onSave,
   type = 'text',
 }: {
@@ -54,7 +53,10 @@ function EditableField({
   const startEdit = () => {
     setDraft(value)
     setEditing(true)
-    setTimeout(() => inputRef.current?.focus(), 0)
+    setTimeout(() => {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }, 0)
   }
 
   const cancel = () => {
@@ -119,9 +121,13 @@ function EditableField({
       ) : (
         <div className="flex flex-1 items-center justify-end gap-2">
           {saved && <Check size={12} className="text-status-success" />}
-          <span className={`text-sm ${value ? 'text-text-primary' : 'text-text-muted'}`}>
-            {value || placeholder}
-          </span>
+          <button
+            type="button"
+            onClick={startEdit}
+            className={`max-w-[16rem] truncate text-right text-sm ${value ? 'text-text-primary' : 'text-text-muted'}`}
+          >
+            {value || t('personalInformation.emptyValue')}
+          </button>
           <button
             type="button"
             onClick={startEdit}
@@ -227,6 +233,7 @@ function ThemeOption({ label, icon, active, onClick, variant }: {
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={`flex-1 rounded-lg border p-2.5 transition-all ${
         active
@@ -322,21 +329,29 @@ export function ProfileSettingsContent() {
 
   // Account deletion
   const [deleting, setDeleting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deletePasswordRef = useRef<HTMLInputElement>(null)
+  const closeDelete = () => {
+    if (deleting) return
+    setDeleteOpen(false)
+    setDeletePassword('')
+    setDeleteError(null)
+  }
   const handleDeleteAccount = useCallback(async () => {
-    if (!token || deleting) return
-    if (!(await confirm({ description: t('profile:account.deleteConfirm'), destructive: true }))) return
-    const password = window.prompt(t('profile:account.deletePasswordPrompt'))
-    if (!password) return
+    if (!token || deleting || !deletePassword.trim()) return
     setDeleting(true)
+    setDeleteError(null)
     try {
-      await apiPostAuth(authRoutes.profile.deleteAccount, { password }, token)
+      await apiPostAuth(authRoutes.profile.deleteAccount, { password: deletePassword }, token)
       await logout()
       window.location.assign('/login')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('profile:errors.deleteAccount'))
+      setDeleteError(err instanceof Error ? err.message : t('profile:errors.deleteAccount'))
       setDeleting(false)
     }
-  }, [token, deleting, t, logout, confirm])
+  }, [token, deleting, deletePassword, t, logout])
 
   // Password form
   const [showPasswordForm, setShowPasswordForm] = useState(false)
@@ -499,6 +514,7 @@ export function ProfileSettingsContent() {
   }, [token, patchLocalUser, t])
 
   const handleChangePassword = async () => {
+    if (newPw.length < 8) { setPwError(t('profile:security.passwordTooShort')); return }
     if (newPw !== confirmPw) { setPwError(t('profile:security.passwordMismatch')); return }
     if (!token) return
     if (hasPassword && !currentPw) {
@@ -713,6 +729,7 @@ export function ProfileSettingsContent() {
             <button
               key={lang}
               type="button"
+              aria-pressed={(i18n.resolvedLanguage ?? i18n.language).startsWith(lang)}
               onClick={() => {
                 applyUiLanguageLocally(i18n, lang)
                 if (!token) return
@@ -742,6 +759,7 @@ export function ProfileSettingsContent() {
             <button
               key={option.id}
               type="button"
+              aria-pressed={defaultLanding === option.id}
               onClick={() => {
                 setDefaultLanding(option.id)
                 if (!token) return
@@ -835,6 +853,7 @@ export function ProfileSettingsContent() {
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-text-muted">{t('profile:security.passwordHint')}</p>
                 {pwError && <p className="text-xs text-status-error">{pwError}</p>}
                 <div className="flex gap-2">
                   <Button
@@ -842,8 +861,8 @@ export function ProfileSettingsContent() {
                     className="h-8 rounded-lg px-3 text-xs"
                     disabled={
                       pwSaving
-                      || !newPw
-                      || !confirmPw
+                      || newPw.length < 8
+                      || newPw !== confirmPw
                       || (hasPassword && !currentPw)
                     }
                     onClick={() => void handleChangePassword()}
@@ -1070,7 +1089,12 @@ export function ProfileSettingsContent() {
               variant="destructive"
               size="sm"
               disabled={deleting}
-              onClick={() => void handleDeleteAccount()}
+              onClick={() => {
+                setDeletePassword('')
+                setDeleteError(null)
+                setDeleteOpen(true)
+                setTimeout(() => deletePasswordRef.current?.focus(), 0)
+              }}
               className="h-8 rounded-lg px-3 text-xs"
             >
               <Trash2 size={12} />
@@ -1079,6 +1103,59 @@ export function ProfileSettingsContent() {
           </div>
         </div>
       </Section>
+      {deleteOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeDelete()
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') closeDelete()
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-title"
+            className="w-full max-w-md rounded-lg border border-border bg-bg-elevated p-5 shadow-lg"
+          >
+            <h3 id="delete-account-title" className="text-base font-semibold text-text-heading">
+              {t('profile:account.deleteTitle')}
+            </h3>
+            <p className="mt-1 text-sm text-text-secondary">{t('profile:account.deleteConfirm')}</p>
+            <label className="mt-4 block text-sm font-medium text-text-heading" htmlFor="delete-account-password">
+              {t('profile:account.deletePasswordLabel')}
+            </label>
+            <Input
+              id="delete-account-password"
+              ref={deletePasswordRef}
+              type="password"
+              value={deletePassword}
+              autoComplete="current-password"
+              onChange={(event) => setDeletePassword(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void handleDeleteAccount()
+                if (event.key === 'Escape') closeDelete()
+              }}
+              className="mt-1.5"
+            />
+            {deleteError ? <p className="mt-2 text-xs text-status-error">{deleteError}</p> : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={closeDelete} disabled={deleting}>
+                {t('profile:security.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={deleting || !deletePassword.trim()}
+                onClick={() => void handleDeleteAccount()}
+              >
+                {deleting ? t('profile:account.deleting') : t('profile:account.deleteTitle')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

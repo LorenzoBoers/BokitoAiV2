@@ -71,6 +71,8 @@ export type ChannelRow = {
   archivedAt: string | null
   /** Conversations that came in through this channel; null when not computed. */
   conversationCount: number | null
+  /** Mailboxes: numeric id of the Communication folder; null for other kinds. */
+  hubConnectionId: number | null
 }
 
 export type RelayOptions = {
@@ -141,6 +143,8 @@ export function normalizeChannelRow(raw: unknown): ChannelRow | null {
     archivedAt: asString(value.archived_at) || null,
     conversationCount:
       typeof value.conversation_count === 'number' ? value.conversation_count : null,
+    hubConnectionId:
+      typeof value.hub_connection_id === 'number' ? value.hub_connection_id : null,
   }
 }
 

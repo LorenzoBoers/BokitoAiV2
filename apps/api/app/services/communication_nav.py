@@ -35,7 +35,9 @@ def filter_predicates(tenant_id: UUID, filters: dict[str, Any]) -> list[Any] | N
         project_id = _uuid(filters["project_id"])
         if project_id is None:
             return None
-        out.append(Signal.project_id == project_id)
+        from app.services.projects import project_subtree_select
+
+        out.append(Signal.project_id.in_(project_subtree_select(tenant_id, project_id)))
     if filters.get("category_id"):
         category_id = _uuid(filters["category_id"])
         if category_id is None:
@@ -101,19 +103,42 @@ async def nav(
             "count": await _open_count(session, scope, filter_predicates(tenant_id, {"tag": tag.name}) or []),
         }
         (ticket_tags if is_category else free_tags).append(row)
-    projects = (
-        await session.execute(
-            select(Project)
-            .where(Project.tenant_id == tenant_id, Project.deleted_at.is_(None))
-            .order_by(Project.name)
+    projects = list(
+        (
+            await session.execute(
+                select(Project)
+                .where(Project.tenant_id == tenant_id, Project.deleted_at.is_(None))
+                .order_by(Project.name)
+            )
+        ).scalars().all()
+    )
+    from app.services.projects import _children_of, _subtree_ids
+
+    children_of = _children_of(projects)
+    exact: dict[UUID, int] = {}
+    if projects:
+        counted = await session.execute(
+            select(Signal.project_id, func.count())
+            .select_from(Signal)
+            .where(*scope, Signal.status == "open", Signal.project_id.in_([p.id for p in projects]))
+            .group_by(Signal.project_id)
         )
-    ).scalars().all()
-    project_rows = [
-        {
+        exact = {row[0]: int(row[1]) for row in counted.all() if row[0] is not None}
+
+    def _node(project: Project) -> dict[str, Any]:
+        ids = _subtree_ids(project.id, children_of)
+        return {
             "id": str(project.id),
             "name": project.name,
-            "count": await _open_count(session, scope, [Signal.project_id == project.id]),
+            "parent_id": str(project.parent_id) if project.parent_id else None,
+            "count": sum(exact.get(pid, 0) for pid in ids),
+            "children": [
+                _node(child)
+                for child in projects
+                if child.parent_id == project.id
+            ],
         }
-        for project in projects
-    ]
+
+    roots = [project for project in projects if project.parent_id is None or not any(p.id == project.parent_id for p in projects)]
+    project_rows = [_node(project) for project in roots]
     return {"ticket_tags": ticket_tags, "tags": free_tags, "projects": project_rows}

@@ -77,8 +77,8 @@ GRAPH_EVENT_URL = GRAPH_API + "/me/events/{id}"
 # Graph returns wall-clock times in this zone; UTC keeps start/end naive-UTC.
 GRAPH_TZ_HEADER = {"Prefer": 'outlook.timezone="UTC"'}
 
-SYNC_WINDOW_PAST_DAYS = 7
-SYNC_WINDOW_FUTURE_DAYS = 60
+SYNC_WINDOW_PAST_DAYS = 90
+SYNC_WINDOW_FUTURE_DAYS = 180
 
 RECONNECT_MESSAGE = "Sign in again to keep this calendar in sync."
 MOCK_CALENDAR = {
@@ -376,13 +376,15 @@ def default_write_calendar(conn: IntegrationConnection) -> str | None:
 def _merge_calendars(
     stored: list[dict[str, Any]], remote: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Fresh provider list with the operator's enabled flags kept; calendars
-    seen for the first time start enabled only when primary."""
+    """Fresh provider list with the operator's enabled flags kept. A calendar
+    seen for the first time starts on when it is primary or selected in the
+    provider app (Google's calendar list)."""
     prior = {c["id"]: c for c in stored}
     merged = []
     for cal in remote:
         old = prior.get(cal["id"])
-        merged.append({**cal, "enabled": old["enabled"] if old else bool(cal["primary"])})
+        initial = bool(cal.get("primary") or cal.get("selected"))
+        merged.append({**cal, "enabled": old["enabled"] if old else initial})
     if merged and not any(c["enabled"] for c in merged) and not stored:
         merged[0]["enabled"] = True
     return merged
@@ -414,6 +416,7 @@ async def _fetch_google_calendars(client: httpx.AsyncClient, token: str) -> list
                     "name": str(item.get("summaryOverride") or item.get("summary") or item["id"]),
                     "color": str(item.get("backgroundColor") or ""),
                     "primary": bool(item.get("primary")),
+                    "selected": bool(item.get("selected")),
                     "writable": str(item.get("accessRole") or "") in ("owner", "writer"),
                 }
             )

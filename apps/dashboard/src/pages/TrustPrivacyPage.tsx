@@ -279,7 +279,7 @@ export default function TrustPrivacyPage() {
             type="button"
             size="sm"
             variant="outline"
-            disabled={busyAction != null}
+            disabled={busyAction != null || !subjectEmail.trim().includes('@')}
             onClick={() => void runExport()}
           >
             {t('trustPage.export')}
@@ -288,7 +288,7 @@ export default function TrustPrivacyPage() {
             type="button"
             size="sm"
             variant="destructive"
-            disabled={busyAction != null}
+            disabled={busyAction != null || !subjectEmail.trim().includes('@')}
             onClick={() => void runErase()}
           >
             {t('trustPage.erase')}

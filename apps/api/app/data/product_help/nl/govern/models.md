@@ -9,7 +9,7 @@ related: govern,agents,integrations
 
 # Modellen
 
-Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **Bokito AI-modellen** (Automatisch plus Maki, Bokito en Kong) en, wanneer gerechtigd, modellen die je met eigen sleutels toevoegt. Verbruik staat op Cockpit **Verbruik**.
+Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **Bokito AI-modellen** (Automatisch plus Maki, Bokito en Kong) en, wanneer gerechtigd, modellen die je met eigen sleutels toevoegt. Annuleren bij **Model toevoegen** vraagt eerst of ingevulde gegevens weg mogen. **Sleutel vervangen** opent een veld op de pagina. Verbruik staat op Cockpit **Verbruik**.
 
 ## Stel de workspace Bokito AI-standaard in
 

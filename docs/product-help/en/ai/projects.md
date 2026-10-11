@@ -2,34 +2,50 @@
 title: How Projects works
 intro: A project holds a goal — its home, snapshot canvas, documentation, who leads it, and how much it may spend.
 description: Land on the project Home for the flow boards and links, ask an agent to write the snapshot canvas, keep documentation, and cap spend.
-keywords: projects, canvas, dashboard, snapshot, tickets, flows, boards, documentation, sections, resources, repository, budget, orchestration
+keywords: projects, folders, canvas, dashboard, snapshot, tickets, flows, boards, documentation, sections, resources, repository, budget, orchestration
 sort: 40
 related: workstreams,categories,agenda,knowledge,communication
 ---
 
 # How Projects works
 
-A project is work that spans days. Open **Projects** when a goal should have a home instead of living only in chat. A project detail has four tabs: **Project** (landing: metadata, flow boards, linked surfaces), **Canvas** (snapshot dashboard written by agents), **Documentation** (what is true), and **Settings** (who runs it and what it works on). The URL keeps the tab (`?tab=canvas`, `?tab=docs`, `?tab=settings`) so you can share that surface.
+A project is work that spans days, and it can hold folders that are projects inside it. Open **Projects** when a goal should have a home instead of living only in chat. A project detail has six tabs: **Overview** (folders, who runs it, agenda, budget, recent conversations and activity), **Conversations** (everything filed in this folder), **Tickets** (flow boards), **Canvas** (snapshot dashboard written by agents), **Documentation** (what is true), and **Settings** (who runs it and what it works on). The URL keeps the tab (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=settings`) so you can share that surface.
 
 ## Create or open a project
 
 ![Projects list](/api/docs/assets/projects/project.png)
 *Each card shows the project agent, open tickets, and budget.*
 
-1. Open **Projects**. The in-page heading is **{workspace} projects**; the help icon next to **Projects** in the top bar opens this guide. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
-2. Read the card: project agent, open tickets (the same boards as Project Home), documentation health, repo status, remaining budget. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
-3. Open it. You land on the **Project** tab. Click the project agent to open it. Admins choose the pencil in the card header to pick another company agent as the project default, or create one. Members can read a project; they cannot delete it or edit the name.
+1. Open **Projects**. A folder menu sits on the left. Subfolders stay closed until you open that project. The in-page heading is **{workspace} projects**; the help icon next to **Projects** in the top bar opens this guide. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
+2. Read the card: project agent, open tickets (the same boards as Project Home), documentation health, repo status, remaining budget. The project agent and the agent chips open the agent page; when a search result sits inside another project, the parent path above the name opens that parent folder. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
+3. Open it. You land on the **Overview** tab. Click the project agent to open it. Admins choose the pencil in the card header to pick another company agent as the project default, or create one. Members can read a project; they cannot delete it or edit the name.
 
-## Read Home and move a ticket
+## Read the Overview
 
-The **Project** tab is the landing. The top row shows the project agent (click opens it; admins change it with the pencil), the project **Agenda** (check-ups that are due and planned look-ats for this project's tickets; **Open in Agenda** shows them all), and the remaining budget. Below are the **Tickets** boards and **Recent activity**. **Settings** holds the agents, repository, resources and the name.
+The **Overview** tab is the landing. The header card shows the folder icon, the name and the description for agents (admins edit both in place; changes autosave), and one line of facts: open and closed conversations, how many folders sit inside, the project agent, and the linked repository. On the right sit **Open in Communication**, **New folder** (admins) and a more-actions menu with **Copy project ID**, **Copy slug**, **Move** and **Delete**.
+
+1. **Folders** come first, as cards: name, open and closed conversations in that folder and deeper, and how many folders it holds. Click a card to open the folder. Admins also see a dashed **New folder** card.
+2. The next row shows the project agent (click opens it; admins change it with the pencil), the project **Agenda** (check-ups that are due and planned look-ats for this project's tickets; **Open in Agenda** in the card header shows them all, and **Plan something** on an empty card opens Agenda with this project preselected), and the remaining budget.
+3. **Recent conversations** lists the latest open conversations in this folder; **All conversations** switches to the Conversations tab.
+4. **Recent activity** lists the latest agent runs on this project. **Settings** holds the agents, repository and resources.
+
+## See the conversations in a folder
+
+Every conversation filed on this project, or on a folder inside it, lives in the Communication sidebar under **Projects**. The **Conversations** tab shows the same list next to the folders and boards.
+
+1. Open the **Conversations** tab. The count in the tab is the number of open conversations. Switch between **Open** and **Closed**.
+2. Each row shows the status dot, the channel, the subject, the contact, the folder it sits in when that is deeper than this project, and its action tag. Click a row to open that conversation in this project's folder in Communication.
+3. **Open in Communication** next to the filter opens the whole folder in the Communication sidebar (it unhides the Projects section if you hid it, scrolls the folder into view, and highlights it briefly). The same button sits in the project header.
+4. Choose **Load more** at the bottom when the folder holds more than thirty conversations.
+
+## Move a ticket on a board
 
 ![Flow boards on a project](/api/docs/assets/projects/boards.png)
 *One board per flow on the project, with that flow's stages as columns.*
 
-1. Open the **Project** tab. Under **Tickets**, every flow on this project is one board, stacked, titled with its action tag. Its columns are the flow's stages, for example Open, Waiting and Done.
+1. Open the **Tickets** tab. Every flow on this project is one board, stacked, titled with its action tag. Its columns are the flow's stages, for example Open, Waiting and Done.
 2. Drag a card to another column to move the ticket to that stage. The move shows in the conversation's timeline.
-3. Click a card to open that conversation in [Communication](/docs/inbox/communication). **Open in Communication** on the project header opens this project's folder in the Communication sidebar (it unhides the Projects section if you hid it, scrolls the folder into view, and highlights it briefly).
+3. Click a card to open that conversation in [Communication](/docs/inbox/communication).
 4. No board yet? Admins choose **Add flow** above the boards and pick a flow; **Unlink** on a board removes it again. See [Flows](/docs/ai/workstreams).
 
 ## Ask an agent to write a canvas
@@ -42,7 +58,7 @@ A project can have several snapshot canvases (not live tiles). You add, delete a
 
 ## Get tickets onto a project
 
-1. On the **Project** tab, choose **Add flow** and pick the flow. Flows are attached from the project; the flow page only shows where it is used.
+1. On the **Tickets** tab, choose **Add flow** and pick the flow. Flows are attached from the project; the flow page only shows where it is used.
 2. File a conversation with that flow's action tag. Filing asks which project it belongs to; pick this project. Agents make the same choice. See [Action tags and tickets](/docs/ai/categories).
 3. The ticket appears on that flow's board in its first stage, and under **Projects** in the Communication sidebar.
 4. How much an agent may do without asking is one workspace-wide dial: see [Autonomy](/docs/govern/autonomy).
@@ -72,9 +88,18 @@ Link an integration connection when a project stands for a client or department 
 
 ## Cap spend
 
-1. Open the project's **Project** tab. The budget card shows usage against today's cap.
+1. Open the project's **Overview** tab. The budget card shows usage against today's cap.
 2. Choose the pencil in the budget header. Set **Daily token cap** and **Hourly token cap** so one goal cannot consume the whole workspace cap. Leave a field empty to inherit Cockpit **Usage**. Choose **Save budget**.
 3. When a project hits its cap, the card shows **Cap reached** and agents pause on that project. Workspace caps still live on Cockpit **Usage**.
+
+## Put a folder inside a project
+
+A folder is a project with a parent. The Projects list shows the top level. Search still finds a nested name and shows the path above it.
+
+1. Open the project and choose **New folder** in the header, or the dashed **New folder** card under **Folders**. Name it and create it. You land in that folder, and it can hold folders of its own.
+2. The **Overview** tab shows each folder as a card: the name, how many conversations are open and closed in it and deeper, and how many folders it holds. Click the card to open that folder; the breadcrumb above the header and the folder menu on the left show where you are.
+3. In a conversation, open the more-actions menu and choose **File in folder**, or **Close and file** to close it and file it in one step. In the list, select conversations, open **More actions**, and choose **File in folder**.
+4. Open the more-actions menu in the project header and choose **Move** to place the folder under another project, or back at the top level. **Delete** sends the folders inside it to the Bin with it. A parent canvas refresh includes each folder's open and closed counts in the snapshot the agent writes.
 
 ## What to do next
 

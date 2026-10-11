@@ -1,10 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, Play, RefreshCw, Wifi } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { channelFolderPath } from '../../lib/open-entity'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { Input } from '../ui/input'
 import { ChannelIcon, ChannelStatus } from './ChannelStatus'
 import { channelFix, type ChannelActions, type ChannelFix } from './channel-actions'
 import { AI_HANDLING_CHANNELS } from '../../lib/ai-handling'
@@ -60,9 +63,14 @@ function FixButton({
  * Every channel is the same row: icon, name, state, AI handling, optional repair.
  * The row opens the channel's settings page.
  */
+const ATTENTION_STATES = new Set(['setup_required', 'action_required', 'error'])
+const ConversationIcon = ENTITY_ICONS.conversation
+
 export default function ChannelList({ channels, loading, busyId, actions, onAddChannel }: ChannelListProps) {
   const { t, i18n } = useTranslation('nav')
   const { t: tc } = useTranslation('common')
+  const [query, setQuery] = useState('')
+  const [attentionOnly, setAttentionOnly] = useState(false)
 
   const sorted = useMemo(
     () =>
@@ -75,6 +83,18 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
       }),
     [channels],
   )
+
+  const needle = query.trim().toLowerCase()
+  const filtered = useMemo(() => {
+    return sorted.filter((row) => {
+      if (attentionOnly && !ATTENTION_STATES.has(row.state)) return false
+      if (!needle) return true
+      const kind = t(`channelsPage.kind.${row.kind}`, { defaultValue: row.kind })
+      return [row.label, row.address ?? '', kind, row.kind].some((part) => part.toLowerCase().includes(needle))
+    })
+  }, [sorted, attentionOnly, needle, t])
+
+  const showFilter = sorted.length > 3
 
   if (!loading && sorted.length === 0) {
     return (
@@ -96,13 +116,42 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
   }
 
   return (
+    <div>
+      {showFilter ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/50 px-4 py-2.5">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setQuery('')
+            }}
+            placeholder={t('channelsPage.search')}
+            aria-label={t('channelsPage.search')}
+            type="search"
+            className="h-8 max-w-xs"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant={attentionOnly ? 'secondary' : 'ghost'}
+            aria-pressed={attentionOnly}
+            onClick={() => setAttentionOnly((current) => !current)}
+          >
+            {t('channelsPage.attentionOnly')}
+          </Button>
+        </div>
+      ) : null}
+      {filtered.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-text-muted">{t('channelsPage.searchEmpty')}</p>
+      ) : (
     <ul className="divide-y divide-border/50">
-      {sorted.map((row) => {
+      {filtered.map((row) => {
         const busy = busyId === row.id
         const fix = channelFix(row)
         const lastActivity = row.lastEventAt ?? row.lastSyncAt
         const mode =
           row.isEnabled && AI_HANDLING_CHANNELS.has(row.channel) ? row.aiHandling?.effective : undefined
+        const folderHref = row.state === 'archived' ? null : channelFolderPath(row)
         return (
           <li key={row.id} className="px-4 py-3" data-testid="channel-row" data-kind={row.kind}>
             <div className="flex flex-wrap items-center gap-3">
@@ -151,11 +200,24 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
                 ) : null}
                 <ChannelStatus state={row.state} />
                 {fix ? <FixButton fix={fix} row={row} busy={busy} actions={actions} /> : null}
+                {folderHref ? (
+                  <Link
+                    to={folderHref}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition hover:bg-bg-elevated hover:text-accent"
+                    title={t('channelsPage.openFolder', { name: row.label })}
+                    aria-label={t('channelsPage.openFolder', { name: row.label })}
+                    data-testid="channel-row-folder"
+                  >
+                    <ConversationIcon size={14} aria-hidden />
+                  </Link>
+                ) : null}
               </div>
             </div>
           </li>
         )
       })}
     </ul>
+      )}
+    </div>
   )
 }

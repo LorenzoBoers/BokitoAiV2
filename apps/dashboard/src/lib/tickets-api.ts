@@ -167,7 +167,7 @@ export type CategoryRow = {
   filed_prev_7d: number
 }
 
-export type ProjectChoice = { id: string; name: string }
+export type ProjectChoice = { id: string; name: string; depth?: number }
 
 /** The conversation's ticket, as thread detail and the ticket endpoints return it. */
 export type Ticket = {
@@ -294,6 +294,8 @@ export type BoardTicket = {
   signal_id: string
   subject: string
   contact_name: string
+  /** Null for internal or anonymous conversations. */
+  contact_id?: string | null
   channel: string
   tag_id: string
   tag: string

@@ -2137,7 +2137,9 @@ export function MessageTimelineItem({
   // Email threads: every external-facing mail is a document on neutral paper
   // (MailMessageCard). Author and recipients live in the envelope band, so the
   // bubble header and CC line are not used here.
-  const isMailCard = layout === 'email' && !isInternal && !isSessionTurn
+  // Decision-button echoes are operator UI, never outbound mail.
+  const isMailCard =
+    layout === 'email' && !isInternal && !isSessionTurn && !message.decisionResponse
   const mailTone: MailCardTone =
     authorKind === 'self'
       ? 'self'

@@ -3,6 +3,10 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ENTITY_ICONS } from '../lib/entity-icons'
+import { channelFolderPath } from '../lib/open-entity'
+
+const ConversationIcon = ENTITY_ICONS.conversation
 import * as Dialog from '@radix-ui/react-dialog'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
@@ -264,6 +268,7 @@ export default function ChannelDetailPage() {
   }
 
   const archived = row?.state === 'archived'
+  const folderHref = row && !archived ? channelFolderPath(row) : null
   const widgetSectionValue = archived ? null : widgetSection(tab)
   const deleteConfirmText = row ? row.address || row.label : ''
 
@@ -321,8 +326,23 @@ export default function ChannelDetailPage() {
             {t('channelsPage.backToList')}
           </Link>
           <h2 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">{row.label}</h2>
-          <p className="mt-0.5 text-sm text-text-muted">
-            {t(`channelsPage.kind.${row.kind}`, { defaultValue: row.kind })}
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-text-muted">
+            <span>{t(`channelsPage.kind.${row.kind}`, { defaultValue: row.kind })}</span>
+            {folderHref ? (
+              <>
+                <span aria-hidden>·</span>
+                <Link
+                  to={folderHref}
+                  className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+                  data-testid="channel-open-folder"
+                >
+                  <ConversationIcon size={13} aria-hidden />
+                  {row.conversationCount != null
+                    ? t('channelsPage.openFolderCount', { count: row.conversationCount })
+                    : t('channelsPage.openCommunication')}
+                </Link>
+              </>
+            ) : null}
           </p>
         </div>
         <PageGuideLink page={row.kind === 'widget' ? 'widget' : 'channels'} compact />

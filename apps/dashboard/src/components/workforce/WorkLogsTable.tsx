@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Copy } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { openEntityPath } from '../../lib/open-entity'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
@@ -12,6 +14,8 @@ import { workLogStatusLabel } from '../../lib/status-labels'
 import { formatWorkLogSubject } from '../../lib/work-log-labels'
 import { formatWorkLogWhen, projectNameForRun } from '../../lib/work-logs-format'
 import { formatAppNumber } from '../../lib/app-number'
+
+const FolderIcon = ENTITY_ICONS.project
 
 type WorkLogsTableProps = {
   runs: WorkLogRow[]
@@ -81,7 +85,18 @@ export function WorkLogsTable({
                 </TableCell>
                 {showProjectColumn ? (
                   <TableCell className="text-text-muted">
-                    {projectNameForRun(projects, run.project_id)}
+                    {run.project_id && projects.some((project) => project.id === run.project_id) ? (
+                      <Link
+                        to={openEntityPath({ type: 'project', id: run.project_id })}
+                        className="inline-flex items-center gap-1 hover:text-accent hover:underline"
+                        data-testid="work-log-project"
+                      >
+                        <FolderIcon size={12} aria-hidden />
+                        {projectNameForRun(projects, run.project_id)}
+                      </Link>
+                    ) : (
+                      projectNameForRun(projects, run.project_id)
+                    )}
                   </TableCell>
                 ) : null}
                 <TableCell>{workLogStatusLabel(run.status, t)}</TableCell>

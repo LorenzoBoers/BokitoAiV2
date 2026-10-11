@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ChevronLeft, ChevronRight, ClipboardList, Info, RefreshCw, Repeat, Users } from 'lucide-react'
+import { toast } from 'sonner'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, ClipboardList, History, Info, RefreshCw, Repeat, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
@@ -10,11 +11,11 @@ import { formatAppDate } from '../../lib/app-locale'
 import { connectionsPathWithKind } from '../../lib/integration-kind-url'
 import { AGENDA_LAYERS, addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
 import type { CalendarConnection } from '../../lib/calendars-api'
-import { calendarBrandSlug, syncAllCalendars, listCalendarConnections } from '../../lib/calendars-api'
+import { calendarBrandSlug, syncAllCalendars, listCalendarConnections, utcIso } from '../../lib/calendars-api'
+import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
 import { LAYER_DOT } from './agenda-style'
 import { CalendarSwatch } from './CalendarSwatch'
-import { useState } from 'react'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
 const CALENDAR_BRANDS = ['google-calendar', 'outlook-calendar'] as const
@@ -72,6 +73,9 @@ type Props = {
   /** `connection|calendar` keys hidden in this view. */
   hiddenCalendars: Set<string>
   onToggleSubCalendar: (connectionId: string, calendarId: string) => void
+  onEnableCalendar: (connectionId: string, calendarId: string) => void
+  onShowAll: () => void
+  onHideAll: () => void
   calendarsLoading: boolean
   onCalendars: (rows: CalendarConnection[]) => void
   onSynced: () => void
@@ -84,20 +88,51 @@ export default function AgendaRail(props: Props) {
   const { user } = useAuth()
   const [syncBusy, setSyncBusy] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [enablingId, setEnablingId] = useState<string | null>(null)
+  const autoSynced = useRef(false)
 
   const sync = async () => {
     setSyncBusy(true)
     setSyncError(null)
     try {
-      await syncAllCalendars()
+      const payload = await syncAllCalendars()
+      const results = payload.results ?? []
+      const failed = results.filter((row) => row.status === 'error' || row.status === 'reconnect')
+      const synced = results.reduce((sum, row) => sum + (row.synced || 0), 0)
       props.onCalendars(await listCalendarConnections())
       props.onSynced()
+      if (failed.length > 0) {
+        const message = failed[0]?.error || ''
+        if (!/not enabled|refused access/i.test(message)) {
+          setSyncError(syncProblemText(message, t) || t('agendaPage.calendar.syncPartial'))
+        }
+      } else if (synced > 0) {
+        toast.success(t('agendaPage.calendar.syncDone', { count: synced }))
+      } else if (results.length > 0) {
+        toast.success(t('agendaPage.calendar.syncNone'))
+      }
     } catch (err) {
       setSyncError(formatApiErrorMessage(err, t('agendaPage.calendar.syncError')))
     } finally {
       setSyncBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (props.calendarsLoading || autoSynced.current || props.calendars.length === 0) return
+    const stale = props.calendars.some((connection) => {
+      if (connection.sync_status === 'error' || connection.sync_status === 'idle' || !connection.last_synced_at) {
+        return true
+      }
+      const at = new Date(utcIso(connection.last_synced_at) || '').getTime()
+      return !Number.isFinite(at) || Date.now() - at > 15 * 60_000
+    })
+    if (!stale) return
+    autoSynced.current = true
+    void sync()
+    // Sync once when the page opens on a stale account.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.calendarsLoading, props.calendars])
 
   return (
     <aside className="flex min-h-0 max-h-full flex-col gap-5 overflow-y-auto lg:self-start" data-testid="agenda-rail">
@@ -168,10 +203,21 @@ export default function AgendaRail(props: Props) {
       </section>
 
       <section className="space-y-1">
-        <RailHeading>{t('agendaPage.rail.show')}</RailHeading>
+        <div className="flex items-center justify-between gap-2 px-1.5">
+          <RailHeading>{t('agendaPage.rail.show')}</RailHeading>
+          <span className="flex gap-2">
+            <button type="button" className="text-2xs text-text-muted hover:text-accent" onClick={props.onShowAll}>
+              {t('agendaPage.rail.showAll')}
+            </button>
+            <button type="button" className="text-2xs text-text-muted hover:text-accent" onClick={props.onHideAll}>
+              {t('agendaPage.rail.hideAll')}
+            </button>
+          </span>
+        </div>
         {props.calendars.map((connection) => {
           const on = props.calendarIds.has(connection.id)
-          const subCalendars = (connection.calendars ?? []).filter((cal) => cal.enabled)
+          const subCalendars = connection.calendars ?? []
+          const syncedAt = utcIso(connection.last_synced_at)
           return (
             <div key={connection.id}>
               <button
@@ -179,26 +225,44 @@ export default function AgendaRail(props: Props) {
                 role="switch"
                 aria-checked={on}
                 onClick={() => props.onToggleCalendar(connection.id)}
-                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated"
+                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                 data-testid="agenda-calendar-toggle"
               >
-                <span
-                  className={cn(
-                    'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
-                    on ? cn(LAYER_DOT.calendar, 'border-transparent') : 'border-border bg-transparent',
-                  )}
-                  aria-hidden
-                >
-                  {on ? <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> : null}
-                </span>
+                <ToggleBox on={on} className={LAYER_DOT.calendar} />
                 <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
-                <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted')}>
-                  {connection.account || connection.display_name}
+                <span className="min-w-0 flex-1">
+                  <span className={cn('block truncate', on ? 'text-text-heading' : 'text-text-muted')}>
+                    {connection.account || connection.display_name}
+                  </span>
+                  <span className="block truncate text-2xs text-text-muted">
+                    {syncedAt
+                      ? t('agendaPage.calendar.lastSynced', { when: timeAgo(syncedAt, t) })
+                      : t('agendaPage.calendar.notSynced')}
+                  </span>
                 </span>
                 <span className="text-2xs tabular-nums text-text-muted">
-                  {props.calendarCounts[connection.id] || ''}
+                  {props.calendarCounts[connection.id] ?? 0}
                 </span>
               </button>
+              {connection.sync_status === 'error' && connection.sync_error ? (
+                <p className="ml-7 text-2xs text-status-error">
+                  {syncProblemText(connection.sync_error, t)}
+                  {/not enabled/i.test(connection.sync_error) ? (
+                    <>
+                      {' '}
+                      <a
+                        href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-accent hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {t('agendaPage.calendar.enableApi')}
+                      </a>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
               {connection.sync_status === 'reconnect' ? (
                 <Link
                   to={connectionsPathWithKind('calendar')}
@@ -208,33 +272,46 @@ export default function AgendaRail(props: Props) {
                   {t('agenda.reconnect', { ns: 'calendar' })}
                 </Link>
               ) : null}
-              {on && subCalendars.length > 1
-                ? subCalendars.map((cal) => {
-                    const shown = !props.hiddenCalendars.has(`${connection.id}|${cal.id}`)
-                    return (
-                      <button
-                        key={cal.id}
-                        type="button"
-                        role="switch"
-                        aria-checked={shown}
-                        onClick={() => props.onToggleSubCalendar(connection.id, cal.id)}
-                        className="ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs hover:bg-bg-elevated"
-                        data-testid="agenda-subcalendar-toggle"
-                      >
-                        <CalendarSwatch color={cal.color} className={cn(!shown && 'opacity-30')} />
-                        <span className={cn('min-w-0 flex-1 truncate', shown ? 'text-text-secondary' : 'text-text-muted line-through')}>
-                          {cal.name}
-                        </span>
-                      </button>
-                    )
-                  })
-                : null}
+              {subCalendars.map((cal) => {
+                const shown = cal.enabled && on && !props.hiddenCalendars.has(`${connection.id}|${cal.id}`)
+                const busy = enablingId === `${connection.id}|${cal.id}`
+                return (
+                  <button
+                    key={cal.id}
+                    type="button"
+                    role="switch"
+                    aria-checked={shown}
+                    disabled={busy}
+                    title={cal.enabled ? t('agendaPage.calendar.hideCalendar') : t('agendaPage.calendar.enableSync')}
+                    onClick={() => {
+                      if (!cal.enabled) {
+                        if (!connection.can_manage) return
+                        setEnablingId(`${connection.id}|${cal.id}`)
+                        props.onEnableCalendar(connection.id, cal.id)
+                        window.setTimeout(() => setEnablingId(null), 8000)
+                        return
+                      }
+                      props.onToggleSubCalendar(connection.id, cal.id)
+                    }}
+                    className="ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-60"
+                    data-testid="agenda-subcalendar-toggle"
+                  >
+                    <CalendarSwatch color={cal.color} className={cn(!shown && 'opacity-30')} />
+                    <span className={cn('min-w-0 flex-1 truncate', shown ? 'text-text-secondary' : 'text-text-muted line-through')}>
+                      {cal.name}
+                    </span>
+                    {!cal.enabled ? (
+                      <span className="shrink-0 text-2xs text-text-muted">{t('agendaPage.calendar.off')}</span>
+                    ) : null}
+                  </button>
+                )
+              })}
             </div>
           )
         })}
         {AGENDA_LAYERS.map((layer) => {
           const on = props.layers.has(layer)
-          const Icon = layer === 'tasks' ? ClipboardList : undefined
+          const Icon = layer === 'tasks' ? ClipboardList : History
           return (
             <button
               key={layer}
@@ -242,22 +319,14 @@ export default function AgendaRail(props: Props) {
               role="switch"
               aria-checked={on}
               onClick={() => props.onToggleLayer(layer)}
-              className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated"
+              className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
             >
-              <span
-                className={cn(
-                  'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
-                  on ? cn(LAYER_DOT[layer], 'border-transparent') : 'border-border bg-transparent',
-                )}
-                aria-hidden
-              >
-                {on ? <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> : null}
-              </span>
-              {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden /> : null}
+              <ToggleBox on={on} className={LAYER_DOT[layer]} />
+              <Icon className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
               <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted')}>
                 {t(`agendaPage.layers.${layer}`)}
               </span>
-              <span className="text-2xs tabular-nums text-text-muted">{props.counts[layer] || ''}</span>
+              <span className="text-2xs tabular-nums text-text-muted">{props.counts[layer] ?? 0}</span>
             </button>
           )
         })}
@@ -269,7 +338,7 @@ export default function AgendaRail(props: Props) {
             className="inline-flex items-center gap-1.5 px-1.5 pt-1 text-xs text-text-muted hover:text-accent disabled:opacity-60"
           >
             <RefreshCw className={cn('h-3 w-3', syncBusy && 'animate-spin')} aria-hidden />
-            {t('agendaPage.calendar.syncNow')}
+            {syncBusy ? t('agendaPage.calendar.syncing') : t('agendaPage.calendar.syncNow')}
           </button>
         ) : null}
         {syncError ? <p className="px-1.5 text-2xs text-status-error">{syncError}</p> : null}
@@ -321,8 +390,35 @@ export default function AgendaRail(props: Props) {
   )
 }
 
+function syncProblemText(raw: string, t: (key: string) => string): string {
+  if (/not enabled/i.test(raw)) return t('agendaPage.calendar.apiDisabled')
+  if (/refused access/i.test(raw)) return t('agendaPage.calendar.permissionDenied')
+  if (/could not be reached/i.test(raw)) return t('agendaPage.calendar.unreachable')
+  return raw
+}
+
+function ToggleBox({ on, className }: { on: boolean; className: string }) {
+  return (
+    <span
+      className={cn(
+        'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+        on ? cn(className, 'border-transparent text-white') : 'border-border bg-transparent',
+      )}
+      aria-hidden
+    >
+      {on ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : null}
+    </span>
+  )
+}
+
 function RailHeading({ children }: { children: React.ReactNode }) {
   return <h3 className="px-1.5 text-2xs font-semibold uppercase tracking-wide text-text-muted">{children}</h3>
+}
+
+function shiftMonth(anchor: Date, delta: number): Date {
+  const target = new Date(anchor.getFullYear(), anchor.getMonth() + delta, 1)
+  const last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
+  return new Date(target.getFullYear(), target.getMonth(), Math.min(anchor.getDate(), last))
 }
 
 function MiniMonth({
@@ -345,6 +441,8 @@ function MiniMonth({
   }, [month.getTime()])
   const todayKey = dayKey(new Date(nowMs))
   const anchorKey = dayKey(anchor)
+  const weekStart = startOfWeek(anchor).getTime()
+  const weekEnd = addDays(startOfWeek(anchor), 7).getTime()
   return (
     <section>
       <div className="mb-1 flex items-center justify-between px-1">
@@ -356,7 +454,7 @@ function MiniMonth({
             type="button"
             className="rounded p-1 text-text-muted hover:bg-bg-elevated hover:text-text-heading"
             aria-label={t('agendaPage.prevMonth')}
-            onClick={() => onPickDay(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+            onClick={() => onPickDay(shiftMonth(anchor, -1))}
           >
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -364,7 +462,7 @@ function MiniMonth({
             type="button"
             className="rounded p-1 text-text-muted hover:bg-bg-elevated hover:text-text-heading"
             aria-label={t('agendaPage.nextMonth')}
-            onClick={() => onPickDay(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+            onClick={() => onPickDay(shiftMonth(anchor, 1))}
           >
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -379,13 +477,17 @@ function MiniMonth({
         {days.map((day) => {
           const key = dayKey(day)
           const outside = day.getMonth() !== month.getMonth()
+          const inWeek = day.getTime() >= weekStart && day.getTime() < weekEnd
           return (
             <button
               key={key}
               type="button"
               onClick={() => onPickDay(day)}
+              aria-current={key === todayKey ? 'date' : undefined}
+              aria-pressed={key === anchorKey}
               className={cn(
                 'relative mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs tabular-nums transition-colors',
+                inWeek && key !== todayKey && 'bg-accent/5',
                 key === todayKey
                   ? 'bg-accent font-semibold text-white'
                   : key === anchorKey

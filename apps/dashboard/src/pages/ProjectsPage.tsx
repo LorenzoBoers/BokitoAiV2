@@ -1,20 +1,12 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  Bot,
-  FolderKanban,
-  GitBranch,
-  Loader2,
-  MessageSquare,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Search,
-  Trash2,
-} from 'lucide-react'
+import { GitBranch, Loader2, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
+import { toastMovedToBin } from '../lib/bin-toast'
+import { ENTITY_ICONS } from '../lib/entity-icons'
+import { openEntityPath } from '../lib/open-entity'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
@@ -52,7 +44,6 @@ import {
 } from '../lib/projects-api'
 import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
 import { indexStatusLabel } from '../lib/status-labels'
-import { formatAppTime } from '../lib/app-locale'
 import { workspaceBrandName } from '../lib/tenant-branding'
 
 function slugify(value: string): string {
@@ -61,6 +52,15 @@ function slugify(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+const Bot = ENTITY_ICONS.agent
+const FolderKanban = ENTITY_ICONS.project
+const MessageSquare = ENTITY_ICONS.conversation
+
+/** Inner links on a card that is itself a link: do not open the project too. */
+function stopCard(event: { stopPropagation: () => void }) {
+  event.stopPropagation()
 }
 
 const REPO_STATUS_VARIANT: Record<string, BadgeTone> = {
@@ -106,9 +106,28 @@ function ProjectCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <FolderKanban size={16} className="shrink-0 text-text-muted" aria-hidden />
-          <p className="truncate-fade font-medium text-text-heading group-hover:text-accent">
-            {project.name}
-          </p>
+          <div className="min-w-0">
+            {project.ancestors && project.ancestors.length > 0 ? (
+              <p className="truncate text-2xs text-text-muted" data-testid="project-card-ancestors">
+                {project.ancestors.map((ancestor, index) => (
+                  <span key={ancestor.id}>
+                    {index > 0 ? ' / ' : null}
+                    <Link
+                      to={openEntityPath({ type: 'project', id: ancestor.id })}
+                      className="hover:text-accent hover:underline"
+                      onClick={stopCard}
+                      onKeyDown={stopCard}
+                    >
+                      {ancestor.name}
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            ) : null}
+            <p className="truncate-fade font-medium text-text-heading group-hover:text-accent">
+              {project.name}
+            </p>
+          </div>
         </div>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
@@ -177,17 +196,26 @@ function ProjectCard({
       <div className="mt-auto space-y-2 border-t border-border/50 pt-3">
         <div className="flex items-center gap-2 text-xs text-text-secondary">
           {project.po_agent ? (
-            <AgentOptionRow
-              agent={{
-                id: project.po_agent.id,
-                name: project.po_agent.name,
-                avatar_kind: project.po_agent.avatar_kind,
-                avatar_icon: project.po_agent.avatar_icon,
-                avatar_color: project.po_agent.avatar_color,
-                avatar_image_url: project.po_agent.avatar_image_url,
-              }}
-              size={18}
-            />
+            <Link
+              to={openEntityPath({ type: 'agent', id: project.po_agent.id })}
+              className="min-w-0 rounded-md hover:text-accent"
+              title={t('projects.page.openLead')}
+              onClick={stopCard}
+              onKeyDown={stopCard}
+              data-testid="project-card-lead"
+            >
+              <AgentOptionRow
+                agent={{
+                  id: project.po_agent.id,
+                  name: project.po_agent.name,
+                  avatar_kind: project.po_agent.avatar_kind,
+                  avatar_icon: project.po_agent.avatar_icon,
+                  avatar_color: project.po_agent.avatar_color,
+                  avatar_image_url: project.po_agent.avatar_image_url,
+                }}
+                size={18}
+              />
+            </Link>
           ) : (
             <>
               <Bot size={13} className="shrink-0 text-text-muted" />
@@ -198,13 +226,16 @@ function ProjectCard({
         {project.agents && project.agents.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1">
             {project.agents.slice(0, 4).map((agent) => (
-              <span
+              <Link
                 key={agent.agent_id}
-                className="inline-flex max-w-[10rem] items-center truncate-fade rounded-md border border-border/60 px-2 py-0.5 text-2xs text-text-secondary"
+                to={openEntityPath({ type: 'agent', id: agent.agent_id })}
+                className="inline-flex max-w-[10rem] items-center truncate-fade rounded-md border border-border/60 px-2 py-0.5 text-2xs text-text-secondary transition hover:border-accent/50 hover:text-accent"
                 title={agent.is_default ? t('projects.page.defaultAgent', { name: agent.name }) : agent.name}
+                onClick={stopCard}
+                onKeyDown={stopCard}
               >
                 {agent.name}
-              </span>
+              </Link>
             ))}
             {project.agents.length > 4 ? (
               <span className="text-2xs text-text-muted">
@@ -213,8 +244,15 @@ function ProjectCard({
             ) : null}
           </div>
         ) : null}
-        {(project.open_tickets_count ?? 0) > 0 || (project.doc_sections_total ?? 0) > 0 ? (
+        {(project.open_tickets_count ?? 0) > 0 ||
+        (project.doc_sections_total ?? 0) > 0 ||
+        (project.child_count ?? 0) > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-text-secondary">
+            {(project.child_count ?? 0) > 0 ? (
+              <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
+                {t('projects.page.folders', { count: project.child_count })}
+              </Badge>
+            ) : null}
             {(project.open_tickets_count ?? 0) > 0 ? (
               <Badge variant="info" className="px-1.5 py-0 text-2xs">
                 {t('projects.page.openTickets', { count: project.open_tickets_count })}
@@ -274,7 +312,7 @@ function ProjectCard({
 }
 
 export default function ProjectsPage() {
-  const { t, i18n } = useTranslation('nav')
+  const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const { currentWorkspace } = useWorkspace()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -283,7 +321,6 @@ export default function ProjectsPage() {
   const [budgets, setBudgets] = useState<Record<string, ProjectBudgetResponse>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
   const [creating, setCreating] = useState(false)
@@ -313,7 +350,6 @@ export default function ProjectsPage() {
         }),
       )
       setBudgets(Object.fromEntries(budgetEntries.filter((e): e is [string, ProjectBudgetResponse] => e !== null)))
-      setRefreshedAt(new Date())
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.page.loadError')))
     } finally {
@@ -384,7 +420,7 @@ export default function ProjectsPage() {
     setDeleting(true)
     try {
       await deleteProject(deleteTarget.id, deleteTarget.name)
-      toast.success(t('projects.page.deleted'))
+      toastMovedToBin(t('projects.page.deleted'), navigate)
       setDeleteTarget(null)
       await load()
     } catch (err) {
@@ -396,7 +432,7 @@ export default function ProjectsPage() {
 
   const visibleProjects = projects.filter((project) => {
     const needle = query.trim().toLowerCase()
-    if (!needle) return true
+    if (!needle) return !project.parent_id
     const hay = [project.name, project.po_agent?.name, project.description]
       .filter(Boolean)
       .join(' ')
@@ -411,30 +447,12 @@ export default function ProjectsPage() {
         subtitle={t('projects.page.subtitle')}
         className="mb-0"
         meta={
-          <>
-            {refreshedAt ? (
-              <span className="hidden text-xs text-text-muted sm:inline">
-                {t('projects.page.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
-              </span>
-            ) : null}
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => void load()}
-              disabled={loading}
-              title={t('projects.page.refresh')}
-              aria-label={t('projects.page.refresh')}
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+          isAdmin ? (
+            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              {t('projects.page.new')}
             </Button>
-            {isAdmin ? (
-              <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-3.5 w-3.5" aria-hidden />
-                {t('projects.page.new')}
-              </Button>
-            ) : null}
-          </>
+          ) : null
         }
       />
 

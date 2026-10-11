@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FolderKanban, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
@@ -27,6 +28,8 @@ import {
 import { Hashtag, HashtagMark } from '../ui/HashtagMark'
 import { cn } from '../../lib/utils'
 import { TicketFieldControl } from './TicketFieldControl'
+
+const FolderKanban = ENTITY_ICONS.project
 
 type Phase = 'pick' | 'create' | 'project' | 'intake' | 'replace'
 
@@ -232,6 +235,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
           pinned: created.pinned,
           showInNav: created.show_in_nav,
           aiAutoTag: true,
+          sendMode: created.send_mode,
         },
       ])
       setBusy(false)
@@ -309,9 +313,10 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                       projectChosen: true,
                     })
                   }
-                  className="flex w-full items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-left text-sm hover:bg-bg-hover/70 disabled:opacity-40"
+                  style={{ paddingLeft: 12 + (choice.depth ?? 0) * 16 }}
+                  className="flex w-full items-center gap-2 rounded-md border border-border/60 py-2 pr-3 text-left text-sm hover:bg-bg-hover/70 disabled:opacity-40"
                 >
-                  <FolderKanban size={14} className="text-text-muted" />
+                  <FolderKanban size={14} className="shrink-0 text-text-muted" />
                   {choice.name}
                 </button>
               ))}

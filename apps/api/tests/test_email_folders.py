@@ -95,3 +95,9 @@ async def test_channel_row_carries_folder_check(
     assert row["state_reason"] == "credentials"
     folders = next(c for c in row["checks"] if c["id"] == "folders")
     assert "Inbox" in folders["detail"]
+    # The dashboard links the row to `/communication/channel/email/{id}`; that
+    # folder filters threads by the same numeric id as `email_connection_id`.
+    assert row["hub_connection_id"] == user_numeric_id(account.id)
+    for other in res.json()["channels"]:
+        if other["channel"] != "email":
+            assert other["hub_connection_id"] is None

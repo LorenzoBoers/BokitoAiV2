@@ -351,7 +351,23 @@ function ApiTokensSection({
               {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
               {busy ? t('developersPage.creating') : t('developersPage.create')}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                void (async () => {
+                  if (
+                    (name.trim() || scopes.length > 0) &&
+                    !(await confirm({ description: t('developersPage.discardDraft') }))
+                  ) {
+                    return
+                  }
+                  setShowAdd(false)
+                  setName('')
+                  setScopes([])
+                })()
+              }}
+            >
               {t('developersPage.cancel')}
             </Button>
           </div>
@@ -728,7 +744,24 @@ export default function DeveloperSettings() {
                   {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
                   {t('developersPage.webhooks.create')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    void (async () => {
+                      if (
+                        (newUrl.trim() || newDescription.trim()) &&
+                        !(await confirm({ description: t('developersPage.webhooks.discardDraft') }))
+                      ) {
+                        return
+                      }
+                      setShowAdd(false)
+                      setNewUrl('')
+                      setNewDescription('')
+                      setNewEvents(['*'])
+                    })()
+                  }}
+                >
                   {t('developersPage.webhooks.cancel')}
                 </Button>
               </div>

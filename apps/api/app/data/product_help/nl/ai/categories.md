@@ -21,7 +21,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 1. Open **Instellingen**, dan **# Tags**. De pagina toont één **Tags**-lijst (actietags eerst, met accent-`#`), dan **Wat we misten** en wie tickets mag bevestigen.
 2. Kies **Nieuwe tag** om een vrije tag toe te voegen, daarna **Flow aanmaken** op die rij. Dat maakt of koppelt een flow met titel `#naam`. De tag wordt een actietag in dezelfde lijst.
 3. Op een actietag kies je **Flow openen** om fasen, vastleggen en projecten op de flowpagina in te richten. Een nieuwe flow start met Open, Wachtend en Klaar.
-4. Gebruik de punaise op elke tag voor een rij in de zijbalk van Communicatie. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen.
+4. Gebruik de punaise op elke tag voor een rij in de zijbalk van Communicatie. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen. Het aantal gesprekken op een rij opent die gesprekken in Communicatie.
 
 ## Een ticket op een gesprek vastleggen
 
@@ -43,7 +43,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 
 ## Een ticket door de fasen verplaatsen
 
-1. Klik in het **Ticket**-paneel op een segment van de fasebalk om het ticket naar die fase te zetten; **Fase 2 van 3** toont waar het staat, gevolgd door de volgende check-up als de fase er een heeft. Op een flow- of projectbord sleep je de kaart naar een andere kolom; zie [Projecten](/docs/ai/projects).
+1. Klik in het **Ticket**-paneel op een segment van de fasebalk om het ticket naar die fase te zetten; **Fase 2 van 3** toont waar het staat, gevolgd door de volgende check-up als de fase er een heeft. Op een flow- of projectbord sleep je de kaart naar een andere kolom; zie [Projecten](/docs/ai/projects). Op een bordkaart is de contactnaam een link naar dat contact zodra het gesprek aan een contact is gekoppeld.
 2. Als de doelfase verplichte velden heeft die nog leeg zijn, vraagt een dialoog ze in te vullen. Het ticket blijft in de huidige fase tot die waarden er zijn. Dezelfde dialoog verschijnt bij slepen. Het gesprek sluiten zet het ticket in de klaar-fase. Mist die fase nog verplichte velden, dan blijft het ticket staan en sluit het gesprek toch.
 3. Elke verplaatsing verschijnt in de tijdlijn, bijvoorbeeld **Ticket verplaatst naar Waiting**. De status van het ticket volgt altijd het soort van de fase: open, waiting of done.
 4. Onder het project heeft elk eigen veld van de flow een eigen rij. Klik op een waarde om die te wijzigen; die wordt opgeslagen als je op Enter drukt, het veld verlaat of een optie kiest. Een `*` markeert een verplicht veld en kleurt oranje zolang het leeg is.

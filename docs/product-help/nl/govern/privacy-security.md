@@ -47,6 +47,7 @@ Operator-verwijderingen (gesprekken, projecten, canvassen, kennis, contacten, dr
 
 1. Open **Instellingen**. Onderaan de zijbalk, boven **Support**, kies **Prullenbak**.
 2. Filter op type of zoek op titel. Elke rij toont wie het verwijderde en **Weg op** de datum waarop het verdwijnt.
-3. Kies **Herstellen** om het item en de kinderen terug te zetten. Als de slug al bestaat, voegt Bokito `-restored` toe. Elke rij toont wie het verwijderde en wanneer het verdwijnt.
-4. Kies **Definitief verwijderen** voor één item, of **Prullenbak legen** (typ `leeg`) om alles te purgen. De voettekst noemt hoe veel dagen items blijven (platformstandaard 60).
-5. Nieuwe mail op een gesprek in de Prullenbak herstelt dat gesprek in plaats van een duplicaat te openen.
+3. Kies **Herstellen** om het item en de kinderen terug te zetten. Als de slug al bestaat, voegt Bokito `-restored` toe. De melding biedt **Openen**, dat direct naar het herstelde gesprek, project, canvas, document, contact, bedrijf, flow, trigger of team springt. Elke verwijdermelding in de app heeft **Prullenbak openen**, zodat je meteen na het verwijderen hier uitkomt.
+4. Als de Prullenbak leeg is, zegt de pagina dat en linkt ze naar dit artikel; met een filter of zoekopdracht actief toont **Filters wissen** weer alles.
+5. Kies **Definitief verwijderen** voor één item, of **Prullenbak legen** (typ `leeg`) om alles te purgen. De voettekst noemt hoe veel dagen items blijven (platformstandaard 60).
+6. Nieuwe mail op een gesprek in de Prullenbak herstelt dat gesprek in plaats van een duplicaat te openen.

@@ -417,6 +417,19 @@ async def test_approving_close_option_closes_thread(client: AsyncClient, session
     assert decision.status == "approved"
     assert decision.chosen_option_id == "close"
 
+    # Close is silent — no "Close thread" chat/mail bubble in the timeline.
+    echoes = (
+        await session_override.execute(
+            select(SignalMessage).where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.kind == "user_message",
+            )
+        )
+    ).scalars().all()
+    assert not any(
+        "decision_response" in (m.metadata_json or "") for m in echoes
+    )
+
 
 @pytest.mark.asyncio
 async def test_keep_open_option_leaves_thread_open(client: AsyncClient, session_override):
@@ -465,6 +478,19 @@ async def test_keep_open_option_leaves_thread_open(client: AsyncClient, session_
 
     await session_override.refresh(signal)
     assert signal.status == "open"
+
+    # Keep open is silent — must not post a "Keep open" chat/mail bubble.
+    echoes = (
+        await session_override.execute(
+            select(SignalMessage).where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.kind == "user_message",
+            )
+        )
+    ).scalars().all()
+    assert not any(
+        "decision_response" in (m.metadata_json or "") for m in echoes
+    )
 
 
 # ── close_thread tool ────────────────────────────────────────────

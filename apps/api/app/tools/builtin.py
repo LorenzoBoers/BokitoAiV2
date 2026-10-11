@@ -31,8 +31,8 @@ PROPOSAL_ITEMS_SCHEMA = {
     "description": (
         "Showcase cards inside your message (EntityRow previews). Prefer #name "
         "for tags in prose. Types: conversation | trash_entry | trigger | file | "
-        "image | user | agent | tag | flow | project | contact | integration | "
-        "marketplace | module | help_doc | message. Pass id (tag: name; file: "
+        "image | user | agent | tag | flow | project | canvas | contact | "
+        "integration | marketplace | module | help_doc | message. Pass id (tag: name; file: "
         "message_id + name/index; image: https url in url or id; "
         "marketplace/module/help_doc: slug or path; marketplace id is the "
         "catalog slug e.g. github). "
@@ -2860,8 +2860,8 @@ register_tool(
             "your last message (with logos for connectors). Call this whenever you "
             "recommend, list, or point at objects — do not use a bullet list instead. "
             "Pass items [{type, id}]. Types: conversation, trash_entry, trigger, file, "
-            "image, user, agent, tag, flow, project, contact, integration, marketplace, "
-            "module, help_doc, message. Connectors: type marketplace + catalog slug "
+            "image, user, agent, tag, flow, project, canvas, contact, integration, "
+            "marketplace, module, help_doc, message. Connectors: type marketplace + catalog slug "
             "(github, slack, notion, google_calendar, whatsapp, …). Type integration "
             "only for a connected connection id (falls back to marketplace when not "
             "connected). Remote images: type image with url (https). Tags in prose: "
@@ -4296,6 +4296,7 @@ async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
             "slug": slug,
             "description": str(tool_input.get("description") or ""),
             "autonomous_scope": str(tool_input.get("autonomous_scope") or "project"),
+            "parent_id": str(tool_input["parent_id"]).strip() if tool_input.get("parent_id") else None,
         },
         tool_name="create_project",
     )
@@ -4342,6 +4343,7 @@ register_tool(
                 "slug": {"type": "string"},
                 "description": {"type": "string"},
                 "autonomous_scope": {"type": "string"},
+                "parent_id": {"type": "string", "description": "Folder this project sits inside"},
             },
             "required": ["name"],
         },

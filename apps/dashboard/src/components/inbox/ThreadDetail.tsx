@@ -34,6 +34,7 @@ import {
 import { fileTicket, listCategories, stageLabel, type Ticket } from '../../lib/tickets-api'
 import { normalizeHashtag } from '../../lib/hashtag'
 import { TicketStageMoveCancelled, loadOpenTickets, resolveOpenTickets } from '../../lib/close-thread-signals'
+import FileInFolderDialog from './FileInFolderDialog'
 import { useCollectStageFields } from './TicketStageGate'
 import {
   Dialog,
@@ -46,6 +47,7 @@ import {
 import { isAiHandlingVerb, type ParsedComposerVerb } from '../../lib/composer-verbs'
 import type { AiHandlingMode } from '../../lib/ai-handling'
 import {
+  findNavRowPath,
   listSignalAssignees,
   listThreadAgentCandidates,
   setThreadSchedule,
@@ -240,7 +242,9 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const [closeSignalsPrompt, setCloseSignalsPrompt] = useState<{
     tickets: Ticket[]
     afterResolve?: () => Promise<void>
+    projectId?: string
   } | null>(null)
+  const [fileMode, setFileMode] = useState<'file' | 'close' | null>(null)
   const [closeSignalsBusy, setCloseSignalsBusy] = useState(false)
   // Transcript of the running meta session, owned here so a send in the
   // composer and the inline session card stay in sync.
@@ -577,6 +581,14 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
 
   const { nav: workspaceNav } = useCommunicationNav()
+  const threadProjectId = detail?.thread.projectId ?? null
+  const folder = useMemo(() => {
+    if (!threadProjectId) return null
+    const chain = findNavRowPath(workspaceNav.projects, threadProjectId)
+    if (!chain) return null
+    const leaf = chain[chain.length - 1]
+    return { id: leaf.id, name: leaf.name, path: chain.map((row) => row.name).join(' / ') }
+  }, [threadProjectId, workspaceNav.projects])
   const chatTags = useMemo((): ChatTagMap => {
     const map: ChatTagMap = {}
     // Workspace rail first so #klacht is accent even when this thread has no ticket.
@@ -1459,21 +1471,23 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [liveAgentId, agentTurnBusy, detail?.thread.id])
 
   const requestCloseThread = useCallback(
-    async (afterClose?: () => Promise<void>) => {
+    async (afterClose?: () => Promise<void>, projectId?: string) => {
+      const closed = { status: 'closed' as const, ...(projectId ? { projectId } : {}) }
       if (!detail || isInternalThread(detail.thread)) {
-        await onPatch({ status: 'closed' })
+        await onPatch(closed)
         if (afterClose) await afterClose()
         return
       }
       const openTickets = await loadOpenTickets(String(detail.thread.id))
       if (openTickets.length === 0) {
-        await onPatch({ status: 'closed' })
+        await onPatch(closed)
         if (afterClose) await afterClose()
         return
       }
       setCloseSignalsPrompt({
         tickets: openTickets,
         afterResolve: afterClose,
+        projectId,
       })
     },
     [detail, onPatch],
@@ -1487,7 +1501,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         if (mode === 'resolve') {
           await resolveOpenTickets(closeSignalsPrompt.tickets, collectStageFields)
         }
-        await onPatch({ status: 'closed' })
+        await onPatch({
+          status: 'closed',
+          ...(closeSignalsPrompt.projectId ? { projectId: closeSignalsPrompt.projectId } : {}),
+        })
         if (closeSignalsPrompt.afterResolve) await closeSignalsPrompt.afterResolve()
         setCloseSignalsPrompt(null)
       } catch (err) {
@@ -1669,6 +1686,8 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         previousCount={previousCount}
         onPatch={onPatch}
         onRequestClose={() => void requestCloseThread()}
+        onFileInFolder={() => setFileMode('file')}
+        onCloseAndFile={() => setFileMode('close')}
         closeBusy={closeSignalsBusy}
         onBack={onBack}
         onToggleContact={onToggleContact}
@@ -1689,6 +1708,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         onExampleChanged={() => {
           void onRefresh()
         }}
+        folder={folder}
       />
 
       {thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? (
@@ -2042,6 +2062,22 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <FileInFolderDialog
+        open={fileMode != null}
+        onOpenChange={(open) => {
+          if (!open) setFileMode(null)
+        }}
+        title={fileMode === 'close' ? t('threadChrome.closeAndFile') : t('threadChrome.fileInFolder')}
+        confirmLabel={fileMode === 'close' ? t('threadChrome.closeAndFile') : t('threadChrome.fileConfirm')}
+        onConfirm={async (projectId) => {
+          if (!projectId) return
+          if (fileMode === 'close') {
+            await requestCloseThread(undefined, projectId)
+            return
+          }
+          await onPatch({ projectId })
+        }}
+      />
     </div>
   </TooltipProvider>
   )

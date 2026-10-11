@@ -123,4 +123,10 @@ describe('appLinkKind', () => {
     expect(appLinkKind('/communication/inbox/open/t/abc')).toBe('inbox')
     expect(appLinkKind('/threads/abc')).toBe('inbox')
   })
+
+  it('detects snapshot canvas paths before generic project', () => {
+    expect(appLinkKind('/cockpit/canvas')).toBe('canvas')
+    expect(appLinkKind('/projects/p1?tab=canvas')).toBe('canvas')
+    expect(appLinkKind('/projects/p1?tab=docs')).toBe('project')
+  })
 })

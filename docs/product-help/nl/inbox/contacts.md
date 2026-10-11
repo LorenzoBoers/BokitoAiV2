@@ -19,6 +19,7 @@ Iedereen die binnenkomt met een echte naam of adres landt hier. Open Contacten o
 1. Open een gesprek in [Communicatie](/docs/inbox/communication).
 2. Bij een bekende persoon klik je hun naam in het zijpaneel of de gespreksheader om hun contact te openen.
 3. Lees geschiedenis, laatst gezien en andere gesprekken, en spring terug naar het open werk. De lijst omvat alle kanalen: iemand die op de website chat en ook mailt vanaf hetzelfde adres toont één gecombineerde geschiedenis, elke rij met een kanaalicoon.
+4. Boven de gesprekken toont **In mappen** elke projectmap waarin gesprekken van dit contact zijn opgeborgen, met een aantal per map. Klik op een map om dat project te openen. Bedrijven tonen dezelfde rij voor al hun mensen samen.
 
 Onbekende websitebezoekers blijven in het gesprek als **Websitebezoeker**. Ze hebben geen **Profiel** en staan niet onder Contacten tot ze het [vooraf-formulier](/docs/inbox/widget) van de widget invullen of je [het gesprek koppelt](#een-gesprek-aan-een-contact-koppelen).
 
@@ -43,7 +44,7 @@ De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppel
 ## Groepeer mensen en bedrijven
 
 1. Wissel op Contacten tussen **Mensen** en **Bedrijven**.
-2. Bedrijven ontstaan automatisch uit zakelijke e-maildomeinen (niet van gratis hosts zoals Gmail). Koppel een persoon zodat gerelateerde gesprekken bij elkaar blijven.
+2. Bedrijven ontstaan automatisch uit zakelijke e-maildomeinen (niet van gratis hosts zoals Gmail). Koppel een persoon zodat gerelateerde gesprekken bij elkaar blijven. Eenmaal gekoppeld opent de bedrijfsnaam in de tabel Mensen en onder de naam op de contactpagina dat bedrijf.
 3. Gebruik **Groepeer contacten per bedrijf** om bedrijven aan te vullen op oudere adressen die nooit een bedrijf kregen. Vanuit een gesprek zonder opgeslagen persoon kies je in het zijpaneel **Contact**, vul je het adres in en daarna **Koppelen**. **Markeer als spam** staat naast die knop.
 
 ## Een afzender goedkeuren of blokkeren

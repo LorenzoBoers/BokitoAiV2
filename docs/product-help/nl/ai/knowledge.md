@@ -18,6 +18,7 @@ Kennis is wat agents bij elke run lezen. Open **Kennis** om organisatie-, projec
 
 1. Open **Kennis**.
 2. Klik op je **workspacenaam** (standaard, met label **Platform**), een **projectnaam** of een **agentnaam**. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als Projectdocumentatie.
+3. Met een project of agent geselecteerd verschijnt **Map openen** of **Agent openen** onder de chips; dat brengt je naar die projectpagina of agentpagina, zodat documentatie en het werk waar ze bij hoort één klik uit elkaar blijven.
 
 De zijbalk groepeert documenten naar de soorten die er echt zijn — bijvoorbeeld Stem, Geheugen, Skills, Docs, Check-ins of Dagnotities wanneer die bestaan. Lege soorten blijven weg. Geheugen, check-ins en dagnotities onderhoudt de AI: bewerk ze als een feit fout is; behandel ze niet als tweede wiki.
 

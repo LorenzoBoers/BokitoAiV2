@@ -4,26 +4,50 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Bot,
-  CalendarClock,
   Copy,
+  FolderInput,
   FolderKanban,
   GitBranch,
   MessageSquare,
+  MoreHorizontal,
+  Plus,
   Trash2,
 } from 'lucide-react'
+import { CANVAS_ICON } from '../lib/entity-icons'
 import { toast } from 'sonner'
+import { toastMovedToBin } from '../lib/bin-toast'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
+import FileInFolderDialog from '../components/inbox/FileInFolderDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { AgentOptionRow } from '../components/ui/AgentOptionRow'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ProjectAgentsSection } from '../components/projects/ProjectAgentsSection'
+import { ProjectConversations } from '../components/projects/ProjectConversations'
 import { ProjectDocs } from '../components/projects/ProjectDocs'
 import { ProjectCanvasBoard } from '../components/projects/ProjectCanvasBoard'
+import { ProjectFlowBoards } from '../components/projects/ProjectFlowBoards'
+import { ProjectFolderGrid } from '../components/projects/ProjectFolderCards'
 import { ProjectHome } from '../components/projects/ProjectHome'
 import { ProjectRepoSection } from '../components/projects/ProjectRepoSection'
 import { ProjectResourcesSection } from '../components/projects/ProjectResourcesSection'
@@ -32,13 +56,13 @@ import { AutosaveStatus } from '../components/ui/AutosaveStatus'
 import { useAutosave } from '../hooks/useAutosave'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { useAuth } from '../context/AuthContext'
-import { formatAppTime } from '../lib/app-locale'
 import { listAgents } from '../lib/agents-api'
-import { runThreadPath } from '../lib/open-entity'
-import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { projectHubPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
+import { runThreadPath } from '../lib/open-entity'
+import { listThreads, type InboxThread } from '../lib/inbox-api'
 import {
+  createProject,
   deleteProject,
   getProject,
   getProjectBudget,
@@ -50,13 +74,12 @@ import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-conn
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 
-const PROJECT_TABS = ['home', 'canvas', 'docs', 'settings'] as const
+const PROJECT_TABS = ['home', 'conversations', 'tickets', 'canvas', 'docs', 'settings'] as const
 type ProjectTab = (typeof PROJECT_TABS)[number]
 
 function parseProjectTab(raw: string | null): ProjectTab {
   if (raw === 'queue') return 'home'
-  if (raw === 'canvas' || raw === 'docs' || raw === 'settings') return raw
-  return 'home'
+  return (PROJECT_TABS as readonly string[]).includes(raw ?? '') ? (raw as ProjectTab) : 'home'
 }
 
 async function copyText(value: string, copied: string, copyError: string) {
@@ -69,7 +92,7 @@ async function copyText(value: string, copied: string, copyError: string) {
 }
 
 export default function ProjectDetail() {
-  const { t, i18n } = useTranslation('nav')
+  const { t } = useTranslation('nav')
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -86,15 +109,28 @@ export default function ProjectDetail() {
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshCount, setRefreshCount] = useState(0)
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [folderOpen, setFolderOpen] = useState(false)
+  const [folderName, setFolderName] = useState('')
+  const [creatingFolder, setCreatingFolder] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
   const widenedConnections = useProjectDeleteConnectionImpact(deleteOpen ? project?.id ?? null : null)
 
-  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
+  const setTab = useCallback(
+    (next: ProjectTab) => {
+      const params = new URLSearchParams(searchParams)
+      if (next === 'home') params.delete('tab')
+      else params.set('tab', next)
+      setSearchParams(params, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!projectId) return
@@ -118,7 +154,7 @@ export default function ProjectDetail() {
       setRunsMore(runRows.length === 10)
       setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
       setAgents(agentsResult.status === 'fulfilled' ? agentsResult.value : [])
-      setRefreshedAt(new Date())
+      setRefreshCount((count) => count + 1)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.detail.loadError')))
     } finally {
@@ -191,7 +227,7 @@ export default function ProjectDetail() {
     setDeleting(true)
     try {
       await deleteProject(project.id, project.name)
-      toast.success(t('projects.detail.deleted'))
+      toastMovedToBin(t('projects.detail.deleted'), navigate)
       navigate('/projects')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('projects.detail.deleteError')))
@@ -200,19 +236,64 @@ export default function ProjectDetail() {
     }
   }
 
-  const threadsHref = project
-    ? withNavReveal(projectHubPath(project.id, 'open'))
-    : '/communication'
+  const createFolder = async () => {
+    if (!project) return
+    const nextName = folderName.trim()
+    const slug = nextName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    if (!nextName || !slug) return
+    setCreatingFolder(true)
+    try {
+      const created = await createProject({
+        name: nextName,
+        slug,
+        autonomous_scope: project.autonomous_scope || 'ops',
+        parent_id: project.id,
+      })
+      setFolderName('')
+      setFolderOpen(false)
+      toast.success(t('projects.detail.folderCreated'))
+      navigate(`/projects/${created.id}`)
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('projects.page.createError')))
+    } finally {
+      setCreatingFolder(false)
+    }
+  }
+
+  const folders = project?.children ?? []
+  const hubHref = project ? withNavReveal(projectHubPath(project.id, 'open')) : '/communication'
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <Link
-        to="/projects"
-        className="inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
+      <nav
+        aria-label={t('projects.detail.breadcrumb')}
+        className="flex flex-wrap items-center gap-1.5 text-sm text-text-muted"
       >
-        <ArrowLeft size={14} />
-        {t('projects.detail.back')}
-      </Link>
+        <Link
+          to="/projects"
+          className="inline-flex items-center gap-1.5 transition-colors hover:text-text-primary"
+        >
+          <ArrowLeft size={14} />
+          {t('projects.detail.back')}
+        </Link>
+        {(project?.ancestors ?? []).map((ancestor) => (
+          <span key={ancestor.id} className="inline-flex min-w-0 items-center gap-1.5">
+            <span aria-hidden>/</span>
+            <Link to={`/projects/${ancestor.id}`} className="truncate hover:text-text-primary">
+              {ancestor.name}
+            </Link>
+          </span>
+        ))}
+        {project ? (
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-text-heading">
+            <span aria-hidden>/</span>
+            <span className="truncate">{name.trim() || project.name}</span>
+          </span>
+        ) : null}
+      </nav>
 
       {loading ? (
         <CardGridSkeleton cards={4} className="lg:grid-cols-2" />
@@ -220,48 +301,152 @@ export default function ProjectDetail() {
         <ApiErrorBanner message={error ?? t('projects.detail.notFound')} onRetry={() => void load()} />
       ) : (
         <>
-          <header className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-2">
-                <FolderKanban size={18} className="shrink-0 text-text-muted" aria-hidden />
+          <header className="panel flex flex-wrap items-start gap-4 p-4">
+            <span
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent"
+              aria-hidden
+            >
+              <FolderKanban size={20} />
+            </span>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              {isAdmin ? (
+                <input
+                  id="project-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  aria-label={t('projects.detail.name')}
+                  className="-ml-1.5 w-full max-w-xl truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-lg font-semibold tracking-[-0.01em] text-text-heading outline-none hover:border-border/50 focus:border-border focus:bg-bg-input/60 focus:ring-1 focus:ring-border/60"
+                />
+              ) : (
                 <h1 className="truncate text-lg font-semibold tracking-[-0.01em] text-text-heading">
                   {project.name}
                 </h1>
-              </div>
-              {project.description ? (
-                <p className="mt-1 max-w-2xl text-sm text-text-muted">{project.description}</p>
+              )}
+              {isAdmin ? (
+                <textarea
+                  id="project-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={t('projects.detail.descriptionPlaceholder')}
+                  aria-label={t('projects.detail.description')}
+                  rows={description.length > 120 ? 2 : 1}
+                  className="-ml-1.5 w-full max-w-2xl resize-none rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted/50 hover:border-border/50 focus:border-border focus:bg-bg-input/60 focus:ring-1 focus:ring-border/60"
+                />
+              ) : project.description ? (
+                <p className="max-w-2xl text-sm text-text-secondary">{project.description}</p>
               ) : null}
-            </div>
-            <div className="flex items-center gap-2">
-              {refreshedAt ? (
-                <span className="hidden text-xs text-text-muted sm:inline">
-                  {t('projects.detail.refreshedAt', { time: formatAppTime(refreshedAt, i18n.language) })}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-xs text-text-muted">
+                <span className="tabular-nums">
+                  {t('projects.detail.folderCounts', {
+                    open: project.open_count ?? 0,
+                    closed: project.closed_count ?? 0,
+                  })}
                 </span>
-              ) : null}
-              <Button asChild type="button" size="sm" variant="outline">
-                <Link to={threadsHref}>
-                  <MessageSquare size={14} className="mr-1" />
+                {folders.length > 0 ? (
+                  <span className="tabular-nums">{t('projects.page.folders', { count: folders.length })}</span>
+                ) : null}
+                {project.po_agent ? (
+                  <Link
+                    to={`/agents/${project.po_agent.id}`}
+                    className="inline-flex items-center text-text-secondary hover:text-text-primary"
+                  >
+                    <AgentOptionRow
+                      agent={{
+                        id: project.po_agent.id,
+                        name: project.po_agent.name,
+                        avatar_kind: project.po_agent.avatar_kind,
+                        avatar_icon: project.po_agent.avatar_icon,
+                        avatar_color: project.po_agent.avatar_color,
+                        avatar_image_url: project.po_agent.avatar_image_url,
+                      }}
+                      size={16}
+                    />
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Bot size={12} aria-hidden />
+                    {t('projects.page.noLead')}
+                  </span>
+                )}
+                {project.github_repo_full_name ? (
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <GitBranch size={12} aria-hidden />
+                    <span className="truncate">{project.github_repo_full_name}</span>
+                  </span>
+                ) : null}
+                {isAdmin ? (
+                  <AutosaveStatus phase={phase} lastSavedAt={lastSavedAt} error={autosaveError} />
+                ) : null}
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              <Button type="button" size="sm" variant="outline" asChild>
+                <Link to={hubHref}>
+                  <MessageSquare size={14} className="mr-1" aria-hidden />
                   {t('projects.detail.openInCommunication')}
                 </Link>
               </Button>
-              <Button asChild type="button" size="sm" variant="outline">
-                <Link to={`/agenda?view=list&project=${encodeURIComponent(project.id)}`}>
-                  <CalendarClock size={14} className="mr-1" />
-                  {t('projects.home.agendaOpen')}
-                </Link>
-              </Button>
               {isAdmin ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-status-error hover:text-status-error"
-                  onClick={() => setDeleteOpen(true)}
-                >
-                  <Trash2 size={14} className="mr-1" />
-                  {t('projects.detail.delete')}
+                <Button type="button" size="sm" variant="outline" onClick={() => setFolderOpen(true)}>
+                  <Plus size={14} className="mr-1" aria-hidden />
+                  {t('projects.detail.newFolder')}
                 </Button>
               ) : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={t('projects.detail.moreActions')}
+                    title={t('projects.detail.moreActions')}
+                  >
+                    <MoreHorizontal size={15} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[200px]">
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      void copyText(
+                        project.id,
+                        t('projects.detail.copied', { label: t('projects.detail.copyId') }),
+                        t('projects.detail.copyError', { label: t('projects.detail.copyId') }),
+                      )
+                    }
+                  >
+                    <Copy size={14} className="mr-2" aria-hidden />
+                    {t('projects.detail.copyId')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      void copyText(
+                        project.slug,
+                        t('projects.detail.copied', { label: t('projects.detail.copySlug') }),
+                        t('projects.detail.copyError', { label: t('projects.detail.copySlug') }),
+                      )
+                    }
+                  >
+                    <Copy size={14} className="mr-2" aria-hidden />
+                    {t('projects.detail.copySlug')}
+                  </DropdownMenuItem>
+                  {isAdmin ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setMoveOpen(true)}>
+                        <FolderInput size={14} className="mr-2" aria-hidden />
+                        {t('projects.detail.move')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-status-error focus:text-status-error"
+                        onSelect={() => setDeleteOpen(true)}
+                      >
+                        <Trash2 size={14} className="mr-2" aria-hidden />
+                        {t('projects.detail.delete')}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
           {!isAdmin ? (
@@ -270,24 +455,44 @@ export default function ProjectDetail() {
             </p>
           ) : null}
 
-          <Tabs
-            value={tab}
-            onValueChange={(next) => {
-              const parsed = parseProjectTab(next)
-              const params = new URLSearchParams(searchParams)
-              if (parsed === 'home') params.delete('tab')
-              else params.set('tab', parsed)
-              setSearchParams(params, { replace: true })
-            }}
-          >
+          <Tabs value={tab} onValueChange={(next) => setTab(parseProjectTab(next))}>
             <TabsList>
               <TabsTrigger value="home">{t('projects.detail.tabHome')}</TabsTrigger>
-              <TabsTrigger value="canvas">{t('projects.detail.tabCanvas')}</TabsTrigger>
+              <TabsTrigger value="conversations">
+                {t('projects.detail.tabConversations')}
+                {(project.open_count ?? 0) > 0 ? (
+                  <span className="rounded-full bg-bg-muted/60 px-1.5 text-2xs tabular-nums text-text-muted">
+                    {project.open_count}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+              <TabsTrigger value="tickets">{t('projects.detail.tabTickets')}</TabsTrigger>
+              <TabsTrigger value="canvas">
+                <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
+                {t('projects.detail.tabCanvas')}
+              </TabsTrigger>
               <TabsTrigger value="docs">{t('projects.detail.tabDocs')}</TabsTrigger>
               <TabsTrigger value="settings">{t('projects.detail.tabSettings')}</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="home" className="space-y-4">
+            <TabsContent value="home" className="space-y-6">
+              {folders.length > 0 || isAdmin ? (
+                <section className="space-y-2" aria-labelledby="project-folders">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 id="project-folders" className="text-sm font-semibold text-text-heading">
+                      {t('projects.detail.folders')}
+                    </h2>
+                    {folders.length === 0 ? (
+                      <p className="text-xs text-text-muted">{t('projects.detail.foldersEmpty')}</p>
+                    ) : null}
+                  </div>
+                  <ProjectFolderGrid
+                    folders={folders}
+                    onCreate={isAdmin ? () => setFolderOpen(true) : undefined}
+                  />
+                </section>
+              ) : null}
+
               <ProjectHome
                 project={project}
                 budget={budget}
@@ -295,13 +500,18 @@ export default function ProjectDetail() {
                 canEdit={isAdmin}
                 onChanged={() => load({ silent: true })}
               />
-              <section className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-text-heading">{t('projects.detail.activity')}</h2>
-                  <Button asChild type="button" size="sm" variant="ghost">
-                    <Link to={threadsHref}>{t('projects.detail.openInCommunication')}</Link>
-                  </Button>
-                </div>
+
+              <ProjectConversations
+                projectId={project.id}
+                preview
+                refreshKey={refreshCount}
+                onShowAll={() => setTab('conversations')}
+              />
+
+              <section className="space-y-2" aria-labelledby="project-activity">
+                <h2 id="project-activity" className="text-sm font-semibold text-text-heading">
+                  {t('projects.detail.activity')}
+                </h2>
                 {runs.length === 0 ? (
                   <Card className="p-4">
                     <p className="text-sm text-text-muted">{t('projects.detail.noRuns')}</p>
@@ -337,6 +547,26 @@ export default function ProjectDetail() {
               </section>
             </TabsContent>
 
+            <TabsContent value="conversations">
+              <ProjectConversations projectId={project.id} refreshKey={refreshCount} />
+            </TabsContent>
+
+            <TabsContent value="tickets">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('projects.home.ticketsBoard')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-xs text-text-muted">{t('projects.home.ticketsHint')}</p>
+                  <ProjectFlowBoards
+                    projectId={project.id}
+                    canEdit={isAdmin}
+                    onFlowsChanged={() => void load({ silent: true })}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="canvas">
               <ProjectCanvasBoard
                 projectId={project.id}
@@ -350,93 +580,36 @@ export default function ProjectDetail() {
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Bot size={16} className="text-text-muted" />
-                  {t('projects.detail.orchestration')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ProjectAgentsSection projectId={project.id} agents={agents} />
-              </CardContent>
-            </Card>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Bot size={16} className="text-text-muted" />
+                      {t('projects.detail.orchestration')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <ProjectAgentsSection projectId={project.id} agents={agents} />
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <GitBranch size={16} className="text-text-muted" />
-                  {t('projects.detail.repository')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ProjectRepoSection project={project} onChanged={load} canEdit={isAdmin} />
-                <div className="space-y-1.5 border-t border-border/40 pt-3">
-                  <Label className="text-xs text-text-muted">{t('projects.detail.resources')}</Label>
-                  <p className="text-xs text-text-muted">{t('projects.detail.resourcesHint')}</p>
-                  <ProjectResourcesSection projectId={project.id} canEdit={isAdmin} />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t('projects.detail.about')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="project-name">{t('projects.detail.name')}</Label>
-                  <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!isAdmin} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="project-description">{t('projects.detail.description')}</Label>
-                  <Input
-                    id="project-description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={t('projects.detail.descriptionPlaceholder')}
-                    disabled={!isAdmin}
-                  />
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void copyText(
-                        project.id,
-                        t('projects.detail.copied', { label: t('projects.detail.copyId') }),
-                        t('projects.detail.copyError', { label: t('projects.detail.copyId') }),
-                      )
-                    }
-                    className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
-                    title={project.id}
-                  >
-                    <Copy size={12} />
-                    {t('projects.detail.copyId')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void copyText(
-                        project.slug,
-                        t('projects.detail.copied', { label: t('projects.detail.copySlug') }),
-                        t('projects.detail.copyError', { label: t('projects.detail.copySlug') }),
-                      )
-                    }
-                    className="inline-flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-primary"
-                    title={project.slug}
-                  >
-                    <Copy size={12} />
-                    {t('projects.detail.copySlug')}
-                  </button>
-                  {isAdmin ? (
-                    <AutosaveStatus phase={phase} lastSavedAt={lastSavedAt} error={autosaveError} />
-                  ) : null}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <GitBranch size={16} className="text-text-muted" />
+                      {t('projects.detail.repository')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <ProjectRepoSection project={project} onChanged={load} canEdit={isAdmin} />
+                    <div className="space-y-1.5 border-t border-border/40 pt-3">
+                      <Label className="text-xs text-text-muted">{t('projects.detail.resources')}</Label>
+                      <p className="text-xs text-text-muted">{t('projects.detail.resourcesHint')}</p>
+                      <ProjectResourcesSection projectId={project.id} canEdit={isAdmin} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </>
@@ -457,6 +630,50 @@ export default function ProjectDetail() {
           isDeleting={deleting}
           onCancel={() => setDeleteOpen(false)}
           onConfirm={confirmDelete}
+        />
+      ) : null}
+      <Dialog open={folderOpen} onOpenChange={setFolderOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('projects.detail.newFolderTitle')}</DialogTitle>
+            <DialogDescription>{t('projects.detail.newFolderBody')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="folder-name">{t('projects.page.name')}</Label>
+            <Input
+              id="folder-name"
+              value={folderName}
+              autoFocus
+              onChange={(event) => setFolderName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && folderName.trim()) void createFolder()
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setFolderOpen(false)} disabled={creatingFolder}>
+              {t('projects.page.cancel')}
+            </Button>
+            <Button type="button" onClick={() => void createFolder()} disabled={creatingFolder || !folderName.trim()}>
+              {t('projects.detail.newFolder')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {project ? (
+        <FileInFolderDialog
+          open={moveOpen}
+          onOpenChange={setMoveOpen}
+          title={t('projects.detail.moveTitle')}
+          description={t('projects.detail.moveBody')}
+          confirmLabel={t('projects.detail.move')}
+          allowRoot
+          excludeSubtreeOf={project.id}
+          onConfirm={async (parentId) => {
+            await patchProject(project.id, { parent_id: parentId })
+            toast.success(t('projects.detail.moved'))
+            await load({ silent: true })
+          }}
         />
       ) : null}
     </PageContent>

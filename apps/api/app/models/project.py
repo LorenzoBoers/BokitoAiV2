@@ -22,6 +22,8 @@ class Project(SQLModel, table=True):
     )
     # External surfaces (repo, drive, notion, vibecode) live in ProjectResource.
     po_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    # A folder inside another project. Empty means a root project.
+    parent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     # None inherits the workspace daily/hourly token cap (Usage).
     token_budget_daily: Optional[int] = Field(default=None)
     token_budget_hourly: Optional[int] = Field(default=None)

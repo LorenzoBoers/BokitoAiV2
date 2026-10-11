@@ -685,6 +685,15 @@ async def apply_project_change(
     slug = str(after.get("slug") or name).strip().lower().replace(" ", "-")
     description = str(after.get("description") or "")
     autonomous_scope = str(after.get("autonomous_scope") or "project")
+    parent_raw = after.get("parent_id")
+    parent_id = None
+    if parent_raw:
+        from uuid import UUID as _UUID
+
+        try:
+            parent_id = _UUID(str(parent_raw))
+        except (TypeError, ValueError):
+            return {"status": "invalid", "error": "parent_id is not a folder id"}
     try:
         row = await create_project(
             session,
@@ -693,6 +702,7 @@ async def apply_project_change(
             slug=slug,
             autonomous_scope=autonomous_scope,
             description=description,
+            parent_id=parent_id,
         )
     except Exception as exc:  # noqa: BLE001 — surface to Govern
         return {"status": "error", "error": str(exc)}

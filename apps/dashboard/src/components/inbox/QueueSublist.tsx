@@ -78,6 +78,10 @@ type SidebarFolderProps = {
   extra?: ReactNode
   /** Optional trailing control on the folder header (e.g. compose +). */
   headerAction?: ReactNode
+  /** Project scope keys that stay open when this folder opens (its parents). */
+  retainOnExpand?: string[]
+  /** Project scope keys closed together with this folder (the folders inside it). */
+  closeOnCollapse?: string[]
 }
 
 /**
@@ -100,6 +104,8 @@ export function SidebarFolder({
   leading,
   extra,
   headerAction,
+  retainOnExpand,
+  closeOnCollapse,
 }: SidebarFolderProps) {
   const navigate = useNavigate()
   const { prefs, setLeafExpanded } = useSidebarPrefs()
@@ -116,16 +122,18 @@ export function SidebarFolder({
   // highlighted sub-row is visible — accordion keeps others collapsed.
   const wasScopeActive = useRef(false)
   useEffect(() => {
-    if (scopeActive && !wasScopeActive.current) setLeafExpanded(scopeKey, true)
+    if (scopeActive && !wasScopeActive.current) {
+      setLeafExpanded(scopeKey, true, { retain: retainOnExpand })
+    }
     wasScopeActive.current = scopeActive
-  }, [scopeActive, scopeKey, setLeafExpanded])
+  }, [scopeActive, scopeKey, setLeafExpanded, retainOnExpand])
 
   const toggleFolder = () => {
     if (expanded) {
-      setLeafExpanded(scopeKey, false)
+      setLeafExpanded(scopeKey, false, { close: closeOnCollapse })
       return
     }
-    setLeafExpanded(scopeKey, true)
+    setLeafExpanded(scopeKey, true, { retain: retainOnExpand })
     navigate(leafPath({ ...baseLeaf, queue: defaultQueue } as HubLeaf))
   }
 

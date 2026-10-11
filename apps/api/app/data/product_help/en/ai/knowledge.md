@@ -18,6 +18,7 @@ Knowledge is what agents read on every run. Open **Knowledge** to manage organiz
 
 1. Open **Knowledge**.
 2. Click your **workspace name** (default, marked **Platform**), a **project name**, or an **agent name**. Creating a document in that scope stores it on the same `WorkspaceDoc` table Project Documentation uses.
+3. With a project or agent selected, **Open folder** or **Open agent** appears under the chips and takes you to that project page or agent page, so documentation and the work it belongs to stay one click apart.
 
 The sidebar groups documents by the kinds that are actually present — for example Voice, Memory, Skills, Docs, Check-ins, or Daily notes when those exist. Empty kinds stay hidden. Memory, check-ins and daily notes are AI-maintained: edit them when a fact is wrong; do not treat them as a second wiki.
 

@@ -7,8 +7,10 @@ import type { BulkThreadAction, InboxMember, InboxThread, ThreadId } from '../..
 import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
 import { cn } from '../../lib/utils'
+import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
+import { navRowIndex } from '../../lib/signals-api'
 import { channelKind } from '../ui/ChannelGlyph'
 import { InboxListSkeleton } from '../ui/skeleton'
 import BulkActionsBar from './BulkActionsBar'
@@ -42,6 +44,8 @@ type Props = {
   bulkBusy?: boolean
   /** Communication folder queue so bulk actions hide no-ops (e.g. Close in Closed). */
   listQueue?: string | null
+  /** The project folder this list is scoped to; rows filed exactly there skip the folder chip. */
+  scopedProjectId?: string | null
   scrollKey?: string
   assigneeFilter?: number | null
   onAssigneeFilter?: (id: number | null) => void
@@ -97,6 +101,7 @@ export default function ThreadList({
   onClearBulkSelection,
   bulkBusy = false,
   listQueue = null,
+  scopedProjectId = null,
   scrollKey,
   assigneeFilter = null,
   onAssigneeFilter,
@@ -143,6 +148,8 @@ export default function ThreadList({
     const map = new Map(teams.map((team) => [team.id, team]))
     return map
   }, [teams])
+  const { nav } = useCommunicationNav()
+  const foldersById = useMemo(() => navRowIndex(nav.projects), [nav.projects])
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const scrollTopRef = useRef(0)
   const restoredRef = useRef(false)
@@ -207,10 +214,16 @@ export default function ThreadList({
         assigneeSeed = owner.agentId
       }
 
+      const folder =
+        thread.projectId && thread.projectId !== scopedProjectId
+          ? (foldersById.get(thread.projectId) ?? null)
+          : null
+
       return (
       <div className={cn(compactRows ? 'pb-0' : 'pb-0.5')}>
         <ThreadListItem
           thread={thread}
+          folder={folder}
           isSelected={String(thread.id) === String(selectedId)}
           onSelect={onSelectThread}
           onMarkRead={onMarkRead}
@@ -257,6 +270,8 @@ export default function ThreadList({
       memberNames,
       memberPresence,
       teamsById,
+      foldersById,
+      scopedProjectId,
       tn,
     ],
   )

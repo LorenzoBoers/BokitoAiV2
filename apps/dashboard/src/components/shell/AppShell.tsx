@@ -70,7 +70,8 @@ function isFullBleed(pathname: string): boolean {
     pathname.startsWith('/knowledge') ||
     pathname.startsWith('/settings') ||
     pathname.startsWith('/ai/') ||
-    pathname.startsWith('/agenda')
+    pathname.startsWith('/agenda') ||
+    pathname.startsWith('/projects')
   )
 }
 
@@ -86,6 +87,7 @@ function contentEnterKey(pathname: string): string {
   if (pathname.startsWith('/settings')) return pathname.split('/').slice(0, 3).join('/') || 'settings'
   if (pathname.startsWith('/ai/')) return pathname.split('/').slice(0, 3).join('/') || 'ai'
   if (pathname.startsWith('/agenda')) return 'agenda'
+  if (pathname.startsWith('/projects')) return 'projects'
   // Document pages already animate via PageContent — avoid a second remount.
   return 'document'
 }

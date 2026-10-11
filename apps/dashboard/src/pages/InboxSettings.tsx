@@ -116,6 +116,7 @@ export default function InboxSettings() {
             ...(paused ? { is_primary: false } : {}),
           }),
         )
+        toast.success(paused ? t('channelsPage.paused') : t('channelsPage.resumed'))
         await refreshConnections()
       } catch (err) {
         setPageAlert({
@@ -256,7 +257,14 @@ export default function InboxSettings() {
       ) : null}
 
       {loading ? <LoadingBlock variant="inline" label={t('channelsPage.loadingChannels')} /> : null}
-      {error ? <p className="text-sm text-status-error">{error}</p> : null}
+      {error ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-status-error">{error}</p>
+          <Button size="sm" variant="secondary" onClick={() => void refreshChannels()}>
+            {t('channelsPage.retry')}
+          </Button>
+        </div>
+      ) : null}
 
       <div id="channels" className="scroll-mt-6">
         <SettingsSection

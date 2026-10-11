@@ -137,6 +137,34 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
 
 
 @pytest.mark.asyncio
+async def test_restored_project_canvas_carries_project_hint(client: AsyncClient):
+    """Restore answers with `restore_hint.project_id` so the dashboard can open the canvas on its folder."""
+    headers = await _login(client)
+    proj = await client.post(
+        "/api/workforce/projects",
+        headers=headers,
+        json={"name": "Canvas Home", "slug": "canvas-home", "autonomous_scope": "ops"},
+    )
+    assert proj.status_code == 200, proj.text
+    project_id = proj.json()["id"]
+    canvas = await client.post(
+        "/api/workforce/canvases",
+        headers=headers,
+        json={"owner_kind": "project", "owner_id": project_id, "title": "Board"},
+    )
+    assert canvas.status_code == 200, canvas.text
+    canvas_id = canvas.json()["id"]
+    gone = await client.delete(f"/api/workforce/canvases/{canvas_id}", headers=headers)
+    assert gone.status_code == 200, gone.text
+
+    bin_list = await client.get("/api/trash?type=canvas", headers=headers)
+    entry = next(i for i in bin_list.json()["items"] if i["resource_id"] == canvas_id)
+    restored = await client.post(f"/api/trash/{entry['id']}/restore", headers=headers)
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["restore_hint"]["project_id"] == project_id
+
+
+@pytest.mark.asyncio
 async def test_inbound_restores_binned_conversation(client: AsyncClient, session_override):
     from app.models.signal import Signal
     from app.services.signals import _open_thread_for_inbound

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Plus, X } from 'lucide-react'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
+import { openEntityPath } from '../../lib/open-entity'
 import { Hashtag } from '../ui/HashtagMark'
 import { HashtagPickerModal } from './HashtagPickerModal'
 
@@ -14,11 +16,13 @@ type Props = {
 
 const CHIP =
   'inline-flex h-6 max-w-full items-center gap-1 rounded-md border border-border/70 px-2 text-xs text-text-heading'
+const CHIP_LINK = 'min-w-0 truncate rounded-sm hover:text-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60'
 
 /**
  * Hashtag chips on the conversation. The accent chip is the filed action tag
  * (locked; change via replace/split in the picker). Free hashtags and new
- * action tags go through HashtagPickerModal.
+ * action tags go through HashtagPickerModal. Every chip opens its folder in
+ * Communication, like the same `#tag` inside a chat message.
  */
 export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }: Props) {
   const { t } = useTranslation('communication')
@@ -33,12 +37,24 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
         {actionTag ? (
           <span className={`${CHIP} bg-bg-subtle/60`} title={t('tags.categoryLocked')}>
-            <Hashtag name={actionTag.name} category />
+            <Link
+              to={openEntityPath({ type: 'tag', name: actionTag.name })}
+              className={CHIP_LINK}
+              title={t('tags.openFolder', { tag: actionTag.name })}
+            >
+              <Hashtag name={actionTag.name} category />
+            </Link>
           </span>
         ) : null}
         {tags.map((tag) => (
           <span key={tag} className={CHIP}>
-            <Hashtag name={tag} />
+            <Link
+              to={openEntityPath({ type: 'tag', name: tag })}
+              className={CHIP_LINK}
+              title={t('tags.openFolder', { tag })}
+            >
+              <Hashtag name={tag} />
+            </Link>
             {onPatch ? (
               <button
                 type="button"

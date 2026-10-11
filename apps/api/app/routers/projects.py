@@ -24,6 +24,7 @@ class ProjectCreateBody(BaseModel):
     slug: str
     autonomous_scope: str
     description: str = ""
+    parent_id: UUID | None = None
 
 
 class ProjectPatchBody(BaseModel):
@@ -32,6 +33,7 @@ class ProjectPatchBody(BaseModel):
     autonomous_scope: str | None = None
     token_budget_daily: int | None = None
     token_budget_hourly: int | None = None
+    parent_id: UUID | None = None
 
 
 class ProjectDeleteBody(BaseModel):
@@ -85,6 +87,7 @@ async def create_project(
         slug=body.slug,
         autonomous_scope=body.autonomous_scope,
         description=body.description,
+        parent_id=body.parent_id,
     )
 
 
@@ -114,6 +117,7 @@ async def patch_project(
         autonomous_scope=body.autonomous_scope,
         token_budget_daily=extras["token_budget_daily"] if "token_budget_daily" in extras else ...,
         token_budget_hourly=extras["token_budget_hourly"] if "token_budget_hourly" in extras else ...,
+        parent_id=extras["parent_id"] if "parent_id" in extras else ...,
     )
 
 

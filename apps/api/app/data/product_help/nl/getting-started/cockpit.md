@@ -26,9 +26,9 @@ In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via d
 
 ## Lees workspace-canvasses
 
-Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Ze staan op het tabblad **Canvas** naast Overview en Verbruik. De lead-agent schrijft ze; jij voegt toe, verwijdert en zet verversen.
+Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview staan de tabs **Overzicht**, **Verbruik**, daarna **Canvas** (layout-template-icoon). De lead-agent schrijft ze; jij voegt toe, verwijdert en zet verversen.
 
-1. Open **Overview**, daarna het tabblad **Canvas**. Canvasnamen staan van links naar rechts; **Canvas toevoegen** is de tab ná de laatste canvas. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**). Dagelijks is de standaard.
+1. Open **Overview**, daarna het tabblad **Canvas** (derde tab). Canvasnamen staan van links naar rechts; **Canvas toevoegen** is de tab ná de laatste canvas. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**). Dagelijks is de standaard.
 2. Sla op. De lead-agent begint vanuit je omschrijving. Verversen is een [Agenda](/docs/ai/agenda)-wake op die agent — geen aparte scheduler.
 3. Bewerk inhoud alleen via agents. Kies **Vraag agent om bij te werken** voor een eenmalige herschrijving, of wijzig Verversen zodat Agenda de agent blijft wekken. Projectcanvasses staan op het [Canvas](/docs/ai/projects)-tabblad van het project.
 

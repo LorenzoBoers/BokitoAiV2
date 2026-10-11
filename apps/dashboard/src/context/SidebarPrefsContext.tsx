@@ -16,8 +16,12 @@ type SidebarPrefsContextValue = {
   setOrder: (order: SidebarSection[]) => void
   setSectionHidden: (section: SidebarSection, hidden: boolean) => void
   setSectionCollapsed: (section: SidebarSection, collapsed: boolean) => void
-  /** Expand/collapse a channel or agent folder's sub-view list (folder scope key). */
-  setLeafExpanded: (scopeKey: string, expanded: boolean) => void
+  /** Expand/collapse a folder's sub-view. Project folders can keep their parents open. */
+  setLeafExpanded: (
+    scopeKey: string,
+    expanded: boolean,
+    extra?: { retain?: string[]; close?: string[] },
+  ) => void
   resetPrefs: () => void
 }
 
@@ -67,13 +71,24 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
   )
 
   const setLeafExpanded = useCallback(
-    (scopeKey: string, expanded: boolean) =>
-      update((prev) => ({
-        ...prev,
-        // Accordion: only one folder's sub-list open at a time — keeps the
-        // rail scannable when many channels / agents / tags exist.
-        expandedLeaves: expanded ? [scopeKey] : prev.expandedLeaves.filter((k) => k !== scopeKey),
-      })),
+    (scopeKey: string, expanded: boolean, extra?: { retain?: string[]; close?: string[] }) =>
+      update((prev) => {
+        if (!expanded) {
+          const drop = new Set([scopeKey, ...(extra?.close ?? [])])
+          return {
+            ...prev,
+            expandedLeaves: prev.expandedLeaves.filter((key) => !drop.has(key)),
+          }
+        }
+        // Channels, tags and agents stay one-at-a-time. A project keeps the
+        // folders above it open, so a nested folder does not hide its parent.
+        if (scopeKey.startsWith('project:')) {
+          const retain = extra?.retain ?? prev.expandedLeaves.filter((key) => key.startsWith('project:'))
+          const chain = [...retain.filter((key) => key.startsWith('project:') && key !== scopeKey), scopeKey]
+          return { ...prev, expandedLeaves: chain }
+        }
+        return { ...prev, expandedLeaves: [scopeKey] }
+      }),
     [update],
   )
 

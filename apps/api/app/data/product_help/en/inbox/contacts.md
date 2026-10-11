@@ -19,6 +19,7 @@ Everyone who writes in with a real name or address lands here. Open Contacts to 
 1. Open a thread in [Communication](/docs/inbox/communication).
 2. For a known person, click their name in the side panel or the thread header to open their contact.
 3. Read their history, last-seen and other conversations, then jump back to the open work. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
+4. Above the conversations, **In folders** lists every project folder this contact's conversations are filed in, with a count per folder. Click a folder to open that project. Companies show the same row for all their people together.
 
 Unknown website visitors stay in the conversation as **Website visitor**. They have no **Profile** and are not listed under Contacts until they fill the widget [pre-chat form](/docs/inbox/widget) or you [link the conversation](#link-a-conversation-to-a-contact).
 
@@ -43,7 +44,7 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 ## Group people and companies
 
 1. On Contacts, switch **People** and **Companies**.
-2. Companies appear automatically from business email domains (not free hosts such as Gmail). Link a person so related threads stay together.
+2. Companies appear automatically from business email domains (not free hosts such as Gmail). Link a person so related threads stay together. Once linked, the company name in the People table and under the name on the contact page opens that company.
 3. Use **Group contacts by company** to backfill companies on older addresses that never received one. From a thread without a saved person, choose **Contact** in the side panel, enter the address, then **Link**. **Mark as spam** is next to that button.
 
 ## Approve or block a sender

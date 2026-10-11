@@ -87,6 +87,7 @@ export function parseView(raw: string | null): AgendaView {
 
 export function parseLayers(raw: string | null): Set<AgendaLayer> {
   if (!raw) return new Set(AGENDA_LAYERS)
+  if (raw.trim() === 'none') return new Set()
   const out = new Set<AgendaLayer>()
   let sawLegacyTasks = false
   for (const part of raw.split(',')) {
@@ -99,6 +100,7 @@ export function parseLayers(raw: string | null): Set<AgendaLayer> {
 }
 
 export function layersParam(layers: Set<AgendaLayer>): string | null {
+  if (layers.size === 0) return 'none'
   if (AGENDA_LAYERS.every((layer) => layers.has(layer))) return null
   return AGENDA_LAYERS.filter((layer) => layers.has(layer)).join(',')
 }
@@ -106,13 +108,14 @@ export function layersParam(layers: Set<AgendaLayer>): string | null {
 /** Comma list of calendar connection ids. Null/absent = all available. Empty string = none. */
 export function parseCalendarIds(raw: string | null, available: string[]): Set<string> {
   if (raw == null) return new Set(available)
-  if (!raw.trim()) return new Set()
+  if (!raw.trim() || raw.trim() === 'none') return new Set()
   const wanted = new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))
   return new Set(available.filter((id) => wanted.has(id)))
 }
 
 export function calendarIdsParam(ids: Set<string>, available: string[]): string | null {
   if (available.length === 0) return null
+  if (ids.size === 0) return 'none'
   if (available.every((id) => ids.has(id))) return null
   return [...available].filter((id) => ids.has(id)).join(',')
 }

@@ -53,6 +53,7 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
    - **Least open**: each new conversation goes to the available member with the fewest open conversations.
 4. Switch on **Show in the Communication sidebar** to give everyone a folder for this team with **For you**, **Open**, **Unassigned** and **Closed**. Choose **Save**.
 5. In **Communication**, expand that team folder and choose **Group chat**. Bokito opens (or creates) one standing internal conversation owned by the team so members can talk without a customer thread.
+6. Back on **Workforce**, the name of a custom team and its **Conversations** button open the same team folder in Communication, also when the sidebar toggle is off. Agent marks in the member stack open the agent page. The system teams **All people** and **All agents** have no folder, so their names stay plain text.
 
 Round robin and least open only hand work to people who are available and agents that may handle the channel. When nobody fits, the conversation stays with the team. Each hand-out appears in the timeline and in the audit log. Make a team the owner of a channel under **Settings**, **Channels** (see [Channels](/docs/inbox/channels)).
 

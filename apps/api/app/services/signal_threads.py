@@ -2222,7 +2222,7 @@ async def set_read(
     return serialize_thread(signal, is_pinned=signal_id in pinned, user_num=user_num)
 
 
-BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "trash")
+BULK_ACTIONS = ("close", "reopen", "spam", "read", "unread", "assign", "trash", "file")
 
 
 async def bulk_update_threads(
@@ -2233,6 +2233,7 @@ async def bulk_update_threads(
     signal_ids: list[UUID],
     action: str,
     assignee_id: int | None = None,
+    project_id: UUID | None = None,
 ) -> dict[str, Any]:
     """Apply one operator action to many threads at once (inbox bulk bar)."""
     if action not in BULK_ACTIONS:
@@ -2243,6 +2244,22 @@ async def bulk_update_threads(
         assignee_uuid = user_map.get(assignee_id) if assignee_id else None
         if not assignee_uuid:
             raise HTTPException(status_code=404, detail="Assignee not found")
+    if action == "file":
+        from app.models.project import Project
+
+        if project_id is None:
+            raise HTTPException(status_code=400, detail="Choose a folder")
+        folder = (
+            await session.execute(
+                select(Project).where(
+                    Project.id == project_id,
+                    Project.tenant_id == tenant_id,
+                    Project.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if folder is None:
+            raise HTTPException(status_code=404, detail="Folder not found")
 
     result = await session.execute(
         select(Signal).where(
@@ -2310,6 +2327,8 @@ async def bulk_update_threads(
         elif action == "assign" and assignee_uuid is not None:
             # Same path as the person picker: owner, last human, and hand-back.
             set_owner(signal, "user", assignee_uuid, by_user_id=user_id)
+        elif action == "file" and project_id is not None:
+            signal.project_id = project_id
         if action == "close":
             handling_svc.on_status_change(session, signal, actor_id=str(user_id))
             from app.services.tickets import settle_ticket_on_close
@@ -2327,7 +2346,7 @@ async def bulk_update_threads(
             await _defer_open_reply_suggestions(
                 session, tenant_id, signal.id, reason="thread_closed"
             )
-        if action in ("close", "reopen", "spam", "assign"):
+        if action in ("close", "reopen", "spam", "assign", "file"):
             event_payload: dict[str, Any] = {"bulk": action}
             if action == "assign" and assignee_id is not None:
                 # The timeline chip names the assignee from this field.
@@ -2344,7 +2363,7 @@ async def bulk_update_threads(
             )
     # One audit event per bulk action with the before-states; mark-read noise
     # (read/unread) is intentionally excluded from the govern audit.
-    if signals and action in ("close", "reopen", "spam", "assign"):
+    if signals and action in ("close", "reopen", "spam", "assign", "file"):
         from app.services.audit import record_audit
 
         await record_audit(
@@ -2357,7 +2376,13 @@ async def bulk_update_threads(
             resource_id=";".join(str(s.id) for s in signals[:50]),
             summary=f"Bulk {action} on {len(signals)} thread(s)",
             before=before_states,
-            after={"assignee_id": assignee_id} if action == "assign" else None,
+            after=(
+                {"assignee_id": assignee_id}
+                if action == "assign"
+                else {"project_id": str(project_id)}
+                if action == "file"
+                else None
+            ),
             commit=False,
         )
     await session.commit()
@@ -3568,16 +3593,34 @@ async def resolve_message_decision(
     )
     # Suggested-reply cards already leave an outbound email (or escalate event).
     # Session-checkout buttons close the meta session via apply_checkout_choice.
-    # Recording the button label ("Send" / "End session") as a chat bubble
-    # clutters the customer timeline.
+    # Silent state actions (Keep open / Close thread / Later / Plan task) only
+    # change status or spawn side effects — the button label must not become a
+    # chat bubble (on email threads that rendered as a mail card).
+    # Free-text "Instruct the agent" (acknowledge + response_text) still posts.
     decision_title = (decision_row.title if decision_row else "") or ""
     chosen_action_types = {
         str(o.get("action_type") or "")
         for o in options_list
         if isinstance(o, dict) and str(o.get("id")) in set(chosen_ids)
     }
-    skip_decision_chat = decision_title in REPLY_SUGGESTION_TITLES or bool(
-        chosen_action_types & {"send_reply", "draft", "escalate", "session_checkout"}
+    _SILENT_DECISION_CHAT_ACTIONS = {
+        "send_reply",
+        "draft",
+        "escalate",
+        "session_checkout",
+        "defer",
+        "close_thread",
+        "reject",
+        "create_task",
+        "create_queue_item",
+        "look_at",
+    }
+    typed_response = bool((response_text or "").strip())
+    skip_decision_chat = (
+        decision_title in REPLY_SUGGESTION_TITLES
+        or bool(chosen_action_types & _SILENT_DECISION_CHAT_ACTIONS)
+        # "Instruct the agent" without typed text — only the button label.
+        or (not typed_response and chosen_action_types == {"acknowledge"})
     )
     if answer and user_id and not skip_decision_chat:
         sig_result = await session.execute(

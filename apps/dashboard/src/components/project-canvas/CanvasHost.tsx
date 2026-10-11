@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Code2, MessageSquare, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Code2, MessageSquare, RotateCcw, Trash2 } from 'lucide-react'
+import { CANVAS_ICON } from '../../lib/entity-icons'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
@@ -154,6 +155,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
         <TabsList className="h-auto min-h-9 w-full flex-wrap justify-start overflow-visible">
           {items.map((row) => (
             <TabsTrigger key={row.id} value={row.id}>
+              <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
               {row.title}
             </TabsTrigger>
           ))}
@@ -164,14 +166,25 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
               onClick={openAdd}
               disabled={busy}
             >
-              <Plus size={14} />
+              <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
               {t('projects.canvas.add')}
             </button>
           ) : null}
         </TabsList>
 
         {items.length === 0 ? (
-          <TabsContent value="empty" />
+          <TabsContent value="empty">
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <CANVAS_ICON size={28} className="text-text-muted opacity-70" aria-hidden />
+              <p className="text-sm text-text-muted">{t('projects.canvas.emptyHint')}</p>
+              {canEdit ? (
+                <Button type="button" size="sm" variant="outline" onClick={openAdd} disabled={busy}>
+                  <CANVAS_ICON size={14} className="mr-1.5 shrink-0" aria-hidden />
+                  {t('projects.canvas.add')}
+                </Button>
+              ) : null}
+            </div>
+          </TabsContent>
         ) : null}
 
         {items.map((row) => (

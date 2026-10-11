@@ -66,6 +66,7 @@ def refresh_instructions(
     canvas_id: UUID,
     title: str = "",
     brief: str = "",
+    folder_lines: str = "",
 ) -> str:
     if owner_kind == OWNER_TENANT:
         lookup = (
@@ -78,13 +79,16 @@ def refresh_instructions(
             "list_project_docs and list_project_resources, then embed those numbers."
         )
     brief_line = f"What it must show: {brief.strip()}\n" if (brief or "").strip() else ""
+    folder_block = f"{folder_lines.strip()}\n" if (folder_lines or "").strip() else ""
     return (
         f"Write or refresh snapshot canvas '{title or slug}' "
         f"(canvas_id={canvas_id}, owner_kind={owner_kind}, slug={slug}).\n"
         f"{brief_line}"
         f"{lookup}\n"
+        f"{folder_block}"
         "Call get_project_canvas, then update_project_canvas with a full bokito/canvas "
-        "document. Import only from bokito/canvas. Embed figures you just fetched. "
+        "document. Import only from bokito/canvas. Embed figures you just fetched, "
+        "including the folder counts above when they are present. "
         "Do not promise live tiles. Omit empty cards."
     )
 
@@ -469,6 +473,14 @@ async def _unique_slug(
         n += 1
 
 
+async def _folder_lines(session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas) -> str:
+    if canvas.owner_kind != OWNER_PROJECT:
+        return ""
+    from app.services.projects import folder_digest
+
+    return await folder_digest(session, tenant_id, canvas.owner_id)
+
+
 async def sync_refresh_trigger(
     session: AsyncSession,
     tenant_id: UUID,
@@ -498,6 +510,7 @@ async def sync_refresh_trigger(
         canvas_id=canvas.id,
         title=canvas.title,
         brief=canvas.notes or "",
+        folder_lines=await _folder_lines(session, tenant_id, canvas),
     )
     if existing:
         existing.name = name
@@ -548,6 +561,7 @@ async def _schedule_once_write(
             canvas_id=canvas.id,
             title=canvas.title,
             brief=canvas.notes or "",
+            folder_lines=await _folder_lines(session, tenant_id, canvas),
         ),
         enabled=True,
         run_at=datetime.utcnow(),

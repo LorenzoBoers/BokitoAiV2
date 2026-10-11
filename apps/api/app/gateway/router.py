@@ -144,25 +144,74 @@ async def _authorize_topics(
     return allowed, denied
 
 
-async def _touch_presence(session: AsyncSession, connection: GatewayConnection, *, force: bool = False) -> None:
+def _connected_user_ids(tenant_id: str) -> set[str]:
+    return {
+        other.user_id
+        for other in manager.connections
+        if other.kind == "user" and other.tenant_id == tenant_id and other.user_id
+    }
+
+
+async def _touch_presence(session: AsyncSession, connection: GatewayConnection, *, force: bool = False) -> bool:
     from app.services.presence import touch
 
     try:
-        await touch(session, UUID(connection.user_id), force=force)
+        return await touch(session, UUID(connection.user_id), force=force)
     except Exception:
         logger.debug("presence touch failed", exc_info=True)
         await session.rollback()
+        return False
 
 
 async def _presence_status(session: AsyncSession, connection: GatewayConnection) -> str | None:
     from app.models.auth import User
-    from app.services.presence import user_status
+    from app.services.presence import visible_user_status
 
     try:
         user = await session.get(User, UUID(connection.user_id))
+        if user is None:
+            return None
+        await session.refresh(user)
     except Exception:
         return None
-    return user_status(user) if user else None
+    connected = connection.user_id in _connected_user_ids(connection.tenant_id)
+    return visible_user_status(user, connected=connected)
+
+
+async def _send_presence_snapshot(
+    session: AsyncSession,
+    connection: GatewayConnection,
+    *,
+    include_people: bool,
+    include_agents: bool,
+) -> None:
+    """Replay current status onto this socket. Connect publishes too early to be heard."""
+    from app.services.presence import presence_snapshot
+
+    try:
+        tenant_id = UUID(connection.tenant_id)
+    except ValueError:
+        return
+    try:
+        events = await presence_snapshot(
+            session,
+            tenant_id,
+            connected_user_ids=_connected_user_ids(connection.tenant_id),
+            include_people=include_people,
+            include_agents=include_agents,
+        )
+    except Exception:
+        logger.debug("presence snapshot failed", exc_info=True)
+        await session.rollback()
+        return
+    for event, data in events:
+        topics = ["presence"] if event == "presence" else ["presence", "agents"]
+        try:
+            await connection.send(
+                {"type": "event", "event": event, "topics": topics, "data": data}
+            )
+        except Exception:
+            return
 
 
 @router.websocket("/ws")
@@ -241,8 +290,14 @@ async def gateway_websocket(
             frame_type = frame.get("type")
             if frame_type == "ping":
                 await websocket.send_json({"type": "pong"})
-                if is_operator:
-                    await _touch_presence(session, connection)
+                if is_operator and await _touch_presence(session, connection):
+                    await publish_presence(
+                        connection.tenant_id,
+                        user_id=UUID(connection.user_id),
+                        device=device or "dashboard",
+                        online=True,
+                        status=await _presence_status(session, connection),
+                    )
             elif frame_type == "sub":
                 topics = frame.get("topics") or []
                 allowed, denied = await _authorize_topics(session, connection, topics)
@@ -251,6 +306,13 @@ async def gateway_websocket(
                 if denied:
                     response["denied"] = denied
                 await websocket.send_json(response)
+                if is_operator and ("presence" in allowed or "agents" in allowed):
+                    await _send_presence_snapshot(
+                        session,
+                        connection,
+                        include_people="presence" in allowed,
+                        include_agents="presence" in allowed or "agents" in allowed,
+                    )
             elif frame_type == "unsub":
                 for topic in frame.get("topics") or []:
                     connection.topics.discard(topic)
@@ -267,21 +329,20 @@ async def gateway_websocket(
     finally:
         manager.unregister(connection)
         if is_operator:
-            still_connected = any(
-                other.kind == "user" and other.user_id == connection.user_id
-                for other in manager.connections
-            )
             try:
+                still_connected = connection.user_id in _connected_user_ids(connection.tenant_id)
                 if not still_connected:
                     from app.services.presence import mark_offline
 
                     await mark_offline(session, UUID(connection.user_id))
+                    still_connected = connection.user_id in _connected_user_ids(connection.tenant_id)
+                status = await _presence_status(session, connection)
                 await publish_presence(
                     connection.tenant_id,
                     user_id=UUID(connection.user_id),
                     device=device or "dashboard",
                     online=still_connected,
-                    status=await _presence_status(session, connection),
+                    status=status,
                 )
             except Exception:
                 pass

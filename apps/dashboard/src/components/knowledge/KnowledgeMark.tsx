@@ -1,5 +1,7 @@
-import { Brain } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { cn } from '../../lib/utils'
+
+const Brain = ENTITY_ICONS.knowledge
 import { AI_TEXT_CLASS } from '../ai/AiMark'
 import { Badge } from '../ui/badge'
 import { IconTile } from '../ui/icon-tile'

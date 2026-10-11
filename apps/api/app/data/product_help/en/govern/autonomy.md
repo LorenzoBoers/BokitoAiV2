@@ -23,7 +23,7 @@ Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/
 ## Set the three layers
 
 1. Stay on Govern, then **Policy**.
-2. Set the workspace posture first, then a stricter policy on a category or playbook where needed.
+2. Set the workspace posture first, then a stricter policy on a category or playbook where needed. The scope name on each policy row is a link: an action tag opens its conversations in Communication, a flow opens the flow page. Agent names in the passport table open the agent.
 3. On each agent, set **Autonomy level** (**Manual — always ask**, **Approval — gated actions**, **Auto — act independently**, or **Workspace default**) and the tool allowlist. There are no per-tool autonomy overrides.
 4. **Ask first** creates a [decision](/docs/ai/decisions) card in the thread.
 

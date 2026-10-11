@@ -45,6 +45,9 @@ import { parseServerTime, scheduleChipLabel, scheduleLongLabel } from '../../lib
 import { stageLabel } from '../../lib/tickets-api'
 import { HashtagMark } from '../ui/HashtagMark'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
+
+const FolderIcon = ENTITY_ICONS.project
 
 type Props = {
   thread: InboxThread
@@ -80,6 +83,8 @@ type Props = {
   showActions?: boolean
   /** Stagger index for list-row enter animation (cap in parent). */
   enterIndex?: number
+  /** Project folder the conversation is filed in (resolved by the parent list). */
+  folder?: { name: string; path: string } | null
 }
 
 function formatRelativeTime(
@@ -155,6 +160,7 @@ function ThreadListItem({
   compact = false,
   showActions = true,
   enterIndex,
+  folder = null,
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
@@ -233,7 +239,7 @@ function ThreadListItem({
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
   const ticketNameLower = ticket?.name.trim().toLowerCase() ?? ''
   const freeTags = (thread.tags ?? []).filter((tag) => tag.trim().toLowerCase() !== ticketNameLower)
-  const hasMeta = Boolean((assigneeName && !isDirect) || ticket || freeTags.length > 0)
+  const hasMeta = Boolean((assigneeName && !isDirect) || ticket || freeTags.length > 0 || folder)
 
   return (
     <div
@@ -570,6 +576,16 @@ function ThreadListItem({
                         <span className="truncate">{tag}</span>
                       </span>
                     ))}
+                    {folder ? (
+                      <span
+                        className="inline-flex max-w-[9rem] items-center gap-1 text-2xs text-text-muted"
+                        title={`${t('threadChrome.filedIn')}: ${folder.path}`}
+                        data-testid="thread-row-folder"
+                      >
+                        <FolderIcon size={11} aria-hidden className="shrink-0" />
+                        <span className="truncate">{folder.name}</span>
+                      </span>
+                    ) : null}
                     {!ticket && thread.category && thread.category !== 'other' ? (
                       <Badge
                         variant="secondary"

@@ -38,7 +38,7 @@ A flow is the pipeline for work that comes back under one action tag: a complain
 
 ## Show the flow on a project
 
-1. Projects pick their flows; the flow page only shows where it is used. Open the [project](/docs/ai/projects) and choose **Add flow**.
+1. Projects pick their flows; the flow page only shows where it is used. Open the [project](/docs/ai/projects) and choose **Add flow**. On **Flows**, each row shows the projects it is used on as folder chips; a chip opens that project, the rest of the row opens the flow.
 2. **Unlink** on a project board removes the flow from that project. Its tickets keep their project but leave that board.
 3. Filing a ticket asks which of the flow's projects it belongs to, or **No project**.
 

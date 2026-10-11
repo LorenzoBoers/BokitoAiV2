@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Info, Trash2, type LucideIcon } from 'lucide-react'
@@ -112,6 +113,7 @@ const OWN_HEADER_PATHS = ['/settings/govern', '/settings/trust', '/settings/bin'
 export default function SettingsLayout() {
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
+  const [navQuery, setNavQuery] = useState('')
   const activeLink = SETTINGS_PALETTE_LINKS.find((link) => linkIsActive(pathname, link))
   const ownsHeader =
     OWN_HEADER_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
@@ -138,15 +140,31 @@ export default function SettingsLayout() {
         <p className="flex h-7 shrink-0 items-center pl-2 pb-1 text-sm font-medium leading-none text-text-heading">
           {t('tabs.settings.title')}
         </p>
+        <SettingsNavSearch query={navQuery} onQuery={setNavQuery} />
         <ScrollFade className="pb-1">
           <nav className="flex min-h-0 flex-col" aria-label={t('tabs.settings.title')}>
-            <SettingsNav pathname={pathname} />
+            <SettingsNav
+              pathname={pathname}
+              query={navQuery}
+              hideEmpty={
+                linkMatches(t(BIN_LINK.labelKey), BIN_LINK.hintKey ? t(BIN_LINK.hintKey) : '', navQuery) ||
+                linkMatches(t('settings.links.help'), t('settings.hints.help'), navQuery)
+              }
+            />
           </nav>
         </ScrollFade>
         <TooltipProvider delayDuration={250}>
           <div className="mt-auto shrink-0">
-            <SettingsPinnedLink pathname={pathname} link={BIN_LINK} icon={Trash2} className="pb-2.5" />
-            <SettingsHelpLink pathname={pathname} className="border-t border-border/60 pt-2.5" />
+            {linkMatches(t(BIN_LINK.labelKey), BIN_LINK.hintKey ? t(BIN_LINK.hintKey) : '', navQuery) ? (
+              <SettingsPinnedLink pathname={pathname} link={BIN_LINK} icon={Trash2} className="pb-2.5" />
+            ) : null}
+            {linkMatches(
+              t('settings.links.help'),
+              t('settings.hints.help'),
+              navQuery,
+            ) ? (
+              <SettingsHelpLink pathname={pathname} className="border-t border-border/60 pt-2.5" />
+            ) : null}
           </div>
         </TooltipProvider>
       </aside>
@@ -156,7 +174,8 @@ export default function SettingsLayout() {
           className="shrink-0 overflow-x-auto border-b border-border/60 bg-bg px-3 py-2 lg:hidden"
           aria-label={t('tabs.settings.title')}
         >
-          <SettingsNav pathname={pathname} compact />
+          <SettingsNavSearch query={navQuery} onQuery={setNavQuery} compact />
+          <SettingsNav pathname={pathname} query={navQuery} compact />
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-4 lg:px-8">
           {ownsHeader ? null : <ContentHeader title={title} subtitle={subtitle} />}
@@ -233,15 +252,79 @@ function SettingsHelpLink({
   )
 }
 
-function SettingsNav({ pathname, compact = false }: { pathname: string; compact?: boolean }) {
+function SettingsNavSearch({
+  query,
+  onQuery,
+  compact = false,
+}: {
+  query: string
+  onQuery: (value: string) => void
+  compact?: boolean
+}) {
+  const { t } = useTranslation('nav')
+  return (
+    <input
+      type="search"
+      value={query}
+      onChange={(event) => onQuery(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && query) {
+          event.preventDefault()
+          onQuery('')
+        }
+      }}
+      placeholder={t('settings.searchPlaceholder')}
+      aria-label={t('settings.searchLabel')}
+      className={
+        compact
+          ? 'mb-2 h-8 w-full rounded-md border border-border/70 bg-bg-input px-2 text-sm text-text-primary'
+          : 'mb-2 h-8 w-full shrink-0 rounded-md border border-border/70 bg-bg-input px-2 text-sm text-text-primary'
+      }
+    />
+  )
+}
+
+function linkMatches(label: string, hint: string, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return label.toLowerCase().includes(q) || hint.toLowerCase().includes(q)
+}
+
+function SettingsNav({
+  pathname,
+  query = '',
+  compact = false,
+  hideEmpty = false,
+}: {
+  pathname: string
+  query?: string
+  compact?: boolean
+  hideEmpty?: boolean
+}) {
   const { t } = useTranslation('nav')
   const groups = compact
     ? SETTINGS_GROUPS
     : SETTINGS_GROUPS.filter((group) => !group.accent)
+  const visible = useMemo(
+    () =>
+      groups
+        .map((group) => ({
+          ...group,
+          links: group.links.filter((link) =>
+            linkMatches(t(link.labelKey), link.hintKey ? t(link.hintKey) : '', query),
+          ),
+        }))
+        .filter((group) => group.links.length > 0),
+    [groups, query, t],
+  )
+  if (visible.length === 0) {
+    if (hideEmpty) return null
+    return <p className="px-2 py-2 text-xs text-text-muted">{t('settings.searchEmpty')}</p>
+  }
   return (
     <TooltipProvider delayDuration={250}>
       <div className={compact ? 'flex flex-row flex-wrap gap-x-4 gap-y-2' : 'flex min-h-0 flex-col gap-y-3'}>
-        {groups.map((group) => {
+        {visible.map((group) => {
           if (group.accent) {
             return (
               <div key={group.labelKey} className={compact ? 'flex items-center gap-x-4' : undefined}>
@@ -279,7 +362,7 @@ function SettingsNav({ pathname, compact = false }: { pathname: string; compact?
                       </span>
                     </NavLink>
                   )
-                  if (!hint) return <div key={link.to}>{item}</div>
+                  if (!hint || active) return <div key={link.to}>{item}</div>
                   return (
                     <Tooltip key={link.to}>
                       <TooltipTrigger asChild>{item}</TooltipTrigger>

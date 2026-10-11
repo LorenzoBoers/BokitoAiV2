@@ -2,6 +2,7 @@ import {
   Archive,
   ArchiveRestore,
   Check,
+  FolderKanban,
   Mail,
   MoreHorizontal,
   OctagonAlert,
@@ -174,6 +175,10 @@ export default function BulkActionsBar({
                 {t('bulkActions.reopen')}
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('file')}>
+              <FolderKanban size={12} />
+              {t('bulkActions.file')}
+            </DropdownMenuItem>
             {visibility.showSpam ? (
               <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('spam')}>
                 <OctagonAlert size={12} />

@@ -25,6 +25,8 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { Input } from '../components/ui/input'
+import { toast } from 'sonner'
 import TriggerDialog, { type TargetOption } from '../components/agenda/TriggerDialog'
 import CalendarEventDialog, { type CalendarEventEditSeed } from '../components/agenda/CalendarEventDialog'
 import CalendarEventDetailDialog from '../components/agenda/CalendarEventDetailDialog'
@@ -42,7 +44,7 @@ import { useAuth } from '../context/AuthContext'
 import { useMembers } from '../hooks/useMembers'
 import { isTypingTarget } from '../hooks/useInboxListShortcuts'
 import { listAgents } from '../lib/agents-api'
-import { listCalendarConnections, type CalendarConnection } from '../lib/calendars-api'
+import { listCalendarConnections, saveAccountCalendars, type CalendarConnection } from '../lib/calendars-api'
 import { listTriggers, type Trigger, type TriggerKind } from '../lib/orchestration-api'
 import { listProjects } from '../lib/projects-api'
 import { listTimeItems, type TimeItem, type TimeItemKind } from '../lib/time-items'
@@ -169,25 +171,84 @@ export default function AgendaPage() {
     const next = new Set(layers)
     if (next.has(layer)) next.delete(layer)
     else next.add(layer)
-    setParams({ layers: next.size === 0 ? AGENDA_LAYERS.join(',') : layersParam(next) })
-  }
-  const toggleCalendar = (connectionId: string) => {
-    const next = new Set(calendarIds)
-    if (next.has(connectionId)) next.delete(connectionId)
-    else next.add(connectionId)
-    setParams({ cals: calendarIdsParam(next, availableCalendarIds) ?? '' })
+    setParams({ layers: layersParam(next) })
   }
   // Calendars inside an account (`connection|calendar`), remembered on this browser.
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => readHiddenCalendars())
-  const toggleSubCalendar = (connectionId: string, calendarId: string) =>
+  const [agendaQuery, setAgendaQuery] = useState('')
+  const showEverything = () => {
+    setHiddenCalendars(new Set())
+    writeHiddenCalendars(new Set())
+    setParams({ layers: null, cals: null })
+  }
+  const hideEverything = () => {
+    setParams({ layers: 'none', cals: availableCalendarIds.length ? 'none' : null })
+  }
+  const toggleCalendar = (connectionId: string) => {
+    const next = new Set(calendarIds)
+    const connection = calendars.find((row) => row.id === connectionId)
+    const subs = connection?.calendars ?? []
     setHiddenCalendars((prev) => {
-      const key = hiddenCalendarKey(connectionId, calendarId)
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      writeHiddenCalendars(next)
-      return next
+      const hidden = new Set(prev)
+      if (next.has(connectionId)) {
+        for (const cal of subs) hidden.add(hiddenCalendarKey(connectionId, cal.id))
+      } else {
+        for (const cal of subs) {
+          if (cal.enabled) hidden.delete(hiddenCalendarKey(connectionId, cal.id))
+        }
+      }
+      writeHiddenCalendars(hidden)
+      return hidden
     })
+    if (next.has(connectionId)) next.delete(connectionId)
+    else next.add(connectionId)
+    setParams({ cals: calendarIdsParam(next, availableCalendarIds) })
+  }
+  const toggleSubCalendar = (connectionId: string, calendarId: string) => {
+    const key = hiddenCalendarKey(connectionId, calendarId)
+    const wasHidden = hiddenCalendars.has(key)
+    const nextHidden = new Set(hiddenCalendars)
+    if (wasHidden) nextHidden.delete(key)
+    else nextHidden.add(key)
+    writeHiddenCalendars(nextHidden)
+    setHiddenCalendars(nextHidden)
+    const nextIds = new Set(calendarIds)
+    if (wasHidden) nextIds.add(connectionId)
+    else {
+      const connection = calendars.find((row) => row.id === connectionId)
+      const stillShown = (connection?.calendars ?? []).some(
+        (cal) => cal.enabled && cal.id !== calendarId && !nextHidden.has(hiddenCalendarKey(connectionId, cal.id)),
+      )
+      if (!stillShown) nextIds.delete(connectionId)
+    }
+    setParams({ cals: calendarIdsParam(nextIds, availableCalendarIds) })
+  }
+  const enableCalendar = async (connectionId: string, calendarId: string) => {
+    const connection = calendars.find((row) => row.id === connectionId)
+    if (!connection?.can_manage) return
+    const payload = (connection.calendars ?? []).map((cal) => ({
+      id: cal.id,
+      enabled: cal.enabled || cal.id === calendarId,
+    }))
+    try {
+      await saveAccountCalendars(connectionId, { calendars: payload })
+      const rows = await listCalendarConnections()
+      setCalendars(rows)
+      setHiddenCalendars((prev) => {
+        const next = new Set(prev)
+        next.delete(hiddenCalendarKey(connectionId, calendarId))
+        writeHiddenCalendars(next)
+        return next
+      })
+      const nextIds = new Set(parseCalendarIds(searchParams.get('cals'), rows.map((row) => row.id)))
+      nextIds.add(connectionId)
+      setParams({ cals: calendarIdsParam(nextIds, rows.map((row) => row.id)) })
+      setReloadKey((key) => key + 1)
+      toast.success(t('agendaPage.calendar.syncStarted'))
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('agendaPage.calendar.syncError')))
+    }
+  }
 
   const range = useMemo(() => viewRange(view, anchor), [view, anchor])
 
@@ -315,6 +376,14 @@ export default function AgendaPage() {
       }),
     [byWho, layers, calendarIds, hiddenCalendars],
   )
+  const needle = agendaQuery.trim().toLowerCase()
+  const shown = useMemo(() => {
+    if (!needle) return visible
+    return visible.filter((item) =>
+      [item.title, item.location, item.calendar_name, item.owner_name, item.agent_name, item.detail]
+        .some((part) => (part || '').toLowerCase().includes(needle)),
+    )
+  }, [visible, needle])
   const counts = useMemo(() => {
     const out = Object.fromEntries(AGENDA_LAYERS.map((layer) => [layer, 0])) as Record<AgendaLayer, number>
     for (const item of byWho) {
@@ -338,8 +407,8 @@ export default function AgendaPage() {
     [attentionItems, who, meId, nowMs],
   )
   const busyDays = useMemo(
-    () => new Set(visible.filter((item) => layerOf(item) !== 'activity').map((item) => dayKey(itemStart(item)))),
-    [visible],
+    () => new Set(shown.filter((item) => layerOf(item) !== 'activity').map((item) => dayKey(itemStart(item)))),
+    [shown],
   )
   const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
   const agentNames = useMemo(() => new Map(agents.map((a) => [a.id, a.name])), [agents])
@@ -402,6 +471,9 @@ export default function AgendaPage() {
           <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.next')} onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}>
             <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setAnchor(new Date())}>
+            {t('agendaPage.today')}
+          </Button>
         </div>
         <h2 className="text-base font-semibold text-text-heading first-letter:uppercase">
           {view === 'list'
@@ -409,6 +481,17 @@ export default function AgendaPage() {
             : rangeLabel}
         </h2>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Input
+            value={agendaQuery}
+            onChange={(event) => setAgendaQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setAgendaQuery('')
+            }}
+            placeholder={t('agendaPage.search')}
+            aria-label={t('agendaPage.search')}
+            type="search"
+            className="h-8 w-44"
+          />
           <Tabs value={view} onValueChange={(value) => setView(value as AgendaView)}>
             <TabsList>
               {(['day', 'week', 'month', 'list'] as AgendaView[]).map((value) => (
@@ -503,6 +586,9 @@ export default function AgendaPage() {
           onToggleCalendar={toggleCalendar}
           hiddenCalendars={hiddenCalendars}
           onToggleSubCalendar={toggleSubCalendar}
+          onEnableCalendar={(connectionId, calendarId) => void enableCalendar(connectionId, calendarId)}
+          onShowAll={showEverything}
+          onHideAll={hideEverything}
           calendarsLoading={calendarsLoading}
           onCalendars={setCalendars}
           onSynced={reload}
@@ -512,10 +598,16 @@ export default function AgendaPage() {
 
         <main className={cn('flex h-full min-h-0 min-w-0 flex-col', view !== 'list' && 'overflow-y-auto')}>
           {error ? <ApiErrorBanner message={error} onRetry={reload} /> : null}
+          {!loading && byWho.length > 0 && shown.length === 0 ? (
+            <p className="mb-3 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 text-sm text-text-secondary">
+              {needle ? t('agendaPage.searchEmpty') : t('agendaPage.filtersHideAll')}
+            </p>
+          ) : null}
           {view === 'day' || view === 'week' ? (
             <AgendaTimeGrid
               days={range.days}
-              items={visible}
+              items={shown}
+              onOpenDay={(day) => setParams({ view: 'day', date: dayKey(day) })}
               nowMs={nowMs}
               selectedId={selectedId}
               onSelect={setSelection}
@@ -525,18 +617,18 @@ export default function AgendaPage() {
             <AgendaMonthGrid
               days={range.days}
               month={anchor.getMonth()}
-              items={visible}
+              items={shown}
               nowMs={nowMs}
               selectedId={selectedId}
               onSelect={setSelection}
               onOpenDay={(day) => setParams({ view: 'day', date: dayKey(day) })}
             />
-          ) : visible.length === 0 && !loading ? (
+          ) : shown.length === 0 && !loading ? (
             <EmptyAgenda onPlan={() => openPlan()} />
           ) : (
             <AgendaList
               days={range.days}
-              items={visible}
+              items={shown}
               nowMs={nowMs}
               landKey={dayKey(anchor)}
               selectedId={selectedId}

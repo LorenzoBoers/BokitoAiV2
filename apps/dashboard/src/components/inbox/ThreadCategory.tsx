@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, ChevronDown, ClipboardCheck, FolderKanban, Plus, Sparkles } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, ClipboardCheck, Plus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { relativeMoment } from '../agenda/agenda-style'
+import { useCommunicationNav } from '../../hooks/useCommunicationNav'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { openEntityPath } from '../../lib/open-entity'
+import { findNavRowPath } from '../../lib/signals-api'
 import {
   checkupLabel,
   getTicket,
@@ -47,6 +51,8 @@ const SEGMENT_KIND: Record<TicketStageKind, string> = {
   closed: 'bg-status-success/70',
 }
 
+const FolderKanban = ENTITY_ICONS.project
+
 const INLINE_INPUT =
   'h-7 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-text-heading outline-none transition placeholder:text-text-muted/70 hover:border-border/60 hover:bg-bg-input/40 focus:border-accent focus:bg-bg-input'
 
@@ -70,6 +76,7 @@ function ProjectItems({
         <DropdownMenuItem
           key={choice.id}
           className="gap-2 text-xs"
+          style={{ paddingLeft: 8 + (choice.depth ?? 0) * 12 }}
           disabled={disabled || current === choice.id}
           onSelect={() => onPick(choice.id)}
         >
@@ -123,6 +130,7 @@ function DetailRow({
 export function ThreadCategory({ signalId, version }: Props) {
   const { t } = useTranslation('nav')
   const isAdmin = useIsAdmin()
+  const { nav } = useCommunicationNav()
   const collect = useCollectStageFields()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [busy, setBusy] = useState(false)
@@ -172,8 +180,12 @@ export function ThreadCategory({ signalId, version }: Props) {
   const proposed = ticket.status === 'proposed'
   const awaitingVerify = ticket.status === 'waiting' && !ticket.stage_key
   const choices = ticket.project_choices ?? []
+  // Filed outside the flow's own projects (a subfolder, or filed by hand): the
+  // rail tree still knows the name.
   const projectName = ticket.project_id
-    ? (choices.find((choice) => choice.id === ticket.project_id)?.name ?? t('tickets.project'))
+    ? (choices.find((choice) => choice.id === ticket.project_id)?.name ??
+      findNavRowPath(nav.projects, ticket.project_id)?.slice(-1)[0]?.name ??
+      t('tickets.project'))
     : t('tickets.noProject')
   const defs = ticket.field_defs ?? []
   const values = ticket.fields ?? {}
@@ -359,7 +371,7 @@ export function ThreadCategory({ signalId, version }: Props) {
                 )}
                 {ticket.project_id ? (
                   <Link
-                    to={`/projects/${ticket.project_id}`}
+                    to={openEntityPath({ type: 'project', id: ticket.project_id })}
                     className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition hover:bg-bg-input/40 hover:text-accent"
                     aria-label={t('tickets.openProject')}
                     title={t('tickets.openProject')}

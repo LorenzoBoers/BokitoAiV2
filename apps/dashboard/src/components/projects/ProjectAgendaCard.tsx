@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { CalendarClock } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardHeaderActions, CardTitle } from '../ui/card'
-import { Button } from '../ui/button'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { itemStart, layerOf } from '../../lib/agenda-layout'
 import { listTimeItems, timeItemHref, type TimeItem } from '../../lib/time-items'
@@ -11,6 +11,14 @@ import { cn } from '../../lib/utils'
 import { LAYER_DOT, itemSubtitle } from '../agenda/agenda-style'
 
 const MAX_ROWS = 6
+const CalendarClock = ENTITY_ICONS.agenda
+
+/** The Agenda page narrowed to this project; `new=once` opens the plan dialog there. */
+export function projectAgendaPath(projectId: string, opts: { plan?: boolean } = {}): string {
+  const params = new URLSearchParams({ project: projectId })
+  if (opts.plan) params.set('new', 'once')
+  return `/agenda?${params.toString()}`
+}
 
 /** What is due and what comes next for this project's tickets and agents. */
 export function ProjectAgendaCard({ projectId }: { projectId: string }) {
@@ -71,16 +79,26 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
           {t('projects.home.agendaTitle')}
         </CardTitle>
         <CardHeaderActions>
-          <Button type="button" size="sm" variant="ghost" asChild>
-            <Link to={`/agenda?view=list&project=${encodeURIComponent(projectId)}`}>{t('projects.home.agendaOpen')}</Link>
-          </Button>
+          <Link
+            to={projectAgendaPath(projectId)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+            data-testid="project-agenda-open"
+          >
+            {t('projects.home.agendaOpen')}
+            <ArrowUpRight size={12} aria-hidden />
+          </Link>
         </CardHeaderActions>
       </CardHeader>
       <CardContent>
         {items == null ? (
           <div className="h-16 animate-pulse rounded-md bg-bg-muted/30" aria-busy="true" />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-text-muted">{t('projects.home.agendaEmpty')}</p>
+          <p className="text-sm text-text-muted">
+            {t('projects.home.agendaEmpty')}{' '}
+            <Link to={projectAgendaPath(projectId, { plan: true })} className="font-medium text-accent hover:underline">
+              {t('projects.home.agendaPlan')}
+            </Link>
+          </p>
         ) : (
           <ul className="-mx-1 space-y-0.5">
             {rows.map(({ item, due }) => {

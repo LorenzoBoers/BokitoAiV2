@@ -1,28 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import {
-  Brain,
-  Building2,
-  FolderKanban,
-  Layers,
-  LayoutTemplate,
-  ListFilter,
-  MessageSquare,
-  MessageSquareText,
-  UserRound,
-  Users,
-  Workflow,
-  Zap,
-  type LucideIcon,
-} from 'lucide-react'
+import { Layers, Trash2 } from 'lucide-react'
+import { entityIcon } from '../lib/entity-icons'
+import { restoredEntityPath } from '../lib/open-entity'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
+import { EmptyState } from '../components/ui/empty-state'
 import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
 import { SearchField } from '../components/ui/search-field'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
+import { formatAppDate } from '../lib/app-locale'
 import {
   BIN_TYPES,
   emptyTrash,
@@ -34,30 +25,9 @@ import {
   type TrashSettings,
 } from '../lib/trash-api'
 
-/** Icons match shell / entity pages so bin chips stay recognizable. */
-const BIN_TYPE_ICONS: Record<(typeof BIN_TYPES)[number], LucideIcon> = {
-  conversation: MessageSquare,
-  project: FolderKanban,
-  canvas: LayoutTemplate,
-  knowledge: Brain,
-  contact: UserRound,
-  company: Building2,
-  playbook: Workflow,
-  trigger: Zap,
-  team: Users,
-  inbox_rule: ListFilter,
-  saved_reply: MessageSquareText,
-}
-
-function iconForBinType(resourceType: string): LucideIcon {
-  if ((BIN_TYPES as readonly string[]).includes(resourceType)) {
-    return BIN_TYPE_ICONS[resourceType as (typeof BIN_TYPES)[number]]
-  }
-  return Layers
-}
-
 export default function BinPage() {
   const { t, i18n } = useTranslation('nav')
+  const navigate = useNavigate()
   const [items, setItems] = useState<TrashItem[]>([])
   const [settings, setSettings] = useState<TrashSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -126,8 +96,12 @@ export default function BinPage() {
   const onRestore = async (id: string) => {
     setBusyId(id)
     try {
-      await restoreTrashItem(id)
-      toast.success(t('binPage.restored'))
+      const restored = await restoreTrashItem(id)
+      const openPath = restoredEntityPath(restored.resource_type, restored.resource_id, restored.restore_hint)
+      toast.success(
+        t('binPage.restored'),
+        openPath ? { action: { label: t('binPage.openRestored'), onClick: () => navigate(openPath) } } : undefined,
+      )
       await load()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('binPage.restoreError')))
@@ -169,12 +143,9 @@ export default function BinPage() {
     if (!iso) return ''
     const date = new Date(iso)
     if (Number.isNaN(date.getTime())) return iso
-    return date.toLocaleString(i18n.language === 'nl' ? 'nl-NL' : 'en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
+    return formatAppDate(date, i18n.language, { day: 'numeric', month: 'short', year: 'numeric' })
   }
+  const filtered = Boolean(q.trim() || type)
 
   return (
     <PageContent width="md" className="space-y-6">
@@ -189,7 +160,7 @@ export default function BinPage() {
           <FilterChip
             key={chip}
             active={type === chip}
-            icon={BIN_TYPE_ICONS[chip]}
+            icon={entityIcon(chip, Layers)}
             onClick={() => setType(chip)}
           >
             {t(`binPage.types.${chip}`)}
@@ -202,11 +173,35 @@ export default function BinPage() {
       {loading ? (
         <p className="text-sm text-text-muted">{t('binPage.loading')}</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-text-muted">{t('binPage.empty')}</p>
+        <EmptyState
+          icon={Trash2}
+          size="sm"
+          title={filtered ? t('binPage.emptySearch') : t('binPage.empty')}
+          description={filtered ? undefined : t('binPage.emptyHint')}
+          action={
+            filtered ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setType(null)
+                  setQ('')
+                }}
+              >
+                {t('binPage.clearFilters')}
+              </Button>
+            ) : undefined
+          }
+          footer={
+            <Link to="/docs/govern/privacy-security" className="text-xs text-text-muted hover:text-accent hover:underline">
+              {t('binPage.docsLink')}
+            </Link>
+          }
+        />
       ) : (
         <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
           {items.map((row) => {
-            const TypeIcon = iconForBinType(row.resource_type)
+            const TypeIcon = entityIcon(row.resource_type, Layers)
             return (
             <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
               <div className="flex min-w-0 items-start gap-2.5">

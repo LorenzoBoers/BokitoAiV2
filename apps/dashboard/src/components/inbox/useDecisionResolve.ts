@@ -7,7 +7,6 @@ import { learnFromDecision, type LearnChoice } from '../../lib/agent-rules-api'
 import type { DecisionOption } from '../../lib/decision-options'
 import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
 import {
-  patchThread,
   resolveThreadDecision,
   updateInboxRule,
   type InboxRuleSuggestion,
@@ -100,9 +99,10 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
           : action === 'defer'
             ? t('decisionCard.toastDeferredSnoozed')
             : t('decisionCard.toastRejected'))
-      if (action === 'defer') {
-        // Park-until-date retired: keep the thread in Open and mark unread.
-        await patchThread(token, threadId, { status: 'open' })
+      if (action === 'defer' && opts.optionId !== 'keep_open') {
+        // Later / defer: bump unread so the thread stays in attention.
+        // keep_open must not patch status=open — that emitted "Gesprek
+        // heropend" even when the thread was already open.
         await bulkUpdateSignalThreads(token, [String(threadId)], 'unread')
       }
       toast.success(toastLabel, {

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CalendarClock, ExternalLink, MapPin, Pause, Pencil, Play, Repeat, X, Zap } from 'lucide-react'
+import { ExternalLink, MapPin, Pause, Pencil, Play, Repeat, X } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { useAuth } from '../../context/AuthContext'
 import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
@@ -13,6 +14,9 @@ import { formatAppTime } from '../../lib/app-locale'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { SettingRow } from '../ui/entity-row'
 import { controlChipClass } from '../ui/select'
+
+const CalendarClock = ENTITY_ICONS.agenda
+const Zap = ENTITY_ICONS.trigger
 
 type Props = {
   thread: InboxThread

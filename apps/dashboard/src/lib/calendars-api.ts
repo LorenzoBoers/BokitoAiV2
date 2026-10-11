@@ -55,7 +55,14 @@ export async function listCalendarConnections(): Promise<CalendarConnection[]> {
   return data.connections ?? []
 }
 
-export async function syncAllCalendars(): Promise<unknown> {
+export type CalendarSyncResult = {
+  connection_id: string
+  synced: number
+  status: string
+  error?: string
+}
+
+export async function syncAllCalendars(): Promise<{ results: CalendarSyncResult[] }> {
   return apiPost(integrationsRoutes.platform.calendars.syncAll, {})
 }
 

@@ -28,6 +28,7 @@ ITEM_TYPES = (
     "tag",
     "flow",
     "project",
+    "canvas",
     "contact",
     "integration",
     "marketplace",
@@ -282,6 +283,49 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
             "subtitle": _clip(row.description, 100),
         }
 
+    if item_type == "canvas":
+        from app.models.auth import Tenant
+        from app.models.project import Project
+        from app.models.project_canvas import OWNER_PROJECT, OWNER_TENANT, ProjectCanvas
+
+        row = (
+            await session.execute(
+                select(ProjectCanvas).where(
+                    ProjectCanvas.id == row_id,
+                    ProjectCanvas.tenant_id == tenant_id,
+                    ProjectCanvas.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none() if row_id else None
+        if not row:
+            return _missing(item_type, ref)
+        if row.owner_kind == OWNER_PROJECT:
+            project = (
+                await session.execute(
+                    select(Project).where(Project.id == row.owner_id, Project.tenant_id == tenant_id)
+                )
+            ).scalar_one_or_none()
+            subtitle = project.name if project else "Project"
+            path = f"/projects/{row.owner_id}?tab=canvas"
+            project_id = str(row.project_id or row.owner_id)
+        else:
+            tenant = (
+                await session.execute(select(Tenant).where(Tenant.id == tenant_id))
+            ).scalar_one_or_none()
+            subtitle = tenant.name if tenant else "Workspace"
+            path = "/cockpit/canvas"
+            project_id = None
+        return {
+            "type": item_type,
+            "id": str(row.id),
+            "title": _clip(row.title),
+            "subtitle": _clip(subtitle),
+            "kind": row.owner_kind or OWNER_TENANT,
+            "slug": row.slug,
+            "path": path,
+            "project_id": project_id,
+        }
+
     if item_type == "contact":
         from app.models.channel import Contact
 
@@ -528,6 +572,7 @@ async def _resolve_file(session: AsyncSession, tenant_id: UUID, ref: dict[str, A
 _ID_KEYS = {
     "agent_id": "agent",
     "project_id": "project",
+    "canvas_id": "canvas",
     "contact_id": "contact",
     "workstream_id": "flow",
     "trigger_id": "trigger",

@@ -14,6 +14,7 @@
     "lastNamePlaceholder": "Last name",
     "jobTitle": "Job title",
     "jobTitlePlaceholder": "Title",
+    "emptyValue": "Not set",
     "descriptionLabel": "Bio",
     "descriptionPlaceholder": "A short bio or role",
     "saveChanges": "Save changes",
@@ -68,6 +69,8 @@
     "newPassword": "New password",
     "confirmPassword": "Confirm new password",
     "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Use at least 8 characters.",
+    "passwordHint": "At least 8 characters. Press Enter to save.",
     "passwordSuccess": "Password changed",
     "passwordSetSuccess": "Password set",
     "cancel": "Cancel",
@@ -114,6 +117,7 @@
     "deleteDescription": "Permanently delete your account and all associated data. This action cannot be undone.",
     "deleteConfirm": "Delete your account permanently? This cannot be undone.",
     "deletePasswordPrompt": "Enter your password to confirm deletion:",
+    "deletePasswordLabel": "Password",
     "deleting": "Deleting..."
   },
   "errors": {

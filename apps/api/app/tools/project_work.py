@@ -634,6 +634,22 @@ async def _resolve_canvas_owner(ctx: ToolContext, tool_input: dict[str, Any]) ->
     return OWNER_TENANT, ctx.tenant_id
 
 
+async def _stash_canvas_showcase(
+    ctx: ToolContext, canvases: list[dict[str, Any]] | dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """Resolve canvas snapshots and attach them under the agent reply."""
+    from app.services.proposal_items import resolve_items, stash_attach_items
+
+    rows = canvases if isinstance(canvases, list) else ([canvases] if isinstance(canvases, dict) else [])
+    refs = [{"type": "canvas", "id": c["id"]} for c in rows if isinstance(c, dict) and c.get("id")]
+    if not refs:
+        return []
+    showcase = await resolve_items(ctx.session, ctx.tenant_id, refs)
+    if showcase:
+        stash_attach_items(ctx.signal_id, showcase)
+    return showcase
+
+
 async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from uuid import UUID as _UUID
 
@@ -643,24 +659,29 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 
     canvas_id = str(tool_input.get("canvas_id") or "").strip()
     if canvas_id:
-        return await canvas_svc.get_canvas(ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id))
+        canvas = await canvas_svc.get_canvas(ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id))
+        showcase = await _stash_canvas_showcase(ctx, canvas)
+        return {**canvas, "items": showcase}
     owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
     slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
     try:
-        return await canvas_svc.get_canvas(
+        canvas = await canvas_svc.get_canvas(
             ctx.session,
             ctx.tenant_id,
             owner_kind=owner_kind,
             owner_id=owner_id,
             slug=slug,
         )
+        showcase = await _stash_canvas_showcase(ctx, canvas)
+        return {**canvas, "items": showcase}
     except HTTPException:
         listed = await canvas_svc.list_canvases(
             ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
         )
+        showcase = await _stash_canvas_showcase(ctx, listed)
         return {
             "error": "Canvas not found. Pass canvas_id or slug from this list.",
-            "items": [{"id": i["id"], "slug": i["slug"], "title": i["title"]} for i in listed],
+            "items": showcase or [{"id": i["id"], "slug": i["slug"], "title": i["title"]} for i in listed],
         }
 
 
@@ -761,7 +782,7 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         "managing_agent_id": str(ctx.agent.id) if ctx.agent else None,
         "agent_id": str(ctx.agent.id) if ctx.agent else "",
     }
-    return await _propose_canvas_change(
+    result = await _propose_canvas_change(
         ctx,
         change_kind="create",
         after=after,
@@ -769,6 +790,11 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         summary=f"Create canvas '{title}'",
         tool_name="create_canvas",
     )
+    canvas = result.get("canvas") if isinstance(result, dict) else None
+    if isinstance(canvas, dict) and canvas.get("id"):
+        showcase = await _stash_canvas_showcase(ctx, canvas)
+        return {**result, "items": showcase}
+    return result
 
 
 async def _delete_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -794,13 +820,56 @@ async def _delete_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     )
 
 
+async def _list_canvases_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services import project_canvas as canvas_svc
+
+    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
+    listed = await canvas_svc.list_canvases(
+        ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
+    )
+    showcase = await _stash_canvas_showcase(ctx, listed)
+    return {
+        "owner_kind": owner_kind,
+        "owner_id": str(owner_id),
+        "canvases": [
+            {"id": i["id"], "slug": i["slug"], "title": i["title"], "empty": i.get("empty")}
+            for i in listed
+        ],
+        "items": showcase,
+    }
+
+
+register_tool(
+    ToolSpec(
+        name="list_canvases",
+        description=(
+            "List snapshot canvases for a project or the workspace Overview. "
+            "Pass project_id / owner_kind=project for a project; omit or use "
+            "owner_kind=tenant for Overview canvases. Auto-showcases each canvas."
+        ),
+        category="projects",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
+                "owner_id": {"type": "string"},
+            },
+        },
+        handler=_list_canvases_tool,
+        mutating=False,
+        gated=False,
+    )
+)
+
 register_tool(
     ToolSpec(
         name="get_project_canvas",
         description=(
             "Read a snapshot canvas (project or tenant/Overview). Returns bokito/canvas "
             "source and tree. Not live queue/budget data. Pass canvas_id, or owner_kind "
-            "+ slug (project_id for a project canvas; omit for the workspace Overview)."
+            "+ slug (project_id for a project canvas; omit for the workspace Overview). "
+            "Auto-showcases the canvas under your reply."
         ),
         category="projects",
         input_schema={

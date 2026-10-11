@@ -9,7 +9,7 @@ related: govern,agents,integrations
 
 # Models
 
-Models live under **Settings**, then **Models**. The page shows **Bokito AI models** (Automatic plus Maki, Bokito and Kong) and, when entitled, models you add with your own keys. Spend shows on Cockpit **Usage**.
+Models live under **Settings**, then **Models**. The page shows **Bokito AI models** (Automatic plus Maki, Bokito and Kong) and, when entitled, models you add with your own keys. Canceling **Add model** asks before discarding what you typed. **Replace key** opens a field on the page. Spend shows on Cockpit **Usage**.
 
 ## Set the workspace Bokito AI default
 

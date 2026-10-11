@@ -1,13 +1,17 @@
 import type { ComponentType, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AlertCircle, Bot, CheckCircle2, CircleDot, Loader2, Sparkles, UserRound, Wrench } from 'lucide-react'
+import { AlertCircle, CheckCircle2, CircleDot, Loader2, Sparkles, Wrench } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import type { ActivityEntry } from '../../hooks/useActivityFeed'
 import { activityEventMessage, activityEventTypeLabel } from '../../lib/activity-labels'
 import { activityDayBucket } from '../../lib/activity-day'
 import { formatAppDate } from '../../lib/app-locale'
 import { activityEntryPath } from '../../lib/open-entity'
 import { cn } from '../../lib/utils'
+
+const Bot = ENTITY_ICONS.agent
+const UserRound = ENTITY_ICONS.contact
 
 type Tone = 'ok' | 'error' | 'progress' | 'human' | 'muted'
 

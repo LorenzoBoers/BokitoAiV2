@@ -12,13 +12,14 @@ available person > working agent > away person > standby agent > offline.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.agent import Agent
 from app.models.auth import Membership, User
 
 ONLINE_WINDOW = timedelta(minutes=3)
@@ -44,6 +45,18 @@ def user_status(user: User, *, now: datetime | None = None) -> str:
     return OFFLINE
 
 
+def visible_user_status(user: User, *, connected: bool, now: datetime | None = None) -> str:
+    """Status other clients should show.
+
+    A live dashboard socket counts as available even when ``last_seen_at`` was
+    just pushed out of the window by a tab that disconnected. Away still wins.
+    """
+    status = user_status(user, now=now)
+    if connected and status == OFFLINE:
+        return AVAILABLE
+    return status
+
+
 def serialize_presence(user: User, *, now: datetime | None = None) -> dict:
     now = now or datetime.utcnow()
     away_active = bool(user.away and (user.away_until is None or user.away_until > now))
@@ -55,10 +68,16 @@ def serialize_presence(user: User, *, now: datetime | None = None) -> dict:
 
 
 async def touch(session: AsyncSession, user_id: UUID, *, force: bool = False) -> bool:
-    """Stamp last_seen_at; throttled so a ping does not write every time."""
+    """Stamp last_seen_at; throttled so a ping does not write every time.
+
+    Reloads the row first. The gateway session keeps objects after commit, so
+    a disconnect on another socket can move ``last_seen_at`` without this
+    connection noticing.
+    """
     user = await session.get(User, user_id)
     if user is None:
         return False
+    await session.refresh(user)
     now = datetime.utcnow()
     if not force and user.last_seen_at and now - user.last_seen_at < TOUCH_INTERVAL:
         return False
@@ -71,15 +90,33 @@ async def touch(session: AsyncSession, user_id: UUID, *, force: bool = False) ->
     return True
 
 
-async def mark_offline(session: AsyncSession, user_id: UUID) -> None:
-    """Called on the last disconnect: push last_seen_at out of the online window."""
+async def mark_offline(session: AsyncSession, user_id: UUID) -> bool:
+    """On the last disconnect, push last_seen_at out of the online window.
+
+    Leaves a stamp from the last few seconds alone. That stamp belongs to a
+    tab that just connected, and overwriting it is what left someone offline
+    while their dashboard was open.
+    """
     user = await session.get(User, user_id)
     if user is None:
-        return
+        return False
+    await session.refresh(user)
     now = datetime.utcnow()
-    user.last_seen_at = now - ONLINE_WINDOW - timedelta(seconds=1)
-    session.add(user)
+    cutoff = now - timedelta(seconds=5)
+    if user.last_seen_at and user.last_seen_at > cutoff:
+        return False
+    stamp = now - ONLINE_WINDOW - timedelta(seconds=1)
+    result = await session.execute(
+        update(User)
+        .where(
+            User.id == user_id,
+            or_(User.last_seen_at.is_(None), User.last_seen_at <= cutoff),
+        )
+        .values(last_seen_at=stamp)
+    )
     await session.commit()
+    await session.refresh(user)
+    return bool(result.rowcount)
 
 
 async def set_away(
@@ -184,3 +221,80 @@ def team_status(
 def serialize_team_presence(status: str) -> dict:
     normalized = str(status or "").strip().lower()
     return {"status": normalized if normalized in TEAM_STATUSES else OFFLINE}
+
+
+def _epoch_ms(value: datetime | None) -> int | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return int(value.timestamp() * 1000)
+
+
+async def presence_snapshot(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    connected_user_ids: set[str],
+    include_people: bool = True,
+    include_agents: bool = True,
+) -> list[tuple[str, dict[str, Any]]]:
+    """Current people and agent status for a client that just subscribed.
+
+    The connect-time presence event is published before the client has joined
+    the topic, so without this replay the dashboard keeps the REST seed
+    (often offline) for the whole session.
+    """
+    now = datetime.utcnow()
+    events: list[tuple[str, dict[str, Any]]] = []
+    if include_people:
+        rows = (
+            await session.execute(
+                select(User)
+                .join(Membership, Membership.user_id == User.id)
+                .where(
+                    Membership.tenant_id == tenant_id,
+                    User.is_active.is_(True),
+                    Membership.is_active.is_(True),
+                )
+            )
+        ).scalars().all()
+        for user in rows:
+            status = visible_user_status(
+                user, connected=str(user.id) in connected_user_ids, now=now
+            )
+            events.append(
+                (
+                    "presence",
+                    {
+                        "user_id": str(user.id),
+                        "device": "dashboard",
+                        "online": status != OFFLINE,
+                        "status": status,
+                    },
+                )
+            )
+    if include_agents:
+        agents = (
+            await session.execute(
+                select(Agent).where(Agent.tenant_id == tenant_id, Agent.is_active.is_(True))
+            )
+        ).scalars().all()
+        for agent in agents:
+            status = agent_corner_status(agent)
+            if status is None:
+                continue
+            events.append(
+                (
+                    "agent.status",
+                    {
+                        "agent_id": str(agent.id),
+                        "status": status,
+                        "summary": (agent.current_activity_summary or "").strip() or None,
+                        "thread_id": str(agent.current_signal_id) if agent.current_signal_id else None,
+                        "activity_id": None,
+                        "last_active_at": _epoch_ms(agent.last_active_at),
+                    },
+                )
+            )
+    return events

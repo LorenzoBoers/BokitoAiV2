@@ -211,6 +211,7 @@ async def move_to_bin(
     parent_entry_id: UUID | None = None,
     commit: bool = True,
     reason: str = "operator",
+    batch_id: UUID | None = None,
 ) -> TrashEntry:
     if resource_type not in RESOURCE_TYPES:
         raise HTTPException(status_code=400, detail=f"Unknown trash type: {resource_type}")
@@ -221,7 +222,7 @@ async def move_to_bin(
     now = datetime.utcnow()
     ttl = trash_settings_from_tenant(tenant)["effective_days"]
     purge_after = now + timedelta(days=ttl)
-    batch_id = uuid4()
+    batch_id = batch_id or uuid4()
     stamp_row(row, user_id=user_id, batch_id=batch_id, now=now)
     session.add(row)
     entry = await add_entry(
@@ -444,7 +445,14 @@ async def restore_entry(
         if item.resource_type == "project" and getattr(row, "slug", None):
             from app.models.project import Project
 
-            new_slug = await _unique_slug(session, Project, tenant.id, "slug", row.slug)
+            parent_scope = (
+                [Project.parent_id == row.parent_id]
+                if row.parent_id
+                else [Project.parent_id.is_(None)]
+            )
+            new_slug = await _unique_slug(
+                session, Project, tenant.id, "slug", row.slug, extra=parent_scope
+            )
             if new_slug != row.slug:
                 hint["slug"] = new_slug
                 row.slug = new_slug
@@ -465,6 +473,9 @@ async def restore_entry(
             if new_slug != row.slug:
                 hint["slug"] = new_slug
                 row.slug = new_slug
+            # Lets the dashboard open the restored canvas on its project.
+            if getattr(row, "owner_kind", None) == "project" and getattr(row, "owner_id", None):
+                hint["project_id"] = str(row.owner_id)
         if item.resource_type == "knowledge" and getattr(row, "path", None):
             from app.models.workspace import WorkspaceDoc
 

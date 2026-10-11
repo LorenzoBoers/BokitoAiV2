@@ -285,8 +285,9 @@ class ThreadPatch(BaseModel):
 
 class BulkBody(BaseModel):
     signal_ids: list[UUID]
-    action: str  # close | reopen | spam | read | unread | assign | trash
+    action: str  # close | reopen | spam | read | unread | assign | trash | file
     assignee_id: int | None = None
+    project_id: UUID | None = None
 
 
 class RecipientRef(BaseModel):
@@ -877,6 +878,7 @@ async def bulk_update(
         signal_ids=body.signal_ids,
         action=body.action,
         assignee_id=body.assignee_id,
+        project_id=body.project_id,
     )
 
 

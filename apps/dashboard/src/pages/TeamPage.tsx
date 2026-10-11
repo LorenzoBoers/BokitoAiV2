@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { asAgentStatus } from '../lib/presence'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
+import { ENTITY_ICONS } from '../lib/entity-icons'
+import { openEntityPath } from '../lib/open-entity'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
@@ -52,6 +54,7 @@ import { useAgentLive, agentPresenceOf } from '../hooks/useAgentPresence'
 import { cn } from '../lib/utils'
 
 const AVATAR_STACK_MAX = 5
+const ConversationIcon = ENTITY_ICONS.conversation
 
 function memberKey(ref: TeamMemberRef): string {
   return `${ref.kind}:${ref.id}`
@@ -106,25 +109,37 @@ function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
   return out
 }
 
-/** Overlapping facepile for team members (people + agents). */
+/** Overlapping facepile for team members (people + agents); agents open their page. */
 function TeamMemberStack({ members, className }: { members: StackMember[]; className?: string }) {
   if (members.length === 0) return null
   const shown = members.slice(0, AVATAR_STACK_MAX)
   const overflow = members.length - shown.length
   const size = 28
   return (
-    <span className={cn('flex items-center', className)} aria-hidden>
-      {shown.map((member, index) => (
-        <span
-          key={member.key}
-          className={cn(
-            'relative inline-flex overflow-hidden rounded-full bg-bg-surface ring-2 ring-bg-surface',
-            index > 0 && '-ml-2',
-          )}
-          style={{ zIndex: shown.length - index }}
-          title={member.name}
-        >
-          {member.kind === 'user' ? (
+    <span className={cn('flex items-center', className)}>
+      {shown.map((member, index) => {
+        const avatarClass = cn(
+          'relative inline-flex overflow-hidden rounded-full bg-bg-surface ring-2 ring-bg-surface',
+          index > 0 && '-ml-2',
+        )
+        const style = { zIndex: shown.length - index }
+        if (member.kind === 'agent') {
+          return (
+            <Link
+              key={member.key}
+              to={openEntityPath({ type: 'agent', id: member.id })}
+              className={cn(avatarClass, 'transition hover:ring-accent/60')}
+              style={style}
+              title={member.name}
+              aria-label={member.name}
+              data-testid="team-member-agent"
+            >
+              <AiAvatar {...toAiAvatarProps(member)} size={size} decorative />
+            </Link>
+          )
+        }
+        return (
+          <span key={member.key} className={avatarClass} style={style} title={member.name} aria-hidden>
             <UserAvatar
               name={member.name}
               email={member.email}
@@ -132,15 +147,9 @@ function TeamMemberStack({ members, className }: { members: StackMember[]; class
               size={size}
               decorative
             />
-          ) : (
-            <AiAvatar
-              {...toAiAvatarProps(member)}
-              size={size}
-              decorative
-            />
-          )}
-        </span>
-      ))}
+          </span>
+        )
+      })}
       {overflow > 0 ? (
         <span
           className="-ml-2 flex items-center justify-center rounded-full bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted ring-2 ring-bg-surface"
@@ -275,7 +284,18 @@ export default function TeamPage() {
                     />
                     <div className="min-w-0 space-y-0.5">
                       <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-text-heading">
-                        <span className="truncate-fade">{teamNames[team.id]}</span>
+                        {team.system ? (
+                          <span className="truncate-fade">{teamNames[team.id]}</span>
+                        ) : (
+                          <Link
+                            to={openEntityPath({ type: 'team', id: team.id })}
+                            className="truncate-fade hover:text-accent hover:underline"
+                            title={t('teamPage.openFolder', { name: teamNames[team.id] })}
+                            data-testid="team-folder-link"
+                          >
+                            {teamNames[team.id]}
+                          </Link>
+                        )}
                         {team.system ? <Badge variant="secondary">{t('teamPage.systemBadge')}</Badge> : null}
                         {team.pinned ? <Badge variant="neutral">{t('teamPage.pinnedBadge')}</Badge> : null}
                       </p>
@@ -301,6 +321,14 @@ export default function TeamPage() {
                       </p>
                     </div>
                   </div>
+                  {team.system ? null : (
+                    <Button size="sm" variant="ghost" className="shrink-0" asChild>
+                      <Link to={openEntityPath({ type: 'team', id: team.id })}>
+                        <ConversationIcon size={13} aria-hidden />
+                        {t('teamPage.openConversations')}
+                      </Link>
+                    </Button>
+                  )}
                   {canManage && !team.system ? (
                     <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
                       {t('teamPage.edit')}

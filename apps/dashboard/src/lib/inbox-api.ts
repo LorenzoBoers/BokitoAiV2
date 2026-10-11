@@ -302,6 +302,7 @@ export type ProposalItemType =
   | 'tag'
   | 'flow'
   | 'project'
+  | 'canvas'
   | 'contact'
   | 'integration'
   | 'marketplace'
@@ -420,6 +421,7 @@ const PROPOSAL_ITEM_TYPES = new Set<ProposalItemType>([
   'tag',
   'flow',
   'project',
+  'canvas',
   'contact',
   'integration',
   'marketplace',
@@ -726,6 +728,7 @@ export type BulkThreadAction =
   | 'unread'
   | 'assign'
   | 'trash'
+  | 'file'
 
 export type SavedReply = {
   id: string

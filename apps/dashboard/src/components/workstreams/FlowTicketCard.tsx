@@ -3,16 +3,20 @@ import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { Bot, ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck } from 'lucide-react'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { relativeMoment } from '../agenda/agenda-style'
 import { useMembers } from '../../hooks/useMembers'
 import { inboxPath } from '../../lib/messages-paths'
+import { openEntityPath } from '../../lib/open-entity'
 import type { BoardTicket } from '../../lib/tickets-api'
 import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { Hashtag } from '../ui/HashtagMark'
 import { UserAvatar } from '../ui/UserAvatar'
+
+const Bot = ENTITY_ICONS.agent
 
 /**
  * The ticket card on every board (flow page and project boards). Click opens
@@ -65,7 +69,23 @@ export function FlowTicketCard({
     >
       <p className="line-clamp-2 text-xs font-medium leading-snug text-text-primary">{title}</p>
       {ticket.contact_name && ticket.subject ? (
-        <p className="mt-0.5 truncate text-2xs text-text-muted">{ticket.contact_name}</p>
+        ticket.contact_id ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              // The card opens the conversation; this opens the contact.
+              event.stopPropagation()
+              navigate(openEntityPath({ type: 'contact', id: ticket.contact_id as string }))
+            }}
+            onKeyDown={(event) => event.stopPropagation()}
+            className="mt-0.5 block max-w-full truncate rounded text-left text-2xs text-text-muted hover:text-accent hover:underline"
+            title={t('tickets.openContact', { name: ticket.contact_name })}
+          >
+            {ticket.contact_name}
+          </button>
+        ) : (
+          <p className="mt-0.5 truncate text-2xs text-text-muted">{ticket.contact_name}</p>
+        )
       ) : null}
       {fields.length > 0 ? (
         <ul className="mt-1.5 flex flex-wrap gap-1">
@@ -81,7 +101,21 @@ export function FlowTicketCard({
       ) : null}
       <div className="mt-1.5 flex items-center gap-1.5 text-2xs text-text-muted">
         <ChannelGlyph channel={ticket.channel} size={11} />
-        {showTag ? <Hashtag name={ticket.tag} category /> : null}
+        {showTag ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              // On a project board the tag opens that flow's folder in Communication.
+              event.stopPropagation()
+              navigate(openEntityPath({ type: 'tag', name: ticket.tag }))
+            }}
+            onKeyDown={(event) => event.stopPropagation()}
+            className="rounded hover:underline"
+            title={t('tags.openFolder', { ns: 'communication', tag: ticket.tag })}
+          >
+            <Hashtag name={ticket.tag} category />
+          </button>
+        ) : null}
         <span className="tabular-nums">{timeAgo(ticket.last_message_at, t)}</span>
         {ticket.checkup_at ? (
           <span

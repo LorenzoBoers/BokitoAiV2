@@ -90,9 +90,151 @@ def serialize_project(
         "po_agent": serialize_po_agent(po_agent),
         "token_budget_daily": project.token_budget_daily,
         "token_budget_hourly": project.token_budget_hourly,
+        "parent_id": str(project.parent_id) if project.parent_id else None,
         "updated_at": _iso(project.updated_at),
         "created_at": _iso(project.created_at),
     }
+
+
+MAX_FOLDER_DEPTH = 16
+
+
+def project_subtree_select(tenant_id: UUID, root_id: UUID):
+    """This project and every living folder inside it."""
+    tree = (
+        select(Project.id)
+        .where(
+            Project.tenant_id == tenant_id,
+            Project.id == root_id,
+            Project.deleted_at.is_(None),
+        )
+        .cte(name="project_subtree", recursive=True)
+    )
+    tree = tree.union_all(
+        select(Project.id).where(
+            Project.tenant_id == tenant_id,
+            Project.parent_id == tree.c.id,
+            Project.deleted_at.is_(None),
+        )
+    )
+    return select(tree.c.id)
+
+
+async def _alive_projects(session: AsyncSession, tenant_id: UUID) -> list[Project]:
+    from app.services.trash import alive
+
+    result = await session.execute(
+        select(Project).where(Project.tenant_id == tenant_id, alive(Project))
+    )
+    return list(result.scalars().all())
+
+
+def _children_of(projects: list[Project]) -> dict[UUID, list[UUID]]:
+    out: dict[UUID, list[UUID]] = {}
+    ids = {p.id for p in projects}
+    for project in projects:
+        if project.parent_id and project.parent_id in ids:
+            out.setdefault(project.parent_id, []).append(project.id)
+    return out
+
+
+def _subtree_ids(root_id: UUID, children_of: dict[UUID, list[UUID]]) -> list[UUID]:
+    out: list[UUID] = []
+    stack = [root_id]
+    seen: set[UUID] = set()
+    while stack:
+        current = stack.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        out.append(current)
+        stack.extend(children_of.get(current, []))
+    return out
+
+
+def _ancestor_rows(project: Project, by_id: dict[UUID, Project]) -> list[dict[str, str]]:
+    chain: list[Project] = []
+    current = by_id.get(project.parent_id) if project.parent_id else None
+    seen: set[UUID] = set()
+    while current is not None and current.id not in seen and len(chain) <= MAX_FOLDER_DEPTH:
+        seen.add(current.id)
+        chain.append(current)
+        current = by_id.get(current.parent_id) if current.parent_id else None
+    chain.reverse()
+    return [{"id": str(row.id), "name": row.name} for row in chain]
+
+
+def _folder_depth(project: Project, by_id: dict[UUID, Project]) -> int:
+    depth = 1
+    current = project
+    seen: set[UUID] = set()
+    while current.parent_id and current.parent_id in by_id and current.id not in seen:
+        seen.add(current.id)
+        current = by_id[current.parent_id]
+        depth += 1
+    return depth
+
+
+async def assert_folder_parent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    project_id: UUID | None,
+    parent_id: UUID | None,
+) -> None:
+    """Refuse a missing parent, a cycle, or a chain deeper than the safety cap."""
+    if parent_id is None:
+        return
+    if project_id is not None and parent_id == project_id:
+        raise HTTPException(status_code=422, detail="A folder cannot sit inside itself")
+    depth = 1
+    current_id: UUID | None = parent_id
+    seen: set[UUID] = {project_id} if project_id else set()
+    while current_id is not None:
+        if current_id in seen:
+            raise HTTPException(
+                status_code=422, detail="A folder cannot sit inside one of its own folders"
+            )
+        if depth > MAX_FOLDER_DEPTH:
+            raise HTTPException(status_code=422, detail="This folder is nested too deeply")
+        seen.add(current_id)
+        row = (
+            await session.execute(
+                select(Project).where(
+                    Project.id == current_id,
+                    Project.tenant_id == tenant_id,
+                    Project.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Parent folder not found")
+        current_id = row.parent_id
+        depth += 1
+
+
+async def _slug_in_use(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    parent_id: UUID | None,
+    *,
+    exclude_id: UUID | None = None,
+) -> bool:
+    from app.services.trash import alive
+
+    query = select(Project.id).where(
+        Project.tenant_id == tenant_id,
+        Project.slug == slug,
+        alive(Project),
+    )
+    if parent_id is None:
+        query = query.where(Project.parent_id.is_(None))
+    else:
+        query = query.where(Project.parent_id == parent_id)
+    if exclude_id is not None:
+        query = query.where(Project.id != exclude_id)
+    return (await session.execute(query.limit(1))).scalar_one_or_none() is not None
 
 
 async def get_repo_resource(
@@ -133,12 +275,113 @@ async def get_project_row(
     return project, po_agent
 
 
+def _annotate_folder_tree(
+    projects: list[Project],
+    items: list[dict[str, Any]],
+    open_counts: dict[UUID, int],
+) -> None:
+    by_id = {project.id: project for project in projects}
+    children_of = _children_of(projects)
+    by_item = {item["id"]: item for item in items}
+    for project in projects:
+        item = by_item.get(str(project.id))
+        if item is None:
+            continue
+        ids = _subtree_ids(project.id, children_of)
+        item["open_tickets_count"] = sum(open_counts.get(pid, 0) for pid in ids)
+        item["child_count"] = len(children_of.get(project.id, []))
+        item["ancestors"] = _ancestor_rows(project, by_id)
+
+
+async def _status_counts(
+    session: AsyncSession, tenant_id: UUID, project_ids: list[UUID], status: str
+) -> dict[UUID, int]:
+    if not project_ids:
+        return {}
+    result = await session.execute(
+        select(Signal.project_id, func.count())
+        .where(
+            Signal.tenant_id == tenant_id,
+            Signal.project_id.in_(project_ids),
+            Signal.status == status,
+            Signal.deleted_at.is_(None),
+        )
+        .group_by(Signal.project_id)
+    )
+    return {row[0]: int(row[1]) for row in result.all() if row[0] is not None}
+
+
 async def get_project_detail(
     session: AsyncSession, tenant_id: UUID, project_id: UUID
 ) -> dict[str, Any]:
     project, po_agent = await get_project_row(session, tenant_id, project_id)
     repo = await get_repo_resource(session, tenant_id, project_id)
-    return serialize_project(project, po_agent, repo)
+    payload = serialize_project(project, po_agent, repo)
+    projects = await _alive_projects(session, tenant_id)
+    by_id = {row.id: row for row in projects}
+    children_of = _children_of(projects)
+    subtree = _subtree_ids(project.id, children_of)
+    open_counts = await _status_counts(session, tenant_id, subtree, "open")
+    closed_counts = await _status_counts(session, tenant_id, subtree, "closed")
+    payload["ancestors"] = _ancestor_rows(project, by_id)
+    payload["child_count"] = len(children_of.get(project.id, []))
+    payload["open_count"] = sum(open_counts.get(pid, 0) for pid in subtree)
+    payload["closed_count"] = sum(closed_counts.get(pid, 0) for pid in subtree)
+    children: list[dict[str, Any]] = []
+    for child_id in children_of.get(project.id, []):
+        child = by_id[child_id]
+        child_tree = _subtree_ids(child.id, children_of)
+        children.append(
+            {
+                "id": str(child.id),
+                "name": child.name,
+                "slug": child.slug,
+                "child_count": len(children_of.get(child.id, [])),
+                "open_count": sum(open_counts.get(pid, 0) for pid in child_tree),
+                "closed_count": sum(closed_counts.get(pid, 0) for pid in child_tree),
+            }
+        )
+    children.sort(key=lambda row: row["name"].lower())
+    payload["children"] = children
+    return payload
+
+
+async def folder_digest(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> str:
+    """Plain summary of folders inside a project, for a canvas refresh."""
+    projects = await _alive_projects(session, tenant_id)
+    by_id = {row.id: row for row in projects}
+    project = by_id.get(project_id)
+    if project is None:
+        return ""
+    children_of = _children_of(projects)
+    direct = [by_id[cid] for cid in children_of.get(project.id, []) if cid in by_id]
+    if not direct:
+        return ""
+    subtree = _subtree_ids(project.id, children_of)
+    open_counts = await _status_counts(session, tenant_id, subtree, "open")
+    closed_counts = await _status_counts(session, tenant_id, subtree, "closed")
+    lines = ["Folders inside this project (include these figures in the snapshot):"]
+    for child in sorted(direct, key=lambda row: row.name.lower()):
+        ids = _subtree_ids(child.id, children_of)
+        recent = (
+            await session.execute(
+                select(Signal.subject)
+                .where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.project_id.in_(ids),
+                    Signal.deleted_at.is_(None),
+                )
+                .order_by(Signal.updated_at.desc())
+                .limit(5)
+            )
+        ).scalars().all()
+        subjects = [subject.strip() for subject in recent if subject and subject.strip()]
+        recent_bit = f" Recent: {', '.join(subjects)}." if subjects else ""
+        lines.append(
+            f"- {child.name}: {sum(open_counts.get(pid, 0) for pid in ids)} open, "
+            f"{sum(closed_counts.get(pid, 0) for pid in ids)} closed.{recent_bit}"
+        )
+    return "\n".join(lines)
 
 
 async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
@@ -234,6 +477,7 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
         item["doc_sections_total"] = total
         item["doc_sections_done"] = done
         out.append(item)
+    _annotate_folder_tree(projects, out, open_tickets_by_project)
     return out
 
 
@@ -245,16 +489,11 @@ async def create_project(
     slug: str,
     autonomous_scope: str,
     description: str = "",
+    parent_id: UUID | None = None,
 ) -> dict[str, Any]:
     slug_norm = slug.strip().lower()
-    from app.services.trash import alive
-
-    existing = await session.execute(
-        select(Project).where(
-            Project.tenant_id == tenant_id, Project.slug == slug_norm, alive(Project)
-        )
-    )
-    if existing.scalar_one_or_none():
+    await assert_folder_parent(session, tenant_id, project_id=None, parent_id=parent_id)
+    if await _slug_in_use(session, tenant_id, slug_norm, parent_id):
         raise HTTPException(status_code=409, detail="Project slug already exists")
     now = datetime.utcnow()
     project = Project(
@@ -263,6 +502,7 @@ async def create_project(
         slug=slug_norm,
         description=description,
         autonomous_scope=autonomous_scope.strip(),
+        parent_id=parent_id,
         updated_at=now,
     )
     session.add(project)
@@ -287,6 +527,7 @@ async def patch_project(
     autonomous_scope: str | None = None,
     token_budget_daily: int | None | object = ...,
     token_budget_hourly: int | None | object = ...,
+    parent_id: UUID | None | object = ...,
 ) -> dict[str, Any]:
     project, po_agent = await get_project_row(session, tenant_id, project_id)
     if name is not None:
@@ -295,6 +536,16 @@ async def patch_project(
         project.description = description
     if autonomous_scope is not None:
         project.autonomous_scope = autonomous_scope.strip()
+    if parent_id is not ...:
+        next_parent = parent_id if isinstance(parent_id, UUID) else None
+        await assert_folder_parent(
+            session, tenant_id, project_id=project.id, parent_id=next_parent
+        )
+        if await _slug_in_use(
+            session, tenant_id, project.slug, next_parent, exclude_id=project.id
+        ):
+            raise HTTPException(status_code=409, detail="Project slug already exists")
+        project.parent_id = next_parent
     if token_budget_daily is not ...:
         project.token_budget_daily = _positive_cap(token_budget_daily)
     if token_budget_hourly is not ...:
@@ -305,6 +556,98 @@ async def patch_project(
     await session.refresh(project)
     repo = await get_repo_resource(session, tenant_id, project_id)
     return serialize_project(project, po_agent, repo)
+
+
+async def _trash_project(
+    session: AsyncSession,
+    tenant: Any,
+    project: Project,
+    *,
+    user_id: UUID | None,
+    batch_id: UUID,
+    commit: bool,
+) -> None:
+    from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
+    from app.models.trigger import Trigger
+    from app.models.workspace import WorkspaceDoc
+    from app.services.trash import alive, move_to_bin
+
+    canvases = list(
+        (
+            await session.execute(
+                select(ProjectCanvas).where(
+                    ProjectCanvas.tenant_id == project.tenant_id,
+                    ProjectCanvas.owner_kind == OWNER_PROJECT,
+                    ProjectCanvas.owner_id == project.id,
+                    alive(ProjectCanvas),
+                )
+            )
+        ).scalars().all()
+    )
+    docs = list(
+        (
+            await session.execute(
+                select(WorkspaceDoc).where(
+                    WorkspaceDoc.tenant_id == project.tenant_id,
+                    WorkspaceDoc.project_id == project.id,
+                    alive(WorkspaceDoc),
+                )
+            )
+        ).scalars().all()
+    )
+    resources = list(
+        (
+            await session.execute(
+                select(ProjectResource).where(
+                    ProjectResource.tenant_id == project.tenant_id,
+                    ProjectResource.project_id == project.id,
+                    alive(ProjectResource),
+                )
+            )
+        ).scalars().all()
+    )
+    queue_items = list(
+        (
+            await session.execute(
+                select(AgentTask).where(
+                    AgentTask.tenant_id == project.tenant_id,
+                    AgentTask.project_id == project.id,
+                    AgentTask.kind.in_(QUEUE_ITEM_KINDS),
+                    alive(AgentTask),
+                )
+            )
+        ).scalars().all()
+    )
+    children: list[tuple[str, Any]] = []
+    children.extend(("canvas", canvas) for canvas in canvases)
+    children.extend(("knowledge", doc) for doc in docs)
+    children.extend(("project_resource", resource) for resource in resources)
+    children.extend(("queue_item", item) for item in queue_items)
+    for canvas in canvases:
+        if not canvas.refresh_trigger_id:
+            continue
+        trigger = (
+            await session.execute(
+                select(Trigger).where(
+                    Trigger.id == canvas.refresh_trigger_id,
+                    Trigger.tenant_id == project.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if trigger and getattr(trigger, "enabled", False):
+            trigger.trash_was_enabled = True
+            trigger.enabled = False
+            session.add(trigger)
+    await move_to_bin(
+        session,
+        tenant,
+        resource_type="project",
+        row=project,
+        user_id=user_id,
+        children=children,
+        commit=commit,
+        batch_id=batch_id,
+    )
 
 
 async def delete_project(
@@ -321,88 +664,40 @@ async def delete_project(
     if confirm_name.strip() != project.name:
         raise HTTPException(status_code=400, detail="Confirmation name does not match")
     if not permanent:
-        from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
-        from app.models.workspace import WorkspaceDoc
-        from app.services.trash import alive, load_tenant, move_to_bin
+        from uuid import uuid4
+
+        from app.services.trash import load_tenant
 
         tenant = await load_tenant(session, tenant_id)
-        canvases = list(
-            (
-                await session.execute(
-                    select(ProjectCanvas).where(
-                        ProjectCanvas.tenant_id == tenant_id,
-                        ProjectCanvas.owner_kind == OWNER_PROJECT,
-                        ProjectCanvas.owner_id == project_id,
-                        alive(ProjectCanvas),
-                    )
-                )
-            ).scalars().all()
+        alive_rows = await _alive_projects(session, tenant_id)
+        by_id = {row.id: row for row in alive_rows}
+        children_of = _children_of(alive_rows)
+        tree_ids = set(_subtree_ids(project.id, children_of))
+        ordered = sorted(
+            (row for row in alive_rows if row.id in tree_ids),
+            key=lambda row: _folder_depth(row, by_id),
+            reverse=True,
         )
-        docs = list(
-            (
-                await session.execute(
-                    select(WorkspaceDoc).where(
-                        WorkspaceDoc.tenant_id == tenant_id,
-                        WorkspaceDoc.project_id == project_id,
-                        alive(WorkspaceDoc),
-                    )
-                )
-            ).scalars().all()
-        )
-        resources = list(
-            (
-                await session.execute(
-                    select(ProjectResource).where(
-                        ProjectResource.tenant_id == tenant_id,
-                        ProjectResource.project_id == project_id,
-                        alive(ProjectResource),
-                    )
-                )
-            ).scalars().all()
-        )
-        queue_items = list(
-            (
-                await session.execute(
-                    select(AgentTask).where(
-                        AgentTask.tenant_id == tenant_id,
-                        AgentTask.project_id == project_id,
-                        AgentTask.kind.in_(QUEUE_ITEM_KINDS),
-                        alive(AgentTask),
-                    )
-                )
-            ).scalars().all()
-        )
-        children: list[tuple[str, Any]] = []
-        children.extend(("canvas", c) for c in canvases)
-        children.extend(("knowledge", d) for d in docs)
-        children.extend(("project_resource", r) for r in resources)
-        children.extend(("queue_item", q) for q in queue_items)
-        for canvas in canvases:
-            if canvas.refresh_trigger_id:
-                from app.models.trigger import Trigger
-
-                trig = (
-                    await session.execute(
-                        select(Trigger).where(
-                            Trigger.id == canvas.refresh_trigger_id,
-                            Trigger.tenant_id == tenant_id,
-                        )
-                    )
-                ).scalar_one_or_none()
-                if trig and getattr(trig, "enabled", False):
-                    trig.trash_was_enabled = True
-                    trig.enabled = False
-                    session.add(trig)
-        await move_to_bin(
-            session,
-            tenant,
-            resource_type="project",
-            row=project,
-            user_id=user_id,
-            children=children,
-            commit=commit,
-        )
+        batch_id = uuid4()
+        for row in ordered:
+            await _trash_project(
+                session,
+                tenant,
+                row,
+                user_id=user_id,
+                batch_id=batch_id,
+                commit=False,
+            )
+        if commit:
+            await session.commit()
         return {"deleted": True}
+    from sqlalchemy import update as sa_update
+
+    await session.execute(
+        sa_update(Project)
+        .where(Project.parent_id == project_id, Project.tenant_id == tenant_id)
+        .values(parent_id=None)
+    )
     # Detach (not delete) playbooks: they are reusable across projects.
     from sqlalchemy import delete as _sa_delete
 

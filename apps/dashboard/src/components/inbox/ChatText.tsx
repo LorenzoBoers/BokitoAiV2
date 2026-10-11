@@ -1,15 +1,6 @@
 import { memo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  BookOpen,
-  Bot,
-  FolderKanban,
-  MessageSquare,
-  Plug,
-  Settings,
-  User,
-  Workflow,
-} from 'lucide-react'
+import { BookOpen, Plug, Settings } from 'lucide-react'
 import {
   appLinkKind,
   parseChatText,
@@ -17,6 +8,8 @@ import {
   type ChatInline,
   type ChatTagMap,
 } from '../../lib/chatText'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { openEntityPath } from '../../lib/open-entity'
 import { HashtagMark } from '../ui/HashtagMark'
 import { WebPageLinkIcon } from '../ui/DomainFavicon'
 import { cn } from '../../lib/utils'
@@ -47,25 +40,40 @@ function LinkIcon({ href }: { href: string }) {
       return <Plug {...props} />
     case 'settings':
       return <Settings {...props} />
-    case 'project':
-      return <FolderKanban {...props} />
-    case 'flow':
-      return <Workflow {...props} />
-    case 'inbox':
-      return <MessageSquare {...props} />
-    case 'agent':
-      return <Bot {...props} />
-    case 'contact':
-      return <User {...props} />
+    case 'project': {
+      const Icon = ENTITY_ICONS.project
+      return <Icon {...props} />
+    }
+    case 'canvas': {
+      const Icon = ENTITY_ICONS.canvas
+      return <Icon {...props} />
+    }
+    case 'flow': {
+      const Icon = ENTITY_ICONS.flow
+      return <Icon {...props} />
+    }
+    case 'inbox': {
+      const Icon = ENTITY_ICONS.conversation
+      return <Icon {...props} />
+    }
+    case 'agent': {
+      const Icon = ENTITY_ICONS.agent
+      return <Icon {...props} />
+    }
+    case 'contact': {
+      const Icon = ENTITY_ICONS.contact
+      return <Icon {...props} />
+    }
     default:
       return null
   }
 }
 
+/** Where an @mention opens: an agent has a page, people and teams land on Team. */
 function mentionHref(kind: string, id?: string): string | null {
   if (!id) return null
-  if (kind === 'agent') return `/agents/${encodeURIComponent(id)}`
-  if (kind === 'user' || kind === 'team') return '/team'
+  if (kind === 'agent') return openEntityPath({ type: 'agent', id })
+  if (kind === 'user' || kind === 'team') return openEntityPath({ type: 'user', id })
   return null
 }
 
@@ -95,7 +103,7 @@ function MentionChip({ name, kind, id }: { name: string; kind: string; id?: stri
 function TagChip({ name, action }: { name: string; action: boolean }) {
   return (
     <Link
-      to={`/communication/tag/${encodeURIComponent(name)}`}
+      to={openEntityPath({ type: 'tag', name })}
       className="chat-tag-chip"
       data-tag-kind={action ? 'action_tag' : 'tag'}
     >

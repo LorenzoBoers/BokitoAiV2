@@ -26,9 +26,9 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Read workspace canvases
 
-Workspace canvases are snapshot dashboards (not live tiles). They sit on the **Canvas** tab next to Overview and Usage. The lead agent writes them; you add, delete and set refresh.
+Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-page tabs are **Overview**, **Usage**, then **Canvas** (layout-template icon). The lead agent writes them; you add, delete and set refresh.
 
-1. Open **Overview**, then the **Canvas** tab. Canvas names sit left to right; **Add canvas** is the tab after the last canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**). Daily is the default.
+1. Open **Overview**, then the **Canvas** tab (third tab). Canvas names sit left to right; **Add canvas** is the tab after the last canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**). Daily is the default.
 2. Save. The lead agent starts writing from your brief. Refresh is an [Agenda](/docs/ai/agenda) wake on that agent — not a separate scheduler.
 3. Edit content only through agents. Choose **Ask agent to update** for a one-off rewrite, or change Refresh so Agenda keeps waking the agent. Project canvases live on the project [Canvas](/docs/ai/projects) tab.
 

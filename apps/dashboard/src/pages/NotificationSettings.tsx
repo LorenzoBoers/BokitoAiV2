@@ -41,6 +41,7 @@ import {
 } from '../lib/web-push'
 import { cn } from '../lib/utils'
 import { Tip } from '../components/ui/Tip'
+import { useConfirm } from '../components/ui/confirm-dialog'
 
 const GRID = 'grid-cols-[minmax(0,1fr)_72px_72px_72px]'
 
@@ -147,6 +148,7 @@ function Cell({
 export default function NotificationSettings() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const confirm = useConfirm()
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs)
   const savedPrefs = useRef(prefs)
   const [loading, setLoading] = useState(true)
@@ -340,14 +342,22 @@ export default function NotificationSettings() {
         </div>
       </Card>
 
-      <Card className="overflow-hidden" data-testid="notification-tiers">
+      {loading ? <p className="text-sm text-text-muted">{t('notificationsPage.loading')}</p> : null}
+      {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
+
+      <Card className={`overflow-hidden ${loading ? 'pointer-events-none opacity-60' : ''}`} data-testid="notification-tiers">
         <div className={`grid ${GRID} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}>
           <span className="flex items-center gap-1.5">
             {t('notificationsPage.notifyMe')}
             <Tip label={t('notificationsPage.restoreDefaults')}>
               <button
                 type="button"
-                onClick={() => void apply(defaultNotificationPrefs())}
+                onClick={() => {
+                  void (async () => {
+                    if (!(await confirm({ description: t('notificationsPage.restoreConfirm') }))) return
+                    await apply(defaultNotificationPrefs())
+                  })()
+                }}
                 aria-label={t('notificationsPage.restoreDefaults')}
                 className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
               >
@@ -445,8 +455,6 @@ export default function NotificationSettings() {
         </div>
       </Card>
 
-      {loading ? <p className="text-sm text-text-muted">{t('notificationsPage.loading')}</p> : null}
-      {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
       <div className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
         <Bell size={13} className="text-text-muted" />
         {savedAt ? t('notificationsPage.saved') : t('notificationsPage.savedHint')}

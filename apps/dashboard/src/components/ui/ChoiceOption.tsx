@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
-import { FolderKanban, Workflow, type LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { BrandMark } from '../integrations/BrandMark'
 import { AiAvatar } from './AiAvatar'
@@ -91,7 +92,8 @@ export function ChoiceMark({ item, size = 18 }: { item: ChoiceItem; size?: numbe
   if (item.brandSlug || item.kind === 'calendar') {
     return <BrandMark slug={item.brandSlug || 'calendar'} size={size} />
   }
-  const icon = item.icon ?? (item.kind === 'flow' ? Workflow : item.kind === 'project' ? FolderKanban : null)
+  const icon =
+    item.icon ?? (item.kind === 'flow' ? ENTITY_ICONS.flow : item.kind === 'project' ? ENTITY_ICONS.project : null)
   if (icon) return <IconMark icon={icon} size={size} />
   return (
     <span

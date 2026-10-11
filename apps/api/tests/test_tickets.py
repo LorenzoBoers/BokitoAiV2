@@ -512,7 +512,7 @@ async def test_project_choices_by_workstream_batches(client: AsyncClient, sessio
         tenant.id,
         [UUID(a["workstream_id"]), UUID(b["workstream_id"])],
     )
-    assert by_ws[UUID(a["workstream_id"])] == [{"id": str(acme.id), "name": "Acme"}]
+    assert by_ws[UUID(a["workstream_id"])] == [{"id": str(acme.id), "name": "Acme", "depth": 0}]
     assert [p["name"] for p in by_ws[UUID(b["workstream_id"])]] == ["Acme", "Beta"]
 
 @pytest.mark.asyncio
@@ -535,7 +535,7 @@ async def test_category_list_carries_project_choices_and_counts(client: AsyncCli
     )
 
     row = (await client.get("/api/categories", headers=headers)).json()["items"][0]
-    assert row["project_choices"] == [{"id": str(acme.id), "name": "Acme"}]
+    assert row["project_choices"] == [{"id": str(acme.id), "name": "Acme", "depth": 0}]
     assert (row["open"], row["waiting"], row["proposed"]) == (2, 0, 1)
     assert row["filed_7d"] == 2
     assert row["filed_prev_7d"] == 0

@@ -60,6 +60,7 @@ export default function CategoriesSettings() {
     setSavingPolicy(true)
     try {
       setPolicy(await saveSignalPolicy(patch))
+      toast.success(t('categoriesPage.policySaved'))
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('categoriesPage.policyError')))
     } finally {

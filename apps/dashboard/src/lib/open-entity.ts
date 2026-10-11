@@ -2,7 +2,15 @@
  * One place that knows where each object opens. Feeds, badges, notifications,
  * decision cards and the command palette all link through `openEntityPath`.
  */
-import { activityTerminalPath, forYouPath, inboxPath, type InboxQueue } from './messages-paths'
+import {
+  activityTerminalPath,
+  channelPath,
+  forYouPath,
+  inboxPath,
+  teamPath,
+  type ChannelKey,
+  type InboxQueue,
+} from './messages-paths'
 
 type ThreadLike = { id: string | number; emailSubject?: string | null; lastMessageAt?: string | null }
 
@@ -18,13 +26,20 @@ export type EntityRef =
   | { type: 'trigger'; id?: string | null; agentId?: string | null }
   | { type: 'calendar' }
   | { type: 'project'; id: string }
+  | { type: 'canvas'; id: string; projectId?: string | null; path?: string | null }
   | { type: 'work_item'; id?: string | null; projectId?: string | null }
   | { type: 'contact'; id: string }
+  | { type: 'company'; id: string }
+  | { type: 'knowledge'; id?: string | null }
   | { type: 'tag'; name: string }
   | { type: 'flow'; id: string }
   | { type: 'file'; url?: string | null; signalId?: string | null; messageId?: string | null }
   | { type: 'trash_entry'; id?: string | null }
   | { type: 'user'; id?: string | null }
+  /** A team's folder in Communication; without an id the Team page. */
+  | { type: 'team'; id?: string | null }
+  /** A channel's folder in Communication (mailboxes need the numeric connection id). */
+  | { type: 'channel'; key: ChannelKey; connectionId?: string | number | null }
   | { type: 'integration'; id?: string | null; provider?: string | null }
   | { type: 'marketplace'; slug: string }
   | { type: 'module'; slug: string }
@@ -63,10 +78,18 @@ export function openEntityPath(ref: EntityRef): string | null {
       return '/agenda'
     case 'project':
       return `/projects/${enc(ref.id)}`
+    case 'canvas':
+      if (ref.path) return ref.path
+      if (ref.projectId) return `/projects/${enc(ref.projectId)}?tab=canvas`
+      return '/cockpit/canvas'
     case 'work_item':
       return ref.projectId ? `/projects/${enc(ref.projectId)}` : '/agenda'
     case 'contact':
       return `/contacts/${enc(ref.id)}`
+    case 'company':
+      return `/contacts/companies/${enc(ref.id)}`
+    case 'knowledge':
+      return ref.id ? `/knowledge/${enc(ref.id)}` : '/knowledge'
     case 'tag':
       return `/communication/tag/${enc(ref.name.replace(/^#/, ''))}`
     case 'flow':
@@ -79,6 +102,10 @@ export function openEntityPath(ref: EntityRef): string | null {
       return '/settings/bin'
     case 'user':
       return '/team'
+    case 'team':
+      return ref.id ? teamPath(ref.id) : '/team'
+    case 'channel':
+      return channelPath(ref.key, ref.connectionId != null ? { connectionId: ref.connectionId } : {})
     // `connect` opens the integration dialog on both hub pages.
     case 'integration':
       return ref.provider ? `/connections?connect=${enc(ref.provider)}` : '/connections'
@@ -132,6 +159,59 @@ function notificationPath(kind: string, payload: Record<string, unknown>): strin
     return stringField(payload, 'account_id') ? '/settings/channels' : activityTerminalPath()
   }
   if (kind === 'status_update') return internal ? activityTerminalPath() : inboxPath('all')
+  return null
+}
+
+/**
+ * Where a Bin row opens once it is restored. Bin types use the trash names
+ * (`conversation`, `playbook`); kinds without a page return null.
+ */
+export function restoredEntityPath(
+  resourceType: string,
+  resourceId: string,
+  hint: Record<string, unknown> = {},
+): string | null {
+  switch (resourceType) {
+    case 'conversation':
+    case 'signal':
+      return openEntityPath({ type: 'signal', id: resourceId })
+    case 'project':
+      return openEntityPath({ type: 'project', id: resourceId })
+    case 'canvas':
+      return openEntityPath({ type: 'canvas', id: resourceId, projectId: stringField(hint, 'project_id') })
+    case 'knowledge':
+      return openEntityPath({ type: 'knowledge', id: resourceId })
+    case 'contact':
+      return openEntityPath({ type: 'contact', id: resourceId })
+    case 'company':
+      return openEntityPath({ type: 'company', id: resourceId })
+    case 'playbook':
+    case 'workstream':
+      return openEntityPath({ type: 'flow', id: resourceId })
+    case 'trigger':
+      return openEntityPath({ type: 'trigger', id: resourceId })
+    case 'team':
+      return openEntityPath({ type: 'team', id: resourceId })
+    default:
+      return null
+  }
+}
+
+/**
+ * The Communication folder for a channel row (`/api/channels`). Mailboxes carry
+ * `hubConnectionId`; widget, WhatsApp and Slack have one folder per kind.
+ */
+export function channelFolderPath(row: {
+  channel: string
+  kind: string
+  hubConnectionId?: number | null
+}): string | null {
+  if (row.channel === 'email') {
+    return row.hubConnectionId ? openEntityPath({ type: 'channel', key: 'email', connectionId: row.hubConnectionId }) : null
+  }
+  if (row.channel === 'widget' || row.kind === 'widget') return openEntityPath({ type: 'channel', key: 'webchat' })
+  if (row.channel === 'whatsapp') return openEntityPath({ type: 'channel', key: 'whatsapp' })
+  if (row.channel === 'slack') return openEntityPath({ type: 'channel', key: 'slack' })
   return null
 }
 

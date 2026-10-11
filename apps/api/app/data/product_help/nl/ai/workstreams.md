@@ -38,7 +38,7 @@ Een flow is de pijplijn voor werk dat onder één actietag terugkomt: een klacht
 
 ## De flow op een project tonen
 
-1. Projecten kiezen hun flows; de flowpagina toont alleen waar hij gebruikt wordt. Open het [project](/docs/ai/projects) en kies **Flow toevoegen**.
+1. Projecten kiezen hun flows; de flowpagina toont alleen waar hij gebruikt wordt. Open het [project](/docs/ai/projects) en kies **Flow toevoegen**. Op **Flows** toont elke rij de projecten waarop hij gebruikt wordt als mapchips; een chip opent dat project, de rest van de rij opent de flow.
 2. **Ontkoppelen** op een projectbord haalt de flow van dat project af. De tickets houden hun project, maar staan niet meer op dat bord.
 3. Bij vastleggen van een ticket wordt gevraagd bij welk project van de flow het hoort, of **Geen project**.
 

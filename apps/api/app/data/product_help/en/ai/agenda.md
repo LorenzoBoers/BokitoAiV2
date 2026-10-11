@@ -9,7 +9,7 @@ related: agents,projects,workstreams,communication,agent-runs,integrations
 
 # How Agenda works
 
-Agenda shows what happened, what is due and what is planned, for people and agents alike. Your connected calendars sit in the same grid, so meetings and work never compete for attention.
+Agenda shows what happened, what is due and what is planned, for people and agents alike. Your connected calendars sit in the same grid, so meetings and work never compete for attention. The side list turns calendars, tasks and activity on and off, including each calendar inside a Google or Outlook account. **Sync** pulls the last 90 days and the next 180 days. Calendars that are off show as **Off**; turning one on starts its sync. **Today** jumps back to the current day, and the search field filters the period you are looking at.
 
 ## See what happens when
 

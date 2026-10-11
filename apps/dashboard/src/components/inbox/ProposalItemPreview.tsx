@@ -17,6 +17,7 @@ import {
   Workflow,
 } from 'lucide-react'
 import type { ProposalItem } from '../../lib/inbox-api'
+import { CANVAS_ICON } from '../../lib/entity-icons'
 import { openEntityPath, type EntityRef } from '../../lib/open-entity'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
@@ -38,6 +39,7 @@ const TYPE_ICON: Partial<Record<ProposalItem['type'], IconComponent>> = {
   tag: Hash,
   flow: Workflow,
   project: FolderKanban,
+  canvas: CANVAS_ICON,
   integration: Plug,
   marketplace: Store,
   module: Package,
@@ -67,6 +69,8 @@ function itemRef(item: ProposalItem): EntityRef | null {
       return { type: 'flow', id: item.id }
     case 'project':
       return { type: 'project', id: item.id }
+    case 'canvas':
+      return { type: 'canvas', id: item.id, path: item.path }
     case 'contact':
       return { type: 'contact', id: item.id }
     case 'integration':

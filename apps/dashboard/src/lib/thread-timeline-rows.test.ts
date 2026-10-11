@@ -124,4 +124,23 @@ describe('isSessionCheckoutEcho', () => {
       }),
     ).toBe(false)
   })
+
+  it('hides keep-open / close-thread button echoes', () => {
+    expect(
+      isSessionCheckoutEcho({
+        ...base,
+        bodyText: 'Keep open',
+        decisionResponse: true,
+        payload: { decision_response_option_id: 'keep_open' },
+      }),
+    ).toBe(true)
+    expect(
+      isSessionCheckoutEcho({
+        ...base,
+        bodyText: 'Close thread',
+        decisionResponse: true,
+        payload: { decision_response_option_id: 'close' },
+      }),
+    ).toBe(true)
+  })
 })

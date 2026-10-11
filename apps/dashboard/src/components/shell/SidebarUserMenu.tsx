@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme, type ThemeMode } from '../../context/ThemeContext'
+import { useMembers } from '../../hooks/useMembers'
 import { getTeamOverview, setMyAway, type PresenceStatus } from '../../lib/teams-api'
 import { UserAvatar } from '../ui/UserAvatar'
 import { PresenceDot } from '../ui/PresenceDot'
@@ -24,6 +25,7 @@ import WorkspaceIdHint from './WorkspaceIdHint'
 import { useGoToWorkspacesHub } from './SidebarWorkspaceSwitcher'
 
 const PRESENCE_OPTIONS: Array<'available' | 'away'> = ['available', 'away']
+type MenuPresence = 'available' | 'away' | 'offline'
 
 const THEME_MODES: { value: ThemeMode; icon: typeof Moon }[] = [
   { value: 'dark', icon: Moon },
@@ -49,20 +51,28 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
   const goToWorkspacesHub = useGoToWorkspacesHub()
   const name = user?.name?.trim() || 'Account'
   const email = user?.email ?? ''
-  const [presence, setPresence] = useState<'available' | 'away'>('available')
+  const [presence, setPresence] = useState<MenuPresence>('available')
   const [presenceBusy, setPresenceBusy] = useState(false)
+  const { members } = useMembers()
 
   const loadPresence = useCallback(async () => {
     if (!token || !email) return
+    if (members.some((person) => person.email === email && person.presence)) return
     try {
       const overview = await getTeamOverview(token)
       const me = overview.people.find((p) => p.email === email)
       const next = me?.presence.status
-      if (next === 'available' || next === 'away') setPresence(next)
+      if (next === 'available' || next === 'away' || next === 'offline') setPresence(next)
     } catch {
       // Keep last known value; menu still usable.
     }
-  }, [token, email])
+  }, [token, email, members])
+
+  useEffect(() => {
+    const me = members.find((person) => person.email === email)
+    const next = me?.presence
+    if (next === 'available' || next === 'away' || next === 'offline') setPresence(next)
+  }, [members, email])
 
   useEffect(() => {
     void loadPresence()

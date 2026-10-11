@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '../../lib/utils'
 
@@ -5,6 +6,8 @@ export interface RouteTab {
   to: string
   label: string
   end?: boolean
+  /** Optional leading mark (e.g. Canvas entity icon). */
+  icon?: LucideIcon
 }
 
 interface RouteTabsProps {
@@ -20,23 +23,27 @@ interface RouteTabsProps {
 export default function RouteTabs({ tabs, ariaLabel, className }: RouteTabsProps) {
   return (
     <nav className={cn('mb-6 flex items-end gap-1 border-b border-border/60 pb-0', className)} aria-label={ariaLabel}>
-      {tabs.map((tab) => (
-        <NavLink
-          key={tab.to}
-          to={tab.to}
-          end={tab.end ?? false}
-          className={({ isActive }) =>
-            cn(
-              '-mb-px inline-flex h-9 items-center border-b-2 px-2.5 text-sm font-medium transition-colors',
-              isActive
-                ? 'border-text-heading text-text-heading'
-                : 'border-transparent text-text-muted hover:text-text-heading',
-            )
-          }
-        >
-          {tab.label}
-        </NavLink>
-      ))}
+      {tabs.map((tab) => {
+        const Icon = tab.icon
+        return (
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            end={tab.end ?? false}
+            className={({ isActive }) =>
+              cn(
+                '-mb-px inline-flex h-9 items-center gap-1.5 border-b-2 px-2.5 text-sm font-medium transition-colors',
+                isActive
+                  ? 'border-text-heading text-text-heading'
+                  : 'border-transparent text-text-muted hover:text-text-heading',
+              )
+            }
+          >
+            {Icon ? <Icon size={14} className="shrink-0 opacity-80" aria-hidden /> : null}
+            {tab.label}
+          </NavLink>
+        )
+      })}
     </nav>
   )
 }

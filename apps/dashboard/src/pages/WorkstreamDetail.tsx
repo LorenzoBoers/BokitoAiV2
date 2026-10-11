@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ArrowLeft, CalendarClock, Check, FolderKanban, Loader2, MessageSquare, Pencil, Trash2 } from 'lucide-react'
+import { toastMovedToBin } from '../lib/bin-toast'
+import { ArrowLeft, Check, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -41,6 +43,10 @@ import {
   patchWorkstream,
   type WorkstreamDetail as WorkstreamDetailPayload,
 } from '../lib/workstreams-api'
+
+const CalendarClock = ENTITY_ICONS.agenda
+const FolderKanban = ENTITY_ICONS.project
+const MessageSquare = ENTITY_ICONS.conversation
 
 const KIND_ORDER: TicketStageKind[] = ['open', 'waiting', 'done', 'closed']
 
@@ -228,7 +234,7 @@ export default function WorkstreamDetail() {
     setDeleting(true)
     try {
       await deleteWorkstream(workstream.id)
-      toast.success(t('workstreamsPage.deleted'))
+      toastMovedToBin(t('workstreamsPage.deleted'), navigate)
       navigate('/workstreams')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('workstreamsPage.deleteError')))

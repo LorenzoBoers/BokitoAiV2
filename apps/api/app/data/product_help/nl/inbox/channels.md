@@ -9,7 +9,7 @@ related: communication,inbox-ai,widget,integrations
 
 # Kanalen koppelen
 
-Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de pagina te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**. Websitechat voegt **Uiterlijk**, **Stem en beschikbaarheid** en **Installatie** toe op die pagina. Een nieuwe workspace start zonder kanalen; voeg e-mail of websitechat toe via **Kanaal toevoegen** wanneer je ze nodig hebt.
+Kanalen zijn hoe klanten de workspace bereiken. Open **Instellingen** en daarna **Kanalen**. Elk kanaal — mailbox, Bokito-adres, websitechat, WhatsApp, Slack — is één rij met de naam, hoe de AI het afhandelt, en één status. Klik op een rij om de pagina te openen: voor elk kanaal dezelfde secties **Status**, **Algemeen** en **Beheer**. Websitechat voegt **Uiterlijk**, **Stem en beschikbaarheid** en **Installatie** toe op die pagina. Een nieuwe workspace start zonder kanalen; voeg e-mail of websitechat toe via **Kanaal toevoegen** wanneer je ze nodig hebt. Bij meer dan drie rijen zoek je op naam of adres en gebruik je **Alleen aandacht nodig**. Pauzeren of weer aanzetten bevestigt met een korte melding. Een mislukte lading biedt **Opnieuw proberen**.
 
 ## Voeg een kanaal toe
 
@@ -85,6 +85,7 @@ Setupgids, Koppelingen, Kanalen en de reply-composer gebruiken dezelfde kanaalst
 3. Klik op de rij en lees **Status**. Elke controle is één regel, bijvoorbeeld **Aanmelding**, **Gesynchroniseerde mappen**, **Laatste sync** en **Syncfouten** bij een mailbox, of **Inkomende mail**, **Uitgaande mail** en **Mail ontvangen** bij een Bokito-adres.
 4. Bij een mailbox staat **Geschiedenis** in de sectie **Mailbox**. De eerste import stopt bij het gekozen venster, maximaal een jaar, of 1.000 berichten per map. Nieuwe mail daarna loopt apart door.
 5. Een mailbox die 50 keer achter elkaar niet kan synchroniseren zet zichzelf uit in plaats van eindeloos opnieuw te proberen. De rij toont **Uit**, **Syncfouten** toont de reden en er komt een melding in Communicatie. Herstel de aanmelding of server en kies **Aanzetten**; een geslaagde sync zet de teller op nul.
+6. Wil je de gesprekken zelf zien, gebruik dan het tekstballon-icoon aan het eind van de rij, of de link **N gesprekken in Communicatie** onder de kanaalnaam op de kanaalpagina. Beide openen de map van dit kanaal in Communicatie (mailbox, websitechat, WhatsApp of Slack); gearchiveerde kanalen hebben geen maplink.
 
 ## Zet een kanaal uit of koppel het los
 

@@ -1,11 +1,63 @@
 import { describe, expect, it } from 'vitest'
 import {
   activityEntryPath,
+  channelFolderPath,
   notificationSignalId,
   openEntityPath,
   pickClosestThreadBySubject,
+  restoredEntityPath,
   runThreadPath,
 } from './open-entity'
+
+describe('restoredEntityPath', () => {
+  it('maps Bin types to the live page of the restored object', () => {
+    expect(restoredEntityPath('conversation', 'sig-1')).toBe('/communication/inbox/all/t/sig-1')
+    expect(restoredEntityPath('project', 'p1')).toBe('/projects/p1')
+    expect(restoredEntityPath('knowledge', 'd1')).toBe('/knowledge/d1')
+    expect(restoredEntityPath('contact', 'c1')).toBe('/contacts/c1')
+    expect(restoredEntityPath('company', 'o1')).toBe('/contacts/companies/o1')
+    expect(restoredEntityPath('playbook', 'w1')).toBe('/workstreams/w1')
+    expect(restoredEntityPath('trigger', 't1')).toBe('/agenda?trigger=t1')
+  })
+
+  it('opens a project canvas on its folder via the restore hint', () => {
+    expect(restoredEntityPath('canvas', 'cv1', { project_id: 'p9' })).toBe('/projects/p9?tab=canvas')
+    expect(restoredEntityPath('canvas', 'cv1')).toBe('/cockpit/canvas')
+  })
+
+  it('returns null for kinds without a page', () => {
+    expect(restoredEntityPath('inbox_rule', 'r1')).toBeNull()
+    expect(restoredEntityPath('saved_reply', 's1')).toBeNull()
+  })
+
+  it('opens a restored team on its Communication folder', () => {
+    expect(restoredEntityPath('team', 'team-1')).toBe('/communication/team/team-1')
+  })
+})
+
+describe('Communication folders', () => {
+  it('opens a team folder, or the Team page without an id', () => {
+    expect(openEntityPath({ type: 'team', id: 't1' })).toBe('/communication/team/t1')
+    expect(openEntityPath({ type: 'team' })).toBe('/team')
+  })
+
+  it('opens channel folders by kind, mailboxes by connection id', () => {
+    expect(openEntityPath({ type: 'channel', key: 'email', connectionId: 12 })).toBe(
+      '/communication/channel/email/12',
+    )
+    expect(openEntityPath({ type: 'channel', key: 'webchat' })).toBe('/communication/channel/webchat')
+  })
+
+  it('maps a channel row onto its folder; mailboxes need the hub id', () => {
+    expect(channelFolderPath({ channel: 'email', kind: 'email_mailbox', hubConnectionId: 7 })).toBe(
+      '/communication/channel/email/7',
+    )
+    expect(channelFolderPath({ channel: 'email', kind: 'email_relay', hubConnectionId: null })).toBeNull()
+    expect(channelFolderPath({ channel: 'widget', kind: 'widget' })).toBe('/communication/channel/webchat')
+    expect(channelFolderPath({ channel: 'whatsapp', kind: 'whatsapp' })).toBe('/communication/channel/whatsapp')
+    expect(channelFolderPath({ channel: 'sms', kind: 'sms' })).toBeNull()
+  })
+})
 
 describe('openEntityPath', () => {
   it('opens runs on the agent page, or Activity without an agent', () => {

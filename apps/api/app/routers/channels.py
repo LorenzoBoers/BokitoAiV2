@@ -493,6 +493,8 @@ class ChannelRow(BaseModel):
     archived_at: str | None = None
     # Conversations on this channel; filled on the single-channel endpoints.
     conversation_count: int | None = None
+    # Mailboxes: numeric id of the Communication folder (`/communication/channel/email/{id}`).
+    hub_connection_id: int | None = None
 
 
 class ChannelListResponse(BaseModel):

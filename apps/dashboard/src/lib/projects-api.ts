@@ -29,6 +29,21 @@ export interface ProjectRow {
   agents?: ProjectAgentChip[]
   token_budget_daily?: number | null
   token_budget_hourly?: number | null
+  parent_id?: string | null
+  child_count?: number
+  ancestors?: { id: string; name: string }[]
+  children?: ProjectChild[]
+  open_count?: number
+  closed_count?: number
+}
+
+export interface ProjectChild {
+  id: string
+  name: string
+  slug: string
+  child_count: number
+  open_count: number
+  closed_count: number
 }
 
 export interface ProjectAgentChip {
@@ -65,6 +80,7 @@ export async function createProject(input: {
   slug: string
   autonomous_scope: string
   description?: string
+  parent_id?: string | null
 }): Promise<ProjectRow> {
   return workforcePost<ProjectRow>(projectsRoutes.list, input)
 }
@@ -76,7 +92,7 @@ export async function patchProject(
       ProjectRow,
       'autonomous_scope' | 'name' | 'description' | 'token_budget_daily' | 'token_budget_hourly'
     >
-  >,
+  > & { parent_id?: string | null },
 ): Promise<ProjectRow> {
   return workforcePatch<ProjectRow>(projectsRoutes.byId(projectId), patch)
 }

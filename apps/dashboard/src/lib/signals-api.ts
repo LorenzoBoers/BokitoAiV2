@@ -419,11 +419,13 @@ export async function patchSignalThread(
 export async function bulkUpdateSignalThreads(
   token: string,
   signalIds: string[],
-  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'trash',
+  action: 'close' | 'reopen' | 'spam' | 'read' | 'unread' | 'assign' | 'trash' | 'file',
   assigneeId?: number,
+  projectId?: string,
 ): Promise<number> {
   const body: Record<string, unknown> = { signal_ids: signalIds, action }
   if (assigneeId !== undefined) body.assignee_id = assigneeId
+  if (projectId) body.project_id = projectId
   const payload = await apiPost<{ updated?: number }>(appRoutes.signals.bulk, body, token)
   return typeof payload.updated === 'number' ? payload.updated : 0
 }
@@ -950,7 +952,37 @@ export function listFilterQuery(filter: ListFilter): string {
   return query ? `?${query}` : ''
 }
 
-export type NavRow = { id: string; name: string; count: number }
+export type NavRow = {
+  id: string
+  name: string
+  count: number
+  parentId?: string | null
+  children?: NavRow[]
+}
+
+/** The folder row with this id anywhere in the tree, with its ancestors first. */
+export function findNavRowPath(rows: NavRow[], id: string): NavRow[] | null {
+  for (const row of rows) {
+    if (row.id === id) return [row]
+    const below = row.children?.length ? findNavRowPath(row.children, id) : null
+    if (below) return [row, ...below]
+  }
+  return null
+}
+
+/** Every folder in the tree by id, with its ancestor chain as `path`. */
+export function navRowIndex(rows: NavRow[]): Map<string, { name: string; path: string }> {
+  const out = new Map<string, { name: string; path: string }>()
+  const walk = (list: NavRow[], prefix: string[]) => {
+    for (const row of list) {
+      const chain = [...prefix, row.name]
+      out.set(row.id, { name: row.name, path: chain.join(' / ') })
+      if (row.children?.length) walk(row.children, chain)
+    }
+  }
+  walk(rows, [])
+  return out
+}
 
 /** Communication rail beyond channels, with open counts. */
 export type CommunicationNav = {
@@ -967,7 +999,15 @@ function normalizeNavRows(raw: unknown): NavRow[] {
     if (!item || typeof item !== 'object') return []
     const row = item as Record<string, unknown>
     if (typeof row.id !== 'string' || typeof row.name !== 'string') return []
-    return [{ id: row.id, name: row.name, count: typeof row.count === 'number' ? row.count : 0 }]
+    return [
+      {
+        id: row.id,
+        name: row.name,
+        count: typeof row.count === 'number' ? row.count : 0,
+        parentId: typeof row.parent_id === 'string' ? row.parent_id : null,
+        children: normalizeNavRows(row.children),
+      },
+    ]
   })
 }
 

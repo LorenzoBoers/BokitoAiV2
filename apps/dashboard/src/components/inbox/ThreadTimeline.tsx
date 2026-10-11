@@ -133,7 +133,19 @@ export function eventsShareCluster(
 
 const SESSION_CHECKOUT_OPTION_IDS = new Set(['end_only', 'continue', 'apply_actions'])
 
-/** Button-echo from a session wrap-up card — the resolved card already covers it. */
+/** Silent action-suggestion / checkout buttons — resolved card already covers them. */
+const SILENT_DECISION_OPTION_IDS = new Set([
+  ...SESSION_CHECKOUT_OPTION_IDS,
+  'keep_open',
+  'close',
+  'close_thread',
+  'look_at',
+  'create_task',
+  'later',
+  'reject',
+])
+
+/** Button-echo from a silent decision — the resolved card already covers it. */
 export function isSessionCheckoutEcho(message: InboxMessage): boolean {
   if (!message.decisionResponse) return false
   const payload = message.payload ?? {}
@@ -144,7 +156,7 @@ export function isSessionCheckoutEcho(message: InboxMessage): boolean {
   if (Array.isArray(many)) {
     for (const id of many) if (typeof id === 'string' && id) ids.push(id)
   }
-  if (ids.some((id) => SESSION_CHECKOUT_OPTION_IDS.has(id))) return true
+  if (ids.some((id) => SILENT_DECISION_OPTION_IDS.has(id))) return true
   // Older payloads omitted option_id; match the known button labels.
   const body = (message.bodyText || '').trim().toLowerCase()
   return (
@@ -153,7 +165,14 @@ export function isSessionCheckoutEcho(message: InboxMessage): boolean {
     body === 'apply and end' ||
     body === 'sessie afronden' ||
     body === 'doorgaan' ||
-    body === 'toepassen en afronden'
+    body === 'toepassen en afronden' ||
+    body === 'keep open' ||
+    body === 'close thread' ||
+    body === 'plan task' ||
+    body === 'later' ||
+    body === 'open houden' ||
+    body === 'gesprek sluiten' ||
+    body === 'taak plannen'
   )
 }
 
@@ -175,8 +194,8 @@ export function buildTimelineRows(
   const entries: TimelineEntry[] = [
     ...detail.messages
       .filter((m) => !(m.attachedToMessageId && inlineHosts.has(m.attachedToMessageId)))
-      // Session-checkout buttons used to echo as "End session" / "Keep going"
-      // chat bubbles; the resolved card already says Afgehandeld.
+      // Silent decision buttons (Keep open, Close thread, End session, …)
+      // used to echo as chat/mail bubbles; the resolved card already covers them.
       .filter((m) => !isSessionCheckoutEcho(m))
       .map((m) => ({
       kind: 'message' as const,

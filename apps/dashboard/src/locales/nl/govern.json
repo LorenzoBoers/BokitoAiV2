@@ -148,6 +148,8 @@
     "learningIntro": "Recente automatische aanscherpingen (toestaan naar eerst vragen). Losser maken blijft hier een handmatige edit."
   },
   "scopes": {
+    "openTag": "De gesprekken met deze actietag openen",
+    "openFlow": "De flow openen",
     "title": "Autonomie per actietag en flow",
     "intro": "Bedrijfsstandaard volgt de AI-afhandeling van het gesprek. Een gekozen modus is een plafond.",
     "types": "Actietags",

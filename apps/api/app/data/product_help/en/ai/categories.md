@@ -21,7 +21,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 1. Open **Settings**, then **# Tags**. The page shows one **Tags** list (action tags first, with an accent `#`), then **What we missed** and who may confirm tickets.
 2. Choose **New tag** to add a free tag, then **Create flow** on that row. That creates or links a flow titled `#name`. The tag becomes an action tag in the same list.
 3. On an action tag, choose **Open flow** to configure stages, filing and projects on the flow page. A new flow starts with Open, Waiting and Done.
-4. Use the pin on any tag for a row in the Communication sidebar. Use the AI switch to allow or block triage from auto-tagging with that tag.
+4. Use the pin on any tag for a row in the Communication sidebar. Use the AI switch to allow or block triage from auto-tagging with that tag. The conversation count on a row opens those conversations in Communication.
 
 ## File a ticket on a conversation
 
@@ -43,7 +43,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 
 ## Move a ticket through its stages
 
-1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or project board, drag the card to another column instead; see [Projects](/docs/ai/projects).
+1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or project board, drag the card to another column instead; see [Projects](/docs/ai/projects). On a board card, the contact name is a link to that contact when the conversation is linked to one.
 2. If the target stage has required fields that are still empty, a dialog asks for them. The ticket stays on its current stage until those values are filled. The same dialog appears when you drag a card. Closing the conversation moves its ticket to the done stage. If that stage still needs required fields, the ticket stays where it is and the conversation still closes.
 3. Every move shows in the timeline, for example **Ticket moved to Waiting**. The ticket's status always follows the kind of its stage: open, waiting or done.
 4. Under the project, every custom field of the flow has its own row. Click a value to edit it; it saves when you press Enter, leave the field, or pick an option. A `*` marks a required field and turns orange while it is empty.

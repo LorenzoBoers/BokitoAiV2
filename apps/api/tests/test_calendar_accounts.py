@@ -94,6 +94,19 @@ def test_expiry_accepts_iso_and_epoch():
 def test_new_calendars_start_enabled_only_when_primary():
     merged = calendar_sync._merge_calendars([], CALENDARS)
     assert [c["enabled"] for c in merged] == [True, False, False]
+
+
+def test_selected_provider_calendars_start_enabled():
+    remote = [
+        {**CALENDARS[1], "selected": True},
+        CALENDARS[0],
+        {**CALENDARS[2], "selected": False},
+    ]
+    merged = calendar_sync._merge_calendars([], remote)
+    by_id = {c["id"]: c["enabled"] for c in merged}
+    assert by_id["team@group.calendar"] is True
+    assert by_id["me@example.com"] is True
+    assert by_id["holidays"] is False
     kept = calendar_sync._merge_calendars(
         [{**CALENDARS[1], "enabled": True}, {**CALENDARS[0], "enabled": False}], CALENDARS
     )

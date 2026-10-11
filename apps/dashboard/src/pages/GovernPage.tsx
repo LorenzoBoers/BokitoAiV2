@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, ExternalLink, Copy } from 'lucide-react'
+import { openEntityPath } from '../lib/open-entity'
 import { toast } from 'sonner'
 import { inboxPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
@@ -685,9 +686,18 @@ export default function GovernPage() {
                           key={row.id}
                           className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <span className="text-sm font-medium text-text-heading">
+                          <Link
+                            to={
+                              kind === 'category'
+                                ? openEntityPath({ type: 'tag', name: row.name })
+                                : openEntityPath({ type: 'flow', id: row.id })
+                            }
+                            className="text-sm font-medium text-text-heading hover:text-accent hover:underline"
+                            title={kind === 'category' ? t('scopes.openTag') : t('scopes.openFlow')}
+                            data-testid="govern-scope-link"
+                          >
                             {kind === 'category' ? `#${row.name}` : row.name}
-                          </span>
+                          </Link>
                           <div className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5" role="radiogroup">
                             {SCOPE_LEVELS.map((level) => (
                               <button
@@ -944,7 +954,9 @@ export default function GovernPage() {
                   filteredPassports.map((row) => (
                     <div key={row.id} className="rounded-lg border border-border p-3">
                       <p className="text-sm font-medium text-text-heading">
-                        {row.name}{' '}
+                        <Link to={openEntityPath({ type: 'agent', id: row.id })} className="hover:text-accent hover:underline">
+                          {row.name}
+                        </Link>{' '}
                         <span className="text-text-muted font-normal">({agentRoleLabel(row.role, tNav)})</span>
                       </p>
                       <p className="text-xs text-text-muted mt-1">
@@ -965,7 +977,7 @@ export default function GovernPage() {
                         })}
                       </p>
                       <Link
-                        to={`/agents/${row.id}`}
+                        to={openEntityPath({ type: 'agent', id: row.id })}
                         className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
                       >
                         {t('passports.openAgent')}
