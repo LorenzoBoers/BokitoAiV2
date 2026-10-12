@@ -33,12 +33,13 @@ async def test_create_and_get_project(client: AsyncClient):
     )
     assert created.status_code == 200
     body = created.json()
-    assert body["slug"] == "test-project"
+    assert body["slug"] == "test_project"
+    assert body["name"] == "test_project"
     assert body["autonomous_scope"].startswith("Build")
 
     fetched = await client.get(f"{API}/{body['id']}", headers=headers)
     assert fetched.status_code == 200
-    assert fetched.json()["name"] == "Test Project"
+    assert fetched.json()["name"] == "test_project"
 
 
 @pytest.mark.asyncio

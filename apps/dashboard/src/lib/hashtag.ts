@@ -3,14 +3,14 @@ export function stripHash(value: string): string {
   return value.replace(/^\s*#+/, '')
 }
 
-/** Same shape the API stores: no `#`, lowercase, words joined by `-`. */
+/** Same shape the API stores: no `#`, lowercase, words joined by `_`. */
 export function normalizeHashtag(value: string): string {
   return stripHash(value)
     .trim()
     .toLowerCase()
-    .replace(/_/g, '-')
-    .replace(/[^\p{L}\p{N}-]+/gu, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
+    .replace(/-/g, '_')
+    .replace(/[^\p{L}\p{N}_]+/gu, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
     .slice(0, 40)
 }

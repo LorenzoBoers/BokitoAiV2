@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -90,6 +91,8 @@ def serialize_chat_message(
         out["items"] = meta["items"]
     if meta.get("turn_id"):
         out["turn_id"] = meta["turn_id"]
+    if meta.get("in_progress"):
+        out["in_progress"] = True
     return out
 
 
@@ -289,17 +292,33 @@ async def context_thread_transcript(
     return f"{header}\n---\n{transcript}"
 
 
-async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[dict[str, Any]]:
-    """Thread history in LLM message format, with old turns compacted to a summary."""
-    result = await session.execute(
-        select(SignalMessage)
-        .where(SignalMessage.signal_id == signal_id)
-        .order_by(SignalMessage.created_at)
-    )
+async def signal_chat_history(
+    session: AsyncSession,
+    signal_id: UUID,
+    *,
+    compact: bool = True,
+) -> list[dict[str, Any]]:
+    """Thread history in LLM message format, with old turns compacted to a summary.
+
+    ``compact=False`` skips the LLM summarize step (operator chat drive). A hung
+    compaction used to block the first token on long threads.
+    """
     from app.services.signals import message_plain_text
 
+    stmt = (
+        select(SignalMessage)
+        .where(SignalMessage.signal_id == signal_id)
+        .order_by(SignalMessage.created_at.desc() if not compact else SignalMessage.created_at)
+    )
+    if not compact:
+        stmt = stmt.limit(KEEP_RECENT)
+    result = await session.execute(stmt)
+    rows = list(result.scalars().all())
+    if not compact:
+        rows.reverse()
+
     history: list[dict[str, Any]] = []
-    for m in result.scalars().all():
+    for m in rows:
         if m.kind in ("system_event", "internal_note"):
             continue
         role = m.role if m.role in ("user", "assistant") else "user"
@@ -331,11 +350,20 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
     if signal is None:
         return history
 
-    remaining = history[signal.compacted_count :]
-    if len(remaining) > COMPACT_THRESHOLD:
+    remaining = history if not compact else history[signal.compacted_count :]
+    if compact and len(remaining) > COMPACT_THRESHOLD:
         try:
-            await _compact_signal_history(session, signal, remaining)
+            await asyncio.wait_for(
+                _compact_signal_history(session, signal, remaining),
+                timeout=8,
+            )
             remaining = history[signal.compacted_count :]
+        except TimeoutError:
+            logger.warning(
+                "chat history compaction timed out for signal %s; trimming instead",
+                signal_id,
+            )
+            remaining = remaining[-KEEP_RECENT:]
         except Exception:
             # Compaction uses the chat LLM; billing/provider outages must not
             # 500 the whole conversation. Fall back to a hard trim.
@@ -368,8 +396,6 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
                 "messages here stay internal.\n"
             )
             if signal.session_state == "active":
-                # The session ends through a decision card, never by the agent
-                # declaring itself done in prose.
                 intro += (
                     "This is an inline session on that conversation. The "
                     "transcript above is already in front of you: do not "
@@ -380,9 +406,8 @@ async def signal_chat_history(session: AsyncSession, signal_id: UUID) -> list[di
                     "draft it with suggest_thread_reply right away instead of "
                     "asking whether you should. When the work is done, call "
                     "propose_session_checkout with a short summary of what you "
-                    "did and what you recommend; the teammate ends the session "
-                    "or tells you to keep going. Do not ask them to close it in "
-                    "plain text.\n"
+                    "did and what you recommend — that closes the session. Do "
+                    "not ask the teammate to close it.\n"
                 )
             remaining = [
                 {"role": "user", "content": intro + transcript},

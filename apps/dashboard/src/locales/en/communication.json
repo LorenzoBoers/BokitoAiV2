@@ -1130,7 +1130,8 @@
     "openChannels": "Open Channels",
     "noReplyTips": "{{count}} “No reply needed” tips wait in decisions",
     "reviewTips": "Review",
-    "dismissTips": "Dismiss all"
+    "dismissTips": "Dismiss all",
+    "hideTips": "Hide"
   },
   "bulkActions": {
     "selected": "{{count}} selected",
@@ -1529,6 +1530,7 @@
     "deletedOn": "deleted {{date}}",
     "more": "More options",
     "preparing": "Preparing proposal...",
+    "choices": "Choices",
     "confirm": "Confirm",
     "confirmed": "Confirmed",
     "status": {

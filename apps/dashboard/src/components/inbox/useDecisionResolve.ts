@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { learnFromDecision, type LearnChoice } from '../../lib/agent-rules-api'
 import type { DecisionOption } from '../../lib/decision-options'
 import { isModuleSetupAction, setupIntegrationHref } from '../../lib/integration-setup-url'
+import { displayDecisionOptionLabel } from './ProposalChoiceRest'
 import {
   resolveThreadDecision,
   updateInboxRule,
@@ -18,6 +19,11 @@ import { bulkUpdateSignalThreads, resolveDecisionBundle, type BundleResolveRow }
 
 export type DecisionAction = 'approve' | 'defer' | 'reject'
 
+export type DecisionResolvedInfo = {
+  closed?: boolean
+  answer?: { text: string; decisionId: string }
+}
+
 export type ResolveOptions = {
   optionId?: string
   optionIds?: string[]
@@ -27,6 +33,8 @@ export type ResolveOptions = {
   sendAs?: ReplySendAs
   successLabel?: string
   closed?: boolean
+  /** Label(s) that land in the operator answer bubble. */
+  answerText?: string
 }
 
 /** What the operator just chose, before the thread reloads with the server state. */
@@ -43,7 +51,9 @@ type Args = {
   cardMessageId: ThreadId | null
   decisionId: string | null
   resolved: boolean
-  onResolved?: (info?: { closed?: boolean }) => void
+  onResolved?: (info?: DecisionResolvedInfo) => void
+  /** Immediate operator bubble, before the thread refresh lands. */
+  onAnswer?: (answer: { text: string; decisionId: string } | null) => void
 }
 
 /** Strip the "Review: " / "Approve: " prefix the server puts on action titles. */
@@ -58,7 +68,14 @@ export function actionTitle(title: string): string {
  * Resolve a DecisionRequest from any surface: the standalone card and the
  * inline proposal under an agent bubble route options the same way.
  */
-export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolved, onResolved }: Args) {
+export function useDecisionResolve({
+  threadId,
+  cardMessageId,
+  decisionId,
+  resolved,
+  onResolved,
+  onAnswer,
+}: Args) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
   const navigate = useNavigate()
@@ -77,6 +94,16 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
     if (!token || done || cardMessageId == null) return
     setBusy(true)
     setError(null)
+    const local: LocalOutcome = {
+      status: action === 'approve' ? 'approved' : action === 'defer' ? 'deferred' : 'rejected',
+      optionId: opts.optionId,
+      optionIds: opts.optionIds,
+      at: new Date().toISOString(),
+    }
+    setOutcome(local)
+    if (opts.answerText && decisionId) {
+      onAnswer?.({ text: opts.answerText, decisionId })
+    }
     try {
       const result = await resolveThreadDecision(token, threadId, cardMessageId, action, {
         optionId: opts.optionId,
@@ -85,12 +112,6 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
         messages: opts.messages,
         responseText: opts.responseText,
         sendAs: opts.sendAs,
-      })
-      setOutcome({
-        status: action === 'approve' ? 'approved' : action === 'defer' ? 'deferred' : 'rejected',
-        optionId: opts.optionId,
-        optionIds: opts.optionIds,
-        at: new Date().toISOString(),
       })
       const toastLabel =
         opts.successLabel ??
@@ -123,6 +144,8 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
       const closed = opts.closed || opts.optionId === 'close' || opts.optionId === 'close_thread'
       onResolved?.(closed ? { closed: true } : undefined)
     } catch (err) {
+      setOutcome(null)
+      if (decisionId) onAnswer?.(null)
       setError(err instanceof Error ? err.message : t('decisionCard.resolveError'))
     } finally {
       setBusy(false)
@@ -137,6 +160,7 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
     option: DecisionOption,
     handlers: { onEdit?: (option: DecisionOption) => void; onSend?: (option: DecisionOption) => Promise<void> } = {},
   ) {
+    const answerText = displayDecisionOptionLabel(option, t)
     if (option.input_type === 'text') {
       setTextOptionId((current) => (current === option.id ? null : option.id))
       return
@@ -144,20 +168,33 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
     if (isModuleSetupAction(option.action_type)) {
       const provider = typeof option.payload?.provider === 'string' ? option.payload.provider.trim() : ''
       const moduleSlug = typeof option.payload?.module === 'string' ? option.payload.module.trim() : ''
-      await resolve('approve', { optionId: option.id })
+      await resolve('approve', { optionId: option.id, answerText })
       navigate(setupIntegrationHref({ module: moduleSlug, provider }))
       return
     }
     if (option.action_type === 'close_thread') {
-      await resolve('approve', { optionId: option.id, successLabel: t('decisionCard.toastClosed'), closed: true })
+      await resolve('approve', {
+        optionId: option.id,
+        successLabel: t('decisionCard.toastClosed'),
+        closed: true,
+        answerText,
+      })
       return
     }
     if (option.action_type === 'create_task' || option.action_type === 'look_at') {
-      await resolve('approve', { optionId: option.id, successLabel: t('decisionCard.toastTaskCreated') })
+      await resolve('approve', {
+        optionId: option.id,
+        successLabel: t('decisionCard.toastTaskCreated'),
+        answerText,
+      })
       return
     }
     if (option.action_type === 'create_queue_item') {
-      await resolve('approve', { optionId: option.id, successLabel: t('decisionCard.toastQueueAdded') })
+      await resolve('approve', {
+        optionId: option.id,
+        successLabel: t('decisionCard.toastQueueAdded'),
+        answerText,
+      })
       return
     }
     if ((option.id === 'edit' || option.action_type === 'draft') && handlers.onEdit) {
@@ -172,18 +209,26 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
       return
     }
     if (option.id === 'escalate' || option.action_type === 'escalate') {
-      await resolve('reject', { optionId: option.id, successLabel: t('decisionCard.toastEscalated') })
+      await resolve('reject', {
+        optionId: option.id,
+        successLabel: t('decisionCard.toastEscalated'),
+        answerText,
+      })
       return
     }
     if (option.id === 'reject' || option.action_type === 'reject') {
-      await resolve('reject', { optionId: option.id, successLabel: t('decisionCard.toastRejected') })
+      await resolve('reject', {
+        optionId: option.id,
+        successLabel: t('decisionCard.toastRejected'),
+        answerText,
+      })
       return
     }
     if (option.id === 'later' || option.action_type === 'defer') {
-      await resolve('defer', { optionId: option.id })
+      await resolve('defer', { optionId: option.id, answerText })
       return
     }
-    await resolve('approve', { optionId: option.id })
+    await resolve('approve', { optionId: option.id, answerText })
   }
 
   async function submitText() {
@@ -192,6 +237,7 @@ export function useDecisionResolve({ threadId, cardMessageId, decisionId, resolv
       optionId: textOptionId,
       successLabel: t('decisionCard.toastAnswerSubmitted'),
       responseText,
+      answerText: responseText.trim(),
     })
   }
 

@@ -30,11 +30,13 @@ _SEPARATOR_RE = re.compile(r"[^\w]+", re.UNICODE)
 
 
 def normalize_tag(raw: str) -> str:
-    """Canonical hashtag: no leading ``#``, lower case, words joined by hyphens."""
+    """Canonical hashtag: no leading ``#``, lower case, words joined by underscores."""
     if not isinstance(raw, str):
         return ""
-    text = _SEPARATOR_RE.sub("-", raw.strip().lstrip("#").lower().replace("_", "-"))
-    return text.strip("-")[:MAX_TAG_LEN].strip("-")
+    text = raw.strip().lstrip("#").lower().replace("-", "_")
+    text = _SEPARATOR_RE.sub("_", text)
+    text = re.sub(r"_+", "_", text)
+    return text.strip("_")[:MAX_TAG_LEN].strip("_")
 
 
 def normalize_tags(values: Iterable[Any] | None) -> list[str]:
@@ -414,11 +416,18 @@ async def registry_with_counts(session: AsyncSession, tenant_id: UUID) -> list[d
     from app.services.folders import load_tree
 
     tree = await load_tree(session, tenant_id)
-    folders_by_tag: dict[UUID, list[dict[str, str]]] = {}
+    folders_by_tag: dict[UUID, list[dict[str, Any]]] = {}
     for node in tree.nodes.values():
         if node.tag_id is not None:
+            path = tree.static_path(node.id)
+            tag_names = [tree.tag_name(segment.tag_id) for segment in path.segments if segment.tag_id]
             folders_by_tag.setdefault(node.tag_id, []).append(
-                {"id": str(node.id), "name": node.name, "path": tree.static_path(node.id).label}
+                {
+                    "id": str(node.id),
+                    "name": node.name,
+                    "path": " / ".join(f"#{part}" for part in tag_names),
+                    "tag_names": tag_names,
+                }
             )
     groups = {g.id: g for g in tree.groups.values()}
     out = []
@@ -679,6 +688,13 @@ async def update_tag(
                     ws.name = clean[:120]
                     ws.updated_at = datetime.utcnow()
                     session.add(ws)
+            from app.models.project import Project
+
+            await session.execute(
+                update(Project)
+                .where(Project.tag_id == row.id, Project.deleted_at.is_(None))
+                .values(name=clean, slug=clean, updated_at=datetime.utcnow())
+            )
     if description is not None:
         row.description = description.strip()[:300]
     if show_in_nav is not None:

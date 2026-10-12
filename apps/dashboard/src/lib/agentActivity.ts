@@ -110,9 +110,10 @@ export function turnPreparesProposal(turn: LiveTurn): boolean {
  */
 export function shouldShowWaitingTurn(
   turn: LiveTurn,
-  opts: { lastRunning: boolean; lastIsSpeech: boolean },
+  opts: { lastRunning: boolean; lastIsSpeech: boolean; hasSpeech?: boolean },
 ): boolean {
   if (!turn.active || opts.lastRunning || opts.lastIsSpeech) return false
+  if (opts.hasSpeech) return false
   if (turnPreparesProposal(turn)) return false
   return true
 }
@@ -123,7 +124,7 @@ export function shouldShowWaitingTurn(
  */
 export function isVisibleActivity(item: ActivityItem): boolean {
   // Showcase cards render under the bubble — the tool row is noise.
-  if (item.tool === 'attach_items') return false
+  if (item.tool === 'attach_items' || item.tool === 'update_progress') return false
   if (item.kind !== 'think' || item.status === 'running') return true
   if (item.text !== undefined) return Boolean(item.text.trim())
   return item.hasText !== false
@@ -141,6 +142,7 @@ export type MessageActivity = {
   activityDetail: boolean
   hasActivity: boolean
   turnId: string | null
+  inProgress?: boolean
 }
 
 /** Activity fields of a serialized thread message (`payload.activity`, ...). */
@@ -159,6 +161,7 @@ export function normalizeMessageActivity(raw: Record<string, unknown>): MessageA
     activity.some(isVisibleActivity) ||
     activityAfter.some(isVisibleActivity),
     turnId,
+    inProgress: payload.in_progress === true || raw.in_progress === true,
   }
 }
 
@@ -403,17 +406,64 @@ export function applyTurnEvent(
       if (!delta) return current
       const segmentId = str(data.segment_id) || 'speech'
       const entries = current.entries.slice()
-      const last = entries[entries.length - 1]
-      if (last && last.type === 'speech' && last.segmentId === segmentId) {
-        entries[entries.length - 1] = { ...last, text: last.text + delta }
+      let speechAt = -1
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        const row = entries[i]
+        if (row.type === 'speech' && row.segmentId === segmentId) {
+          speechAt = i
+          break
+        }
+      }
+      if (speechAt >= 0) {
+        const last = entries[speechAt] as { type: 'speech'; segmentId: string; text: string }
+        entries[speechAt] = { ...last, text: last.text + delta }
       } else {
         entries.push({ type: 'speech', segmentId, text: delta })
       }
       return { ...current, active: true, entries }
     }
+    case 'thread.presence':
+      return applyThreadPresence(current, data)
     default:
       return current
   }
+}
+
+function applyThreadPresence(turn: LiveTurn, data: Record<string, unknown>): LiveTurn {
+  const phase = str(data.phase)
+  if (phase === 'idle') return { ...turn, active: false, ended: true }
+  if (phase === 'writing') {
+    // Presence is the "someone is writing" lamp. Speech text arrives as
+    // `message.delta` from the same publish. Re-applying the echo opened a
+    // new bubble per token (presence has no segment_id, so it never merged).
+    return turn.active ? turn : { ...turn, active: true }
+  }
+  if (phase === 'thinking' && data.delta && data.item && typeof data.item === 'object') {
+    const itemId = str((data.item as { id?: unknown }).id)
+    if (itemId) {
+      return applyTurnEvent(turn, 'agent.thinking', { ...data, item_id: itemId, delta: data.delta })
+    }
+  }
+  const actor =
+    data.actor && typeof data.actor === 'object' ? (data.actor as Record<string, unknown>) : {}
+  if (phase === 'typing') {
+    const actorId = str(actor.id) || 'peer'
+    const item = {
+      id: `typing-${actorId}`,
+      kind: 'other' as const,
+      label: 'typing',
+      tool: '',
+      provider: '',
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+      durationMs: null,
+      status: 'running' as const,
+    }
+    return { ...turn, active: true, entries: upsertItem(turn.entries, item) }
+  }
+  const item = normalizeActivityItem(data.item)
+  if (!item) return { ...turn, active: true }
+  return { ...turn, active: true, entries: upsertItem(turn.entries, item) }
 }
 
 export type LiveBlock =
@@ -438,9 +488,93 @@ export function liveBlocks(turn: LiveTurn): LiveBlock[] {
   return blocks
 }
 
+/** attach_items results from the live turn, ready for showcase cards. */
+export function liveAttachResults(turn: LiveTurn): unknown[] {
+  const out: unknown[] = []
+  for (const entry of turn.entries) {
+    if (entry.type !== 'activity') continue
+    if (entry.item.tool !== 'attach_items') continue
+    if (entry.item.result !== undefined) out.push(entry.item.result)
+  }
+  return out
+}
+
 /** True when a turn has anything to show. */
 export function turnHasContent(turn: LiveTurn): boolean {
   return turn.active || turn.entries.length > 0
+}
+
+const CHECKPOINT_PLACEHOLDERS = new Set(['Working on this.', 'Done.'])
+
+/** Resume a live overlay from an in-progress thread row after a reload. */
+export function liveTurnFromMessage(message: {
+  turnId?: string | null
+  inProgress?: boolean
+  activity?: ActivityItem[]
+  activityAfter?: ActivityItem[]
+  bodyText?: string
+}): LiveTurn | null {
+  if (!message.inProgress || !message.turnId) return null
+  const items = [...(message.activity ?? []), ...(message.activityAfter ?? [])].filter(
+    isVisibleActivity,
+  )
+  const entries: LiveEntry[] = items.map((item) => ({ type: 'activity', item }))
+  const speech = (message.bodyText || '').trim()
+  if (speech && !CHECKPOINT_PLACEHOLDERS.has(speech)) {
+    entries.push({ type: 'speech', segmentId: 'checkpoint', text: speech })
+  }
+  return {
+    streamId: message.turnId,
+    entries,
+    active: true,
+    ended: false,
+    thinking: Object.fromEntries(
+      items.filter((item) => item.kind === 'think' && item.text).map((item) => [item.id, item.text!]),
+    ),
+  }
+}
+
+export function liveTurnFromLatestInProgress(
+  messages: Array<{
+    turnId?: string | null
+    inProgress?: boolean
+    activity?: ActivityItem[]
+    activityAfter?: ActivityItem[]
+    bodyText?: string
+  }> | null | undefined,
+): LiveTurn | null {
+  if (!messages?.length) return null
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const turn = liveTurnFromMessage(messages[i])
+    if (turn) return turn
+  }
+  return null
+}
+
+/** Keep checkpoint history when a later live event lands on the same turn. */
+export function mergeTurns(base: LiveTurn, overlay: LiveTurn): LiveTurn {
+  if (!overlay.streamId) return base
+  if (base.streamId && overlay.streamId !== base.streamId) return overlay
+  let entries = base.entries.slice()
+  for (const entry of overlay.entries) {
+    if (entry.type === 'activity') entries = upsertItem(entries, entry.item)
+    else {
+      const last = entries[entries.length - 1]
+      if (last && last.type === 'speech' && last.segmentId === entry.segmentId) {
+        entries[entries.length - 1] =
+          entry.text.length >= last.text.length ? entry : last
+      } else {
+        entries.push(entry)
+      }
+    }
+  }
+  return {
+    streamId: overlay.streamId || base.streamId,
+    active: overlay.active || base.active,
+    ended: overlay.ended,
+    thinking: { ...base.thinking, ...overlay.thinking },
+    entries,
+  }
 }
 
 /** Active turn from a plain text stream (SSE reply without gateway events). */
@@ -452,7 +586,13 @@ export function textOnlyTurn(text: string): LiveTurn {
   }
 }
 
-/** True once the saved messages of this turn are in the list. */
-export function turnSaved(turn: LiveTurn, messages: Array<{ turnId?: string | null }>): boolean {
-  return Boolean(turn.streamId) && messages.some((m) => m.turnId === turn.streamId)
+/** True once the finished messages of this turn are in the list. */
+export function turnSaved(
+  turn: LiveTurn,
+  messages: Array<{ turnId?: string | null; inProgress?: boolean }>,
+): boolean {
+  return (
+    Boolean(turn.streamId) &&
+    messages.some((m) => m.turnId === turn.streamId && !m.inProgress)
+  )
 }

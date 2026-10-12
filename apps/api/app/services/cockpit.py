@@ -102,7 +102,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
 
     from app.services.time_saved import compute_time_saved
 
-    time_saved = await compute_time_saved(session, tenant_id, days=7)
+    time_saved = await compute_time_saved(session, tenant_id, days=7, series_days=14)
 
     # Resolved: closed without a human takeover, and still closed after 72 hours.
     # Count those that matured during the last 7 days.
@@ -142,7 +142,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
                 Signal.last_message_at <= quiet_before,
             )
             .order_by(Signal.last_message_at.asc())
-            .limit(8)
+            .limit(5)
         )
     ).scalars().all()
 
@@ -168,6 +168,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         "time_saved_minutes_week": time_saved["minutes"],
         "time_saved_breakdown": time_saved["by_action"],
         "action_mix": time_saved["by_mode"],
+        "action_mix_series": time_saved.get("by_day") or [],
         "resolved_conversations_week": resolved_week,
         "quiet_threads": [
             {

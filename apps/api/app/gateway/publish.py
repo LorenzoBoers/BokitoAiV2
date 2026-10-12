@@ -86,6 +86,76 @@ async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
 
 
 TURN_EVENTS = frozenset({"agent.turn", "agent.activity", "agent.thinking", "message.delta"})
+# Ephemeral "someone is doing something on this thread" — agent think/work
+# and later WhatsApp / teammate typing. Never a SignalMessage row.
+THREAD_PRESENCE_PHASES = frozenset({"thinking", "working", "writing", "typing", "idle"})
+
+
+def _presence_from_turn(event: str, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Fold agent turn frames onto one presence envelope."""
+    stream_id = data.get("stream_id")
+    if event == "agent.turn":
+        return {
+            "phase": "idle" if data.get("phase") == "end" else "thinking",
+            "stream_id": stream_id,
+        }
+    if event == "agent.activity":
+        item = data.get("item") if isinstance(data.get("item"), dict) else {}
+        kind = str(item.get("kind") or "")
+        return {
+            "phase": "thinking" if kind == "think" else "working",
+            "stream_id": stream_id,
+            "item": item or None,
+        }
+    if event == "agent.thinking":
+        return {
+            "phase": "thinking",
+            "stream_id": stream_id,
+            "delta": data.get("delta"),
+            "item": {"id": data.get("item_id"), "kind": "think"} if data.get("item_id") else None,
+        }
+    if event == "message.delta":
+        return {
+            "phase": "writing",
+            "stream_id": stream_id,
+        }
+    return None
+
+
+async def publish_thread_presence(
+    tenant_id: Any,
+    signal_id: Any,
+    *,
+    phase: str,
+    actor_kind: str = "agent",
+    actor_id: str | None = None,
+    actor_name: str = "",
+    stream_id: str | None = None,
+    item: dict[str, Any] | None = None,
+    delta: str | None = None,
+    expires_in_ms: int = 12_000,
+) -> None:
+    """Currently-doing on a thread. Call this for typing too (WhatsApp, teammates).
+
+    Durable work still lands as a ``SignalMessage``. This event is the live
+    overlay until that row exists or the actor goes idle.
+    """
+    if phase not in THREAD_PRESENCE_PHASES:
+        raise ValueError(f"Unknown thread presence phase: {phase}")
+    await _safe_publish(
+        tenant_id,
+        [f"signal:{signal_id}"],
+        "thread.presence",
+        {
+            "signal_id": str(signal_id),
+            "phase": phase,
+            "actor": {"kind": actor_kind, "id": actor_id, "name": actor_name},
+            "stream_id": stream_id,
+            "item": item,
+            "delta": delta,
+            "expires_in_ms": expires_in_ms,
+        },
+    )
 
 
 async def publish_turn_event(
@@ -96,16 +166,21 @@ async def publish_turn_event(
 ) -> None:
     """Live agent turn: turn start/end, activity items, thinking and speech deltas.
 
+    Also publishes ``thread.presence`` so the same overlay can carry typing later.
     Shapes are documented in ``services/agent/turn.py``.
     """
     if event not in TURN_EVENTS:
         raise ValueError(f"Unknown turn event: {event}")
+    payload = {"signal_id": str(signal_id), **data}
     await _safe_publish(
         tenant_id,
         [f"signal:{signal_id}"],
         event,
-        {"signal_id": str(signal_id), **data},
+        payload,
     )
+    mapped = _presence_from_turn(event, payload)
+    if mapped:
+        await publish_thread_presence(tenant_id, signal_id, actor_kind="agent", **mapped)
 
 
 async def publish_signal_message(

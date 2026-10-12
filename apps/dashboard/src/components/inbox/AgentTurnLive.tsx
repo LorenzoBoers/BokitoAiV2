@@ -1,19 +1,26 @@
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
 import {
+  liveAttachResults,
   liveBlocks,
   shouldShowWaitingTurn,
   turnPreparesProposal,
   type LiveTurn,
 } from '../../lib/agentActivity'
-import { splitChatMessages } from '../../lib/chatMessages'
 import type { BubbleStack } from '../../lib/chat-layout'
+import type { ProposalItem } from '../../lib/inbox-api'
+import {
+  inferMarketplaceItems,
+  itemsFromAttachResult,
+  mergeShowcaseItems,
+} from '../../lib/marketplace-mentions'
 import { ListChecks } from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
 import ActivityTrail, { ActivityIcon } from './ActivityTrail'
 import { BubbleHeader, ChatBubbleShell, RoleChip } from './ChatBubble'
 import ChatText from './ChatText'
+import { ProposalItemList } from './ProposalItemPreview'
 
 function TypingDots({ label }: { label: string }) {
   return (
@@ -45,25 +52,42 @@ function LiveBubble({
   stack,
   header,
   avatar,
+  items,
 }: {
   text: string
   writing: boolean
   stack: BubbleStack
   header: ReactNode
   avatar: ReactNode
+  items?: ProposalItem[]
 }) {
   const { t } = useTranslation('communication')
   const lead = stack === 'single' || stack === 'start'
-  // Same row geometry as ChatMessageBubble: avatar column + bubble at 85%.
+  const wasWriting = useRef(writing)
+  const [confirm, setConfirm] = useState(false)
+  useEffect(() => {
+    if (wasWriting.current && !writing && text) setConfirm(true)
+    wasWriting.current = writing
+  }, [text, writing])
+  // Enter once, like a sent user bubble. Confirm is a ring only — no scale,
+  // so the timeline height stays still when the reveal finishes.
   return (
-    <div className="bubble-pop-enter flex items-start gap-2">
+    <div className="msg-bubble-enter-live flex items-start gap-2">
       <span className="flex w-7 shrink-0 justify-center">{lead ? avatar : null}</span>
       <ChatBubbleShell
         side="left"
         variant="agent"
         stack={stack}
         header={header}
-        body={text ? <ChatText content={text} streaming={writing} /> : null}
+        bubbleClassName={confirm ? 'bubble-confirm' : undefined}
+        body={
+          text || items?.length ? (
+            <div>
+              {text ? <ChatText content={text} streaming={writing} /> : null}
+              {items?.length ? <ProposalItemList items={items} /> : null}
+            </div>
+          ) : null
+        }
         actions={
           writing ? (
             <span className="flex h-5 items-center px-0.5">
@@ -78,50 +102,48 @@ function LiveBubble({
   )
 }
 
-/** One speech segment: blank lines open new bubbles while it streams. */
+/** One speech segment. Live stays a single bubble so the timeline does not jump. */
 function LiveSpeech({
   text,
-  writing,
+  holdReserve,
   leads,
   closes,
   header,
   avatar,
+  attached,
+  onRevealed,
 }: {
   text: string
-  writing: boolean
+  /** Open tail of a live turn: keep a reserve so a network pause stays hidden. */
+  holdReserve: boolean
   /** First speech block of a turn that opens a new run: avatar + author line. */
   leads: boolean
   /** Last block of the turn: its last bubble takes the run-closing shape. */
   closes: boolean
   header: ReactNode
   avatar: ReactNode
+  attached?: ProposalItem[]
+  onRevealed?: (done: boolean) => void
 }) {
-  const smooth = useSmoothStreamText(text, writing)
-  const bubbles = splitChatMessages(smooth, 0)
-  if (bubbles.length === 0) {
-    return writing ? (
-      <LiveBubble
-        text=""
-        writing
-        stack={stackFor(leads, closes)}
-        header={header}
-        avatar={avatar}
-      />
-    ) : null
-  }
+  // Follow the backend buffer at cruise. holdReserve keeps a short lead
+  // while the model is still sending; after that the leftover drains.
+  const smooth = useSmoothStreamText(text, true, holdReserve)
+  const caughtUp = text.length === 0 || smooth.length >= text.length
+  useEffect(() => {
+    onRevealed?.(caughtUp)
+  }, [caughtUp, onRevealed])
+  const writing = smooth.length < text.length
+  const items = mergeShowcaseItems(attached, writing ? [] : inferMarketplaceItems(smooth))
+  if (!smooth && !items.length && !(writing || holdReserve)) return null
   return (
-    <div className="space-y-0.5">
-      {bubbles.map((bubble, index) => (
-        <LiveBubble
-          key={index}
-          text={bubble}
-          writing={writing && index === bubbles.length - 1}
-          stack={stackFor(leads && index === 0, closes && index === bubbles.length - 1)}
-          header={header}
-          avatar={avatar}
-        />
-      ))}
-    </div>
+    <LiveBubble
+      text={smooth}
+      writing={writing || (!smooth && holdReserve)}
+      stack={stackFor(leads, closes)}
+      header={header}
+      avatar={avatar}
+      items={items}
+    />
   )
 }
 
@@ -138,6 +160,7 @@ export default function AgentTurnLive({
   avatar,
   agentName,
   continuesRun = false,
+  onPlaybackDone,
 }: {
   turn: LiveTurn
   /** The working agent's avatar (28px); the generic AI mark when unknown. */
@@ -146,19 +169,37 @@ export default function AgentTurnLive({
   agentName?: string | null
   /** The last saved row is this agent's bubble: no avatar, no author line. */
   continuesRun?: boolean
+  /** Saved bubbles may replace this overlay once the reveal has caught up. */
+  onPlaybackDone?: (streamId: string) => void
 }) {
   const { t } = useTranslation('communication')
+  const [revealed, setRevealed] = useState<Record<string, boolean>>({})
+  const markRevealed = useCallback((key: string, done: boolean) => {
+    setRevealed((prev) => (prev[key] === done ? prev : { ...prev, [key]: done }))
+  }, [])
   const blocks = liveBlocks(turn)
+  const speechKeys = blocks.filter((block) => block.type === 'speech').map((block) => block.key)
+  const playbackDone =
+    !turn.active && (speechKeys.length === 0 || speechKeys.every((key) => revealed[key]))
+  useEffect(() => {
+    if (playbackDone && turn.streamId) onPlaybackDone?.(turn.streamId)
+  }, [onPlaybackDone, playbackDone, turn.streamId])
   if (!turn.active && blocks.length === 0) return null
   const last = blocks[blocks.length - 1]
   const lastRunning =
     last?.type === 'activity' && last.items.some((i) => i.status === 'running')
   const preparing = turnPreparesProposal(turn)
+  const firstSpeechIndex = blocks.findIndex((block) => block.type === 'speech')
   const waiting = shouldShowWaitingTurn(turn, {
     lastRunning,
     lastIsSpeech: last?.type === 'speech',
+    hasSpeech: firstSpeechIndex >= 0,
   })
-  const firstSpeechIndex = blocks.findIndex((block) => block.type === 'speech')
+  const lastSpeechIndex = blocks.reduce(
+    (found, block, index) => (block.type === 'speech' ? index : found),
+    -1,
+  )
+  const attached = liveAttachResults(turn).flatMap(itemsFromAttachResult)
   const lead = !continuesRun
   const header = lead ? (
     <BubbleHeader name={agentName || t('timeline.aiAgent')} chip={<RoleChip kind="ai" />} />
@@ -174,7 +215,7 @@ export default function AgentTurnLive({
     <div className="space-y-0.5">
       {blocks.map((block, index) =>
         block.type === 'activity' ? (
-          <div key={block.key} className="bubble-pop-enter flex items-start gap-2 py-0.5">
+          <div key={block.key} className="flex items-start gap-2 py-0.5">
             <span className="flex w-7 shrink-0 justify-center">
               {avatarOnActivity && index === 0 ? avatarNode : null}
             </span>
@@ -186,17 +227,19 @@ export default function AgentTurnLive({
           <LiveSpeech
             key={block.key}
             text={block.text}
-            writing={turn.active && index === blocks.length - 1}
+            holdReserve={turn.active && index === blocks.length - 1}
             leads={lead && index === firstSpeechIndex}
             closes={index === blocks.length - 1}
             header={header}
             avatar={avatarNode}
+            attached={index === lastSpeechIndex ? attached : undefined}
+            onRevealed={(done) => markRevealed(block.key, done)}
           />
         ),
       )}
       {preparing ? (
         <div
-          className="flex h-7 min-w-0 items-center gap-2 pl-9 text-xs text-text-muted"
+          className="proposal-preparing-enter flex h-7 min-w-0 items-center gap-2 pl-9 text-xs text-text-muted"
           role="status"
           aria-live="polite"
           data-testid="proposal-preparing"

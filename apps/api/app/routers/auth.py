@@ -131,6 +131,7 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
     password_confirmation: str | None = None
+    totp_code: str = ""
 
 
 class PasswordResetRequest(BaseModel):
@@ -1347,6 +1348,12 @@ async def change_password(
         body.current_password, auth.user.password_hash
     ):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if auth.user.totp_enabled:
+        from app.services.crypto import decrypt_secret
+        from app.services.totp import verify_totp
+
+        if not verify_totp(decrypt_secret(auth.user.totp_secret), body.totp_code):
+            raise HTTPException(status_code=400, detail="Invalid verification code")
     confirm = body.password_confirmation or body.new_password
     if body.new_password != confirm:
         raise HTTPException(status_code=400, detail="Password confirmation does not match")

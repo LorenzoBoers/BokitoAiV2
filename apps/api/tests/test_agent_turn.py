@@ -142,6 +142,76 @@ def test_empty_turn_falls_back():
     assert plan_turn_messages([], CHAT, fallback_text="Done.")[0]["text"] == "Done."
 
 
+def test_live_segments_include_open_tools():
+    from app.services.agent.turn import TurnRecorder
+
+    turn = TurnRecorder(lambda *_: None, stream_id="s1")
+    turn.segments = []
+    turn._pending = [_work("create_canvas", status="running")]
+    turn._speech_text = ""
+    turn._speech_id = None
+    live = turn.live_segments()
+    assert live[0]["activity"][0]["id"] == "create_canvas"
+    turn.segments = [{"id": "s1", "text": "Even kijken.", "activity": [_work("think-1", kind="think")]}]
+    turn._pending = [_work("update_folder_canvas", status="running")]
+    live = turn.live_segments()
+    assert live[0]["text"] == "Even kijken."
+    assert live[0]["activity_after"][0]["id"] == "update_folder_canvas"
+
+
+@pytest.mark.asyncio
+async def test_say_closes_a_check_in_bubble():
+    from app.services.agent.turn import TurnRecorder
+
+    events: list[tuple[str, dict]] = []
+
+    async def publish(event: str, data: dict) -> None:
+        events.append((event, data))
+
+    turn = TurnRecorder(publish, stream_id="s1")
+    await turn.say("Found the folder. Building the dashboard now.")
+    assert turn.segments[0]["text"] == "Found the folder. Building the dashboard now."
+    assert turn.has_open_speech is False
+    assert any(name == "message.delta" for name, _ in events)
+    turn.discard_open_speech()
+    assert turn.has_open_speech is False
+    assert turn.open_speech_text == ""
+
+
+@pytest.mark.asyncio
+async def test_thinking_after_speech_does_not_close_the_bubble():
+    from app.services.agent.turn import TurnRecorder
+
+    events: list[tuple[str, dict]] = []
+
+    async def publish(event: str, data: dict) -> None:
+        events.append((event, data))
+
+    turn = TurnRecorder(publish, stream_id="s1")
+    await turn.speech("Er was eens")
+    segment = turn.current_segment_id
+    await turn.thinking("more plot")
+    assert turn.current_segment_id == segment
+    assert turn.open_speech_text == "Er was eens"
+    assert not any(name == "agent.activity" and (data.get("item") or {}).get("kind") == "think" for name, data in events)
+    await turn.speech(" een platform.")
+    assert turn.current_segment_id == segment
+    assert turn.open_speech_text == "Er was eens een platform."
+
+
+def test_progress_allowed_waits_then_gaps():
+    from app.services.agent.loop import is_progress_filler, progress_allowed
+
+    assert progress_allowed(elapsed=5, since_last=None, count=0) is False
+    assert progress_allowed(elapsed=15, since_last=None, count=0) is True
+    assert progress_allowed(elapsed=40, since_last=10, count=1) is False
+    assert progress_allowed(elapsed=40, since_last=20, count=1) is True
+    assert progress_allowed(elapsed=80, since_last=30, count=3) is False
+    assert is_progress_filler("Still working on it.")
+    assert is_progress_filler("working on this")
+    assert not is_progress_filler("I filed the invoice in Facturen.")
+
+
 def test_activity_from_segments_flattens_mail_turn_for_suggestion_card():
     """Assisted inbound often saves only a decision_request — keep the tool trail."""
     items = activity_from_segments(_segments())
@@ -225,6 +295,75 @@ async def _tenant_agent(session) -> tuple[Tenant, Agent]:
     ).scalars().first()
     assert agent is not None
     return tenant, agent
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_then_persist_keeps_one_message(client: AsyncClient, session_override):
+    from app.services.agent.turn_persist import persist_agent_turn, upsert_turn_checkpoint
+
+    tenant, agent = await _tenant_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        source="test",
+        subject="Canvas",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+
+    first = await upsert_turn_checkpoint(
+        session_override,
+        signal,
+        message_id=None,
+        author_agent_id=agent.id,
+        turn_id="turn-live",
+        segments=[{"id": "s1", "text": "", "activity": [_work("create_canvas", status="running")]}],
+    )
+    await session_override.commit()
+    assert first.body_text == "Working on this."
+    assert json.loads(first.metadata_json)["in_progress"] is True
+
+    second = await upsert_turn_checkpoint(
+        session_override,
+        signal,
+        message_id=first.id,
+        author_agent_id=agent.id,
+        turn_id="turn-live",
+        segments=[
+            {
+                "id": "s1",
+                "text": "",
+                "activity": [_work("create_canvas"), _work("update_folder_canvas")],
+            }
+        ],
+    )
+    await session_override.commit()
+    assert second.id == first.id
+
+    bubbles = await persist_agent_turn(
+        session_override,
+        signal,
+        segments=[
+            {
+                "id": "s1",
+                "text": "Dashboard staat klaar.",
+                "activity": [_work("create_canvas"), _work("update_folder_canvas")],
+            }
+        ],
+        reply_mode=CHAT,
+        author_agent_id=agent.id,
+        turn_id="turn-live",
+        replace_message_id=first.id,
+    )
+    await session_override.commit()
+    assert [b.id for b in bubbles] == [first.id]
+    assert bubbles[0].body_text == "Dashboard staat klaar."
+    assert "in_progress" not in json.loads(bubbles[0].metadata_json)
+    rows = (
+        await session_override.execute(select(SignalMessage).where(SignalMessage.signal_id == signal.id))
+    ).scalars().all()
+    assert len(rows) == 1
 
 
 async def _login(client: AsyncClient) -> None:

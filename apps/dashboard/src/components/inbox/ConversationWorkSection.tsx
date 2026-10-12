@@ -1,11 +1,13 @@
 import { ChevronDown, Sparkles } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
-import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
+import type { InboxThread, PatchThreadInput, ProposalItem } from '../../lib/inbox-api'
 import { isInternalThread } from '../../lib/message-composer'
+import { listCanvasesForThread, type ProjectCanvas } from '../../lib/project-canvas-api'
 import { queueThreadTriage } from '../../lib/signals-api'
+import { CanvasShowcaseCard } from './ProposalItemPreview'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,18 +42,46 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 const VALUE_BUTTON = controlChipClass
 
+function canvasItem(row: ProjectCanvas, cadence: string): ProposalItem {
+  return {
+    type: 'canvas',
+    id: row.id,
+    title: row.title,
+    subtitle: [row.managing_agent?.name, cadence].filter(Boolean).join(' · '),
+    path: row.project_id
+      ? `/folders/${row.project_id}?tab=canvas&canvas=${row.id}`
+      : `/cockpit/canvas?canvas=${row.id}`,
+    signalId: row.signal_id ?? null,
+  }
+}
+
 /**
  * Everything noted on this one conversation: AI summary, priority,
  * date or repeat, re-read, category (or ticket) and tags.
  */
 export function ConversationWorkSection({ thread, saving = false, onPatch, onPlan, onScheduleChanged }: Props) {
-  const { t } = useTranslation('communication')
+  const { t } = useTranslation(['communication', 'nav'])
   const { token } = useAuth()
   const [ticketBump, setTicketBump] = useState(0)
   const [rereading, setRereading] = useState(false)
+  const [canvases, setCanvases] = useState<ProjectCanvas[]>([])
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
   const internal = isInternalThread(thread)
+
+  useEffect(() => {
+    let cancel = false
+    listCanvasesForThread(String(thread.id))
+      .then((items) => {
+        if (!cancel) setCanvases(items)
+      })
+      .catch(() => {
+        if (!cancel) setCanvases([])
+      })
+    return () => {
+      cancel = true
+    }
+  }, [thread.id])
 
   async function handleReread() {
     if (!token || rereading) return
@@ -95,6 +125,21 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
         >
           {thread.aiSummary}
         </p>
+      ) : null}
+
+      {canvases.length > 0 ? (
+        <div className="space-y-2" data-testid="thread-canvases">
+          {canvases.map((row) => (
+            <CanvasShowcaseCard
+              key={row.id}
+              compact
+              item={canvasItem(
+                row,
+                t(`projects.canvas.cadence.${row.refresh_cadence || 'manual'}`, { ns: 'nav' }),
+              )}
+            />
+          ))}
+        </div>
       ) : null}
 
       <div className="space-y-0.5">

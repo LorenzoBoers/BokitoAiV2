@@ -9,7 +9,7 @@ related: workstreams,categories,agenda,knowledge,communication
 
 # How Folders works
 
-A folder is a tag with a place. Conversations land in a folder from their tags, including tags on the contact. Open **Folders** when a goal should have a home instead of living only in chat. A folder detail shows **Overview**, **Conversations**, and **Settings**; **Tickets**, **Documentation** and **Files** appear when that folder has them. The URL keeps the tab (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) so you can share that surface.
+A folder is a tag with a place. The folder name is that tag (`#facturen`). Conversations appear in every folder whose path tags they carry, including tags on the contact. Canvas, docs and budget stay on one home: the deepest matching path. Open **Folders** when a goal should have a home instead of living only in chat. A folder detail shows **Overview**, **Conversations**, and **Settings**; **Tickets**, **Documentation** and **Files** appear when that folder has them. The URL keeps the tab (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) so you can share that surface.
 
 ## Create or open a folder
 
@@ -31,7 +31,7 @@ The **Overview** tab is the landing. The header card shows the folder icon, the 
 
 ## See the conversations in a folder
 
-Every conversation filed on this project, or on a folder inside it, lives in the Communication sidebar under **Folders and tags**. The **Conversations** tab shows the same list next to the folders and boards.
+Every conversation that carries this folder's path tags lives in the Communication sidebar under **Folders and tags**, and can also appear in another matching folder. The **Conversations** tab shows the same list next to the folders and boards.
 
 1. Open the **Conversations** tab. The count in the tab is the number of open conversations. Switch between **Open** and **Closed**.
 2. Each row shows the status dot, the channel, the subject, the contact, the folder it sits in when that is deeper than this project, and its action tag. Click a row to open that conversation in this project's folder in Communication.
@@ -50,11 +50,11 @@ Every conversation filed on this project, or on a folder inside it, lives in the
 
 ## Ask an agent to write a canvas
 
-A project can have several snapshot canvases (not live tiles). An agent creates, fills and refreshes a canvas; you can do the same from this tab. The agent who creates it owns it, unless you name another. Refresh is an [Agenda](/docs/ai/agenda) wake: once (**Manual**), daily at 07:00 UTC, weekly, monthly, hourly, or **Custom** (a five-field cron). On Assisted or Autonomous the write applies immediately. On Manual it waits as a decision under [Govern](/docs/govern/govern).
+A project can have several snapshot canvases (not live tiles). An agent creates, fills and refreshes a canvas; you can do the same from this tab. The agent who creates it owns it, unless you name another. Every canvas lives on one conversation: the current chat, or a new thread when that chat is about something else. Refresh is that conversation's repeat in [Agenda](/docs/ai/agenda): once (**Manual**), daily at 07:00 UTC, weekly, monthly, hourly, or **Custom** (a five-field cron). On Assisted or Autonomous the write applies immediately. On Manual it waits as a decision under [Govern](/docs/govern/govern).
 
 1. Open the **Canvas** tab. Canvas names sit left to right. The **+** after the last name adds a canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**, **Custom**). **Custom** asks for a cron such as `0 8 * * 1-5`. Daily is the default. Save. The owner starts writing from the brief.
 2. Canvases appear as tabs from left to right. While the document is empty, the tab shows that the agent is writing. After the write you see cards, stats, tables or charts from the last snapshot.
-3. Ask the agent in the conversation for figures, a status, or a dashboard and it builds or updates the canvas in that turn. A later change updates that same canvas. The reply names the canvas as a link and shows a small preview of the snapshot. Open the preview to land on that canvas. A scheduled refresh writes the snapshot and does not open a second conversation. Admins can **Show source**. Choose **Ask agent to update** for a one-off rewrite, or change Refresh so Agenda keeps waking the owner. Workspace canvases live on Overview **Canvas**.
+3. Ask the agent in the conversation for figures, a status, or a dashboard and it builds or updates the canvas in that turn. A later change updates that same canvas. The reply names the canvas as a link and shows a small preview of the snapshot. Open the preview to land on that canvas. The canvas tab shows the owner agent and the conversation; open that conversation to ask for a change. That conversation's side panel shows the canvas (name, preview, link) under **This conversation**. Refresh is the repeat on that same thread, also visible in Agenda. Admins can **Show source**. Workspace canvases live on Overview **Canvas**.
 
 ## Get tickets onto a project
 

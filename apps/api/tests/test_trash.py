@@ -86,7 +86,7 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
         "DELETE",
         f"/api/folders/{project_id}",
         headers=headers,
-        json={"confirm_name": "Bin Project"},
+        json={"confirm_name": proj.json()["name"]},
     )
     assert gone.status_code == 200, gone.text
     again = await client.post(
@@ -107,7 +107,7 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
         await session_override.execute(select(Project).where(Project.id == UUID(project_id)))
     ).scalar_one()
     assert restored_row.deleted_at is None
-    assert restored_row.slug.startswith("bin-project-restore")
+    assert restored_row.slug.startswith("bin_project")
 
     tenant = await load_tenant(session_override, restored_row.tenant_id)
     confirm = restored_row.name

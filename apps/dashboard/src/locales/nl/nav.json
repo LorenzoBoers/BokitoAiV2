@@ -844,6 +844,8 @@
       "agents": "Agents"
     },
     "rail": {
+      "when": "Wanneer",
+      "what": "Wat",
       "who": "Wie",
       "allProjects": "Alle projecten",
       "show": "Tonen",
@@ -4589,7 +4591,7 @@
       "empty": "Dit canvas is leeg. Vraag de beheeragent in Communicatie om een voortgangsdashboard te tekenen.",
       "emptyHint": "Nog geen canvases. Voeg er een toe zodat een agent een snapshot-dashboard kan tekenen.",
       "add": "Canvas toevoegen",
-      "addDescription": "Geef een titel en omschrijf wat het moet bevatten. Daarna gaat de beheeragent aan het werk.",
+      "addDescription": "Geef een titel en omschrijf wat het moet bevatten. Dat start een gesprek met de eigenaar. Verversen is de herhaling van dat gesprek in Agenda.",
       "cancel": "Annuleren",
       "delete": "Verwijderen",
       "deleteConfirm": "Dit canvas verwijderen? De Agenda-ververswake gaat mee.",
@@ -4612,6 +4614,8 @@
       "cronInvalid": "Vul een cron van vijf velden in.",
       "writing": "De beheeragent schrijft dit canvas.",
       "askAgent": "Vraag agent om bij te werken",
+      "openThread": "Open gesprek",
+      "ownerAgent": "Eigenaar",
       "lastUpdated": "Bijgewerkt {{time}}{{who}}",
       "showSource": "Bron tonen",
       "hideSource": "Bron verbergen"

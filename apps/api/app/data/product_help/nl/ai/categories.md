@@ -30,7 +30,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 
 1. Open een gesprek in **Communicatie**. Onder **Dit gesprek** kies je **Tags toevoegen**.
 2. Typ met een zachte `#` en kies een actietag (gemarkeerd **Actietag**), of een vrije tag. Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**.
-3. Vastleggen vraagt niet om een map. Het gesprek landt via zijn tags. Als tags bij meer dan één map passen, toont het gesprek **Welke map?**.
+3. Vastleggen vraagt niet om een map. Het gesprek landt via zijn tags. Een gesprek kan bij meer dan één map passen; de kop toont elk passend pad. Canvas, docs en budget blijven op één thuis (het diepste pad).
 4. Het ticket start in de eerste fase van de flow. De lijstrij toont de actietag met fase en gekleurde stip. Een andere actietag kiezen vraagt om **Vervangen** (of splits het gesprek voor een tweede verzoek).
 5. In de composer legt `/ticket #naam` hetzelfde ticket vast.
 

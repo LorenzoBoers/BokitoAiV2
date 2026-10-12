@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -21,6 +23,70 @@ from app.tools.registry import (
     iter_tool_specs,
     tool_matches_audience,
 )
+
+logger = logging.getLogger(__name__)
+
+# A hung handler must not hold the turn forever. The result goes back to the
+# model so it can retry or change approach.
+TOOL_TIMEOUT_SECONDS = 60
+
+
+async def execute_tool(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID | None,
+    tool_name: str,
+    tool_input: dict[str, Any],
+    *,
+    signal_id: UUID | None = None,
+    agent: Any | None = None,
+    run_id: UUID | None = None,
+    project_id: UUID | None = None,
+    trust: str = "operator",
+    approved: bool = False,
+    user_role: str | None = None,
+    surface: str = "",
+    turn_id: str | None = None,
+) -> dict[str, Any]:
+    """Execute a registered tool under the allowance policy.
+
+    ``approved=True`` skips the gate — used when a human just approved the
+    exact action through a DecisionRequest.
+    """
+    try:
+        return await asyncio.wait_for(
+            _execute_tool(
+                session,
+                tenant_id,
+                user_id,
+                tool_name,
+                tool_input,
+                signal_id=signal_id,
+                agent=agent,
+                run_id=run_id,
+                project_id=project_id,
+                trust=trust,
+                approved=approved,
+                user_role=user_role,
+                surface=surface,
+                turn_id=turn_id,
+            ),
+            timeout=TOOL_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        logger.warning("tool %s timed out after %ss", tool_name, TOOL_TIMEOUT_SECONDS)
+        try:
+            await session.rollback()
+        except Exception:
+            logger.exception("rollback after tool timeout failed")
+        return {
+            "error": (
+                f"Tool '{tool_name}' timed out after {TOOL_TIMEOUT_SECONDS} seconds."
+            ),
+            "status": "timeout",
+            "hint": "The action did not finish. Try a smaller change, or a different approach.",
+        }
+
 
 _EXTERNAL_PASSPORT_BYPASS = frozenset(
     {
@@ -117,7 +183,7 @@ def route_module_mcp_call(tool_input: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-async def execute_tool(
+async def _execute_tool(
     session: AsyncSession,
     tenant_id: UUID,
     user_id: UUID | None,
@@ -134,11 +200,6 @@ async def execute_tool(
     surface: str = "",
     turn_id: str | None = None,
 ) -> dict[str, Any]:
-    """Execute a registered tool under the allowance policy.
-
-    ``approved=True`` skips the gate — used when a human just approved the
-    exact action through a DecisionRequest.
-    """
     if tool_name == "call_mcp_tool":
         # A business module is not an MCP server to the agent. Calling the
         # generic gated tool with server_name="accounting" asked a human to
@@ -384,10 +445,10 @@ async def execute_tool(
         )
         if spec.handles_ask:
             # Platform mutations create a pending PlatformChange + DecisionRequest.
-            return await spec.handler(ctx, tool_input)
+            return await _invoke_handler(session, spec, ctx, tool_input)
         return await _create_policy_decision(ctx, tool_name, tool_input, reason=reason)
 
-    result = await spec.handler(ctx, tool_input)
+    result = await _invoke_handler(session, spec, ctx, tool_input)
     if spec.mutating and not (isinstance(result, dict) and result.get("change_id")):
         outcome = "error" if isinstance(result, dict) and result.get("error") else "executed"
         await record_audit(
@@ -397,6 +458,39 @@ async def execute_tool(
             after=result if isinstance(result, dict) else None,
         )
     return result
+
+
+async def _invoke_handler(session: AsyncSession, spec: Any, ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Run a tool. Failures come back to the model so the turn can retry."""
+    from fastapi import HTTPException
+
+    try:
+        return await spec.handler(ctx, tool_input)
+    except asyncio.CancelledError:
+        raise
+    except HTTPException as exc:
+        try:
+            await session.rollback()
+        except Exception:
+            logger.exception("rollback after tool HTTPException failed")
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        status = "invalid" if exc.status_code < 500 else "error"
+        return {
+            "error": detail,
+            "status": status,
+            "hint": "Correct the arguments and call the tool again in this turn.",
+        }
+    except Exception as exc:
+        logger.exception("tool handler crashed")
+        try:
+            await session.rollback()
+        except Exception:
+            logger.exception("rollback after tool crash failed")
+        return {
+            "error": str(exc) or exc.__class__.__name__,
+            "status": "error",
+            "hint": "The tool failed. Try a different approach or simpler arguments.",
+        }
 
 
 async def _mcp_unavailable_in_env(

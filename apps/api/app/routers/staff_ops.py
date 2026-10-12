@@ -365,7 +365,7 @@ async def staff_get_time_saved_weights(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Platform action-credit matrix used for Overview time saved and the mix pie."""
+    """Platform action-credit matrix used for Overview time saved and the mix chart."""
     _require_staff(auth)
     from app.services.time_saved import action_weight_catalog, load_action_minutes
 

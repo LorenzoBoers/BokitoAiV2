@@ -417,6 +417,32 @@ def _annotate_folder_tree(
         item["ancestors"] = _ancestor_rows(project, by_id)
 
 
+async def _path_status_count(
+    session: AsyncSession,
+    tenant_id: UUID,
+    project_id: UUID,
+    status: str,
+    extra: list[UUID] | None = None,
+) -> int:
+    from app.services.communication_nav import list_predicates
+    from app.services.trash import alive
+
+    predicates = await list_predicates(
+        session, tenant_id, {"project_id": project_id, "path": extra or []}
+    )
+    if predicates is None:
+        return 0
+    return int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(Signal)
+                .where(Signal.tenant_id == tenant_id, alive(Signal), Signal.status == status, *predicates)
+            )
+        ).scalar_one()
+    )
+
+
 async def _status_counts(
     session: AsyncSession, tenant_id: UUID, project_ids: list[UUID], status: str
 ) -> dict[UUID, int]:
@@ -444,20 +470,16 @@ async def get_project_detail(
     projects = await _alive_projects(session, tenant_id)
     by_id = {row.id: row for row in projects}
     children_of = _children_of(projects)
-    subtree = _subtree_ids(project.id, children_of)
-    open_counts = await _status_counts(session, tenant_id, subtree, "open")
-    closed_counts = await _status_counts(session, tenant_id, subtree, "closed")
     payload["ancestors"] = _ancestor_rows(project, by_id)
     payload["child_count"] = len(children_of.get(project.id, []))
-    payload["open_count"] = sum(open_counts.get(pid, 0) for pid in subtree)
-    payload["closed_count"] = sum(closed_counts.get(pid, 0) for pid in subtree)
+    payload["open_count"] = await _path_status_count(session, tenant_id, project.id, "open")
+    payload["closed_count"] = await _path_status_count(session, tenant_id, project.id, "closed")
     tag_names = await _tag_names(
         session, tenant_id, [by_id[cid].tag_id for cid in children_of.get(project.id, []) if by_id[cid].tag_id]
     )
     children: list[dict[str, Any]] = []
     for child_id in children_of.get(project.id, []):
         child = by_id[child_id]
-        child_tree = _subtree_ids(child.id, children_of)
         children.append(
             {
                 "id": str(child.id),
@@ -467,8 +489,8 @@ async def get_project_detail(
                 "tag_name": tag_names.get(child.tag_id) if child.tag_id else None,
                 "virtual": False,
                 "child_count": len(children_of.get(child.id, [])),
-                "open_count": sum(open_counts.get(pid, 0) for pid in child_tree),
-                "closed_count": sum(closed_counts.get(pid, 0) for pid in child_tree),
+                "open_count": await _path_status_count(session, tenant_id, child.id, "open"),
+                "closed_count": await _path_status_count(session, tenant_id, child.id, "closed"),
             }
         )
     children.extend(await _virtual_children(session, tenant_id, project, by_id))
@@ -483,7 +505,7 @@ async def _virtual_children(
     """One row per tag in the folder's child group that has no pinned row yet."""
     if project.child_group_id is None:
         return []
-    from app.services.communication_nav import filter_predicates, virtual_row_id
+    from app.services.communication_nav import list_predicates, virtual_row_id
     from app.services.trash import alive
 
     group_tags = list(
@@ -502,7 +524,7 @@ async def _virtual_children(
             continue
         counts: dict[str, int] = {}
         for status in ("open", "closed"):
-            predicates = filter_predicates(tenant_id, {"project_id": project.id, "path": [tag.id]}) or []
+            predicates = await list_predicates(session, tenant_id, {"project_id": project.id, "path": [tag.id]}) or []
             counts[status] = int(
                 (
                     await session.execute(
@@ -684,24 +706,25 @@ async def create_project(
     user_id: UUID | None = None,
 ) -> dict[str, Any]:
     """Create a folder. Its tag comes from ``tag_id``, ``tag`` (a name, created
-    when new) or, by default, a tag named after the slug. Conversations that
-    already carry the path's tags move in."""
+    when new) or, by default, a tag named after the folder. The folder name
+    and slug are that tag. Conversations that already carry the path's tags
+    move in."""
     from app.services.folders import refile_tagged
 
-    slug_norm = slug.strip().lower()
     await assert_folder_parent(session, tenant_id, project_id=None, parent_id=parent_id)
-    if await _slug_in_use(session, tenant_id, slug_norm, parent_id):
-        raise HTTPException(status_code=409, detail="Project slug already exists")
     row_tag = await folder_tag(
-        session, tenant_id, tag_id=tag_id, tag=tag, fallback_name=slug_norm, user_id=user_id
+        session, tenant_id, tag_id=tag_id, tag=tag, fallback_name=name or slug, user_id=user_id
     )
     await assert_folder_tag(session, tenant_id, project_id=None, parent_id=parent_id, tag=row_tag)
+    slug_norm = row_tag.name
+    if await _slug_in_use(session, tenant_id, slug_norm, parent_id):
+        slug_norm = f"{row_tag.name}_{str(row_tag.id)[:8]}"
     if child_group_id is not None:
         await _group_row(session, tenant_id, child_group_id)
     now = datetime.utcnow()
     project = Project(
         tenant_id=tenant_id,
-        name=name.strip(),
+        name=row_tag.name,
         slug=slug_norm,
         description=description,
         autonomous_scope=autonomous_scope.strip(),
@@ -803,7 +826,14 @@ async def patch_project(
     before_tags = await _refile_tags_for(session, tenant_id, project)
     tree_changed = False
     if name is not None:
-        project.name = name.strip()
+        if project.tag_id is not None:
+            from app.services.signal_tags import update_tag
+
+            tag = await update_tag(session, tenant_id, project.tag_id, name=name, commit=False)
+            project.name = tag.name
+            project.slug = tag.name
+        else:
+            project.name = name.strip()
     if description is not None:
         project.description = description
     if autonomous_scope is not None:

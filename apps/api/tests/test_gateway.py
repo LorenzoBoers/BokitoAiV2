@@ -1,5 +1,7 @@
 """Gateway control plane: WS auth, topic fanout, and domain event publishing."""
 
+import asyncio
+import time
 import uuid
 from datetime import datetime, timedelta
 
@@ -89,6 +91,23 @@ async def test_bus_dispatches_to_matching_connections_only():
     assert ws_a.frames[0]["event"] == "thread"
     assert ws_b.frames == []
     assert ws_c.frames == []
+
+
+async def test_dispatch_does_not_block_on_slow_client():
+    class SlowWebSocket:
+        async def send_json(self, frame: dict) -> None:
+            await asyncio.sleep(5)
+
+    tenant_id = str(uuid.uuid4())
+    conn = GatewayConnection(SlowWebSocket(), tenant_id=tenant_id, kind="user", user_id="u1")
+    conn.topics = {"threads"}
+    manager.register(conn)
+    try:
+        started = time.monotonic()
+        await event_bus.publish(tenant_id, ["threads"], "thread", {"ok": True})
+        assert time.monotonic() - started < 1.0
+    finally:
+        manager.unregister(conn)
 
 
 async def test_signal_message_publish_reaches_thread_subscribers(client, session_override):

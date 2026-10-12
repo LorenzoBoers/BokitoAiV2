@@ -5,6 +5,7 @@
  * so react-virtuoso can keep long threads cheap without a second code path.
  */
 import {
+  createContext,
   forwardRef,
   useCallback,
   useContext,
@@ -30,11 +31,14 @@ import type {
 import type { ChatTagMap } from '../../lib/chatText'
 import type { MailDraftMode } from '../../lib/mail-reply'
 import { assignBubbleStacks, CHAT_COLUMN_CLASS, CHAT_STACK_GAP_MS } from '../../lib/chat-layout'
+import { parseDecisionOptions } from '../../lib/decision-options'
+import { labelsForChosenOptions } from './ProposalChoiceRest'
 import { sessionIdOf } from '../../lib/session-timeline'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { cn } from '../../lib/utils'
 import { EventClusterTimelineItem, MessageTimelineItem, isAgentSideEvent } from './TimelineItem'
 import DecisionRequestMessage from './DecisionRequestMessage'
+import type { DecisionResolvedInfo } from './useDecisionResolve'
 import SessionMarker from './SessionMarker'
 import { TimelineScrollContext, type TimelineScrollApi } from './timeline-scroll'
 import type { NoteActions } from './TimelineItem'
@@ -42,10 +46,7 @@ import type { BubbleStack } from './ChatBubble'
 
 type ThreadSession = ThreadDetailType['sessions'][number]
 
-type VirtuosoRow =
-  | TimelineRow
-  | { kind: 'live'; id: string }
-  | { kind: 'end'; id: string }
+type VirtuosoRow = TimelineRow
 
 type TimelineEntry =
   | { kind: 'message'; time: string; id: string; data: InboxMessage }
@@ -63,6 +64,7 @@ function isHiddenEvent(
   eventType: string,
   payload?: Record<string, unknown> | null,
   answeredDecisionIds?: Set<string>,
+  questionDecisionIds?: Set<string>,
 ): boolean {
   if (
     eventType === 'replied' ||
@@ -80,14 +82,10 @@ function isHiddenEvent(
   ) {
     return true
   }
-  // Operator reply bubble already carries the answer — skip the status pill.
-  if (
-    eventType.startsWith('decision_') &&
-    answeredDecisionIds &&
-    typeof payload?.decision_id === 'string' &&
-    answeredDecisionIds.has(payload.decision_id)
-  ) {
-    return true
+  // The agent cloud (or the operator answer) already carries the choice.
+  if (eventType.startsWith('decision_') && typeof payload?.decision_id === 'string') {
+    if (answeredDecisionIds?.has(payload.decision_id)) return true
+    if (questionDecisionIds?.has(payload.decision_id)) return true
   }
   return eventType === 'thread_updated' && !threadPatchHasMeaning(payload)
 }
@@ -131,49 +129,116 @@ export function eventsShareCluster(
   return Math.abs(next - previous) <= gapMs
 }
 
-const SESSION_CHECKOUT_OPTION_IDS = new Set(['end_only', 'continue', 'apply_actions'])
-
-/** Silent action-suggestion / checkout buttons — resolved card already covers them. */
-const SILENT_DECISION_OPTION_IDS = new Set([
-  ...SESSION_CHECKOUT_OPTION_IDS,
-  'keep_open',
-  'close',
-  'close_thread',
-  'look_at',
-  'create_task',
-  'later',
-  'reject',
-])
-
-/** Button-echo from a silent decision — the resolved card already covers it. */
-export function isSessionCheckoutEcho(message: InboxMessage): boolean {
-  if (!message.decisionResponse) return false
-  const payload = message.payload ?? {}
-  const ids: string[] = []
-  const single = payload.decision_response_option_id ?? payload.option_id
-  if (typeof single === 'string' && single) ids.push(single)
-  const many = payload.decision_response_option_ids ?? payload.option_ids
-  if (Array.isArray(many)) {
-    for (const id of many) if (typeof id === 'string' && id) ids.push(id)
-  }
-  if (ids.some((id) => SILENT_DECISION_OPTION_IDS.has(id))) return true
-  // Older payloads omitted option_id; match the known button labels.
-  const body = (message.bodyText || '').trim().toLowerCase()
-  return (
-    body === 'end session' ||
-    body === 'keep going' ||
-    body === 'apply and end' ||
-    body === 'sessie afronden' ||
-    body === 'doorgaan' ||
-    body === 'toepassen en afronden' ||
-    body === 'keep open' ||
-    body === 'close thread' ||
-    body === 'plan task' ||
-    body === 'later' ||
-    body === 'open houden' ||
-    body === 'gesprek sluiten' ||
-    body === 'taak plannen'
+/** Leftover wrap-up cards: sessions close themselves now. */
+export function isSessionCheckoutCard(message: InboxMessage): boolean {
+  if (message.kind !== 'decision_request') return false
+  const options = parseDecisionOptions(message.proposal?.options ?? message.payload?.options)
+  return options.some(
+    (option) =>
+      option.action_type === 'session_checkout' || Boolean(option.payload?.session_checkout),
   )
+}
+
+function isReplySendDecision(options: unknown): boolean {
+  return parseDecisionOptions(options).some(
+    (option) =>
+      option.action_type === 'send_reply' ||
+      option.action_type === 'send_email' ||
+      option.id === 'send',
+  )
+}
+
+function syntheticAnswerMessage(
+  decisionId: string,
+  text: string,
+  createdAt: string,
+  threadId: string,
+): InboxMessage {
+  return {
+    id: `synthetic-decision-${decisionId}`,
+    threadId,
+    connectionId: null,
+    kind: 'user_message',
+    direction: 'outbound',
+    subject: '',
+    bodyPreview: text.slice(0, 200),
+    bodyText: text,
+    bodyHtml: null,
+    graphMessageId: '',
+    inReplyTo: null,
+    authorUserId: null,
+    isRead: true,
+    sendStatus: null,
+    attachments: null,
+    receivedAt: createdAt,
+    createdAt,
+    decisionResponse: true,
+    decisionResponseDecisionId: decisionId,
+    payload: { decision_id: decisionId, synthetic: true },
+  } as InboxMessage
+}
+
+/** Older silent resolves have no user bubble — rebuild one from the chosen labels. */
+export function syntheticDecisionAnswers(
+  messages: InboxMessage[],
+  threadId: string,
+  t: (key: string) => string,
+): InboxMessage[] {
+  const answered = new Set(
+    messages
+      .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
+      .map((m) => String(m.decisionResponseDecisionId)),
+  )
+  const extras: InboxMessage[] = []
+  for (const message of messages) {
+    if (message.proposal) {
+      const proposal = message.proposal
+      if (proposal.status === 'awaiting_human' || proposal.status === 'pending') continue
+      if (answered.has(proposal.decisionId)) continue
+      if (isReplySendDecision(proposal.options)) continue
+      const ids = proposal.chosenOptionIds.length
+        ? proposal.chosenOptionIds
+        : proposal.chosenOptionId
+          ? [proposal.chosenOptionId]
+          : []
+      const labels = labelsForChosenOptions(parseDecisionOptions(proposal.options), ids, t)
+      if (!labels.length) continue
+      extras.push(
+        syntheticAnswerMessage(
+          proposal.decisionId,
+          labels.join(', '),
+          proposal.resolvedAt ?? message.createdAt,
+          threadId,
+        ),
+      )
+      answered.add(proposal.decisionId)
+    }
+    if (message.kind !== 'decision_request' || !message.decisionId) continue
+    const decisionId = String(message.decisionId)
+    if (answered.has(decisionId)) continue
+    const decision = message.payload?.decision as Record<string, unknown> | undefined
+    const status = typeof decision?.status === 'string' ? decision.status : ''
+    if (!status || status === 'awaiting_human' || status === 'pending') continue
+    const optionsRaw = decision?.options ?? message.payload?.options
+    if (isReplySendDecision(optionsRaw)) continue
+    const rawIds = Array.isArray(decision?.chosen_option_ids)
+      ? decision.chosen_option_ids.map(String)
+      : typeof decision?.chosen_option_id === 'string'
+        ? String(decision.chosen_option_id).split(',').filter(Boolean)
+        : []
+    const labels = labelsForChosenOptions(parseDecisionOptions(optionsRaw), rawIds, t)
+    if (!labels.length) continue
+    extras.push(
+      syntheticAnswerMessage(
+        decisionId,
+        labels.join(', '),
+        typeof decision?.resolved_at === 'string' ? decision.resolved_at : message.createdAt,
+        threadId,
+      ),
+    )
+    answered.add(decisionId)
+  }
+  return extras
 }
 
 export function buildTimelineRows(
@@ -182,21 +247,30 @@ export function buildTimelineRows(
   locale?: string,
 ): TimelineRow[] {
   if (!detail) return []
+  const threadKey = String(detail.thread.id)
+  const healed = [
+    ...detail.messages,
+    ...syntheticDecisionAnswers(detail.messages, threadKey, t),
+  ]
   // A card shown inline under its agent bubble does not render a second time.
   const inlineHosts = new Set(
-    detail.messages.filter((m) => m.proposal).map((m) => String(m.id)),
+    healed.filter((m) => m.proposal).map((m) => String(m.id)),
   )
   const answeredDecisionIds = new Set(
-    detail.messages
+    healed
       .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
       .map((m) => String(m.decisionResponseDecisionId)),
   )
+  const questionDecisionIds = new Set<string>()
+  for (const message of healed) {
+    if (message.proposal?.decisionId) questionDecisionIds.add(message.proposal.decisionId)
+    if (message.kind === 'decision_request' && message.decisionId) {
+      questionDecisionIds.add(String(message.decisionId))
+    }
+  }
   const entries: TimelineEntry[] = [
-    ...detail.messages
+    ...healed
       .filter((m) => !(m.attachedToMessageId && inlineHosts.has(m.attachedToMessageId)))
-      // Silent decision buttons (Keep open, Close thread, End session, …)
-      // used to echo as chat/mail bubbles; the resolved card already covers them.
-      .filter((m) => !isSessionCheckoutEcho(m))
       .map((m) => ({
       kind: 'message' as const,
       time: m.receivedAt ?? m.createdAt,
@@ -204,7 +278,7 @@ export function buildTimelineRows(
       data: m,
     })),
     ...detail.events
-      .filter((e) => !isHiddenEvent(e.eventType, e.payload, answeredDecisionIds))
+      .filter((e) => !isHiddenEvent(e.eventType, e.payload, answeredDecisionIds, questionDecisionIds))
       .map((e) => ({ kind: 'event' as const, time: e.createdAt, id: `e-${e.id}`, data: e })),
     ...(detail.sessions ?? []).map((s) => ({
       kind: 'session' as const,
@@ -426,6 +500,8 @@ export function resolveTimelineLanding(
 
 export type ThreadTimelineHandle = {
   scrollToBottom: (behavior?: 'auto' | 'smooth') => void
+  /** Keep the scroller on the last pixel without Virtuoso index jumps. */
+  pinToEnd: () => void
   land: (behavior?: 'auto' | 'smooth') => TimelineLanding
 }
 
@@ -471,7 +547,8 @@ type Props = {
   /** True while the operator's Ask message streams in the active session. */
   agentStreaming: boolean
   onRefresh: (quiet?: boolean) => void
-  onDecisionResolved?: (info?: { closed?: boolean }) => void
+  onDecisionResolved?: (info?: DecisionResolvedInfo) => void
+  onAnswer?: (answer: { text: string; decisionId: string } | null) => void
   onEditDraft: (draft: {
     body: string
     subject?: string
@@ -495,6 +572,23 @@ type Props = {
   onAtBottomChange?: (atBottom: boolean) => void
 }
 
+const TimelineLiveContext = createContext<ReactNode>(null)
+const TimelineFooterAttachContext = createContext<(node: HTMLDivElement | null) => void>(() => {})
+
+/** Stable Footer type so Virtuoso does not remount the live bubble on every delta. */
+function TimelineFooter() {
+  const liveTrace = useContext(TimelineLiveContext)
+  const attachFooter = useContext(TimelineFooterAttachContext)
+  return (
+    <div ref={attachFooter} className="px-4">
+      <div className={CHAT_COLUMN_CLASS}>
+        {liveTrace ? <div className="mb-4">{liveTrace}</div> : null}
+        <div className="h-20" aria-hidden />
+      </div>
+    </div>
+  )
+}
+
 const TimelineScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   function TimelineScroller({ className, style, ...props }, ref) {
     const holder = useContext(TimelineScrollContext)
@@ -511,9 +605,9 @@ const TimelineScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElemen
           ...style,
           overflowX: 'hidden',
           overflowY: 'auto',
-          // Prefer keeping the row under the cursor stable when email/image
-          // heights settle above or below the viewport.
-          overflowAnchor: 'auto',
+          // Pin the footer ourselves. Browser overflow-anchor plus a
+          // programmatic pin bounce the thread up and down.
+          overflowAnchor: 'none',
         }}
       />
     )
@@ -553,6 +647,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     agentStreaming,
     onRefresh,
     onDecisionResolved,
+    onAnswer,
     onEditDraft,
     compactDecisionMessageIds,
     composerDecisionMessageId = null,
@@ -581,12 +676,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     () => (messageLayout === 'email' ? openMailRowIds(rows) : null),
     [rows, messageLayout],
   )
-  const virtuosoData = useMemo<VirtuosoRow[]>(() => {
-    const extra: VirtuosoRow[] = []
-    if (liveTrace) extra.push({ kind: 'live', id: '__live__' })
-    extra.push({ kind: 'end', id: '__end__' })
-    return [...rows, ...extra]
-  }, [rows, liveTrace])
+  const virtuosoData = rows
+  const footerNode = useRef<HTMLDivElement | null>(null)
+  const footerRoRef = useRef<ResizeObserver | null>(null)
+  const lastFooterHeightRef = useRef(0)
   /** Day stuck under the top fade; the next day pill replaces it (relay). */
   const [stickyDay, setStickyDay] = useState<{ id: string; label: string } | null>(null)
   const updateStickyDay = useCallback(
@@ -647,22 +740,47 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const snapScrollerToEnd = useCallback(() => {
     if (readingHistoryRef.current) return
     const el = scrollerNode.current
-    const top = el ? Math.max(0, el.scrollHeight - el.clientHeight) : Number.MAX_SAFE_INTEGER
-    virtuosoRef.current?.scrollTo({ top, behavior: 'auto' })
-    if (el) el.scrollTop = top
+    if (!el) return
+    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
   }, [])
+
+  /** Quiet pin: only the scroller, no Virtuoso index or settle loop. */
+  const pinScrollerToEnd = useCallback(() => {
+    if (readingHistoryRef.current) return
+    const el = scrollerNode.current
+    if (!el) return
+    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
+  }, [])
+
+  const attachFooter = useCallback(
+    (node: HTMLDivElement | null) => {
+      footerNode.current = node
+      footerRoRef.current?.disconnect()
+      footerRoRef.current = null
+      if (!node) return
+      lastFooterHeightRef.current = node.offsetHeight
+      const ro = new ResizeObserver(() => {
+        if (readingHistoryRef.current) return
+        const h = node.offsetHeight
+        const prev = lastFooterHeightRef.current
+        lastFooterHeightRef.current = h
+        // Only follow growth. Shrink (live overlay leaving) must not yank.
+        if (h <= prev + 0.5) return
+        pinScrollerToEnd()
+      })
+      footerRoRef.current = ro
+      ro.observe(node)
+    },
+    [pinScrollerToEnd],
+  )
 
   const scrollToAbsoluteBottom = useCallback(
     (behavior: 'auto' | 'smooth' = 'auto', settleMs = 0) => {
       readingHistoryRef.current = false
       atBottomRef.current = true
       stopSettling()
-      const last = Math.max(0, virtuosoData.length - 1)
-      virtuosoRef.current?.scrollToIndex({
-        index: last,
-        align: 'end',
-        behavior,
-      })
+      // Footer holds the live bubble. Index-snap on the last message hides
+      // it and fights the quiet pin — only move the scroller.
       snapScrollerToEnd()
       if (settleMs <= 0) return
       settleUntilRef.current = Date.now() + settleMs
@@ -677,7 +795,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       flushRafRef.current = window.requestAnimationFrame(loop)
       bottomTimersRef.current = [40, 120].map((ms) => window.setTimeout(snapScrollerToEnd, ms))
     },
-    [snapScrollerToEnd, stopSettling, virtuosoData.length],
+    [snapScrollerToEnd, stopSettling],
   )
 
   // Cleanup only: a stopSettling() here would run after the layout effect
@@ -753,16 +871,17 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     el.addEventListener('pointerdown', markGesture, { passive: true })
     el.addEventListener('keydown', markGesture)
     el.addEventListener('scroll', onScroll, { passive: true })
-    // Follow growth (a streamed answer, a reply replacing the live trace)
-    // until the operator scrolls up. Virtuoso's first child is a fixed-height
-    // viewport, so watch the item list itself.
-    const onResize = () => {
-      if (!readingHistoryRef.current) snapScrollerToEnd()
+    // Composer height changes this viewport. Keep the last pixel while
+    // following. Do not watch the item list — Virtuoso spacer churn yanks.
+    let lastClient = el.clientHeight
+    const onViewport = () => {
+      const next = el.clientHeight
+      const changed = Math.abs(next - lastClient) > 0.5
+      lastClient = next
+      if (changed && !readingHistoryRef.current) pinScrollerToEnd()
     }
-    const ro = new ResizeObserver(onResize)
-    ro.observe(el)
-    const list = el.querySelector('[data-testid="virtuoso-item-list"]') ?? el.firstElementChild
-    if (list) ro.observe(list)
+    const viewportRo = new ResizeObserver(onViewport)
+    viewportRo.observe(el)
     return () => {
       el.removeEventListener('wheel', onWheel)
       el.removeEventListener('touchstart', onTouchStart)
@@ -770,17 +889,28 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       el.removeEventListener('pointerdown', markGesture)
       el.removeEventListener('keydown', markGesture)
       el.removeEventListener('scroll', onScroll)
-      ro.disconnect()
+      viewportRo.disconnect()
     }
-  }, [threadId, virtuosoData.length, noteWheel, releaseFollow, snapScrollerToEnd, onAtBottomChange])
+  }, [threadId, virtuosoData.length, noteWheel, releaseFollow, onAtBottomChange, pinScrollerToEnd])
+
+  useEffect(() => () => footerRoRef.current?.disconnect(), [])
+
+  const hasLive = Boolean(liveTrace)
+  useLayoutEffect(() => {
+    if (readingHistoryRef.current) return
+    pinScrollerToEnd()
+  }, [hasLive, rows.length, pinScrollerToEnd])
 
   useImperativeHandle(
     ref,
     () => ({
       scrollToBottom: (behavior: 'auto' | 'smooth' = 'auto') => {
-        // Brief settle so streamed Ask turns / optimistic bubbles that grow
-        // the list still land at the bottom after Virtuoso remeasures.
-        scrollToAbsoluteBottom(behavior, 280)
+        // Settle only on an explicit land (open thread, send). Stream growth
+        // uses pinToEnd so a rAF loop cannot fight Virtuoso.
+        scrollToAbsoluteBottom(behavior, behavior === 'smooth' ? 280 : 0)
+      },
+      pinToEnd: () => {
+        pinScrollerToEnd()
       },
       land: (behavior: 'auto' | 'smooth' = 'auto') => {
         if (readingHistoryRef.current) return landing
@@ -799,7 +929,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         return landing
       },
     }),
-    [landing, scrollToAbsoluteBottom, stopSettling],
+    [landing, pinScrollerToEnd, scrollToAbsoluteBottom, stopSettling],
   )
 
   // Deep link from a notification: land on that card instead of the bottom.
@@ -865,6 +995,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       noteActions={noteActions}
       stack={stack}
       onProposalResolved={onDecisionResolved}
+      onAnswer={onAnswer}
       chatTags={chatTags}
       onMailAction={onMailAction}
       mailOwnAddresses={mailOwnAddresses}
@@ -955,6 +1086,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             activeInComposer={composerDecisionMessageId === String(message.id)}
             outdated={outdated.has(String(message.id))}
             onResolved={onDecisionResolved}
+            onAnswer={onAnswer}
             onEditDraft={onEditDraft}
           />
         ) : (
@@ -966,6 +1098,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
 
   return (
     <TimelineScrollContext.Provider value={scrollApi}>
+    <TimelineLiveContext.Provider value={liveTrace ?? null}>
+    <TimelineFooterAttachContext.Provider value={attachFooter}>
     <div className="relative h-full min-h-0">
       <Virtuoso
         key={String(threadId)}
@@ -979,8 +1113,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
           offset: landing.align === 'start' ? TOP_FADE_CLEARANCE_PX : 0,
         }}
         defaultItemHeight={72}
-        alignToBottom
-        followOutput={() => (readingHistoryRef.current ? false : 'auto')}
+        followOutput={false}
         atBottomThreshold={72}
         atBottomStateChange={(atBottom) => {
           atBottomRef.current = atBottom
@@ -1020,28 +1153,13 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
               // Clears the top edge fade so the first bubble/header stays readable.
               <div className="pt-12" />
             ),
+          Footer: TimelineFooter,
         }}
-        itemContent={(_index, row) => {
-          if (row.kind === 'live') {
-            return (
-              <div className="px-4">
-                <div className={CHAT_COLUMN_CLASS}>
-                  {/* Same bottom gap as a run-closing bubble: the saved rows land in place. */}
-                  <div className="mb-4">{liveTrace}</div>
-                </div>
-              </div>
-            )
-          }
-          if (row.kind === 'end') {
-            // Clears the composer and its top fade so the last control stays clickable.
-            return <div className="h-20" aria-hidden />
-          }
-          return (
-            <div className="px-4">
-              <div className={CHAT_COLUMN_CLASS}>{renderRow(row)}</div>
-            </div>
-          )
-        }}
+        itemContent={(_index, row) => (
+          <div className="px-4">
+            <div className={CHAT_COLUMN_CLASS}>{renderRow(row)}</div>
+          </div>
+        )}
       />
       {/* Fade + sticky day pill: messages recede under the active day. */}
       <div
@@ -1054,6 +1172,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         </div>
       ) : null}
     </div>
+    </TimelineFooterAttachContext.Provider>
+    </TimelineLiveContext.Provider>
     </TimelineScrollContext.Provider>
   )
 })

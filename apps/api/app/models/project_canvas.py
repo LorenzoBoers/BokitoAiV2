@@ -50,6 +50,7 @@ class ProjectCanvas(SQLModel, table=True):
     source: str = Field(default="")
     tree_json: str = Field(default="{}")
     managing_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     refresh_trigger_id: Optional[uuid.UUID] = Field(default=None, foreign_key="triggers.id")
     updated_by_type: str = Field(default="system", max_length=32)
     updated_by_id: str = Field(default="", max_length=64)

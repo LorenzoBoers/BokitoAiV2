@@ -23,6 +23,22 @@ function prop(node: CanvasNode, key: string): unknown {
 
 function parseSeries(raw: unknown): { name: string; points: { x: string; y: number }[] }[] {
   if (!Array.isArray(raw)) return []
+  const first = raw[0] && typeof raw[0] === 'object' ? (raw[0] as Record<string, unknown>) : {}
+  const looksLikePoints = raw.length > 0 && !('points' in first) && !('values' in first)
+  if (looksLikePoints) {
+    return [
+      {
+        name: asString(first.name || first.label || 'Value'),
+        points: raw.map((item) => {
+          const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+          return {
+            x: asString(rec.x ?? rec.label ?? rec.month ?? rec.name ?? rec.day ?? rec.product),
+            y: asNumber(rec.y ?? rec.value ?? rec.sales ?? rec.activeUsers ?? rec.revenue),
+          }
+        }),
+      },
+    ]
+  }
   return raw.map((item, idx) => {
     const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
     const pointsRaw = Array.isArray(row.points) ? row.points : Array.isArray(row.values) ? row.values : []
@@ -44,7 +60,8 @@ function renderChildren(node: CanvasNode): ReactNode[] {
     .map((child, idx) => {
       if (typeof child === 'string') {
         const text = child.trim()
-        return text ? <span key={idx}>{text}</span> : null
+        if (!text || !text.replace(/[{}\s]/g, '')) return null
+        return <span key={idx}>{text}</span>
       }
       const rendered = renderCanvasTree(child)
       return rendered ? (
@@ -72,7 +89,11 @@ export function renderCanvasTree(node: CanvasNode | null | undefined): ReactNode
       </Heading>
     )
   }
-  if (type === 'Text') return <Text text={asString(prop(node, 'text'))}>{children}</Text>
+  if (type === 'Text') {
+    const raw = asString(prop(node, 'text'))
+    if (!raw.replace(/[{}\s]/g, '')) return children.length ? <>{children}</> : null
+    return <Text text={raw}>{children}</Text>
+  }
   if (type === 'Callout') {
     return (
       <Callout text={asString(prop(node, 'text'))} tone={asString(prop(node, 'tone') || 'info')}>

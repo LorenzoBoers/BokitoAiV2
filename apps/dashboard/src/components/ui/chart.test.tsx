@@ -16,6 +16,36 @@ describe('Chart', () => {
     expect(screen.getByText('No tokens yet')).toBeTruthy()
   })
 
+  it('renders a stacked AI vs manual area without throwing', () => {
+    expect(() =>
+      render(
+        <Chart
+          kind="area"
+          stack
+          showAxes={false}
+          series={[
+            {
+              name: 'Manual',
+              color: 'rgb(148 163 184)',
+              points: [
+                { x: '10 okt', y: 8 },
+                { x: '11 okt', y: 4 },
+              ],
+            },
+            {
+              name: 'AI',
+              color: 'rgb(139 92 246)',
+              points: [
+                { x: '10 okt', y: 12 },
+                { x: '11 okt', y: 20 },
+              ],
+            },
+          ]}
+        />,
+      ),
+    ).not.toThrow()
+  })
+
   it('renders an area sparkline for a quiet series with one peak', () => {
     expect(() =>
       render(

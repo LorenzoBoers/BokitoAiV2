@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Folder, Folders, Pin, Plus } from 'lucide-react'
+import { Folder, Pin, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { folderPinRef, pathPinRef, tagPinRef, useSidebarPrefs } from '../../context/SidebarPrefsContext'
@@ -12,7 +12,6 @@ import { SidebarFolder } from './QueueSublist'
 import { NavSectionSkeleton } from '../ui/skeleton'
 import type { HubLeaf, SubQueue } from '../../lib/messages-paths'
 
-const FolderKanban = ENTITY_ICONS.folder ?? ENTITY_ICONS.project
 const Workflow = ENTITY_ICONS.flow
 
 type TFn = (key: string, opts?: { defaultValue?: string }) => string
@@ -91,16 +90,8 @@ function CommunicationFolderRow({
   return (
     <SidebarFolder
       baseLeaf={leaf}
-      label={row.virtual ? `#${row.name}` : row.name}
-      icon={
-        row.virtual ? (
-          <HashtagMark className="w-3.5 shrink-0 text-center text-sm" />
-        ) : row.groupId || children.some((child) => child.virtual) ? (
-          <Folders size={14} className="shrink-0 text-text-muted" aria-hidden />
-        ) : (
-          <FolderKanban size={14} className="shrink-0 text-text-muted" aria-hidden />
-        )
-      }
+      label={row.name}
+      icon={<HashtagMark className="w-3.5 shrink-0 text-center text-sm" />}
       activeLeaf={activeLeaf}
       defaultQueue={defaultQueueFor(leaf)}
       badgeCount={row.count}
@@ -239,7 +230,7 @@ export function FolderTagTree({
         {[...folders, ...extraFolder].map((row) => (
           <AgendaFolderRow key={row.id} row={row} selectedId={selectedId} onSelect={clickFolder} />
         ))}
-        {[...ticketTags, ...tags, ...extraTag].map((row) => (
+        {[...tags, ...ticketTags, ...extraTag].map((row) => (
           <button
             key={`tag-${row.id}`}
             type="button"
@@ -248,7 +239,7 @@ export function FolderTagTree({
             className="nav-row h-7 w-full text-left text-xs"
           >
             <HashtagMark className="w-3.5 shrink-0 text-center text-sm" />
-            <span className="min-w-0 flex-1 truncate-fade">#{row.name}</span>
+            <span className="min-w-0 flex-1 truncate-fade">{row.name}</span>
           </button>
         ))}
       </div>
@@ -275,20 +266,11 @@ export function FolderTagTree({
           t={t}
         />
       ))}
-      {ticketTags.map((row) => (
-        <CommunicationTagRow
-          key={`cat-${row.id}`}
-          row={row}
-          category
-          activeLeaf={activeLeaf}
-          defaultQueueFor={defaultQueueFor}
-          t={t}
-        />
-      ))}
-      {[...tags, ...extraTag].map((row) => (
+      {[...tags, ...ticketTags, ...extraTag].map((row) => (
         <CommunicationTagRow
           key={`tag-${row.id}`}
           row={row}
+          category={ticketTags.some((item) => item.id === row.id)}
           activeLeaf={activeLeaf}
           defaultQueueFor={defaultQueueFor}
           t={t}
@@ -316,12 +298,8 @@ function AgendaFolderRow({
         data-active={selectedId === row.id ? 'true' : undefined}
         className="nav-row h-7 w-full text-left text-xs"
       >
-        {row.virtual ? (
-          <HashtagMark className="w-3.5 shrink-0 text-center text-sm" />
-        ) : (
-          <Folder size={13} className="shrink-0 text-text-muted" aria-hidden />
-        )}
-        <span className="min-w-0 flex-1 truncate-fade">{row.virtual ? `#${row.name}` : row.name}</span>
+        <HashtagMark className="w-3.5 shrink-0 text-center text-sm" />
+        <span className="min-w-0 flex-1 truncate-fade">{row.name}</span>
       </button>
       {children.length > 0 ? (
         <div className="ml-[15px] space-y-px border-l border-border/70 pl-2">

@@ -9,7 +9,10 @@ import {
   groupSummary,
   isVisibleActivity,
   itemLabel,
+  liveAttachResults,
   liveBlocks,
+  liveTurnFromMessage,
+  mergeTurns,
   normalizeActivity,
   normalizeMessageActivity,
   shouldShowWaitingTurn,
@@ -56,6 +59,12 @@ describe('turnPreparesProposal', () => {
         { lastRunning: false, lastIsSpeech: false },
       ),
     ).toBe(true)
+    expect(
+      shouldShowWaitingTurn(
+        { ...EMPTY_TURN, active: true },
+        { lastRunning: false, lastIsSpeech: false, hasSpeech: true },
+      ),
+    ).toBe(false)
   })
 })
 
@@ -82,6 +91,14 @@ describe('isVisibleActivity', () => {
     expect(
       isVisibleActivity(
         item('a1', 'other', 0, 1, { tool: 'attach_items', label: 'Attach items' }),
+      ),
+    ).toBe(false)
+  })
+
+  it('hides update_progress tool rows (the tool posts a bubble)', () => {
+    expect(
+      isVisibleActivity(
+        item('p1', 'other', 0, 1, { tool: 'update_progress', label: 'Update progress' }),
       ),
     ).toBe(false)
   })
@@ -264,6 +281,112 @@ describe('saved messages', () => {
     expect(parsed.turnId).toBe('turn-1')
     const live = applyTurnEvent(EMPTY_TURN, 'agent.turn', { stream_id: 'turn-1', phase: 'start' })
     expect(turnSaved(live, [{ turnId: 'turn-1' }])).toBe(true)
+    expect(turnSaved(live, [{ turnId: 'turn-1', inProgress: true }])).toBe(false)
     expect(turnSaved(live, [{ turnId: 'other' }])).toBe(false)
+  })
+
+  it('hydrates an in-progress checkpoint into a live turn', () => {
+    const turn = liveTurnFromMessage({
+      turnId: 'turn-live',
+      inProgress: true,
+      bodyText: 'Working on this.',
+      activity: [
+        { id: 't1', kind: 'think', label: '', tool: '', provider: '', startedAt: null, endedAt: null, durationMs: 2000, status: 'ok' },
+        { id: 'w1', kind: 'work', label: 'create_canvas', tool: 'create_canvas', provider: '', startedAt: null, endedAt: null, durationMs: null, status: 'running' },
+      ],
+    })
+    expect(turn?.active).toBe(true)
+    expect(turn?.streamId).toBe('turn-live')
+    expect(turn?.entries.some((e) => e.type === 'speech')).toBe(false)
+    expect(turn?.entries[1]).toMatchObject({ type: 'activity', item: { id: 'w1', status: 'running' } })
+    const merged = mergeTurns(turn!, applyTurnEvent(EMPTY_TURN, 'agent.activity', {
+      stream_id: 'turn-live',
+      item: { id: 'w1', kind: 'work', status: 'ok', label: 'create_canvas' },
+    }))
+    expect(merged.entries).toHaveLength(2)
+    expect(merged.entries[1]).toMatchObject({ type: 'activity', item: { id: 'w1', status: 'ok' } })
+  })
+
+  it('keeps appending to the same segment after a think row', () => {
+    let turn = applyTurnEvent(EMPTY_TURN, 'message.delta', {
+      stream_id: 's1',
+      segment_id: 'seg-1',
+      delta: 'Er was eens',
+    })
+    turn = applyTurnEvent(turn, 'agent.activity', {
+      stream_id: 's1',
+      item: { id: 'think-2', kind: 'think', status: 'running' },
+    })
+    turn = applyTurnEvent(turn, 'message.delta', {
+      stream_id: 's1',
+      segment_id: 'seg-1',
+      delta: ' een platform.',
+    })
+    const speech = liveBlocks(turn).filter((block) => block.type === 'speech')
+    expect(speech).toHaveLength(1)
+    expect(speech[0].type === 'speech' && speech[0].text).toBe('Er was eens een platform.')
+  })
+
+  it('does not open a new speech bubble for a writing presence echo', () => {
+    let turn = applyTurnEvent(EMPTY_TURN, 'message.delta', {
+      stream_id: 's1',
+      segment_id: 'seg-1',
+      delta: 'Hier zijn',
+    })
+    turn = applyTurnEvent(turn, 'thread.presence', {
+      stream_id: 's1',
+      phase: 'writing',
+      delta: 'Hier zijn',
+    })
+    turn = applyTurnEvent(turn, 'message.delta', {
+      stream_id: 's1',
+      segment_id: 'seg-1',
+      delta: ' een paar',
+    })
+    turn = applyTurnEvent(turn, 'thread.presence', {
+      stream_id: 's1',
+      phase: 'writing',
+      delta: ' een paar',
+    })
+    const speech = liveBlocks(turn).filter((block) => block.type === 'speech')
+    expect(speech).toHaveLength(1)
+    expect(speech[0].type === 'speech' && speech[0].text).toBe('Hier zijn een paar')
+  })
+
+  it('maps thread.presence typing onto the live overlay', () => {
+    const live = applyTurnEvent(EMPTY_TURN, 'thread.presence', {
+      stream_id: 'p1',
+      phase: 'typing',
+      actor: { kind: 'contact', id: 'c1', name: 'Sam' },
+    })
+    expect(live.active).toBe(true)
+    expect(live.entries[0]).toMatchObject({
+      type: 'activity',
+      item: { id: 'typing-c1', label: 'typing', status: 'running' },
+    })
+  })
+})
+
+describe('liveAttachResults', () => {
+  it('collects attach_items snapshots from the live turn', () => {
+    const turn = {
+      ...EMPTY_TURN,
+      entries: [
+        {
+          type: 'activity' as const,
+          item: normalizeActivity([
+            {
+              id: 'a1',
+              kind: 'work',
+              tool: 'attach_items',
+              result: { items: [{ type: 'marketplace', id: 'moneybird', title: 'Moneybird' }] },
+            },
+          ])[0],
+        },
+      ],
+    }
+    expect(liveAttachResults(turn)).toEqual([
+      { items: [{ type: 'marketplace', id: 'moneybird', title: 'Moneybird' }] },
+    ])
   })
 })

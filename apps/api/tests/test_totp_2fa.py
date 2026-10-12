@@ -130,3 +130,45 @@ async def test_totp_full_flow(client: AsyncClient, session_override):
     )
     assert r.status_code == 200
     assert r.json().get("access_token")
+
+
+@pytest.mark.asyncio
+async def test_change_password_requires_totp_when_enabled(client: AsyncClient):
+    headers = await _login_headers(client)
+    setup = await client.post("/api/auth/2fa/setup", headers=headers)
+    assert setup.status_code == 200, setup.text
+    secret = setup.json()["secret"]
+    enabled = await client.post(
+        "/api/auth/2fa/enable", json={"code": totp_code(secret)}, headers=headers
+    )
+    assert enabled.status_code == 200, enabled.text
+
+    missing = await client.post(
+        "/api/auth/change-password",
+        headers=headers,
+        json={"current_password": TEST_PASSWORD, "new_password": "changedpass123"},
+    )
+    assert missing.status_code == 400
+    assert missing.json()["error"]["message"] == "Invalid verification code"
+
+    wrong = await client.post(
+        "/api/auth/change-password",
+        headers=headers,
+        json={
+            "current_password": TEST_PASSWORD,
+            "new_password": "changedpass123",
+            "totp_code": "000000",
+        },
+    )
+    assert wrong.status_code == 400
+
+    ok = await client.post(
+        "/api/auth/change-password",
+        headers=headers,
+        json={
+            "current_password": TEST_PASSWORD,
+            "new_password": "changedpass123",
+            "totp_code": totp_code(secret),
+        },
+    )
+    assert ok.status_code == 200, ok.text

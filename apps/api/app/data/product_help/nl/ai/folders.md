@@ -9,7 +9,7 @@ related: workstreams,categories,agenda,knowledge,communication
 
 # Zo werken Mappen
 
-Een map is een tag met een plek. Gesprekken komen in een map terecht via hun tags, inclusief tags op het contact. Open **Mappen** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een mapdetail toont **Overzicht**, **Gesprekken** en **Instellingen**; **Tickets**, **Documentatie** en **Bestanden** verschijnen wanneer die map ze heeft. De URL houdt het tabblad bij (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) zodat je dat oppervlak kunt delen.
+Een map is een tag met een plek. De mapnaam is die tag (`#facturen`). Gesprekken staan in elke map waarvan ze de pad-tags dragen, inclusief tags op het contact. Canvas, docs en budget blijven op één thuis: het diepste passende pad. Open **Mappen** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een mapdetail toont **Overzicht**, **Gesprekken** en **Instellingen**; **Tickets**, **Documentatie** en **Bestanden** verschijnen wanneer die map ze heeft. De URL houdt het tabblad bij (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) zodat je dat oppervlak kunt delen.
 
 ## Maak of open een map
 
@@ -31,7 +31,7 @@ Het tabblad **Overzicht** is de landing. De kopkaart toont het mapicoon, de naam
 
 ## Bekijk de gesprekken in een map
 
-Elk gesprek dat op dit project of op een map erin is opgeborgen, staat in de Communicatie-zijbalk onder **Mappen en tags**. Het tabblad **Gesprekken** toont dezelfde lijst naast de mappen en borden.
+Elk gesprek dat de pad-tags van deze map draagt, staat in de Communicatie-zijbalk onder **Mappen en tags**, en kan ook in een andere passende map staan. Het tabblad **Gesprekken** toont dezelfde lijst naast de mappen en borden.
 
 1. Open het tabblad **Gesprekken**. Het getal in de tab is het aantal open gesprekken. Schakel tussen **Open** en **Gesloten**.
 2. Elke rij toont de statusstip, het kanaal, het onderwerp, het contact, de map waarin het zit als die dieper ligt dan dit project, en de actietag. Klik een rij om dat gesprek te openen in de map van dit project in Communicatie.
@@ -50,11 +50,11 @@ Elk gesprek dat op dit project of op een map erin is opgeborgen, staat in de Com
 
 ## Vraag een agent een canvas te schrijven
 
-Een project kan meerdere snapshot-canvasses hebben (geen live tegels). Een agent maakt, vult en ververst een canvas; jij kunt dat ook vanaf dit tabblad. De agent die het aanmaakt is de eigenaar, tenzij je een andere noemt. Verversen is een [Agenda](/docs/ai/agenda)-wake: eenmalig (**Handmatig**), dagelijks om 07:00 UTC, wekelijks, maandelijks, uurlijks, of **Aangepast** (een cron van vijf velden). Op Assisted of Autonomous past de schrijfactie meteen toe. Op Manual wacht die als beslissing onder [Govern](/docs/govern/govern).
+Een project kan meerdere snapshot-canvasses hebben (geen live tegels). Een agent maakt, vult en ververst een canvas; jij kunt dat ook vanaf dit tabblad. De agent die het aanmaakt is de eigenaar, tenzij je een andere noemt. Elk canvas leeft op één gesprek: het huidige chat, of een nieuwe thread als dat chat ergens anders over gaat. Verversen is de herhaling van dat gesprek in [Agenda](/docs/ai/agenda): eenmalig (**Handmatig**), dagelijks om 07:00 UTC, wekelijks, maandelijks, uurlijks, of **Aangepast** (een cron van vijf velden). Op Assisted of Autonomous past de schrijfactie meteen toe. Op Manual wacht die als beslissing onder [Govern](/docs/govern/govern).
 
 1. Open het tabblad **Canvas**. Canvasnamen staan van links naar rechts. De **+** ná de laatste naam voegt een canvas toe. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**, **Aangepast**). Bij **Aangepast** vul je een cron in, bijvoorbeeld `0 8 * * 1-5`. Dagelijks is de standaard. Sla op. De eigenaar begint vanuit de omschrijving.
 2. Canvasses staan als tabs van links naar rechts. Zolang het document leeg is, toont de tab dat de agent schrijft. Na de schrijfactie zie je kaarten, stats, tabellen of grafieken van de laatste snapshot.
-3. Vraag de agent in het gesprek om cijfers, een status of een dashboard; hij bouwt of werkt het canvas in die beurt bij. Een latere aanpassing werkt datzelfde canvas bij. Het antwoord noemt het canvas als link en toont een kleine preview van de snapshot. Open de preview om op dat canvas te landen. Een geplande verversing schrijft de snapshot en opent geen tweede gesprek. Admins kunnen **Bron tonen**. Kies **Vraag agent om bij te werken** voor een eenmalige herschrijving, of wijzig Verversen zodat Agenda de eigenaar blijft wekken. Workspace-canvasses staan op Overview **Canvas**.
+3. Vraag de agent in het gesprek om cijfers, een status of een dashboard; hij bouwt of werkt het canvas in die beurt bij. Een latere aanpassing werkt datzelfde canvas bij. Het antwoord noemt het canvas als link en toont een kleine preview van de snapshot. Open de preview om op dat canvas te landen. Het canvas-tabblad toont de eigenaar-agent en het gesprek; open dat gesprek om een aanpassing te vragen. Het zijpaneel van dat gesprek toont het canvas (naam, preview, link) onder **Dit gesprek**. Verversen is de herhaling op diezelfde thread, ook zichtbaar in Agenda. Admins kunnen **Bron tonen**. Workspace-canvasses staan op Overview **Canvas**.
 
 ## Tickets op een project krijgen
 

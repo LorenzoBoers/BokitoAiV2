@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Info, Trash2, type LucideIcon } from 'lucide-react'
 import ContentHeader from './ContentHeader'
 import ScrollFade from '../ui/ScrollFade'
+import { SearchField } from '../ui/search-field'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
@@ -263,23 +264,13 @@ function SettingsNavSearch({
 }) {
   const { t } = useTranslation('nav')
   return (
-    <input
-      type="search"
+    <SearchField
       value={query}
-      onChange={(event) => onQuery(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && query) {
-          event.preventDefault()
-          onQuery('')
-        }
-      }}
+      onChange={onQuery}
+      size="sm"
       placeholder={t('settings.searchPlaceholder')}
       aria-label={t('settings.searchLabel')}
-      className={
-        compact
-          ? 'mb-2 h-8 w-full rounded-md border border-border/70 bg-bg-input px-2 text-sm text-text-primary'
-          : 'mb-2 h-8 w-full shrink-0 rounded-md border border-border/70 bg-bg-input px-2 text-sm text-text-primary'
-      }
+      className={compact ? 'mb-2' : 'mb-2 shrink-0'}
     />
   )
 }

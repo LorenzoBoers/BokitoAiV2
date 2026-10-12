@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import logging
@@ -25,6 +26,26 @@ logger = logging.getLogger(__name__)
 
 # How many backing-chain steps one turn may fall through on rate limits.
 _MAX_FAILOVER_STEPS = 3
+
+# Interim updates (update_progress) wait until the turn has been going a bit.
+PROGRESS_MIN_SECONDS = 15
+PROGRESS_GAP_SECONDS = 20
+PROGRESS_MAX = 3
+_PROGRESS_FILLER_RE = re.compile(
+    r"(?i)^(still working on it\.?|working on (?:this|it)\.?|one moment\.?|hang on\.?)$"
+)
+
+
+def progress_allowed(*, elapsed: float, since_last: float | None, count: int) -> bool:
+    if elapsed < PROGRESS_MIN_SECONDS:
+        return False
+    if since_last is not None and since_last < PROGRESS_GAP_SECONDS:
+        return False
+    return count < PROGRESS_MAX
+
+
+def is_progress_filler(text: str) -> bool:
+    return bool(_PROGRESS_FILLER_RE.match((text or "").strip()))
 
 
 def _sniff_image_mime(data: bytes) -> str | None:
@@ -117,6 +138,9 @@ class AgentLoop:
         # Showcase cards from attach_items for this turn (request-scoped backup
         # for the module-level stash that persist_agent_turn consumes).
         self._showcase_items: list[dict[str, Any]] = []
+        # In-progress SignalMessage written as tools run so a reload still
+        # shows thinking and tool calls on the thread.
+        self._checkpoint_message_id: UUID | None = None
         # Membership role of the session user; explicit when the caller has an
         # AuthContext (staff sessions map to admin there), else resolved from
         # the membership row on first tool call. Autonomous runs stay None.
@@ -158,14 +182,23 @@ class AgentLoop:
         self.thinking_budget = 0
         # One soft nudge per turn when the model announces work but emits no tools.
         self._continue_nudged = False
+        self._started = 0.0
+        self._last_progress = 0.0
+        self._progress_count = 0
 
     # Phrases that mean "I will do X next" without having called a tool yet.
     _WORK_ANNOUNCE_RE = re.compile(
         r"(?i)\b("
         r"even kijken|ik ga |laat me |ik zoek|ik kijk|ik pak|"
+        r"ik begin|hier komt|komt[- ]ie|"
         r"i(?:'| a)?m going to|let me |i(?:'| wi)?ll |looking up|checking |"
-        r"i will |going to (?:look|check|list|find|create|file|open)"
+        r"i will |going to (?:look|check|list|find|create|file|open)|"
+        r"here we go|i(?:'| wi)?ll start"
         r")\b"
+    )
+    _STORY_ASK_RE = re.compile(
+        r"(?i)(verhaal|verhaaltje|meerdere bericht|multiple message|"
+        r"several message|in meerdere)"
     )
 
     def _looks_like_work_announce(self, text: str) -> bool:
@@ -176,6 +209,36 @@ class AgentLoop:
             return False
         # Finished answers usually end with a period after substance; keep it
         # loose — the nudge is cheap and only runs once.
+        return True
+
+    def _looks_like_unfinished_story(self, text: str) -> bool:
+        """User asked for a story / several bubbles; the model stopped after the opening."""
+        user = str(getattr(self, "_turn_user_text", "") or "")
+        if not self._STORY_ASK_RE.search(user):
+            return False
+        cleaned = (text or "").strip()
+        return 12 <= len(cleaned) <= 500
+
+    async def _post_progress(self, text: str) -> bool:
+        """Post an interim English line the operator can read. Time-gated."""
+        if self.turn is None or self.canvas_refresh:
+            return False
+        now = time.monotonic()
+        if not progress_allowed(
+            elapsed=now - self._started if self._started else 0.0,
+            since_last=(now - self._last_progress) if self._last_progress else None,
+            count=self._progress_count,
+        ):
+            return False
+        from app.services.agent.style import strip_emoji
+
+        line = strip_emoji((text or "").strip())
+        if not line:
+            return False
+        await self.turn.say(line[:240])
+        self._last_progress = now
+        self._progress_count += 1
+        await self._checkpoint_turn()
         return True
 
     def _append_continue_nudge(
@@ -190,8 +253,10 @@ class AgentLoop:
             {
                 "role": "user",
                 "content": (
-                    "Continue now. Call the tools you need and finish the work. "
-                    "Do not only announce what you will do."
+                    "Continue now. Finish what you started in this turn — the "
+                    "full answer in several short bubbles if that is what was "
+                    "asked, and any tools you still need. Do not stop after "
+                    "the opening line."
                 ),
             }
         )
@@ -324,7 +389,31 @@ class AgentLoop:
             fallback_text=fallback_text,
             append_to_last=append_to_last,
             showcase_items=showcase,
+            replace_message_id=self._checkpoint_message_id,
         )
+
+    async def _checkpoint_turn(self) -> None:
+        """Write thinking and tools onto the thread while the turn is still open."""
+        if not self.signal_id or self.turn is None:
+            return
+        from app.models.signal import Signal, is_internal_channel
+        from app.services.agent.turn_persist import upsert_turn_checkpoint
+
+        signal = await self.session.get(Signal, self.signal_id)
+        if signal is None or not is_internal_channel(signal.channel):
+            return
+        turn = self.turn
+        message = await upsert_turn_checkpoint(
+            self.session,
+            signal,
+            message_id=self._checkpoint_message_id,
+            author_agent_id=self.agent.id if self.agent else None,
+            turn_id=turn.stream_id,
+            segments=turn.live_segments(),
+            fallback_text="Working on this.",
+        )
+        await self.session.commit()
+        self._checkpoint_message_id = message.id
 
     async def _resolve_reply_mode(self) -> str:
         if self.reply_mode:
@@ -448,15 +537,26 @@ class AgentLoop:
         )
 
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
-        workspace = await build_workspace_context(
-            self.session,
-            self.tenant_id,
-            agent_id=self.agent.id if self.agent is not None else None,
-        )
+        # Chat turns skip the full tenant snapshot. Scoring docs + snapshot
+        # queries used to freeze the event loop so the first token never left.
+        if getattr(self, "_skip_rag", False):
+            workspace = ""
+        else:
+            workspace = await build_workspace_context(
+                self.session,
+                self.tenant_id,
+                agent_id=self.agent.id if self.agent is not None else None,
+            )
         rag_context = ""
         product_help_context = ""
-        if user_query:
-            hits = await hybrid_search(self.session, self.tenant_id, user_query, top_k=5)
+        if user_query and not getattr(self, "_skip_rag", False):
+            try:
+                hits = await asyncio.wait_for(
+                    hybrid_search(self.session, self.tenant_id, user_query, top_k=5),
+                    timeout=6,
+                )
+            except TimeoutError:
+                hits = []
             self.last_rag_hits = hits or []
             if hits:
                 rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
@@ -598,9 +698,14 @@ class AgentLoop:
         return "\n\n".join(parts).strip()
 
     def _with_canvas_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        from app.tools.registry import CANVAS_WAKE_DENY, with_operator_canvas_tools
+        from app.tools.registry import (
+            CANVAS_WAKE_DENY,
+            with_operator_canvas_tools,
+            with_operator_progress_tool,
+        )
 
         tools = with_operator_canvas_tools(tools, trust=self.trust, refresh=self.canvas_refresh)
+        tools = with_operator_progress_tool(tools, trust=self.trust, refresh=self.canvas_refresh)
         if self.canvas_refresh:
             tools = [t for t in tools if t["name"] not in CANVAS_WAKE_DENY]
         return tools
@@ -726,14 +831,21 @@ class AgentLoop:
         for attempt in range(_MAX_FAILOVER_STEPS + 1):
             started = False
             try:
-                async for event in self.llm.stream_chat(
+                stream = self.llm.stream_chat(
                     llm_messages,
                     tools=self.tools,
                     model=self.resolved_call.model_id if self.resolved_call else None,
                     thinking_budget=self.thinking_budget,
                     max_tokens=max_tokens,
-                ):
-                    started = True
+                )
+                agen = stream.__aiter__()
+                try:
+                    first = await asyncio.wait_for(agen.__anext__(), timeout=40)
+                except TimeoutError as exc:
+                    raise TimeoutError("llm first token timed out") from exc
+                started = True
+                yield first
+                async for event in agen:
                     yield event
                 return
             except Exception as exc:
@@ -834,6 +946,39 @@ class AgentLoop:
         llm_messages = [{"role": "system", "content": system}, *messages]
         llm_messages = await self._apply_attachments_to_messages(llm_messages, attachments)
         return llm_messages, {"input_tokens": 0, "output_tokens": 0}
+
+    async def _prepare_chat_bare(
+        self,
+        messages: list[dict[str, Any]],
+        extra_context: str = "",
+    ) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        """Minimal prompt so a timed-out prepare can still reach the LLM."""
+        from app.services.model_resolution import resolve_model_call
+
+        try:
+            await self.session.rollback()
+        except Exception:
+            pass
+        if getattr(self, "resolved_call", None) is None or getattr(self, "llm", None) is None:
+            selected = await self._select_chat_model()
+            self.resolved_call = await resolve_model_call(
+                self.session, self.tenant_id, kind="chat", model_slug=selected.slug
+            )
+            self.llm = get_chat_provider(
+                self.resolved_call.provider_type,
+                self.resolved_call.api_key,
+                self.resolved_call.base_url or None,
+            )
+        default_prompt = (
+            "You are the Bokito AI OS assistant. Answer the operator briefly."
+        )
+        system = self.agent.system_prompt if self.agent and self.agent.system_prompt else default_prompt
+        if extra_context:
+            system = f"{system}\n\n{extra_context}"
+        return [{"role": "system", "content": system}, *messages], {
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
 
     async def _apply_attachments_to_messages(
         self,
@@ -1027,6 +1172,7 @@ class AgentLoop:
                 item = await self.turn.tool_start(
                     tool_use["name"], tool_input, label=shown["label"], provider=shown["provider"]
                 )
+                await self._checkpoint_turn()
             result = await execute_tool(
                 self.session,
                 self.tenant_id,
@@ -1053,6 +1199,19 @@ class AgentLoop:
             self._append_trace_step("tool_result", name=tool_use["name"], payload={"result": result})
             if self.turn is not None and item is not None:
                 await self.turn.tool_end(item, result)
+                await self._checkpoint_turn()
+            if (
+                tool_use["name"] == "update_progress"
+                and isinstance(result, dict)
+                and not result.get("error")
+            ):
+                posted = await self._post_progress(str(result.get("message") or ""))
+                result["posted"] = posted
+                if not posted:
+                    result["skipped"] = "too_soon_or_recent"
+            if isinstance(result, dict) and result.get("error"):
+                if self.thinking_budget > 1024:
+                    self.thinking_budget = 1024
             tool_results.append(
                 {
                     "type": "tool_result",
@@ -1075,6 +1234,7 @@ class AgentLoop:
         max_tokens = self._resolve_max_tokens()
         self._continue_nudged = False
         started = time.monotonic()
+        self._started = started
 
         for loop_idx in range(self.max_loops):
             if await self._is_cancelled():
@@ -1100,6 +1260,8 @@ class AgentLoop:
             if tool_uses:
                 if await self._is_cancelled():
                     break
+                if text_blocks and all(is_progress_filler(t) for t in text_blocks):
+                    turn.discard_open_speech()
                 llm_messages.append({"role": "assistant", "content": content})
                 tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
                 llm_messages.append({"role": "user", "content": tool_results})
@@ -1108,7 +1270,10 @@ class AgentLoop:
             joined = "\n".join(text_blocks)
             if (
                 not self._continue_nudged
-                and self._looks_like_work_announce(joined)
+                and (
+                    self._looks_like_work_announce(joined)
+                    or self._looks_like_unfinished_story(joined)
+                )
                 and loop_idx + 1 < self.max_loops
             ):
                 self._append_continue_nudge(
@@ -1138,14 +1303,40 @@ class AgentLoop:
         ``done`` with ``segments`` (speech bubbles + their activity), ``text``
         (last speech, for single-message callers) and ``activity``.
         """
-        llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
         turn = self._new_turn()
         stream_id = turn.stream_id
-        self.thinking_budget = self._resolve_thinking_budget()
-        max_tokens = self._resolve_max_tokens()
         self._continue_nudged = False
         started = time.monotonic()
-        await turn.start()
+        self._started = started
+        # Yield before any publish/commit. A slow WebSocket or a locked
+        # session used to freeze the turn before the first SSE frame.
+        yield {"type": "thinking", "text": ""}
+        await asyncio.sleep(0)
+        self._skip_rag = True
+        try:
+            await asyncio.wait_for(turn.start(), timeout=3)
+        except Exception:
+            logger.exception("chat turn.start failed")
+        try:
+            await asyncio.wait_for(self._log_event("think", "Preparing reply"), timeout=5)
+        except Exception:
+            logger.exception("chat preparing-reply event failed")
+        prepare_started = time.monotonic()
+        try:
+            llm_messages, tokens = await asyncio.wait_for(
+                self._prepare_chat(messages, extra_context, attachments),
+                timeout=12,
+            )
+            logger.info("chat prepare finished in %.1fs", time.monotonic() - prepare_started)
+        except TimeoutError:
+            logger.warning(
+                "chat prepare timed out after %.1fs; using bare prompt",
+                time.monotonic() - prepare_started,
+            )
+            llm_messages, tokens = await self._prepare_chat_bare(messages, extra_context)
+        self.thinking_budget = self._resolve_thinking_budget()
+        max_tokens = self._resolve_max_tokens()
+        await self._checkpoint_turn()
 
         cancelled = False
         for loop_idx in range(self.max_loops):
@@ -1195,6 +1386,10 @@ class AgentLoop:
                 if await self._is_cancelled():
                     cancelled = True
                     break
+                if (text_blocks and all(is_progress_filler(t) for t in text_blocks)) or (
+                    turn.has_open_speech and is_progress_filler(turn.open_speech_text)
+                ):
+                    turn.discard_open_speech()
                 llm_messages.append({"role": "assistant", "content": response_content})
                 tool_results = await self._execute_tool_loop(
                     llm_messages, tool_uses, stream_id=stream_id
@@ -1206,7 +1401,10 @@ class AgentLoop:
             if (
                 not cancelled
                 and not self._continue_nudged
-                and self._looks_like_work_announce(joined or "")
+                and (
+                    self._looks_like_work_announce(joined or "")
+                    or self._looks_like_unfinished_story(joined or "")
+                )
                 and loop_idx + 1 < self.max_loops
             ):
                 assistant_content = response_content or [

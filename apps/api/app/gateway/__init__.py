@@ -15,6 +15,7 @@ from app.gateway.publish import (
     publish_presence,
     publish_run_event,
     publish_signal_message,
+    publish_thread_presence,
     publish_thread_update,
     publish_turn_event,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "publish_presence",
     "publish_run_event",
     "publish_signal_message",
+    "publish_thread_presence",
     "publish_thread_update",
     "publish_turn_event",
 ]

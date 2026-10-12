@@ -17,6 +17,7 @@ from app.tools.registry import (
     get_tool_definitions,
     get_tool_spec,
     with_operator_canvas_tools,
+    with_operator_progress_tool,
 )
 
 
@@ -58,6 +59,11 @@ def test_narrow_passport_still_gets_canvas_tools():
 
     operator = {tool["name"] for tool in with_operator_canvas_tools(narrowed, trust="operator")}
     assert CANVAS_OPERATOR_TOOLS <= operator
+    progress = {tool["name"] for tool in with_operator_progress_tool(narrowed, trust="operator")}
+    assert "update_progress" in progress
+    assert "update_progress" not in {
+        tool["name"] for tool in with_operator_progress_tool(narrowed, trust="operator", refresh=True)
+    }
 
     external = {tool["name"] for tool in with_operator_canvas_tools(narrowed, trust="external")}
     assert "create_canvas" not in external

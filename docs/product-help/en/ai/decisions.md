@@ -24,7 +24,7 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 
 ## Approve an agent proposal in the chat
 
-When you ask an agent to do something that needs your OK, its last message asks the question and the buttons sit right under that message. Agents can also show objects without asking — tags as inline chips in the text, and showcase cards under the prose — and only raise buttons when they need an answer.
+When you ask an agent to do something that needs your OK, its last message asks the question and the buttons sit right under that message. Agents can also show objects without asking — tags and connector names as inline chips in the text, and showcase cards (logo grid for koppelingen) under the prose — and only raise buttons when they need an answer.
 
 ![An agent proposal with a Bin item and buttons under the message](/api/docs/assets/decisions/inline-proposal.png)
 *The item the agent wants to restore sits inside its message; the buttons sit under it.*
@@ -33,7 +33,7 @@ When you ask an agent to do something that needs your OK, its last message asks 
 2. Choose a button under the message, for example **Approve** or an agent-written label. That choice applies **this time**. When the agent allows several picks, select the options (or cards) you want and choose **Confirm**. **Reject** declines. A choice that needs text opens a small field; type the answer and choose **Submit answer**.
 3. On a chat with the agent, a plain **Yes** / **No** (or **Ja** / **Nee**) in **Ask** does the same as the matching Ja/Nee buttons when exactly one open card is that kind of choice. Multi-select and text answers still need the buttons. Several Ja/Nee cards at once also stay button-only.
 4. When the action can teach the agent, a **Next time** line offers **You may do this yourself from now on**, **Always ask** or **Never do this** (also under the more menu). See *Teach the agent for next time* below.
-5. After you answer, your reply appears as your own bubble with the chosen label and any selected showcase cards. On chats with an agent, a short confirm follows when a tool already ran (for example `#tag is deleted`); Soft Yes with no other open cards lets the agent continue in the thread. The buttons fold into a short *Answered · time* line. A proposal the agent replaced with a newer one reads *Replaced by a newer proposal*.
+5. After you answer, the agent's message stays. The options remain under it as static chips (the one you picked is marked) and the buttons disappear. Your reply appears as your own bubble with the chosen label and any selected showcase cards. On chats with an agent, a short confirm follows when a tool already ran (for example `#tag is deleted`); Soft Yes with no other open cards lets the agent continue in the thread. A proposal the agent replaced with a newer one reads *Replaced by a newer proposal*.
 6. While the agent is still working, *Preparing proposal...* shows that buttons are on the way.
 
 ## Approve several actions at once

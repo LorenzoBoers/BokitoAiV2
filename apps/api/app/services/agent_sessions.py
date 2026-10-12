@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.auth import User
 from app.models.notification import DecisionRequest, Notification
-from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.models.signal import Signal, SignalEvent, SignalMessage, is_internal_channel
 from app.services.signal_threads import _iso
 from app.services.trash import alive
 
@@ -32,13 +32,8 @@ READ_ONLY_TOOLS = frozenset(
 
 SUMMARY_MAX_CHARS = 400
 
-# Checkout options the agent (or the idle nudge) can put on the card.
-# `end_only` and `continue` are always present so the operator can never be
-# cornered into applying something to leave the session.
-CHECKOUT_KINDS = ("end_only", "continue", "apply_actions")
-CHECKOUT_ACTION_TYPE = "session_checkout"
-# Card copy per workspace language. The backend writes these into the
-# decision, so they follow the tenant's working language, not the browser.
+# Idle-close copy per workspace language. Leftover wrap-up cards still
+# resolve through apply_checkout_choice; new sessions never create one.
 CHECKOUT_COPY: dict[str, dict[str, str]] = {
     "en": {
         "end_only": "End session",
@@ -58,9 +53,6 @@ CHECKOUT_COPY: dict[str, dict[str, str]] = {
         "idle_opening": "Deze sessie staat al een tijd stil.",
         "idle_last": "Laatste van de agent: {tail}",
     },
-}
-DEFAULT_CHECKOUT_LABELS = {
-    kind: CHECKOUT_COPY["en"][kind] for kind in CHECKOUT_KINDS
 }
 
 
@@ -129,9 +121,10 @@ async def _load_host_thread(session: AsyncSession, tenant_id: UUID, thread_id: U
     thread = result.scalar_one_or_none()
     if thread is None:
         raise HTTPException(status_code=404, detail="Thread not found")
-    if thread.channel == "assistant":
+    if is_internal_channel(thread.channel):
         raise HTTPException(
-            status_code=400, detail="Cannot start an agent session inside an assistant chat"
+            status_code=400,
+            detail="Agent sessions only apply to conversations with people outside the workspace",
         )
     return thread
 
@@ -524,6 +517,10 @@ async def close_session(
     resolved_summary = (summary or last_agent_text).strip()[:SUMMARY_MAX_CHARS]
     actions = _extract_actions(messages)
 
+    pending = _load_outcome(conversation)
+    await _supersede_session_checkouts(session, tenant_id, conversation.id)
+    await _supersede_checkout(session, tenant_id, pending.get("checkout_decision_id"))
+
     outcome = {
         "summary": resolved_summary,
         "actions": actions,
@@ -599,68 +596,22 @@ async def resolve_active_session(
     return candidates[0]
 
 
-def _checkout_option(
-    option_id: str, label: str, kind: str, *, session_id: UUID, thread_id: UUID
-) -> dict[str, Any]:
-    return {
-        "id": option_id,
-        "label": label,
-        "action_type": CHECKOUT_ACTION_TYPE,
-        "payload": {
-            "session_checkout": True,
-            "kind": kind,
-            "session_id": str(session_id),
-            "thread_id": str(thread_id),
-        },
-    }
-
-
-def _checkout_options(
-    raw: Any, *, session_id: UUID, thread_id: UUID, lang: str = "en"
-) -> list[dict[str, Any]]:
-    """Normalize agent-supplied options and guarantee end / continue exist."""
-    from app.services.agent.style import strip_emoji
-
-    labels = _checkout_copy(lang)
-    options: list[dict[str, Any]] = []
-    seen_ids: set[str] = set()
-    seen_kinds: set[str] = set()
-    for item in raw or []:
-        if not isinstance(item, dict):
-            continue
-        kind = str(item.get("kind") or "").strip()
-        if kind not in CHECKOUT_KINDS:
-            continue
-        option_id = str(item.get("id") or kind).strip() or kind
-        if option_id in seen_ids:
-            continue
-        label = strip_emoji(str(item.get("label") or "")).strip()
-        seen_ids.add(option_id)
-        seen_kinds.add(kind)
-        options.append(
-            _checkout_option(
-                option_id,
-                label or labels[kind],
-                kind,
-                session_id=session_id,
-                thread_id=thread_id,
+async def _supersede_session_checkouts(
+    session: AsyncSession, tenant_id: UUID, conversation_id: UUID
+) -> None:
+    """Withdraw leftover wrap-up cards for this session (no longer asked)."""
+    stale_rows = (
+        await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.source_type == "agent_session",
+                DecisionRequest.source_id == str(conversation_id),
+                DecisionRequest.status == "awaiting_human",
             )
         )
-    for kind in ("end_only", "continue"):
-        if kind in seen_kinds:
-            continue
-        option_id = kind if kind not in seen_ids else f"session_{kind}"
-        seen_ids.add(option_id)
-        options.append(
-            _checkout_option(
-                option_id,
-                labels[kind],
-                kind,
-                session_id=session_id,
-                thread_id=thread_id,
-            )
-        )
-    return options
+    ).scalars().all()
+    for stale in stale_rows:
+        await _supersede_checkout(session, tenant_id, str(stale.id))
 
 
 async def _supersede_checkout(
@@ -709,70 +660,27 @@ async def propose_checkout(
     user_id: UUID | None = None,
     origin: str = "agent",
 ) -> dict[str, Any]:
-    """Offer the operator a checkout on the host thread; keep the session open.
-
-    The session only ends once the operator picks: the card is a proposal,
-    not the checkout itself, so an agent can never close a meta unilaterally.
-    """
-    from app.services.signal_decisions import create_decision
-
+    """Close the inline session. No wrap-up card — the collapsed marker is enough."""
+    del options  # leftover tool schema; closing is automatic
     if conversation.session_state != "active":
         return {"error": "Session is not active"}
     thread_id = conversation.context_signal_id or conversation.id
-
-    agent = None
-    if conversation.agent_id:
-        agent = (
-            await session.execute(
-                select(Agent).where(
-                    Agent.id == conversation.agent_id, Agent.tenant_id == tenant_id
-                )
-            )
-        ).scalar_one_or_none()
-
-    outcome = _load_outcome(conversation)
-    await _supersede_checkout(session, tenant_id, outcome.get("checkout_decision_id"))
-
-    lang = await _workspace_lang(session, tenant_id)
-    copy = _checkout_copy(lang)
-    decision, _ = await create_decision(
+    closed = await close_session(
         session,
         tenant_id,
-        title=copy["title"].format(agent=agent.name) if agent else copy["title_plain"],
+        user_id or conversation.owner_user_id,
+        thread_id,
+        conversation.id,
         summary=summary,
-        options=_checkout_options(
-            options, session_id=conversation.id, thread_id=thread_id, lang=lang
-        ),
-        user_id=conversation.owner_user_id or user_id,
-        agent_id=conversation.agent_id,
-        signal_id=thread_id,
-        source_type="agent_session",
-        source_id=str(conversation.id),
-        notification_payload={
-            "session_checkout": True,
-            "session_id": str(conversation.id),
-            "thread_id": str(thread_id),
-            "origin": origin,
-        },
     )
-
-    outcome.update({"checkout_decision_id": str(decision.id), "checkout_summary": summary})
-    if origin == "idle":
-        outcome["idle_nudge_at"] = _iso(datetime.utcnow())
-    conversation.session_outcome_json = json.dumps(outcome)
-    conversation.updated_at = datetime.utcnow()
-    session.add(conversation)
-    await session.commit()
     return {
         "ok": True,
-        "decision_request_id": str(decision.id),
         "session_id": str(conversation.id),
         "thread_id": str(thread_id),
-        "status": "awaiting_human",
-        "note": (
-            "The checkout is waiting on the conversation. The teammate ends or "
-            "continues the session from that card; nothing closed yet."
-        ),
+        "status": "closed",
+        "state": closed.get("state"),
+        "origin": origin,
+        "note": "The session closed. The teammate sees the collapsed summary on the conversation.",
     }
 
 
@@ -883,10 +791,11 @@ async def nudge_idle_sessions(
     idle_seconds: int | None = None,
     limit: int = 50,
 ) -> dict[str, Any]:
-    """Offer a checkout on sessions the operator walked away from.
+    """Close idle inline sessions without asking the operator.
 
-    One nudge per session (`idle_nudge_at`): an unanswered card is not a
-    reason to keep asking, and a resolved "keep going" clears the marker.
+    Empty sessions (no operator turn) are discarded. Sessions that already
+    have a leftover wrap-up card close immediately. Everyone else closes
+    once the last operator turn is older than the idle window.
     """
     from app.config import get_settings
 
@@ -894,10 +803,10 @@ async def nudge_idle_sessions(
         idle_seconds if idle_seconds is not None else get_settings().session_idle_seconds
     )
     if idle <= 0:
-        return {"checked": 0, "nudged": 0}
+        return {"checked": 0, "closed": 0, "nudged": 0}
     cutoff = datetime.utcnow() - timedelta(seconds=idle)
 
-    candidates = list(
+    leftover = list(
         (
             await session.execute(
                 select(Signal)
@@ -906,7 +815,6 @@ async def nudge_idle_sessions(
                     Signal.source == "agent_session",
                     Signal.session_state == "active",
                     Signal.context_signal_id.is_not(None),
-                    Signal.updated_at <= cutoff,
                     alive(Signal),
                 )
                 .order_by(Signal.updated_at)
@@ -915,13 +823,11 @@ async def nudge_idle_sessions(
         ).scalars().all()
     )
 
-    nudged = 0
-    for conversation in candidates:
-        if nudged >= limit:
+    closed = 0
+    for conversation in leftover:
+        if closed >= limit:
             break
         outcome = _load_outcome(conversation)
-        if outcome.get("idle_nudge_at") or outcome.get("checkout_decision_id"):
-            continue
         last_user_at = (
             await session.execute(
                 select(func.max(SignalMessage.created_at)).where(
@@ -930,16 +836,29 @@ async def nudge_idle_sessions(
                 )
             )
         ).scalar()
-        # A session without a single turn is a cancel, not a checkout.
-        if last_user_at is None or last_user_at > cutoff:
+        pending_card = bool(outcome.get("checkout_decision_id"))
+        idle_enough = last_user_at is not None and last_user_at <= cutoff
+        empty_idle = last_user_at is None and (conversation.updated_at or cutoff) <= cutoff
+        if not pending_card and not idle_enough and not empty_idle:
             continue
-        result = await propose_checkout(
+        thread_id = conversation.context_signal_id or conversation.id
+        owner_id = conversation.owner_user_id
+        if last_user_at is None:
+            if owner_id is None:
+                continue
+            await discard_session(
+                session, conversation.tenant_id, owner_id, thread_id, conversation.id
+            )
+            closed += 1
+            continue
+        result = await close_session(
             session,
             conversation.tenant_id,
-            conversation,
+            owner_id,
+            thread_id,
+            conversation.id,
             summary=await _idle_summary(session, conversation),
-            origin="idle",
         )
-        if result.get("ok"):
-            nudged += 1
-    return {"checked": len(candidates), "nudged": nudged}
+        if result.get("state") == "closed":
+            closed += 1
+    return {"checked": len(leftover), "closed": closed, "nudged": closed}

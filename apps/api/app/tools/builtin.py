@@ -583,10 +583,10 @@ async def _note_no_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
 async def _propose_session_checkout(
     ctx: ToolContext, tool_input: dict[str, Any]
 ) -> dict[str, Any]:
-    """Offer to wrap up the inline session you are working in.
+    """Close the inline session you are working in.
 
-    The card lands on the host conversation so the whole team sees how the
-    session ended. Ending is the operator's call: this tool only proposes.
+    The collapsed summary stays on the host conversation. There is no wrap-up
+    card and no teammate action.
     """
     from app.services.agent.style import strip_emoji
     from app.services.agent_sessions import propose_checkout, resolve_active_session
@@ -2188,12 +2188,10 @@ register_tool(
     ToolSpec(
         name="propose_session_checkout",
         description=(
-            "Wrap up the inline session you were brought into: propose a checkout "
-            "on the conversation with a short summary of what you did and what "
-            "you recommend. The teammate ends the session or tells you to keep "
-            "going. Call this when the work is done instead of asking in chat. "
-            "Options are optional; use kind=apply_actions to label the concrete "
-            "actions you already performed. End and continue are always offered."
+            "Close the inline session you were brought into, with a short "
+            "summary of what you did and what you recommend. Call this when "
+            "the work is done. The session closes immediately; do not ask the "
+            "teammate to end it."
         ),
         category="messaging",
         input_schema={
@@ -2207,26 +2205,10 @@ register_tool(
                         "It becomes the session outcome on the thread."
                     ),
                 },
-                "options": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {"type": "string"},
-                            "label": {"type": "string"},
-                            "kind": {
-                                "type": "string",
-                                "enum": ["end_only", "continue", "apply_actions"],
-                            },
-                        },
-                        "required": ["label", "kind"],
-                    },
-                },
             },
             "required": ["summary"],
         },
         handler=_propose_session_checkout,
-        # Proposing a checkout is a human gate by construction.
         gated=False,
     )
 )
@@ -2913,6 +2895,45 @@ register_tool(
         gated=False,
         mutating=False,
         audience="both",
+    )
+)
+
+
+async def _update_progress(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.agent.style import strip_emoji
+
+    message = strip_emoji(str(tool_input.get("message") or "").strip())
+    if not message:
+        return {"error": "message is required"}
+    return {"ok": True, "message": message[:240]}
+
+
+register_tool(
+    ToolSpec(
+        name="update_progress",
+        description=(
+            "Post one short English status line in this conversation while you "
+            "keep working. Use it only when the turn is taking a while (several "
+            "tools or a wait), never as the first action and never when you are "
+            "about to finish. The tool writes the message — do not also write "
+            "the same line as chat speech. Always English."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "One short English line for the operator.",
+                }
+            },
+            "required": ["message"],
+        },
+        handler=_update_progress,
+        gated=False,
+        mutating=False,
+        audience="operator",
+        display_name="Update progress",
     )
 )
 

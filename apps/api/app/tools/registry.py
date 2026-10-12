@@ -229,6 +229,22 @@ CANVAS_WAKE_DENY = frozenset(
 )
 
 
+OPERATOR_PROGRESS_TOOL = "update_progress"
+
+
+def with_operator_progress_tool(
+    tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
+) -> list[dict[str, Any]]:
+    """Interim spoken updates stay available even on a narrow passport."""
+    if trust == "external" or refresh:
+        return tools
+    have = {t["name"] for t in tools}
+    if OPERATOR_PROGRESS_TOOL in have:
+        return tools
+    extra = [t for t in get_tool_definitions() if t["name"] == OPERATOR_PROGRESS_TOOL]
+    return [*tools, *extra] if extra else tools
+
+
 def with_operator_canvas_tools(
     tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
 ) -> list[dict[str, Any]]:

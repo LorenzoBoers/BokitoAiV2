@@ -24,7 +24,7 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 
 ## Een voorstel van een agent in de chat goedkeuren
 
-Vraag je een agent iets te doen waar jouw OK voor nodig is, dan stelt zijn laatste bericht de vraag en staan de knoppen direct onder dat bericht. Agents kunnen objecten ook tonen zonder te vragen — tags als chips in de tekst, en showcase-kaarten onder de zin — en zetten alleen knoppen neer als ze een antwoord nodig hebben.
+Vraag je een agent iets te doen waar jouw OK voor nodig is, dan stelt zijn laatste bericht de vraag en staan de knoppen direct onder dat bericht. Agents kunnen objecten ook tonen zonder te vragen — tags en koppelingnamen als chips in de tekst, en showcase-kaarten (logogrid voor koppelingen) onder de zin — en zetten alleen knoppen neer als ze een antwoord nodig hebben.
 
 ![Een voorstel van een agent met een item uit de prullenbak en knoppen onder het bericht](/api/docs/assets/decisions/inline-proposal.png)
 *Het item dat de agent wil terugzetten staat in zijn bericht; de knoppen staan eronder.*
@@ -33,7 +33,7 @@ Vraag je een agent iets te doen waar jouw OK voor nodig is, dan stelt zijn laats
 2. Kies een knop onder het bericht, bijvoorbeeld **Goedkeuren** of een label dat de agent schreef. Die keuze geldt **deze keer**. Mag je meerdere keuzes maken, selecteer dan de opties (of kaarten) en kies **Bevestigen**. **Afwijzen** zegt nee. Een keuze die tekst vraagt opent een klein veld; typ je antwoord en kies **Antwoord versturen**.
 3. In een chat met de agent doet een gewoon **Ja** / **Nee** in **Vraag** hetzelfde als de bijbehorende Ja/Nee-knoppen wanneer precies één open kaart dat soort keuze is. Multi-select en tekstantwoorden blijven via de knoppen. Meerdere Ja/Nee-kaarten tegelijk ook.
 4. Als de actie de agent kan leren, staat onder de knoppen **Volgende keer:** met **Dit mag je voortaan zelf**, **Altijd vragen** of **Dit nooit doen** (ook in het meer-menu). Zie *Leer de agent voor de volgende keer* hieronder.
-5. Na je antwoord verschijnt jouw reply als eigen bubbel met het gekozen label en eventuele showcase-kaarten. In chats met een agent volgt een korte bevestiging als een tool al liep (bijvoorbeeld `#tag is verwijderd`); Soft Ja zonder andere open kaarten laat de agent verdergaan in het gesprek. De knoppen vouwen in tot een korte regel *Beantwoord · tijd*. Een voorstel dat de agent door een nieuwer verving, toont *Vervangen door nieuwer voorstel*.
+5. Na je antwoord blijft het bericht van de agent staan. De opties blijven eronder als stilstaande chips (jouw keuze is gemarkeerd) en de knoppen verdwijnen. Jouw reply verschijnt als eigen bubbel met het gekozen label en eventuele showcase-kaarten. In chats met een agent volgt een korte bevestiging als een tool al liep (bijvoorbeeld `#tag is verwijderd`); Soft Ja zonder andere open kaarten laat de agent verdergaan in het gesprek. Een voorstel dat de agent door een nieuwer verving, toont *Vervangen door nieuwer voorstel*.
 6. Zolang de agent nog bezig is, laat *Voorstel klaarzetten...* zien dat er knoppen aankomen.
 
 ## Meerdere acties tegelijk goedkeuren

@@ -836,6 +836,12 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         # wake opened a second thread and asked the operator questions.
         "kick": ctx.agent is None,
         "force_new": bool(tool_input.get("force_new")),
+        "new_thread": bool(tool_input.get("new_thread")),
+        "signal_id": (
+            str(ctx.signal_id)
+            if ctx.signal_id and not tool_input.get("new_thread")
+            else None
+        ),
     }
     result = await _propose_canvas_change(
         ctx,
@@ -967,7 +973,10 @@ register_tool(
             "Pass canvas_id from create_canvas or list_canvases. A tweak updates "
             "that canvas; it does not create a second one. "
             "Write bokito/canvas JSX in `source` (import only from bokito/canvas) in "
-            "the same turn you create a canvas. Allowed: Stack, Grid, Row, Text, "
+            "the same turn you create a canvas. Props are literals. A const above "
+            "the return may hold an object, array, number, or string, and a prop "
+            "may use that name. If this tool returns an error, rewrite source and "
+            "call it again with the same canvas_id in this turn. Allowed: Stack, Grid, Row, Text, "
             "Heading, Callout, Divider, List, Stat, Table, BarChart, LineChart, Card, "
             "Badge. Embed numbers you just looked up. Omit empty sections. "
             "refresh_cadence is manual, hourly, daily, weekly, monthly, or custom "
@@ -1012,10 +1021,11 @@ register_tool(
             "explicitly wants another canvas with the same title. You are the "
             "owner unless managing_agent_id names another agent. refresh_cadence "
             "is manual (once), hourly, daily (default), weekly, monthly, or custom "
-            "with refresh_cron (five-field cron, UTC). A person can also add a "
-            "canvas in the UI. A preview card is attached when it is created. "
-            "Link its path inline in the same sentence. The reply stays in this "
-            "conversation."
+            "with refresh_cron (five-field cron, UTC). The canvas lives on this "
+            "conversation unless new_thread is true (this chat is about something "
+            "else — then a new thread owns the canvas and its Agenda repeat). A "
+            "person can also add a canvas in the UI. A preview card is attached "
+            "when it is created. Link its path inline in the same sentence."
         ),
         category="projects",
         input_schema={
@@ -1034,6 +1044,7 @@ register_tool(
                 "managing_agent_id": {"type": "string"},
                 "notes": {"type": "string"},
                 "force_new": {"type": "boolean"},
+                "new_thread": {"type": "boolean"},
             },
             "required": ["title"],
         },

@@ -30,7 +30,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 
 1. Open a conversation in **Communication**. Under **This conversation**, choose **Add tags**.
 2. Type with a soft `#` and pick an action tag (marked **Action tag**), or a free tag. An unknown name asks whether to add it as a tag or **Make action tag**.
-3. Filing does not ask for a folder. The conversation lands from its tags. When tags match more than one folder, the thread shows **Which folder?**
+3. Filing does not ask for a folder. The conversation lands from its tags. A conversation can match more than one folder; the header shows every matching path. Canvas, docs and budget stay on one home (the deepest path).
 4. The ticket starts in the first stage of the flow. The list row shows the action tag with the stage and a colored dot. Changing to another action tag asks to **Replace** (or split the conversation for a second request).
 5. In the composer, `/ticket #name` files the same ticket.
 

@@ -277,6 +277,7 @@ def serialize_thread(
     ticket: dict[str, Any] | None | object = _OMIT,
     tags: list[str] | object = _OMIT,
     inherited_tags: list[str] | object = _OMIT,
+    folder_paths: list[dict[str, Any]] | object = _OMIT,
     schedule: dict[str, Any] | None | object = _OMIT,
 ) -> dict[str, Any]:
     from app.services.thread_schedule import thread_details
@@ -351,6 +352,8 @@ def serialize_thread(
         payload["tags"] = tags
     if inherited_tags is not _OMIT:
         payload["inherited_tags"] = inherited_tags
+    if folder_paths is not _OMIT:
+        payload["folder_paths"] = folder_paths
     if schedule is not _OMIT:
         payload["schedule"] = schedule
     if agent:
@@ -621,6 +624,8 @@ def serialize_message(
         payload["activity_detail"] = include_trace
     if meta.get("turn_id"):
         payload["turn_id"] = str(meta["turn_id"])
+    if meta.get("in_progress"):
+        payload["in_progress"] = True
     if include_trace and isinstance(meta.get("usage"), dict) and meta["usage"]:
         payload["usage"] = meta["usage"]
     is_mock = message_is_mock(
@@ -1227,9 +1232,10 @@ async def list_threads(
         else:
             query = query.where(Signal.channel == channel)
 
-    from app.services.communication_nav import filter_predicates
+    from app.services.communication_nav import list_predicates
 
-    folder_filters = filter_predicates(
+    folder_filters = await list_predicates(
+        session,
         tenant_id,
         {"project_id": project_id, "path": path, "category_id": category_id, "tag": tag, "stage": stage},
     )
@@ -1490,6 +1496,10 @@ async def list_threads(
 
     tags_map = await tags_by_signal(session, [t.id for t in threads])
     inherited_map = await inherited_tags_by_signal(session, tenant_id, threads)
+    from app.services.folders import load_tree, serialize_folder_paths
+
+    folder_tree = await load_tree(session, tenant_id)
+    name_to_tag = {tag.name: tag.id for tag in folder_tree.tags.values()}
     from app.services.thread_schedule import rules_by_signal, schedule_payload
 
     rules = await rules_by_signal(session, tenant_id, [t.id for t in threads])
@@ -1505,6 +1515,10 @@ async def list_threads(
             account = widget_fallback
         contact = contacts_by_id.get(t.contact_id) if t.contact_id else None
         handling = resolve_ai_handling(tenant, account, contact, t, agent=agent).to_payload()
+        path_tag_ids = {name_to_tag[n] for n in tags_map.get(t.id, []) if n in name_to_tag}
+        path_tag_ids |= {name_to_tag[n] for n in inherited_map.get(t.id, []) if n in name_to_tag}
+        if t.ticket_tag_id:
+            path_tag_ids.add(t.ticket_tag_id)
         items.append(
             serialize_thread(
                 t,
@@ -1519,6 +1533,7 @@ async def list_threads(
                 ticket=tickets.get(t.id),
                 tags=tags_map.get(t.id, []),
                 inherited_tags=inherited_map.get(t.id, []),
+                folder_paths=serialize_folder_paths(folder_tree, path_tag_ids),
                 schedule=schedule_payload(rules.get(t.id)),
             )
         )
@@ -1735,9 +1750,11 @@ async def get_thread(
     thread_tags = await signal_tag_names(session, signal.id)
     inherited_tags = (await inherited_tags_by_signal(session, tenant_id, [signal])).get(signal.id, [])
     routing_policy = (await handling_svc.routing_for_signal(session, tenant, signal)).effective
+    from app.services.folders import effective_tag_ids, load_tree, serialize_folder_paths
     from app.services.ownership import human_owner_payload
     from app.services.thread_schedule import rules_by_signal, schedule_payload
 
+    folder_tree = await load_tree(session, tenant_id)
     return {
         "thread": serialize_thread(
             signal,
@@ -1748,6 +1765,7 @@ async def get_thread(
             ticket=await ticket_payload(session, signal),
             tags=thread_tags,
             inherited_tags=inherited_tags,
+            folder_paths=serialize_folder_paths(folder_tree, await effective_tag_ids(session, signal)),
             schedule=schedule_payload(
                 (await rules_by_signal(session, tenant_id, [signal.id])).get(signal.id)
             ),
@@ -3607,36 +3625,23 @@ async def resolve_message_decision(
             ),
         )
     )
-    # Suggested-reply cards already leave an outbound email (or escalate event).
-    # Session-checkout buttons close the meta session via apply_checkout_choice.
-    # Silent state actions (Keep open / Close thread / Later / Plan task) only
-    # change status or spawn side effects — the button label must not become a
-    # chat bubble (on email threads that rendered as a mail card).
-    # Free-text "Instruct the agent" (acknowledge + response_text) still posts.
+    # A choice always lands as the operator's own bubble, same as other chat
+    # tools. The only skip is a suggested reply that already sent (or is about
+    # to send) an outbound email — that mail is the answer.
     decision_title = (decision_row.title if decision_row else "") or ""
     chosen_action_types = {
         str(o.get("action_type") or "")
         for o in options_list
         if isinstance(o, dict) and str(o.get("id")) in set(chosen_ids)
     }
-    _SILENT_DECISION_CHAT_ACTIONS = {
+    _REPLY_DECISION_CHAT_ACTIONS = {
         "send_reply",
+        "send_email",
         "draft",
-        "escalate",
-        "session_checkout",
-        "defer",
-        "close_thread",
-        "reject",
-        "create_task",
-        "create_queue_item",
-        "look_at",
     }
-    typed_response = bool((response_text or "").strip())
     skip_decision_chat = (
         decision_title in REPLY_SUGGESTION_TITLES
-        or bool(chosen_action_types & _SILENT_DECISION_CHAT_ACTIONS)
-        # "Instruct the agent" without typed text — only the button label.
-        or (not typed_response and chosen_action_types == {"acknowledge"})
+        or bool(chosen_action_types & _REPLY_DECISION_CHAT_ACTIONS)
     )
     if answer and user_id and not skip_decision_chat:
         sig_result = await session.execute(

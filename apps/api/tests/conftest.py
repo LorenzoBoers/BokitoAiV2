@@ -196,7 +196,18 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
 
     main_module.init_db = AsyncMock()
 
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    import app.routers.signal_chat as signal_chat
+
+    previous_chat_factory = signal_chat.async_session_factory
+    signal_chat.async_session_factory = async_sessionmaker(
+        session_override.bind, class_=AsyncSession, expire_on_commit=False
+    )
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-    app.dependency_overrides.clear()
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
+    finally:
+        signal_chat.async_session_factory = previous_chat_factory
+        app.dependency_overrides.clear()

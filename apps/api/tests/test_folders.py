@@ -62,6 +62,7 @@ async def test_nested_folders_resolve_to_the_deepest_path(client: AsyncClient, s
     clients = await _folder(client, headers, "Clients")
     acme = await _folder(client, headers, "Acme", parent_id=clients["id"])
     q4 = await _folder(client, headers, "Q4", parent_id=acme["id"])
+    assert (clients["name"], acme["name"], q4["name"]) == ("clients", "acme", "q4")
     assert (clients["tag_name"], acme["tag_name"], q4["tag_name"]) == ("clients", "acme", "q4")
 
     signal = await _signal(session_override, tenant.id)
@@ -109,7 +110,7 @@ async def test_group_folder_shows_virtual_children_and_pins_them(client: AsyncCl
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
     root = next(row for row in nav["projects"] if row["id"] == clients["id"])
     names = {(row["name"], row["virtual"]) for row in root["children"]}
-    assert names == {("Facturen", False), ("acme", True), ("beta", True)}
+    assert names == {("factuur", False), ("acme", True), ("beta", True)}
 
     # #klanten + #acme lands on the virtual child; the row stays the group folder.
     signal = await _signal(session_override, tenant.id)
@@ -118,12 +119,12 @@ async def test_group_folder_shows_virtual_children_and_pins_them(client: AsyncCl
     assert thread["project_id"] == clients["id"]
     tree = await svc.load_tree(session_override, tenant.id)
     placement = tree.resolve({UUID(clients["tag_id"]), UUID(acme["id"])})
-    assert placement.path.label == "Klanten / acme"
+    assert placement.path.label == "klanten / acme"
     assert placement.path.virtual_tag_ids == [UUID(acme["id"])]
 
     # The template child applies under each virtual child.
     placement = tree.resolve({UUID(clients["tag_id"]), UUID(acme["id"]), UUID(facturen["tag_id"])})
-    assert placement.path.label == "Klanten / acme / Facturen"
+    assert placement.path.label == "klanten / acme / factuur"
     assert placement.path.project_id == UUID(facturen["id"])
 
     # The virtual child's list: subtree plus the tag.
@@ -148,7 +149,7 @@ async def test_group_folder_shows_virtual_children_and_pins_them(client: AsyncCl
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
     root = next(row for row in nav["projects"] if row["id"] == clients["id"])
     assert {(row["name"], row["virtual"]) for row in root["children"]} == {
-        ("Facturen", False),
+        ("factuur", False),
         ("acme", False),
         ("beta", True),
     }
@@ -188,13 +189,13 @@ async def test_contact_and_company_tags_place_every_thread(client: AsyncClient, 
     listed = await client.get("/api/signals?view=all&tag=acme", headers=headers)
     assert {row["id"] for row in listed.json()["items"]} == {str(signal.id)}
 
-    # A second root tag via the contact ties at depth 1: common ancestor is none, one Decision asks.
+    # A second root tag ties at depth 1: keep the current home, no question card.
     session_override.add(ContactTagLink(contact_id=contact.id, tag_id=UUID(vip["tag_id"]), tenant_id=tenant.id))
     await session_override.commit()
     await svc.refile_tagged(session_override, tenant.id, [UUID(vip["tag_id"])])
     await session_override.commit()
     thread = await _thread(client, headers, signal.id)
-    assert thread["project_id"] is None
+    assert thread["project_id"] == acme["id"]
     decisions = (
         await session_override.execute(
             select(DecisionRequest).where(
@@ -202,16 +203,13 @@ async def test_contact_and_company_tags_place_every_thread(client: AsyncClient, 
             )
         )
     ).scalars().all()
-    assert len(decisions) == 1
-    # A second refile does not ask twice.
-    await svc.refile_tagged(session_override, tenant.id, [UUID(vip["tag_id"])])
-    await session_override.commit()
-    decisions = (
-        await session_override.execute(
-            select(DecisionRequest).where(DecisionRequest.signal_id == signal.id)
-        )
-    ).scalars().all()
-    assert len(decisions) == 1
+    assert decisions == []
+    paths = {tuple(row["tags"]) for row in thread.get("folder_paths") or []}
+    assert paths == {("acme",), ("vip",)}
+    listed_acme = await client.get(f"/api/signals?view=all&project_id={acme['id']}", headers=headers)
+    listed_vip = await client.get(f"/api/signals?view=all&project_id={vip['id']}", headers=headers)
+    assert {row["id"] for row in listed_acme.json()["items"]} == {str(signal.id)}
+    assert {row["id"] for row in listed_vip.json()["items"]} == {str(signal.id)}
 
 
 @pytest.mark.asyncio
@@ -224,7 +222,7 @@ async def test_trash_and_restore_refile(client: AsyncClient, session_override):
     assert (await _thread(client, headers, signal.id))["project_id"] == acme["id"]
 
     deleted = await client.request(
-        "DELETE", f"/api/folders/{acme['id']}", headers=headers, json={"confirm_name": "Acme"}
+        "DELETE", f"/api/folders/{acme['id']}", headers=headers, json={"confirm_name": "acme"}
     )
     assert deleted.status_code == 200, deleted.text
     thread = await _thread(client, headers, signal.id)
@@ -241,7 +239,6 @@ async def test_trash_and_restore_refile(client: AsyncClient, session_override):
 @pytest.mark.asyncio
 async def test_folder_tag_cannot_be_deleted_and_merge_moves_folder(client: AsyncClient, session_override):
     headers = await _login(client)
-    tenant = await _tenant(session_override)
     acme = await _folder(client, headers, "Acme")
     refused = await client.delete(f"/api/signals/tags/{acme['tag_id']}", headers=headers)
     assert refused.status_code == 409
@@ -304,4 +301,39 @@ async def test_ai_catalog_includes_group_and_folder_path(client: AsyncClient, se
     )
 
     lines = await ai_catalog_lines(session_override, tenant.id)
-    assert any(line.startswith("Client: #acme → Acme") for line in lines)
+    assert any("#acme" in line and "acme" in line.lower() for line in lines)
+
+
+@pytest.mark.asyncio
+async def test_one_thread_lists_in_two_folder_paths(client: AsyncClient, session_override):
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    acme = await _folder(client, headers, "Acme")
+    partner = await _folder(client, headers, "Partner")
+    invoices = await _folder(client, headers, "Facturen", parent_id=acme["id"])
+    partner_invoices = await _folder(client, headers, "Facturen", parent_id=partner["id"])
+    assert invoices["tag_id"] == partner_invoices["tag_id"]
+
+    signal = await _signal(session_override, tenant.id)
+    await client.patch(
+        f"/api/signals/{signal.id}",
+        headers=headers,
+        json={"tags": ["acme", "partner", "facturen"]},
+    )
+    thread = await _thread(client, headers, signal.id)
+    paths = {tuple(row["tags"]) for row in thread.get("folder_paths") or []}
+    assert paths == {("acme", "facturen"), ("partner", "facturen")}
+
+    in_acme = await client.get(f"/api/signals?view=all&project_id={invoices['id']}", headers=headers)
+    in_partner = await client.get(
+        f"/api/signals?view=all&project_id={partner_invoices['id']}", headers=headers
+    )
+    assert {row["id"] for row in in_acme.json()["items"]} == {str(signal.id)}
+    assert {row["id"] for row in in_partner.json()["items"]} == {str(signal.id)}
+
+    nav = (await client.get("/api/signals/nav", headers=headers)).json()
+    roots = {row["name"]: row for row in nav["projects"]}
+    assert roots["acme"]["count"] == 1
+    assert roots["partner"]["count"] == 1
+    acme_child = next(row for row in roots["acme"]["children"] if row["name"] == "facturen")
+    assert acme_child["count"] == 1

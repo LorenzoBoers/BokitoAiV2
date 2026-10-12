@@ -12,6 +12,7 @@ working; every write path syncs sections and re-embeds only what changed.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re
@@ -321,13 +322,19 @@ async def hybrid_search(
     from app.services.model_resolution import record_usage, resolve_model_call
 
     resolved = await resolve_model_call(session, tenant_id, kind="embedding")
-    query_embedding, emb_tokens = await embed_text_with_usage(
-        query,
-        api_key=resolved.api_key,
-        live=resolved.live,
-        model_id=resolved.model_id,
-        base_url=resolved.base_url or None,
-    )
+    try:
+        query_embedding, emb_tokens = await asyncio.wait_for(
+            embed_text_with_usage(
+                query,
+                api_key=resolved.api_key,
+                live=resolved.live,
+                model_id=resolved.model_id,
+                base_url=resolved.base_url or None,
+            ),
+            timeout=8,
+        )
+    except TimeoutError:
+        return []
     if emb_tokens:
         await record_usage(
             session, tenant_id, resolved, tokens_in=emb_tokens, tokens_out=0,
@@ -339,9 +346,11 @@ async def hybrid_search(
         stmt = stmt.where(DocChunk.internal.is_(True))
     if source_types:
         stmt = stmt.where(DocChunk.source_type.in_(source_types))
-    result = await session.execute(stmt)
+    result = await session.execute(stmt.limit(200))
     scored = []
-    for chunk in result.scalars().all():
+    for i, chunk in enumerate(result.scalars().all()):
+        if i and i % 40 == 0:
+            await asyncio.sleep(0)
         try:
             emb = json.loads(chunk.embedding_json or "[]")
         except json.JSONDecodeError:

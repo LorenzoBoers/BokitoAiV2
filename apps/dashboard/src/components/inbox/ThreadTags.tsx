@@ -29,6 +29,10 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
   const [open, setOpen] = useState(false)
   const tags = thread.tags ?? []
   const inherited = thread.inheritedTags ?? []
+  const folderPaths = thread.folderPaths ?? []
+  const pathTags = new Set(folderPaths.flatMap((path) => path.tags))
+  const freeTags = tags.filter((tag) => !pathTags.has(tag))
+  const inheritedRest = inherited.filter((tag) => !pathTags.has(tag))
   const actionTag = thread.ticket && thread.ticket.status !== 'proposed' ? thread.ticket : null
 
   const save = (next: string[]) => (onPatch ? onPatch({ tags: next }) : Promise.resolve())
@@ -47,7 +51,27 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             </Link>
           </span>
         ) : null}
-        {tags.map((tag) => (
+        {folderPaths.map((path) => (
+          <span key={path.tags.join('/')} className={CHIP}>
+            <Link
+              to={
+                path.projectId
+                  ? openEntityPath({ type: 'folder', id: path.projectId })
+                  : openEntityPath({ type: 'tag', name: path.tags[path.tags.length - 1] ?? '' })
+              }
+              className={CHIP_LINK}
+              title={path.tags.map((name) => `#${name}`).join(' / ')}
+            >
+              {path.tags.map((name, index) => (
+                <span key={`${name}-${index}`} className="inline-flex items-center">
+                  {index > 0 ? <span className="px-0.5 text-text-muted">/</span> : null}
+                  <Hashtag name={name} />
+                </span>
+              ))}
+            </Link>
+          </span>
+        ))}
+        {freeTags.map((tag) => (
           <span key={tag} className={CHIP}>
             <Link
               to={openEntityPath({ type: 'tag', name: tag })}
@@ -69,7 +93,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             ) : null}
           </span>
         ))}
-        {inherited.map((tag) => (
+        {inheritedRest.map((tag) => (
           <span
             key={`via-${tag}`}
             className={`${CHIP} border-dashed text-text-muted`}

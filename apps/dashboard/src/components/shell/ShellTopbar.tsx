@@ -8,6 +8,7 @@ import { PageGuideLink } from '../layout/PageGuideLink'
 import StaffTenantBar from '../layout/StaffTenantBar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
+import { SearchField } from '../ui/search-field'
 import { Tip } from '../ui/Tip'
 import { settingsLinkForPath } from './SettingsLayout'
 import { extraCrumbsForPath } from '../../lib/page-crumbs'
@@ -116,17 +117,22 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
 
       {/* Command palette trigger — conversation search lives in the thread list. */}
       <Tip label={t('topbar.openPalette')}>
-        <button
-          type="button"
-          onClick={onOpenPalette}
-          className="hidden h-7 w-56 items-center gap-2 rounded-md border border-border/70 bg-bg-input px-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary sm:flex"
-        >
-          <Search size={12} />
-          <span className="flex-1 text-left">{t('topbar.search')}</span>
-          <kbd className="rounded-sm border border-border/70 px-1 font-mono text-2xs text-text-muted">
-            {isMac ? 'Cmd' : 'Ctrl'} K
-          </kbd>
-        </button>
+        <div className="hidden w-56 sm:block">
+          <SearchField
+            value=""
+            onChange={() => {}}
+            size="sm"
+            readOnly
+            placeholder={t('topbar.search')}
+            aria-label={t('topbar.openPalette')}
+            shortcut={isMac ? 'Cmd K' : 'Ctrl K'}
+            onClick={onOpenPalette}
+            onFocus={(event) => {
+              event.currentTarget.blur()
+              onOpenPalette()
+            }}
+          />
+        </div>
       </Tip>
       <button
         type="button"

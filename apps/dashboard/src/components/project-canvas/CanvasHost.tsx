@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Code2, MessageSquare, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import { CANVAS_ICON } from '../../lib/entity-icons'
+import { Code2, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { CANVAS_ICON, ENTITY_ICONS } from '../../lib/entity-icons'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
@@ -30,7 +30,7 @@ import {
 } from '../../lib/project-canvas-api'
 import { renderCanvasTree } from '../../lib/project-canvas/render'
 import { isEmptyCanvasTree } from '../../lib/project-canvas/types'
-import { agentChatPath, newConversationPath } from '../../lib/messages-paths'
+import { agentChatPath, inboxPath } from '../../lib/messages-paths'
 import { formatAppDateTime } from '../../lib/app-locale'
 
 const REFRESH_CADENCES: RefreshCadence[] = ['manual', 'daily', 'weekly', 'hourly', 'monthly', 'custom']
@@ -89,7 +89,15 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
 
   const canvas = items.find((row) => row.id === activeId) ?? null
   const agentId = canvas?.managing_agent_id || fallbackAgentId
-  const askHref = agentId ? agentChatPath(agentId) : newConversationPath()
+
+  function threadHref(row: ProjectCanvas): string {
+    if (row.thread?.path) return row.thread.path
+    if (row.signal_id && (row.managing_agent_id || agentId)) {
+      return agentChatPath(row.managing_agent_id || agentId || '', row.signal_id)
+    }
+    if (row.signal_id) return inboxPath('open', row.signal_id)
+    return agentId ? agentChatPath(agentId) : inboxPath()
+  }
 
   function openAdd() {
     setNewTitle('')
@@ -288,10 +296,18 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
                         disabled={busy}
                       />
                     ) : null}
+                    {row.managing_agent?.name ? (
+                      <Button type="button" size="sm" variant="ghost" asChild>
+                        <Link to={row.managing_agent.path} title={t('projects.canvas.ownerAgent')}>
+                          <ENTITY_ICONS.agent size={14} className="mr-1.5 shrink-0" aria-hidden />
+                          {row.managing_agent.name}
+                        </Link>
+                      </Button>
+                    ) : null}
                     <Button type="button" size="sm" variant="outline" asChild>
-                      <Link to={askHref}>
-                        <MessageSquare size={14} className="mr-1.5" />
-                        {t('projects.canvas.askAgent')}
+                      <Link to={threadHref(row)}>
+                        <ENTITY_ICONS.conversation size={14} className="mr-1.5 shrink-0" aria-hidden />
+                        {row.thread?.title || t('projects.canvas.openThread')}
                       </Link>
                     </Button>
                     {canEdit ? (

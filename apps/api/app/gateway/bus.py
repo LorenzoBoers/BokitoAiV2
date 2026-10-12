@@ -114,7 +114,11 @@ class EventBus:
         try:
             from redis.asyncio import Redis
 
-            client = Redis.from_url(get_settings().redis_url, socket_connect_timeout=2)
+            client = Redis.from_url(
+                get_settings().redis_url,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
             await client.ping()
             self._redis = client
         except Exception:

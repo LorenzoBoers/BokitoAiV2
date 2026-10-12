@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,9 +40,18 @@ class CanvasMetaBody(BaseModel):
 async def list_canvases(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    owner_kind: str = Query(...),
-    owner_id: UUID = Query(...),
+    owner_kind: str | None = Query(None),
+    owner_id: UUID | None = Query(None),
+    signal_id: UUID | None = Query(None),
 ):
+    if signal_id:
+        return {
+            "items": await canvas_svc.list_canvases_for_signal(
+                session, auth.tenant.id, signal_id
+            )
+        }
+    if not owner_kind or owner_id is None:
+        raise HTTPException(status_code=400, detail="owner_kind and owner_id, or signal_id, required")
     return {
         "items": await canvas_svc.list_canvases(
             session, auth.tenant.id, owner_kind=owner_kind, owner_id=owner_id

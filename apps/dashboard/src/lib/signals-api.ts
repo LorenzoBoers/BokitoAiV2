@@ -885,7 +885,7 @@ export type SignalTag = {
   sendMode: 'draft' | 'ask' | 'send'
 }
 
-export type TagFolderRef = { id: string; name: string; path: string }
+export type TagFolderRef = { id: string; name: string; path: string; tagNames: string[] }
 
 export type TagGroup = {
   id: string
@@ -908,6 +908,9 @@ function normalizeTagFolders(raw: unknown): TagFolderRef[] {
         id: row.id,
         name: typeof row.name === 'string' ? row.name : '',
         path: typeof row.path === 'string' ? row.path : '',
+        tagNames: Array.isArray(row.tag_names)
+          ? row.tag_names.filter((name): name is string => typeof name === 'string' && Boolean(name))
+          : [],
       },
     ]
   })
@@ -1473,6 +1476,7 @@ export type ChatMessage = {
   /** Activity after the last bubble of a turn. */
   activity_after?: ActivityItem[] | unknown[]
   turn_id?: string | null
+  in_progress?: boolean
 }
 
 export async function bokitoListChatTargets(token: string) {
@@ -1668,7 +1672,6 @@ export async function bokitoStreamMessage(
   let buffer = ''
   let finalText = ''
   let eventName = ''
-  let sawDone = false
 
   const handleEvent = (name: string, data: string) => {
     try {
@@ -1678,7 +1681,6 @@ export async function bokitoStreamMessage(
       } else if (name === 'delta' && payload.text) {
         onDelta(payload.text)
       } else if (name === 'done') {
-        sawDone = true
         finalText = payload.text ?? finalText
       }
     } catch {
@@ -1704,15 +1706,8 @@ export async function bokitoStreamMessage(
       idx = buffer.indexOf('\n')
     }
   }
-  // Dropped SSE (proxy/idle) without a done frame leaves the server run
-  // locked; clear it so the next Send is not stuck on agent_busy.
-  if (!sawDone && !signal?.aborted) {
-    try {
-      await bokitoCancelConversation(token, conversationId)
-    } catch {
-      /* best-effort */
-    }
-  }
+  // A dropped SSE is only the viewer leaving. The turn keeps writing to
+  // the thread; Stop or a new send still calls cancel explicitly.
   return finalText
 }
 

@@ -241,6 +241,17 @@ function ChatList({
   )
 }
 
+/** Last word of a streaming line — ink + glow while it is still arriving. */
+function streamTailWord(nodes: ChatInline[]): { head: ChatInline[]; word: string } | null {
+  const last = nodes[nodes.length - 1]
+  if (!last || last.type !== 'text' || !last.text) return null
+  const match = last.text.match(/^(.*?)(\S+)$/)
+  if (!match?.[2]) return null
+  const head = [...nodes.slice(0, -1)]
+  if (match[1]) head.push({ type: 'text', text: match[1] })
+  return { head, word: match[2] }
+}
+
 /**
  * Renderer for every chat bubble (agent, teammate, customer chat), live and
  * saved. WhatsApp-level formatting only; email HTML keeps MessageHtmlBody.
@@ -258,8 +269,9 @@ function ChatTextImpl({
   tags?: ChatTagMap
 }) {
   const blocks = parseChatText(content, { streaming, tags })
+  const last = blocks.length - 1
   return (
-    <div className={cn('chat-text break-words', className)}>
+    <div className={cn('chat-text break-words', streaming && 'is-streaming', className)}>
       {blocks.map((block, index) => {
         if (block.type === 'gap') return <div key={index} className="chat-text-gap" aria-hidden />
         if (block.type === 'code') {
@@ -275,6 +287,8 @@ function ChatTextImpl({
         if (block.type === 'list') {
           return <ChatList key={index} ordered={block.ordered} items={block.items} />
         }
+        const liveTail = streaming && index === last
+        const tail = liveTail ? streamTailWord(block.inline) : null
         return (
           <p
             key={index}
@@ -284,10 +298,13 @@ function ChatTextImpl({
               block.quote && 'border-l-2 border-border pl-2 text-text-secondary',
             )}
           >
-            {renderInline(block.inline)}
+            {renderInline(tail ? tail.head : block.inline)}
+            {tail?.word ? <span className="stream-tail">{tail.word}</span> : null}
+            {liveTail ? <span className="stream-caret" aria-hidden /> : null}
           </p>
         )
       })}
+      {streaming && blocks[last]?.type !== 'line' ? <span className="stream-caret" aria-hidden /> : null}
     </div>
   )
 }

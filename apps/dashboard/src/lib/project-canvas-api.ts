@@ -17,6 +17,9 @@ export type ProjectCanvas = {
   tree: CanvasNode
   empty: boolean
   managing_agent_id?: string | null
+  signal_id?: string | null
+  managing_agent?: { id: string; name: string; path: string } | null
+  thread?: { id: string; title: string; path: string } | null
   refresh_trigger_id?: string | null
   refresh_minutes?: number
   refresh_cadence?: RefreshCadence
@@ -36,6 +39,11 @@ export async function listCanvases(ownerKind: 'project' | 'tenant', ownerId: str
 
 export async function getCanvasById(canvasId: string): Promise<ProjectCanvas> {
   return workforceGet<ProjectCanvas>(canvasesRoutes.byId(canvasId))
+}
+
+export async function listCanvasesForThread(signalId: string): Promise<ProjectCanvas[]> {
+  const data = await workforceGet<{ items: ProjectCanvas[] }>(canvasesRoutes.bySignal(signalId))
+  return data.items ?? []
 }
 
 export async function createCanvas(body: {

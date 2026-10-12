@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Any
@@ -11,6 +12,15 @@ from fastapi import WebSocket
 from app.gateway.bus import event_bus
 
 logger = logging.getLogger(__name__)
+
+
+def _log_send_failure(task: asyncio.Task) -> None:
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.debug("gateway send failed: %s", exc)
+
 
 # Topics dashboard/operator clients may subscribe to without extra checks.
 OPERATOR_TOPICS = ("threads", "runs", "decisions", "notifications", "presence", "agents", "entities")
@@ -74,7 +84,18 @@ class ConnectionManager:
     def unregister(self, connection: GatewayConnection) -> None:
         self._connections.pop(connection.id, None)
 
+    async def _safe_send(self, connection: GatewayConnection, frame: dict[str, Any]) -> None:
+        try:
+            await connection.send(frame)
+        except Exception:
+            self.unregister(connection)
+
     async def dispatch(self, envelope: dict[str, Any]) -> None:
+        """Fan out without waiting on a slow WebSocket.
+
+        ``event_bus.publish`` awaits this handler. A full client buffer used
+        to block chat prepare, health, and every other request on this worker.
+        """
         frame = {
             "type": "event",
             "event": envelope.get("event"),
@@ -82,13 +103,16 @@ class ConnectionManager:
             "data": envelope.get("data") or {},
             "ts": envelope.get("ts"),
         }
-        for connection in list(self._connections.values()):
-            if not connection.matches(envelope):
-                continue
-            try:
-                await connection.send(frame)
-            except Exception:
-                self.unregister(connection)
+        tasks = [
+            asyncio.create_task(self._safe_send(connection, frame))
+            for connection in list(self._connections.values())
+            if connection.matches(envelope)
+        ]
+        if not tasks:
+            return
+        _done, pending = await asyncio.wait(tasks, timeout=0.25)
+        for task in pending:
+            task.add_done_callback(_log_send_failure)
 
 
 manager = ConnectionManager()

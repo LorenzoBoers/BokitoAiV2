@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -264,6 +265,7 @@ def serialize_canvas(canvas: ProjectCanvas, *, trigger: Trigger | None = None) -
         "tree": tree,
         "empty": is_empty_tree(tree),
         "managing_agent_id": str(canvas.managing_agent_id) if canvas.managing_agent_id else None,
+        "signal_id": str(canvas.signal_id) if canvas.signal_id else None,
         "refresh_trigger_id": str(canvas.refresh_trigger_id) if canvas.refresh_trigger_id else None,
         "refresh_minutes": refresh_minutes,
         "refresh_cadence": cadence,
@@ -291,9 +293,112 @@ async def _load_trigger(session: AsyncSession, tenant_id: UUID, trigger_id: UUID
     ).scalar_one_or_none()
 
 
+def _thread_path(agent_id: UUID | None, signal_id: UUID) -> str:
+    if agent_id:
+        return f"/communication/agent/{agent_id}/t/{signal_id}"
+    return f"/communication/inbox/open/t/{signal_id}"
+
+
+async def _home_payloads(
+    session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
+) -> dict[str, Any]:
+    from app.models.agent import Agent
+    from app.models.signal import Signal
+
+    extra: dict[str, Any] = {"thread": None, "managing_agent": None}
+    agent = None
+    if canvas.managing_agent_id:
+        agent = await session.get(Agent, canvas.managing_agent_id)
+        if agent is not None and agent.tenant_id == tenant_id:
+            extra["managing_agent"] = {
+                "id": str(agent.id),
+                "name": agent.name,
+                "path": f"/agents/{agent.id}",
+            }
+    if canvas.signal_id:
+        signal = await session.get(Signal, canvas.signal_id)
+        if signal is not None and signal.tenant_id == tenant_id and signal.deleted_at is None:
+            extra["thread"] = {
+                "id": str(signal.id),
+                "title": (signal.subject or canvas.title or "Conversation").strip()[:120],
+                "path": _thread_path(canvas.managing_agent_id or signal.agent_id, signal.id),
+            }
+    return extra
+
+
 async def _serialize(session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas) -> dict[str, Any]:
     trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
-    return serialize_canvas(canvas, trigger=trigger)
+    payload = serialize_canvas(canvas, trigger=trigger)
+    payload.update(await _home_payloads(session, tenant_id, canvas))
+    return payload
+
+
+async def ensure_canvas_thread(
+    session: AsyncSession,
+    tenant_id: UUID,
+    canvas: ProjectCanvas,
+    *,
+    prefer_signal_id: UUID | None = None,
+    new_thread: bool = False,
+) -> Any:
+    """The conversation this canvas lives in. Creates one when missing."""
+    from app.models.agent import Agent
+    from app.models.signal import Signal
+    from app.services.thread_schedule import create_schedule_thread
+
+    if not new_thread:
+        if prefer_signal_id:
+            signal = await session.get(Signal, prefer_signal_id)
+            if (
+                signal is not None
+                and signal.tenant_id == tenant_id
+                and signal.deleted_at is None
+            ):
+                canvas.signal_id = signal.id
+                return signal
+        if canvas.signal_id:
+            signal = await session.get(Signal, canvas.signal_id)
+            if signal is not None and signal.deleted_at is None:
+                return signal
+        trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
+        if trigger and trigger.signal_id:
+            signal = await session.get(Signal, trigger.signal_id)
+            if signal is not None and signal.deleted_at is None:
+                canvas.signal_id = signal.id
+                return signal
+    agent = (
+        await session.get(Agent, canvas.managing_agent_id) if canvas.managing_agent_id else None
+    )
+    signal = await create_schedule_thread(
+        session,
+        tenant_id,
+        subject=canvas.title or "Canvas",
+        agent=agent,
+        project_id=canvas.project_id,
+    )
+    canvas.signal_id = signal.id
+    return signal
+
+
+async def _bind_home(
+    session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
+) -> bool:
+    """Heal a canvas that predates signal_id so the tab always has a thread."""
+    changed = False
+    if not canvas.signal_id:
+        await ensure_canvas_thread(session, tenant_id, canvas)
+        changed = True
+    trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
+    if trigger and canvas.signal_id and trigger.signal_id != canvas.signal_id:
+        trigger.signal_id = canvas.signal_id
+        session.add(trigger)
+        from app.services.thread_schedule import ensure_trigger_thread
+
+        await ensure_trigger_thread(session, trigger)
+        changed = True
+    if changed:
+        session.add(canvas)
+    return changed
 
 
 def _legacy_markdown_intro(widgets_json: str | None) -> str | None:
@@ -454,8 +559,9 @@ async def list_canvases(
     items = []
     dirty = False
     for canvas in result.scalars().all():
+        changed = False
         if await _hydrate_owner_fields(canvas, tenant_id):
-            dirty = True
+            changed = True
         legacy = _document_from_legacy(canvas)
         if legacy is not None and (
             not (canvas.source or "").strip()
@@ -466,9 +572,37 @@ async def list_canvases(
             canvas.source = source
             canvas.tree_json = json.dumps(tree)
             canvas.schema_version = CANVAS_SCHEMA_VERSION
-            dirty = True
-        if dirty:
+            changed = True
+        if await _bind_home(session, tenant_id, canvas):
+            changed = True
+        if changed:
             session.add(canvas)
+            dirty = True
+        items.append(await _serialize(session, tenant_id, canvas))
+    if dirty:
+        await session.commit()
+    return items
+
+
+async def list_canvases_for_signal(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID
+) -> list[dict[str, Any]]:
+    from app.services.trash import alive
+
+    result = await session.execute(
+        select(ProjectCanvas)
+        .where(
+            ProjectCanvas.tenant_id == tenant_id,
+            ProjectCanvas.signal_id == signal_id,
+            alive(ProjectCanvas),
+        )
+        .order_by(ProjectCanvas.created_at)
+    )
+    items = []
+    dirty = False
+    for canvas in result.scalars().all():
+        if await _bind_home(session, tenant_id, canvas):
+            dirty = True
         items.append(await _serialize(session, tenant_id, canvas))
     if dirty:
         await session.commit()
@@ -495,13 +629,16 @@ async def get_canvas(
 ) -> dict[str, Any]:
     if canvas_id:
         canvas = await get_canvas_row(session, tenant_id, canvas_id)
-        return await _serialize(session, tenant_id, canvas)
-    kind, oid = await resolve_owner(
-        session, tenant_id, owner_kind=owner_kind, owner_id=owner_id, project_id=project_id
-    )
-    canvas = await find_canvas(session, tenant_id, owner_kind=kind, owner_id=oid, slug=slug)
-    if canvas is None:
-        raise HTTPException(status_code=404, detail="Canvas not found")
+    else:
+        kind, oid = await resolve_owner(
+            session, tenant_id, owner_kind=owner_kind, owner_id=owner_id, project_id=project_id
+        )
+        canvas = await find_canvas(session, tenant_id, owner_kind=kind, owner_id=oid, slug=slug)
+        if canvas is None:
+            raise HTTPException(status_code=404, detail="Canvas not found")
+    if await _bind_home(session, tenant_id, canvas):
+        await session.commit()
+        await session.refresh(canvas)
     return await _serialize(session, tenant_id, canvas)
 
 
@@ -586,6 +723,7 @@ async def sync_refresh_trigger(
         existing.interval_minutes = minutes
         existing.cron_expr = cron_expr
         existing.agent_id = canvas.managing_agent_id
+        existing.signal_id = canvas.signal_id or existing.signal_id
         existing.instructions = instructions
         existing.enabled = True
         # A kick fires once below. Leaving next_run_at in the past lets the
@@ -595,6 +733,10 @@ async def sync_refresh_trigger(
         elif not kick:
             existing.next_run_at = trigger_svc.compute_next_run(existing)
         session.add(existing)
+        if existing.signal_id:
+            from app.services.thread_schedule import ensure_trigger_thread
+
+            await ensure_trigger_thread(session, existing)
         return existing.id if kick else None
     trigger = await trigger_svc.create_trigger(
         session,
@@ -606,9 +748,8 @@ async def sync_refresh_trigger(
         agent_id=canvas.managing_agent_id,
         instructions=instructions,
         enabled=True,
-        # An agent writing this canvas in the current chat does not need a
-        # second thread until the cadence actually comes due.
-        defer_thread=not kick,
+        signal_id=canvas.signal_id,
+        defer_thread=canvas.signal_id is None and not kick,
     )
     canvas.refresh_trigger_id = trigger.id
     return trigger.id if kick else None
@@ -625,6 +766,7 @@ async def _schedule_once_write(
         name=f"Write canvas · {canvas.title}"[:120],
         kind="once",
         agent_id=canvas.managing_agent_id,
+        signal_id=canvas.signal_id,
         instructions=refresh_instructions(
             owner_kind=canvas.owner_kind,
             owner_id=canvas.owner_id,
@@ -682,6 +824,8 @@ async def create_canvas(
     updated_by_id: str = "",
     kick: bool = True,
     force_new: bool = False,
+    signal_id: UUID | None = None,
+    new_thread: bool = False,
 ) -> dict[str, Any]:
     kind, oid = await resolve_owner(
         session, tenant_id, owner_kind=owner_kind, owner_id=owner_id
@@ -713,6 +857,10 @@ async def create_canvas(
                     refresh_cron=refresh_cron,
                 )
             else:
+                if not existing.signal_id:
+                    await ensure_canvas_thread(session, tenant_id, existing)
+                    session.add(existing)
+                    await session.commit()
                 payload = await _serialize(session, tenant_id, existing)
             payload["reused"] = True
             return payload
@@ -745,6 +893,15 @@ async def create_canvas(
     session.add(canvas)
     await session.commit()
     await session.refresh(canvas)
+    await ensure_canvas_thread(
+        session,
+        tenant_id,
+        canvas,
+        prefer_signal_id=signal_id,
+        new_thread=new_thread,
+    )
+    session.add(canvas)
+    await session.commit()
     if (refresh_cron or "").strip() and not (refresh_cadence or "").strip():
         refresh_cadence = "custom"
     cadence = resolve_refresh_cadence(
@@ -781,6 +938,8 @@ async def patch_canvas_meta(
     notes: str | None = None,
 ) -> dict[str, Any]:
     canvas = await get_canvas_row(session, tenant_id, canvas_id)
+    if not canvas.signal_id:
+        await ensure_canvas_thread(session, tenant_id, canvas)
     if title is not None:
         canvas.title = (title.strip() or canvas.title)[:160]
     if slug is not None:
@@ -866,6 +1025,9 @@ async def delete_canvas(
     return {"ok": True}
 
 
+_COMPILE_TIMEOUT_SECONDS = 15
+
+
 def _compile_payload(*, source: Any = None, tree: Any = None) -> tuple[str, dict[str, Any]]:
     try:
         return compile_canvas(
@@ -874,6 +1036,23 @@ def _compile_payload(*, source: Any = None, tree: Any = None) -> tuple[str, dict
         )
     except CanvasCompileError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def _compile_payload_async(*, source: Any = None, tree: Any = None) -> tuple[str, dict[str, Any]]:
+    """Compile off the event loop so a stuck parser cannot freeze the API."""
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_compile_payload, source=source, tree=tree),
+            timeout=_COMPILE_TIMEOUT_SECONDS,
+        )
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Canvas source took too long to compile. "
+                "Use a smaller document with fewer nodes."
+            ),
+        ) from exc
 
 
 async def put_canvas_source(
@@ -933,7 +1112,7 @@ async def put_canvas_source(
     else:
         if source is None and tree is None:
             raise HTTPException(status_code=400, detail="Provide source or tree.")
-        compiled_source, compiled_tree = _compile_payload(source=source, tree=tree)
+        compiled_source, compiled_tree = await _compile_payload_async(source=source, tree=tree)
         if notes is not None:
             canvas.notes = (notes.strip() or None)
             if canvas.notes and len(canvas.notes) > 2000:
@@ -989,6 +1168,8 @@ async def apply_canvas_document(
             updated_by_id=str(after.get("agent_id") or after.get("updated_by_id") or ""),
             kick=bool(after.get("kick", True)),
             force_new=bool(after.get("force_new")),
+            signal_id=UUID(after["signal_id"]) if after.get("signal_id") else None,
+            new_thread=bool(after.get("new_thread")),
         )
         return {"status": "applied", "canvas": result}
 

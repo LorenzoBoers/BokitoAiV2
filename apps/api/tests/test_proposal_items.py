@@ -20,6 +20,7 @@ from app.models.signal import Signal, SignalMessage, SignalTag
 from app.models.trash import TrashEntry
 from app.models.trigger import Trigger
 from app.services.proposal_items import (
+    infer_marketplace_items_from_text,
     policy_item_refs,
     resolve_items,
     stash_attach_items,
@@ -219,3 +220,31 @@ async def test_marketplace_and_unconnected_integration_resolve_to_catalog(
     assert items[2]["type"] == "marketplace" and items[2]["provider"] == "notion_mcp"
     assert all(i.get("title") for i in items)
     assert not any(i.get("missing") for i in items)
+
+
+def test_infer_marketplace_items_from_bullet_list():
+    text = (
+        "Hier zijn 10 koppelingen die we kunnen activeren:\n"
+        "- Moneybird\n"
+        "- KING Accountancy\n"
+        "- Exact Online\n"
+        "- Twinfield\n"
+        "- SnelStart\n"
+        "- Yuki\n"
+        "- GoCardless Bank Account Data\n"
+        "- Tink\n"
+        "- Yapily\n"
+        "- Knab\n"
+    )
+    items = infer_marketplace_items_from_text(text)
+    titles = {str(i.get("title") or "").lower() for i in items}
+    slugs = {str(i.get("id") or i.get("provider") or "") for i in items}
+    assert any("moneybird" in t or "moneybird" in slugs for t in titles)
+    assert any("king" in s for s in slugs)
+    assert any("exact" in s for s in slugs)
+    assert any("twinfield" in s for s in slugs)
+    assert any("snelstart" in s for s in slugs)
+    assert any("yuki" in s for s in slugs)
+    assert len(items) >= 8
+    assert all(i.get("type") == "marketplace" and i.get("title") for i in items)
+    assert infer_marketplace_items_from_text("Just chatting, no connectors.") == []

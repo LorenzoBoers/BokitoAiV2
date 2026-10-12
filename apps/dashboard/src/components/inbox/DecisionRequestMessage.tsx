@@ -50,8 +50,9 @@ import {
   parseDecisionOptions,
   type DecisionOption,
 } from '../../lib/decision-options'
-import { useDecisionResolve } from './useDecisionResolve'
+import { useDecisionResolve, type DecisionResolvedInfo } from './useDecisionResolve'
 import { DecisionTextAnswer } from './ProposalActions'
+import { ProposalChoiceRest } from './ProposalChoiceRest'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
@@ -81,7 +82,8 @@ type Props = {
   message: InboxMessage
   threadId: ThreadId
   events: InboxEvent[]
-  onResolved?: (info?: { closed?: boolean }) => void
+  onResolved?: (info?: DecisionResolvedInfo) => void
+  onAnswer?: (answer: { text: string; decisionId: string } | null) => void
   onEditDraft?: (draft: {
     body: string
     subject?: string
@@ -154,8 +156,11 @@ function isDecisionResolved(message: InboxMessage, events: InboxEvent[]): boolea
 
 function extractOptions(message: InboxMessage): DecisionOption[] {
   const decision = message.payload?.decision
-  if (!decision || typeof decision !== 'object') return []
-  return parseDecisionOptions((decision as { options?: unknown }).options)
+  if (decision && typeof decision === 'object') {
+    const fromDecision = parseDecisionOptions((decision as { options?: unknown }).options)
+    if (fromDecision.length) return fromDecision
+  }
+  return parseDecisionOptions(message.payload?.options)
 }
 
 /**
@@ -303,6 +308,7 @@ export default function DecisionRequestMessage({
   threadId,
   events,
   onResolved,
+  onAnswer,
   onEditDraft,
   agentName,
   agentId,
@@ -346,6 +352,7 @@ export default function DecisionRequestMessage({
     setBusy,
     error,
     setError,
+    outcome,
     resolve,
     chooseOption,
     textOptionId,
@@ -366,6 +373,7 @@ export default function DecisionRequestMessage({
     decisionId: message.decisionId ? String(message.decisionId) : null,
     resolved,
     onResolved,
+    onAnswer,
   })
   const options = useMemo(() => extractOptions(message), [message])
   const decisionMeta = (message.payload?.decision as Record<string, unknown> | undefined) ?? undefined
@@ -741,7 +749,29 @@ export default function DecisionRequestMessage({
     )
   }
 
-  if (resolved && !ruleSuggestion) {
+  const visuallyResolved = resolved || outcome !== null
+  const chosenOptionIds = (() => {
+    if (outcome?.optionIds?.length) return outcome.optionIds
+    if (outcome?.optionId) return [outcome.optionId]
+    if (Array.isArray(decisionMeta?.chosen_option_ids)) {
+      return (decisionMeta.chosen_option_ids as unknown[]).map(String).filter(Boolean)
+    }
+    if (typeof decisionMeta?.chosen_option_id === 'string' && decisionMeta.chosen_option_id) {
+      return String(decisionMeta.chosen_option_id).split(',').filter(Boolean)
+    }
+    const eventRow = events.find((event) => {
+      if (!event.eventType.startsWith('decision_') || event.eventType === 'decision_created') return false
+      return event.payload?.decision_id === message.decisionId
+    })
+    const fromEvent = eventRow?.payload?.option_ids
+    if (Array.isArray(fromEvent)) return fromEvent.map(String).filter(Boolean)
+    if (typeof eventRow?.payload?.option_id === 'string' && eventRow.payload.option_id) {
+      return [eventRow.payload.option_id]
+    }
+    return []
+  })()
+  const replyDraftResolved = visuallyResolved && isReplyProposal(options) && !ruleSuggestion
+  if (replyDraftResolved) {
     const status = (message.payload?.decision as { status?: unknown } | undefined)?.status
     const reason = proposalResolutionReason(message)
     const deferredLabelKey: Record<string, string> = {
@@ -805,7 +835,7 @@ export default function DecisionRequestMessage({
       <ChatMessageBubble
       side="left"
       avatar={agentAvatar}
-      variant={resolved ? 'external' : 'agent'}
+      variant="agent"
       body={
         <>
         {!isChatAsk ? (
@@ -828,17 +858,6 @@ export default function DecisionRequestMessage({
                   : isSuggestion
                     ? t('decisionCard.titleSuggestedReply')
                     : t('decision.waitForOk')}
-            </span>
-            {resolved ? (
-              <span className="rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
-                {t('decisionCard.resolved')}
-              </span>
-            ) : null}
-          </div>
-        ) : resolved ? (
-          <div className="mb-1">
-            <span className="rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
-              {t('decisionCard.resolved')}
             </span>
           </div>
         ) : null}
@@ -1021,7 +1040,14 @@ export default function DecisionRequestMessage({
             ) : null}
           </>
         )}
-        {!resolved ? (
+        {visuallyResolved && !isReplyProposal(options) ? (
+          <ProposalChoiceRest
+            className="mt-3"
+            options={options}
+            chosenIds={chosenOptionIds}
+          />
+        ) : null}
+        {!visuallyResolved ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {options.length > 0 ? (
               <>
@@ -1122,7 +1148,7 @@ export default function DecisionRequestMessage({
             )}
           </div>
         ) : null}
-        {!resolved && learnFrom && message.decisionId ? (
+        {!visuallyResolved && learnFrom && message.decisionId ? (
           <div
             className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted"
             data-testid="decision-learn"
@@ -1160,7 +1186,7 @@ export default function DecisionRequestMessage({
             )}
           </div>
         ) : null}
-        {!resolved && textOptionId ? (
+        {!visuallyResolved && textOptionId ? (
           <DecisionTextAnswer
             className="mt-3"
             value={responseText}

@@ -15,10 +15,22 @@ import {
   type SsoIdentitiesPayload,
   type SsoProviderId,
 } from '../../lib/sso-api'
+import { GoogleLogo, MicrosoftLogo } from '../auth/provider-logos'
 import { describeSsoError } from '../auth/sso-errors'
+import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 import { Input } from '../ui/input'
+import { Tip } from '../ui/Tip'
+import { TotpQrCode } from './TotpQrCode'
 import SignatureEditor from '../inbox/SignatureEditor'
 import { previewSignatureHtml, type SignatureIdentityVars } from '../../lib/default-signature'
 import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
@@ -358,11 +370,22 @@ export function ProfileSettingsContent() {
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
+  const [pwTotp, setPwTotp] = useState('')
   const [pwSaving, setPwSaving] = useState(false)
   const [pwError, setPwError] = useState<string | null>(null)
   const [pwSaved, setPwSaved] = useState(false)
   const [pwJustSet, setPwJustSet] = useState(false)
   const hasPassword = user?.hasPassword === true
+  const totpRequired = Boolean(user?.totpEnabled)
+
+  const closePasswordForm = () => {
+    setShowPasswordForm(false)
+    setCurrentPw('')
+    setNewPw('')
+    setConfirmPw('')
+    setPwTotp('')
+    setPwError(null)
+  }
 
   // Connected SSO accounts
   const [ssoStatus, setSsoStatus] = useState<SsoIdentitiesPayload | null>(null)
@@ -521,22 +544,36 @@ export function ProfileSettingsContent() {
       setPwError(t('profile:security.currentPassword'))
       return
     }
+    if (totpRequired && pwTotp.replace(/\D/g, '').length !== 6) {
+      setPwError(t('profile:security.totpInvalidCode'))
+      return
+    }
     setPwSaving(true); setPwError(null)
     try {
       await apiPostAuth(
         authRoutes.profile.changePassword,
-        { current_password: hasPassword ? currentPw : '', new_password: newPw },
+        {
+          current_password: hasPassword ? currentPw : '',
+          new_password: newPw,
+          totp_code: totpRequired ? pwTotp.replace(/\D/g, '') : '',
+        },
         token,
       )
       setPwSaved(true)
       setPwJustSet(!hasPassword)
       patchLocalUser({ hasPassword: true })
-      setCurrentPw(''); setNewPw(''); setConfirmPw('')
-      setShowPasswordForm(false)
+      closePasswordForm()
       setTimeout(() => { setPwSaved(false); setPwJustSet(false) }, 3000)
       void reloadSso()
     } catch (err) {
-      setPwError(err instanceof Error ? err.message : t('profile:errors.changePassword'))
+      const raw = err instanceof Error ? err.message : ''
+      if (raw === 'Invalid verification code') {
+        setPwError(t('profile:security.totpInvalidCode'))
+      } else if (raw === 'Current password is incorrect') {
+        setPwError(t('profile:security.currentPasswordWrong'))
+      } else {
+        setPwError(raw || t('profile:errors.changePassword'))
+      }
     } finally {
       setPwSaving(false)
     }
@@ -550,9 +587,22 @@ export function ProfileSettingsContent() {
   const [totpBusy, setTotpBusy] = useState(false)
   const [totpError, setTotpError] = useState<string | null>(null)
 
+  const closeTotpSetup = () => {
+    setTotpSetup(null)
+    setTotpEnrollCode('')
+    setTotpError(null)
+  }
+
+  const closeTotpDisable = () => {
+    setShowTotpDisable(false)
+    setTotpDisablePw('')
+    setTotpError(null)
+  }
+
   const startTotpSetup = async () => {
     if (!token) return
-    setTotpBusy(true); setTotpError(null)
+    setTotpBusy(true)
+    setTotpError(null)
     try {
       const data = await apiPostAuth<{ secret: string; otpauth_uri: string }>(
         authRoutes.twoFactor.setup, {}, token,
@@ -560,7 +610,7 @@ export function ProfileSettingsContent() {
       setTotpSetup({ secret: data.secret, otpauthUri: data.otpauth_uri })
       setTotpEnrollCode('')
     } catch (err) {
-      setTotpError(err instanceof Error ? err.message : t('profile:errors.totpStart'))
+      toast.error(err instanceof Error ? err.message : t('profile:errors.totpStart'))
     } finally {
       setTotpBusy(false)
     }
@@ -568,12 +618,12 @@ export function ProfileSettingsContent() {
 
   const confirmTotpEnable = async () => {
     if (!token) return
-    setTotpBusy(true); setTotpError(null)
+    setTotpBusy(true)
+    setTotpError(null)
     try {
       await apiPostAuth(authRoutes.twoFactor.enable, { code: totpEnrollCode }, token)
       patchLocalUser({ totpEnabled: true })
-      setTotpSetup(null)
-      setTotpEnrollCode('')
+      closeTotpSetup()
       toast.success(t('profile:security.totpEnabled'))
     } catch {
       setTotpError(t('profile:security.totpInvalidCode'))
@@ -584,12 +634,12 @@ export function ProfileSettingsContent() {
 
   const disableTotp = async () => {
     if (!token) return
-    setTotpBusy(true); setTotpError(null)
+    setTotpBusy(true)
+    setTotpError(null)
     try {
       await apiPostAuth(authRoutes.twoFactor.disable, { password: totpDisablePw }, token)
       patchLocalUser({ totpEnabled: false })
-      setShowTotpDisable(false)
-      setTotpDisablePw('')
+      closeTotpDisable()
       toast.success(t('profile:security.totpDisabled'))
     } catch (err) {
       setTotpError(err instanceof Error ? err.message : t('profile:errors.totpDisable'))
@@ -815,7 +865,7 @@ export function ProfileSettingsContent() {
                   variant="secondary"
                   size="sm"
                   className="h-8 rounded-lg px-3 text-xs"
-                  onClick={() => { setShowPasswordForm((v) => !v); setPwError(null) }}
+                  onClick={() => { setShowPasswordForm(true); setPwError(null) }}
                 >
                   <Lock size={12} />
                   {hasPassword
@@ -824,66 +874,6 @@ export function ProfileSettingsContent() {
                 </Button>
               </div>
             </div>
-
-            {showPasswordForm && (
-              <div className="mt-3 space-y-2.5 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
-                <div className={`grid gap-2.5 ${hasPassword ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-                  {(hasPassword
-                    ? [
-                        { label: t('profile:security.currentPassword'), value: currentPw, set: setCurrentPw },
-                        { label: t('profile:security.newPassword'), value: newPw, set: setNewPw },
-                        { label: t('profile:security.confirmPassword'), value: confirmPw, set: setConfirmPw },
-                      ]
-                    : [
-                        { label: t('profile:security.newPassword'), value: newPw, set: setNewPw },
-                        { label: t('profile:security.confirmPassword'), value: confirmPw, set: setConfirmPw },
-                      ]
-                  ).map(({ label, value, set }) => (
-                    <div key={label} className="space-y-1">
-                      <label className="text-xs text-text-muted">{label}</label>
-                      <Input
-                        type="password"
-                        value={value}
-                        onChange={(e) => set(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void handleChangePassword()
-                        }}
-                        className="h-8 rounded-lg text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-text-muted">{t('profile:security.passwordHint')}</p>
-                {pwError && <p className="text-xs text-status-error">{pwError}</p>}
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="h-8 rounded-lg px-3 text-xs"
-                    disabled={
-                      pwSaving
-                      || newPw.length < 8
-                      || newPw !== confirmPw
-                      || (hasPassword && !currentPw)
-                    }
-                    onClick={() => void handleChangePassword()}
-                  >
-                    {pwSaving
-                      ? t('profile:personalInformation.saving')
-                      : hasPassword
-                        ? t('profile:security.changePassword')
-                        : t('profile:security.setPassword')}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-8 rounded-lg px-3 text-xs"
-                    onClick={() => { setShowPasswordForm(false); setPwError(null) }}
-                  >
-                    {t('profile:security.cancel')}
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Connected accounts */}
@@ -897,36 +887,80 @@ export function ProfileSettingsContent() {
                 const row = ssoStatus?.providers.find((p) => p.id === provider)
                 const linked = Boolean(row?.linked)
                 const configured = row?.configured !== false
+                const linkedEmail = (row?.email || '').trim()
+                const accountHasPassword = ssoStatus?.has_password ?? hasPassword
+                const otherLinked = (ssoStatus?.providers ?? []).some(
+                  (p) => p.id !== provider && p.linked,
+                )
+                // Mirror API: do not drop the only remaining sign-in method.
+                const canUnlink = accountHasPassword || otherLinked
+                const Logo = provider === 'google' ? GoogleLogo : MicrosoftLogo
+                const disconnectDisabled = ssoBusy === provider || !configured || !canUnlink
+                const disconnectButton = (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
+                    disabled={disconnectDisabled}
+                    onClick={() => void handleSsoDisconnect(provider)}
+                  >
+                    {t('profile:security.disconnect')}
+                  </Button>
+                )
                 return (
                   <div
                     key={provider}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-2.5"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5"
+                    data-testid={`sso-row-${provider}`}
+                    data-linked={linked ? 'true' : 'false'}
                   >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-text-heading">
-                        {t(`profile:security.${provider}`)}
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        {!configured
-                          ? t('profile:security.notConfigured')
-                          : linked
-                            ? t('profile:security.connected', { email: row?.email || '—' })
-                            : t('profile:security.notConnected')}
-                      </p>
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-surface">
+                        <Logo size={18} />
+                      </span>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-text-heading">
+                            {t(`profile:security.${provider}`)}
+                          </p>
+                          {!configured ? (
+                            <Badge variant="warning" size="sm" dot>
+                              {t('profile:security.notConfigured')}
+                            </Badge>
+                          ) : linked ? (
+                            <Badge variant="success" size="sm" dot>
+                              {t('profile:security.connectedBadge')}
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral" size="sm" dot>
+                              {t('profile:security.notConnectedBadge')}
+                            </Badge>
+                          )}
+                        </div>
+                        {linked && linkedEmail ? (
+                          <p className="truncate text-xs text-text-secondary" title={linkedEmail}>
+                            {linkedEmail}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-text-muted">
+                            {configured
+                              ? t('profile:security.connectHint')
+                              : t('profile:security.notConfiguredHint')}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {linked ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-8 rounded-lg px-3 text-xs"
-                        disabled={ssoBusy === provider || !configured}
-                        onClick={() => void handleSsoDisconnect(provider)}
-                      >
-                        {t('profile:security.disconnect')}
-                      </Button>
+                      !canUnlink && configured ? (
+                        <Tip label={t('profile:security.unlinkBlocked')}>
+                          <span className="inline-flex">{disconnectButton}</span>
+                        </Tip>
+                      ) : (
+                        disconnectButton
+                      )
                     ) : (
                       <Button
-                        variant="secondary"
+                        variant="default"
                         size="sm"
                         className="h-8 rounded-lg px-3 text-xs"
                         disabled={ssoBusy === provider || !configured}
@@ -943,55 +977,220 @@ export function ProfileSettingsContent() {
 
           {/* Two-factor authentication */}
           <div className="py-3.5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-heading">
-                  {t('profile:security.totpTitle')}
-                </p>
-                <p className="text-xs text-text-muted">
-                  {user?.totpEnabled
-                    ? t('profile:security.totpOnDescription')
-                    : t('profile:security.totpOffDescription')}
-                </p>
+            <div className="mb-3">
+              <p className="text-sm font-medium text-text-heading">{t('profile:security.totpTitle')}</p>
+              <p className="text-xs text-text-muted">
+                {user?.totpEnabled
+                  ? t('profile:security.totpOnDescription')
+                  : t('profile:security.totpOffDescription')}
+              </p>
+            </div>
+            <div
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5"
+              data-testid="totp-row"
+              data-enabled={user?.totpEnabled ? 'true' : 'false'}
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <span
+                  className={
+                    user?.totpEnabled
+                      ? 'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-status-success/30 bg-status-success/10 text-status-success'
+                      : 'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-surface text-text-muted'
+                  }
+                >
+                  <ShieldCheck size={18} aria-hidden />
+                </span>
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-text-heading">
+                      {t('profile:security.totpMethod')}
+                    </p>
+                    {user?.totpEnabled ? (
+                      <Badge variant="success" size="sm" dot>
+                        {t('profile:security.totpOnBadge')}
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral" size="sm" dot>
+                        {t('profile:security.totpOffBadge')}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted">
+                    {user?.totpEnabled
+                      ? t('profile:security.totpOnHint')
+                      : t('profile:security.totpOffHint')}
+                  </p>
+                </div>
               </div>
               {user?.totpEnabled ? (
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
-                  className="h-8 rounded-lg px-3 text-xs"
-                  onClick={() => { setShowTotpDisable((v) => !v); setTotpError(null) }}
+                  className="h-8 shrink-0 rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
+                  onClick={() => { setShowTotpDisable(true); setTotpError(null) }}
                 >
                   {t('profile:security.totpDisable')}
                 </Button>
               ) : (
                 <Button
-                  variant="secondary"
+                  variant="default"
                   size="sm"
-                  className="h-8 rounded-lg px-3 text-xs"
+                  className="h-8 shrink-0 rounded-lg px-3 text-xs"
                   disabled={totpBusy}
-                  onClick={() => void (totpSetup ? setTotpSetup(null) : startTotpSetup())}
+                  onClick={() => void startTotpSetup()}
                 >
-                  <ShieldCheck size={12} />
-                  {totpSetup
-                    ? t('profile:security.cancel')
-                    : t('profile:security.totpEnable')}
+                  {t('profile:security.totpEnable')}
                 </Button>
               )}
             </div>
+          </div>
 
-            {totpSetup && !user?.totpEnabled && (
-              <div className="mt-3 space-y-3 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
-                <p className="text-xs text-text-secondary">
-                  {t('profile:security.totpStep1')}
+        </Card>
+      </Section>
+
+      <Dialog open={showPasswordForm} onOpenChange={(open) => { if (!open) closePasswordForm() }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {hasPassword
+                ? t('profile:security.changePassword')
+                : t('profile:security.setPassword')}
+            </DialogTitle>
+            <DialogDescription>
+              {hasPassword
+                ? totpRequired
+                  ? t('profile:security.passwordModalDescriptionMfa')
+                  : t('profile:security.passwordModalDescription')
+                : t('profile:security.passwordModalDescriptionSet')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {hasPassword ? (
+              <div className="space-y-1">
+                <label className="text-xs text-text-muted" htmlFor="pw-current">
+                  {t('profile:security.currentPassword')}
+                </label>
+                <Input
+                  id="pw-current"
+                  type="password"
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  className="h-9 rounded-lg text-sm"
+                  autoComplete="current-password"
+                  autoFocus
+                />
+              </div>
+            ) : null}
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted" htmlFor="pw-new">
+                {t('profile:security.newPassword')}
+              </label>
+              <Input
+                id="pw-new"
+                type="password"
+                value={newPw}
+                onChange={(e) => setNewPw(e.target.value)}
+                className="h-9 rounded-lg text-sm"
+                autoComplete="new-password"
+                autoFocus={!hasPassword}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted" htmlFor="pw-confirm">
+                {t('profile:security.confirmPassword')}
+              </label>
+              <Input
+                id="pw-confirm"
+                type="password"
+                value={confirmPw}
+                onChange={(e) => setConfirmPw(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !totpRequired) void handleChangePassword()
+                }}
+                className="h-9 rounded-lg text-sm"
+                autoComplete="new-password"
+              />
+            </div>
+            {totpRequired ? (
+              <div className="space-y-1">
+                <label className="text-xs text-text-muted" htmlFor="pw-totp">
+                  {t('profile:security.totpCode')}
+                </label>
+                <Input
+                  id="pw-totp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={pwTotp}
+                  onChange={(e) => setPwTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleChangePassword()
+                  }}
+                  className="h-9 rounded-lg text-center font-mono text-sm tracking-[0.3em]"
+                  placeholder={t('profile:security.totpCodePlaceholder')}
+                />
+                <p className="text-xs text-text-muted">{t('profile:security.passwordTotpHint')}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-text-muted">{t('profile:security.passwordHint')}</p>
+            )}
+            {pwError ? <p className="text-xs text-status-error">{pwError}</p> : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" size="sm" onClick={closePasswordForm}>
+              {t('profile:security.cancel')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={
+                pwSaving
+                || newPw.length < 8
+                || newPw !== confirmPw
+                || (hasPassword && !currentPw)
+                || (totpRequired && pwTotp.length !== 6)
+              }
+              onClick={() => void handleChangePassword()}
+            >
+              {pwSaving
+                ? t('profile:personalInformation.saving')
+                : hasPassword
+                  ? t('profile:security.changePassword')
+                  : t('profile:security.setPassword')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(totpSetup) && !user?.totpEnabled}
+        onOpenChange={(open) => { if (!open) closeTotpSetup() }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('profile:security.totpTitle')}</DialogTitle>
+            <DialogDescription>{t('profile:security.totpStep1')}</DialogDescription>
+          </DialogHeader>
+          {totpSetup ? (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <TotpQrCode
+                  value={totpSetup.otpauthUri}
+                  label={t('profile:security.totpQrLabel')}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-text-secondary">
+                  {t('profile:security.totpManualKey')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <code className="rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 font-mono text-xs text-text-primary">
+                  <code className="min-w-0 flex-1 break-all rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 font-mono text-xs text-text-primary">
                     {totpSetup.secret}
                   </code>
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="h-7 rounded-lg px-2.5 text-xs"
+                    className="h-7 shrink-0 rounded-lg px-2.5 text-xs"
                     onClick={() => {
                       void navigator.clipboard.writeText(totpSetup.secret)
                       toast.success(t('common:actions.copied'))
@@ -999,67 +1198,84 @@ export function ProfileSettingsContent() {
                   >
                     {t('common:actions.copy')}
                   </Button>
-                  <a
-                    href={totpSetup.otpauthUri}
-                    className="text-xs font-medium text-accent hover:text-accent-hover"
-                  >
-                    {t('profile:security.totpOpenApp')}
-                  </a>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={totpEnrollCode}
-                    onChange={(e) => setTotpEnrollCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="000000"
-                    className="h-8 w-28 rounded-lg text-center font-mono text-sm tracking-[0.25em]"
-                  />
-                  <Button
-                    size="sm"
-                    className="h-8 rounded-lg px-3 text-xs"
-                    disabled={totpBusy || totpEnrollCode.length !== 6}
-                    onClick={() => void confirmTotpEnable()}
-                  >
-                    {totpBusy
-                      ? t('profile:personalInformation.saving')
-                      : t('profile:security.totpConfirm')}
-                  </Button>
-                </div>
-                {totpError && <p className="text-xs text-status-error">{totpError}</p>}
+                <a
+                  href={totpSetup.otpauthUri}
+                  className="inline-block text-xs font-medium text-accent hover:text-accent-hover"
+                >
+                  {t('profile:security.totpOpenApp')}
+                </a>
               </div>
-            )}
+              <div>
+                <Input
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={totpEnrollCode}
+                  onChange={(e) => setTotpEnrollCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="h-9 w-36 rounded-lg text-center font-mono text-sm tracking-[0.25em]"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && totpEnrollCode.length === 6 && !totpBusy) {
+                      void confirmTotpEnable()
+                    }
+                  }}
+                />
+              </div>
+              {totpError ? <p className="text-xs text-status-error">{totpError}</p> : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="ghost" size="sm" onClick={closeTotpSetup}>
+              {t('profile:security.cancel')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={totpBusy || totpEnrollCode.length !== 6}
+              onClick={() => void confirmTotpEnable()}
+            >
+              {totpBusy
+                ? t('profile:personalInformation.saving')
+                : t('profile:security.totpConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            {showTotpDisable && user?.totpEnabled && (
-              <div className="mt-3 space-y-2.5 rounded-lg border border-border/60 bg-bg-elevated/50 p-3">
-                <p className="text-xs text-text-secondary">
-                  {t('profile:security.totpDisableConfirm')}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="password"
-                    value={totpDisablePw}
-                    onChange={(e) => setTotpDisablePw(e.target.value)}
-                    className="h-8 w-52 rounded-lg text-sm"
-                    autoComplete="current-password"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-8 rounded-lg px-3 text-xs"
-                    disabled={totpBusy || !totpDisablePw}
-                    onClick={() => void disableTotp()}
-                  >
-                    {t('profile:security.totpDisable')}
-                  </Button>
-                </div>
-                {totpError && <p className="text-xs text-status-error">{totpError}</p>}
-              </div>
-            )}
+      <Dialog open={showTotpDisable && Boolean(user?.totpEnabled)} onOpenChange={(open) => { if (!open) closeTotpDisable() }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('profile:security.totpDisable')}</DialogTitle>
+            <DialogDescription>{t('profile:security.totpDisableConfirm')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              type="password"
+              value={totpDisablePw}
+              onChange={(e) => setTotpDisablePw(e.target.value)}
+              className="h-9 rounded-lg text-sm"
+              autoComplete="current-password"
+              autoFocus
+            />
+            {totpError ? <p className="text-xs text-status-error">{totpError}</p> : null}
           </div>
-
-        </Card>
-      </Section>
+          <DialogFooter>
+            <Button type="button" variant="ghost" size="sm" onClick={closeTotpDisable}>
+              {t('profile:security.cancel')}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={totpBusy || !totpDisablePw}
+              onClick={() => void disableTotp()}
+            >
+              {t('profile:security.totpDisable')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Session ── */}
       <Section title={t('profile:session.title')} description={t('profile:session.description')}>

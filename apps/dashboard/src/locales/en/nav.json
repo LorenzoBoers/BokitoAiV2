@@ -844,6 +844,8 @@
       "agents": "Agents"
     },
     "rail": {
+      "when": "When",
+      "what": "What",
       "who": "Who",
       "allProjects": "All projects",
       "show": "Show",
@@ -4589,7 +4591,7 @@
       "empty": "This canvas is empty. Ask the managing agent in Communication to draw a progress dashboard.",
       "emptyHint": "No canvases yet. Add one so an agent can draw a snapshot dashboard.",
       "add": "Add canvas",
-      "addDescription": "Name it, describe what it must show, then the managing agent starts writing.",
+      "addDescription": "Name it and describe what it must show. That starts a conversation with the owner. Refresh is that conversation's repeat in Agenda.",
       "cancel": "Cancel",
       "delete": "Delete",
       "deleteConfirm": "Delete this canvas? The Agenda refresh wake is removed too.",
@@ -4612,6 +4614,8 @@
       "cronInvalid": "Enter a five-field cron expression.",
       "writing": "The managing agent is writing this canvas.",
       "askAgent": "Ask agent to update",
+      "openThread": "Open conversation",
+      "ownerAgent": "Owner",
       "lastUpdated": "Updated {{time}}{{who}}",
       "showSource": "Show source",
       "hideSource": "Hide source"

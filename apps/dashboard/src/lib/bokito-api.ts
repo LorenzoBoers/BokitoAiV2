@@ -16,6 +16,14 @@ export type AuthMeResponse = {
   tenant: { id: string; slug: string; name: string; logo?: string | null }
 }
 
+export type ActionMixDay = {
+  date: string
+  ai_minutes: number
+  manual_minutes: number
+  ai_count?: number
+  manual_count?: number
+}
+
 export type TimeSavedAction = {
   action: string
   count: number
@@ -37,8 +45,10 @@ export type CockpitSummary = {
   time_saved_minutes_week: number
   /** Action-credit rows that sum to time_saved_minutes_week. */
   time_saved_breakdown?: TimeSavedAction[]
-  /** Weighted action mix for Overview pie (autonomous / assisted / manual). */
+  /** Weighted action mix this week (autonomous / assisted / manual). */
   action_mix?: { mode: string; count: number; minutes: number }[]
+  /** Daily AI vs manual weighted minutes for the Overview area chart. */
+  action_mix_series?: ActionMixDay[]
   /** Closed without a takeover, still closed after 72 hours, matured this week. */
   resolved_conversations_week?: number
   quiet_threads?: {

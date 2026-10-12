@@ -90,6 +90,127 @@ def take_attach_items(signal_id: UUID | None) -> list[dict[str, Any]]:
         return []
     return _PENDING_ATTACH.pop(str(signal_id), [])
 
+
+_SKIP_BARE_NAMES = frozenset({"google", "microsoft", "custom", "custom tool", "custom mcp"})
+_NAME_INDEX: list[tuple[str, str]] | None = None
+
+
+def snapshot_marketplace_slug(slug: str) -> dict[str, Any] | None:
+    """Catalog card for a provider or host slug. No database."""
+    from app.services.integrations_catalog import (
+        HOST_BY_SLUG,
+        PROVIDER_BY_SLUG,
+        PROVIDERS,
+        canonical_provider_slug,
+    )
+
+    key = canonical_provider_slug(slug)
+    row = PROVIDER_BY_SLUG.get(key) if key else None
+    if not isinstance(row, dict):
+        host_key = (slug or "").strip().lower().replace("-", "_").replace(" ", "_")
+        host = HOST_BY_SLUG.get(host_key)
+        if host:
+            for provider in PROVIDERS:
+                if (provider.get("host") or {}).get("slug") == host["slug"]:
+                    row = provider
+                    key = str(provider.get("slug") or key)
+                    break
+    if not isinstance(row, dict) or not key:
+        return None
+    host = row.get("host") if isinstance(row.get("host"), dict) else {}
+    host_slug = str(host.get("slug") or "").strip()
+    use = host_slug or key
+    return {
+        "type": "marketplace",
+        "id": use,
+        "title": _clip(row.get("name") or row.get("title") or use),
+        "subtitle": _clip(row.get("summary") or row.get("description") or "Not connected"),
+        "kind": "marketplace",
+        "provider": use,
+    }
+
+
+def marketplace_name_index() -> list[tuple[str, str]]:
+    """``(lowercase name, provider slug)`` longest first, for mention scans."""
+    global _NAME_INDEX
+    if _NAME_INDEX is not None:
+        return _NAME_INDEX
+    from app.services.integrations_catalog import HOST_BY_SLUG, PROVIDER_BY_SLUG, PROVIDERS
+
+    names: dict[str, str] = {}
+
+    def add(label: str, slug: str) -> None:
+        key = " ".join(label.lower().split())
+        if len(key) < 3 or key in _SKIP_BARE_NAMES:
+            return
+        if key not in names or len(key) > len(names[key]):
+            names[key] = slug
+
+    for slug, row in PROVIDER_BY_SLUG.items():
+        if not isinstance(row, dict):
+            continue
+        add(str(row.get("name") or ""), slug)
+        add(slug.replace("_", " "), slug)
+        if slug.endswith("_mcp"):
+            add(slug[:-4].replace("_", " "), slug)
+    for host_slug, host in HOST_BY_SLUG.items():
+        provider_slug = next(
+            (
+                str(p["slug"])
+                for p in PROVIDERS
+                if (p.get("host") or {}).get("slug") == host_slug
+            ),
+            host_slug,
+        )
+        add(str(host.get("name") or ""), provider_slug)
+        add(host_slug.replace("_", " "), provider_slug)
+    extras = {
+        "king accountancy": "king_accountancy",
+        "king": "king_accountancy",
+        "exact online": "exact",
+        "gocardless bank account data": "gocardless",
+        "gocardless bankaccountdata": "gocardless",
+        "one drive": "onedrive",
+        "sharepoint": "onedrive",
+    }
+    for label, slug in extras.items():
+        add(label, slug)
+    _NAME_INDEX = sorted(names.items(), key=lambda item: -len(item[0]))
+    return _NAME_INDEX
+
+
+def infer_marketplace_items_from_text(text: str) -> list[dict[str, Any]]:
+    """Safety net: catalog cards for connector names the model listed in prose."""
+    import re
+
+    body = text or ""
+    if not body.strip():
+        return []
+    found: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for name, slug in marketplace_name_index():
+        if slug in seen:
+            continue
+        match = re.search(rf"(?<![\w/]){re.escape(name)}(?![\w])", body, flags=re.IGNORECASE)
+        if not match:
+            continue
+        slice_ = body[match.start() : match.end()]
+        if len(name) < 6 and " " not in name and slice_[:1].islower():
+            continue
+        snap = snapshot_marketplace_slug(slug)
+        if not snap:
+            continue
+        key = str(snap.get("id") or slug)
+        if key in seen:
+            continue
+        seen.add(key)
+        seen.add(slug)
+        found.append(snap)
+        if len(found) >= MAX_ITEMS:
+            break
+    return found
+
+
 _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
 
 

@@ -395,17 +395,22 @@
   .stream-caret {
     display: inline-block;
     width: 2px;
-    height: 1em;
+    height: 0.9em;
     margin-left: 2px;
-    vertical-align: text-bottom;
+    vertical-align: -0.08em;
     background: rgb(var(--color-ai));
     border-radius: 1px;
-    animation: stream-caret-blink 1s steps(2, start) infinite;
+    box-shadow: 0 0 8px 1px rgb(var(--color-ai) / 0.5);
+    animation: stream-caret-blink 0.9s steps(2, start) infinite;
   }
   @keyframes stream-caret-blink {
     50% {
       opacity: 0;
     }
+  }
+  .stream-tail {
+    color: rgb(var(--color-ai-ink));
+    text-shadow: 0 0 14px rgb(var(--color-ai) / 0.28);
   }
 
   /* Dictation mic: SVG bars share geometry with @bokito/shared SPEECH_WAVE_BARS. */
@@ -1132,9 +1137,16 @@
     .animate-panel-in,
     .animate-list-row-enter,
     .msg-bubble-enter,
+    .msg-bubble-enter-live,
     .bubble-pop-enter,
+    .bubble-confirm,
+    .proposal-choice-rest,
+    .proposal-choice-chip-chosen,
+    .decision-answer-bubble,
     .list-row-enter,
     .stream-caret,
+    .stream-tail,
+    .proposal-preparing-enter,
     .ai-glow,
     .knowledge-glow,
     .stagger-in,
@@ -1216,6 +1228,44 @@
   animation: msg-bubble-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Live bubble: fade only. A translate on the growing row yanks the thread. */
+@keyframes msg-bubble-enter-live {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.msg-bubble-enter-live {
+  animation: msg-bubble-enter-live 0.22s ease-out both;
+}
+
+/* Settle when a live agent bubble is fully written. Shadow only — no scale,
+   so the timeline does not jump when the reveal finishes. */
+@keyframes bubble-confirm {
+  0% {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.06),
+      0 12px 32px -22px rgb(var(--color-ai) / 0.5);
+  }
+  40% {
+    box-shadow:
+      0 0 0 1px rgb(var(--color-ai) / 0.32),
+      0 10px 28px -14px rgb(var(--color-ai) / 0.55);
+  }
+  100% {
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.06),
+      0 12px 32px -22px rgb(var(--color-ai) / 0.45);
+  }
+}
+
+.bubble-confirm {
+  animation: bubble-confirm 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Live agent bubbles: grow out of the leading corner with a soft settle,
    like a message landing rather than a block appearing. */
 @keyframes bubble-pop-enter {
@@ -1235,6 +1285,72 @@
 .bubble-pop-enter {
   transform-origin: 0 0;
   animation: bubble-pop-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes proposal-preparing-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.proposal-preparing-enter {
+  animation: proposal-preparing-in 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes proposal-choice-rest-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.proposal-choice-rest {
+  animation: proposal-choice-rest-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes proposal-choice-chosen-pop {
+  0% {
+    transform: scale(0.92);
+  }
+  55% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.proposal-choice-chip-chosen {
+  animation: proposal-choice-chosen-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes decision-answer-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 10px, 0) scale(0.94);
+  }
+  58% {
+    opacity: 1;
+    transform: translate3d(-2px, -2px, 0) scale(1.03);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.decision-answer-bubble {
+  transform-origin: 100% 100%;
+  animation: decision-answer-enter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes list-row-enter {

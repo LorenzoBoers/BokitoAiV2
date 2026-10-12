@@ -3,20 +3,15 @@
  *
  * The session's own messages are ordinary rows (see `session-timeline.ts`),
  * so this row only says where a session starts and, once it is closed, what
- * came out of it. Active: "{agent} · internal" with a quiet End / Cancel
- * action. Closed: a summary pill that expands in place to the transcript.
+ * came out of it. Active: "{agent} · internal". Closed: a summary pill that
+ * expands in place to the transcript. Sessions start and close themselves.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Loader2, Wrench } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
-import {
-  bokitoListMessages,
-  closeAgentSession,
-  discardAgentSession,
-  type ThreadSession,
-} from '../../lib/signals-api'
+import { bokitoListMessages, type ThreadSession } from '../../lib/signals-api'
 import type { InboxMessage } from '../../lib/inbox-api'
 import { sessionTimelineMessages } from '../../lib/session-timeline'
 import { assignBubbleStacks, type BubbleStack } from '../../lib/chat-layout'
@@ -24,7 +19,6 @@ import { translateMockAgentBody } from '../../lib/activity-labels'
 import { AiMark } from '../ai/AiMark'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { cn } from '../../lib/utils'
-import { toast } from 'sonner'
 
 type Props = {
   session: ThreadSession
@@ -149,43 +143,10 @@ function ClosedTranscript({
 
 export default function SessionMarker({
   session,
-  threadId,
-  streaming = false,
-  onChanged,
   renderMessage,
 }: Props) {
   const { t } = useTranslation('communication')
-  const { token } = useAuth()
-  const [closing, setClosing] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const started = session.messageCount > 0 || streaming
-
-  const endSession = async () => {
-    if (!token || closing) return
-    setClosing(true)
-    try {
-      await closeAgentSession(token, threadId, session.id)
-      toast.success(t('agentSession.closedToast'))
-      onChanged()
-    } catch {
-      toast.error(t('agentSession.closeError'))
-    } finally {
-      setClosing(false)
-    }
-  }
-
-  const cancelSession = async () => {
-    if (!token || closing) return
-    setClosing(true)
-    try {
-      await discardAgentSession(token, threadId, session.id)
-      onChanged()
-    } catch {
-      toast.error(t('agentSession.cancelError'))
-    } finally {
-      setClosing(false)
-    }
-  }
 
   if (session.state === 'active') {
     return (
@@ -195,20 +156,6 @@ export default function SessionMarker({
           <AgentNameLink session={session} />
           <span aria-hidden>·</span>
           <InternalWord />
-          <span aria-hidden className="mx-0.5 h-3 w-px bg-ai-ink/20" />
-          <button
-            type="button"
-            disabled={closing || streaming}
-            onClick={() => void (started ? endSession() : cancelSession())}
-            className="inline-flex items-center gap-1 text-ai-ink/70 hover:text-ai-ink disabled:opacity-50"
-          >
-            {closing ? <Loader2 size={10} className="animate-spin" /> : null}
-            {closing
-              ? t('agentSession.ending')
-              : started
-                ? t('agentSession.endSession')
-                : t('agentSession.cancel')}
-          </button>
         </span>
       </div>
     )

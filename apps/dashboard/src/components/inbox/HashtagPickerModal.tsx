@@ -95,21 +95,74 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
   }, [open, token])
 
   const normalized = normalizeHashtag(query)
+  const inherited = thread.inheritedTags ?? []
   const categoryById = useMemo(() => new Map(categories.map((row) => [row.id, row])), [categories])
 
-  const matches = useMemo(() => {
+  const pathOptions = useMemo(() => {
     const q = normalized
-    return registry
-      .filter((row) => {
-        if (!q) return true
-        return row.name.includes(q) || row.description.toLowerCase().includes(q)
+    type PathOption = {
+      key: string
+      label: string
+      tagNames: string[]
+      viaContact: boolean
+      isCategory: boolean
+      tagId?: string
+    }
+    const out: PathOption[] = []
+    for (const row of registry) {
+      if (row.isCategory) {
+        if (q && !row.name.includes(q) && !row.description.toLowerCase().includes(q)) continue
+        out.push({
+          key: `cat-${row.id}`,
+          label: `#${row.name}`,
+          tagNames: [row.name],
+          viaContact: inherited.includes(row.name),
+          isCategory: true,
+          tagId: row.id,
+        })
+        continue
+      }
+      const folders = row.folders ?? []
+      if (folders.length) {
+        for (const folder of folders) {
+          const names = folder.tagNames.length
+            ? folder.tagNames
+            : folder.path
+                .split(' / ')
+                .map((part) => part.replace(/^#/, '').trim())
+                .filter(Boolean)
+          if (!names.length) names.push(row.name)
+          if (q && !names.some((name) => name.includes(q)) && !folder.path.toLowerCase().includes(q)) {
+            continue
+          }
+          out.push({
+            key: `path-${folder.id}`,
+            label: names.map((name) => `#${name}`).join(' / '),
+            tagNames: names,
+            viaContact: names.some((name) => inherited.includes(name)),
+            isCategory: false,
+          })
+        }
+        continue
+      }
+      if (q && !row.name.includes(q) && !row.description.toLowerCase().includes(q)) continue
+      out.push({
+        key: `tag-${row.id}`,
+        label: `#${row.name}`,
+        tagNames: [row.name],
+        viaContact: inherited.includes(row.name),
+        isCategory: false,
       })
-      .sort((a, b) => {
-        if (a.isCategory !== b.isCategory) return a.isCategory ? -1 : 1
-        return a.name.localeCompare(b.name)
-      })
-  }, [registry, normalized])
+    }
+    return out.sort((a, b) => {
+      if (a.isCategory !== b.isCategory) return a.isCategory ? -1 : 1
+      return a.label.localeCompare(b.label)
+    })
+  }, [registry, normalized, inherited])
 
+  const exactPaths = pathOptions.filter(
+    (row) => row.tagNames[row.tagNames.length - 1] === normalized || row.label.replace(/#/g, '') === normalized,
+  )
   const exactMatch = registry.find((row) => row.name === normalized) ?? null
   const isNewName = Boolean(normalized) && !exactMatch
 
@@ -118,13 +171,36 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
   const addFree = async (name: string) => {
     const clean = normalizeHashtag(name)
     if (!clean || !onPatch) return
-    if (tags.includes(clean)) {
+    if (tags.includes(clean) || inherited.includes(clean)) {
       close()
       return
     }
     setBusy(true)
     try {
       await onPatch({ tags: [...tags, clean] })
+      close()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('tags.createError')))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addPath = async (names: string[]) => {
+    if (!onPatch) return
+    const next = [...tags]
+    for (const name of names) {
+      const clean = normalizeHashtag(name)
+      if (!clean || next.includes(clean) || inherited.includes(clean)) continue
+      next.push(clean)
+    }
+    if (next.length === tags.length) {
+      close()
+      return
+    }
+    setBusy(true)
+    try {
+      await onPatch({ tags: next })
       close()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('tags.createError')))
@@ -181,6 +257,15 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
     void addFree(row.name)
   }
 
+  const pickPath = (option: { isCategory: boolean; tagId?: string; tagNames: string[] }) => {
+    if (option.isCategory && option.tagId) {
+      const category = categoryById.get(option.tagId)
+      beginFile(option.tagId, option.tagNames[0] ?? '', category?.intake_fields ?? [])
+      return
+    }
+    void addPath(option.tagNames)
+  }
+
   const intakeValid =
     !pending ||
     pending.intakeFields.every(
@@ -224,10 +309,15 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
 
   const submitQuery = () => {
     if (!normalized) return
-    if (exactMatch) {
+    if (exactPaths.length === 1) {
+      pickPath(exactPaths[0])
+      return
+    }
+    if (exactMatch && exactPaths.length === 0) {
       pickRow(exactMatch)
       return
     }
+    if (exactPaths.length > 1) return
     setPhase('create')
   }
 
@@ -372,36 +462,43 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
             <div className="max-h-64 overflow-y-auto">
               {loading ? (
                 <p className="px-1 py-3 text-xs text-text-muted">{t('tags.busy')}</p>
-              ) : matches.length === 0 && !isNewName ? (
+              ) : pathOptions.length === 0 && !isNewName ? (
                 <p className="px-1 py-3 text-xs text-text-muted">{t('tags.noMatches')}</p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
-                  {matches.map((row) => {
-                    const applied = !row.isCategory && tags.includes(row.name)
-                    const filed = row.isCategory && currentTicket?.tagId === row.id
+                  {pathOptions.map((row) => {
+                    const applied =
+                      !row.isCategory &&
+                      row.tagNames.every((name) => tags.includes(name) || inherited.includes(name))
+                    const filed = row.isCategory && currentTicket?.tagId === row.tagId
                     const on = applied || filed
                     return (
                       <button
-                        key={row.id}
+                        key={row.key}
                         type="button"
                         disabled={busy || on}
-                        onClick={() => pickRow(row)}
+                        onClick={() => pickPath(row)}
                         title={
-                          row.description
-                            ? `${row.isCategory ? t('tags.actionTag') : t('tags.freeHashtag')}: ${row.description}`
+                          row.viaContact
+                            ? t('tags.viaContact', { defaultValue: 'Via contact' })
                             : row.isCategory
                               ? t('tags.actionTag')
                               : t('tags.freeHashtag')
                         }
                         className={cn(
-                          'inline-flex h-7 max-w-full items-center rounded-lg border px-2.5 text-xs transition-colors disabled:cursor-default',
+                          'inline-flex h-7 max-w-full items-center gap-1 rounded-lg border px-2.5 text-xs transition-colors disabled:cursor-default',
                           row.isCategory
                             ? 'border-accent/40 bg-accent/10 text-text-heading hover:border-accent/60 hover:bg-accent/15'
                             : 'border-border/70 bg-bg-subtle/50 text-text-heading hover:border-border hover:bg-bg-hover/70',
                           on && 'opacity-45',
                         )}
                       >
-                        <Hashtag name={row.name} category={row.isCategory} />
+                        <span className="truncate">{row.label}</span>
+                        {row.viaContact ? (
+                          <span className="text-2xs text-text-muted">
+                            {t('tags.viaContact', { defaultValue: 'via contact' })}
+                          </span>
+                        ) : null}
                       </button>
                     )
                   })}

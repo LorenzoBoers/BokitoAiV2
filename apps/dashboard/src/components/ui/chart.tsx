@@ -20,7 +20,7 @@ export type ChartKind = 'bar' | 'line' | 'area' | 'pie'
 
 export type ChartPoint = { x: string; y: number }
 
-export type ChartSeries = { name: string; points: ChartPoint[] }
+export type ChartSeries = { name: string; points: ChartPoint[]; color?: string }
 
 export type ChartSlice = { name: string; value: number; color?: string }
 
@@ -36,6 +36,8 @@ type ChartProps = {
   showAxes?: boolean
   /** First series color token. Default accent; AI activity uses ai (violet). */
   tone?: 'accent' | 'ai'
+  /** Stack area/bar series (first series at the bottom). */
+  stack?: boolean
   xLabel?: string
   yLabel?: string
   /** Dashed placeholder when there is nothing to plot. Omitted series render nothing. */
@@ -86,9 +88,14 @@ function usableSeries(series: ChartSeries[]): ChartSeries[] {
   return series
     .map((row) => ({
       name: row.name || 'Series',
+      color: row.color,
       points: (row.points ?? []).filter((point) => point.x && Number.isFinite(point.y)),
     }))
     .filter((row) => row.points.length > 0)
+}
+
+function seriesColor(row: ChartSeries, tone: 'accent' | 'ai', index: number): string {
+  return row.color || colorAt(tone, index)
 }
 
 function rowsOf(series: ChartSeries[]): Record<string, string | number>[] {
@@ -148,7 +155,7 @@ function ChartTooltip({
 
 /**
  * Shared bar, line, area and pie chart. Colors come from Bokito tokens.
- * Canvas snapshots and the Overview token sparkline both use this.
+ * Canvas snapshots and the Overview AI-vs-manual area both use this.
  */
 export function Chart({
   kind,
@@ -157,6 +164,7 @@ export function Chart({
   height = 144,
   showAxes = true,
   tone = 'accent',
+  stack = false,
   xLabel,
   yLabel,
   emptyLabel,
@@ -237,9 +245,19 @@ export function Chart({
   const lastIndex = data.length - 1
 
   const marks = usable.map((row, index) => {
-    const color = colorAt(tone, index)
+    const color = seriesColor(row, tone, index)
+    const stackId = stack ? 'mix' : undefined
     if (kind === 'bar') {
-      return <Bar key={row.name} dataKey={row.name} fill={color} radius={2} isAnimationActive={false} />
+      return (
+        <Bar
+          key={row.name}
+          dataKey={row.name}
+          fill={color}
+          radius={2}
+          stackId={stackId}
+          isAnimationActive={false}
+        />
+      )
     }
     if (kind === 'area') {
       return (
@@ -253,6 +271,7 @@ export function Chart({
           strokeWidth={1.5}
           strokeLinejoin="round"
           strokeLinecap="round"
+          stackId={stackId}
           dot={spark ? endDot(color, lastIndex) : false}
           activeDot={{ r: 4, strokeWidth: 0, fill: color }}
           isAnimationActive={false}
@@ -289,13 +308,16 @@ export function Chart({
     >
       {kind === 'area' ? (
         <defs>
-          {usable.map((_, index) => (
-            <linearGradient key={index} id={`${gradPrefix}-${index}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={colorAt(tone, index)} stopOpacity={0.42} />
-              <stop offset="70%" stopColor={colorAt(tone, index)} stopOpacity={0.08} />
-              <stop offset="100%" stopColor={colorAt(tone, index)} stopOpacity={0} />
-            </linearGradient>
-          ))}
+          {usable.map((row, index) => {
+            const color = seriesColor(row, tone, index)
+            return (
+              <linearGradient key={index} id={`${gradPrefix}-${index}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={stack ? 0.62 : 0.42} />
+                <stop offset="70%" stopColor={color} stopOpacity={stack ? 0.28 : 0.08} />
+                <stop offset="100%" stopColor={color} stopOpacity={stack ? 0.16 : 0} />
+              </linearGradient>
+            )
+          })}
         </defs>
       ) : null}
       {showAxes ? (
@@ -335,9 +357,17 @@ export function Chart({
     </Plot>
   ) as ReactElement
 
+  const fillHeight = typeof height === 'string'
   return (
-    <div className="min-w-0" role="img" aria-label={ariaLabel}>
-      <div className="w-full" style={{ height }}>
+    <div
+      className={fillHeight ? 'flex h-full min-h-0 min-w-0 flex-col' : 'min-w-0'}
+      role="img"
+      aria-label={ariaLabel}
+    >
+      <div
+        className={fillHeight ? 'min-h-0 w-full flex-1' : 'w-full'}
+        style={{ height: fillHeight ? '100%' : height }}
+      >
         <ResponsiveContainer width="100%" height="100%">
           {plot}
         </ResponsiveContainer>

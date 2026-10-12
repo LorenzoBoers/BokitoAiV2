@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, Info, OctagonAlert, Sparkles } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Info, OctagonAlert, Sparkles, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const TONE = {
@@ -23,6 +23,9 @@ type CalloutProps = {
   bare?: boolean
   className?: string
   role?: 'alert' | 'status'
+  /** Corner dismiss control (same pattern as cockpit banners). */
+  onDismiss?: () => void
+  dismissLabel?: string
 }
 
 /** Inline banner for status, warnings and errors inside a page or card. */
@@ -34,12 +37,19 @@ export function Callout({
   bare = false,
   className,
   role,
+  onDismiss,
+  dismissLabel = 'Dismiss',
 }: CalloutProps) {
   const { box, ink, Icon } = TONE[tone]
   return (
     <div
       role={role ?? (tone === 'error' ? 'alert' : undefined)}
-      className={cn('flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm', box, className)}
+      className={cn(
+        'relative flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm',
+        onDismiss ? 'pr-9' : null,
+        box,
+        className,
+      )}
     >
       {bare ? null : <Icon size={15} className={cn('mt-0.5 shrink-0', ink)} aria-hidden />}
       <div className="min-w-0 flex-1 space-y-1">
@@ -47,6 +57,16 @@ export function Callout({
         {children ? <div className="text-xs leading-5 text-text-secondary">{children}</div> : null}
         {actions ? <div className="flex flex-wrap items-center gap-2 pt-1">{actions}</div> : null}
       </div>
+      {onDismiss ? (
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="absolute right-1.5 top-1.5 rounded p-0.5 text-text-muted hover:bg-bg-hover/70 hover:text-text-heading"
+          aria-label={dismissLabel}
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      ) : null}
     </div>
   )
 }

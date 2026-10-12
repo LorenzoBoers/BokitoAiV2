@@ -1092,7 +1092,7 @@ async def sync_calendar_connections_job(ctx):
 
 
 async def nudge_idle_agent_sessions_job(ctx):
-    """Offer a checkout on inline agent sessions the operator walked away from."""
+    """Close idle inline agent sessions the operator walked away from."""
     from app.services.agent_sessions import nudge_idle_sessions
 
     async with async_session_factory() as session:
@@ -1235,6 +1235,104 @@ async def assignment_should_wake_agent(session, signal) -> bool:
         )
     ).first()
     return running is None
+
+
+async def drive_operator_chat_job(
+    ctx,
+    tenant_id: str,
+    user_id: str,
+    user_role: str | None,
+    signal_id: str,
+    agent_id: str | None,
+    run_id: str | None,
+    context_signal_id: str | None,
+    history: list,
+    extra_context: str,
+    attachments: list | None,
+    turn_content: str,
+    llm_meta: dict,
+):
+    """Operator chat turn. Lives on the worker so API --reload cannot kill it."""
+    import asyncio
+
+    from app.routers.signal_chat import _drive_operator_chat_turn
+
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def _drain() -> None:
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+
+    drain = asyncio.create_task(_drain())
+    try:
+        await _drive_operator_chat_turn(
+            queue=queue,
+            tenant_id=UUID(tenant_id),
+            user_id=UUID(user_id),
+            user_role=user_role,
+            signal_id=UUID(signal_id),
+            agent_id=UUID(agent_id) if agent_id else None,
+            run_id=UUID(run_id) if run_id else None,
+            context_signal_id=UUID(context_signal_id) if context_signal_id else None,
+            history=history or [],
+            extra_context=extra_context or "",
+            attachments=attachments,
+            turn_content=turn_content or "",
+            llm_meta=llm_meta or {},
+        )
+    finally:
+        if not drain.done():
+            await drain
+
+
+WorkerSettings.functions.append(drive_operator_chat_job)
+
+
+async def enqueue_operator_chat_turn(
+    *,
+    tenant_id: str,
+    user_id: str,
+    user_role: str | None,
+    signal_id: str,
+    agent_id: str | None,
+    run_id: str | None,
+    context_signal_id: str | None,
+    history: list,
+    extra_context: str,
+    attachments: list | None,
+    turn_content: str,
+    llm_meta: dict,
+) -> bool:
+    """True when the worker accepted the job. False → caller runs in-process."""
+    try:
+        redis = await _get_arq_pool()
+        await redis.enqueue_job(
+            "drive_operator_chat_job",
+            tenant_id,
+            user_id,
+            user_role,
+            signal_id,
+            agent_id,
+            run_id,
+            context_signal_id,
+            history,
+            extra_context,
+            attachments,
+            turn_content,
+            llm_meta,
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Redis unavailable, operator chat %s stays in-process: %s",
+            signal_id,
+            exc,
+        )
+        return False
 
 
 async def enqueue_signal_processing(tenant_id: str, signal_id: str):

@@ -77,10 +77,10 @@ Zolang een persoon of team eigenaar is, maakt de agent alleen concepten, ook op 
 
 Een Vraag-beurt opent een sessie met de agent op het gesprek zelf. De uitwisseling staat als gewone regels in dezelfde tijdlijn, zodat je die naast de klantmail leest; niets verlaat de workspace.
 
-1. Zet de composer op **Vraag {agent}** en verstuur. Een kleine regel **{agent} · intern** markeert waar de sessie begint; de agentnaam linkt naar de agent, en **Sessie afronden** (of **Annuleren** zolang de sessie nog leeg is) staat in dezelfde regel.
+1. Zet de composer op **Vraag {agent}** en verstuur. Een kleine regel **{agent} · intern** markeert waar de sessie begint; de agentnaam linkt naar de agent. De sessie opent bij dat eerste bericht — je start hem niet zelf. Agentchats en teamgesprekken hebben geen sessie: Vraag praat op het gesprek zelf.
 2. Jouw vraag landt rechts, de agent antwoordt links terwijl hij streamt, precies zoals in een agentchat. Elke sessieregel draagt een doorgestreept oog met de tooltip **Intern - niet zichtbaar voor de klant**.
 3. De agent antwoordt kort en vertelt niet eerst wat hij gaat lezen. Is een antwoord aan de klant de logische volgende stap, dan maakt hij dat concept meteen: het concept opent in je composer en de kaart **Antwoord voorgesteld** in de tijdlijn toont **In de invoer**. Pas aan en verstuur naar de klant.
-4. Is de agent klaar, dan vraagt hij op een kaart in de thread **Sessie met {agent} afronden?**: **Sessie afronden**, **Doorgaan**, of **Toepassen en afronden** als er nog voorstellen openstaan. Dezelfde kaart verschijnt, in de taal van je workspace, na ongeveer een uur zonder activiteit; een nieuwe Vraag-beurt trekt hem weer in.
+4. De sessie sluit zichzelf als de agent klaar is, als je de klant antwoordt, of na ongeveer een uur zonder activiteit. Er is geen afrondkaart en geen knop **Sessie afronden**.
 5. Een gesloten sessie vouwt tot één regel: **Sessie met {agent} · N berichten · N acties · tijd**. Klik erop voor de samenvatting, de acties en de volledige uitwisseling.
 
 ## Een e-mailgesprek lezen
@@ -129,9 +129,10 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 
 1. Terwijl de agent nadenkt, staat er een regel met een brein-icoon: **Nadenken**, met een lopende tijd. Deelt het model zijn redenering, klik dan op de regel om die live mee te lezen. Korte berichten slaan het nadenken over. Terwijl hij werkt, toont de regel de huidige actie met het logo van de integratie (of een kennis- of moersleutelicoon); elke nieuwe actie vervangt de vorige. Een zoekopdracht op het web leest **Zoekt op …** met het favicon van de site zodra er resultaten zijn.
 2. Wisselt de agent van nadenken naar werken (of terug), dan klapt de regel in tot **Nagedacht voor 3s** of **Gewerkt voor 12s · 4 acties**. Klik erop om elke actie met invoer en resultaat te zien. **Nagedacht voor** staat er alleen als er een redenering te lezen is.
-3. **Typt...** betekent dat de agent zijn volgende bericht schrijft. Een lege regel in het antwoord start een nieuw bericht, dus een beurt komt binnen als maximaal vijf korte wolkjes. E-mail blijft één gestructureerd bericht.
-4. Agentberichten gebruiken alleen chatopmaak: vet, cursief, doorgehaald en links. Koppen en tabellen worden gewone regels.
-5. Onder een agentbericht staat **Verstuurd naar de klant** of **Niet afgeleverd** alleen op klantkanalen (e-mail, WhatsApp, websitechat). Chats met agents en interne gesprekken tonen nooit een afleverlabel.
+3. Verlaat het gesprek en kom terug: hetzelfde nadenken en dezelfde acties blijven op de thread. De agent blijft werken tot hij antwoordt of je op **Stop** drukt. Als een actie mislukt of te lang duurt, krijgt de agent dat resultaat terug en kan hij opnieuw proberen of iets anders doen. Bij langer werk checkt de agent tussendoor in met een korte statusregel, zodat je niet alleen nadenken ziet.
+4. **Typt...** betekent dat de agent zijn volgende bericht schrijft. Een lege regel in het antwoord start een nieuw bericht, dus een beurt komt binnen als maximaal vijf korte wolkjes. E-mail blijft één gestructureerd bericht.
+5. Agentberichten gebruiken alleen chatopmaak: vet, cursief, doorgehaald en links. Koppen en tabellen worden gewone regels.
+6. Onder een agentbericht staat **Verstuurd naar de klant** of **Niet afgeleverd** alleen op klantkanalen (e-mail, WhatsApp, websitechat). Chats met agents en interne gesprekken tonen nooit een afleverlabel.
 
 ## Keur een AI-voorstel goed vanuit de composer
 
@@ -179,8 +180,8 @@ Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld va
 
 ## Een gesprek taggen en een ticket vastleggen
 
-1. Open een klantgesprek. Het zijpaneel **Dit gesprek** toont de AI-samenvatting wanneer de kanaalagent het gesprek heeft gelezen, daarna prioriteit, opnieuw kijken, tags en het ticket. Kies **Tags toevoegen** voor vrije tags en actietags (actietags starten een ticketflow); zie [Actietags en tickets](/docs/ai/categories). Op een gesloten gesprek biedt het ⋯-menu **Gebruik als voorbeeld**, zodat het volgende vergelijkbare antwoord daarvan kan leren.
-2. Typ met een zachte `#`. Kies een vrije tag of een actietag (label **Actietag**). Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**. Het gesprek landt in een map via die tags, inclusief tags op het contact. Tags van het contact tonen als gestippelde chips die je hier niet kunt verwijderen.
+1. Open een klantgesprek. Het zijpaneel **Dit gesprek** toont de AI-samenvatting wanneer de kanaalagent het gesprek heeft gelezen, daarna prioriteit, opnieuw kijken, tags en het ticket. Als dit gesprek een snapshot-canvas bezit, toont hetzelfde blok de naam, een compacte preview en een link naar dat canvas. Kies **Tags toevoegen** voor vrije tags en actietags (actietags starten een ticketflow); zie [Actietags en tickets](/docs/ai/categories). Op een gesloten gesprek biedt het ⋯-menu **Gebruik als voorbeeld**, zodat het volgende vergelijkbare antwoord daarvan kan leren.
+2. Typ met een zachte `#`. Spatie, streepje en underscore worden `_`, dus `mistral ai` is `#mistral_ai`. De rijen zijn paden (`#acme / #facturen`), geen kale tag. Eén passend pad: Enter pakt dat pad en zet elke tag erop. Heeft het contact de ouder al, dan volstaat het blad en toont de rij **via contact**. Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**. Het gesprek kan in elke map staan waarvan het de pad-tags draagt. Tags van het contact tonen als gestippelde chips die je hier niet kunt verwijderen.
 3. De actietag-chip is vergrendeld op het gesprek. Wijzig die door te vervangen in de picker, of **Splits** als een tweede verzoek een eigen ticket nodig heeft. Vrije tags tonen een gedempte `#` en een **x** om te verwijderen.
 4. Beheer de lijst onder **Instellingen** → **# Tags**: hernoem een tag, zet hem in een groep, voeg een omschrijving toe die agents lezen, zet hem vast in Communicatie, kies **Map aanmaken** of **Flow aanmaken** / **Flow openen**, of verwijder hem van alle gesprekken. Je kunt het ook een agent in de chat vragen (*voeg de tags #vip en #partner toe*): die stelt **Hashtag #vip aanmaken** en de rest voor als rijen op één kaart die je in het gesprek goedkeurt; zie [Beslissingen](/docs/ai/decisions). Actietags stellen agents op dezelfde manier voor, via Govern.
 5. Om automatisch te taggen voeg je onder **Instellingen** → **Kanalen** een automatiseringsregel toe met de actie **Tags toevoegen**. De regel tagt passende gesprekken en de normale afhandeling gaat door; de tijdlijn toont een regel zoals **Getagd met factuur door regel**.
@@ -188,15 +189,15 @@ Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld va
 
 ## Werk vinden op map of tag
 
-**Mappen en tags** is één sectie in de zijbalk. Eerst mappen, daarna actietags en vastgezette vrije tags, elk met het aantal open gesprekken.
+**Mappen en tags** is één sectie in de zijbalk. Elke rij is een `#`. Mappen (tags met een plek) staan eerst als boom; vastgezette tags zonder map staan plat daaronder. De badge is hoeveel open gesprekken de tags van dat pad dragen, niet de som van de kinderen. Een gesprek kan in meer dan één map staan.
 
 ![Tags in de zijbalk van Communicatie](/api/docs/assets/communication/hashtags.png)
-*Mappen, actietags en een vastgezette vrije tag, elk met het aantal open.*
+*Eén `#`-boom: mappen, daarna vastgezette tags, elk met het aantal open.*
 
-1. Klik onder **Mappen en tags** op een map voor de gesprekken die daar en in de mappen erin liggen. Een groepmap klapt uit naar één kind per tag. Een virtueel kind heeft **Vastzetten als map** zodat het een agent, docs of budget kan krijgen.
-2. Klik op een tagrij voor elk gesprek met die tag, over mappen heen. Hij klapt uit in dezelfde submappen als een kanaal: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**.
+1. Klik onder **Mappen en tags** op `#facturen` onder `#acme` voor gesprekken die beide tags dragen (inclusief tags van het contact). Hetzelfde gesprek blijft ook onder `#acme`. Een groepmap klapt uit naar één kind per tag. Een virtueel kind heeft **Vastzetten als map** zodat het een agent, docs of budget kan krijgen.
+2. Klik op een vastgezette tag zonder map voor elk gesprek met die tag, over mappen heen. Hij klapt uit in dezelfde submappen als een kanaal: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**.
 3. Open in een gesprek het menu met meer acties en kies **Opbergen in map** of **Sluiten en opbergen**. Dat voegt de tags van het gekozen pad toe. Met meerdere gesprekken geselecteerd doet **Meer acties** → **Opbergen in map** hetzelfde.
-4. Een opgeborgen gesprek toont zijn map op twee plekken: een mapchip op de lijstrij (verborgen zolang je al in die map zit) en de mapnaam achter de status in de kop van het gesprek. Beide openen de mappagina. Hover voor het volledige pad, zoals **Opgeborgen in: Relaties / Acme / Facturen**.
+4. De kop van het gesprek toont elk passend pad als `#`-chips, zoals `#acme / #facturen`. Canvas, docs en budget blijven op één thuis (het diepste pad). Hover een mapchip op de lijstrij voor het thuispad.
 5. Zet een map of tag vast in de rail met de punaise op die rij. Pins reizen mee tussen apparaten. Verberg een standaardrij op dezelfde manier.
 6. Kies onder **Instellingen** → **Kanalen** → **Tags en Communicatie** met welke submap elke rij opent.
 

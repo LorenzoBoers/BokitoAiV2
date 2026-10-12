@@ -5,8 +5,10 @@ tags that are a folder: those show as the folder. Every folder gets a row with
 its children; a group folder also lists one virtual child per tag in its group
 that has no pinned row yet. Each row opens the same queues as a channel with a
 list filter: ``tag`` (link, action tag, or inherited from the contact),
-``project_id`` (the folder and everything inside it), optionally narrowed by
-``path`` (the virtual remainder: tag ids the conversation must also carry).
+``project_id`` (conversations that carry every tag on that folder's path),
+optionally narrowed by ``path`` (virtual remainder tag ids). A conversation
+can appear in more than one folder. The badge is a distinct count on that
+filter, not a sum of children.
 """
 
 from __future__ import annotations
@@ -45,22 +47,42 @@ def _uuid_list(value: Any) -> list[UUID] | None:
 
 
 def filter_predicates(tenant_id: UUID, filters: dict[str, Any]) -> list[Any] | None:
-    """SQL predicates for the list filters; None when an id does not parse."""
+    """SQL predicates for the list filters; None when an id does not parse.
+
+    ``folder_tag_ids`` is the AND of path tags (own + inherited). Callers that
+    still pass ``project_id`` should go through ``list_predicates`` so the
+    folder is resolved to those tags.
+    """
     from app.services.signal_tags import signals_tagged, signals_with_tag_ids
 
     out: list[Any] = []
-    if filters.get("project_id"):
-        project_id = _uuid(filters["project_id"])
-        if project_id is None:
-            return None
-        from app.services.projects import project_subtree_select
-
-        out.append(Signal.project_id.in_(project_subtree_select(tenant_id, project_id)))
+    if "folder_tag_ids" in filters:
+        raw_ids = filters.get("folder_tag_ids") or []
+        tag_ids: list[UUID] = []
+        for item in raw_ids:
+            parsed = item if isinstance(item, UUID) else _uuid(item)
+            if parsed is None:
+                return None
+            tag_ids.append(parsed)
+        if tag_ids:
+            for tag_id in tag_ids:
+                out.append(Signal.id.in_(signals_with_tag_ids(tenant_id, [tag_id])))
+        elif filters.get("missing_folder"):
+            out.append(Signal.id.in_([]))
+        elif filters.get("home_project_id"):
+            home = filters["home_project_id"]
+            home_id = home if isinstance(home, UUID) else _uuid(home)
+            if home_id is None:
+                return None
+            out.append(Signal.project_id == home_id)
+    elif filters.get("project_id"):
+        return None
     path_tags = _uuid_list(filters.get("path"))
     if path_tags is None:
         return None
-    for tag_id in path_tags:
-        out.append(Signal.id.in_(signals_with_tag_ids(tenant_id, [tag_id])))
+    if "folder_tag_ids" not in filters:
+        for tag_id in path_tags:
+            out.append(Signal.id.in_(signals_with_tag_ids(tenant_id, [tag_id])))
     if filters.get("category_id"):
         category_id = _uuid(filters["category_id"])
         if category_id is None:
@@ -75,6 +97,33 @@ def filter_predicates(tenant_id: UUID, filters: dict[str, Any]) -> list[Any] | N
     if filters.get("tag"):
         out.append(Signal.id.in_(signals_tagged(tenant_id, str(filters["tag"]))))
     return out
+
+
+async def list_predicates(
+    session: AsyncSession,
+    tenant_id: UUID,
+    filters: dict[str, Any],
+    tree: FolderTree | None = None,
+) -> list[Any] | None:
+    """Resolve ``project_id`` (+ virtual ``path``) to path-tag filters."""
+    resolved = dict(filters)
+    if resolved.get("project_id") and "folder_tag_ids" not in resolved:
+        project_id = _uuid(resolved["project_id"])
+        if project_id is None:
+            return None
+        extra = _uuid_list(resolved.get("path"))
+        if extra is None:
+            return None
+        tree = tree or await load_tree(session, tenant_id)
+        if project_id not in tree.nodes:
+            resolved["folder_tag_ids"] = []
+            resolved["missing_folder"] = True
+        else:
+            resolved["folder_tag_ids"] = tree.path_tag_ids(project_id, extra)
+            if not resolved["folder_tag_ids"]:
+                resolved["home_project_id"] = project_id
+            resolved.pop("path", None)
+    return filter_predicates(tenant_id, resolved)
 
 
 def _hub_scope(tenant_id: UUID, user_id: UUID, visible_account_ids: set[UUID] | None) -> list[Any]:
@@ -107,29 +156,21 @@ async def folder_rows(
 ) -> list[dict[str, Any]]:
     """Folder tree rows with open counts, virtual children included."""
     tree = tree or await load_tree(session, tenant_id)
-    exact: dict[UUID, int] = {}
-    if tree.nodes:
-        counted = await session.execute(
-            select(Signal.project_id, func.count())
-            .select_from(Signal)
-            .where(*scope, Signal.status == "open", Signal.project_id.in_(list(tree.nodes)))
-            .group_by(Signal.project_id)
+    async def _path_count(project_id: UUID, extra: list[UUID] | None = None) -> int:
+        predicates = await list_predicates(
+            session, tenant_id, {"project_id": project_id, "path": extra or []}, tree
         )
-        exact = {row[0]: int(row[1]) for row in counted.all() if row[0] is not None}
+        if predicates is None:
+            return 0
+        return await _open_count(session, scope, predicates)
 
     async def _virtual_children(node: FolderNode) -> list[dict[str, Any]]:
         if node.child_group_id is None:
             return []
         group_tags = tree.tags_by_group.get(node.child_group_id, set())
         pinned = {child.tag_id for child in tree.children.get(node.id, []) if child.tag_id in group_tags}
-        subtree = tree.subtree_ids(node.id)
         rows: list[dict[str, Any]] = []
         for tag_id in sorted(group_tags - pinned, key=lambda t: tree.tag_name(t).lower()):
-            count = await _open_count(
-                session,
-                scope,
-                filter_predicates(tenant_id, {"project_id": node.id, "path": [tag_id]}) or [],
-            ) if subtree else 0
             rows.append(
                 {
                     "id": virtual_row_id(node.id, tag_id),
@@ -138,7 +179,7 @@ async def folder_rows(
                     "project_id": str(node.id),
                     "tag_id": str(tag_id),
                     "virtual": True,
-                    "count": count,
+                    "count": await _path_count(node.id, [tag_id]),
                     "children": [],
                 }
             )
@@ -155,7 +196,7 @@ async def folder_rows(
             "tag_id": str(node.tag_id) if node.tag_id else None,
             "group_id": str(node.child_group_id) if node.child_group_id else None,
             "virtual": False,
-            "count": sum(exact.get(pid, 0) for pid in tree.subtree_ids(node.id)),
+            "count": await _path_count(node.id),
             "children": children,
         }
 
@@ -192,7 +233,7 @@ async def nav(
             "name": tag.name,
             "tag_id": str(tag.id),
             "group_id": str(tag.group_id) if tag.group_id else None,
-            "count": await _open_count(session, scope, filter_predicates(tenant_id, {"tag": tag.name}) or []),
+            "count": await _open_count(session, scope, await list_predicates(session, tenant_id, {"tag": tag.name}) or []),
         }
         (ticket_tags if tag.workstream_id is not None else free_tags).append(row)
     return {

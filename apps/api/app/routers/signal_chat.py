@@ -14,10 +14,11 @@ share one API family. Paths:
 AI handling (take over / hand back) uses PUT /ai-handling/conversation/{id}.
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -26,7 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
-from app.db.session import get_session
+from app.db.session import async_session_factory, get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.agent import Agent, AgentRun
 from app.models.notification import DecisionRequest
@@ -51,8 +52,45 @@ router = APIRouter(tags=["signals"])
 logger = logging.getLogger(__name__)
 
 ASSISTANT_CHANNELS = ("assistant", "widget")
-# Chat streams that die without finalize leave AgentRun=running and block Send.
-CHAT_BUSY_STALE = timedelta(seconds=90)
+# Last-resort age cap. The turn usually lives on the worker, so a missing
+# in-process task is not a ghost. Only age (or Stop) reclaims the row.
+CHAT_BUSY_STALE = timedelta(minutes=15)
+_LIVE_CHAT_TURNS: dict[str, asyncio.Task] = {}
+_CHAT_START_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def _chat_turn_key(conversation_id: UUID) -> str:
+    return str(conversation_id)
+
+
+def _chat_turn_is_live(conversation_id: UUID) -> bool:
+    task = _LIVE_CHAT_TURNS.get(_chat_turn_key(conversation_id))
+    return task is not None and not task.done()
+
+
+def _chat_start_lock(conversation_id: UUID) -> asyncio.Lock:
+    return _CHAT_START_LOCKS.setdefault(_chat_turn_key(conversation_id), asyncio.Lock())
+
+
+def _track_chat_turn(conversation_id: UUID, task: asyncio.Task) -> None:
+    key = _chat_turn_key(conversation_id)
+    _LIVE_CHAT_TURNS[key] = task
+
+    def _drop(done: asyncio.Task) -> None:
+        if _LIVE_CHAT_TURNS.get(key) is done:
+            _LIVE_CHAT_TURNS.pop(key, None)
+
+    task.add_done_callback(_drop)
+
+
+def _cancel_live_chat_turn(conversation_id: UUID) -> None:
+    task = _LIVE_CHAT_TURNS.pop(_chat_turn_key(conversation_id), None)
+    if task is not None and not task.done():
+        task.cancel()
+
+
+async def _put_sse(queue: asyncio.Queue, event: str, data: dict[str, Any]) -> None:
+    await queue.put({"event": event, "data": json.dumps(data)})
 
 
 def _apply_intent_title_once(signal: Signal, content: str) -> None:
@@ -416,21 +454,25 @@ async def send_message(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     signal = await _get_thread(session, conversation_id, auth.tenant.id)
-    await _ensure_session_idle(session, auth.tenant.id, conversation_id)
-    turn_content, turn_attachments = await _resolve_turn_content(
-        session, signal, body, author_user_id=auth.user.id
-    )
-    await _withdraw_session_checkout(session, auth.tenant.id, signal)
-    await session.commit()
+    async with _chat_start_lock(conversation_id):
+        await _ensure_session_idle(session, auth.tenant.id, conversation_id)
+        turn_content, turn_attachments = await _resolve_turn_content(
+            session, signal, body, author_user_id=auth.user.id
+        )
+        await _withdraw_session_checkout(session, auth.tenant.id, signal)
+        await session.commit()
 
-    if is_held(signal):
-        return {
-            "message": {"role": "assistant", "content": ""},
-            "ai_paused": True,
-            "llm_configured": True,
-        }
+        if is_held(signal):
+            return {
+                "message": {"role": "assistant", "content": ""},
+                "ai_paused": True,
+                "llm_configured": True,
+            }
 
-    agent, run = await _agent_run(session, auth, signal, turn_content)
+        agent, run = await _agent_run(session, auth, signal, turn_content)
+        req_task = asyncio.current_task()
+        if req_task:
+            _track_chat_turn(conversation_id, req_task)
     await _set_chat_agent_live(
         session, agent, status="working", signal=signal, run=run, summary=turn_content
     )
@@ -482,11 +524,12 @@ async def send_message(
         cancelled = await is_run_cancelled(session, run.id if run else None)
         if cancelled:
             await _finalize_run(session, run, status="cancelled", tokens=tokens)
-            saved = []
-            if reply_text.strip():
-                saved = await loop.persist_turn(
-                    signal, metadata=llm_meta, final_metadata={"cancelled": True, "usage": tokens}
-                )
+            saved = await loop.persist_turn(
+                signal,
+                metadata=llm_meta,
+                final_metadata={"cancelled": True, "usage": tokens},
+                fallback_text="Stopped before a reply was ready.",
+            )
             await session.commit()
             for msg in saved:
                 await session.refresh(msg)
@@ -525,6 +568,218 @@ async def send_message(
         await _set_chat_agent_live(session, agent, status="standby")
 
 
+_EMPTY_FALLBACK = (
+    "I could not finish a reply for that. "
+    "Try again, or press Stop if the AI stays busy."
+)
+_CANCELLED_FALLBACK = "Stopped before a reply was ready."
+_ABANDONED_FALLBACK = "The reply stopped unexpectedly. Send your message again."
+
+
+async def _persist_failed_chat_turn(
+    session: AsyncSession,
+    loop: AgentLoop | None,
+    signal: Signal,
+    agent: Agent | None,
+    run: AgentRun | None,
+    llm_meta: dict[str, Any],
+    error_text: str,
+    *,
+    error: BaseException | None = None,
+    abandoned: bool = False,
+) -> None:
+    from app.services.agent.run_cancel import clear_cancel
+
+    await _finalize_run(session, run, status="failed", error=error if isinstance(error, Exception) else None)
+    if loop is not None and loop.turn is not None:
+        await loop.persist_turn(
+            signal,
+            metadata={"error": True, **({"abandoned_stream": True} if abandoned else {}), **llm_meta},
+            final_metadata={"error": True},
+            fallback_text=error_text,
+        )
+    else:
+        await append_signal_chat_message(
+            session,
+            signal,
+            role="assistant",
+            content=error_text,
+            author_agent_id=agent.id if agent else None,
+            metadata={"error": True, **({"abandoned_stream": True} if abandoned else {}), **llm_meta},
+        )
+    await session.commit()
+    if run:
+        clear_cancel(run.id)
+
+
+async def _drive_operator_chat_turn(
+    *,
+    queue: asyncio.Queue,
+    tenant_id: UUID,
+    user_id: UUID,
+    user_role: str | None,
+    signal_id: UUID,
+    agent_id: UUID | None,
+    run_id: UUID | None,
+    context_signal_id: UUID | None,
+    history: list[dict[str, Any]],
+    extra_context: str,
+    attachments: list | None,
+    turn_content: str,
+    llm_meta: dict[str, Any],
+) -> None:
+    """Run the agent on its own session so leaving the tab does not kill it."""
+    from app.services.agent.run_cancel import clear_cancel
+
+    logger.warning("operator chat drive start signal=%s run=%s", signal_id, run_id)
+    try:
+        async with async_session_factory() as session:
+            signal = await session.get(Signal, signal_id)
+            agent = await session.get(Agent, agent_id) if agent_id else None
+            run = await session.get(AgentRun, run_id) if run_id else None
+            if signal is None:
+                return
+            loop = AgentLoop(
+                session,
+                tenant_id,
+                user_id,
+                agent=agent,
+                run=run,
+                signal_id=signal.id,
+                enable_chat_thinking=True,
+                tool_signal_id=context_signal_id,
+                user_role=user_role,
+            )
+            loaded_history = history
+            if not loaded_history:
+                try:
+                    loaded_history = await asyncio.wait_for(
+                        signal_chat_history(session, signal_id, compact=False),
+                        timeout=12,
+                    )
+                except Exception:
+                    logger.exception("chat history load failed for %s", signal_id)
+                    loaded_history = [{"role": "user", "content": turn_content}]
+            try:
+                async with asyncio.timeout(180):
+                    async for event in loop.stream_chat(
+                        loaded_history,
+                        extra_context=extra_context,
+                        attachments=attachments,
+                    ):
+                        if event["type"] == "thinking":
+                            await _put_sse(queue, "thinking", {"text": event.get("text", "")})
+                        elif event["type"] == "delta":
+                            await _put_sse(
+                                queue,
+                                "delta",
+                                {"text": event["text"], "segment_id": event.get("segment_id")},
+                            )
+                        elif event["type"] == "done":
+                            final = event.get("text") or ""
+                            cancelled = bool(event.get("cancelled"))
+                            thinking_meta = loop.thinking_payload()
+                            fallback = _CANCELLED_FALLBACK if cancelled else _EMPTY_FALLBACK
+                            final_meta = {
+                                "usage": event.get("usage", {}),
+                                **({"thinking": thinking_meta} if thinking_meta else {}),
+                                **({"cancelled": True} if cancelled else {}),
+                            }
+                            saved = await loop.persist_turn(
+                                signal,
+                                metadata=llm_meta,
+                                final_metadata=final_meta,
+                                fallback_text=fallback,
+                            )
+                            if not cancelled:
+                                _apply_intent_title_once(signal, turn_content)
+                            await _finalize_run(
+                                session,
+                                run,
+                                status="cancelled" if cancelled else "completed",
+                                tokens=event.get("usage") or {},
+                            )
+                            await session.commit()
+                            if run:
+                                clear_cancel(run.id)
+                            done_payload: dict[str, Any] = {
+                                "text": (final or "").strip() or fallback,
+                                "messages": [serialize_chat_message(m) for m in saved],
+                                "usage": event.get("usage", {}),
+                                **llm_meta,
+                            }
+                            if cancelled:
+                                done_payload["cancelled"] = True
+                            if thinking_meta:
+                                done_payload["thinking"] = thinking_meta
+                            if run:
+                                done_payload["run_id"] = str(run.id)
+                            await _put_sse(queue, "done", done_payload)
+            except asyncio.CancelledError:
+                logger.warning("operator chat turn cancelled for signal %s", signal_id)
+                try:
+                    await _persist_failed_chat_turn(
+                        session,
+                        loop,
+                        signal,
+                        agent,
+                        run,
+                        llm_meta,
+                        _ABANDONED_FALLBACK,
+                        abandoned=True,
+                    )
+                except Exception:
+                    logger.exception("failed to persist cancelled chat turn %s", run_id)
+                raise
+            except Exception as exc:
+                logger.exception("assistant stream failed for signal %s", signal.id)
+                error_text = _agent_error_message(exc, llm_meta)
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
+                try:
+                    await _persist_failed_chat_turn(
+                        session,
+                        None,
+                        signal,
+                        agent,
+                        run,
+                        llm_meta,
+                        error_text,
+                        error=exc,
+                    )
+                except Exception:
+                    logger.exception("failed to persist error chat turn %s", run_id)
+                    try:
+                        async with async_session_factory() as fresh:
+                            signal2 = await fresh.get(Signal, signal_id)
+                            agent2 = await fresh.get(Agent, agent_id) if agent_id else None
+                            run2 = await fresh.get(AgentRun, run_id) if run_id else None
+                            if signal2 is not None:
+                                await _persist_failed_chat_turn(
+                                    fresh,
+                                    None,
+                                    signal2,
+                                    agent2,
+                                    run2,
+                                    llm_meta,
+                                    error_text,
+                                    error=exc,
+                                )
+                    except Exception:
+                        logger.exception("failed to persist error chat turn on fresh session %s", run_id)
+                await _put_sse(queue, "done", {"text": error_text, "error": True, **llm_meta})
+            finally:
+                try:
+                    await _set_chat_agent_live(session, agent, status="standby")
+                    await session.commit()
+                except Exception:
+                    logger.exception("failed to stand by after chat turn %s", run_id)
+    finally:
+        await queue.put(None)
+
+
 @router.post("/conversations/{conversation_id}/stream")
 async def stream_message(
     conversation_id: UUID,
@@ -533,143 +788,46 @@ async def stream_message(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     signal = await _get_thread(session, conversation_id, auth.tenant.id)
-    await _ensure_session_idle(session, auth.tenant.id, conversation_id)
-    turn_content, turn_attachments = await _resolve_turn_content(
-        session, signal, body, author_user_id=auth.user.id
-    )
-    await _withdraw_session_checkout(session, auth.tenant.id, signal)
-    await session.commit()
-
-    if is_held(signal):
-
-        async def paused_generator():
-            yield {"event": "done", "data": json.dumps({"text": "", "ai_paused": True})}
-
-        return EventSourceResponse(paused_generator())
-
-    from app.services.agent.run_cancel import clear_cancel
-
-    agent = None
-    run = None
-    try:
-        agent, run = await _agent_run(session, auth, signal, turn_content)
-        await _set_chat_agent_live(
-            session, agent, status="working", signal=signal, run=run, summary=turn_content
+    async with _chat_start_lock(conversation_id):
+        await _ensure_session_idle(session, auth.tenant.id, conversation_id)
+        req_task = asyncio.current_task()
+        if req_task:
+            _track_chat_turn(conversation_id, req_task)
+        turn_content, turn_attachments = await _resolve_turn_content(
+            session, signal, body, author_user_id=auth.user.id
         )
-        history = await signal_chat_history(session, conversation_id)
-        loop = AgentLoop(
-            session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
-            enable_chat_thinking=True,
-            tool_signal_id=signal.context_signal_id,
-            user_role=auth.role,
-        )
-        llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
-    except Exception as exc:
-        # Setup failures (e.g. history compaction LLM billing) must not leave a
-        # bare 500 + stuck AgentRun; surface a done event the client can show.
-        logger.exception("assistant stream setup failed for signal %s", signal.id)
-        llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
-        error_text = _agent_error_message(exc, llm_meta)
-        await _finalize_run(session, run, status="failed", error=exc)
-        await append_signal_chat_message(
-            session,
-            signal,
-            role="assistant",
-            content=error_text,
-            author_agent_id=agent.id if agent else None,
-            metadata={"error": True, **llm_meta},
-        )
+        await _withdraw_session_checkout(session, auth.tenant.id, signal)
         await session.commit()
-        if run:
-            clear_cancel(run.id)
-        await _set_chat_agent_live(session, agent, status="standby")
 
-        async def setup_failed_generator():
-            yield {
-                "event": "done",
-                "data": json.dumps({"text": error_text, "error": True, **llm_meta}),
-            }
+        if is_held(signal):
 
-        return EventSourceResponse(setup_failed_generator())
+            async def paused_generator():
+                yield {"event": "done", "data": json.dumps({"text": "", "ai_paused": True})}
 
-    async def event_generator():
-        full_text = ""
-        run_closed = False
-        if run:
-            yield {
-                "event": "start",
-                "data": json.dumps({"run_id": str(run.id)}),
-            }
+            return EventSourceResponse(paused_generator())
+
+        from app.services.agent.run_cancel import clear_cancel
+
+        agent = None
+        run = None
         try:
-            async for event in loop.stream_chat(
-                history,
-                extra_context=page_context_block(body.page_context),
-                attachments=turn_attachments,
-            ):
-                if event["type"] == "thinking":
-                    yield {
-                        "event": "thinking",
-                        "data": json.dumps({"text": event.get("text", "")}),
-                    }
-                elif event["type"] == "delta":
-                    full_text += event["text"]
-                    yield {
-                        "event": "delta",
-                        "data": json.dumps(
-                            {"text": event["text"], "segment_id": event.get("segment_id")}
-                        ),
-                    }
-                elif event["type"] == "done":
-                    final = event.get("text", full_text)
-                    cancelled = bool(event.get("cancelled"))
-                    thinking_meta = loop.thinking_payload()
-                    # Tool-only / dropped replies still need a visible bubble.
-                    if not (final or "").strip() and not cancelled:
-                        final = (
-                            "I could not finish a reply for that. "
-                            "Try again, or press Stop if the AI stays busy."
-                        )
-                    final_meta = {
-                        "usage": event.get("usage", {}),
-                        **({"thinking": thinking_meta} if thinking_meta else {}),
-                        **({"cancelled": True} if cancelled else {}),
-                    }
-                    saved = []
-                    # Skip empty cancelled replies; keep partial text if any streamed.
-                    if final.strip() or not cancelled:
-                        saved = await loop.persist_turn(
-                            signal, metadata=llm_meta, final_metadata=final_meta
-                        )
-                    if not cancelled:
-                        _apply_intent_title_once(signal, turn_content)
-                    await _finalize_run(
-                        session,
-                        run,
-                        status="cancelled" if cancelled else "completed",
-                        tokens=event.get("usage") or {},
-                    )
-                    await session.commit()
-                    run_closed = True
-                    if run:
-                        clear_cancel(run.id)
-                    done_payload: dict = {
-                        "text": final,
-                        "messages": [serialize_chat_message(m) for m in saved],
-                        "usage": event.get("usage", {}),
-                        **llm_meta,
-                    }
-                    if cancelled:
-                        done_payload["cancelled"] = True
-                    if thinking_meta:
-                        done_payload["thinking"] = thinking_meta
-                    if run:
-                        done_payload["run_id"] = str(run.id)
-                    yield {
-                        "event": "done",
-                        "data": json.dumps(done_payload),
-                    }
+            agent, run = await _agent_run(session, auth, signal, turn_content)
+            await _set_chat_agent_live(
+                session, agent, status="working", signal=signal, run=run, summary=turn_content
+            )
+            # Do not resolve the model or compact history here. Both can hang
+            # after presence is already "working" and before the drive starts.
+            llm_meta = {
+                "llm_configured": True,
+                "llm_mode": "live",
+                "llm_key_source": "deferred",
+            }
+            await session.commit()
         except Exception as exc:
-            logger.exception("assistant stream failed for signal %s", signal.id)
+            # Setup failures (e.g. history compaction LLM billing) must not leave a
+            # bare 500 + stuck AgentRun; surface a done event the client can show.
+            logger.exception("assistant stream setup failed for signal %s", signal.id)
+            llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
             error_text = _agent_error_message(exc, llm_meta)
             await _finalize_run(session, run, status="failed", error=exc)
             await append_signal_chat_message(
@@ -681,50 +839,97 @@ async def stream_message(
                 metadata={"error": True, **llm_meta},
             )
             await session.commit()
-            run_closed = True
             if run:
                 clear_cancel(run.id)
+            await _set_chat_agent_live(session, agent, status="standby")
+
+            async def setup_failed_generator():
+                yield {
+                    "event": "done",
+                    "data": json.dumps({"text": error_text, "error": True, **llm_meta}),
+                }
+
+            return EventSourceResponse(setup_failed_generator())
+
+        drive_kwargs = dict(
+            tenant_id=auth.tenant.id,
+            user_id=auth.user.id,
+            user_role=auth.role,
+            signal_id=signal.id,
+            agent_id=agent.id if agent else None,
+            run_id=run.id if run else None,
+            context_signal_id=signal.context_signal_id,
+            history=[],
+            extra_context=page_context_block(body.page_context),
+            attachments=turn_attachments,
+            turn_content=turn_content,
+            llm_meta=llm_meta,
+        )
+        # The worker job is registered, but a wedged worker startup (init_db
+        # after a simultaneous API boot) leaves Redis jobs unconsumed and the
+        # thread silent. Drive in-process; reload reclaim covers orphans.
+        queued = False
+        queue: asyncio.Queue | None = None
+        if not queued:
+            queue = asyncio.Queue()
+            task = asyncio.create_task(
+                _drive_operator_chat_turn(queue=queue, **drive_kwargs)
+            )
+            _track_chat_turn(conversation_id, task)
+            logger.warning(
+                "operator chat starting drive signal=%s run=%s",
+                conversation_id,
+                run.id if run else None,
+            )
+
+    # Release the request connection before the SSE wait. Holding it for the
+    # whole stream deadlocks the drive task when the pool is exhausted.
+    try:
+        await session.close()
+    except Exception:
+        logger.exception("failed to close request session before chat SSE")
+
+    async def event_generator():
+        if run:
             yield {
-                "event": "done",
-                "data": json.dumps({"text": error_text, "error": True, **llm_meta}),
+                "event": "start",
+                "data": json.dumps({"run_id": str(run.id)}),
             }
-        finally:
-            # Client disconnect / proxy timeout / cancelled generator: never leave
-            # AgentRun=running or the next Send hits agent_busy with an empty UI.
-            try:
-                open_run = run
-                if not run_closed and open_run is not None:
-                    refresh_ok = True
-                    try:
-                        await session.refresh(open_run)
-                    except Exception:
-                        refresh_ok = False
-                    if refresh_ok and open_run.status == "running":
-                        logger.warning(
-                            "assistant stream abandoned for signal %s run %s — closing busy lock",
-                            signal.id,
-                            open_run.id,
-                        )
-                        try:
-                            await _finalize_run(session, open_run, status="failed")
-                            if not full_text.strip():
-                                await append_signal_chat_message(
-                                    session,
-                                    signal,
-                                    role="assistant",
-                                    content=(
-                                        "The reply stopped unexpectedly. "
-                                        "Send your message again."
-                                    ),
-                                    author_agent_id=agent.id if agent else None,
-                                    metadata={"error": True, "abandoned_stream": True, **llm_meta},
-                                )
-                            await session.commit()
-                        except Exception:
-                            logger.exception("failed to close abandoned chat run %s", open_run.id)
-                        clear_cancel(open_run.id)
-            finally:
-                await _set_chat_agent_live(session, agent, status="standby")
+        try:
+            if queue is not None:
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        break
+                    yield item
+                return
+            # Worker owns the turn. Gateway already streams thinking/deltas;
+            # SSE only waits so the composer unlocks on done.
+            import time as _time
+
+            deadline = _time.monotonic() + 200
+            status = "running"
+            while _time.monotonic() < deadline:
+                if run is None:
+                    break
+                async with async_session_factory() as poll:
+                    row = await poll.get(AgentRun, run.id)
+                    if row is None or row.status != "running":
+                        status = row.status if row else "missing"
+                        break
+                await asyncio.sleep(0.4)
+            payload: dict[str, Any] = {"text": "", **llm_meta}
+            if run:
+                payload["run_id"] = str(run.id)
+            if status == "failed":
+                payload["error"] = True
+            if status == "cancelled":
+                payload["cancelled"] = True
+            yield {"event": "done", "data": json.dumps(payload)}
+        except asyncio.CancelledError:
+            # Viewer left or the proxy dropped SSE. The turn keeps writing
+            # to the thread on its own session (API task or worker).
+            raise
 
     return EventSourceResponse(event_generator())
 
@@ -747,6 +952,7 @@ async def cancel_conversation_run(
     run.completed_at = datetime.utcnow()
     session.add(run)
     await session.commit()
+    _cancel_live_chat_turn(conversation_id)
     if run.agent_id:
         agent = await session.get(Agent, run.agent_id)
         await _set_chat_agent_live(session, agent, status="standby")
@@ -784,6 +990,37 @@ async def _withdraw_session_checkout(
         logger.debug("checkout withdraw failed for %s", signal.id, exc_info=True)
 
 
+def _should_reclaim_chat_run(conversation_id: UUID, started: datetime) -> bool:
+    """Reclaim when this process has no live turn, or the run is older than 15 min."""
+    if not _chat_turn_is_live(conversation_id):
+        return True
+    return datetime.utcnow() - started >= CHAT_BUSY_STALE
+
+
+async def reclaim_orphaned_chat_runs() -> int:
+    """Finalize leftover chat runs after API boot (in-process turns die with uvicorn)."""
+    from app.services.agent.run_cancel import clear_cancel
+
+    async with async_session_factory() as session:
+        result = await session.execute(
+            select(AgentRun).where(
+                AgentRun.trigger_type == "chat",
+                AgentRun.status == "running",
+            )
+        )
+        runs = list(result.scalars().all())
+        agent_ids = {run.agent_id for run in runs if run.agent_id}
+        for run in runs:
+            await _finalize_run(session, run, status="failed")
+            clear_cancel(run.id)
+        for agent_id in agent_ids:
+            agent = await session.get(Agent, agent_id)
+            await _set_chat_agent_live(session, agent, status="standby")
+        if runs:
+            await session.commit()
+        return len(runs)
+
+
 async def _ensure_session_idle(
     session: AsyncSession, tenant_id: UUID, conversation_id: UUID
 ) -> None:
@@ -793,17 +1030,18 @@ async def _ensure_session_idle(
     if busy is None:
         return
     started = busy.started_at or datetime.utcnow()
-    if datetime.utcnow() - started >= CHAT_BUSY_STALE:
-        # Orphaned lock after a dropped SSE / crashed worker.
+    if _should_reclaim_chat_run(conversation_id, started):
         logger.warning(
-            "reclaiming stale chat run %s on conversation %s (age %s)",
+            "reclaiming orphaned chat run %s on conversation %s (age %s, live=%s)",
             busy.id,
             conversation_id,
             datetime.utcnow() - started,
+            _chat_turn_is_live(conversation_id),
         )
         await _finalize_run(session, busy, status="failed")
         await session.commit()
         clear_cancel(busy.id)
+        _cancel_live_chat_turn(conversation_id)
         return
     raise HTTPException(
         status_code=409,
@@ -904,10 +1142,25 @@ def _agent_error_message(exc: Exception, llm_meta: dict) -> str:
         )
     from app.services.agent.llm import is_rate_limit_error
 
+    if isinstance(exc, TimeoutError):
+        return (
+            "The assistant took too long to start a reply. "
+            "Send your message again."
+        )
     if is_rate_limit_error(exc):
         return (
             "The AI provider is busy right now (rate limit). "
             "Wait a few seconds and send your message again."
+        )
+    from app.exceptions import AppError
+    from app.services.run_errors import workspace_block
+
+    if workspace_block(exc) == "spend_cap" or (
+        isinstance(exc, AppError) and exc.code == "budget_exceeded"
+    ):
+        return str(exc) or (
+            "Daily LLM token budget exhausted. Raise the cap in Usage settings "
+            "or wait until tomorrow."
         )
     return (
         "The assistant encountered an error while generating a reply. "

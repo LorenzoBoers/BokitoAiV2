@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTimelineRows,
   eventsShareCluster,
-  isSessionCheckoutEcho,
+  isSessionCheckoutCard,
+  syntheticDecisionAnswers,
 } from '../components/inbox/ThreadTimeline'
 import { CHAT_STACK_GAP_MS } from './chat-layout'
 import type { InboxEvent, InboxMessage, InboxThread, ThreadDetail } from './inbox-api'
@@ -18,10 +19,10 @@ function event(id: string, createdAt: string, eventType = 'assigned'): InboxEven
   }
 }
 
-function detail(events: InboxEvent[]): ThreadDetail {
+function detail(events: InboxEvent[], messages: InboxMessage[] = []): ThreadDetail {
   return {
     thread: { id: 't1' } as InboxThread,
-    messages: [],
+    messages,
     events,
     sessions: [],
   }
@@ -79,68 +80,161 @@ describe('buildTimelineRows event clusters', () => {
     const first = clusters[0]
     expect(first?.kind === 'events' && first.events[0]?.id).toBe('start')
   })
+
+  it('keeps a keep-open answer as a user bubble and hides the decision pill', () => {
+    const answer = {
+      id: 'm-answer',
+      threadId: 't1',
+      connectionId: null,
+      kind: 'user_message',
+      direction: 'outbound',
+      bodyText: 'Keep open',
+      bodyHtml: null,
+      subject: null,
+      authorUserId: 1,
+      authorAgentId: null,
+      authorName: null,
+      attachments: null,
+      receivedAt: null,
+      createdAt: '2026-10-10T14:15:00.000Z',
+      decisionResponse: true,
+      decisionResponseDecisionId: 'd1',
+      payload: { option_id: 'keep_open' },
+    } as InboxMessage
+    const rows = buildTimelineRows(
+      detail(
+        [
+          {
+            ...event('dec', '2026-10-10T14:15:01.000Z', 'decision_deferred'),
+            payload: { decision_id: 'd1' },
+          },
+        ],
+        [answer],
+      ),
+      t,
+      'en',
+    )
+    const messages = rows.filter((row) => row.kind === 'message')
+    expect(messages.some((row) => row.kind === 'message' && row.data.id === 'm-answer')).toBe(true)
+    expect(rows.some((row) => row.kind === 'events')).toBe(false)
+  })
 })
 
-describe('isSessionCheckoutEcho', () => {
-  const base = {
-    id: 'm1',
-    threadId: 't1',
-    connectionId: null,
-    kind: 'user_message',
-    direction: 'inbound',
-    bodyText: 'End session',
-    bodyHtml: null,
-    subject: null,
-    authorUserId: 1,
-    authorAgentId: null,
-    authorName: null,
-    attachments: null,
-    receivedAt: null,
-    createdAt: '2026-10-10T14:15:00.000Z',
-    payload: {},
-  } as InboxMessage
+describe('syntheticDecisionAnswers', () => {
+  const t = (key: string) => key
 
-  it('hides checkout button echoes by option id', () => {
+  it('rebuilds a user bubble for an old silent resolve', () => {
+    const card = {
+      id: 'c1',
+      threadId: 't1',
+      connectionId: null,
+      kind: 'decision_request',
+      direction: 'internal',
+      bodyText: 'Deze sessie staat al een tijd stil.',
+      bodyHtml: null,
+      subject: null,
+      authorUserId: null,
+      authorAgentId: null,
+      authorName: null,
+      attachments: null,
+      receivedAt: null,
+      createdAt: '2026-10-12T16:00:00.000Z',
+      decisionId: 'd-idle',
+      payload: {
+        decision: {
+          status: 'approved',
+          chosen_option_id: 'end_only',
+          options: [{ id: 'end_only', label: 'Sessie afronden', action_type: 'session_checkout' }],
+        },
+      },
+    } as InboxMessage
+    const extras = syntheticDecisionAnswers([card], 't1', t)
+    expect(extras).toHaveLength(1)
+    expect(extras[0].decisionResponse).toBe(true)
+    expect(extras[0].bodyText).toBe('Sessie afronden')
+  })
+
+  it('skips when a real decision answer already exists', () => {
+    const card = {
+      id: 'c1',
+      threadId: 't1',
+      kind: 'decision_request',
+      decisionId: 'd-idle',
+      createdAt: '2026-10-12T16:00:00.000Z',
+      payload: {
+        decision: {
+          status: 'approved',
+          chosen_option_id: 'end_only',
+          options: [{ id: 'end_only', label: 'Sessie afronden' }],
+        },
+      },
+    } as InboxMessage
+    const answer = {
+      id: 'a1',
+      threadId: 't1',
+      kind: 'user_message',
+      createdAt: '2026-10-12T16:00:01.000Z',
+      bodyText: 'Sessie afronden',
+      decisionResponse: true,
+      decisionResponseDecisionId: 'd-idle',
+    } as InboxMessage
+    expect(syntheticDecisionAnswers([card, answer], 't1', t)).toHaveLength(0)
+  })
+})
+
+describe('isSessionCheckoutCard', () => {
+  it('recognizes leftover wrap-up cards', () => {
     expect(
-      isSessionCheckoutEcho({
-        ...base,
-        decisionResponse: true,
-        payload: { decision_response_option_id: 'end_only' },
-      }),
+      isSessionCheckoutCard({
+        id: 'd1',
+        threadId: 't1',
+        connectionId: null,
+        kind: 'decision_request',
+        direction: 'internal',
+        bodyText: 'Sessie afronden?',
+        bodyHtml: null,
+        subject: null,
+        authorUserId: null,
+        authorAgentId: null,
+        authorName: null,
+        attachments: null,
+        receivedAt: null,
+        createdAt: '2026-10-12T16:00:00.000Z',
+        payload: {
+          options: [
+            {
+              id: 'end_only',
+              label: 'Sessie afronden',
+              action_type: 'session_checkout',
+              payload: { session_checkout: true, kind: 'end_only' },
+            },
+          ],
+        },
+      } as InboxMessage),
     ).toBe(true)
   })
 
-  it('hides older echoes by button label', () => {
-    expect(isSessionCheckoutEcho({ ...base, decisionResponse: true })).toBe(true)
-  })
-
-  it('keeps normal decision answers', () => {
+  it('keeps other decision cards', () => {
     expect(
-      isSessionCheckoutEcho({
-        ...base,
-        bodyText: 'Ja',
-        decisionResponse: true,
-        payload: { decision_response_option_id: 'approve' },
-      }),
+      isSessionCheckoutCard({
+        id: 'd2',
+        threadId: 't1',
+        connectionId: null,
+        kind: 'decision_request',
+        direction: 'internal',
+        bodyText: 'Regel toepassen?',
+        bodyHtml: null,
+        subject: null,
+        authorUserId: null,
+        authorAgentId: null,
+        authorName: null,
+        attachments: null,
+        receivedAt: null,
+        createdAt: '2026-10-12T16:00:00.000Z',
+        payload: {
+          options: [{ id: 'approve', label: 'Toepassen', action_type: 'create_inbox_rule' }],
+        },
+      } as InboxMessage),
     ).toBe(false)
-  })
-
-  it('hides keep-open / close-thread button echoes', () => {
-    expect(
-      isSessionCheckoutEcho({
-        ...base,
-        bodyText: 'Keep open',
-        decisionResponse: true,
-        payload: { decision_response_option_id: 'keep_open' },
-      }),
-    ).toBe(true)
-    expect(
-      isSessionCheckoutEcho({
-        ...base,
-        bodyText: 'Close thread',
-        decisionResponse: true,
-        payload: { decision_response_option_id: 'close' },
-      }),
-    ).toBe(true)
   })
 })

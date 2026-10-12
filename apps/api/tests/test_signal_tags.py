@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.signal import Signal
-from app.services.signal_tags import signal_tag_names
+from app.services.signal_tags import normalize_tag, signal_tag_names
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
@@ -33,6 +33,13 @@ async def _ingest(client: AsyncClient, headers: dict[str, str], subject: str) ->
     return response.json()["id"]
 
 
+def test_normalize_tag_joins_words_with_underscores():
+    assert normalize_tag("  Mistral AI ") == "mistral_ai"
+    assert normalize_tag("#mistral-ai") == "mistral_ai"
+    assert normalize_tag("mistral__ai") == "mistral_ai"
+    assert normalize_tag("Billing") == "billing"
+
+
 @pytest.mark.asyncio
 async def test_thread_tags_are_normalized_and_registered(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
@@ -41,13 +48,13 @@ async def test_thread_tags_are_normalized_and_registered(client: AsyncClient, se
     patched = await client.patch(
         f"/api/signals/{signal_id}",
         headers=headers,
-        json={"tags": ["  Billing ", "billing", "VIP"]},
+        json={"tags": ["  Billing ", "billing", "VIP", "mistral-ai"]},
     )
     assert patched.status_code == 200
-    assert patched.json()["tags"] == ["billing", "vip"]
+    assert patched.json()["tags"] == ["billing", "mistral_ai", "vip"]
 
     detail = await client.get(f"/api/signals/{signal_id}", headers=headers)
-    assert sorted(detail.json()["thread"]["tags"]) == ["billing", "vip"]
+    assert sorted(detail.json()["thread"]["tags"]) == ["billing", "mistral_ai", "vip"]
 
 
 @pytest.mark.asyncio
@@ -144,7 +151,7 @@ async def test_tag_rule_tags_and_keeps_flow(client: AsyncClient, session_overrid
         json={"match_type": "domain", "match_value": "acme.test", "action": "tag", "tags": ["Key account"]},
     )
     assert rule.status_code == 200, rule.text
-    assert rule.json()["labels"] == ["key-account"]
+    assert rule.json()["labels"] == ["key_account"]
 
     missing = await client.post(
         "/api/signals/rules",
@@ -168,8 +175,8 @@ async def test_tag_rule_tags_and_keeps_flow(client: AsyncClient, session_overrid
     rules = await inbox_rules.find_tag_rules(session_override, tenant.id, "anna@acme.test")
     assert [r.action for r in rules] == ["tag"]
     added = await inbox_rules.apply_tag_rules(session_override, tenant.id, signal, rules)
-    assert added == ["key-account"]
-    assert await signal_tag_names(session_override, signal.id) == ["key-account"]
+    assert added == ["key_account"]
+    assert await signal_tag_names(session_override, signal.id) == ["key_account"]
     hit = await session_override.get(InboxRule, rules[0].id)
     assert hit.hit_count == 1
 
@@ -197,7 +204,7 @@ async def test_set_thread_tags_tool_curated_only(client: AsyncClient, session_ov
     )
     assert result["ok"] is True
     assert result["added"] == ["billing"]
-    assert result["rejected"] == ["made-up-tag"]
+    assert result["rejected"] == ["made_up_tag"]
 
     assert await signal_tag_names(session_override, UUID(target)) == ["billing"]
 

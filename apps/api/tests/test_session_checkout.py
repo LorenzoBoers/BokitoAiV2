@@ -1,6 +1,5 @@
-"""Inline session checkout: the agent proposes, the operator ends or continues."""
+"""Inline sessions close themselves — no wrap-up card, no teammate action."""
 
-import json
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -75,7 +74,7 @@ async def _propose(session: AsyncSession, thread: Signal, agent: Agent, **kwargs
 
 
 @pytest.mark.asyncio
-async def test_propose_checkout_creates_decision_on_host_thread(
+async def test_propose_checkout_closes_the_session(
     client: AsyncClient, session_override: AsyncSession
 ):
     headers = await _login(client)
@@ -86,123 +85,30 @@ async def test_propose_checkout_creates_decision_on_host_thread(
     assert result.get("ok") is True, result
     assert result["session_id"] == str(conversation.id)
     assert result["thread_id"] == str(thread.id)
+    assert result["status"] == "closed"
+    assert "decision_request_id" not in result
 
-    decision = (
+    cards = (
         await session_override.execute(
-            select(DecisionRequest).where(DecisionRequest.id == UUID(result["decision_request_id"]))
+            select(DecisionRequest).where(
+                DecisionRequest.signal_id == thread.id,
+                DecisionRequest.source_type == "agent_session",
+            )
         )
-    ).scalar_one()
-    # The card belongs to the customer thread, not the private session.
-    assert decision.signal_id == thread.id
-    assert decision.status == "awaiting_human"
-    assert "gecrediteerd" in decision.summary
-
-    options = json.loads(decision.options_json)
-    kinds = [o["payload"]["kind"] for o in options]
-    assert "end_only" in kinds and "continue" in kinds
-    assert all(o["payload"]["session_checkout"] for o in options)
-    assert all(o["payload"]["session_id"] == str(conversation.id) for o in options)
-
-    # Proposing does not close: the operator still owns the decision.
-    await session_override.refresh(conversation)
-    assert conversation.session_state == "active"
-    outcome = json.loads(conversation.session_outcome_json or "{}")
-    assert outcome["checkout_decision_id"] == str(decision.id)
-    assert outcome["checkout_summary"].startswith("Factuur")
-
-
-@pytest.mark.asyncio
-async def test_agent_options_keep_end_and_continue(
-    client: AsyncClient, session_override: AsyncSession
-):
-    headers = await _login(client)
-    thread = await _customer_thread(session_override)
-    _, agent = await _started_session(client, session_override, headers, thread)
-
-    result = await _propose(
-        session_override,
-        thread,
-        agent,
-        options=[{"id": "apply", "label": "Verstuur en sluit af", "kind": "apply_actions"}],
-    )
-    decision = (
-        await session_override.execute(
-            select(DecisionRequest).where(DecisionRequest.id == UUID(result["decision_request_id"]))
-        )
-    ).scalar_one()
-    options = json.loads(decision.options_json)
-    assert [o["payload"]["kind"] for o in options] == ["apply_actions", "end_only", "continue"]
-    assert options[0]["label"] == "Verstuur en sluit af"
-
-
-@pytest.mark.asyncio
-async def test_resolving_end_only_closes_the_session(
-    client: AsyncClient, session_override: AsyncSession
-):
-    headers = await _login(client)
-    thread = await _customer_thread(session_override)
-    conversation, agent = await _started_session(client, session_override, headers, thread)
-    result = await _propose(session_override, thread, agent)
-
-    r = await client.post(
-        f"/api/notifications/decisions/{result['decision_request_id']}/approve",
-        headers=headers,
-        json={"option_id": "end_only"},
-    )
-    assert r.status_code == 200, r.text
+    ).scalars().all()
+    assert cards == []
 
     await session_override.refresh(conversation)
     assert conversation.session_state == "closed"
     assert conversation.session_closed_at is not None
+    import json
+
     outcome = json.loads(conversation.session_outcome_json or "{}")
-    # The agent's checkout wording becomes the session outcome on the thread.
     assert outcome["summary"].startswith("Factuur")
 
     detail = (await client.get(f"/api/signals/{thread.id}", headers=headers)).json()
     assert detail["sessions"][0]["state"] == "closed"
     assert any(e["event_type"] == "agent_session_closed" for e in detail["events"])
-
-
-@pytest.mark.asyncio
-async def test_resolving_continue_keeps_the_session_active(
-    client: AsyncClient, session_override: AsyncSession
-):
-    headers = await _login(client)
-    thread = await _customer_thread(session_override)
-    conversation, agent = await _started_session(client, session_override, headers, thread)
-    result = await _propose(session_override, thread, agent)
-
-    r = await client.post(
-        f"/api/notifications/decisions/{result['decision_request_id']}/approve",
-        headers=headers,
-        json={"option_id": "continue"},
-    )
-    assert r.status_code == 200, r.text
-
-    await session_override.refresh(conversation)
-    assert conversation.session_state == "active"
-    outcome = json.loads(conversation.session_outcome_json or "{}")
-    assert "checkout_decision_id" not in outcome
-
-
-@pytest.mark.asyncio
-async def test_second_proposal_supersedes_the_pending_card(
-    client: AsyncClient, session_override: AsyncSession
-):
-    headers = await _login(client)
-    thread = await _customer_thread(session_override)
-    _, agent = await _started_session(client, session_override, headers, thread)
-
-    first = await _propose(session_override, thread, agent)
-    second = await _propose(session_override, thread, agent)
-    assert first["decision_request_id"] != second["decision_request_id"]
-
-    stale = (
-        await session_override.execute(
-            select(DecisionRequest).where(DecisionRequest.id == UUID(first["decision_request_id"]))
-        )
-    ).scalar_one()
-    assert stale.status == "deferred"
 
 
 @pytest.mark.asyncio
@@ -256,7 +162,7 @@ async def test_starting_a_session_closes_another_operators_session(
 
 
 @pytest.mark.asyncio
-async def test_idle_session_gets_one_server_side_nudge(
+async def test_idle_session_closes_without_a_card(
     client: AsyncClient, session_override: AsyncSession
 ):
     headers = await _login(client)
@@ -278,25 +184,69 @@ async def test_idle_session_gets_one_server_side_nudge(
     await session_override.commit()
 
     out = await nudge_idle_sessions(session_override, idle_seconds=300)
-    assert out["nudged"] == 1
+    assert out["closed"] == 1
 
-    decisions = (
+    cards = (
         await session_override.execute(
-            select(DecisionRequest).where(DecisionRequest.signal_id == thread.id)
+            select(DecisionRequest).where(
+                DecisionRequest.signal_id == thread.id,
+                DecisionRequest.source_type == "agent_session",
+            )
         )
     ).scalars().all()
-    # The agent may also have proposed a customer reply during the turn; only
-    # the session checkout card is under test here.
-    decisions = [d for d in decisions if d.source_type == "agent_session"]
-    assert len(decisions) == 1
-    options = json.loads(decisions[0].options_json)
-    assert {o["payload"]["kind"] for o in options} == {"end_only", "continue"}
+    assert cards == []
 
     await session_override.refresh(conversation)
-    outcome = json.loads(conversation.session_outcome_json or "{}")
-    assert outcome["idle_nudge_at"]
-    assert conversation.session_state == "active"
+    assert conversation.session_state == "closed"
+    assert conversation.session_closed_at is not None
 
-    # One nudge per session, even while the card stays unanswered.
     again = await nudge_idle_sessions(session_override, idle_seconds=300)
-    assert again["nudged"] == 0
+    assert again["closed"] == 0
+
+
+@pytest.mark.asyncio
+async def test_empty_idle_session_is_discarded(
+    client: AsyncClient, session_override: AsyncSession
+):
+    headers = await _login(client)
+    thread = await _customer_thread(session_override)
+    started = (
+        await client.post(f"/api/signals/{thread.id}/sessions", headers=headers, json={})
+    ).json()
+    conversation = (
+        await session_override.execute(select(Signal).where(Signal.id == UUID(started["id"])))
+    ).scalar_one()
+    conversation.updated_at = datetime.utcnow() - timedelta(minutes=30)
+    session_override.add(conversation)
+    await session_override.commit()
+
+    from app.services.agent_sessions import nudge_idle_sessions
+
+    out = await nudge_idle_sessions(session_override, idle_seconds=300)
+    assert out["closed"] == 1
+
+    gone = (
+        await session_override.execute(select(Signal).where(Signal.id == conversation.id))
+    ).scalar_one_or_none()
+    assert gone is None or gone.deleted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_session_rejected_on_internal_thread(
+    client: AsyncClient, session_override: AsyncSession
+):
+    headers = await _login(client)
+    from app.models.auth import Tenant
+
+    tenant = (await session_override.execute(select(Tenant))).scalars().first()
+    thread = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        subject="Team chat",
+    )
+    session_override.add(thread)
+    await session_override.commit()
+    await session_override.refresh(thread)
+
+    r = await client.post(f"/api/signals/{thread.id}/sessions", headers=headers, json={})
+    assert r.status_code == 400

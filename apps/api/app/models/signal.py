@@ -298,7 +298,7 @@ class SignalTag(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    # Normalized hashtag name (lower case, hyphens, no leading #); unique per tenant.
+    # Normalized hashtag name (lower case, underscores, no leading #); unique per tenant.
     name: str = Field(default="", index=True)
     # When to use this tag. Shown in settings and fed to AI tagging.
     description: str = ""

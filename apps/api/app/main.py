@@ -84,6 +84,14 @@ async def lifespan(app: FastAPI):
     for warning in production_config_warnings(settings):
         logging.getLogger("app.config").warning("PRODUCTION CONFIG: %s", warning)
     await init_db()
+    try:
+        from app.routers.signal_chat import reclaim_orphaned_chat_runs
+
+        n = await reclaim_orphaned_chat_runs()
+        if n:
+            logging.getLogger("app.chat").warning("reclaimed %s orphaned chat runs", n)
+    except Exception:
+        logging.getLogger("app.chat").exception("failed to reclaim orphaned chat runs")
     await event_bus.start()
     scheduler_task: asyncio.Task | None = None
     if trigger_scheduler_enabled():

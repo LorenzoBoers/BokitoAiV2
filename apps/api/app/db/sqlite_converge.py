@@ -6,6 +6,7 @@
   playbook projects move to ``workstream_projects``; ``cases``,
   ``case_types`` and ``inbox_folders`` are dropped.
 - 079: partial unique index on ``integration_connections.instance_key``.
+- 090: hashtag words join with ``_``; duplicate names merge; folder names follow the tag.
 """
 
 from __future__ import annotations
@@ -179,6 +180,23 @@ def _merge_tag(connection: Connection, source_id: str, target_id: str) -> None:
         text("UPDATE signals SET ticket_tag_id = :target WHERE ticket_tag_id = :source"),
         {"source": source_id, "target": target_id},
     )
+    inspector = inspect(connection)
+    if inspector.has_table("projects"):
+        connection.execute(
+            text("UPDATE projects SET tag_id = :target WHERE tag_id = :source"),
+            {"source": source_id, "target": target_id},
+        )
+    for table, owner in (("contact_tag_links", "contact_id"), ("company_tag_links", "company_id")):
+        if not inspector.has_table(table):
+            continue
+        connection.execute(
+            text(
+                f"INSERT OR IGNORE INTO {table} ({owner}, tag_id, tenant_id, created_at) "
+                f"SELECT {owner}, :target, tenant_id, created_at FROM {table} WHERE tag_id = :source"
+            ),
+            {"source": source_id, "target": target_id},
+        )
+        connection.execute(text(f"DELETE FROM {table} WHERE tag_id = :source"), {"source": source_id})
     connection.execute(text("DELETE FROM signal_tags WHERE id = :source"), {"source": source_id})
 
 
@@ -199,6 +217,16 @@ def _normalize_tag_names(connection: Connection) -> None:
                 text("UPDATE signal_tags SET name = :name WHERE id = :id"),
                 {"name": clean, "id": row["id"]},
             )
+    if inspect(connection).has_table("projects"):
+        connection.execute(
+            text(
+                "UPDATE projects SET name = ("
+                "SELECT name FROM signal_tags WHERE signal_tags.id = projects.tag_id"
+                "), slug = ("
+                "SELECT name FROM signal_tags WHERE signal_tags.id = projects.tag_id"
+                ") WHERE tag_id IS NOT NULL AND deleted_at IS NULL"
+            )
+        )
 
 
 def _workstream_projects(connection: Connection) -> None:

@@ -149,6 +149,8 @@ async def folder_files(
     limit: int = Query(100, ge=1, le=300),
 ):
     """Attachments on conversations in this folder (subtree)."""
+    from sqlalchemy import select
+
     from app.models.signal import Signal, SignalMessage
     from app.services.folders import load_tree
 

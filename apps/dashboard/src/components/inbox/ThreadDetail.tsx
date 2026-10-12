@@ -87,7 +87,13 @@ import { useSignalStream } from '../../hooks/useSignalStream'
 import AgentTurnLive from './AgentTurnLive'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { textOnlyTurn, turnHasContent, turnSaved } from '../../lib/agentActivity'
+import {
+  liveTurnFromLatestInProgress,
+  mergeTurns,
+  textOnlyTurn,
+  turnHasContent,
+  turnSaved,
+} from '../../lib/agentActivity'
 import {
   bokitoListMessages,
   closeAgentSession,
@@ -96,9 +102,10 @@ import {
   type ChatMessage,
   type ThreadSession,
 } from '../../lib/signals-api'
-import { sessionTimelineMessages } from '../../lib/session-timeline'
+import { collapseRecentUserEchoes, sessionTimelineMessages } from '../../lib/session-timeline'
 import { useAiChatStream } from '../../lib/use-agent-session-chat'
-import { applyAgentLive } from '../../hooks/useAgentPresence'
+import { applyAgentLive, type AgentLiveSnapshot } from '../../hooks/useAgentPresence'
+import { useLiveEntity } from '../../lib/live-store'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { takeChatContinue } from '../../lib/chat-auto-continue'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
@@ -181,7 +188,7 @@ type Props = {
   onBack?: () => void
   onToggleContact?: () => void
   contactOpen?: boolean
-  onDecisionResolved?: (info?: { closed?: boolean }) => void
+  onDecisionResolved?: (info?: { closed?: boolean; answer?: { text: string; decisionId: string } }) => void
   /**
    * Composer behavior: `customer` threads get the reply/note composer,
    * `agent` (internal) threads get a note-only composer with an
@@ -202,7 +209,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   const location = useLocation()
   const navigate = useNavigate()
   const { connections } = useMailboxConnections()
-  const gatewayStream = useSignalStream(threadId ? String(threadId) : null)
+  const checkpointTurn = useMemo(
+    () => liveTurnFromLatestInProgress(detail?.messages),
+    [detail?.messages],
+  )
+  const gatewayStream = useSignalStream(threadId ? String(threadId) : null, checkpointTurn)
   const timelineRef = useRef<ThreadTimelineHandle>(null)
   const previousMessageCountRef = useRef<number>(0)
   const landedThreadRef = useRef<string | null>(null)
@@ -490,13 +501,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [token, t])
 
   const isAssistantThread = (detail?.thread.channel ?? '') === 'assistant'
+  const talksDirectlyToAgent = Boolean(detail && isInternalThread(detail.thread))
 
   // A session the operator just started, until the thread detail refresh
   // carries it. Without this the first Ask has no session to stream into:
   // no live bubble, and the whole answer appears at once afterwards.
   const [pendingSession, setPendingSession] = useState<ThreadSession | null>(null)
+  const [pendingDecisionAnswers, setPendingDecisionAnswers] = useState<
+    { id: string; decisionId: string; text: string; createdAt: string }[]
+  >([])
   useEffect(() => {
     setPendingSession(null)
+    setPendingDecisionAnswers([])
   }, [threadId])
   const activeSession = useMemo(() => {
     const fromDetail = (detail?.sessions ?? []).find((s) => s.state === 'active') ?? null
@@ -514,14 +530,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     if (!pendingSession) return
     if ((detail?.sessions ?? []).some((s) => s.id === pendingSession.id)) setPendingSession(null)
   }, [detail?.sessions, pendingSession])
-  const sessionLive = useSignalStream(activeSessionId)
-
   // Inline session turns (operator + agent) are rows of the host timeline,
   // rendered by the same bubbles as the rest. Includes optimistic operator
   // bubbles so Send shows up before the transcript refetch lands.
   const sessionInboxMessages = useMemo(
     () =>
-      activeSession && !isAssistantThread
+      activeSession && !talksDirectlyToAgent
         ? sessionTimelineMessages(
             activeSession,
             sessionMessages,
@@ -529,24 +543,99 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             user?.id ?? null,
           )
         : [],
-    [activeSession, isAssistantThread, sessionMessages, sessionStream.optimisticUsers, user?.id],
+    [activeSession, talksDirectlyToAgent, sessionMessages, sessionStream.optimisticUsers, user?.id],
+  )
+  const sessionCheckpointTurn = useMemo(
+    () => liveTurnFromLatestInProgress(sessionInboxMessages),
+    [sessionInboxMessages],
+  )
+  const sessionLive = useSignalStream(activeSessionId, sessionCheckpointTurn)
+
+  useEffect(() => {
+    if (!detail || pendingDecisionAnswers.length === 0) return
+    const answered = new Set(
+      detail.messages
+        .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
+        .map((m) => String(m.decisionResponseDecisionId)),
+    )
+    const bodies = new Set(detail.messages.map((m) => (m.bodyText || '').trim()).filter(Boolean))
+    setPendingDecisionAnswers((prev) =>
+      prev.filter((row) => !answered.has(row.decisionId) && !bodies.has(row.text.trim())),
+    )
+  }, [detail, pendingDecisionAnswers.length])
+
+  const handleDecisionAnswer = useCallback(
+    (answer: { text: string; decisionId: string } | null) => {
+      if (!answer?.text || !answer.decisionId) {
+        setPendingDecisionAnswers([])
+        return
+      }
+      setPendingDecisionAnswers((prev) => [
+        ...prev.filter((row) => row.decisionId !== answer.decisionId),
+        {
+          id: `pending-decision-${answer.decisionId}`,
+          decisionId: answer.decisionId,
+          text: answer.text,
+          createdAt: new Date().toISOString(),
+        },
+      ])
+    },
+    [],
   )
 
   // While an assistant turn streams, splice optimistic operator bubbles into
   // the timeline so Send never blanks the thread waiting on a hard refresh.
   const timelineDetail = useMemo(() => {
     if (!detail) return detail
-    if (!isAssistantThread) {
-      if (!sessionInboxMessages.length) return detail
-      return { ...detail, messages: [...detail.messages, ...sessionInboxMessages] }
+    const existingBodies = new Set(
+      detail.messages
+        .flatMap((m) => [(m.bodyText || '').trim(), (m.bodyPreview || '').trim()])
+        .filter(Boolean),
+    )
+    const answered = new Set(
+      detail.messages
+        .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
+        .map((m) => String(m.decisionResponseDecisionId)),
+    )
+    const decisionExtras = pendingDecisionAnswers
+      .filter((row) => row.text.trim() && !answered.has(row.decisionId) && !existingBodies.has(row.text.trim()))
+      .map(
+        (row) =>
+          ({
+            id: row.id,
+            threadId: detail.thread.id,
+            connectionId: null,
+            kind: 'user_message',
+            direction: 'outbound',
+            fromAddress: '',
+            toAddresses: '',
+            subject: '',
+            bodyPreview: row.text.slice(0, 200),
+            bodyText: row.text,
+            bodyHtml: null,
+            graphMessageId: '',
+            inReplyTo: null,
+            authorUserId: user?.id ?? null,
+            isRead: true,
+            sendStatus: null,
+            attachments: null,
+            receivedAt: row.createdAt,
+            createdAt: row.createdAt,
+            decisionResponse: true,
+            decisionResponseDecisionId: row.decisionId,
+          }) as ThreadDetailType['messages'][number],
+      )
+    if (!talksDirectlyToAgent) {
+      const sessionRows = sessionInboxMessages.length ? sessionInboxMessages : []
+      if (!sessionRows.length && !decisionExtras.length) {
+        return { ...detail, messages: collapseRecentUserEchoes(detail.messages) }
+      }
+      return {
+        ...detail,
+        messages: collapseRecentUserEchoes([...detail.messages, ...sessionRows, ...decisionExtras]),
+      }
     }
     const optimistic = sessionStream.optimisticUsers
-    if (!optimistic.length) return detail
-    // Assistant chats store the operator as inbound; match body text so the
-    // optimistic bubble does not sit next to the persisted copy.
-    const existingBodies = new Set(
-      detail.messages.map((m) => (m.bodyText || '').trim()).filter(Boolean),
-    )
     const extras = optimistic
       .filter((m) => m.content.trim() && !existingBodies.has(m.content.trim()))
       .map(
@@ -573,13 +662,49 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
             createdAt: m.created_at,
           }) as ThreadDetailType['messages'][number],
       )
-    if (!extras.length) return detail
-    return { ...detail, messages: [...detail.messages, ...extras] }
-  }, [detail, isAssistantThread, sessionInboxMessages, sessionStream.optimisticUsers, user?.id])
+    if (!extras.length && !decisionExtras.length) {
+      return { ...detail, messages: collapseRecentUserEchoes(detail.messages) }
+    }
+    return {
+      ...detail,
+      messages: collapseRecentUserEchoes([...detail.messages, ...extras, ...decisionExtras]),
+    }
+  }, [
+    detail,
+    talksDirectlyToAgent,
+    sessionInboxMessages,
+    sessionStream.optimisticUsers,
+    pendingDecisionAnswers,
+    user?.id,
+  ])
+
+  // The live overlay owns the turn until playback catches up. Hide every
+  // saved row of that turn so the finished text does not pop in beside it.
+  const liveOverlayTurnIds = useMemo(() => {
+    const ids = new Set<string>()
+    if (checkpointTurn?.streamId) ids.add(checkpointTurn.streamId)
+    if (sessionCheckpointTurn?.streamId) ids.add(sessionCheckpointTurn.streamId)
+    if (gatewayStream.turn.streamId && turnHasContent(gatewayStream.turn)) {
+      ids.add(gatewayStream.turn.streamId)
+    }
+    if (sessionLive.turn.streamId && turnHasContent(sessionLive.turn)) {
+      ids.add(sessionLive.turn.streamId)
+    }
+    return ids
+  }, [checkpointTurn, sessionCheckpointTurn, gatewayStream.turn, sessionLive.turn])
+
+  const visibleTimelineDetail = useMemo(() => {
+    if (!timelineDetail || liveOverlayTurnIds.size === 0) return timelineDetail
+    const messages = timelineDetail.messages.filter(
+      (message) => !(message.turnId && liveOverlayTurnIds.has(message.turnId)),
+    )
+    if (messages.length === timelineDetail.messages.length) return timelineDetail
+    return { ...timelineDetail, messages }
+  }, [timelineDetail, liveOverlayTurnIds])
 
   const rows = useMemo(
-    () => buildTimelineRows(timelineDetail, t, i18n.language),
-    [timelineDetail, t, i18n.language],
+    () => buildTimelineRows(visibleTimelineDetail, t, i18n.language),
+    [visibleTimelineDetail, t, i18n.language],
   )
 
   const { nav: workspaceNav } = useCommunicationNav()
@@ -714,11 +839,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     if (messageCount <= prev) return
     if (anchorToBottomRef.current) {
       setUnseenNew(0)
-      scrollToBottom('smooth')
+      timelineRef.current?.pinToEnd()
     } else {
       setUnseenNew((n) => n + (messageCount - prev))
     }
-  }, [messageCount, loadedThreadId, scrollToBottom])
+  }, [messageCount, loadedThreadId])
 
   // Day pills live inside ThreadTimeline.
   useEffect(() => {
@@ -1089,11 +1214,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           }
         }
       }
-      const isAssistant = (detail?.thread.channel ?? '') === 'assistant'
-      let sessionId = isAssistant ? threadIdString : activeSessionId
+      const talksDirect = Boolean(detail && isInternalThread(detail.thread))
+      let sessionId = talksDirect ? threadIdString : activeSessionId
       const wantedAgentId = askAgentId ?? detail?.thread.agentId ?? null
       const needsNewSession =
-        !isAssistant &&
+        !talksDirect &&
         (!sessionId || Boolean(askAgentId && activeSession?.agentId && activeSession.agentId !== askAgentId))
       if (needsNewSession) {
         let started: ThreadSession | null = null
@@ -1117,17 +1242,17 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           attachments,
           continuePending,
           onFinished: async () => {
-            if (!isAssistant) await loadSessionMessages(sessionId)
+            if (!talksDirect) await loadSessionMessages(sessionId)
             // Quiet: keep bubbles on screen; never flash the thread skeleton.
             onRefresh(true)
-            window.setTimeout(() => pinToBottom('smooth'), 120)
+            window.setTimeout(() => timelineRef.current?.pinToEnd(), 120)
           },
         })
-        // Email threads land mid-list; pin past that so the Ask turn is visible
-        // while it streams (retry after Virtuoso measures the new rows).
-        pinToBottom('smooth')
-        window.requestAnimationFrame(() => pinToBottom('smooth'))
-        window.setTimeout(() => pinToBottom('smooth'), 80)
+        // Pin the scroller only. A 280ms settle fight Virtuoso and underscrolls.
+        const pin = () => timelineRef.current?.pinToEnd()
+        pin()
+        window.requestAnimationFrame(pin)
+        window.setTimeout(pin, 80)
         return (await sendPromise) !== false
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''
@@ -1144,7 +1269,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         } else {
           toast.error(t('aiChat.sendError', { defaultValue: 'Could not send to the AI.' }))
         }
-        if (!isAssistant) await loadSessionMessages(sessionId)
+        if (!talksDirect) await loadSessionMessages(sessionId)
         onRefresh(true)
         return false
       }
@@ -1160,7 +1285,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       stopAgentSessionStream,
       loadSessionMessages,
       onRefresh,
-      pinToBottom,
       t,
     ],
   )
@@ -1424,46 +1548,78 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     [onReply, scrollToBottom],
   )
 
-  // Hand the live turn off to its saved bubbles: once they are in the list
-  // (matched by turn id), drop the live view so nothing shows twice.
+  // Hand the live turn off to its saved bubbles only after the frontend
+  // reveal has caught up. Otherwise the saved row pops in at full length.
   const liveTurn = gatewayStream.turn
   const resetLiveTurn = gatewayStream.reset
   const liveTurnSaved = turnSaved(liveTurn, detail?.messages ?? [])
+  const [settledStreamId, setSettledStreamId] = useState<string | null>(null)
+  const handleLivePlaybackDone = useCallback((streamId: string) => {
+    setSettledStreamId(streamId)
+  }, [])
+  const livePlaybackDone = Boolean(liveTurn.streamId && settledStreamId === liveTurn.streamId)
   useEffect(() => {
-    if (liveTurn.ended && liveTurnSaved) resetLiveTurn()
-  }, [liveTurn.ended, liveTurnSaved, resetLiveTurn])
+    if (liveTurn.ended && liveTurnSaved && livePlaybackDone) resetLiveTurn()
+  }, [liveTurn.ended, liveTurnSaved, livePlaybackDone, resetLiveTurn])
   // Same hand-off for the inline session's turn (its own gateway topic).
   const sessionTurn = sessionLive.turn
   const resetSessionTurn = sessionLive.reset
   const sessionTurnSaved = turnSaved(sessionTurn, sessionInboxMessages)
+  const sessionPlaybackDone = Boolean(sessionTurn.streamId && settledStreamId === sessionTurn.streamId)
   useEffect(() => {
-    if (sessionTurn.ended && sessionTurnSaved) resetSessionTurn()
-  }, [sessionTurn.ended, sessionTurnSaved, resetSessionTurn])
+    if (sessionTurn.ended && sessionTurnSaved && sessionPlaybackDone) resetSessionTurn()
+  }, [sessionTurn.ended, sessionTurnSaved, sessionPlaybackDone, resetSessionTurn])
+
+  const liveAgentId =
+    askAgentId ?? activeSession?.agentId ?? detail?.thread.agentId ?? null
+  const agentLive = useLiveEntity<AgentLiveSnapshot>('agent_live', liveAgentId)
+  const agentWorkingHere =
+    agentLive?.status === 'working' &&
+    (!agentLive.threadId || agentLive.threadId === threadIdString)
 
   // One live view for every agent turn on this screen: the thread's own
   // agent (inbound handling), the inline session agent, or the plain SSE
   // stream of an Ask before gateway events land. It always renders as the
   // last row, so the operator watches the work where the answer will appear.
   const threadLiveTurn = useMemo(() => {
-    // Gateway turn (thinking + tools + speech) is the rich path when connected.
-    if (!liveTurnSaved && turnHasContent(liveTurn)) return liveTurn
-    if (!sessionTurnSaved && turnHasContent(sessionTurn)) return sessionTurn
-    // SSE fallback while the agent is working — show a live bubble even before
-    // the first token, so the operator sees that work started.
-    if (agentStreaming) {
+    if (turnHasContent(liveTurn) && !(liveTurnSaved && livePlaybackDone)) {
+      if (checkpointTurn && checkpointTurn.streamId === liveTurn.streamId) {
+        return mergeTurns(checkpointTurn, liveTurn)
+      }
+      return liveTurn
+    }
+    if (turnHasContent(sessionTurn) && !(sessionTurnSaved && sessionPlaybackDone)) {
+      if (sessionCheckpointTurn && sessionCheckpointTurn.streamId === sessionTurn.streamId) {
+        return mergeTurns(sessionCheckpointTurn, sessionTurn)
+      }
+      return sessionTurn
+    }
+    if (checkpointTurn && !(liveTurnSaved && livePlaybackDone)) return checkpointTurn
+    if (sessionCheckpointTurn && !(sessionTurnSaved && sessionPlaybackDone)) return sessionCheckpointTurn
+    if (agentStreaming || agentWorkingHere) {
       return textOnlyTurn(sessionStream.text || sessionStream.thinking || '')
     }
     return null
   }, [
     liveTurn,
     liveTurnSaved,
+    livePlaybackDone,
+    checkpointTurn,
     sessionTurn,
     sessionTurnSaved,
+    sessionPlaybackDone,
+    sessionCheckpointTurn,
     agentStreaming,
+    agentWorkingHere,
     sessionStream.text,
     sessionStream.thinking,
   ])
-  const liveTurnIsSession = threadLiveTurn != null && threadLiveTurn === sessionTurn
+  const liveTurnIsSession = Boolean(
+    threadLiveTurn &&
+      sessionTurn.streamId &&
+      threadLiveTurn.streamId === sessionTurn.streamId &&
+      !(liveTurn.streamId === threadLiveTurn.streamId && turnHasContent(liveTurn)),
+  )
   // Turns the reader watched stream in: their saved bubbles land without the
   // enter animation, so the live -> saved hand-off does not flash.
   const watchedTurnIdsRef = useRef<Set<string>>(new Set())
@@ -1476,13 +1632,12 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   // Pulse avatar corners as soon as this thread sees a live turn / Ask stream.
   // The API also broadcasts agent.status; this covers the same browser before
   // that event lands (and keeps the open-thread agent marked working).
-  const liveAgentId =
-    askAgentId ?? activeSession?.agentId ?? detail?.thread.agentId ?? null
-  const agentTurnBusy = Boolean(
+  const sseBusy = Boolean(
     agentStreaming || (threadLiveTurn && (threadLiveTurn.active || !threadLiveTurn.ended)),
   )
+  const agentTurnBusy = sseBusy || agentWorkingHere
   useEffect(() => {
-    if (!liveAgentId || !agentTurnBusy) return
+    if (!liveAgentId || !agentStreaming) return
     applyAgentLive(liveAgentId, {
       status: 'working',
       summary: null,
@@ -1491,7 +1646,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       lastActiveAt: Date.now(),
       source: 'ws',
     })
-  }, [liveAgentId, agentTurnBusy, detail?.thread.id])
+  }, [liveAgentId, agentStreaming, detail?.thread.id])
 
   const requestCloseThread = useCallback(
     async (afterClose?: () => Promise<void>, projectId?: string) => {
@@ -1788,9 +1943,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           loadingOlder={loadingOlder}
           onLoadOlder={onLoadOlder}
           activeSessionId={activeSessionId}
-          agentStreaming={agentStreaming}
+          agentStreaming={agentTurnBusy}
           onRefresh={onRefresh}
           onDecisionResolved={onDecisionResolved}
+          onAnswer={handleDecisionAnswer}
           onEditDraft={(draft) => {
             const card = detail.messages.find((m) => String(m.id) === draft.decisionMessageId)
             applyComposerDraft({
@@ -1812,8 +1968,10 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           liveTrace={
             threadLiveTurn ? (
               <AgentTurnLive
+                key={threadLiveTurn.streamId ?? 'live'}
                 turn={threadLiveTurn}
                 continuesRun={liveContinuesRun}
+                onPlaybackDone={handleLivePlaybackDone}
                 // Same source as the saved author line (TimelineItem), so the
                 // hand-off keeps the name.
                 agentName={thread.agentName ?? activeSession?.agentName ?? askAgentName}
@@ -1933,7 +2091,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           onNote={handleNote}
           onAgentMessage={handleAgentMessage}
           onStopAgent={handleStopAgent}
-          agentStreaming={agentStreaming}
+          agentStreaming={agentTurnBusy}
           mode={composerMode}
           onModeChange={handleComposerModeChange}
           onVerb={handleComposerVerb}

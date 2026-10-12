@@ -40,7 +40,7 @@ async def embed_text_with_usage(
     kwargs: dict[str, Any] = {"api_key": effective_key}
     if base_url:
         kwargs["base_url"] = base_url
-    client = AsyncOpenAI(**kwargs)
+    client = AsyncOpenAI(**kwargs, timeout=8.0)
     response = await client.embeddings.create(
         model=model_id or settings.embedding_model, input=text[:8000]
     )

@@ -21,7 +21,9 @@
     "stop": "Stop",
     "detach": "Detach",
     "deactivate": "Deactivate",
-    "remove": "Remove"
+    "remove": "Remove",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "confirmDialog": {
     "title": "Are you sure?",
@@ -105,9 +107,11 @@
     "metrics": {
       "hint": "Open conversations by mode, and outcomes over the last {{days}} days.",
       "activityTitle": "AI activity",
-      "activityHint": "Token use over the last {{hours}} hours, and the mix of autonomous, assisted and manual actions this week.",
-      "chartAria": "Token use over the last {{hours}} hours",
-      "emptyChart": "No token use in this period yet.",
+      "activityHint": "How much work AI handled versus people over the last {{days}} days, and this week's autonomous, assisted and manual mix.",
+      "chartAria": "AI versus manual work over the last {{days}} days",
+      "emptyChart": "No credited work in this period yet.",
+      "seriesAi": "AI",
+      "seriesManual": "Manual",
       "mixAria": "Weighted mix of autonomous, assisted and manual actions this week",
       "emptyMix": "No credited actions this week yet.",
       "mixWeightHint": "Count · weighted minutes",
@@ -117,6 +121,9 @@
       "editRate": "Drafts edited before sending",
       "timeSaved": "Time saved",
       "timeSavedHint": "Estimated minutes from AI outcomes this week.",
+      "aiShare": "AI share",
+      "aiShareHint": "Share of credited actions AI handled this week.",
+      "trendVsPrevious": "versus the previous 7 days",
       "resolved": "Resolved",
       "resolvedHint": "Closed without a takeover, and still closed after 72 hours.",
       "promotionProgress": "{{done}} of {{target}} drafts sent unchanged"

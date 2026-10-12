@@ -10,7 +10,11 @@ from app.models.auth import Tenant, User
 from app.models.notification import DecisionRequest
 from app.models.orchestra import WorkstreamRun
 from app.models.signal import Signal, SignalEvent, SignalMessage
-from app.services.time_saved import DEFAULT_ACTION_MINUTES, compute_time_saved
+from app.services.time_saved import (
+    DEFAULT_ACTION_MINUTES,
+    bucket_action_mix_series,
+    compute_time_saved,
+)
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
 ACTION_MINUTES = DEFAULT_ACTION_MINUTES
@@ -187,7 +191,7 @@ async def test_compute_time_saved_sums_action_credits(client: AsyncClient, sessi
         + ACTION_MINUTES["ticket_filed_by_agent"] * 2
         + ACTION_MINUTES["flow_run_completed"]
     )
-    # Manual replies weigh the mix pie but do not inflate time saved.
+    # Manual replies weigh the mix chart but do not inflate time saved.
     assert result["minutes"] == expected
     assert result["days"] == 7
     by_mode = {row["mode"]: row for row in result["by_mode"]}
@@ -195,6 +199,14 @@ async def test_compute_time_saved_sums_action_credits(client: AsyncClient, sessi
     assert by_mode["manual"]["minutes"] == ACTION_MINUTES["manual_reply"]
     assert by_mode["autonomous"]["count"] >= 1
     assert by_mode["assisted"]["count"] >= 1
+
+    today = now.date().isoformat()
+    by_day = {row["date"]: row for row in result["by_day"]}
+    assert today in by_day
+    assert by_day[today]["manual_count"] == 1
+    assert by_day[today]["manual_minutes"] == ACTION_MINUTES["manual_reply"]
+    assert by_day[today]["ai_count"] >= 1
+    assert by_day[today]["ai_minutes"] >= ACTION_MINUTES["autonomous_reply"]
 
     token = login.json()["access_token"]
     summary = await client.get(
@@ -208,3 +220,33 @@ async def test_compute_time_saved_sums_action_credits(client: AsyncClient, sessi
     assert len(body["time_saved_breakdown"]) == len(ACTION_MINUTES)
     assert isinstance(body.get("action_mix"), list)
     assert {row["mode"] for row in body["action_mix"]} == {"autonomous", "assisted", "manual"}
+    assert isinstance(body.get("action_mix_series"), list)
+    assert len(body["action_mix_series"]) == 14
+    series_today = next(
+        (row for row in body["action_mix_series"] if row["date"] == today),
+        None,
+    )
+    assert series_today is not None
+    assert series_today["manual_count"] >= 1
+    assert series_today["ai_count"] >= 1
+
+
+def test_bucket_action_mix_series_splits_days():
+    now = datetime.utcnow()
+    yesterday = now - timedelta(days=1)
+    rows = bucket_action_mix_series(
+        [(yesterday, "autonomous_reply"), (now, "manual_reply")],
+        DEFAULT_ACTION_MINUTES,
+        days=14,
+        end=now,
+    )
+    assert len(rows) == 14
+    by_day = {row["date"]: row for row in rows}
+    y_key = yesterday.date().isoformat()
+    t_key = now.date().isoformat()
+    assert by_day[y_key]["ai_count"] == 1
+    assert by_day[y_key]["ai_minutes"] == ACTION_MINUTES["autonomous_reply"]
+    assert by_day[y_key]["manual_count"] == 0
+    assert by_day[t_key]["manual_count"] == 1
+    assert by_day[t_key]["manual_minutes"] == ACTION_MINUTES["manual_reply"]
+    assert by_day[t_key]["ai_count"] == 0

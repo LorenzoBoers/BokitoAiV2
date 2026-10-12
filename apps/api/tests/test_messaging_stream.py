@@ -7,6 +7,17 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+
+async def _reload_run(session: AsyncSession, run_id):
+    """The stream handler closes the request session; read via a sibling."""
+    from app.models.agent import AgentRun
+
+    factory = sessionmaker(session.bind, class_=AsyncSession, expire_on_commit=False)
+    async with factory() as check:
+        return await check.get(AgentRun, run_id)
 
 
 @pytest.mark.asyncio
@@ -57,7 +68,7 @@ async def test_agent_loop_stream_yields_real_deltas():
                 async for event in loop.stream_chat([{"role": "user", "content": "Hi"}]):
                     events.append(event)
 
-    thinking = [e["text"] for e in events if e["type"] == "thinking"]
+    thinking = [e["text"] for e in events if e["type"] == "thinking" and e.get("text")]
     deltas = [e["text"] for e in events if e["type"] == "delta"]
     assert thinking == ["Considering... "]
     assert deltas == ["Hello ", "world"]
@@ -120,6 +131,9 @@ async def test_publish_turn_event_rejects_unknown():
 
     assert published[0][0] == "message.delta"
     assert published[0][1]["signal_id"] == str(sid)
+    assert published[1][0] == "thread.presence"
+    assert published[1][1]["phase"] == "writing"
+    assert "delta" not in published[1][1] or not published[1][1].get("delta")
 
 
 @pytest.mark.asyncio
@@ -249,7 +263,7 @@ async def test_stale_chat_run_is_reclaimed_before_busy(client: AsyncClient, sess
         trigger_id=str(conv_id),
         status="running",
         subject="Stuck",
-        started_at=datetime.utcnow() - timedelta(minutes=5),
+        started_at=datetime.utcnow() - timedelta(minutes=20),
     )
     session_override.add(stuck)
     await session_override.commit()
@@ -271,5 +285,100 @@ async def test_stale_chat_run_is_reclaimed_before_busy(client: AsyncClient, sess
                 body += line
             assert "Ok" in body
 
-    await session_override.refresh(stuck)
-    assert stuck.status != "running"
+    row = await _reload_run(session_override, stuck.id)
+    assert row is not None
+    assert row.status != "running"
+
+
+@pytest.mark.asyncio
+async def test_fresh_orphaned_chat_run_is_reclaimed_without_live_task(
+    client: AsyncClient, session_override
+):
+    """API reload leaves a young running row with no in-process task — do not 409."""
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import select
+
+    from app.models.agent import Agent, AgentRun
+    from app.models.auth import Tenant
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    conv = await client.post("/api/signals/conversations", json={"title": "Ghost busy"}, headers=headers)
+    conv_id = conv.json()["id"]
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id))
+    ).scalars().first()
+    assert agent is not None
+    stuck = AgentRun(
+        tenant_id=tenant.id,
+        agent_id=agent.id,
+        trigger_type="chat",
+        trigger_id=str(conv_id),
+        status="running",
+        subject="Ghost",
+        started_at=datetime.utcnow() - timedelta(seconds=30),
+    )
+    session_override.add(stuck)
+    await session_override.commit()
+
+    async def fake_stream(self, messages, extra_context="", attachments=None):
+        yield {"type": "delta", "text": "Ok"}
+        yield {"type": "done", "text": "Ok", "usage": {}}
+
+    with patch("app.services.agent.loop.AgentLoop.stream_chat", new=fake_stream):
+        async with client.stream(
+            "POST",
+            f"/api/signals/conversations/{conv_id}/stream",
+            json={"content": "Again"},
+            headers=headers,
+        ) as resp:
+            assert resp.status_code == 200
+            body = ""
+            async for line in resp.aiter_lines():
+                body += line
+            assert "Ok" in body
+
+    row = await _reload_run(session_override, stuck.id)
+    assert row is not None
+    assert row.status != "running"
+
+
+@pytest.mark.asyncio
+async def test_chat_turn_live_map_and_reclaim_rule():
+    import asyncio
+    from datetime import datetime, timedelta
+    from uuid import uuid4
+
+    from app.routers import signal_chat as sc
+
+    cid = uuid4()
+    assert sc._chat_turn_is_live(cid) is False
+    assert sc._should_reclaim_chat_run(cid, datetime.utcnow()) is True
+
+    async def sleeper():
+        await asyncio.sleep(60)
+
+    task = asyncio.create_task(sleeper())
+    try:
+        sc._track_chat_turn(cid, task)
+        assert sc._chat_turn_is_live(cid) is True
+        assert sc._should_reclaim_chat_run(cid, datetime.utcnow()) is False
+        assert sc._should_reclaim_chat_run(cid, datetime.utcnow() - timedelta(minutes=20)) is True
+        sc._cancel_live_chat_turn(cid)
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        assert sc._chat_turn_is_live(cid) is False
+        assert sc._should_reclaim_chat_run(cid, datetime.utcnow()) is True
+    finally:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass

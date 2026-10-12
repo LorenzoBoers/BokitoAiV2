@@ -78,6 +78,7 @@ export function sessionChatToInboxMessage(
     activityDetail: true,
     hasActivity: activity.hasActivity,
     turnId: activity.turnId ?? message.turn_id ?? null,
+    inProgress: activity.inProgress || message.in_progress === true,
     receivedAt: createdAt,
     createdAt,
   }
@@ -103,5 +104,34 @@ export function sessionTimelineMessages(
   const extras = optimisticUsers.filter(
     (m) => m.content.trim() && !persistedUserBodies.has(m.content.trim()),
   )
-  return [...rows, ...extras].map((m) => sessionChatToInboxMessage(m, session, currentUserId))
+  return collapseRecentUserEchoes(
+    [...rows, ...extras].map((m) => sessionChatToInboxMessage(m, session, currentUserId)),
+  )
+}
+
+/** Drop a second operator bubble that repeats the previous one within a few seconds. */
+export function collapseRecentUserEchoes<
+  T extends {
+    bodyText?: string | null
+    bodyPreview?: string | null
+    authorUserId?: number | null
+    createdAt?: string | null
+  },
+>(messages: T[], windowMs = 20_000): T[] {
+  const out: T[] = []
+  for (const message of messages) {
+    const body = (message.bodyText || message.bodyPreview || '').trim()
+    const prev = out[out.length - 1]
+    if (prev && message.authorUserId != null && prev.authorUserId != null && body) {
+      const prevBody = (prev.bodyText || prev.bodyPreview || '').trim()
+      if (body === prevBody) {
+        const dt = Math.abs(
+          new Date(message.createdAt || 0).getTime() - new Date(prev.createdAt || 0).getTime(),
+        )
+        if (Number.isFinite(dt) && dt < windowMs) continue
+      }
+    }
+    out.push(message)
+  }
+  return out
 }

@@ -57,6 +57,7 @@ export const foldersRoutes = {
 export const canvasesRoutes = {
   list: (ownerKind: string, ownerId: string) =>
     `/canvases?owner_kind=${encodeURIComponent(ownerKind)}&owner_id=${encodeURIComponent(ownerId)}`,
+  bySignal: (signalId: string) => `/canvases?signal_id=${encodeURIComponent(signalId)}`,
   create: '/canvases',
   byId: (canvasId: string) => `/canvases/${encodeURIComponent(canvasId)}`,
 } as const

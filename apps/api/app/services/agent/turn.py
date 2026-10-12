@@ -14,6 +14,8 @@ Gateway events (topic ``signal:{id}``):
 - ``agent.activity`` ``{stream_id, phase: start|end, item}``
 - ``agent.thinking`` ``{stream_id, item_id, delta}``
 - ``message.delta``  ``{stream_id, segment_id, delta}``
+- ``thread.presence`` same moments, one envelope (thinking/working/writing/idle).
+  Typing for WhatsApp or teammates uses this event too; it is never a row.
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ _OTHER_TOOLS = frozenset(
         "create_decision_request",
         "propose_action",
         "attach_items",
+        "update_progress",
         "list_tags",
         "request_callback",
         "request_customer_verify",
@@ -138,7 +141,7 @@ def _is_error(result: Any) -> bool:
         if result.get("error"):
             return True
         status = str(result.get("status") or "").lower()
-        return status in ("error", "failed", "denied")
+        return status in ("error", "failed", "denied", "timeout", "invalid")
     return False
 
 
@@ -171,6 +174,11 @@ class TurnRecorder:
             return
         await self.start()
         if self._think is None:
+            if self._speech_text.strip():
+                # Already talking. A later think burst (continue loop) must
+                # not close the bubble or open a new waiting row — that
+                # remounts the thinking animation and restarts the stream.
+                return
             self._close_speech()
             self._think = {
                 "id": f"think-{uuid.uuid4().hex[:10]}",
@@ -216,6 +224,15 @@ class TurnRecorder:
     def has_open_speech(self) -> bool:
         return bool(self._speech_text.strip())
 
+    @property
+    def open_speech_text(self) -> str:
+        return self._speech_text.strip()
+
+    def discard_open_speech(self) -> None:
+        """Drop streamed filler so it does not become a bubble next to tools."""
+        self._speech_id = None
+        self._speech_text = ""
+
     def set_speech_text(self, text: str) -> None:
         """Non-streaming loops: one model response's text as a segment."""
         if not text.strip():
@@ -223,6 +240,14 @@ class TurnRecorder:
         if self._speech_id is None:
             self._speech_id = f"seg-{uuid.uuid4().hex[:10]}"
         self._speech_text = text
+
+    async def say(self, text: str) -> None:
+        """A finished bubble the operator can read while the turn continues."""
+        cleaned = (text or "").strip()
+        if not cleaned:
+            return
+        await self.speech(cleaned)
+        self._close_speech()
 
     def _close_speech(self) -> None:
         text = self._speech_text.strip()
@@ -299,6 +324,24 @@ class TurnRecorder:
     def full_text(self) -> str:
         """Every speech segment joined (chat mode keeps them as separate bubbles)."""
         return "\n\n".join(s["text"] for s in self.segments if s.get("text"))
+
+    def live_segments(self) -> list[dict[str, Any]]:
+        """Segments plus the open think/tool/speech so a mid-turn checkpoint
+        matches what the operator sees, not only closed bubbles."""
+        segs = [dict(s) for s in self.segments]
+        pending = list(self._pending)
+        speech = self._speech_text.strip()
+        if speech and self._speech_id:
+            segs.append({"id": self._speech_id, "text": speech, "activity": pending})
+            return segs
+        if pending:
+            if segs:
+                last = dict(segs[-1])
+                last["activity_after"] = [*(last.get("activity_after") or []), *pending]
+                segs[-1] = last
+            else:
+                segs.append({"id": "live", "text": "", "activity": pending})
+        return segs
 
     def all_activity(self) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []

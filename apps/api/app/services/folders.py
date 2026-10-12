@@ -9,9 +9,10 @@ pins it ("Vastzetten").
 
 `resolve` walks the tree with a conversation's effective tags (its own links,
 its action tag, its contact's and company's tags) and returns the deepest
-matching path. ``Signal.project_id`` caches the deepest materialised row on
-that path; the virtual remainder is a tag filter. Ties at the same depth land
-on the lowest common ancestor and raise a Decision in the thread.
+matching path. ``Signal.project_id`` caches the home: the deepest materialised
+row, or on a tie the longest shared ancestor, else the current home when it
+still matches. Lists filter on path tags, so a conversation can appear in
+more than one folder. The home is never asked.
 
 Every write that can change a conversation's tags or the tree calls `refile`
 so the cache never drifts from the rule.
@@ -207,17 +208,15 @@ class FolderTree:
 
     # -- resolution --------------------------------------------------------
 
-    def resolve(self, tag_ids: Iterable[UUID]) -> Placement:
-        """Deepest path whose tags are all present; ties land on the common ancestor."""
+    def matching_paths(self, tag_ids: Iterable[UUID]) -> list[FolderPath]:
+        """Every path whose tags are all present (not only the deepest)."""
         present = {t for t in tag_ids if t in self.tags}
-        best: list[FolderPath] = []
+        found: list[FolderPath] = []
 
         def record(segments: list[PathSegment]) -> None:
             path = FolderPath(list(segments))
-            if not best or path.depth > best[0].depth:
-                best[:] = [path]
-            elif path.depth == best[0].depth and path.key() not in {b.key() for b in best}:
-                best.append(path)
+            if path.key() not in {p.key() for p in found}:
+                found.append(path)
 
         def descend(node: FolderNode, segments: list[PathSegment], inherited: list[FolderNode]) -> None:
             if len(segments) > MAX_DEPTH:
@@ -248,7 +247,6 @@ class FolderTree:
                     record(next_segments)
                     descend(child, next_segments, [])
                 elif child.tag_id is None and child.child_group_id is not None:
-                    # A group folder without its own tag is entered, never landed on.
                     descend(child, segments, [])
 
         for root in self.roots():
@@ -259,12 +257,17 @@ class FolderTree:
                     descend(root, segments, [])
             elif root.child_group_id is not None:
                 descend(root, [], [])
+        return found
 
-        if not best:
+    def resolve(self, tag_ids: Iterable[UUID]) -> Placement:
+        """Deepest path whose tags are all present; ties land on the common ancestor."""
+        paths = self.matching_paths(tag_ids)
+        if not paths:
             return Placement(path=None, candidates=[])
+        deepest = max(p.depth for p in paths)
+        best = [p for p in paths if p.depth == deepest]
         if len(best) == 1:
             return Placement(path=best[0], candidates=best)
-        # Lowest common ancestor of the tied paths.
         prefix: list[PathSegment] = []
         for position in range(min(p.depth for p in best)):
             first = best[0].segments[position]
@@ -277,6 +280,27 @@ class FolderTree:
                 break
             prefix.append(first)
         return Placement(path=FolderPath(prefix), candidates=best)
+
+    def leaf_paths(self, tag_ids: Iterable[UUID]) -> list[FolderPath]:
+        """Matching paths that are not a prefix of a deeper match."""
+        paths = self.matching_paths(tag_ids)
+        return [
+            path
+            for path in paths
+            if not any(
+                other.depth > path.depth and other.key()[: path.depth] == path.key() for other in paths
+            )
+        ]
+
+
+def serialize_folder_paths(tree: FolderTree, tag_ids: Iterable[UUID]) -> list[dict[str, Any]]:
+    """Thread-header chips: every leaf path the conversation matches."""
+    out: list[dict[str, Any]] = []
+    for path in tree.leaf_paths(tag_ids):
+        payload = path.to_dict()
+        payload["tags"] = [tree.tag_name(tag_id) for tag_id in path.tag_ids]
+        out.append(payload)
+    return out
 
 
 async def load_tree(session: AsyncSession, tenant_id: UUID) -> FolderTree:
@@ -361,6 +385,19 @@ async def resolve_signal(
     return tree.resolve(await effective_tag_ids(session, signal))
 
 
+def _home_project_id(placement: Placement, current_id: UUID | None) -> UUID | None:
+    """Deepest path; a same-depth tie uses the shared ancestor, else the current home."""
+    if not placement.candidates:
+        return None
+    if not placement.ambiguous:
+        return placement.project_id
+    if placement.path and placement.path.project_id:
+        return placement.path.project_id
+    if current_id and any(c.project_id == current_id for c in placement.candidates):
+        return current_id
+    return None
+
+
 async def refile(
     session: AsyncSession,
     signal: Signal,
@@ -368,26 +405,24 @@ async def refile(
     tree: FolderTree | None = None,
     actor_type: str = "system",
     actor_id: str = "",
-    ask_on_ambiguity: bool = True,
+    ask_on_ambiguity: bool = False,
 ) -> Placement:
-    """Recompute the conversation's folder from its tags. Flushes, never commits.
+    """Recompute the conversation's home folder from its tags. Flushes, never commits.
 
     A changed folder is logged in the thread timeline. A tie between folders
-    at the same depth parks the conversation on their common ancestor and
-    raises one Decision ("Which folder?") until the tags settle it.
+    at the same depth parks the conversation on their common ancestor, or
+    keeps the current home when that ancestor is empty and the home still
+    matches. Leftover ``Which folder?`` cards are deferred.
     """
     tree = tree or await load_tree(session, signal.tenant_id)
     placement = tree.resolve(await effective_tag_ids(session, signal))
-    new_id = placement.project_id
+    new_id = _home_project_id(placement, signal.project_id)
     current = tree.nodes.get(signal.project_id) if signal.project_id else None
-    if placement.path is None and current is not None and current.tag_id is None:
-        # A folder without a tag is a manual folder: a conversation put there
-        # stays until someone moves it.
+    if not placement.candidates and current is not None and current.tag_id is None:
         new_id = signal.project_id
     if new_id != signal.project_id:
         _set_folder(session, signal, new_id, placement.path, tree, actor_type=actor_type, actor_id=actor_id)
-    if placement.ambiguous and ask_on_ambiguity:
-        await _ask_which_folder(session, signal, placement, tree)
+    await _defer_folder_decisions(session, signal)
     await session.flush()
     return placement
 
@@ -535,6 +570,31 @@ async def file_in_folder(
         await session.flush()
         return Placement(path=path, candidates=[path])
     return placement
+
+
+async def _defer_folder_decisions(session: AsyncSession, signal: Signal) -> None:
+    from app.models.notification import DecisionRequest
+    from app.services.signal_decisions import DISMISSED_OPTION_ID
+
+    rows = list(
+        (
+            await session.execute(
+                select(DecisionRequest).where(
+                    DecisionRequest.signal_id == signal.id,
+                    DecisionRequest.source_type == FOLDER_DECISION_SOURCE,
+                    DecisionRequest.status == "awaiting_human",
+                )
+            )
+        ).scalars()
+    )
+    if not rows:
+        return
+    now = datetime.utcnow()
+    for row in rows:
+        row.status = "deferred"
+        row.chosen_option_id = DISMISSED_OPTION_ID
+        row.resolved_at = now
+        session.add(row)
 
 
 async def _ask_which_folder(session: AsyncSession, signal: Signal, placement: Placement, tree: FolderTree) -> None:

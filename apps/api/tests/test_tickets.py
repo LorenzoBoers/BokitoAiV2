@@ -146,7 +146,7 @@ async def test_folder_follows_from_tags(client: AsyncClient, session_override):
     ticket = filed.json()["ticket"]
     assert ticket["status"] == "open"
     assert ticket["project_id"] == str(acme.id)
-    assert ticket["folder_path"]["label"] == "Acme"
+    assert ticket["folder_path"]["label"] == "acme"
     thread = (await client.get(f"/api/signals/{signal.id}", headers=headers)).json()["thread"]
     assert "acme" in thread["tags"]
 
@@ -409,7 +409,7 @@ async def test_signal_policy_and_backlog_promotion(client: AsyncClient, session_
     assert entry["count"] == 2
     promoted = await client.post(f"/api/categories/backlog/{entry['key']}/promote", headers=headers, json={})
     assert promoted.status_code == 200, promoted.text
-    assert promoted.json()["name"] == "warranty-claim"
+    assert promoted.json()["name"] == "warranty_claim"
     assert promoted.json()["workstream_id"]
     assert (await client.get("/api/categories/backlog", headers=headers)).json()["items"] == []
 

@@ -21,7 +21,9 @@
     "stop": "Stoppen",
     "detach": "Losmaken",
     "deactivate": "Deactiveren",
-    "remove": "Verwijderen"
+    "remove": "Verwijderen",
+    "copy": "Kopiëren",
+    "copied": "Gekopieerd"
   },
   "confirmDialog": {
     "title": "Weet je het zeker?",
@@ -105,9 +107,11 @@
     "metrics": {
       "hint": "Open gesprekken per modus, en resultaten over de afgelopen {{days}} dagen.",
       "activityTitle": "AI-activiteit",
-      "activityHint": "Tokengebruik over de afgelopen {{hours}} uur, en de mix van autonome, geassisteerde en handmatige acties deze week.",
-      "chartAria": "Tokengebruik over de afgelopen {{hours}} uur",
-      "emptyChart": "Nog geen tokengebruik in deze periode.",
+      "activityHint": "Hoeveel werk AI afhandelt versus mensen over de afgelopen {{days}} dagen, en de mix van autonome, geassisteerde en handmatige acties deze week.",
+      "chartAria": "AI versus handmatig werk over de afgelopen {{days}} dagen",
+      "emptyChart": "Nog geen gewogen werk in deze periode.",
+      "seriesAi": "AI",
+      "seriesManual": "Handmatig",
       "mixAria": "Gewogen mix van autonome, geassisteerde en handmatige acties deze week",
       "emptyMix": "Nog geen gewogen acties deze week.",
       "mixWeightHint": "Aantal · gewogen minuten",
@@ -117,6 +121,9 @@
       "editRate": "Concepten aangepast voor verzenden",
       "timeSaved": "Tijd bespaard",
       "timeSavedHint": "Geschatte minuten uit AI-resultaten deze week.",
+      "aiShare": "AI-aandeel",
+      "aiShareHint": "Aandeel van de gewogen acties dat AI deze week afhandelt.",
+      "trendVsPrevious": "ten opzichte van de vorige 7 dagen",
       "resolved": "Afgehandeld",
       "resolvedHint": "Gesloten zonder overname, en 72 uur dicht gebleven.",
       "promotionProgress": "{{done}} van {{target}} concepten ongewijzigd verstuurd"

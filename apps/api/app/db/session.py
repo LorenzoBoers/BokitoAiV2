@@ -9,7 +9,12 @@ from sqlmodel import SQLModel
 from app.config import get_settings
 
 settings = get_settings()
-engine = create_async_engine(settings.database_url, echo=settings.debug, pool_pre_ping=True)
+_engine_kwargs: dict = {"echo": settings.debug, "pool_pre_ping": True}
+if "postgresql" in (settings.database_url or ""):
+    # SSE routes used to hold a checked-out connection for the whole stream.
+    # Give the in-process chat drive room, and fail checkout instead of hanging.
+    _engine_kwargs.update(pool_size=20, max_overflow=20, pool_timeout=10)
+engine = create_async_engine(settings.database_url, **_engine_kwargs)
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 # Serializes concurrent startup migrations (api + worker booting together).

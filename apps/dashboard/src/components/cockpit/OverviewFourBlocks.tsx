@@ -258,20 +258,20 @@ export default function OverviewFourBlocks() {
           if (byHuman !== 0) return byHuman
           return new Date(b.lastMessageAt ?? b.createdAt).getTime() - new Date(a.lastMessageAt ?? a.createdAt).getTime()
         })
-        .slice(0, 8),
+        .slice(0, 5),
       categories: value(1, [] as CategoryRow[]),
       playbookRuns: value(2, [] as WorkstreamRunRow[]),
       jobs: value(3, [] as WorkLogRow[]),
       govern: value(4, [] as PlatformChangeRow[]),
       usage: value(5, null as UsageBreakdown | null),
-      quiet: (value(6, null as Awaited<ReturnType<typeof bokitoGetCockpitSummary>> | null)?.quiet_threads ?? []).map(
-        (row) => ({
+      quiet: (value(6, null as Awaited<ReturnType<typeof bokitoGetCockpitSummary>> | null)?.quiet_threads ?? [])
+        .slice(0, 5)
+        .map((row) => ({
           id: row.id,
           subject: row.subject,
           contactName: row.contact_name,
           lastMessageAt: row.last_message_at,
-        }),
-      ),
+        })),
       agenda: value(7, [] as TimeItem[]),
     })
     setError(settled.some((result) => result.status === 'rejected'))

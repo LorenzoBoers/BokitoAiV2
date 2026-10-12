@@ -74,6 +74,7 @@ import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
 import { stageLabel, type TicketStageKind } from '../../lib/tickets-api'
 import { SplitConversationAction } from './SplitConversationAction'
+import { inferMarketplaceItems, mergeShowcaseItems } from '../../lib/marketplace-mentions'
 import { ProposalItemList } from './ProposalItemPreview'
 import { ActionBundleCard } from './ActionBundleCard'
 import { ProposalActions } from './ProposalActions'
@@ -109,6 +110,7 @@ type MessageItemProps = {
   stack?: BubbleStack
   /** An inline agent proposal on this bubble was answered. */
   onProposalResolved?: (info?: { closed?: boolean }) => void
+  onAnswer?: (answer: { text: string; decisionId: string } | null) => void
   /** Tag name -> kind for bare #name chips in ChatText. */
   chatTags?: ChatTagMap
   /** Reply / Reply all / Forward started from this email bubble. */
@@ -1577,6 +1579,7 @@ export function MessageTimelineItem({
   agentAvatarImageUrl,
   stack = 'single',
   onProposalResolved,
+  onAnswer,
   chatTags,
   onMailAction,
   mailOwnAddresses,
@@ -1896,9 +1899,10 @@ export function MessageTimelineItem({
   const fromEmail = (message.fromAddress || '').trim().toLowerCase()
   const isOwn =
     !isAgentMessage &&
-    ((message.authorUserId != null &&
-      currentUserId != null &&
-      Number(message.authorUserId) === Number(currentUserId)) ||
+    (Boolean(message.decisionResponse) ||
+      (message.authorUserId != null &&
+        currentUserId != null &&
+        Number(message.authorUserId) === Number(currentUserId)) ||
       (Boolean(myEmail) && Boolean(fromEmail) && myEmail === fromEmail) ||
       (Boolean(myEmail) && Boolean(author?.email) && myEmail === author?.email?.toLowerCase()))
   const isWorkspaceMember = Boolean(author) || isOwn
@@ -2207,12 +2211,16 @@ export function MessageTimelineItem({
     .find(Boolean)
     ?.slice(0, 160)
   const proposal = isAgentMessage && threadId ? message.proposal ?? null : null
-  const showcaseItems: ProposalItem[] =
+  const attachedItems: ProposalItem[] =
     message.items?.length
       ? message.items
       : proposal?.items?.length
         ? proposal.items
         : []
+  const showcaseItems = mergeShowcaseItems(
+    attachedItems,
+    isAgentMessage ? inferMarketplaceItems(displayBody || message.bodyText || '') : [],
+  )
   const proposalOpen =
     !!proposal && (proposal.status === 'awaiting_human' || proposal.status === 'pending')
   const proposalMulti = proposal?.selection === 'multiple'
@@ -2460,7 +2468,8 @@ export function MessageTimelineItem({
       actions={actions}
       variant={variant}
       stack={stack}
-      enter={enterAnimation}
+      enter={enterAnimation || Boolean(message.decisionResponse)}
+      bubbleClassName={message.decisionResponse ? 'decision-answer-bubble' : undefined}
     />
   )
 
@@ -2499,6 +2508,7 @@ export function MessageTimelineItem({
             proposal={proposal}
             threadId={threadId}
             onResolved={onProposalResolved}
+            onAnswer={onAnswer}
             picked={proposalPicked}
             setPicked={setProposalPicked}
             chooseOptionRef={chooseOptionRef}

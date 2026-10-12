@@ -49,6 +49,46 @@ function assignRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
   }
 }
 
+/**
+ * Measure wrap height without collapsing the live field. Setting the focused
+ * textarea to 0px grows the thread timeline for a frame; the browser then
+ * clamps scrollTop and the list jumps up on the first keystroke.
+ */
+function measureTextareaContentHeight(el: HTMLTextAreaElement): number {
+  const parent = el.parentElement
+  if (!parent) return el.scrollHeight
+  const cs = window.getComputedStyle(el)
+  const clone = document.createElement('textarea')
+  clone.value = el.value
+  clone.rows = 1
+  clone.tabIndex = -1
+  clone.setAttribute('aria-hidden', 'true')
+  clone.style.cssText = [
+    'position:absolute',
+    'visibility:hidden',
+    'pointer-events:none',
+    'height:0',
+    'min-height:0',
+    'max-height:none',
+    'overflow:hidden',
+    `width:${el.clientWidth}px`,
+    `box-sizing:${cs.boxSizing}`,
+    `padding:${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}`,
+    `border-width:${cs.borderTopWidth} ${cs.borderRightWidth} ${cs.borderBottomWidth} ${cs.borderLeftWidth}`,
+    `border-style:${cs.borderStyle}`,
+    `font:${cs.font}`,
+    `letter-spacing:${cs.letterSpacing}`,
+    `line-height:${cs.lineHeight}`,
+    `white-space:${cs.whiteSpace}`,
+    `word-break:${cs.wordBreak}`,
+    `overflow-wrap:${cs.overflowWrap}`,
+  ].join(';')
+  parent.appendChild(clone)
+  const height = clone.scrollHeight
+  clone.remove()
+  return height
+}
+
 export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function ComposerCard(
   { mode, tone = 'default', value, className, textareaClassName, overlay, highlighter, children, aiFlashNonce, ...textareaProps },
   forwardedRef,
@@ -75,10 +115,11 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
     const el = innerRef.current
     if (!el) return
     const floorPx = clampComposerFloor(mode, floor)
-    el.style.height = '0px'
-    const content = el.scrollHeight
+    const live = el.scrollHeight
+    const content =
+      live > el.offsetHeight + 1 ? live : measureTextareaContentHeight(el)
     const next = Math.min(preset.max, Math.max(preset.min, floorPx, content))
-    el.style.height = `${next}px`
+    if (el.offsetHeight !== next) el.style.height = `${next}px`
     el.style.overflowY = content > preset.max ? 'auto' : 'hidden'
   }, [floor, mode, preset.max, preset.min, value])
 

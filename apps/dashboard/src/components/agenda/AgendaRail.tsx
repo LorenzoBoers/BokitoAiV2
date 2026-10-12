@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, ClipboardList, History, Info, Plus, RefreshCw, Repeat, Users } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
 import { Tip } from '../ui/Tip'
 import { formatAppDate } from '../../lib/app-locale'
 import { connectionsPathWithKind } from '../../lib/integration-kind-url'
-import { AGENDA_LAYERS, addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
+import { addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
 import type { CalendarConnection } from '../../lib/calendars-api'
 import { calendarBrandSlug, syncAllCalendars, listCalendarConnections, utcIso } from '../../lib/calendars-api'
 import { timeAgo } from '../../lib/time-ago'
@@ -139,9 +139,24 @@ export default function AgendaRail(props: Props) {
 
   return (
     <aside className="flex min-h-0 max-h-full flex-col gap-5 overflow-y-auto lg:self-start" data-testid="agenda-rail">
-      <MiniMonth anchor={props.anchor} nowMs={props.nowMs} busyDays={props.busyDays} onPickDay={props.onPickDay} />
+      <section className="space-y-2">
+        <RailHeading>{t('agendaPage.rail.when')}</RailHeading>
+        <MiniMonth anchor={props.anchor} nowMs={props.nowMs} busyDays={props.busyDays} onPickDay={props.onPickDay} />
+      </section>
 
       <div className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-3">
+      <section className="space-y-2">
+        <RailHeading>{t('agendaPage.rail.what')}</RailHeading>
+        <AgendaFolderFilter
+          projectId={props.projectId}
+          tag={props.tag}
+          path={props.path}
+          onPath={props.onPath}
+          onProject={props.onProject}
+          projects={props.projects}
+        />
+      </section>
+
       <section className="space-y-2">
         <RailHeading>{t('agendaPage.rail.who')}</RailHeading>
         <ChoiceSelect
@@ -183,19 +198,11 @@ export default function AgendaRail(props: Props) {
             },
           ]}
         />
-        <AgendaFolderFilter
-          projectId={props.projectId}
-          tag={props.tag}
-          path={props.path}
-          onPath={props.onPath}
-          onProject={props.onProject}
-          projects={props.projects}
-        />
       </section>
 
       <section className="space-y-1">
         <div className="flex items-center justify-between gap-2 pr-1">
-          <RailHeading>{t('agendaPage.rail.show')}</RailHeading>
+          <RailHeading>{t('agendaPage.rail.calendars')}</RailHeading>
           <Link
             to={connectionsPathWithKind('calendar')}
             className="inline-flex h-5 w-5 items-center justify-center rounded text-text-muted hover:bg-bg-elevated hover:text-accent"
@@ -300,27 +307,6 @@ export default function AgendaRail(props: Props) {
             </div>
           )
         })}
-        {AGENDA_LAYERS.map((layer) => {
-          const on = props.layers.has(layer)
-          const Icon = layer === 'tasks' ? ClipboardList : History
-          return (
-            <button
-              key={layer}
-              type="button"
-              role="switch"
-              aria-checked={on}
-              onClick={() => props.onToggleLayer(layer)}
-              className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-            >
-              <ToggleBox on={on} className={LAYER_DOT[layer]} />
-              <Icon className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
-              <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted')}>
-                {t(`agendaPage.layers.${layer}`)}
-              </span>
-              <span className="text-2xs tabular-nums text-text-muted">{props.counts[layer] ?? 0}</span>
-            </button>
-          )
-        })}
         {props.calendars.length > 0 ? (
           <button
             type="button"
@@ -363,18 +349,6 @@ export default function AgendaRail(props: Props) {
             </div>
           </div>
         ) : null}
-      </section>
-
-      <section>
-        <button
-          type="button"
-          onClick={props.onOpenRoutines}
-          className="flex w-full items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-left text-sm hover:bg-bg-elevated"
-        >
-          <Repeat className="h-4 w-4 text-text-muted" aria-hidden />
-          <span className="flex-1 text-text-heading">{t('agendaPage.rail.tasksManage')}</span>
-          <span className="text-xs tabular-nums text-text-muted">{props.routineCount}</span>
-        </button>
       </section>
       </div>
     </aside>
@@ -543,7 +517,6 @@ function AgendaFolderFilter({
   }
   return (
     <div className="space-y-1">
-      <RailHeading>{t('support.section.folders', { defaultValue: 'Folders and tags' })}</RailHeading>
       <button
         type="button"
         onClick={() => onPath({ projectId: '', tag: '', path: '' })}

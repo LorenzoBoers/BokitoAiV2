@@ -9,7 +9,7 @@ related: agents,folders,workstreams,communication,agent-runs,integrations
 
 # How Agenda works
 
-Agenda shows what happened, what is due and what is planned, for people and agents alike. Your connected calendars sit in the same grid, so meetings and work never compete for attention. The side list turns calendars, tasks and activity on and off, including each calendar inside a Google or Outlook account. **Sync** pulls the last 90 days and the next 180 days. Calendars that are off show as **Off**; turning one on starts its sync. **Today** jumps back to the current day, and the search field filters the period you are looking at.
+Agenda shows what happened, what is due and what is planned, for people and agents alike. Your connected calendars sit in the same grid, so meetings and work never compete for attention. The side list is **When** (the mini month), **What** (the same `#` tree as Communication) and **Who** plus your Google or Outlook calendars. **Sync** pulls the last 90 days and the next 180 days. Calendars that are off show as **Off**; turning one on starts its sync. **Today** jumps back to the current day, and the search field filters the period you are looking at.
 
 ## See what happens when
 
@@ -17,8 +17,8 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 *Week shows meetings from connected calendars, tasks and activity per day.*
 
 1. Open **Agenda**. The help icon next to the title in the top bar opens this guide. **Week** is the default; switch to **Day**, **Month** or **List** on the same row as **New**, or press D, W, M or L.
-2. Use **Today** and the arrows (or the arrow keys) to move through time. In **List**, the current day starts at the top; scroll up for earlier days, pick a date on the mini calendar on the left, or use **Back to top** after you scroll down. **Who** and **Show** stay on screen while the list scrolls.
-3. On the left, choose **Who** (**Everyone**, **Only me**, **People**, **Agents**) and a folder or tag under **Folders and tags**. That same tree filters Day, Week, Month and List. Under **Show**, turn on each connected calendar, plus **Tasks** and **Activity**. The plus next to **Show** opens Connections filtered to calendars, so you can connect another Google or Outlook account.
+2. Use **Today** and the arrows (or the arrow keys) to move through time. In **List**, the current day starts at the top; scroll up for earlier days, pick a date on the mini calendar under **When**, or use **Back to top** after you scroll down. The rail stays on screen while the list scrolls.
+3. On the left, **When** is the mini month. **What** is the same `#` tree as Communication: one active branch filters tasks and activity that hang on a conversation. Connected calendars ignore that filter. Under **Who**, choose **Everyone**, **Only me**, a person or an agent, then turn each Google or Outlook calendar on or off. The plus next to **Calendars** opens Connections filtered to calendars.
 4. Choose an item to open its details on the right, with who is responsible (a person, a team or an agent), and links to the conversation, project or agent.
 
 ## Act on what needs attention

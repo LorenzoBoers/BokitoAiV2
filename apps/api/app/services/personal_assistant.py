@@ -113,6 +113,7 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "create_decision_request",
     "propose_action",
     "attach_items",
+    "update_progress",
     "list_tags",
     "delete_tag",
     "create_queue_item",

@@ -6,7 +6,12 @@ import pytest
 from fastapi import HTTPException
 from httpx import AsyncClient
 
-from app.services.project_canvas_compile import CanvasCompileError, compile_canvas, parse_source
+from app.services.project_canvas_compile import (
+    CanvasCompileError,
+    _collect_bindings,
+    compile_canvas,
+    parse_source,
+)
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
@@ -41,6 +46,153 @@ export default function Canvas() {
     again, tree2 = compile_canvas(source=compiled_source)
     assert tree2["type"] == "Stack"
     assert again
+
+
+def test_compile_inlines_const_bindings():
+    source = """
+import { Stack, BarChart, Stat } from "bokito/canvas"
+export default function Canvas() {
+  const total = 12500
+  const randomData = {
+    sales: [
+      { month: "Jan", value: 4500 },
+      { month: "Feb", value: 5200 }
+    ]
+  }
+  return (
+    <Stack>
+      <Stat title="Omzet" value={total} />
+      <BarChart title="Sales" series={randomData.sales} />
+    </Stack>
+  )
+}
+"""
+    _source, tree = compile_canvas(source=source)
+    stat, chart = tree["children"]
+    assert stat["props"]["value"] == 12500
+    points = chart["props"]["series"][0]["points"]
+    assert points[0] == {"x": "Jan", "y": 4500}
+    assert points[1] == {"x": "Feb", "y": 5200}
+
+
+def test_collect_bindings_always_advances():
+    source = "const x =\nconst x =\nreturn (<Stack />)"
+    assert _collect_bindings(source) == {}
+
+
+def test_compile_drops_jsx_comment_braces():
+    source = """
+import { Stack, Heading, Callout } from "bokito/canvas"
+export default function C() {
+  return (
+    <Stack>
+      {/* Header */}
+      <Heading>Test Dashboard</Heading>
+      {}
+      <Callout>Body</Callout>
+    </Stack>
+  )
+}
+"""
+    _source, tree = compile_canvas(source=source)
+    types = [child["type"] for child in tree["children"]]
+    assert types == ["Heading", "Callout"]
+    assert all(
+        (child.get("props") or {}).get("text") not in ("{", "}", "{}")
+        for child in tree["children"]
+    )
+
+
+def test_compile_unrolls_const_map():
+    source = """
+import { Stack, Stat, Card } from "bokito/canvas"
+export default function C() {
+  const rows = [{ label: "A", value: 1 }, { label: "B", value: 2 }]
+  return (
+    <Stack>
+      {rows.map((row, index) => (
+        <Card key={index}>
+          <Stat label={row.label} value={row.value} />
+        </Card>
+      ))}
+    </Stack>
+  )
+}
+"""
+    _source, tree = compile_canvas(source=source)
+    assert [child["type"] for child in tree["children"]] == ["Card", "Card"]
+    assert tree["children"][0]["children"][0]["props"]["label"] == "A"
+    assert tree["children"][1]["children"][0]["props"]["value"] == 2
+
+
+def test_compile_normalizes_chart_data_and_table_rows():
+    source = """
+import { Stack, BarChart, Table } from "bokito/canvas"
+export default function C() {
+  const sales = [{ month: "Jan", value: 10 }, { month: "Feb", value: 20 }]
+  const tableData = [{ name: "Alpha", status: "Open" }]
+  return (
+    <Stack>
+      <BarChart data={sales} x="month" y="value" title="Sales" />
+      <Table
+        data={tableData}
+        columns={[{ key: "name", header: "Name" }, { key: "status", header: "Status" }]}
+      />
+    </Stack>
+  )
+}
+"""
+    _source, tree = compile_canvas(source=source)
+    chart, table = tree["children"]
+    assert chart["props"]["series"][0]["points"][1] == {"x": "Feb", "y": 20}
+    assert table["props"]["columns"] == ["Name", "Status"]
+    assert table["props"]["rows"] == [["Alpha", "Open"]]
+
+
+def test_compile_typical_dashboard_with_map_and_data_charts():
+    source = """
+import { Stack, Grid, Row, Heading, Callout, Divider, Stat, Table, BarChart, Card, Badge } from "bokito/canvas"
+const salesData = [{ month: "Januari", value: 4500 }, { month: "Februari", value: 5200 }]
+const stats = [{ label: "Omzet", value: "€ 245.000", trend: "12%" }]
+const tableData = [{ name: "Project Alpha", status: "Actief" }]
+export default function Canvas() {
+  return (
+    <Stack>
+      <Heading level={1}>Test Dashboard</Heading>
+      <Row>
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <Stat label={stat.label} value={stat.value} trend={stat.trend} />
+          </Card>
+        ))}
+      </Row>
+      <BarChart data={salesData} x="month" y="value" title="Omzet" />
+      <Table
+        data={tableData}
+        columns={[{ key: "name", header: "Project" }, { key: "status", header: "Status" }]}
+      />
+      <Callout type="info">Testdashboard</Callout>
+      <Badge type="primary">Primary</Badge>
+    </Stack>
+  )
+}
+"""
+    _source, tree = compile_canvas(source=source)
+    types = [child["type"] for child in tree["children"]]
+    assert types[:4] == ["Heading", "Row", "BarChart", "Table"]
+    row = tree["children"][1]
+    assert row["children"][0]["children"][0]["props"]["label"] == "Omzet"
+    assert tree["children"][2]["props"]["series"][0]["points"][0]["x"] == "Januari"
+    assert tree["children"][3]["props"]["rows"] == [["Project Alpha", "Actief"]]
+    assert tree["children"][4]["props"]["tone"] == "info"
+
+
+def test_compile_rejects_unbound_prop_expression():
+    with pytest.raises(CanvasCompileError, match="Unsupported expression 'randomData'"):
+        parse_source(
+            'import { Stat } from "bokito/canvas"\n'
+            "export default function C() { return <Stat value={randomData} /> }"
+        )
 
 
 def test_compile_rejects_fetch_and_foreign_import():
@@ -101,6 +253,9 @@ async def test_project_canvas_nodes_and_conflict(client: AsyncClient, session_ov
     assert body["refresh_cadence"] == "hourly"
     assert body["refresh_minutes"] == 60
     assert body["refresh_trigger_id"]
+    assert body["signal_id"]
+    assert body["thread"]["id"] == body["signal_id"]
+    assert body["thread"]["path"]
 
     source = """
 import { Stack, Stat, Heading } from "bokito/canvas"
@@ -327,8 +482,72 @@ async def test_same_title_reuses_canvas_and_agent_create_stays_in_chat(
     )
     canvas = applied["canvas"]
     assert canvas.get("reused") is not True
+    assert canvas["signal_id"]
+    assert canvas["thread"]["id"] == canvas["signal_id"]
     quiet = await session_override.get(Trigger, UUID(canvas["refresh_trigger_id"]))
     assert quiet is not None
-    assert quiet.signal_id is None
+    assert quiet.signal_id is not None
+    assert str(quiet.signal_id) == canvas["signal_id"]
     assert quiet.next_run_at is not None
     assert quiet.next_run_at > datetime.utcnow()
+
+
+@pytest.mark.asyncio
+async def test_create_canvas_uses_current_thread_or_opens_new(client, session_override):
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.models.signal import Signal
+    from app.services.project_canvas import create_canvas
+
+    headers = await _auth_headers(client)
+    project_id = await _make_project(client, headers, "canvas-home-thread")
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    chat = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="agent_channel",
+        subject="Planning call",
+        status="open",
+        priority="normal",
+    )
+    session_override.add(chat)
+    await session_override.commit()
+    await session_override.refresh(chat)
+
+    home = await create_canvas(
+        session_override,
+        tenant.id,
+        owner_kind="project",
+        owner_id=UUID(project_id),
+        title="From this chat",
+        kick=False,
+        signal_id=chat.id,
+    )
+    assert home["signal_id"] == str(chat.id)
+    assert home["thread"]["id"] == str(chat.id)
+    assert home["thread"]["path"]
+
+    listed = await client.get(
+        f"/api/workforce/canvases?signal_id={chat.id}",
+        headers=headers,
+    )
+    assert listed.status_code == 200, listed.text
+    ids = {item["id"] for item in listed.json()["items"]}
+    assert home["id"] in ids
+
+    other = await create_canvas(
+        session_override,
+        tenant.id,
+        owner_kind="project",
+        owner_id=UUID(project_id),
+        title="Own thread",
+        kick=False,
+        signal_id=chat.id,
+        new_thread=True,
+    )
+    assert other["signal_id"]
+    assert other["signal_id"] != str(chat.id)
+    assert other["thread"]["id"] == other["signal_id"]

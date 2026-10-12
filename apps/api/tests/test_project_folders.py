@@ -37,11 +37,13 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
     orders = await _project(client, headers, "Werkbonnen", "werkbonnen", parent_id=admin["id"])
     same_name = await _project(client, headers, "Facturen", "facturen", parent_id=orders["id"])
     assert same_name["parent_id"] == orders["id"]
+    assert invoices["name"] == "facturen" and same_name["name"] == "facturen"
+    assert invoices["tag_id"] == same_name["tag_id"]
 
     clash = await client.post(
         "/api/folders",
         headers=headers,
-        json={"name": "Other", "slug": "facturen", "autonomous_scope": "ops", "parent_id": admin["id"]},
+        json={"name": "Facturen", "slug": "facturen", "autonomous_scope": "ops", "parent_id": admin["id"]},
     )
     assert clash.status_code == 409
 
@@ -55,13 +57,13 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
     detail = await client.get(f"/api/folders/{admin['id']}", headers=headers)
     assert detail.status_code == 200
     names = {child["name"] for child in detail.json()["children"]}
-    assert names == {"Facturen", "Werkbonnen"}
+    assert names == {"facturen", "werkbonnen"}
     assert detail.json()["child_count"] == 2
 
     listed = await client.get("/api/folders", headers=headers)
     assert listed.status_code == 200
     rows = listed.json()
-    roots = [row for row in rows if row["slug"] == "administratie-folders"]
+    roots = [row for row in rows if row["slug"] == "administratie"]
     assert roots and roots[0]["parent_id"] is None
     assert roots[0]["child_count"] == 2
 
@@ -106,7 +108,7 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
         "DELETE",
         f"/api/folders/{admin['id']}",
         headers=headers,
-        json={"confirm_name": "Administratie"},
+        json={"confirm_name": "administratie"},
     )
     assert removed.status_code == 200
     gone = await client.get(f"/api/folders/{invoices['id']}", headers=headers)

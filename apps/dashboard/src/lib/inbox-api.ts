@@ -199,6 +199,8 @@ export type InboxThread = {
   tags?: string[]
   /** Tags inherited from the contact or company; not removable on the thread. */
   inheritedTags?: string[]
+  /** Leaf folder paths this conversation matches (`#acme / #facturen`). */
+  folderPaths?: { label: string; projectId: string | null; tags: string[] }[]
   lastMessageAt: string | null
   hasUnread: boolean
   isPinned: boolean
@@ -281,6 +283,8 @@ export type InboxMessage = {
   hasActivity?: boolean
   /** Agent turn this bubble belongs to (live stream id). */
   turnId?: string | null
+  /** True while the agent is still writing this turn onto the thread. */
+  inProgress?: boolean
   /** Approval the agent attached to this bubble (buttons render under it). */
   proposal?: MessageProposal | null
   /** Showcase cards on any agent bubble (with or without a proposal). */
@@ -868,6 +872,23 @@ function normalizeThread(row: unknown): InboxThread | null {
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : undefined,
     inheritedTags: Array.isArray(raw.inherited_tags)
       ? raw.inherited_tags.filter((t): t is string => typeof t === 'string')
+      : undefined,
+    folderPaths: Array.isArray(raw.folder_paths)
+      ? raw.folder_paths.flatMap((item) => {
+          if (!item || typeof item !== 'object') return []
+          const row = item as Record<string, unknown>
+          const tags = Array.isArray(row.tags)
+            ? row.tags.filter((name): name is string => typeof name === 'string' && Boolean(name))
+            : []
+          if (!tags.length) return []
+          return [
+            {
+              label: typeof row.label === 'string' ? row.label : tags.map((name) => `#${name}`).join(' / '),
+              projectId: typeof row.project_id === 'string' ? row.project_id : null,
+              tags,
+            },
+          ]
+        })
       : undefined,
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),

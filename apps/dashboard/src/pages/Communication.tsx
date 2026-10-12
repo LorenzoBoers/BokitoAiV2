@@ -134,6 +134,8 @@ export default function Communication() {
   const { counts, refresh: refreshNavBadges } = useNavBadges()
   const { sendReady, loading: channelStatusLoading } = useChannelStatus()
   const [dismissingTips, setDismissingTips] = useState(false)
+  /** Session hide for the tips callout (X) without permanently dismissing tips. */
+  const [tipsBannerHidden, setTipsBannerHidden] = useState(false)
   const currentUserId = user?.id ?? null
 
   const leaf = useMemo<HubLeaf>(
@@ -1581,7 +1583,7 @@ export default function Communication() {
                     }
                   />
                 ) : null}
-                {counts.noReplySuggestions > 0 ? (
+                {counts.noReplySuggestions > 0 && !tipsBannerHidden ? (
                   <Callout
                     tone="ai"
                     className="rounded-none border-x-0 border-t-0"
@@ -1589,6 +1591,8 @@ export default function Communication() {
                       defaultValue: '{{count}} “No reply needed” tips wait in decisions',
                       count: counts.noReplySuggestions,
                     })}
+                    dismissLabel={t('banners.hideTips', { defaultValue: 'Hide' })}
+                    onDismiss={() => setTipsBannerHidden(true)}
                     actions={
                       <div className="flex items-center gap-2">
                         <Link
@@ -1608,6 +1612,7 @@ export default function Communication() {
                                 setDismissingTips(true)
                                 try {
                                   await dismissNoReplySuggestions(token)
+                                  setTipsBannerHidden(true)
                                   await refreshNavBadges()
                                   void refreshThreads()
                                 } finally {

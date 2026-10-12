@@ -192,11 +192,14 @@ export function useAiChatStream(token: string | null) {
         flushDeltasNow()
         streamingRef.current = false
         abortRef.current = null
+        const keepOptimistic = pendingPartsRef.current.length > 0
         setStream((prev) => ({
           text: '',
           thinking: '',
-          active: pendingPartsRef.current.length > 0,
-          optimisticUsers: prev.optimisticUsers,
+          active: keepOptimistic,
+          // Drop before the transcript refresh so the persisted bubble
+          // does not sit next to the local one.
+          optimisticUsers: keepOptimistic ? prev.optimisticUsers : [],
         }))
         committedStreamRef.current = { text: '', thinking: '' }
         await onFinishedRef.current?.()

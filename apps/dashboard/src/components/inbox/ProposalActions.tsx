@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, MoreHorizontal, X } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import {
-  decisionOptionLabelKey,
   isPrimaryDecisionOption,
   isRejectDecisionOption,
   parseDecisionOptions,
@@ -18,7 +17,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { useDecisionResolve } from './useDecisionResolve'
+import { useDecisionResolve, type DecisionResolvedInfo } from './useDecisionResolve'
+import {
+  displayDecisionOptionLabel,
+  labelsForChosenOptions,
+  ProposalChoiceRest,
+} from './ProposalChoiceRest'
 
 /** Free-text answer for a decision option with `input_type: text`. */
 export function DecisionTextAnswer({
@@ -61,42 +65,33 @@ export function DecisionTextAnswer({
   )
 }
 
-function timeLabel(iso: string | null | undefined, locale: string): string {
-  if (!iso) return ''
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  const sameDay = date.toDateString() === new Date().toDateString()
-  return sameDay
-    ? date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
-
 function optionLabel(option: DecisionOption, t: (key: string) => string): string {
-  const key = decisionOptionLabelKey(option)
-  return key ? t(`decisionCard.options.${key}`) : option.label
+  return displayDecisionOptionLabel(option, t)
 }
 
 /**
  * The buttons of an agent proposal, under the agent's bubble. Once answered
- * they collapse into one quiet status line (the chosen answer is a chat bubble).
+ * the options stay visible as static chips; the chosen label is a user bubble.
  */
 export function ProposalActions({
   proposal,
   threadId,
   onResolved,
+  onAnswer,
   picked,
   setPicked,
   chooseOptionRef,
 }: {
   proposal: MessageProposal
   threadId: ThreadId
-  onResolved?: (info?: { closed?: boolean }) => void
+  onResolved?: (info?: DecisionResolvedInfo) => void
+  onAnswer?: (answer: { text: string; decisionId: string } | null) => void
   picked?: string[]
   setPicked?: (next: string[] | ((prev: string[]) => string[])) => void
   /** Optional ref filled with choose-by-option-id for showcase clicks. */
   chooseOptionRef?: { current: ((optionId: string) => void) | null }
 }) {
-  const { t, i18n } = useTranslation('communication')
+  const { t } = useTranslation('communication')
   const options = useMemo(() => parseDecisionOptions(proposal.options), [proposal.options])
   const multi = proposal.selection === 'multiple'
   const [localPicked, setLocalPicked] = useState<string[]>([])
@@ -123,6 +118,7 @@ export function ProposalActions({
     decisionId: proposal.decisionId,
     resolved: serverResolved,
     onResolved,
+    onAnswer,
   })
   const learnFrom = options.find((o) => o.learn)?.learn ?? null
   const approveOptionId =
@@ -150,25 +146,23 @@ export function ProposalActions({
 
   const status = outcome?.status ?? proposal.status
   if (outcome || serverResolved) {
-    const when = timeLabel(outcome?.at ?? proposal.resolvedAt, i18n.language)
-    let line = t('proposal.status.answered')
-    if (status === 'deferred' && (outcome?.optionId ?? proposal.chosenOptionId) === 'superseded') {
-      line = t('proposal.status.superseded')
-    } else if (status === 'missing') {
-      line = t('proposal.status.missing')
-    } else if (status === 'deferred' || status === 'rejected') {
-      // Keep a short cue; the operator bubble carries the label.
-      line = status === 'rejected' ? t('proposal.status.rejected') : t('proposal.status.setAside')
-    }
-    const Icon = status === 'approved' ? Check : status === 'rejected' ? X : null
+    const chosenIds =
+      outcome?.optionIds?.length
+        ? outcome.optionIds
+        : outcome?.optionId
+          ? [outcome.optionId]
+          : proposal.chosenOptionIds.length
+            ? proposal.chosenOptionIds
+            : proposal.chosenOptionId
+              ? [proposal.chosenOptionId]
+              : []
     return (
-      <p className="flex items-center gap-1.5 text-xs text-text-muted" data-testid="proposal-status">
-        {Icon ? <Icon size={12} aria-hidden /> : null}
-        <span>
-          {line}
-          {when ? ` · ${when}` : ''}
-        </span>
-      </p>
+      <ProposalChoiceRest
+        options={options}
+        chosenIds={chosenIds}
+        replaced={status === 'deferred' && (chosenIds[0] ?? '') === 'superseded'}
+        missing={status === 'missing'}
+      />
     )
   }
 
@@ -228,6 +222,7 @@ export function ProposalActions({
                 optionId: selected[0],
                 optionIds: selected,
                 successLabel: t('proposal.confirmed'),
+                answerText: labelsForChosenOptions(options, selected, t).join(', '),
               })
             }
           >

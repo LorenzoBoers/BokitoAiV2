@@ -75,6 +75,12 @@ describe('parseChatInline', () => {
     expect(kinds(parseChatInline('Hi **bol', { streaming: true }))).toEqual(['text', 'bold'])
     expect(parseChatInline('Hi **bol')).toEqual([{ type: 'text', text: 'Hi **bol' }])
   })
+
+  it('chips catalog connector names as in-app links', () => {
+    const nodes = parseChatInline('Koppel Moneybird en Exact Online.')
+    expect(nodes.find((n) => n.type === 'link' && n.href === '/connections?connect=moneybird')).toBeTruthy()
+    expect(nodes.find((n) => n.type === 'link' && n.href === '/connections?connect=exact')).toBeTruthy()
+  })
 })
 
 describe('parseChatText', () => {

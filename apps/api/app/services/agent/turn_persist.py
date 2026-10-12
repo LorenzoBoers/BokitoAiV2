@@ -425,15 +425,18 @@ def _attach_showcase_items(
     turn_messages: list[SignalMessage] | None = None,
 ) -> None:
     """Write pending attach_items (and proposal items) onto the last bubble."""
-    from app.services.proposal_items import take_attach_items
+    from app.services.proposal_items import infer_marketplace_items_from_text, take_attach_items
 
     bubble_meta = _json_meta(last_bubble)
     proposal = bubble_meta.get("proposal") if isinstance(bubble_meta.get("proposal"), dict) else {}
+
     pending = take_attach_items(signal_id)
     from_activity = _items_from_attach_activity(turn_messages or [last_bubble])
     proposal_items = proposal.get("items") if isinstance(proposal.get("items"), list) else []
     existing = bubble_meta.get("items") if isinstance(bubble_meta.get("items"), list) else []
-    items = _merge_items(existing, pending, extra_items, from_activity, proposal_items)
+    speech = "\n".join((m.body_text or "") for m in (turn_messages or [last_bubble]))
+    inferred = infer_marketplace_items_from_text(speech)
+    items = _merge_items(existing, pending, extra_items, from_activity, proposal_items, inferred)
     if not items:
         return
     bubble_meta["items"] = items
@@ -548,6 +551,66 @@ def _attach_proposal(
     card.metadata_json = json.dumps(card_meta, default=str)
 
 
+async def upsert_turn_checkpoint(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    message_id: UUID | None,
+    author_agent_id: UUID | None,
+    turn_id: str | None,
+    segments: list[dict[str, Any]],
+    metadata: dict[str, Any] | None = None,
+    fallback_text: str = "Working on this.",
+) -> SignalMessage:
+    """Write the open turn onto one thread message so a reload shows the work.
+
+    One row per turn while it runs; ``persist_agent_turn`` later replaces it
+    with the finished bubbles. Caller commits."""
+    from app.gateway.publish import publish_signal_message
+    from app.services.assistant_threads import append_signal_chat_message
+    from app.services.agent.style import strip_emoji
+
+    planned = plan_turn_messages(segments, CHAT, fallback_text=fallback_text)
+    text = "\n\n".join(b["text"] for b in planned if (b.get("text") or "").strip()) or fallback_text
+    activity: list[dict[str, Any]] = []
+    after: list[dict[str, Any]] = []
+    for bubble in planned:
+        activity.extend(bubble.get("activity") or [])
+        after.extend(bubble.get("activity_after") or [])
+    speech = strip_emoji(text) or text
+    meta: dict[str, Any] = dict(metadata or {})
+    if turn_id:
+        meta["turn_id"] = turn_id
+    meta["in_progress"] = True
+    if activity:
+        meta["activity"] = activity
+    if after:
+        meta["activity_after"] = after
+
+    existing = await session.get(SignalMessage, message_id) if message_id else None
+    if existing is not None and existing.signal_id == signal.id:
+        existing.body_text = speech
+        existing.body_preview = speech[:200]
+        existing.metadata_json = json.dumps(meta, default=str)
+        existing.author_agent_id = author_agent_id or existing.author_agent_id
+        now = datetime.utcnow()
+        signal.last_message_at = now
+        signal.updated_at = now
+        await session.flush()
+        await publish_signal_message(signal, existing)
+        return existing
+
+    message = await append_signal_chat_message(
+        session,
+        signal,
+        role="assistant",
+        content=speech,
+        author_agent_id=author_agent_id,
+        metadata=meta,
+    )
+    return message
+
+
 async def persist_agent_turn(
     session: AsyncSession,
     signal: Signal,
@@ -562,11 +625,14 @@ async def persist_agent_turn(
     fallback_text: str = "Done.",
     append_to_last: str = "",
     showcase_items: list[dict[str, Any]] | None = None,
+    replace_message_id: UUID | None = None,
 ) -> list[SignalMessage]:
     """Append the turn's bubbles to the thread. ``first_metadata`` (AI
     disclosure) lands on the first message, ``final_metadata`` (usage,
     thinking) on the last; ``append_to_last`` extends the last bubble's text.
-    Caller commits."""
+    ``replace_message_id`` updates an in-progress checkpoint instead of
+    adding a second row. Caller commits."""
+    from app.gateway.publish import publish_signal_message
     from app.services.assistant_threads import append_signal_chat_message
     from app.services.agent.mention_repair import repair_mentions
     from app.services.agent.style import strip_emoji
@@ -575,6 +641,7 @@ async def persist_agent_turn(
     if append_to_last:
         planned[-1]["text"] = f"{planned[-1]['text']}{append_to_last}"
     messages: list[SignalMessage] = []
+    replaced = False
     for index, bubble in enumerate(planned):
         meta: dict[str, Any] = dict(metadata or {})
         if index == 0 and first_metadata:
@@ -591,17 +658,33 @@ async def persist_agent_turn(
             meta["bubble_index"] = index
         if index == len(planned) - 1 and final_metadata:
             meta.update(final_metadata)
+        meta.pop("in_progress", None)
         # AI speech only — never strip operator/customer content here.
         speech = strip_emoji(bubble["text"] or "") or (bubble["text"] or "")
         speech = await repair_mentions(session, signal.tenant_id, speech)
-        msg = await append_signal_chat_message(
-            session,
-            signal,
-            role="assistant",
-            content=speech,
-            author_agent_id=author_agent_id,
-            metadata=meta,
-        )
+        existing = None
+        if not replaced and replace_message_id:
+            existing = await session.get(SignalMessage, replace_message_id)
+            if existing is None or existing.signal_id != signal.id:
+                existing = None
+        if existing is not None:
+            existing.body_text = speech
+            existing.body_preview = speech[:200]
+            existing.metadata_json = json.dumps(meta, default=str)
+            existing.author_agent_id = author_agent_id or existing.author_agent_id
+            await session.flush()
+            await publish_signal_message(signal, existing)
+            msg = existing
+            replaced = True
+        else:
+            msg = await append_signal_chat_message(
+                session,
+                signal,
+                role="assistant",
+                content=speech,
+                author_agent_id=author_agent_id,
+                metadata=meta,
+            )
         if messages:
             prev_t = messages[-1].received_at or messages[-1].created_at
             if (msg.received_at or msg.created_at) <= prev_t:

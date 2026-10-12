@@ -252,14 +252,16 @@ function canvasHref(item: ProposalItem): string | null {
 }
 
 /** Snapshot preview under an agent reply. The whole card opens that canvas. */
-function CanvasShowcaseCard({
+export function CanvasShowcaseCard({
   item,
   onSelect,
   selected,
+  compact = false,
 }: {
   item: ProposalItem
   onSelect?: (item: ProposalItem) => void
   selected?: boolean
+  compact?: boolean
 }) {
   const { t } = useTranslation('communication')
   const [tree, setTree] = useState<CanvasNode | null>(item.preview ?? null)
@@ -299,8 +301,16 @@ function CanvasShowcaseCard({
         </div>
       </div>
       {preview ? (
-        <div className="relative h-36 overflow-hidden border-t border-border/50 bg-bg-input/30">
-          <div className="pointer-events-none origin-top-left scale-[0.62] p-3" style={{ width: '160%' }}>
+        <div
+          className={cn(
+            'relative overflow-hidden border-t border-border/50 bg-bg-input/30',
+            compact ? 'h-24' : 'h-36',
+          )}
+        >
+          <div
+            className="pointer-events-none origin-top-left p-3"
+            style={{ width: '160%', transform: compact ? 'scale(0.48)' : 'scale(0.62)' }}
+          >
             {renderCanvasTree(preview)}
           </div>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-bg-surface to-transparent" />

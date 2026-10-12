@@ -5,6 +5,20 @@ import { renderCanvasTree } from './render'
 import type { CanvasNode } from './types'
 
 describe('renderCanvasTree', () => {
+  it('hides leftover JSX brace text', () => {
+    const tree: CanvasNode = {
+      type: 'Stack',
+      children: [
+        { type: 'Text', props: { text: '{}' } },
+        { type: 'Heading', props: { text: 'Test Dashboard', level: 1 } },
+        { type: 'Text', props: { text: '{}' } },
+      ],
+    }
+    render(<>{renderCanvasTree(tree)}</>)
+    expect(screen.getByText('Test Dashboard')).toBeTruthy()
+    expect(screen.queryByText('{}')).toBeNull()
+  })
+
   it('renders Stat and Table', () => {
     const tree: CanvasNode = {
       type: 'Stack',
@@ -48,6 +62,22 @@ describe('renderCanvasTree', () => {
     render(<>{renderCanvasTree(tree)}</>)
     expect(screen.getByText('Throughput')).toBeTruthy()
     expect(screen.getByText('W1')).toBeTruthy()
+  })
+
+  it('renders row-shaped series as one chart', () => {
+    const tree: CanvasNode = {
+      type: 'BarChart',
+      props: {
+        title: 'Omzet',
+        series: [
+          { month: 'Jan', value: 10 },
+          { month: 'Feb', value: 20 },
+        ],
+      },
+    }
+    render(<>{renderCanvasTree(tree)}</>)
+    expect(screen.getByText('Omzet')).toBeTruthy()
+    expect(screen.getByText('Jan')).toBeTruthy()
   })
 
   it('ignores unknown types and still renders children', () => {

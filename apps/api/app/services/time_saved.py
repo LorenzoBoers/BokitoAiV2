@@ -1,7 +1,7 @@
 """Estimated operator minutes saved from AI actions (platform credit matrix).
 
 ``time_saved = Σ count(action) × minutes(action)`` for AI outcomes only.
-Manual human replies are counted for the Overview mix pie but do not add to
+Manual human replies are counted for the Overview mix chart but do not add to
 time saved. Weights live in ``platform_settings`` (staff Ops) with code defaults.
 """
 
@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import DecisionRequest
@@ -35,11 +35,11 @@ DEFAULT_ACTION_MINUTES: dict[str, int] = {
     "no_reply_confirmed": 7,
     "ticket_filed_by_agent": 7,
     "flow_run_completed": 10,
-    # Human outbound (not time saved — effort weight for the action mix pie).
+    # Human outbound (not time saved — effort weight for the action mix chart).
     "manual_reply": 8,
 }
 
-# Which AI-handling mode each credit rolls up into for the Overview pie.
+# Which AI-handling mode each credit rolls up into for the Overview mix.
 ACTION_MODES: dict[str, str] = {
     "autonomous_reply": "autonomous",
     "assisted_draft_unchanged": "assisted",
@@ -166,30 +166,63 @@ def action_weight_catalog(minutes: dict[str, int] | None = None) -> list[dict[st
     ]
 
 
-async def compute_time_saved(
-    session: AsyncSession, tenant_id: UUID, *, days: int = 7
-) -> dict[str, Any]:
-    """Sum action credits for the last ``days`` days."""
-    days = max(1, min(int(days), 90))
-    since = datetime.utcnow() - timedelta(days=days)
-    minutes_each = await load_action_minutes(session)
+def _naive_dt(value: datetime | None) -> datetime | None:
+    if value is None or not hasattr(value, "replace"):
+        return value
+    if getattr(value, "tzinfo", None) is not None:
+        return value.replace(tzinfo=None)
+    return value
 
-    autonomous_replies = int(
-        (
-            await session.execute(
-                select(func.count()).select_from(SignalMessage).where(
-                    SignalMessage.tenant_id == tenant_id,
-                    SignalMessage.auto_sent.is_(True),
-                    SignalMessage.created_at >= since,
-                )
+
+def _event_day(value: datetime | None) -> str | None:
+    when = _naive_dt(value)
+    if when is None:
+        return None
+    return when.date().isoformat() if hasattr(when, "date") else str(when)[:10]
+
+
+def _classify_draft(status: str | None, option_id: str | None) -> str | None:
+    option = (option_id or "").strip()
+    if option in SKIP_DRAFT_OPTIONS:
+        return None
+    if status == "deferred" and option in HUMAN_CONTINUED_OPTIONS:
+        return "assisted_draft_human_continued"
+    if status != "approved":
+        return None
+    if option in UNCHANGED_DRAFT_OPTIONS:
+        return "assisted_draft_unchanged"
+    if option in HUMAN_CONTINUED_OPTIONS:
+        return "assisted_draft_human_continued"
+    return "assisted_draft_edited"
+
+
+async def collect_action_events(
+    session: AsyncSession, tenant_id: UUID, *, since: datetime
+) -> list[tuple[datetime, str]]:
+    """Dated (when, action_key) rows for the Overview mix and time-saved totals."""
+    events: list[tuple[datetime, str]] = []
+
+    auto_rows = (
+        await session.execute(
+            select(SignalMessage.created_at).where(
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.auto_sent.is_(True),
+                SignalMessage.created_at >= since,
             )
-        ).scalar()
-        or 0
-    )
+        )
+    ).all()
+    for (created,) in auto_rows:
+        when = _naive_dt(created)
+        if when is not None:
+            events.append((when, "autonomous_reply"))
 
     draft_rows = (
         await session.execute(
-            select(DecisionRequest.status, DecisionRequest.chosen_option_id).where(
+            select(
+                DecisionRequest.resolved_at,
+                DecisionRequest.status,
+                DecisionRequest.chosen_option_id,
+            ).where(
                 DecisionRequest.tenant_id == tenant_id,
                 DecisionRequest.title.in_(REPLY_CREDIT_TITLES),
                 DecisionRequest.resolved_at.is_not(None),
@@ -198,117 +231,109 @@ async def compute_time_saved(
             )
         )
     ).all()
-    draft_unchanged = 0
-    draft_edited = 0
-    draft_human_continued = 0
-    for status, option_id in draft_rows:
-        option = (option_id or "").strip()
-        if option in SKIP_DRAFT_OPTIONS:
-            continue
-        if status == "deferred" and option in HUMAN_CONTINUED_OPTIONS:
-            draft_human_continued += 1
-            continue
-        if status != "approved":
-            continue
-        if option in UNCHANGED_DRAFT_OPTIONS:
-            draft_unchanged += 1
-        elif option in HUMAN_CONTINUED_OPTIONS:
-            draft_human_continued += 1
-        else:
-            # Edited send, custom option id, etc.
-            draft_edited += 1
+    for resolved_at, status, option_id in draft_rows:
+        action = _classify_draft(status, option_id)
+        when = _naive_dt(resolved_at)
+        if action and when is not None:
+            events.append((when, action))
 
-    no_reply_confirmed = int(
-        (
-            await session.execute(
-                select(func.count()).select_from(DecisionRequest).where(
-                    DecisionRequest.tenant_id == tenant_id,
-                    DecisionRequest.title == NO_REPLY_TITLE,
-                    DecisionRequest.status == "approved",
-                    DecisionRequest.resolved_at.is_not(None),
-                    DecisionRequest.resolved_at >= since,
-                    or_(
-                        DecisionRequest.chosen_option_id.in_(NO_REPLY_CONFIRM_OPTIONS),
-                        DecisionRequest.chosen_option_id.is_(None),
-                    ),
-                )
+    no_reply_rows = (
+        await session.execute(
+            select(DecisionRequest.resolved_at).where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.title == NO_REPLY_TITLE,
+                DecisionRequest.status == "approved",
+                DecisionRequest.resolved_at.is_not(None),
+                DecisionRequest.resolved_at >= since,
+                or_(
+                    DecisionRequest.chosen_option_id.in_(NO_REPLY_CONFIRM_OPTIONS),
+                    DecisionRequest.chosen_option_id.is_(None),
+                ),
             )
-        ).scalar()
-        or 0
-    )
+        )
+    ).all()
+    for (resolved_at,) in no_reply_rows:
+        when = _naive_dt(resolved_at)
+        if when is not None:
+            events.append((when, "no_reply_confirmed"))
 
-    no_reply_triaged = int(
-        (
-            await session.execute(
-                select(func.count()).select_from(SignalEvent).where(
-                    SignalEvent.tenant_id == tenant_id,
-                    SignalEvent.event_type == "no_reply_noted",
-                    SignalEvent.created_at >= since,
-                )
+    triage_rows = (
+        await session.execute(
+            select(SignalEvent.created_at).where(
+                SignalEvent.tenant_id == tenant_id,
+                SignalEvent.event_type == "no_reply_noted",
+                SignalEvent.created_at >= since,
             )
-        ).scalar()
-        or 0
-    )
+        )
+    ).all()
+    for (created,) in triage_rows:
+        when = _naive_dt(created)
+        if when is not None:
+            events.append((when, "no_reply_triaged"))
 
-    tickets_by_agent = int(
-        (
-            await session.execute(
-                select(func.count()).select_from(SignalEvent).where(
-                    SignalEvent.tenant_id == tenant_id,
-                    SignalEvent.event_type == "category_set",
-                    SignalEvent.actor_type.in_(TICKET_ACTOR_TYPES),
-                    SignalEvent.created_at >= since,
-                )
+    ticket_rows = (
+        await session.execute(
+            select(SignalEvent.created_at).where(
+                SignalEvent.tenant_id == tenant_id,
+                SignalEvent.event_type == "category_set",
+                SignalEvent.actor_type.in_(TICKET_ACTOR_TYPES),
+                SignalEvent.created_at >= since,
             )
-        ).scalar()
-        or 0
-    )
+        )
+    ).all()
+    for (created,) in ticket_rows:
+        when = _naive_dt(created)
+        if when is not None:
+            events.append((when, "ticket_filed_by_agent"))
 
-    flow_runs = int(
-        (
-            await session.execute(
-                select(func.count()).select_from(WorkstreamRun).where(
-                    WorkstreamRun.tenant_id == tenant_id,
-                    WorkstreamRun.status == "completed",
-                    WorkstreamRun.completed_at.is_not(None),
-                    WorkstreamRun.completed_at >= since,
-                )
+    flow_rows = (
+        await session.execute(
+            select(WorkstreamRun.completed_at).where(
+                WorkstreamRun.tenant_id == tenant_id,
+                WorkstreamRun.status == "completed",
+                WorkstreamRun.completed_at.is_not(None),
+                WorkstreamRun.completed_at >= since,
             )
-        ).scalar()
-        or 0
-    )
+        )
+    ).all()
+    for (completed_at,) in flow_rows:
+        when = _naive_dt(completed_at)
+        if when is not None:
+            events.append((when, "flow_run_completed"))
 
-    # Human customer-facing replies (not AI auto-send, not internal notes).
-    manual_replies = int(
-        (
-            await session.execute(
-                select(func.count()).select_from(SignalMessage).where(
-                    SignalMessage.tenant_id == tenant_id,
-                    SignalMessage.direction == "outbound",
-                    SignalMessage.auto_sent.is_(False),
-                    SignalMessage.author_user_id.is_not(None),
-                    SignalMessage.created_at >= since,
-                    or_(
-                        SignalMessage.kind.is_(None),
-                        SignalMessage.kind == "user_message",
-                    ),
-                )
+    manual_rows = (
+        await session.execute(
+            select(SignalMessage.created_at).where(
+                SignalMessage.tenant_id == tenant_id,
+                SignalMessage.direction == "outbound",
+                SignalMessage.auto_sent.is_(False),
+                SignalMessage.author_user_id.is_not(None),
+                SignalMessage.created_at >= since,
+                or_(
+                    SignalMessage.kind.is_(None),
+                    SignalMessage.kind == "user_message",
+                ),
             )
-        ).scalar()
-        or 0
-    )
+        )
+    ).all()
+    for (created,) in manual_rows:
+        when = _naive_dt(created)
+        if when is not None:
+            events.append((when, "manual_reply"))
 
-    counts = {
-        "autonomous_reply": autonomous_replies,
-        "assisted_draft_unchanged": draft_unchanged,
-        "assisted_draft_edited": draft_edited,
-        "assisted_draft_human_continued": draft_human_continued,
-        "no_reply_triaged": no_reply_triaged,
-        "no_reply_confirmed": no_reply_confirmed,
-        "ticket_filed_by_agent": tickets_by_agent,
-        "flow_run_completed": flow_runs,
-        "manual_reply": manual_replies,
-    }
+    return events
+
+
+def aggregate_time_saved(
+    events: list[tuple[datetime, str]],
+    minutes_each: dict[str, int],
+    *,
+    days: int,
+) -> dict[str, Any]:
+    counts = {key: 0 for key in DEFAULT_ACTION_MINUTES}
+    for _when, action in events:
+        if action in counts:
+            counts[action] += 1
     by_action = [
         {
             "action": key,
@@ -341,3 +366,60 @@ async def compute_time_saved(
         "by_action": by_action,
         "by_mode": by_mode,
     }
+
+
+def bucket_action_mix_series(
+    events: list[tuple[datetime, str]],
+    minutes_each: dict[str, int],
+    *,
+    days: int,
+    end: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Daily AI vs manual weighted minutes. Empty days stay in the list as zeros."""
+    days = max(1, min(int(days), 90))
+    today = (end or datetime.utcnow()).date()
+    start_day = today - timedelta(days=days - 1)
+    buckets: dict[str, dict[str, int]] = {
+        (start_day + timedelta(days=i)).isoformat(): {
+            "ai_minutes": 0,
+            "manual_minutes": 0,
+            "ai_count": 0,
+            "manual_count": 0,
+        }
+        for i in range(days)
+    }
+    for when, action in events:
+        day = _event_day(when)
+        if day not in buckets:
+            continue
+        minutes = int(minutes_each.get(action, 0))
+        if ACTION_MODES.get(action) == "manual":
+            buckets[day]["manual_minutes"] += minutes
+            buckets[day]["manual_count"] += 1
+        else:
+            buckets[day]["ai_minutes"] += minutes
+            buckets[day]["ai_count"] += 1
+    return [{"date": day, **values} for day, values in buckets.items()]
+
+
+async def compute_time_saved(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    days: int = 7,
+    series_days: int | None = None,
+) -> dict[str, Any]:
+    """Sum action credits for the last ``days`` days, plus a daily mix series."""
+    days = max(1, min(int(days), 90))
+    series_days_n = max(days, min(int(series_days), 90)) if series_days is not None else days
+    now = datetime.utcnow()
+    since = now - timedelta(days=series_days_n)
+    minutes_each = await load_action_minutes(session)
+    events = await collect_action_events(session, tenant_id, since=since)
+    week_since = now - timedelta(days=days)
+    week_events = [(when, action) for when, action in events if when >= week_since]
+    result = aggregate_time_saved(week_events, minutes_each, days=days)
+    result["by_day"] = bucket_action_mix_series(
+        events, minutes_each, days=series_days_n, end=now
+    )
+    return result

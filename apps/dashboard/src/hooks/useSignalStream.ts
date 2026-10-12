@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { onGatewayEvent } from '../lib/gateway'
-import { applyTurnEvent, EMPTY_TURN, type LiveTurn } from '../lib/agentActivity'
+import { applyTurnEvent, EMPTY_TURN, mergeTurns, type LiveTurn } from '../lib/agentActivity'
 
 /** Flush batched events at most this often (avoids setState per token). */
 const FLUSH_MS = 64
 /** Drop a turn whose `end` never arrived (lost connection, crashed worker). */
 const STALE_MS = 120_000
 
-const TURN_EVENTS = new Set(['agent.turn', 'agent.activity', 'agent.thinking', 'message.delta'])
+const TURN_EVENTS = new Set([
+  'agent.turn',
+  'agent.activity',
+  'agent.thinking',
+  'message.delta',
+  'thread.presence',
+])
 
 /**
  * Live agent turn on a thread from gateway events. A saved `message` in the
@@ -15,12 +21,14 @@ const TURN_EVENTS = new Set(['agent.turn', 'agent.activity', 'agent.thinking', '
  * end the turn stays (ended) until the caller sees the saved bubbles and
  * calls `reset`, so the live view hands off without a gap.
  */
-export function useSignalStream(signalId: string | null) {
+export function useSignalStream(signalId: string | null, seed: LiveTurn | null = null) {
   const [turn, setTurn] = useState<LiveTurn>(EMPTY_TURN)
   const turnRef = useRef<LiveTurn>(EMPTY_TURN)
   const flushTimerRef = useRef<number | null>(null)
   const staleTimerRef = useRef<number | null>(null)
   const sealedRef = useRef<string | null>(null)
+  const seedRef = useRef<LiveTurn | null>(seed)
+  seedRef.current = seed
 
   const clearTimers = useCallback(() => {
     if (flushTimerRef.current !== null) window.clearTimeout(flushTimerRef.current)
@@ -39,8 +47,9 @@ export function useSignalStream(signalId: string | null) {
   useEffect(() => {
     sealedRef.current = null
     clearTimers()
-    turnRef.current = EMPTY_TURN
-    setTurn(EMPTY_TURN)
+    const initial = seedRef.current?.streamId ? seedRef.current : EMPTY_TURN
+    turnRef.current = initial
+    setTurn(initial)
     if (!signalId) return
 
     const flush = () => {
@@ -58,11 +67,17 @@ export function useSignalStream(signalId: string | null) {
       turnRef.current = next
       if (staleTimerRef.current !== null) window.clearTimeout(staleTimerRef.current)
       staleTimerRef.current = window.setTimeout(() => {
+        const seeded = seedRef.current
+        if (seeded?.active && seeded.streamId === turnRef.current.streamId) return
         sealedRef.current = turnRef.current.streamId
         turnRef.current = EMPTY_TURN
         setTurn(EMPTY_TURN)
       }, next.ended ? 8_000 : STALE_MS)
-      if (event.event === 'agent.turn' || event.event === 'agent.activity') {
+      if (
+        event.event === 'agent.turn' ||
+        event.event === 'agent.activity' ||
+        event.event === 'thread.presence'
+      ) {
         // Structure changed: render now so order stays correct.
         if (flushTimerRef.current !== null) window.clearTimeout(flushTimerRef.current)
         flush()
@@ -75,6 +90,14 @@ export function useSignalStream(signalId: string | null) {
       clearTimers()
     }
   }, [signalId, clearTimers])
+
+  useEffect(() => {
+    if (!seed?.streamId || !seed.active) return
+    const current = turnRef.current
+    if (current.streamId && current.streamId !== seed.streamId && current.active) return
+    turnRef.current = mergeTurns(seed, current.streamId === seed.streamId ? current : EMPTY_TURN)
+    setTurn(turnRef.current)
+  }, [seed])
 
   return { turn, streaming: turn.active, reset }
 }

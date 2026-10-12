@@ -542,18 +542,40 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     const hashtagQuery = q.replace(/^#/, '').toLowerCase()
     const signals: PaletteItem[] = hashtagQuery
       ? hashtags
-          .filter((item) => item.name.includes(hashtagQuery))
-          .slice(0, 6)
-          .map((item) => ({
-            id: `hashtag-${item.id}`,
-            label: `#${item.name}`,
-            hint: item.isCategory
-              ? t('palette.category', { defaultValue: 'Category' })
-              : t('palette.hashtag', { defaultValue: 'Hashtag' }),
-            group: t('palette.groupThreads'),
-            icon: Hash,
-            run: () => navigate(withNavReveal(tagPath(item.name, 'open'))),
-          }))
+          .flatMap((item) => {
+            const folders = (item.folders ?? []).filter(
+              (folder) =>
+                item.name.includes(hashtagQuery) ||
+                folder.path.toLowerCase().includes(hashtagQuery) ||
+                folder.tagNames.some((name) => name.includes(hashtagQuery)),
+            )
+            if (folders.length) {
+              return folders.slice(0, 4).map((folder) => ({
+                id: `hashtag-${item.id}-${folder.id}`,
+                label: folder.path || `#${item.name}`,
+                hint: item.isCategory
+                  ? t('palette.category', { defaultValue: 'Category' })
+                  : t('palette.hashtag', { defaultValue: 'Hashtag' }),
+                group: t('palette.groupThreads'),
+                icon: Hash,
+                run: () => navigate(`/folders/${folder.id}`),
+              }))
+            }
+            if (!item.name.includes(hashtagQuery)) return []
+            return [
+              {
+                id: `hashtag-${item.id}`,
+                label: `#${item.name}`,
+                hint: item.isCategory
+                  ? t('palette.category', { defaultValue: 'Category' })
+                  : t('palette.hashtag', { defaultValue: 'Hashtag' }),
+                group: t('palette.groupThreads'),
+                icon: Hash,
+                run: () => navigate(withNavReveal(tagPath(item.name, 'open'))),
+              },
+            ]
+          })
+          .slice(0, 8)
       : []
     const matchingAgents: PaletteItem[] = agents
       .filter((item) => `${item.name} ${item.role_name ?? ''} ${item.purpose ?? ''}`.toLowerCase().includes(q.toLowerCase()))

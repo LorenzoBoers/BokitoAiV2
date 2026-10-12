@@ -1130,7 +1130,8 @@
     "openChannels": "Kanalen openen",
     "noReplyTips": "{{count}} “Geen antwoord nodig”-tips wachten bij beslissingen",
     "reviewTips": "Bekijken",
-    "dismissTips": "Alles wegzetten"
+    "dismissTips": "Alles wegzetten",
+    "hideTips": "Verbergen"
   },
   "bulkActions": {
     "selected": "{{count}} geselecteerd",
@@ -1529,6 +1530,7 @@
     "deletedOn": "verwijderd {{date}}",
     "more": "Meer opties",
     "preparing": "Voorstel klaarzetten...",
+    "choices": "Keuzes",
     "confirm": "Bevestigen",
     "confirmed": "Bevestigd",
     "status": {
