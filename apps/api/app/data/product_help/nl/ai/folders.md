@@ -13,7 +13,7 @@ Een map is een tag met een plek. De mapnaam is die tag (`#facturen`). Gesprekken
 
 ## Maak of open een map
 
-![Projectenlijst](/api/docs/assets/projects/project.png)
+![Projectenlijst](/api/docs/assets/folders/project.png)
 *Elke kaart toont de projectagent, open tickets en het budget.*
 
 1. Open **Mappen**. Links staat een mappenmenu. Submappen blijven dicht tot je dat project opent. De titel op de pagina is **{workspace} projecten**; het hulp-icoon naast **Projecten** in de bovenbalk opent deze gids. Kies **Nieuwe map** (of zoek **Nieuwe map** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
@@ -40,7 +40,7 @@ Elk gesprek dat de pad-tags van deze map draagt, staat in de Communicatie-zijbal
 
 ## Verplaats een ticket op een bord
 
-![Flowborden op een project](/api/docs/assets/projects/boards.png)
+![Flowborden op een project](/api/docs/assets/folders/boards.png)
 *Eén bord per flow op het project, met de fasen van die flow als kolommen.*
 
 1. Open het tabblad **Tickets**. Elke flow op dit project is één bord, onder elkaar, met de actietag als titel. De kolommen zijn de fasen van de flow, bijvoorbeeld Open, Wachtend en Klaar.

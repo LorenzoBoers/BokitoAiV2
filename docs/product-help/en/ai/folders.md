@@ -13,7 +13,7 @@ A folder is a tag with a place. The folder name is that tag (`#facturen`). Conve
 
 ## Create or open a folder
 
-![Projects list](/api/docs/assets/projects/project.png)
+![Projects list](/api/docs/assets/folders/project.png)
 *Each card shows the project agent, open tickets, and budget.*
 
 1. Open **Folders**. A folder menu sits on the left. Subfolders stay closed until you open that project. The in-page heading is **{workspace} projects**; the help icon next to **Projects** in the top bar opens this guide. Choose **New folder** (or search **New folder** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
@@ -40,7 +40,7 @@ Every conversation that carries this folder's path tags lives in the Communicati
 
 ## Move a ticket on a board
 
-![Flow boards on a project](/api/docs/assets/projects/boards.png)
+![Flow boards on a project](/api/docs/assets/folders/boards.png)
 *One board per flow on the project, with that flow's stages as columns.*
 
 1. Open the **Tickets** tab. Every flow on this project is one board, stacked, titled with its action tag. Its columns are the flow's stages, for example Open, Waiting and Done.

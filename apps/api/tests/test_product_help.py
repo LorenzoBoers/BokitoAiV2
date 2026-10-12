@@ -145,7 +145,7 @@ def test_resolve_dir_finds_sectioned_articles():
         "agents",
         "decisions",
         "knowledge",
-        "projects",
+        "folders",
         "agenda",
         "govern",
         "autonomy",

@@ -121,7 +121,7 @@ async def test_resolver_returns_a_snapshot_per_type(client: AsyncClient, session
             {"type": "nonsense", "id": "x"},
         ],
     )
-    assert [i["type"] for i in more] == ["tag", "flow", "project", "contact", "project"]
+    assert [i["type"] for i in more] == ["tag", "flow", "folder", "contact", "folder"]
     assert more[0]["title"] == "#billing"
     assert more[1]["title"] == "#returns"
     assert more[3]["subtitle"] == "Acme · ana@example.com"

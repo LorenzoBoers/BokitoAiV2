@@ -91,18 +91,18 @@ async def test_create_tag_and_set_thread_tags_create_missing(client: AsyncClient
 
     from app.tools.builtin import _create_tag, _set_thread_tags, _update_tag
 
-    name = f"vip-{uuid4().hex[:6]}"
+    name = f"vip_{uuid4().hex[:6]}"
     out = await _create_tag(ctx, {"name": f"#{name}", "description": "Belangrijke klant"})
     assert out["ok"] is True
     assert out["tag"]["name"] == name
     assert out["tag"]["is_category"] is False
 
-    renamed = await _update_tag(ctx, {"name": name, "new_name": f"{name}-2", "show_in_nav": True})
+    renamed = await _update_tag(ctx, {"name": name, "new_name": f"{name}_2", "show_in_nav": True})
     assert renamed["ok"] is True
-    assert renamed["tag"]["name"] == f"{name}-2"
+    assert renamed["tag"]["name"] == f"{name}_2"
     assert renamed["tag"]["show_in_nav"] is True
 
-    fresh = f"nieuw-{uuid4().hex[:6]}"
+    fresh = f"nieuw_{uuid4().hex[:6]}"
     refused = await _set_thread_tags(ctx, {"tags": [fresh]})
     assert "error" in refused
     applied = await _set_thread_tags(ctx, {"tags": [fresh], "create_missing": True})
@@ -176,7 +176,7 @@ async def test_resolve_bundle_approve_all(client: AsyncClient, session_override)
     agent = await _agent(session_override, tenant)
     signal = await _chat_signal(session_override, tenant, agent)
     ctx = _turn_ctx(session_override, tenant, agent, signal)
-    names = [f"a-{uuid4().hex[:5]}", f"b-{uuid4().hex[:5]}"]
+    names = [f"a_{uuid4().hex[:5]}", f"b_{uuid4().hex[:5]}"]
     decisions = [await _propose(ctx, "create_tag", {"name": n}) for n in names]
     await session_override.commit()
 
@@ -219,9 +219,9 @@ async def test_resolve_bundle_partial_and_failure_keeps_others(client: AsyncClie
     agent = await _agent(session_override, tenant)
     signal = await _chat_signal(session_override, tenant, agent)
     ctx = _turn_ctx(session_override, tenant, agent, signal)
-    good = await _propose(ctx, "create_tag", {"name": f"ok-{uuid4().hex[:5]}"})
+    good = await _propose(ctx, "create_tag", {"name": f"ok_{uuid4().hex[:5]}"})
     broken = await _propose(ctx, "create_tag", {"name": ""})
-    skipped = await _propose(ctx, "create_tag", {"name": f"skip-{uuid4().hex[:5]}"})
+    skipped = await _propose(ctx, "create_tag", {"name": f"skip_{uuid4().hex[:5]}"})
     await session_override.commit()
 
     res = await client.post(
@@ -254,7 +254,7 @@ async def test_owner_verdict_applies_rule_immediately(client: AsyncClient, sessi
     agent = await _agent(session_override, tenant)
     signal = await _chat_signal(session_override, tenant, agent)
     ctx = _turn_ctx(session_override, tenant, agent, signal)
-    decision = await _propose(ctx, "create_tag", {"name": f"rule-{uuid4().hex[:5]}"})
+    decision = await _propose(ctx, "create_tag", {"name": f"rule_{uuid4().hex[:5]}"})
     await session_override.commit()
 
     res = await client.post(f"/api/notifications/decisions/{decision.id}/learn", headers=headers, json={"choice": "allow"})
@@ -308,7 +308,7 @@ async def test_member_verdict_becomes_govern_draft(client: AsyncClient, session_
     agent = await _agent(session_override, tenant)
     signal = await _chat_signal(session_override, tenant, agent)
     ctx = _turn_ctx(session_override, tenant, agent, signal)
-    decision = await _propose(ctx, "create_tag", {"name": f"draft-{uuid4().hex[:5]}"})
+    decision = await _propose(ctx, "create_tag", {"name": f"draft_{uuid4().hex[:5]}"})
     await session_override.commit()
 
     from app.models.auth import User

@@ -1296,12 +1296,18 @@ class AgentLoop:
         messages: list[dict[str, Any]],
         extra_context: str = "",
         attachments: list[dict] | None = None,
+        *,
+        skip_rag: bool = False,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Streaming turn.
 
         Yields ``thinking`` / ``delta`` (with ``segment_id``) events and one
         ``done`` with ``segments`` (speech bubbles + their activity), ``text``
         (last speech, for single-message callers) and ``activity``.
+
+        Operator chat passes ``skip_rag=True`` so the first token is not blocked
+        by snapshot + hybrid search. Widget and inbound turns keep RAG so
+        published help-center hits can still append related-article links.
         """
         turn = self._new_turn()
         stream_id = turn.stream_id
@@ -1312,7 +1318,7 @@ class AgentLoop:
         # session used to freeze the turn before the first SSE frame.
         yield {"type": "thinking", "text": ""}
         await asyncio.sleep(0)
-        self._skip_rag = True
+        self._skip_rag = skip_rag
         try:
             await asyncio.wait_for(turn.start(), timeout=3)
         except Exception:

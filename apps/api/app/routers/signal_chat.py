@@ -666,6 +666,7 @@ async def _drive_operator_chat_turn(
                         loaded_history,
                         extra_context=extra_context,
                         attachments=attachments,
+                        skip_rag=True,
                     ):
                         if event["type"] == "thinking":
                             await _put_sse(queue, "thinking", {"text": event.get("text", "")})
