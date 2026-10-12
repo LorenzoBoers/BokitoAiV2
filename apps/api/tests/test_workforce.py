@@ -38,7 +38,7 @@ async def test_work_logs_and_events(client: AsyncClient):
     headers = _auth(token)
 
     created = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=headers,
         json={
             "name": "Workforce Test",

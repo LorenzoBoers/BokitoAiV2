@@ -21,7 +21,7 @@ import { isChannelParked } from '../../lib/channel-surface'
 import { bokitoListChatTargets, type ChatTarget, type NavRow } from '../../lib/signals-api'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { NavFlashProvider } from '../../hooks/useNavReveal'
-import { HashtagMark } from '../ui/HashtagMark'
+import { FolderTagTree } from './FolderTagTree'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue, countForTeam } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
@@ -45,7 +45,6 @@ import { ChannelGlyph } from '../ui/ChannelGlyph'
 import ScrollFade from '../ui/ScrollFade'
 import { Tip } from '../ui/Tip'
 
-const FolderKanban = ENTITY_ICONS.project
 const Users = ENTITY_ICONS.team
 
 const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
@@ -54,8 +53,7 @@ const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> 
 ]
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
-  hashtags: { labelKey: 'support.section.hashtags', defaultLabel: 'Tags' },
-  projects: { labelKey: 'support.section.projects', defaultLabel: 'Projects' },
+  folders: { labelKey: 'support.section.folders', defaultLabel: 'Folders and tags' },
   channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   agents: { labelKey: 'support.section.agents', defaultLabel: 'Chat with agents' },
   teams: { labelKey: 'support.section.teams', defaultLabel: 'Teams' },
@@ -93,15 +91,10 @@ function SectionGearLink({ to, label }: { to: string; label: string }) {
 const SECTION_GEAR: Partial<
   Record<SidebarSection, { to: string; labelKey: string; defaultLabel: string }>
 > = {
-  hashtags: {
+  folders: {
     to: '/settings/action-tags',
-    labelKey: 'support.hashtags.settingsAria',
-    defaultLabel: 'Manage hashtags',
-  },
-  projects: {
-    to: '/projects',
-    labelKey: 'support.projects.settingsAria',
-    defaultLabel: 'Manage projects',
+    labelKey: 'support.folders.settingsAria',
+    defaultLabel: 'Manage folders and tags',
   },
   channels: {
     to: '/settings/channels',
@@ -514,150 +507,6 @@ function NavRowFolders({
   )
 }
 
-function HashtagsSection({
-  categories,
-  tags,
-  loading,
-  activeLeaf,
-  defaultQueueFor,
-  t,
-}: {
-  categories: NavRow[]
-  tags: NavRow[]
-  loading: boolean
-  activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
-  t: TFn
-}) {
-  const extraTag =
-    activeLeaf?.type === 'tag' &&
-    !categories.some((row) => row.name === activeLeaf.tag) &&
-    !tags.some((row) => row.name === activeLeaf.tag)
-      ? [{ id: activeLeaf.tag, name: activeLeaf.tag, count: 0 }]
-      : []
-  const tagLeaf = (row: NavRow): HubLeaf => ({ type: 'tag', tag: row.name })
-  return (
-    <div className="space-y-0.5">
-      {loading ? <NavSectionSkeleton rows={2} /> : null}
-      {!loading && categories.length === 0 && tags.length === 0 ? (
-        <Link to="/settings/action-tags" className="nav-row border border-dashed border-border/80 text-xs">
-          <Plus aria-hidden />
-          <span className="min-w-0 flex-1 truncate-fade">{t('support.hashtags.empty')}</span>
-        </Link>
-      ) : null}
-      <NavRowFolders
-        rows={categories}
-        leafFor={tagLeaf}
-        icon={() => <HashtagMark category className="w-3.5 shrink-0 text-center text-sm" />}
-        activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
-      />
-      <NavRowFolders
-        rows={tags}
-        leafFor={tagLeaf}
-        icon={() => <HashtagMark className="w-3.5 shrink-0 text-center text-sm" />}
-        activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
-      />
-      {extraTag.length > 0 ? (
-        <NavRowFolders
-          rows={extraTag}
-          leafFor={tagLeaf}
-          icon={() => <HashtagMark className="w-3.5 shrink-0 text-center text-sm" />}
-          activeLeaf={activeLeaf}
-          defaultQueueFor={defaultQueueFor}
-        />
-      ) : null}
-    </div>
-  )
-}
-
-function projectTreeHas(rows: NavRow[], id: string): boolean {
-  return rows.some((row) => row.id === id || projectTreeHas(row.children ?? [], id))
-}
-
-function projectScopeKeys(row: NavRow): string[] {
-  return [`project:${row.id}`, ...(row.children ?? []).flatMap(projectScopeKeys)]
-}
-
-function ProjectFolderRow({
-  row,
-  ancestors,
-  activeLeaf,
-  defaultQueueFor,
-}: {
-  row: NavRow
-  ancestors: string[]
-  activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
-}) {
-  const children = row.children ?? []
-  const leaf: HubLeaf = { type: 'project', projectId: row.id }
-  return (
-    <SidebarFolder
-      baseLeaf={leaf}
-      label={row.name}
-      icon={<FolderKanban size={14} className="shrink-0 text-text-muted" aria-hidden />}
-      activeLeaf={activeLeaf}
-      defaultQueue={defaultQueueFor(leaf)}
-      badgeCount={row.count}
-      retainOnExpand={ancestors}
-      closeOnCollapse={children.flatMap(projectScopeKeys)}
-      leading={
-        children.length > 0
-          ? children.map((child) => (
-              <ProjectFolderRow
-                key={child.id}
-                row={child}
-                ancestors={[...ancestors, `project:${row.id}`]}
-                activeLeaf={activeLeaf}
-                defaultQueueFor={defaultQueueFor}
-              />
-            ))
-          : null
-      }
-    />
-  )
-}
-
-function ProjectsSection({
-  projects,
-  loading,
-  activeLeaf,
-  defaultQueueFor,
-  t,
-}: {
-  projects: NavRow[]
-  loading: boolean
-  activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
-  t: TFn
-}) {
-  const extraProject =
-    activeLeaf?.type === 'project' && !projectTreeHas(projects, activeLeaf.projectId)
-      ? [{ id: activeLeaf.projectId, name: activeLeaf.projectId.slice(0, 8), count: 0 }]
-      : []
-  return (
-    <div className="space-y-0.5">
-      {loading ? <NavSectionSkeleton rows={2} /> : null}
-      {!loading && projects.length === 0 && extraProject.length === 0 ? (
-        <Link to="/projects" className="nav-row border border-dashed border-border/80 text-xs">
-          <Plus aria-hidden />
-          <span className="min-w-0 flex-1 truncate-fade">{t('support.projects.empty')}</span>
-        </Link>
-      ) : null}
-      {[...projects, ...extraProject].map((row) => (
-        <ProjectFolderRow
-          key={row.id}
-          row={row}
-          ancestors={[]}
-          activeLeaf={activeLeaf}
-          defaultQueueFor={defaultQueueFor}
-        />
-      ))}
-    </div>
-  )
-}
 
 function usePinnedTeams(): { teams: Team[]; loading: boolean } {
   const { teams, loading } = useTeams()
@@ -668,7 +517,7 @@ function usePinnedTeams(): { teams: Team[]; loading: boolean } {
  * Communication hub inner rail.
  *
  * Fixed top: New chat + All communication.
- * Middle: Tags, Projects, Channels, Agents, Teams (user order) —
+ * Middle: Folders and tags, Channels, Agents, Teams (user order) —
  * each row has For you / Open / Unassigned / Closed.
  * Bottom: Contacts + Settings.
  */
@@ -715,27 +564,18 @@ export default function MessagesHubNav() {
   }
 
   const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
-    hashtags: nav.ticketTags.length + nav.tags.length || null,
-    projects: nav.projects.length || null,
+    folders: nav.projects.length + nav.ticketTags.length + nav.tags.length || null,
     channels: channelsLoading ? null : channelFolders.length > 0 ? channelFolders.length : null,
     agents: targetsLoading ? null : companyAgents.length > 0 ? companyAgents.length : null,
     teams: teamsLoading ? null : teams.length > 0 ? teams.length : null,
   }
 
   const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
-    hashtags: (
-      <HashtagsSection
-        categories={nav.ticketTags}
+    folders: (
+      <FolderTagTree
+        folders={nav.projects}
         tags={nav.tags}
-        loading={!navLoaded}
-        activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
-        t={t}
-      />
-    ),
-    projects: (
-      <ProjectsSection
-        projects={nav.projects}
+        ticketTags={nav.ticketTags}
         loading={!navLoaded}
         activeLeaf={activeLeaf}
         defaultQueueFor={defaultQueueFor}

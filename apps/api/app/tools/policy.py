@@ -194,6 +194,22 @@ async def resolve_tool_mode(
         elif level == "autonomous" and mode == "ask":
             mode, reason = "allow", "agent_autonomous"
 
+    # Snapshot writes apply under Assisted and Autonomous so the owner can
+    # refresh without a daily approval card. Manual (workspace or agent) still
+    # asks. Delete stays on the projects slider.
+    if spec.name in ("create_canvas", "update_folder_canvas", "delete_canvas"):
+        from app.services.agent_rules import normalize_autonomy
+
+        posture = resolve_posture(tenant)
+        level = "assisted"
+        if agent is not None:
+            level = normalize_autonomy(getattr(agent, "autonomy_level", "assisted"))
+        if posture == "manual" or level == "manual":
+            if mode == "allow":
+                mode, reason = "ask", "canvas_manual"
+        elif spec.name in ("create_canvas", "update_folder_canvas") and mode == "ask":
+            mode, reason = "allow", "canvas_snapshot"
+
     # Explicit per-tool override wins over slider + passport.
     # MCP Always-allow keys are ``mcp:{server}:{tool}``; fall back to the
     # wrapper name for legacy blanket overrides.

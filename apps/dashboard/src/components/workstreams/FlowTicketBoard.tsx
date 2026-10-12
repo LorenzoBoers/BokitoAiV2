@@ -167,7 +167,7 @@ function LaneHeader({
       <span className="text-2xs tabular-nums text-text-muted">{count}</span>
       {lane.id ? (
         <Link
-          to={`/projects/${encodeURIComponent(lane.id)}`}
+          to={`/folders/${encodeURIComponent(lane.id)}`}
           className="ml-auto text-2xs text-text-muted hover:text-accent"
         >
           {t('workstreamsPage.board.openProject')}

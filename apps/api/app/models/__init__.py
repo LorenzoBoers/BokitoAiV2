@@ -9,6 +9,8 @@ from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
 from app.models.platform_change import PlatformChange
 from app.models.signal import (
+    CompanyTagLink,
+    ContactTagLink,
     SavedReply,
     Signal,
     SignalEvent,
@@ -16,6 +18,7 @@ from app.models.signal import (
     SignalTag,
     SignalTagLink,
     SignalThreadPin,
+    TagGroup,
 )
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.models.integration_catalog import IntegrationCatalogHost, IntegrationCatalogProvider
@@ -117,6 +120,9 @@ __all__ = [
     "SignalTag",
     "SignalTagLink",
     "SignalThreadPin",
+    "TagGroup",
+    "ContactTagLink",
+    "CompanyTagLink",
     "SavedReply",
     "Feedback",
     "EvalScore",

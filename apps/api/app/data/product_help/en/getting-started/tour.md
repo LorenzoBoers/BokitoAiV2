@@ -23,7 +23,7 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 
 ## Work and AI
 
-- **Projects** — work that spans days. See [Projects](/docs/ai/projects).
+- **Projects** — work that spans days. See [Projects](/docs/ai/folders).
 - **Playbooks** — repeatable step-by-step processes agents execute. See [Playbooks](/docs/ai/workstreams).
 - **Agenda** — when agents wake; lives under **Work**. See [Agenda](/docs/ai/agenda).
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).

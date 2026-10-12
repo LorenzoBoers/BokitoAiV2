@@ -102,6 +102,9 @@ export const appRoutes = {
     tag: (tagId: string) => `/signals/tags/${tagId}`,
     /** Attach a playbook to a free tag: it becomes a category. */
     tagPromote: (tagId: string) => `/signals/tags/${tagId}/promote`,
+    /** Tag groups: dimensions such as Client or Region, optionally exclusive. */
+    tagGroups: '/signals/tags/groups',
+    tagGroup: (groupId: string) => `/signals/tags/groups/${groupId}`,
     /** Communication rail rows: categories, pinned tags, projects. */
     nav: '/signals/nav',
     note: (threadId: string, messageId: string) => `/signals/${threadId}/notes/${messageId}`,
@@ -152,6 +155,7 @@ export const appRoutes = {
     listQuery: (params: URLSearchParams) => withQuery('/channels/contacts', params),
     bulkStatus: '/channels/contacts/bulk-status',
     byId: (id: string) => `/channels/contacts/${id}`,
+    tags: (id: string) => `/channels/contacts/${id}/tags`,
     threads: (id: string, params?: URLSearchParams) =>
       params && [...params.keys()].length > 0
         ? withQuery(`/channels/contacts/${id}/threads`, params)
@@ -163,6 +167,7 @@ export const appRoutes = {
     list: '/channels/companies',
     listQuery: (params: URLSearchParams) => withQuery('/channels/companies', params),
     byId: (id: string) => `/channels/companies/${id}`,
+    tags: (id: string) => `/channels/companies/${id}/tags`,
     backfill: '/channels/companies/backfill',
   },
   teams: {

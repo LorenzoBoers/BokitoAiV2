@@ -24,11 +24,11 @@ Long-term aim: an operational **digital twin** the business can run on, observe 
 
 Apply these to every feature request.
 
-1. **Everything is reachable from a conversation.** Pages stay for browsing and for tools people use side by side with chat (a calendar, a list of agents). But nothing may exist only on a page: every agent, playbook, project, contact, and setting must also open from the thread that needs it, and every action a page offers must have a chat path.
-2. **One object per idea.** Operators name seven things: Conversation, Action tag (a hashtag that starts a ticket flow; the conversation is then a Ticket), Flow, Project, Contact (with its Organization), Agent, Decision. A free hashtag is a label on a conversation, not an eighth object. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the seven cannot give.
+1. **Everything is reachable from a conversation.** Pages stay for browsing and for tools people use side by side with chat (a calendar, a list of agents). But nothing may exist only on a page: every agent, playbook, folder, contact, and setting must also open from the thread that needs it, and every action a page offers must have a chat path.
+2. **One object per idea.** Operators name seven things: Conversation, Action tag (a hashtag that starts a ticket flow; the conversation is then a Ticket), Flow, Folder, Contact (with its Organization), Agent, Decision. A free hashtag is a label on a conversation, not an eighth object. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the seven cannot give.
 3. **Modules add types and flows. They never add screens.** Installing accounting adds hashtags, a flow, and tools. It does not add a rail item, a queue, or a settings page.
 4. **The system reads first, people correct.** Every message is interpreted. Manual actions exist to fix a miss, not as the normal path.
-5. **Autonomy is one dial in one place.** Govern owns manual / assisted / autonomous as the workspace ceiling; an action tag or flow may sit below it, also in Govern. No per-project, per-channel, or per-page copy of it.
+5. **Autonomy is one dial in one place.** Govern owns manual / assisted / autonomous as the workspace ceiling; an action tag or flow may sit below it, also in Govern. No per-folder, per-channel, or per-page copy of it.
 6. **The thread is the log.** What an agent did on a conversation appears in that conversation as a message. Govern keeps the full trace; nobody has to go there to know what happened.
 7. **Ask inline, record in Govern.** A human gate is a decision card in the thread. Govern is the ledger, not a second inbox.
 8. **Delete the old surface in the same change.** No compatibility twin.
@@ -41,8 +41,8 @@ Apply these to every feature request.
 |----|----|------|------------------|
 | Conversation | Gesprek | The chat | `signals` |
 | Action tag | Actietag | A hashtag that starts a ticket flow, shown with an accent `#`. A conversation carries at most one; filing it makes the conversation a **Ticket** that moves through the flow's stages. Free hashtags sit next to it | `signal_tags` (`workstream_id`) |
-| Flow | Flow | The stage pipeline for an action tag. The page title is always the hashtag (`#klacht`); there is no independent playbook display name. Linked many-to-many to projects | `workstreams`, `workstream_projects` |
-| Project | Project | Shows each of its flows as a stacked ticket board. Filing a ticket always asks for one of the flow's projects or No project, for people and agents alike | `projects` |
+| Flow | Flow | The stage pipeline for an action tag. The page title is always the hashtag (`#klacht`); there is no independent playbook display name | `workstreams` |
+| Folder | Map | A tag with a place. Conversations land in a folder from their tags (and contact tags). Projects are folders. The internal table stays `projects` | `projects` |
 | Contact | Contact | Person you are talking to | `contacts` |
 | Agent | Agent | AI or company agent | `agents` |
 | Decision | Beslissing | Question in the thread | `decision_requests` |

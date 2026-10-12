@@ -1,22 +1,22 @@
 ---
-title: How Projects works
-intro: A project holds a goal — its home, snapshot canvas, documentation, who leads it, and how much it may spend.
+title: How Folders works
+intro: A folder holds a goal — its home, snapshot canvas, documentation, who leads it, and how much it may spend.
 description: Land on the project Home for the flow boards and links, ask an agent to write the snapshot canvas, keep documentation, and cap spend.
 keywords: projects, folders, canvas, dashboard, snapshot, tickets, flows, boards, documentation, sections, resources, repository, budget, orchestration
 sort: 40
 related: workstreams,categories,agenda,knowledge,communication
 ---
 
-# How Projects works
+# How Folders works
 
-A project is work that spans days, and it can hold folders that are projects inside it. Open **Projects** when a goal should have a home instead of living only in chat. A project detail has six tabs: **Overview** (folders, who runs it, agenda, budget, recent conversations and activity), **Conversations** (everything filed in this folder), **Tickets** (flow boards), **Canvas** (snapshot dashboard written by agents), **Documentation** (what is true), and **Settings** (who runs it and what it works on). The URL keeps the tab (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=settings`) so you can share that surface.
+A folder is a tag with a place. Conversations land in a folder from their tags, including tags on the contact. Open **Folders** when a goal should have a home instead of living only in chat. A folder detail shows **Overview**, **Conversations**, and **Settings**; **Tickets**, **Documentation** and **Files** appear when that folder has them. The URL keeps the tab (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) so you can share that surface.
 
-## Create or open a project
+## Create or open a folder
 
 ![Projects list](/api/docs/assets/projects/project.png)
 *Each card shows the project agent, open tickets, and budget.*
 
-1. Open **Projects**. A folder menu sits on the left. Subfolders stay closed until you open that project. The in-page heading is **{workspace} projects**; the help icon next to **Projects** in the top bar opens this guide. Choose **New project** (or search **New project** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
+1. Open **Folders**. A folder menu sits on the left. Subfolders stay closed until you open that project. The in-page heading is **{workspace} projects**; the help icon next to **Projects** in the top bar opens this guide. Choose **New folder** (or search **New folder** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
 2. Read the card: project agent, open tickets (the same boards as Project Home), documentation health, repo status, remaining budget. The project agent and the agent chips open the agent page; when a search result sits inside another project, the parent path above the name opens that parent folder. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
 3. Open it. You land on the **Overview** tab. Click the project agent to open it. Admins choose the pencil in the card header to pick another company agent as the project default, or create one. Members can read a project; they cannot delete it or edit the name.
 
@@ -31,7 +31,7 @@ The **Overview** tab is the landing. The header card shows the folder icon, the 
 
 ## See the conversations in a folder
 
-Every conversation filed on this project, or on a folder inside it, lives in the Communication sidebar under **Projects**. The **Conversations** tab shows the same list next to the folders and boards.
+Every conversation filed on this project, or on a folder inside it, lives in the Communication sidebar under **Folders and tags**. The **Conversations** tab shows the same list next to the folders and boards.
 
 1. Open the **Conversations** tab. The count in the tab is the number of open conversations. Switch between **Open** and **Closed**.
 2. Each row shows the status dot, the channel, the subject, the contact, the folder it sits in when that is deeper than this project, and its action tag. Click a row to open that conversation in this project's folder in Communication.
@@ -50,17 +50,17 @@ Every conversation filed on this project, or on a folder inside it, lives in the
 
 ## Ask an agent to write a canvas
 
-A project can have several snapshot canvases (not live tiles). You add, delete and set **Refresh**; only agents write the document with `bokito/canvas` under [Govern](/docs/govern/govern). The project agent owns them by default. Refresh is an [Agenda](/docs/ai/agenda) wake (daily at 07:00 UTC by default), not a separate scheduler.
+A project can have several snapshot canvases (not live tiles). An agent creates, fills and refreshes a canvas; you can do the same from this tab. The agent who creates it owns it, unless you name another. Refresh is an [Agenda](/docs/ai/agenda) wake: once (**Manual**), daily at 07:00 UTC, weekly, monthly, hourly, or **Custom** (a five-field cron). On Assisted or Autonomous the write applies immediately. On Manual it waits as a decision under [Govern](/docs/govern/govern).
 
-1. Open the **Canvas** tab. Canvas names sit left to right. **Add canvas** is the tab after the last canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**). Daily is the default. Save. The managing agent starts writing from your brief.
-2. Canvases appear as tabs from left to right. While the document is empty, the tab shows that the agent is writing. After apply you see cards, stats, tables or charts from the last write.
-3. Admins can **Show source**. Choose **Ask agent to update** for a one-off rewrite, or change Refresh so Agenda keeps waking the agent. Workspace canvases live on Overview **Canvas**.
+1. Open the **Canvas** tab. Canvas names sit left to right. The **+** after the last name adds a canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**, **Custom**). **Custom** asks for a cron such as `0 8 * * 1-5`. Daily is the default. Save. The owner starts writing from the brief.
+2. Canvases appear as tabs from left to right. While the document is empty, the tab shows that the agent is writing. After the write you see cards, stats, tables or charts from the last snapshot.
+3. Ask the agent in the conversation for figures, a status, or a dashboard and it builds or updates the canvas in that turn. A later change updates that same canvas. The reply names the canvas as a link and shows a small preview of the snapshot. Open the preview to land on that canvas. A scheduled refresh writes the snapshot and does not open a second conversation. Admins can **Show source**. Choose **Ask agent to update** for a one-off rewrite, or change Refresh so Agenda keeps waking the owner. Workspace canvases live on Overview **Canvas**.
 
 ## Get tickets onto a project
 
 1. On the **Tickets** tab, choose **Add flow** and pick the flow. Flows are attached from the project; the flow page only shows where it is used.
-2. File a conversation with that flow's action tag. Filing asks which project it belongs to; pick this project. Agents make the same choice. See [Action tags and tickets](/docs/ai/categories).
-3. The ticket appears on that flow's board in its first stage, and under **Projects** in the Communication sidebar.
+2. File a conversation with that flow's action tag. The folder follows from the conversation tags; add the folder tag if it is not there yet. Agents make the same choice. See [Action tags and tickets](/docs/ai/categories).
+3. The ticket appears on that flow's board in its first stage, and under **Folders and tags** in the Communication sidebar.
 4. How much an agent may do without asking is one workspace-wide dial: see [Autonomy](/docs/govern/autonomy).
 
 ## Track project documentation

@@ -85,12 +85,12 @@ export default function ProjectsFolderNav({ className }: { className?: string })
   return (
     <nav className={cn('flex min-h-0 flex-col', className)} aria-label={t('projects.page.folderNav')}>
       <NavLink
-        to="/projects"
+        to="/folders"
         end
         className="nav-row mb-1 h-7 shrink-0 text-sm font-medium text-text-heading"
       >
         <FolderKanban size={14} aria-hidden />
-        <span className="min-w-0 flex-1 truncate-fade">{t('tabs.projects.title')}</span>
+        <span className="min-w-0 flex-1 truncate-fade">{t('tabs.folders.title')}</span>
       </NavLink>
       <ScrollFade className="min-h-0 flex-1">
         {tree.length === 0 ? (
@@ -139,7 +139,7 @@ function FolderNavRow({
             <FolderKanban size={13} />
           </span>
         )}
-        <NavLink to={`/projects/${node.id}`} className="nav-row h-7 min-w-0 flex-1 text-xs">
+        <NavLink to={`/folders/${node.id}`} className="nav-row h-7 min-w-0 flex-1 text-xs">
           <span className="min-w-0 flex-1 truncate-fade">{node.name}</span>
         </NavLink>
       </div>

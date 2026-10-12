@@ -43,7 +43,7 @@ Heeft een agent in dezelfde beurt jouw OK nodig voor meer dan één wijziging (b
 ![Eén kaart met meerdere agentacties, selectievakjes en Alles goedkeuren](/api/docs/assets/decisions/action-bundle.png)
 *Elke rij is één actie; keur ze allemaal goed, kies er een paar, of wijs de rest af.*
 
-1. Lees de rijen onder het bericht van de agent. Elke rij noemt de actie in gewone woorden, bijvoorbeeld **Hashtag #vip aanmaken** of **Actietag #klacht aanmaken**, met de toolnaam als klein label. De kop telt hoeveel er nog wachten.
+1. Lees de rijen onder het bericht van de agent. Elke rij noemt de actie en het object, bijvoorbeeld **Hashtag #vip aanmaken**, **Koppeling GitHub verbinden** of **Module Accounting aanzetten**, met de toolnaam als klein label. De kop telt hoeveel er nog wachten.
 2. Kies **Alles goedkeuren** om elke open rij uit te voeren. Wil je een deel, vink dan de rijen aan en kies **Geselecteerde goedkeuren**; de andere blijven open. **Afwijzen** (of **Rest afwijzen**) zegt nee tegen elke rij die nog open staat.
 3. Open het menu op een rij voor **Alleen nu** (alleen deze rij uitvoeren) of **Deze afwijzen**.
 4. Een rij die mislukt blijft open en toont *Mislukt*; de andere houden hun resultaat. Los de oorzaak op en keur de rij opnieuw goed.

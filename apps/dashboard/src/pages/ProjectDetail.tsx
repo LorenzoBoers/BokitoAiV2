@@ -66,6 +66,7 @@ import {
   deleteProject,
   getProject,
   getProjectBudget,
+  listFolderFiles,
   patchProject,
   type ProjectBudgetResponse,
   type ProjectRow,
@@ -74,7 +75,7 @@ import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-conn
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 
-const PROJECT_TABS = ['home', 'conversations', 'tickets', 'canvas', 'docs', 'settings'] as const
+const PROJECT_TABS = ['home', 'conversations', 'tickets', 'canvas', 'docs', 'files', 'settings'] as const
 type ProjectTab = (typeof PROJECT_TABS)[number]
 
 function parseProjectTab(raw: string | null): ProjectTab {
@@ -120,6 +121,7 @@ export default function ProjectDetail() {
   const [folderName, setFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
+  const [files, setFiles] = useState<{ name: string; url?: string | null; signal_id: string; subject: string }[]>([])
   const widenedConnections = useProjectDeleteConnectionImpact(deleteOpen ? project?.id ?? null : null)
 
   const setTab = useCallback(
@@ -142,11 +144,12 @@ export default function ProjectDetail() {
       setName(row.name)
       setDescription(row.description ?? '')
       // Secondary data may fail independently without blocking the page.
-      const [budgetResult, runsResult, agentsResult, threadsResult] = await Promise.allSettled([
+      const [budgetResult, runsResult, agentsResult, threadsResult, filesResult] = await Promise.allSettled([
         getProjectBudget(projectId),
         listWorkLogs({ project_id: projectId, limit: 10 }),
         listAgents(),
         token ? listThreads(token, { folder: 'internal', perPage: 80 }) : Promise.reject(new Error('signed out')),
+        listFolderFiles(projectId),
       ])
       setBudget(budgetResult.status === 'fulfilled' ? budgetResult.value : null)
       const runRows = runsResult.status === 'fulfilled' ? runsResult.value : []
@@ -154,6 +157,7 @@ export default function ProjectDetail() {
       setRunsMore(runRows.length === 10)
       setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
       setAgents(agentsResult.status === 'fulfilled' ? agentsResult.value : [])
+      setFiles(filesResult.status === 'fulfilled' ? filesResult.value : [])
       setRefreshCount((count) => count + 1)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.detail.loadError')))
@@ -228,7 +232,7 @@ export default function ProjectDetail() {
     try {
       await deleteProject(project.id, project.name)
       toastMovedToBin(t('projects.detail.deleted'), navigate)
-      navigate('/projects')
+      navigate('/folders')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('projects.detail.deleteError')))
     } finally {
@@ -255,7 +259,7 @@ export default function ProjectDetail() {
       setFolderName('')
       setFolderOpen(false)
       toast.success(t('projects.detail.folderCreated'))
-      navigate(`/projects/${created.id}`)
+      navigate(`/folders/${created.id}`)
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('projects.page.createError')))
     } finally {
@@ -273,7 +277,7 @@ export default function ProjectDetail() {
         className="flex flex-wrap items-center gap-1.5 text-sm text-text-muted"
       >
         <Link
-          to="/projects"
+          to="/folders"
           className="inline-flex items-center gap-1.5 transition-colors hover:text-text-primary"
         >
           <ArrowLeft size={14} />
@@ -282,7 +286,7 @@ export default function ProjectDetail() {
         {(project?.ancestors ?? []).map((ancestor) => (
           <span key={ancestor.id} className="inline-flex min-w-0 items-center gap-1.5">
             <span aria-hidden>/</span>
-            <Link to={`/projects/${ancestor.id}`} className="truncate hover:text-text-primary">
+            <Link to={`/folders/${ancestor.id}`} className="truncate hover:text-text-primary">
               {ancestor.name}
             </Link>
           </span>
@@ -466,12 +470,19 @@ export default function ProjectDetail() {
                   </span>
                 ) : null}
               </TabsTrigger>
-              <TabsTrigger value="tickets">{t('projects.detail.tabTickets')}</TabsTrigger>
+              {(project.open_tickets_count ?? 0) > 0 || tab === 'tickets' ? (
+                <TabsTrigger value="tickets">{t('projects.detail.tabTickets')}</TabsTrigger>
+              ) : null}
+              {(project.doc_sections_total ?? 0) > 0 || tab === 'docs' ? (
+                <TabsTrigger value="docs">{t('projects.detail.tabDocs')}</TabsTrigger>
+              ) : null}
+              {files.length > 0 || tab === 'files' ? (
+                <TabsTrigger value="files">{t('projects.detail.tabFiles', { defaultValue: 'Files' })}</TabsTrigger>
+              ) : null}
               <TabsTrigger value="canvas">
                 <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
                 {t('projects.detail.tabCanvas')}
               </TabsTrigger>
-              <TabsTrigger value="docs">{t('projects.detail.tabDocs')}</TabsTrigger>
               <TabsTrigger value="settings">{t('projects.detail.tabSettings')}</TabsTrigger>
             </TabsList>
 
@@ -577,6 +588,32 @@ export default function ProjectDetail() {
 
             <TabsContent value="docs">
               <ProjectDocs projectId={project.id} canEdit={isAdmin} />
+            </TabsContent>
+
+            <TabsContent value="files">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('projects.detail.tabFiles', { defaultValue: 'Files' })}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {files.length === 0 ? (
+                    <p className="text-sm text-text-muted">{t('projects.detail.filesEmpty', { defaultValue: 'No attachments in this folder yet.' })}</p>
+                  ) : (
+                    files.map((file, index) => (
+                      <div key={`${file.signal_id}-${index}`} className="flex items-center justify-between gap-2 text-sm">
+                        {file.url ? (
+                          <a href={file.url} className="truncate text-accent hover:underline" target="_blank" rel="noreferrer">
+                            {file.name}
+                          </a>
+                        ) : (
+                          <span className="truncate">{file.name}</span>
+                        )}
+                        <span className="shrink-0 text-xs text-text-muted">{file.subject}</span>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-4">

@@ -177,6 +177,73 @@ def filter_tools_for_agent(tools: list[dict[str, Any]], agent: Any | None) -> li
     return [t for t in tools if t["name"] in allowed]
 
 
+# Snapshot canvases are a platform capability. A specialist passport (for example
+# a trading desk that only lists call_mcp_tool) still gets these in operator chat.
+CANVAS_OPERATOR_TOOLS = frozenset(
+    {
+        "list_canvases",
+        "get_folder_canvas",
+        "create_canvas",
+        "update_folder_canvas",
+        "delete_canvas",
+    }
+)
+
+# A refresh wake rewrites one snapshot. It does not open a canvas, and it does
+# not ask the operator (that is what dropped a second thread into For you).
+CANVAS_REFRESH_TOOLS = frozenset(
+    {
+        "list_canvases",
+        "get_folder_canvas",
+        "update_folder_canvas",
+    }
+)
+
+CANVAS_WAKE_DENY = frozenset(
+    {
+        "create_canvas",
+        "delete_canvas",
+        "create_decision_request",
+        "propose_action",
+        "send_reply",
+        "handoff_to_human",
+        "split_conversation",
+        "close_thread",
+        "create_task",
+        "delegate_to_agent",
+        "assign_conversation",
+        "schedule_task",
+        "set_thread_schedule",
+        "upsert_trigger",
+        "create_tag",
+        "delete_tag",
+        "update_tag",
+        "set_thread_tags",
+        "create_project",
+        "create_agent",
+        "update_agent",
+        "create_workstream",
+        "update_workstream",
+        "propose_session_checkout",
+    }
+)
+
+
+def with_operator_canvas_tools(
+    tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
+) -> list[dict[str, Any]]:
+    if trust == "external":
+        return tools
+    allowed = CANVAS_REFRESH_TOOLS if refresh else CANVAS_OPERATOR_TOOLS
+    if refresh:
+        tools = [t for t in tools if t["name"] not in {"create_canvas", "delete_canvas"}]
+    have = {t["name"] for t in tools}
+    extra = [t for t in get_tool_definitions() if t["name"] in allowed and t["name"] not in have]
+    if not extra:
+        return tools
+    return [*tools, *extra]
+
+
 def tool_matches_audience(spec: ToolSpec, audience: str) -> bool:
     return spec.audience in ("both", audience)
 

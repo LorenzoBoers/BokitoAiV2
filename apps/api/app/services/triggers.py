@@ -233,6 +233,8 @@ async def create_trigger(
     signal_id: UUID | None = None,
     created_by_user_id: UUID | None = None,
     recipient: tuple[str, UUID] | None = None,
+    defer_thread: bool = False,
+    hold: bool = False,
 ) -> Trigger:
     """A rule always runs in a thread: ``signal_id`` or a new agenda thread.
 
@@ -269,11 +271,16 @@ async def create_trigger(
         trigger.next_run_at = run_at
     else:
         trigger.next_run_at = compute_next_run(trigger)
+    # hold: the caller fires this moment itself. A once-row left due here is
+    # also claimed by the scheduler, so the same wake runs twice.
+    if hold and kind == "once":
+        trigger.enabled = False
+        trigger.next_run_at = None
     session.add(trigger)
     await session.flush()
     if kind == "event":
         await convert_event_trigger(session, trigger)
-    else:
+    elif not defer_thread:
         await ensure_trigger_thread(session, trigger)
     await session.commit()
     await session.refresh(trigger)
@@ -593,6 +600,8 @@ async def fire_trigger(
 
         await promote_run_to_task(session, run, title=trigger.name)
 
+    from app.services.project_canvas import is_canvas_refresh_trigger
+
     loop = AgentLoop(
         session,
         trigger.tenant_id,
@@ -600,6 +609,7 @@ async def fire_trigger(
         agent=agent,
         run=run,
         signal_id=signal.id,
+        canvas_refresh=is_canvas_refresh_trigger(trigger.name, trigger.instructions),
     )
     try:
         text, _tokens = await loop.run_chat([{"role": "user", "content": prompt}])

@@ -36,7 +36,7 @@ describe('leaf path round-trips', () => {
   it('builds hashtag and project paths', () => {
     expect(leafPath({ type: 'tag', tag: 'refund-request', queue: 'open' })).toBe('/communication/tag/refund-request/open')
     expect(leafPath({ type: 'project', projectId: 'p-1', queue: 'closed' }, 't-9')).toBe(
-      '/communication/project/p-1/closed/t/t-9',
+      '/communication/folder/p-1/closed/t/t-9',
     )
     expect(leafKey({ type: 'tag', tag: 'vip', queue: 'open' })).toBe('tag:vip:open')
     expect(sameLeafScope({ type: 'tag', tag: 'vip', queue: 'open' }, { type: 'tag', tag: 'vip' })).toBe(true)

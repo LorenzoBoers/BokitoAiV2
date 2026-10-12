@@ -1,7 +1,7 @@
 /**
  * Navigation model for the control shell.
  *
- * Rail: Overview + Communication (pinned); Work (Projects, Playbooks, Agenda);
+ * Rail: Overview + Communication (pinned); Work (Folders, Playbooks, Agenda);
  * AI (Agents, Knowledge); Organization (Team, Connections, Settings).
  * Govern lives under Settings (not a primary rail item).
  * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
@@ -29,14 +29,14 @@ export type Tab =
   | 'agents'
   | 'workstreams'
   | 'knowledge'
-  | 'projects'
+  | 'folders'
   | 'modules'
   | 'settings'
 
 export const PINNED_TABS: readonly Tab[] = ['overview', 'communication']
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
-  { label: 'Work', tabs: ['projects', 'workstreams', 'agenda'] },
+  { label: 'Work', tabs: ['folders', 'workstreams', 'agenda'] },
   { label: 'AI', tabs: ['agents', 'knowledge'] },
   { label: 'Organization', tabs: ['team', 'modules', 'settings'] },
 ]
@@ -49,7 +49,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   agents: '/agents',
   workstreams: '/workstreams',
   knowledge: '/knowledge',
-  projects: '/projects',
+  folders: '/folders',
   modules: '/connections',
   settings: '/settings',
 }
@@ -71,7 +71,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   agents: Bot,
   workstreams: Workflow,
   knowledge: Brain,
-  projects: FolderKanban,
+  folders: FolderKanban,
   modules: Plug,
   settings: Settings,
 }
@@ -84,7 +84,7 @@ const TAB_TITLES: Record<Tab, string> = {
   agents: 'Agents',
   workstreams: 'Playbooks',
   knowledge: 'Knowledge',
-  projects: 'Projects',
+  folders: 'Folders',
   modules: 'Connections',
   settings: 'Settings',
 }
@@ -97,7 +97,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   agents: 'People and agents you can chat with',
   workstreams: 'Repeatable step-by-step playbooks for agents',
   knowledge: 'Docs, skills and memory',
-  projects: 'Shared goals, agents and playbooks for a body of work',
+  folders: 'A tag with a place: conversations, boards and docs under one path',
   modules: 'Installed modules, partner logins and tools',
   settings: 'Workspace configuration',
 }
@@ -163,7 +163,7 @@ export function tabFromPath(pathname: string): Tab | null {
   if (pathname.startsWith('/team')) return 'team'
   if (pathname.startsWith('/agents')) return 'agents'
   if (pathname.startsWith('/workstreams')) return 'workstreams'
-  if (pathname.startsWith('/projects')) return 'projects'
+  if (pathname.startsWith('/folders') || pathname.startsWith('/projects')) return 'folders'
   if (
     pathname.startsWith('/knowledge') ||
     pathname.startsWith('/workspace') ||

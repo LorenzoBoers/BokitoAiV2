@@ -156,8 +156,8 @@ async def split_conversation(
 
     Without a message id the newest customer message starts the new
     conversation. The source keeps at least one message. Commits, then files
-    ``category`` (if any) on the new conversation. Its project is the source's
-    when the playbook uses it; otherwise the ticket waits for a project choice.
+    ``category`` (if any) on the new conversation. The new conversation keeps
+    the source's free tags and contact, so its folder follows the same rule.
     """
     from app.gateway.publish import publish_thread_update
     from app.services.audit import record_audit
@@ -213,6 +213,14 @@ async def split_conversation(
         **{name: getattr(source, name) for name in _COPIED_FIELDS},
     )
     session.add(child)
+    await session.flush()
+    # The new conversation keeps the source's free tags, so it lands in the same folder.
+    from app.models.signal import SignalTagLink
+
+    for tag_id in (
+        await session.execute(select(SignalTagLink.tag_id).where(SignalTagLink.signal_id == source.id))
+    ).scalars():
+        session.add(SignalTagLink(signal_id=child.id, tag_id=tag_id, tenant_id=tenant_id))
     await session.flush()
 
     decision_ids = [m.decision_id for m in moving if m.decision_id]
@@ -272,21 +280,23 @@ async def split_conversation(
     await session.refresh(child)
 
     if category is not None:
-        from app.services.tickets import file_ticket, playbook_project_ids
+        from app.services.tickets import file_ticket
 
-        choices = await playbook_project_ids(session, tenant_id, category.workstream_id)
-        chosen = not choices or source.project_id in choices
         await file_ticket(
             session,
             tenant_id,
             signal_id=child.id,
             tag_id=category.id,
-            project_id=source.project_id if choices and chosen else None,
-            project_chosen=chosen,
-            actor="operator" if actor_type == "user" and chosen else "agent",
+            actor="operator" if actor_type == "user" else "agent",
             created_by_type=actor_type,
             created_by_id=actor_id,
         )
+        await session.refresh(child)
+    else:
+        from app.services.folders import refile
+
+        await refile(session, child, actor_type=actor_type, actor_id=actor_id)
+        await session.commit()
         await session.refresh(child)
 
     await publish_thread_update(source)

@@ -438,6 +438,7 @@ async def restore_entry(
         ).scalars().all()
     )
     hint: dict[str, Any] = {}
+    restored_folders: list[UUID] = []
     for item in batch_rows:
         row = await _load_live_row(session, tenant.id, item.resource_type, item.resource_id)
         if row is None:
@@ -445,6 +446,7 @@ async def restore_entry(
         if item.resource_type == "project" and getattr(row, "slug", None):
             from app.models.project import Project
 
+            restored_folders.append(row.id)
             parent_scope = (
                 [Project.parent_id == row.parent_id]
                 if row.parent_id
@@ -486,6 +488,13 @@ async def restore_entry(
         unstamp_row(row)
         session.add(row)
         await session.delete(item)
+    if restored_folders:
+        # A folder back from the Bin pulls its conversations back in.
+        from app.services.folders import refile_subtree
+
+        await session.flush()
+        for folder_id in restored_folders:
+            await refile_subtree(session, tenant.id, folder_id, actor_id=str(user_id or ""))
     await record_audit(
         session,
         tenant.id,

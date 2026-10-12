@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, ClipboardList, History, Info, RefreshCw, Repeat, Users } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, ClipboardList, History, Info, Plus, RefreshCw, Repeat, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
@@ -14,6 +14,8 @@ import type { CalendarConnection } from '../../lib/calendars-api'
 import { calendarBrandSlug, syncAllCalendars, listCalendarConnections, utcIso } from '../../lib/calendars-api'
 import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
+import { FolderTagTree } from '../inbox/FolderTagTree'
+import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { LAYER_DOT } from './agenda-style'
 import { CalendarSwatch } from './CalendarSwatch'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -63,6 +65,9 @@ type Props = {
   projectId: string
   onProject: (id: string) => void
   projects: RailOption[]
+  tag?: string
+  path?: string
+  onPath?: (next: { projectId: string; tag: string; path: string }) => void
   layers: Set<AgendaLayer>
   counts: Record<AgendaLayer, number>
   onToggleLayer: (layer: AgendaLayer) => void
@@ -74,8 +79,6 @@ type Props = {
   hiddenCalendars: Set<string>
   onToggleSubCalendar: (connectionId: string, calendarId: string) => void
   onEnableCalendar: (connectionId: string, calendarId: string) => void
-  onShowAll: () => void
-  onHideAll: () => void
   calendarsLoading: boolean
   onCalendars: (rows: CalendarConnection[]) => void
   onSynced: () => void
@@ -180,39 +183,27 @@ export default function AgendaRail(props: Props) {
             },
           ]}
         />
-        {props.projects.length > 0 ? (
-          <ChoiceSelect
-            aria-label={t('agendaPage.rail.allProjects')}
-            triggerClassName="h-8 text-xs"
-            value={props.projectId || 'all'}
-            onValueChange={(value) => props.onProject(value === 'all' ? '' : value)}
-            groups={[
-              {
-                items: [
-                  { value: 'all', label: t('agendaPage.rail.allProjects'), kind: 'project' },
-                  ...props.projects.map((project) => ({
-                    value: project.id,
-                    label: project.name,
-                    kind: 'project' as const,
-                  })),
-                ],
-              },
-            ]}
-          />
-        ) : null}
+        <AgendaFolderFilter
+          projectId={props.projectId}
+          tag={props.tag}
+          path={props.path}
+          onPath={props.onPath}
+          onProject={props.onProject}
+          projects={props.projects}
+        />
       </section>
 
       <section className="space-y-1">
-        <div className="flex items-center justify-between gap-2 px-1.5">
+        <div className="flex items-center justify-between gap-2 pr-1">
           <RailHeading>{t('agendaPage.rail.show')}</RailHeading>
-          <span className="flex gap-2">
-            <button type="button" className="text-2xs text-text-muted hover:text-accent" onClick={props.onShowAll}>
-              {t('agendaPage.rail.showAll')}
-            </button>
-            <button type="button" className="text-2xs text-text-muted hover:text-accent" onClick={props.onHideAll}>
-              {t('agendaPage.rail.hideAll')}
-            </button>
-          </span>
+          <Link
+            to={connectionsPathWithKind('calendar')}
+            className="inline-flex h-5 w-5 items-center justify-center rounded text-text-muted hover:bg-bg-elevated hover:text-accent"
+            aria-label={t('agendaPage.rail.addCalendar')}
+            title={t('agendaPage.rail.addCalendar')}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+          </Link>
         </div>
         {props.calendars.map((connection) => {
           const on = props.calendarIds.has(connection.id)
@@ -506,5 +497,77 @@ function MiniMonth({
         })}
       </div>
     </section>
+  )
+}
+
+function AgendaFolderFilter({
+  projectId,
+  tag,
+  path,
+  onPath,
+  onProject,
+  projects,
+}: {
+  projectId: string
+  tag?: string
+  path?: string
+  onPath?: (next: { projectId: string; tag: string; path: string }) => void
+  onProject: (id: string) => void
+  projects: RailOption[]
+}) {
+  const { t } = useTranslation('nav')
+  const { nav, loaded } = useCommunicationNav()
+  const selectedId = path || tag || projectId
+  if (!onPath) {
+    if (projects.length === 0) return null
+    return (
+      <ChoiceSelect
+        aria-label={t('agendaPage.rail.allProjects')}
+        triggerClassName="h-8 text-xs"
+        value={projectId || 'all'}
+        onValueChange={(value) => onProject(value === 'all' ? '' : value)}
+        groups={[
+          {
+            items: [
+              { value: 'all', label: t('agendaPage.rail.allFolders', { defaultValue: t('agendaPage.rail.allProjects') }), kind: 'project' },
+              ...projects.map((project) => ({
+                value: project.id,
+                label: project.name,
+                kind: 'project' as const,
+              })),
+            ],
+          },
+        ]}
+      />
+    )
+  }
+  return (
+    <div className="space-y-1">
+      <RailHeading>{t('support.section.folders', { defaultValue: 'Folders and tags' })}</RailHeading>
+      <button
+        type="button"
+        onClick={() => onPath({ projectId: '', tag: '', path: '' })}
+        className="nav-row h-7 w-full text-left text-xs"
+        data-active={!selectedId ? 'true' : undefined}
+      >
+        <span className="min-w-0 flex-1 truncate-fade">{t('agendaPage.rail.allFolders', { defaultValue: 'All folders' })}</span>
+      </button>
+      <FolderTagTree
+        folders={nav.projects}
+        tags={nav.tags}
+        ticketTags={nav.ticketTags}
+        loading={!loaded}
+        mode="agenda"
+        selectedId={selectedId}
+        onSelect={(kind, id, name) => {
+          if (kind === 'tag') onPath({ projectId: '', tag: name, path: '' })
+          else if (id.includes(':')) {
+            const [folderId, tagId] = id.split(':')
+            onPath({ projectId: folderId, tag: '', path: tagId || '' })
+          } else onPath({ projectId: id, tag: '', path: '' })
+        }}
+        t={t}
+      />
+    </div>
   )
 }

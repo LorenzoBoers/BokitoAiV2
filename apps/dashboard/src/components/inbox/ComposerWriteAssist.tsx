@@ -241,7 +241,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
                   ? t('composer.dictationListening')
                   : t('composer.aiIntentPlaceholder')
               }
-              className="w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-1.5 pl-2.5 pr-10 text-xs text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-2 pl-2.5 pr-11 text-xs leading-5 text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault()
@@ -251,16 +251,18 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
               onPointerDown={(e) => e.stopPropagation()}
             />
             {dictation.supported ? (
-              <div className="absolute bottom-1.5 right-1.5">
-                <DictationMicButton
-                  size="sm"
-                  listening={dictation.listening}
-                  disabled={busy || disabled}
-                  onStart={() => {
-                    dictation.start()
-                  }}
-                  onConfirm={confirmDictation}
-                />
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-1.5">
+                <div className="pointer-events-auto">
+                  <DictationMicButton
+                    size="sm"
+                    listening={dictation.listening}
+                    disabled={busy || disabled}
+                    onStart={() => {
+                      dictation.start()
+                    }}
+                    onConfirm={confirmDictation}
+                  />
+                </div>
               </div>
             ) : null}
           </div>

@@ -5,7 +5,7 @@ from httpx import AsyncClient
 
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
-API = "/api/workforce/projects"
+API = "/api/folders"
 
 
 async def _login(client: AsyncClient) -> str:

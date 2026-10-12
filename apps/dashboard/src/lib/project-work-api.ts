@@ -1,7 +1,7 @@
 // Conversation-driven project work: implementation queue, smart-doc sections,
 // and generic project resources (repo / drive / notion / vibecode slots).
-import { projectsRoutes } from '../api/routes'
-import { workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
+import { foldersRoutes } from '../api/routes'
+import { foldersDelete, foldersGet, foldersPatch, foldersPost } from './api'
 
 export type QueueItemKind = 'feature' | 'bug' | 'task' | 'idea' | 'risk'
 export type QueueItemPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -146,7 +146,7 @@ export async function listQueueItems(
   projectId: string,
   params?: { status?: QueueItemStatus; kind?: QueueItemKind },
 ): Promise<QueueItemRow[]> {
-  const data = await workforceGet<{ items: QueueItemRow[] }>(projectsRoutes.queue(projectId, params))
+  const data = await foldersGet<{ items: QueueItemRow[] }>(foldersRoutes.queue(projectId, params))
   return data.items ?? []
 }
 
@@ -161,7 +161,7 @@ export async function createQueueItem(
     signal_id?: string
   },
 ): Promise<QueueItemRow> {
-  return workforcePost<QueueItemRow>(projectsRoutes.queue(projectId), input)
+  return foldersPost<QueueItemRow>(foldersRoutes.queue(projectId), input)
 }
 
 export async function patchQueueItem(
@@ -176,27 +176,27 @@ export async function patchQueueItem(
     impact_summary?: string
   },
 ): Promise<QueueItemRow> {
-  return workforcePatch<QueueItemRow>(projectsRoutes.queueItem(projectId, itemId), patch)
+  return foldersPatch<QueueItemRow>(foldersRoutes.queueItem(projectId, itemId), patch)
 }
 
 export async function analyzeQueueItem(
   projectId: string,
   itemId: string,
 ): Promise<{ started: boolean; task_id?: string }> {
-  return workforcePost(projectsRoutes.queueItemAnalyze(projectId, itemId), {})
+  return foldersPost(foldersRoutes.queueItemAnalyze(projectId, itemId), {})
 }
 
 export async function verifyQueueItem(
   projectId: string,
   itemId: string,
 ): Promise<{ started: boolean; task_id?: string }> {
-  return workforcePost(projectsRoutes.queueItemVerify(projectId, itemId), {})
+  return foldersPost(foldersRoutes.queueItemVerify(projectId, itemId), {})
 }
 
 // ── docs ─────────────────────────────────────────────────────────
 
 export async function listProjectDocs(projectId: string): Promise<ProjectDocRow[]> {
-  const data = await workforceGet<{ docs: ProjectDocRow[] }>(projectsRoutes.docs(projectId))
+  const data = await foldersGet<{ docs: ProjectDocRow[] }>(foldersRoutes.docs(projectId))
   return data.docs ?? []
 }
 
@@ -204,7 +204,7 @@ export async function saveProjectDoc(
   projectId: string,
   input: { path: string; content: string; title?: string },
 ): Promise<ProjectDocRow> {
-  return workforcePost<ProjectDocRow>(projectsRoutes.docs(projectId), input)
+  return foldersPost<ProjectDocRow>(foldersRoutes.docs(projectId), input)
 }
 
 export async function linkQueueItemToDoc(
@@ -213,7 +213,7 @@ export async function linkQueueItemToDoc(
   queueItemId: string,
   relation: string = 'touches',
 ): Promise<{ id: string; doc_id: string | null; relation: string }> {
-  return workforcePost(projectsRoutes.docLinks(projectId, docId), {
+  return foldersPost(foldersRoutes.docLinks(projectId, docId), {
     queue_item_id: queueItemId,
     relation,
   })
@@ -226,7 +226,7 @@ export async function setSectionStatus(
   status: DocSectionStatus,
   summary?: string,
 ): Promise<DocSectionRow> {
-  return workforcePatch<DocSectionRow>(projectsRoutes.docSection(projectId, docId, sectionId), {
+  return foldersPatch<DocSectionRow>(foldersRoutes.docSection(projectId, docId, sectionId), {
     status,
     summary,
   })
@@ -235,7 +235,7 @@ export async function setSectionStatus(
 // ── resources ────────────────────────────────────────────────────
 
 export async function listProjectResources(projectId: string): Promise<ProjectResourceRow[]> {
-  const data = await workforceGet<{ items: ProjectResourceRow[] }>(projectsRoutes.resources(projectId))
+  const data = await foldersGet<{ items: ProjectResourceRow[] }>(foldersRoutes.resources(projectId))
   return data.items ?? []
 }
 
@@ -251,9 +251,9 @@ export async function createProjectResource(
     config?: Record<string, unknown>
   },
 ): Promise<ProjectResourceRow> {
-  return workforcePost<ProjectResourceRow>(projectsRoutes.resources(projectId), input)
+  return foldersPost<ProjectResourceRow>(foldersRoutes.resources(projectId), input)
 }
 
 export async function deleteProjectResource(projectId: string, resourceId: string): Promise<void> {
-  await workforceDelete(projectsRoutes.resourceById(projectId, resourceId))
+  await foldersDelete(foldersRoutes.resourceById(projectId, resourceId))
 }

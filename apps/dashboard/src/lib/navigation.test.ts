@@ -14,9 +14,9 @@ describe('navigation', () => {
     expect(TAB_GROUPS.find((g) => g.label === 'Control')).toBeUndefined()
   })
 
-  it('has a Work group with projects, playbooks and agenda', () => {
+  it('has a Work group with folders, playbooks and agenda', () => {
     const work = TAB_GROUPS.find((g) => g.label === 'Work')
-    expect(work?.tabs).toEqual(['projects', 'workstreams', 'agenda'])
+    expect(work?.tabs).toEqual(['folders', 'workstreams', 'agenda'])
     expect(titleForTab('workstreams')).toBe('Playbooks')
   })
 
@@ -36,7 +36,8 @@ describe('navigation', () => {
     expect(tabFromPath('/cases')).toBeNull()
     expect(tabFromPath('/settings/action-tags')).toBe('settings')
     expect(tabFromPath('/workstreams')).toBe('workstreams')
-    expect(tabFromPath('/projects')).toBe('projects')
+    expect(tabFromPath('/folders')).toBe('folders')
+    expect(tabFromPath('/projects')).toBe('folders')
   })
 
   it('groups Team, Connections and Settings under Organization', () => {

@@ -7,14 +7,13 @@ import { relativeMoment } from '../agenda/agenda-style'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { openEntityPath } from '../../lib/open-entity'
-import { findNavRowPath } from '../../lib/signals-api'
+import { findNavRowPath, type NavRow } from '../../lib/signals-api'
 import {
   checkupLabel,
   getTicket,
   moveTicketToStage,
   patchTicket,
   stageLabel,
-  type ProjectChoice,
   type Ticket,
   type TicketStageField,
   type TicketStageKind,
@@ -56,15 +55,24 @@ const FolderKanban = ENTITY_ICONS.project
 const INLINE_INPUT =
   'h-7 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-text-heading outline-none transition placeholder:text-text-muted/70 hover:border-border/60 hover:bg-bg-input/40 focus:border-accent focus:bg-bg-input'
 
-/** Project options for filing: the flow's projects, then No project. */
-function ProjectItems({
+type FolderChoice = { id: string; name: string; depth: number }
+
+/** Every pinned folder row in the rail tree, depth-first, for the folder picker. */
+function flattenFolders(rows: NavRow[], depth = 0): FolderChoice[] {
+  return rows.flatMap((row) =>
+    row.virtual ? [] : [{ id: row.id, name: row.name, depth }, ...flattenFolders(row.children ?? [], depth + 1)],
+  )
+}
+
+/** Folder options: the workspace's folders, then No folder. Filing adds the folder's tags. */
+function FolderItems({
   choices,
   current,
   disabled,
   onPick,
   t,
 }: {
-  choices: ProjectChoice[]
+  choices: FolderChoice[]
   current?: string | null
   disabled: boolean
   onPick: (projectId: string | null) => void
@@ -76,7 +84,7 @@ function ProjectItems({
         <DropdownMenuItem
           key={choice.id}
           className="gap-2 text-xs"
-          style={{ paddingLeft: 8 + (choice.depth ?? 0) * 12 }}
+          style={{ paddingLeft: 8 + choice.depth * 12 }}
           disabled={disabled || current === choice.id}
           onSelect={() => onPick(choice.id)}
         >
@@ -124,8 +132,9 @@ function DetailRow({
 
 /**
  * The conversation's ticket once an action tag is filed: stage stepper,
- * project, and the flow's custom fields. Filing and replacing the action tag
- * happen in the Hashtags picker (at most one action tag per conversation).
+ * folder (derived from the tags; picking one adds its tags), and the flow's
+ * custom fields. Filing and replacing the action tag happen in the Hashtags
+ * picker (at most one action tag per conversation).
  */
 export function ThreadCategory({ signalId, version }: Props) {
   const { t } = useTranslation('nav')
@@ -179,12 +188,12 @@ export function ThreadCategory({ signalId, version }: Props) {
 
   const proposed = ticket.status === 'proposed'
   const awaitingVerify = ticket.status === 'waiting' && !ticket.stage_key
-  const choices = ticket.project_choices ?? []
-  // Filed outside the flow's own projects (a subfolder, or filed by hand): the
-  // rail tree still knows the name.
+  const choices = flattenFolders(nav.projects)
+  // The path the tags place it on; the rail tree knows the name when the
+  // ticket payload predates the path.
   const projectName = ticket.project_id
-    ? (choices.find((choice) => choice.id === ticket.project_id)?.name ??
-      findNavRowPath(nav.projects, ticket.project_id)?.slice(-1)[0]?.name ??
+    ? (ticket.folder_path?.label ||
+      findNavRowPath(nav.projects, ticket.project_id)?.map((row) => row.name).join(' / ') ||
       t('tickets.project'))
     : t('tickets.noProject')
   const defs = ticket.field_defs ?? []
@@ -232,36 +241,15 @@ export function ThreadCategory({ signalId, version }: Props) {
               <Hashtag name={ticket.name} category className="font-semibold text-text-heading" />
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
-              {choices.length > 0 ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" size="sm" disabled={busy} className="h-7 gap-1 px-2.5 text-xs">
-                      {t('tickets.confirmOn')}
-                      <ChevronDown size={11} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <ProjectItems
-                      choices={choices}
-                      disabled={busy}
-                      onPick={(projectId) =>
-                        void patch({ status: 'open', project_id: projectId }, t('tickets.acceptError'))
-                      }
-                      t={t}
-                    />
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={busy}
-                  className="h-7 px-2.5 text-xs"
-                  onClick={() => void patch({ status: 'open' }, t('tickets.acceptError'))}
-                >
-                  {t('tickets.confirm')}
-                </Button>
-              )}
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                className="h-7 px-2.5 text-xs"
+                onClick={() => void patch({ status: 'open' }, t('tickets.acceptError'))}
+              >
+                {t('tickets.confirm')}
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -356,8 +344,8 @@ export function ThreadCategory({ signalId, version }: Props) {
                         <ChevronDown size={11} className="shrink-0 text-text-muted" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <ProjectItems
+                    <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+                      <FolderItems
                         choices={choices}
                         current={ticket.project_id}
                         disabled={busy}

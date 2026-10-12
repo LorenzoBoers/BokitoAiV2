@@ -149,7 +149,7 @@ export default function WorkstreamsPage() {
 
       <PageRelatedLinks
         links={[
-          { to: '/projects', label: t('pageGuides.related.projects') },
+          { to: '/folders', label: t('pageGuides.related.projects') },
           { to: '/settings/action-tags', label: t('pageGuides.related.categories') },
           { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
         ]}

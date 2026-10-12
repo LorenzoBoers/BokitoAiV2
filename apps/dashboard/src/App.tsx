@@ -155,6 +155,14 @@ function LegacyWorkspaceDocRedirect() {
   return <Navigate to={`/knowledge/${docId ?? ''}`} replace />
 }
 
+/** `/projects` and `/projects/:id` → `/folders`. */
+function LegacyProjectsRedirect() {
+  const { projectId } = useParams<{ projectId: string }>()
+  const location = useLocation()
+  const dest = projectId ? `/folders/${encodeURIComponent(projectId)}` : '/folders'
+  return <Navigate to={`${dest}${location.search}${location.hash}`} replace />
+}
+
 /** Preserve query string on simple path redirects (OAuth callbacks, hub filters). */
 function RedirectPreserveSearch({ to }: { to: string }) {
   const location = useLocation()
@@ -364,11 +372,15 @@ export default function App() {
             <Route path="/communication/agent/:agentId/:queue" element={<Communication />} />
             <Route path="/communication/agent/:agentId/:queue/t/:threadId" element={<Communication />} />
 
-            {/* Hashtag and project rows */}
+            {/* Hashtag and folder rows */}
             <Route path="/communication/tag/:tag" element={<Communication />} />
             <Route path="/communication/tag/:tag/t/:threadId" element={<Communication />} />
             <Route path="/communication/tag/:tag/:queue" element={<Communication />} />
             <Route path="/communication/tag/:tag/:queue/t/:threadId" element={<Communication />} />
+            <Route path="/communication/folder/:projectId" element={<Communication />} />
+            <Route path="/communication/folder/:projectId/t/:threadId" element={<Communication />} />
+            <Route path="/communication/folder/:projectId/:queue" element={<Communication />} />
+            <Route path="/communication/folder/:projectId/:queue/t/:threadId" element={<Communication />} />
             <Route path="/communication/project/:projectId" element={<Communication />} />
             <Route path="/communication/project/:projectId/t/:threadId" element={<Communication />} />
             <Route path="/communication/project/:projectId/:queue" element={<Communication />} />
@@ -424,9 +436,11 @@ export default function App() {
           <Route path="/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
           <Route element={<ProjectsLayout />}>
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/projects/:projectId" element={<ProjectDetail />} />
+            <Route path="/folders" element={<ProjectsPage />} />
+            <Route path="/folders/:projectId" element={<ProjectDetail />} />
           </Route>
+          <Route path="/projects" element={<LegacyProjectsRedirect />} />
+          <Route path="/projects/:projectId" element={<LegacyProjectsRedirect />} />
           <Route path="/knowledge" element={<WorkspaceDocs />} />
           <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
           <Route path="/workstreams" element={<WorkstreamsPage />} />
@@ -481,7 +495,7 @@ export default function App() {
             <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/mcp-catalog" element={<StaffIntegrationCatalog />} />
-            <Route path="/settings/projects" element={<Navigate to="/projects" replace />} />
+            <Route path="/settings/projects" element={<Navigate to="/folders" replace />} />
             <Route path="/ai/assistant" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
             <Route path="/ai/assistant/:audience/:section" element={<MessengerSettings />} />
             {/* Legacy Dutch route name */}

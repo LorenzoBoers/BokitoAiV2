@@ -203,7 +203,7 @@ function ItemBody({
         ) : null}
         {item.project_id ? (
           <PanelLink
-            to={`/projects/${item.project_id}`}
+            to={`/folders/${item.project_id}`}
             icon={FolderKanban}
             label={projectName ? t('agendaPage.panel.openProjectNamed', { name: projectName }) : t('agendaPage.panel.openProject')}
           />

@@ -1,4 +1,4 @@
-"""Categories (hashtags with a playbook), tickets on conversations, project boards."""
+"""Categories (hashtags with a playbook) and tickets on conversations."""
 
 from __future__ import annotations
 
@@ -13,13 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.orchestra import Workstream
-from app.models.project import Project
 from app.models.signal import SignalTag
 from app.services import tickets as svc
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 ticket_router = APIRouter(prefix="/signals", tags=["categories"])
-board_router = APIRouter(prefix="/projects", tags=["categories"])
 
 
 class CategoryCreateBody(BaseModel):
@@ -79,12 +77,19 @@ async def _workstream_names(session: AsyncSession, tenant_id: UUID) -> dict[UUID
 
 
 async def _serialize_categories(session: AsyncSession, tenant_id: UUID, rows: list[SignalTag]) -> list[dict[str, Any]]:
+    from app.services.folders import load_tree
+
     streams = await _workstream_names(session, tenant_id)
     counts = await svc.category_counts(session, tenant_id)
+    tree = await load_tree(session, tenant_id)
     out = []
     for row in rows:
         item = svc.serialize_category(row, workstream=streams.get(row.workstream_id))
-        item["project_choices"] = await svc.project_choices(session, tenant_id, row)
+        item["folders"] = [
+            {"id": str(node.id), "name": node.name, "path": tree.static_path(node.id).label}
+            for node in tree.nodes.values()
+            if node.tag_id == row.id
+        ]
         item.update(counts.get(row.id, svc.EMPTY_CATEGORY_COUNTS))
         out.append(item)
     return out
@@ -242,7 +247,7 @@ async def get_ticket(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """The conversation's ticket (category, stage, pipeline, project choices) or null."""
+    """The conversation's ticket (category, stage, pipeline, folder path) or null."""
     signal = await svc._signal(session, auth.tenant.id, signal_id)
     return {"ticket": await svc.ticket_payload(session, signal)}
 
@@ -269,7 +274,6 @@ async def file_ticket(
         signal_id=signal_id,
         tag_id=tag_id,
         project_id=body.project_id,
-        project_chosen="project_id" in body.model_fields_set,
         fields=body.fields,
         actor="operator",
         created_by_type="user",
@@ -317,16 +321,3 @@ async def clear_ticket(
     await svc.clear_ticket(session, signal)
     await session.commit()
     return {"ticket": None}
-
-
-@board_router.get("/{project_id}/board")
-async def project_board(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """The project's playbooks, stacked, each with its stages and the tickets filed on this project."""
-    project = await session.get(Project, project_id)
-    if project is None or project.tenant_id != auth.tenant.id:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return {"playbooks": await svc.project_board(session, auth.tenant.id, project_id)}

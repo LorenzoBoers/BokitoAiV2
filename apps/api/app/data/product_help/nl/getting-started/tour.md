@@ -23,7 +23,7 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 
 ## Werk en AI
 
-- **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/projects).
+- **Projecten** — werk over dagen. Zie [Projecten](/docs/ai/folders).
 - **Draaiboeken** — herhaalbare stappenprocessen die agents uitvoeren. Zie [Draaiboeken](/docs/ai/workstreams).
 - **Agenda** — wanneer agents wakker worden; staat onder **Werk**. Zie [Agenda](/docs/ai/agenda).
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).

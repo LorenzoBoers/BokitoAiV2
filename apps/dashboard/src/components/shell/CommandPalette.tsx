@@ -291,7 +291,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.newProject'),
         group: t('palette.groupActions'),
         icon: FolderKanban,
-        run: () => navigate('/projects?new=1'),
+        run: () => navigate('/folders?new=1'),
       },
       {
         id: 'action-connect-mailbox',
@@ -382,7 +382,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.openProject'),
         group: t('palette.groupActions'),
         icon: FolderKanban,
-        run: () => navigate('/projects'),
+        run: () => navigate('/folders'),
       },
       {
         id: 'action-open-knowledge',
@@ -575,7 +575,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         hint: item.description,
         group: t('palette.groupActions'),
         icon: FolderKanban,
-        run: () => navigate(`/projects/${item.id}`),
+        run: () => navigate(`/folders/${item.id}`),
       }))
     const matchingWorkstreams: PaletteItem[] = workstreams
       .filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(q.toLowerCase()))

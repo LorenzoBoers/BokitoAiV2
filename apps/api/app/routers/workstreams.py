@@ -107,7 +107,6 @@ async def create_workstream(
         )
     tag.workstream_id = ws.id
     tag.show_in_nav = True
-    tag.pinned = False
     session.add(tag)
     await svc.set_playbook_projects(session, auth.tenant.id, ws, body.project_ids)
     await session.commit()
@@ -276,7 +275,6 @@ async def _set_playbook_tags(
             tag = await session.get(SignalTag, tag_id)
             if tag is not None:
                 tag.show_in_nav = True
-                tag.pinned = False
                 session.add(tag)
     except (ValueError, LookupError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

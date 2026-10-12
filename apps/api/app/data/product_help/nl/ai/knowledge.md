@@ -4,7 +4,7 @@ intro: Markdown die de workspace bezit over organisatie-, project- en agentscope
 description: Beheer Kennis als hub voor org-, project- en agentdocs, bewerk in Schrijven of Markdown, en publiceer klantartikelen.
 keywords: kennis, docs, stem, geheugen, skills, helpcenter, onderbouwing, projectdocumentatie
 sort: 30
-related: agents,communication,projects,workstreams
+related: agents,communication,folders,workstreams
 ---
 
 # Zo werkt Kennis
@@ -55,4 +55,4 @@ Klantartikelen leven in Kennis, niet onder een aparte **Helpcentrum**-instelling
 
 ## Wat nu
 
-Houd projectsgebonden docs op het tabblad Documentatie van [Projecten](/docs/ai/projects) — ze verschijnen in Kennis wanneer je op die projectnaam klikt. Laat agents Skills en Geheugen gebruiken zodat antwoorden onderbouwd blijven.
+Houd projectsgebonden docs op het tabblad Documentatie van [Projecten](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die projectnaam klikt. Laat agents Skills en Geheugen gebruiken zodat antwoorden onderbouwd blijven.

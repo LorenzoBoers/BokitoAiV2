@@ -315,6 +315,8 @@ export default function Signup() {
 
         <p className="text-center text-xs text-text-muted mt-6">
           © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
+          {' · '}
+          <a href="/privacy.html" className="hover:text-accent">{t('loginPage.privacy')}</a>
         </p>
         <p className="text-center text-2xs text-text-muted/80 mt-1">
           build: {APP_VERSION}

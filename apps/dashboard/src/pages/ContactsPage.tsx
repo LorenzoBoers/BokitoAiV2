@@ -53,6 +53,8 @@ import {
   bulkUpdatePendingContacts,
   listCompaniesPage,
   listContactsPage,
+  setCompanyTags,
+  setContactTags,
   updateCompany,
   updateContact,
   type CompanyDetail as CompanyDetailData,
@@ -89,6 +91,7 @@ import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import type { InboxThread } from '../lib/inbox-api'
 import { listSignalThreads } from '../lib/signals-api'
 import { ContactFolderChips, ThreadLookAt, ThreadTicketPrefix } from '../components/contacts/ContactThreadMeta'
+import { OwnerTagsField } from '../components/contacts/OwnerTagsField'
 
 const STATUS_TONE: Record<ContactStatus, BadgeTone> = {
   approved: 'success',
@@ -474,6 +477,29 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 </ul>
               </div>
             ) : null}
+            <div className="rounded-md border border-border/60 px-3 py-2.5" data-testid="contact-tags">
+              <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactsPage.tags', { defaultValue: 'Tags' })}</p>
+              <OwnerTagsField
+                tags={contact.tags ?? []}
+                inherited={contact.companyTags ?? []}
+                inheritedLabel={t('contactsPage.viaCompany', { defaultValue: 'via company' })}
+                disabled={saving}
+                onChange={(names) => {
+                  void (async () => {
+                    if (!token) return
+                    setSaving(true)
+                    try {
+                      const tags = await setContactTags(token, contact.id, names)
+                      setContact((current) => (current ? { ...current, tags } : current))
+                    } catch (err) {
+                      toast.error(formatApiErrorMessage(err, t('contactsPage.saveError')))
+                    } finally {
+                      setSaving(false)
+                    }
+                  })()
+                }}
+              />
+            </div>
             <AiHandlingPicker
               variant="row"
               scope="contact"
@@ -791,6 +817,28 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
                 {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
               </button>
             ) : null}
+          </div>
+
+          <div className="mt-4 rounded-md border border-border/60 px-3 py-2.5" data-testid="company-tags">
+            <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactsPage.tags', { defaultValue: 'Tags' })}</p>
+            <OwnerTagsField
+              tags={company.tags ?? []}
+              disabled={saving}
+              onChange={(names) => {
+                void (async () => {
+                  if (!token) return
+                  setSaving(true)
+                  try {
+                    const tags = await setCompanyTags(token, company.id, names)
+                    setCompany((current) => (current ? { ...current, tags } : current))
+                  } catch (err) {
+                    toast.error(formatApiErrorMessage(err, t('contactsPage.saveCompanyError')))
+                  } finally {
+                    setSaving(false)
+                  }
+                })()
+              }}
+            />
           </div>
 
           <h3 className="mt-5 text-sm font-semibold text-text-heading">{t('contactsPage.peopleSection')}</h3>

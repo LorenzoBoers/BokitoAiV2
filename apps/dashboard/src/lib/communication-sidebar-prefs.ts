@@ -4,19 +4,16 @@
  * Fixed at the top (never customizable): New chat + All communication.
  * Pinned at the bottom: Contacts and a single Settings link
  * (the 'settings' section flag only controls the link's visibility).
- * Middle sections (hashtags, projects, channels, agents, teams) can be reordered, hidden, collapsed.
+ * Middle sections (folders, channels, agents, teams) can be reordered, hidden, collapsed.
  *
- * Note: the former chip model (channels/agents above the list) is gone — those
- * are folders again. Stored prefs that list unknown ids are repaired by
- * normalizeSidebarPrefs.
+ * Stored in `/me/preferences.sidebar` and `rail_pins`; localStorage is a cache.
  */
 
-export type SidebarSection = 'hashtags' | 'projects' | 'channels' | 'agents' | 'teams' | 'settings'
+export type SidebarSection = 'folders' | 'channels' | 'agents' | 'teams' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
 export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
-  'hashtags',
-  'projects',
+  'folders',
   'channels',
   'agents',
   'teams',
@@ -25,6 +22,12 @@ export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = 
 export const ALL_SECTIONS: readonly SidebarSection[] = [...MOVABLE_SECTIONS, 'settings']
 
 export const DEFAULT_SECTION_ORDER: readonly SidebarSection[] = ALL_SECTIONS
+
+export type RailPin = {
+  /** folder:<id>, tag:<name>, or path:<folderId>:<tagId> */
+  ref: string
+  position: number
+}
 
 export type SidebarPrefs = {
   /** Render order of sections (settings is always forced last by normalize). */
@@ -35,6 +38,10 @@ export type SidebarPrefs = {
   collapsed: SidebarSection[]
   /** Folders whose sub-view list is expanded (folder scope keys). */
   expandedLeaves: string[]
+  /** Personal pins shared by Communication and Agenda. */
+  railPins: RailPin[]
+  /** Workspace-default rows this person hid. */
+  railHiddenDefaults: string[]
 }
 
 export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
@@ -42,18 +49,31 @@ export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   hidden: [],
   collapsed: [],
   expandedLeaves: [],
+  railPins: [],
+  railHiddenDefaults: [],
 }
 
-// v4: channels + agents folders restored alongside pinned teams.
-const STORAGE_KEY = 'communication-sidebar-prefs-v5'
+const STORAGE_KEY = 'communication-sidebar-prefs-v6'
+
+function migrateSection(value: unknown): SidebarSection | null {
+  if (value === 'hashtags' || value === 'projects' || value === 'folders') return 'folders'
+  if (typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)) {
+    return value as SidebarSection
+  }
+  return null
+}
 
 function isSection(value: unknown): value is SidebarSection {
-  return typeof value === 'string' && (ALL_SECTIONS as readonly string[]).includes(value)
+  return migrateSection(value) != null
 }
 
-/** Keep Settings anchored last; drop unknowns. */
+/** Keep Settings anchored last; drop unknowns; fold old hashtags+projects into folders. */
 function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
-  const middle = order.filter((s) => s !== 'settings')
+  const middle: SidebarSection[] = []
+  for (const section of order) {
+    if (section === 'settings' || middle.includes(section)) continue
+    middle.push(section)
+  }
   for (const section of MOVABLE_SECTIONS) {
     if (middle.includes(section)) continue
     middle.push(section)
@@ -62,27 +82,68 @@ function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
 }
 
 function freshDefaults(): SidebarPrefs {
-  return { ...DEFAULT_SIDEBAR_PREFS, order: [...DEFAULT_SECTION_ORDER], expandedLeaves: [] }
+  return {
+    ...DEFAULT_SIDEBAR_PREFS,
+    order: [...DEFAULT_SECTION_ORDER],
+    expandedLeaves: [],
+    railPins: [],
+    railHiddenDefaults: [],
+  }
+}
+
+function normalizePins(raw: unknown): RailPin[] {
+  if (!Array.isArray(raw)) return []
+  const out: RailPin[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const row = item as Record<string, unknown>
+    const ref = typeof row.ref === 'string' ? row.ref.trim() : ''
+    if (!ref || seen.has(ref)) continue
+    seen.add(ref)
+    out.push({ ref, position: typeof row.position === 'number' ? row.position : out.length })
+  }
+  return out.sort((a, b) => a.position - b.position)
 }
 
 /** Repair stored prefs: drop unknown sections, append newly added ones. */
 export function normalizeSidebarPrefs(raw: unknown): SidebarPrefs {
   if (!raw || typeof raw !== 'object') return freshDefaults()
-  const data = raw as Partial<Record<keyof SidebarPrefs, unknown>>
+  const data = raw as Partial<Record<string, unknown>>
+  const rawOrder = Array.isArray(data.order) ? data.order : []
   const order = withSettingsLast(
-    (Array.isArray(data.order) ? data.order.filter(isSection) : []) as SidebarSection[],
+    rawOrder.map(migrateSection).filter((s): s is SidebarSection => s != null),
   )
-  const hidden = (Array.isArray(data.hidden) ? data.hidden.filter(isSection) : []) as SidebarSection[]
-  const collapsed = (Array.isArray(data.collapsed) ? data.collapsed.filter(isSection) : []) as SidebarSection[]
+  const hidden = (
+    Array.isArray(data.hidden) ? data.hidden.map(migrateSection).filter((s): s is SidebarSection => s != null) : []
+  ) as SidebarSection[]
+  const collapsed = (
+    Array.isArray(data.collapsed)
+      ? data.collapsed.map(migrateSection).filter((s): s is SidebarSection => s != null)
+      : []
+  ) as SidebarSection[]
   const expandedLeaves = Array.isArray(data.expandedLeaves)
     ? data.expandedLeaves.filter((v): v is string => typeof v === 'string')
-    : []
-  return { order, hidden, collapsed, expandedLeaves }
+    : Array.isArray(data.expanded_leaves)
+      ? data.expanded_leaves.filter((v): v is string => typeof v === 'string')
+      : []
+  return {
+    order,
+    hidden: [...new Set(hidden)],
+    collapsed: [...new Set(collapsed)],
+    expandedLeaves,
+    railPins: normalizePins(data.railPins ?? data.rail_pins),
+    railHiddenDefaults: Array.isArray(data.railHiddenDefaults)
+      ? data.railHiddenDefaults.filter((v): v is string => typeof v === 'string')
+      : Array.isArray(data.rail_hidden_defaults)
+        ? data.rail_hidden_defaults.filter((v): v is string => typeof v === 'string')
+        : [],
+  }
 }
 
 export function loadSidebarPrefs(): SidebarPrefs {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('communication-sidebar-prefs-v5')
     if (!raw) return freshDefaults()
     return normalizeSidebarPrefs(JSON.parse(raw))
   } catch {
@@ -96,4 +157,16 @@ export function saveSidebarPrefs(prefs: SidebarPrefs): void {
   } catch {
     // ignore storage failures (private mode etc.)
   }
+}
+
+export function folderPinRef(folderId: string): string {
+  return `folder:${folderId}`
+}
+
+export function tagPinRef(name: string): string {
+  return `tag:${name}`
+}
+
+export function pathPinRef(folderId: string, tagId: string): string {
+  return `path:${folderId}:${tagId}`
 }

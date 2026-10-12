@@ -13,6 +13,7 @@ from app.services.audit import record_audit
 from app.tools.decision_copy import format_policy_decision
 from app.tools.policy import resolve_tool_mode
 from app.tools.registry import (
+    CANVAS_OPERATOR_TOOLS,
     ToolContext,
     agent_allowed_tools,
     audience_for_trust,
@@ -30,6 +31,26 @@ _EXTERNAL_PASSPORT_BYPASS = frozenset(
         "link_conversation_contact",
     }
 )
+
+# Names models invent for tools that already exist. Defaults fill only empty fields.
+_TOOL_ALIASES: dict[str, tuple[str, dict[str, Any]]] = {
+    "list_open_internal_threads": ("list_threads", {"status": "open", "channel": "internal"}),
+    "list_internal_threads": ("list_threads", {"status": "open", "channel": "internal"}),
+    "list_open_threads": ("list_threads", {"status": "open"}),
+}
+
+
+def resolve_tool_alias(tool_name: str, tool_input: dict[str, Any] | None) -> tuple[str, dict[str, Any]]:
+    """Map a hallucinated tool name onto the real tool, keeping explicit args."""
+    mapped = _TOOL_ALIASES.get(tool_name)
+    payload = dict(tool_input or {})
+    if mapped is None or get_tool_spec(tool_name) is not None:
+        return tool_name, payload
+    real, defaults = mapped
+    for key, value in defaults.items():
+        if payload.get(key) in (None, ""):
+            payload[key] = value
+    return real, payload
 
 
 async def _agent_channel_error(
@@ -128,6 +149,7 @@ async def execute_tool(
             if "error" in routed:
                 return routed
             tool_name, tool_input = routed["tool_name"], routed["tool_input"]
+    tool_name, tool_input = resolve_tool_alias(tool_name, tool_input)
     spec = get_tool_spec(tool_name)
     if spec is None:
         return {"error": f"Unknown tool: {tool_name}"}
@@ -148,6 +170,9 @@ async def execute_tool(
     # always escalate to a human or start a verify, even when the passport omits the tool.
     allowed_set = agent_allowed_tools(agent)
     if tool_name in _EXTERNAL_PASSPORT_BYPASS and trust == "external":
+        allowed_set = None
+    # Operator chat can always draw a snapshot canvas, even on a narrow passport.
+    if tool_name in CANVAS_OPERATOR_TOOLS and trust != "external":
         allowed_set = None
 
     if allowed_set is not None and tool_name not in allowed_set:

@@ -16,6 +16,7 @@ import type { TicketStage, TicketStatus } from './tickets-api'
 import { plainChatText } from './chatText'
 import { clearStoredComposerDraft } from './inbox-ops'
 import type { ResolveDecisionResult, ThreadSession } from './signals-api'
+import type { CanvasNode } from './project-canvas/types'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -196,6 +197,8 @@ export type InboxThread = {
   turn?: ThreadTurn
   /** Tag names; `undefined` when a live row did not carry them (keep the known value). */
   tags?: string[]
+  /** Tags inherited from the contact or company; not removable on the thread. */
+  inheritedTags?: string[]
   lastMessageAt: string | null
   hasUnread: boolean
   isPinned: boolean
@@ -328,6 +331,8 @@ export type ProposalItem = {
   at?: string | null
   deletedAt?: string | null
   missing?: boolean
+  /** Compact canvas tree for the chat preview card. */
+  preview?: CanvasNode | null
 }
 
 /** Server-side description of the tool call behind an action row. */
@@ -452,7 +457,15 @@ export function normalizeProposalItem(row: unknown): ProposalItem | null {
     at: asNullableString(raw.at),
     deletedAt: asNullableString(raw.deleted_at),
     missing: raw.missing === true,
+    preview: asCanvasPreview(raw.preview),
   }
+}
+
+function asCanvasPreview(value: unknown): CanvasNode | null {
+  if (!value || typeof value !== 'object') return null
+  const node = value as CanvasNode
+  if (typeof node.type !== 'string' || !node.type) return null
+  return node
 }
 
 function normalizeItemList(value: unknown): ProposalItem[] {
@@ -853,6 +866,9 @@ function normalizeThread(row: unknown): InboxThread | null {
     owner: normalizeOwner(raw.owner),
     turn: normalizeTurn(raw.turn),
     tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : undefined,
+    inheritedTags: Array.isArray(raw.inherited_tags)
+      ? raw.inherited_tags.filter((t): t is string => typeof t === 'string')
+      : undefined,
     lastMessageAt: asNullableTimestampString(raw.last_message_at),
     hasUnread: Boolean(raw.has_unread),
     hasOpenDecision: Boolean(raw.has_open_decision),
@@ -871,7 +887,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     channel: asString(raw.channel, 'email'),
     source: asString(raw.source),
     folder: asString(raw.folder, raw.channel === 'internal' ? 'internal' : 'external'),
-    projectId: asNullableString(raw.project_id),
+    projectId: asNullableString(raw.folder_id) ?? asNullableString(raw.project_id),
   }
 }
 

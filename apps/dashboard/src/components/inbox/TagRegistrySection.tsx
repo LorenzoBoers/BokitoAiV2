@@ -10,11 +10,17 @@ import { useEntityRefresh } from '../../lib/live-store'
 import { normalizeHashtag, stripHash } from '../../lib/hashtag'
 import {
   createSignalTag,
+  createTagGroup,
   deleteSignalTag,
+  deleteTagGroup,
   listSignalTags,
+  listTagGroups,
   updateSignalTag,
+  updateTagGroup,
   type SignalTag,
+  type TagGroup,
 } from '../../lib/signals-api'
+import { createProject, listProjects, type ProjectRow } from '../../lib/projects-api'
 import { patchCategory, promoteTag } from '../../lib/tickets-api'
 import { listWorkstreams, type WorkstreamRow } from '../../lib/workstreams-api'
 import { workstreamPath } from '../../lib/workstream-ui'
@@ -39,6 +45,7 @@ type Draft = { name: string; description: string }
 
 const NEW_PLAYBOOK = '__new__'
 const Workflow = ENTITY_ICONS.flow
+const FolderIcon = ENTITY_ICONS.folder
 /** Shared width so "Flow openen" / "Flow aanmaken" keep one column. */
 const FLOW_BTN = 'h-7 w-[8.75rem] justify-center gap-1 px-2 text-2xs'
 
@@ -59,6 +66,11 @@ export function TagRegistrySection({
   const confirm = useConfirm()
   const { token } = useAuth()
   const [allTags, setTags] = useState<SignalTag[]>([])
+  const [groups, setGroups] = useState<TagGroup[]>([])
+  const [folders, setFolders] = useState<ProjectRow[]>([])
+  const [groupName, setGroupName] = useState('')
+  const [folderFor, setFolderFor] = useState<SignalTag | null>(null)
+  const [folderParent, setFolderParent] = useState('')
   const tags = useMemo(() => {
     const rows = freeOnly ? allTags.filter((tag) => !tag.isCategory) : allTags
     return [...rows].sort((a, b) => {
@@ -76,7 +88,14 @@ export function TagRegistrySection({
   const load = useCallback(async () => {
     if (!token) return
     try {
-      setTags(await listSignalTags(token))
+      const [tagRows, groupRows, folderRows] = await Promise.all([
+        listSignalTags(token),
+        listTagGroups(token),
+        listProjects().catch(() => []),
+      ])
+      setTags(tagRows)
+      setGroups(groupRows)
+      setFolders(folderRows)
     } catch {
       setError(t('tagRegistry.loadFailed'))
     }
@@ -110,19 +129,11 @@ export function TagRegistrySection({
     setDraft({ name: tag.name, description: tag.description })
   }
 
-  const inCommunication = (tag: SignalTag) => (tag.isCategory ? tag.showInNav : tag.pinned)
+  const inCommunication = (tag: SignalTag) => tag.showInNav
 
   const togglePin = (tag: SignalTag) => {
     const next = !inCommunication(tag)
-    void run(() =>
-      token
-        ? updateSignalTag(
-            token,
-            tag.id,
-            tag.isCategory ? { show_in_nav: next } : { pinned: next },
-          )
-        : Promise.resolve(),
-    )
+    void run(() => (token ? updateSignalTag(token, tag.id, { show_in_nav: next }) : Promise.resolve()))
   }
 
   const editor = (onSave: () => void) => (
@@ -195,6 +206,64 @@ export function TagRegistrySection({
         ) : null}
       </div>
       {error ? <p className="text-xs text-status-error">{error}</p> : null}
+      <div className="space-y-2 rounded-lg border border-border/60 px-3 py-2">
+        <p className="text-xs font-medium text-text-heading">{t('tagRegistry.groupsTitle', { defaultValue: 'Tag groups' })}</p>
+        <p className="text-2xs text-text-muted">{t('tagRegistry.groupsHint', { defaultValue: 'A group is a dimension. Exclusive groups allow one tag per conversation. A folder can show one virtual child per tag in a group.' })}</p>
+        <div className="flex flex-wrap gap-2">
+          {groups.map((group) => (
+            <span key={group.id} className="inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2 py-1 text-xs">
+              {group.name}
+              <button
+                type="button"
+                className="text-2xs text-text-muted hover:text-text-heading"
+                onClick={() =>
+                  void run(() =>
+                    token
+                      ? updateTagGroup(token, group.id, { exclusive: !group.exclusive }).then(() => undefined)
+                      : Promise.resolve(),
+                  )
+                }
+              >
+                {group.exclusive
+                  ? t('tagRegistry.exclusiveOn', { defaultValue: 'Exclusive' })
+                  : t('tagRegistry.exclusiveOff', { defaultValue: 'Open' })}
+              </button>
+              <button
+                type="button"
+                aria-label={t('tagRegistry.deleteGroup', { defaultValue: 'Delete group' })}
+                onClick={() =>
+                  void run(() => (token ? deleteTagGroup(token, group.id) : Promise.resolve()))
+                }
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            value={groupName}
+            onChange={(event) => setGroupName(event.target.value)}
+            placeholder={t('tagRegistry.groupName', { defaultValue: 'New group' })}
+            className="h-7 w-48 text-xs"
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy || !groupName.trim()}
+            onClick={() =>
+              void run(async () => {
+                if (!token) return
+                await createTagGroup(token, { name: groupName.trim() })
+                setGroupName('')
+              })
+            }
+          >
+            <Plus size={12} />
+            {t('tagRegistry.newGroup', { defaultValue: 'New group' })}
+          </Button>
+        </div>
+      </div>
       <div className="divide-y divide-border/40 rounded-lg border border-border/60 px-3">
         {creating
           ? editor(() =>
@@ -266,6 +335,26 @@ export function TagRegistrySection({
                   />
                 </div>
               </Tip>
+              <ChoiceSelect
+                aria-label={t('tagRegistry.group', { defaultValue: 'Group' })}
+                triggerClassName="h-7 w-[8.5rem] text-2xs"
+                value={tag.groupId ?? '__none__'}
+                onValueChange={(value) =>
+                  void run(() =>
+                    token
+                      ? updateSignalTag(token, tag.id, value === '__none__' ? { clear_group: true } : { group_id: value })
+                      : Promise.resolve(),
+                  )
+                }
+                groups={[
+                  {
+                    items: [
+                      { value: '__none__', label: t('tagRegistry.noGroup', { defaultValue: 'No group' }), kind: 'tag' },
+                      ...groups.map((group) => ({ value: group.id, label: group.name, kind: 'tag' as const })),
+                    ],
+                  },
+                ]}
+              />
               <Tip label={inCommunication(tag) ? t('tagRegistry.unpin') : t('tagRegistry.pin')}>
                 <Button
                   size="sm"
@@ -293,6 +382,19 @@ export function TagRegistrySection({
                   />
                 </Tip>
               ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                className={FLOW_BTN}
+                disabled={busy || tag.folders.length > 0}
+                onClick={() => {
+                  setFolderFor(tag)
+                  setFolderParent('')
+                }}
+              >
+                <FolderIcon size={12} />
+                {t('tagRegistry.createFolder', { defaultValue: 'Create folder' })}
+              </Button>
               {tag.isCategory && tag.workstreamId ? (
                 <Button size="sm" variant="outline" className={FLOW_BTN} asChild>
                   <Link to={workstreamPath(tag.workstreamId)}>
@@ -340,6 +442,61 @@ export function TagRegistrySection({
           ),
         )}
       </div>
+      <Dialog open={folderFor != null} onOpenChange={(open) => (!open ? setFolderFor(null) : undefined)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('tagRegistry.createFolderTitle', { defaultValue: 'Create folder' })}</DialogTitle>
+            <DialogDescription>
+              {t('tagRegistry.createFolderHint', {
+                defaultValue: 'Places this tag as a folder. Conversations with the tag land there.',
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <ChoiceSelect
+            aria-label={t('tagRegistry.folderParent', { defaultValue: 'Parent folder' })}
+            triggerClassName="h-9 text-sm"
+            value={folderParent || '__root__'}
+            onValueChange={(value) => setFolderParent(value === '__root__' ? '' : value)}
+            groups={[
+              {
+                items: [
+                  { value: '__root__', label: t('tagRegistry.folderRoot', { defaultValue: 'Top level' }), kind: 'project' },
+                  ...folders.map((folder) => ({
+                    value: folder.id,
+                    label: folder.name,
+                    kind: 'project' as const,
+                  })),
+                ],
+              },
+            ]}
+          />
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setFolderFor(null)}>
+              {t('tagRegistry.cancel')}
+            </Button>
+            <Button
+              type="button"
+              disabled={busy || !folderFor}
+              onClick={() =>
+                void run(async () => {
+                  if (!folderFor) return
+                  await createProject({
+                    name: folderFor.name,
+                    slug: folderFor.name,
+                    autonomous_scope: 'project',
+                    tag_id: folderFor.id,
+                    parent_id: folderParent || null,
+                  })
+                  setFolderFor(null)
+                  toast.success(t('tagRegistry.folderCreated', { name: folderFor.name, defaultValue: 'Folder created' }))
+                })
+              }
+            >
+              {t('tagRegistry.createFolder', { defaultValue: 'Create folder' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <PromoteTagDialog
         tag={promoting}
         onClose={() => setPromoting(null)}

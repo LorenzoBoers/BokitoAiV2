@@ -117,7 +117,7 @@ describe('appLinkKind', () => {
   it('detects person contact paths but not the companies list', () => {
     expect(appLinkKind('/contacts/abc-123')).toBe('contact')
     expect(appLinkKind('/contacts/companies/acme')).toBe('other')
-    expect(appLinkKind('/projects/p1')).toBe('project')
+    expect(appLinkKind('/folders/p1')).toBe('folder')
     expect(appLinkKind('/agents/a1')).toBe('agent')
     expect(appLinkKind('/agents')).toBe('other')
     expect(appLinkKind('/communication/inbox/open/t/abc')).toBe('inbox')
@@ -126,7 +126,7 @@ describe('appLinkKind', () => {
 
   it('detects snapshot canvas paths before generic project', () => {
     expect(appLinkKind('/cockpit/canvas')).toBe('canvas')
-    expect(appLinkKind('/projects/p1?tab=canvas')).toBe('canvas')
-    expect(appLinkKind('/projects/p1?tab=docs')).toBe('project')
+    expect(appLinkKind('/folders/p1?tab=canvas')).toBe('canvas')
+    expect(appLinkKind('/folders/p1?tab=docs')).toBe('folder')
   })
 })

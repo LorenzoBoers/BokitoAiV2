@@ -1,9 +1,12 @@
-"""Project hub router (dashboard workforce contract).
+"""Folders router (``/api/folders``).
 
-Includes the conversation-driven work surface: the implementation queue,
-project docs with section statuses, and generic project resources.
+Operators and integrators know this object as a Folder (NL: Map); the
+internal model and table are still ``Project`` / ``projects``. Includes the
+conversation-driven work surface: the implementation queue, folder docs with
+section statuses, and generic folder resources.
 """
 
+import json
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -16,15 +19,21 @@ from app.dependencies import AuthContext, get_current_auth
 from app.services import project_work as work
 from app.services import projects as svc
 
-router = APIRouter(prefix="/workforce/projects", tags=["projects"])
+router = APIRouter(prefix="/folders", tags=["folders"])
 
 
 class ProjectCreateBody(BaseModel):
     name: str
     slug: str
-    autonomous_scope: str
+    autonomous_scope: str = ""
     description: str = ""
     parent_id: UUID | None = None
+    # The folder's tag: an existing tag id, a tag name (created when new), or
+    # neither for a tag named after the slug.
+    tag_id: UUID | None = None
+    tag: str | None = None
+    # A tag group: the folder shows one virtual subfolder per tag in it.
+    child_group_id: UUID | None = None
 
 
 class ProjectPatchBody(BaseModel):
@@ -34,6 +43,12 @@ class ProjectPatchBody(BaseModel):
     token_budget_daily: int | None = None
     token_budget_hourly: int | None = None
     parent_id: UUID | None = None
+    tag_id: UUID | None = None
+    child_group_id: UUID | None = None
+
+
+class PinChildBody(BaseModel):
+    tag_id: UUID
 
 
 class ProjectDeleteBody(BaseModel):
@@ -80,6 +95,8 @@ async def create_project(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Create a folder. Every folder carries a tag; conversations with the
+    path's tags move in."""
     return await svc.create_project(
         session,
         auth.tenant.id,
@@ -88,7 +105,93 @@ async def create_project(
         autonomous_scope=body.autonomous_scope,
         description=body.description,
         parent_id=body.parent_id,
+        tag_id=body.tag_id,
+        tag=body.tag,
+        child_group_id=body.child_group_id,
+        user_id=auth.user.id if auth.user else None,
     )
+
+
+@router.post("/{project_id}/children")
+async def pin_virtual_child(
+    project_id: UUID,
+    body: PinChildBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Pin a virtual subfolder (a tag of the folder's group) as a real folder."""
+    return await svc.pin_virtual_child(
+        session, auth.tenant.id, project_id, body.tag_id, user_id=auth.user.id if auth.user else None
+    )
+
+
+@router.get("/{project_id}/board")
+async def folder_board(
+    project_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """The folder's flows, stacked, each with its stages and the tickets inside the folder (subtree)."""
+    from app.models.project import Project
+    from app.services import tickets
+
+    project = await session.get(Project, project_id)
+    if project is None or project.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    return {"playbooks": await tickets.project_board(session, auth.tenant.id, project_id)}
+
+
+@router.get("/{project_id}/files")
+async def folder_files(
+    project_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    limit: int = Query(100, ge=1, le=300),
+):
+    """Attachments on conversations in this folder (subtree)."""
+    from app.models.signal import Signal, SignalMessage
+    from app.services.folders import load_tree
+
+    tree = await load_tree(session, auth.tenant.id)
+    if project_id not in tree.nodes:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    subtree = tree.subtree_ids(project_id)
+    rows = (
+        await session.execute(
+            select(SignalMessage, Signal)
+            .join(Signal, Signal.id == SignalMessage.signal_id)
+            .where(
+                Signal.tenant_id == auth.tenant.id,
+                Signal.project_id.in_(subtree),
+                Signal.deleted_at.is_(None),
+                SignalMessage.attachments_json != "[]",
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(limit)
+        )
+    ).all()
+    files: list[dict[str, Any]] = []
+    for message, signal in rows:
+        try:
+            attachments = json.loads(message.attachments_json or "[]")
+        except (TypeError, json.JSONDecodeError):
+            attachments = []
+        if not isinstance(attachments, list):
+            continue
+        for item in attachments:
+            if not isinstance(item, dict):
+                continue
+            files.append(
+                {
+                    "name": str(item.get("name") or item.get("filename") or "file"),
+                    "url": item.get("url") or item.get("href"),
+                    "content_type": item.get("content_type") or item.get("type") or "",
+                    "signal_id": str(signal.id),
+                    "subject": signal.subject,
+                    "created_at": message.created_at.isoformat() if message.created_at else None,
+                }
+            )
+    return {"files": files}
 
 
 @router.get("/{project_id}")
@@ -118,6 +221,9 @@ async def patch_project(
         token_budget_daily=extras["token_budget_daily"] if "token_budget_daily" in extras else ...,
         token_budget_hourly=extras["token_budget_hourly"] if "token_budget_hourly" in extras else ...,
         parent_id=extras["parent_id"] if "parent_id" in extras else ...,
+        tag_id=extras["tag_id"] if "tag_id" in extras else ...,
+        child_group_id=extras["child_group_id"] if "child_group_id" in extras else ...,
+        user_id=auth.user.id if auth.user else None,
     )
 
 
@@ -719,6 +825,7 @@ class CanvasCreateBody(BaseModel):
     managing_agent_id: UUID | None = None
     refresh_minutes: int | None = None
     refresh_cadence: str | None = None
+    refresh_cron: str | None = None
     notes: str | None = None
 
 
@@ -728,6 +835,7 @@ class CanvasMetaBody(BaseModel):
     managing_agent_id: UUID | None = None
     refresh_minutes: int | None = None
     refresh_cadence: str | None = None
+    refresh_cron: str | None = None
     notes: str | None = None
 
 
@@ -764,6 +872,7 @@ async def create_project_canvas(
         managing_agent_id=body.managing_agent_id,
         refresh_minutes=body.refresh_minutes,
         refresh_cadence=body.refresh_cadence,
+        refresh_cron=body.refresh_cron,
         notes=body.notes,
         updated_by_type="user",
         updated_by_id=str(auth.user.id),
@@ -807,6 +916,7 @@ async def patch_project_canvas_meta(
         managing_agent_id=body.managing_agent_id,
         refresh_minutes=body.refresh_minutes,
         refresh_cadence=body.refresh_cadence,
+        refresh_cron=body.refresh_cron,
         notes=body.notes,
     )
 

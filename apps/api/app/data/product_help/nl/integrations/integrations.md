@@ -30,7 +30,7 @@ Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, dra
 2. Kaarten vormen één platte lijst — nooit genest in een module, nooit gegroepeerd onder een vendor. Microsoft 365, Outlook Calendar en Microsoft Graph hebben elk een eigen kaart. Een modulekaart draagt het label **Module** met zijn status; **Installeren** installeert hem, een geïnstalleerde module toont **Beheren** en **Deïnstalleren**. Een integratiekaart toont **Koppelen** voor de eerste login, of **Nieuwe koppeling** plus het aantal. Coming-soon modules en hun geplande programma's (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded tot ze live gaan.
 3. Kies een integratiekaart. Rechts opent het paneel met de beschrijving, het **Tool-endpoint** voor remote MCP-apps, **Mogelijkheden**, **Werkt met modules** (de presets die deze login kunnen gebruiken) en **Nieuwe verbinding instellen**. Rond OAuth of de providersetup af; je keert hier terug met het paneel open. Een login blijft op Koppelingen tot je hem aan een module hangt.
 4. Agents linken rechtstreeks naar dit paneel: een kaart in een gesprek opent `/connections?connect=slack_mcp` met het Slack-paneel al open.
-5. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [project](/docs/ai/projects). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Tools** of **Custom MCP-servers**. Zie [MCP](/docs/integrations/mcp).
+5. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [project](/docs/ai/folders). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Tools** of **Custom MCP-servers**. Zie [MCP](/docs/integrations/mcp).
 
 WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst je daarheen.
 
@@ -81,7 +81,7 @@ Koppel een registratie aan projecten wanneer hij bij één klant of afdeling hoo
 3. Een gekoppelde registratie is exclusief: agents gebruiken hem alleen voor werk in die projecten (een gesprek dat op het project staat, of een run met dat project). Daarbuiten is hij niet beschikbaar.
 4. Zonder geselecteerd project toont de registratie **Alle projecten** en werkt hij overal. Binnen een project kiezen agents de registratie van dat project vóór de modulestandaard.
 
-Je kunt ook koppelen vanaf de projectpagina; zie [Projecten](/docs/ai/projects).
+Je kunt ook koppelen vanaf de projectpagina; zie [Projecten](/docs/ai/folders).
 
 ## Kies wie een koppeling mag gebruiken
 

@@ -236,7 +236,6 @@ async def _start_ticket(session: AsyncSession, auth: AuthContext, body: StartThr
         signal_id=signal.id,
         tag_id=body.tag_id,
         project_id=body.project_id,
-        project_chosen=True,
         fields=body.fields,
         actor="operator",
         created_by_type="user",
@@ -705,6 +704,7 @@ async def list_signal_threads(
     connection_id: str | None = Query(None),
     email_connection_id: int | None = Query(None),
     project_id: str | None = Query(None),
+    path: str | None = Query(None),
     category_id: str | None = Query(None),
     stage: str | None = Query(None),
     agent_id: str | None = Query(None),
@@ -725,8 +725,9 @@ async def list_signal_threads(
     ``scheduled`` (threads with a date, soonest first), ``spam``, ``all``.
     ``team_id`` narrows to one team's work. ``scheduled_from`` / ``scheduled_to``
     narrow to threads whose next date falls in the window.
-    Folder filters: ``project_id`` (linked, or a ticket in the project),
-    ``category_id``, ``tag`` and ``stage`` (a stage key or kind).
+    Folder filters: ``project_id`` (the folder and everything inside it),
+    ``path`` (comma-separated tag ids of a virtual child the conversation must
+    also carry), ``category_id``, ``tag`` and ``stage`` (a stage key or kind).
     """
     from app.services.thread_schedule import naive_utc
 
@@ -745,6 +746,7 @@ async def list_signal_threads(
         connection_id=connection_id,
         email_connection_id=email_connection_id,
         project_id=project_id,
+        path=path,
         category_id=category_id,
         stage=stage,
         agent_id=agent_id,

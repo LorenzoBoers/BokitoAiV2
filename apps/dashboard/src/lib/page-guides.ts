@@ -26,7 +26,7 @@ export const PAGE_GUIDE_BACK: Record<PageGuideSlug, string> = {
   team: '/team',
   categories: '/settings/action-tags',
   agents: '/agents',
-  projects: '/projects',
+  projects: '/folders',
   knowledge: '/knowledge',
   govern: '/settings/govern',
   channels: '/settings/channels',
@@ -58,7 +58,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
   agenda: [
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
-    { to: '/projects', labelKey: 'pageGuides.related.projects' },
+    { to: '/folders', labelKey: 'pageGuides.related.projects' },
     { to: '/activity', labelKey: 'pageGuides.related.activity' },
   ],
   team: [
@@ -69,7 +69,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   categories: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/workstreams', labelKey: 'pageGuides.related.workstreams' },
-    { to: '/projects', labelKey: 'pageGuides.related.projects' },
+    { to: '/folders', labelKey: 'pageGuides.related.projects' },
   ],
   agents: [
     { to: '/settings/govern', labelKey: 'pageGuides.related.govern' },
@@ -137,7 +137,7 @@ export function isPageGuideSlug(value: string | undefined): value is PageGuideSl
 export function pageGuideForPath(pathname: string): PageGuideSlug | null {
   if (pathname.startsWith('/communication')) return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
-  if (pathname.startsWith('/projects')) return 'projects'
+  if (pathname.startsWith('/folders') || pathname.startsWith('/projects')) return 'projects'
   if (pathname.startsWith('/cockpit')) return 'cockpit'
   return null
 }

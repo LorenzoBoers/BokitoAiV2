@@ -12,7 +12,7 @@ import {
 describe('restoredEntityPath', () => {
   it('maps Bin types to the live page of the restored object', () => {
     expect(restoredEntityPath('conversation', 'sig-1')).toBe('/communication/inbox/all/t/sig-1')
-    expect(restoredEntityPath('project', 'p1')).toBe('/projects/p1')
+    expect(restoredEntityPath('project', 'p1')).toBe('/folders/p1')
     expect(restoredEntityPath('knowledge', 'd1')).toBe('/knowledge/d1')
     expect(restoredEntityPath('contact', 'c1')).toBe('/contacts/c1')
     expect(restoredEntityPath('company', 'o1')).toBe('/contacts/companies/o1')
@@ -21,8 +21,8 @@ describe('restoredEntityPath', () => {
   })
 
   it('opens a project canvas on its folder via the restore hint', () => {
-    expect(restoredEntityPath('canvas', 'cv1', { project_id: 'p9' })).toBe('/projects/p9?tab=canvas')
-    expect(restoredEntityPath('canvas', 'cv1')).toBe('/cockpit/canvas')
+    expect(restoredEntityPath('canvas', 'cv1', { project_id: 'p9' })).toBe('/folders/p9?tab=canvas&canvas=cv1')
+    expect(restoredEntityPath('canvas', 'cv1')).toBe('/cockpit/canvas?canvas=cv1')
   })
 
   it('returns null for kinds without a page', () => {
@@ -119,7 +119,7 @@ describe('activityEntryPath', () => {
     expect(activityEntryPath({ signalId: 's1', runId: 'r1', agentId: 'a1' })).toBe('/communication/inbox/all/t/s1')
     expect(activityEntryPath({ runId: 'r1', agentId: 'a1' })).toBe('/agents/a1/runs/r1')
     expect(activityEntryPath({ resourceType: 'signal', resourceId: 's2' })).toBe('/communication/inbox/all/t/s2')
-    expect(activityEntryPath({ resourceType: 'project', resourceId: 'p1' })).toBe('/projects/p1')
+    expect(activityEntryPath({ resourceType: 'project', resourceId: 'p1' })).toBe('/folders/p1')
     expect(activityEntryPath({})).toBeNull()
   })
 })

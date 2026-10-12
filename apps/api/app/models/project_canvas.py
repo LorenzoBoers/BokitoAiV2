@@ -1,8 +1,8 @@
 """Canvas — AI-written snapshot dashboard (bokito/canvas).
 
-A canvas is a child node of a Project or of the Tenant (Overview). Operators
-add, delete and set metadata; agents write the document under Govern.
-Refresh uses the existing Agenda Trigger, not a second scheduler.
+A canvas is a child node of a Project or of the Tenant (Overview). Agents and
+operators create, fill and refresh the snapshot. Refresh uses the existing
+Agenda Trigger, not a second scheduler.
 """
 
 from __future__ import annotations

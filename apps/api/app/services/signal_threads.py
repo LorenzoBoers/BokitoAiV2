@@ -276,6 +276,7 @@ def serialize_thread(
     ai_handling: dict[str, Any] | None = None,
     ticket: dict[str, Any] | None | object = _OMIT,
     tags: list[str] | object = _OMIT,
+    inherited_tags: list[str] | object = _OMIT,
     schedule: dict[str, Any] | None | object = _OMIT,
 ) -> dict[str, Any]:
     from app.services.thread_schedule import thread_details
@@ -336,6 +337,7 @@ def serialize_thread(
         "agent_id": str(signal.agent_id) if signal.agent_id else None,
         "agent_name": agent.name if agent else None,
         "agent_kind": agent.kind if agent else None,
+        "folder_id": str(signal.project_id) if signal.project_id else None,
         "project_id": str(signal.project_id) if signal.project_id else None,
         "parent_signal_id": str(signal.parent_signal_id) if signal.parent_signal_id else None,
         "superseded_by_id": str(signal.superseded_by_id) if signal.superseded_by_id else None,
@@ -347,6 +349,8 @@ def serialize_thread(
         payload["ticket"] = ticket
     if tags is not _OMIT:
         payload["tags"] = tags
+    if inherited_tags is not _OMIT:
+        payload["inherited_tags"] = inherited_tags
     if schedule is not _OMIT:
         payload["schedule"] = schedule
     if agent:
@@ -1160,6 +1164,7 @@ async def list_threads(
     connection_id: str | None = None,
     email_connection_id: int | None = None,
     project_id: str | None = None,
+    path: str | None = None,
     category_id: str | None = None,
     stage: str | None = None,
     agent_id: str | None = None,
@@ -1225,7 +1230,8 @@ async def list_threads(
     from app.services.communication_nav import filter_predicates
 
     folder_filters = filter_predicates(
-        tenant_id, {"project_id": project_id, "category_id": category_id, "tag": tag, "stage": stage}
+        tenant_id,
+        {"project_id": project_id, "path": path, "category_id": category_id, "tag": tag, "stage": stage},
     )
     if folder_filters is None:
         return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
@@ -1480,9 +1486,10 @@ async def list_threads(
     from app.services.tickets import tickets_by_signal
 
     tickets = await tickets_by_signal(session, tenant_id, threads)
-    from app.services.signal_tags import tags_by_signal
+    from app.services.signal_tags import inherited_tags_by_signal, tags_by_signal
 
     tags_map = await tags_by_signal(session, [t.id for t in threads])
+    inherited_map = await inherited_tags_by_signal(session, tenant_id, threads)
     from app.services.thread_schedule import rules_by_signal, schedule_payload
 
     rules = await rules_by_signal(session, tenant_id, [t.id for t in threads])
@@ -1511,6 +1518,7 @@ async def list_threads(
                 ai_handling=handling,
                 ticket=tickets.get(t.id),
                 tags=tags_map.get(t.id, []),
+                inherited_tags=inherited_map.get(t.id, []),
                 schedule=schedule_payload(rules.get(t.id)),
             )
         )
@@ -1721,10 +1729,11 @@ async def get_thread(
     tenant = await session.get(Tenant, tenant_id)
     handling = (await resolve_for_signal(session, tenant, signal)).to_payload()
     from app.services import ai_handling as handling_svc
-    from app.services.signal_tags import signal_tag_names
+    from app.services.signal_tags import inherited_tags_by_signal, signal_tag_names
     from app.services.tickets import ticket_payload
 
     thread_tags = await signal_tag_names(session, signal.id)
+    inherited_tags = (await inherited_tags_by_signal(session, tenant_id, [signal])).get(signal.id, [])
     routing_policy = (await handling_svc.routing_for_signal(session, tenant, signal)).effective
     from app.services.ownership import human_owner_payload
     from app.services.thread_schedule import rules_by_signal, schedule_payload
@@ -1738,6 +1747,7 @@ async def get_thread(
             ai_handling=handling,
             ticket=await ticket_payload(session, signal),
             tags=thread_tags,
+            inherited_tags=inherited_tags,
             schedule=schedule_payload(
                 (await rules_by_signal(session, tenant_id, [signal.id])).get(signal.id)
             ),
@@ -2009,15 +2019,17 @@ async def patch_thread(
     if priority is not None:
         signal.priority = priority
     if project_id_set:
-        if project_id is not None:
-            from app.models.project import Project
+        from app.services.folders import file_in_folder
 
-            project_result = await session.execute(
-                select(Project).where(Project.id == project_id, Project.tenant_id == tenant_id)
+        # Filing adds the folder's tags; the folder itself follows from the tags.
+        try:
+            await file_in_folder(
+                session, signal, project_id, user_id=user_id, actor_type="user", actor_id=str(user_id)
             )
-            if not project_result.scalar_one_or_none():
-                raise HTTPException(status_code=404, detail="Project not found")
-        signal.project_id = project_id
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Folder not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     signal.updated_at = datetime.utcnow()
     if signal.status != before_status and signal.status in {"pending", "closed", "spam"}:
         parked = {
@@ -2328,7 +2340,11 @@ async def bulk_update_threads(
             # Same path as the person picker: owner, last human, and hand-back.
             set_owner(signal, "user", assignee_uuid, by_user_id=user_id)
         elif action == "file" and project_id is not None:
-            signal.project_id = project_id
+            from app.services.folders import file_in_folder
+
+            await file_in_folder(
+                session, signal, project_id, user_id=user_id, actor_type="user", actor_id=str(user_id)
+            )
         if action == "close":
             handling_svc.on_status_change(session, signal, actor_id=str(user_id))
             from app.services.tickets import settle_ticket_on_close

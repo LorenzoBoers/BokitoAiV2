@@ -27,6 +27,7 @@ export const CANVAS_ICON: LucideIcon = LayoutTemplate
 /** Entity kinds with a shared mark. Mirrors the Bin types plus live-only kinds. */
 export type EntityIconKind =
   | 'conversation'
+  | 'folder'
   | 'project'
   | 'canvas'
   | 'knowledge'
@@ -43,6 +44,7 @@ export type EntityIconKind =
 
 export const ENTITY_ICONS: Record<EntityIconKind, LucideIcon> = {
   conversation: MessageSquare,
+  folder: FolderKanban,
   project: FolderKanban,
   canvas: CANVAS_ICON,
   knowledge: Brain,
@@ -62,6 +64,7 @@ export const ENTITY_ICONS: Record<EntityIconKind, LucideIcon> = {
 const ENTITY_KIND_ALIASES: Record<string, EntityIconKind> = {
   signal: 'conversation',
   thread: 'conversation',
+  project: 'folder',
   playbook: 'flow',
   workstream: 'flow',
   doc: 'knowledge',

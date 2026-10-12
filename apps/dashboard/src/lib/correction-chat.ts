@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { appRoutes } from '../api/routes'
 import { apiPost } from './api'
+import { stashChatContinue } from './chat-auto-continue'
 import { bokitoCreateConversation } from './signals-api'
 import { agentChatPath, newConversationPath } from './messages-paths'
 
@@ -63,14 +64,21 @@ export function useCorrectionChat() {
           comment: 'Correction chat started by operator',
         }).catch(() => undefined)
 
+        const prompt = correctionPrompt(subject)
         const created = await bokitoCreateConversation(
           token,
           'Correction',
           subject.agentId,
-          { contextSignalId: subject.threadId },
+          { contextSignalId: subject.threadId, message: prompt },
         )
         const path = agentChatPath(created.agent_id ?? subject.agentId, created.id)
-        navigate(path, { state: { autoSend: correctionPrompt(subject) } })
+        if (created.has_opener) {
+          stashChatContinue(created.id, { mode: 'continue' })
+          navigate(path, { state: { continuePending: true } })
+        } else {
+          stashChatContinue(created.id, { mode: 'send', text: prompt })
+          navigate(path, { state: { autoSend: prompt } })
+        }
       } catch {
         toast.error(t('actions.correctionStartError'))
       } finally {

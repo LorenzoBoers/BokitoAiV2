@@ -1,6 +1,6 @@
-import { projectsRoutes } from '../api/routes'
+import { foldersRoutes } from '../api/routes'
 import type { AgentSummary } from './workforce-api'
-import { workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
+import { foldersDelete, foldersGet, foldersPatch, foldersPost } from './api'
 
 export type RepoSource = 'github' | 'upload' | 'none'
 export type RepoIndexStatus = 'pending' | 'indexing' | 'ready' | 'error' | 'none'
@@ -67,12 +67,12 @@ export interface ProjectAgentRow {
 }
 
 export async function listProjects(): Promise<ProjectRow[]> {
-  const data = await workforceGet<ProjectRow[] | { items: ProjectRow[] }>(projectsRoutes.list)
+  const data = await foldersGet<ProjectRow[] | { items: ProjectRow[] }>(foldersRoutes.list)
   return Array.isArray(data) ? data : data.items ?? []
 }
 
 export async function getProject(projectId: string): Promise<ProjectRow> {
-  return workforceGet<ProjectRow>(projectsRoutes.byId(projectId))
+  return foldersGet<ProjectRow>(foldersRoutes.byId(projectId))
 }
 
 export async function createProject(input: {
@@ -81,8 +81,24 @@ export async function createProject(input: {
   autonomous_scope: string
   description?: string
   parent_id?: string | null
+  tag?: string | null
+  tag_id?: string | null
+  child_group_id?: string | null
 }): Promise<ProjectRow> {
-  return workforcePost<ProjectRow>(projectsRoutes.list, input)
+  return foldersPost<ProjectRow>(foldersRoutes.list, input)
+}
+
+export async function pinVirtualChild(folderId: string, tagId: string): Promise<ProjectRow> {
+  return foldersPost<ProjectRow>(foldersRoutes.children(folderId), { tag_id: tagId })
+}
+
+export async function listFolderFiles(
+  folderId: string,
+): Promise<{ name: string; url?: string | null; signal_id: string; subject: string }[]> {
+  const data = await foldersGet<{ files?: { name: string; url?: string | null; signal_id: string; subject: string }[] }>(
+    foldersRoutes.files(folderId),
+  )
+  return data.files ?? []
 }
 
 export async function patchProject(
@@ -94,11 +110,11 @@ export async function patchProject(
     >
   > & { parent_id?: string | null },
 ): Promise<ProjectRow> {
-  return workforcePatch<ProjectRow>(projectsRoutes.byId(projectId), patch)
+  return foldersPatch<ProjectRow>(foldersRoutes.byId(projectId), patch)
 }
 
 export async function deleteProject(projectId: string, confirmName: string): Promise<{ deleted: boolean }> {
-  return workforceDelete<{ deleted: boolean }>(projectsRoutes.byId(projectId), {
+  return foldersDelete<{ deleted: boolean }>(foldersRoutes.byId(projectId), {
     confirm_name: confirmName,
   }) as Promise<{ deleted: boolean }>
 }
@@ -111,7 +127,7 @@ export async function connectProjectRepo(
     connection_id?: string
   },
 ): Promise<ProjectRow> {
-  return workforcePatch<ProjectRow>(projectsRoutes.repo(projectId), {
+  return foldersPatch<ProjectRow>(foldersRoutes.repo(projectId), {
     repo_full_name: input.github_repo_full_name,
     github_repo_full_name: input.github_repo_full_name,
     default_branch: input.github_default_branch ?? 'main',
@@ -122,13 +138,13 @@ export async function connectProjectRepo(
 }
 
 export async function disconnectProjectRepo(projectId: string): Promise<ProjectRow> {
-  const result = await workforceDelete<ProjectRow>(projectsRoutes.repo(projectId))
+  const result = await foldersDelete<ProjectRow>(foldersRoutes.repo(projectId))
   if (result) return result
   return getProject(projectId)
 }
 
 export async function reindexProjectRepo(projectId: string): Promise<{ queued: boolean }> {
-  return workforcePost<{ queued: boolean }>(projectsRoutes.repoReindex(projectId), {})
+  return foldersPost<{ queued: boolean }>(foldersRoutes.repoReindex(projectId), {})
 }
 
 export interface ProjectBudgetResponse {
@@ -145,25 +161,25 @@ export interface ProjectBudgetResponse {
 }
 
 export async function getProjectBudget(projectId: string): Promise<ProjectBudgetResponse> {
-  return workforceGet<ProjectBudgetResponse>(projectsRoutes.usageBudget(projectId))
+  return foldersGet<ProjectBudgetResponse>(foldersRoutes.usageBudget(projectId))
 }
 
 export async function createProjectPoAgent(
   projectId: string,
   name: string,
 ): Promise<{ po_agent_id: string; po_agent: ProjectRow['po_agent'] }> {
-  return workforcePost(projectsRoutes.poAgent(projectId), { name })
+  return foldersPost(foldersRoutes.poAgent(projectId), { name })
 }
 
 export async function linkProjectPoAgentById(
   projectId: string,
   poAgentId: string,
 ): Promise<{ project_id: string; po_agent_id: string; po_agent: ProjectRow['po_agent'] }> {
-  return workforcePatch(projectsRoutes.poAgent(projectId), { po_agent_id: poAgentId })
+  return foldersPatch(foldersRoutes.poAgent(projectId), { po_agent_id: poAgentId })
 }
 
 export async function listProjectAgents(projectId: string): Promise<ProjectAgentRow[]> {
-  return workforceGet<ProjectAgentRow[]>(projectsRoutes.agents(projectId))
+  return foldersGet<ProjectAgentRow[]>(foldersRoutes.agents(projectId))
 }
 
 export async function addProjectAgent(
@@ -171,7 +187,7 @@ export async function addProjectAgent(
   agentId: string,
   isDefault = false,
 ): Promise<ProjectAgentRow> {
-  return workforcePost<ProjectAgentRow>(projectsRoutes.agents(projectId), {
+  return foldersPost<ProjectAgentRow>(foldersRoutes.agents(projectId), {
     agent_id: agentId,
     is_default: isDefault,
   })
@@ -182,13 +198,13 @@ export async function setProjectAgentDefault(
   agentId: string,
   isDefault: boolean,
 ): Promise<ProjectAgentRow> {
-  return workforcePatch<ProjectAgentRow>(projectsRoutes.agentById(projectId, agentId), {
+  return foldersPatch<ProjectAgentRow>(foldersRoutes.agentById(projectId, agentId), {
     is_default: isDefault,
   })
 }
 
 export async function removeProjectAgent(projectId: string, agentId: string): Promise<void> {
-  await workforceDelete(projectsRoutes.agentById(projectId, agentId))
+  await foldersDelete(foldersRoutes.agentById(projectId, agentId))
 }
 
 export async function getRepoStatus(projectId: string): Promise<{
@@ -197,5 +213,5 @@ export async function getRepoStatus(projectId: string): Promise<{
   repo_last_commit_sha: string | null
   repo_index_error: string | null
 }> {
-  return workforceGet(projectsRoutes.repoStatus(projectId))
+  return foldersGet(foldersRoutes.repoStatus(projectId))
 }

@@ -7,7 +7,7 @@
  * - `channel` — one connected channel (mailbox, website chat, WhatsApp, …)
  * - `agent`   — chats with one company agent (same sub-folders + Activity)
  * - `tag`     — one hashtag: a category (its tickets) or a pinned free tag
- * - `project` — conversations filed on one project
+ * - `folder` — conversations filed in one folder (a tag with a place)
  */
 
 export const INBOX_QUEUES = ['all', 'for_you', 'open', 'unassigned', 'scheduled', 'closed', 'spam'] as const
@@ -69,7 +69,7 @@ export function tagPath(tag: string, queue?: SubQueue | null, threadId?: string 
 }
 
 export function projectHubPath(projectId: string, queue?: SubQueue | null, threadId?: string | null): string {
-  let base = `/communication/project/${encodeURIComponent(projectId)}`
+  let base = `/communication/folder/${encodeURIComponent(projectId)}`
   if (queue) base += `/${queue}`
   return withThread(base, threadId)
 }
@@ -247,7 +247,7 @@ export function leafFromPath(pathname: string): HubLeaf | null {
       queue: parseSubQueue(raw),
     }
   }
-  if ((head === 'tag' || head === 'project') && parts[0]) {
+  if ((head === 'tag' || head === 'folder' || head === 'project') && parts[0]) {
     const id = decodeURIComponent(parts[0])
     const queue = parseSubQueue(parts[1] ? decodeURIComponent(parts[1]) : undefined)
     return head === 'tag' ? { type: 'tag', tag: id, queue } : { type: 'project', projectId: id, queue }

@@ -65,12 +65,16 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     blocked = await proposal_cooldown(ctx, title)
     if blocked:
         return blocked
+    items: list[dict[str, Any]] = [{"type": "module", "id": spec.slug}]
+    if provider:
+        items.append({"type": "marketplace", "id": provider})
     return await _create_decision_request(
         ctx,
         {
             "title": title,
             "summary": summary,
             "signal_id": tool_input.get("signal_id") or (str(ctx.signal_id) if ctx.signal_id else None),
+            "items": items,
             "options": [
                 approve,
                 {"id": "later", "label": "Later", "action_type": "defer"},

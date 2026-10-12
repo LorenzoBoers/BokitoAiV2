@@ -22,7 +22,7 @@ async def _project(
     body: dict = {"name": name, "slug": slug, "autonomous_scope": "ops"}
     if parent_id:
         body["parent_id"] = parent_id
-    response = await client.post("/api/workforce/projects", headers=headers, json=body)
+    response = await client.post("/api/folders", headers=headers, json=body)
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -39,26 +39,26 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
     assert same_name["parent_id"] == orders["id"]
 
     clash = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=headers,
         json={"name": "Other", "slug": "facturen", "autonomous_scope": "ops", "parent_id": admin["id"]},
     )
     assert clash.status_code == 409
 
     cycle = await client.patch(
-        f"/api/workforce/projects/{admin['id']}",
+        f"/api/folders/{admin['id']}",
         headers=headers,
         json={"parent_id": invoices["id"]},
     )
     assert cycle.status_code == 422
 
-    detail = await client.get(f"/api/workforce/projects/{admin['id']}", headers=headers)
+    detail = await client.get(f"/api/folders/{admin['id']}", headers=headers)
     assert detail.status_code == 200
     names = {child["name"] for child in detail.json()["children"]}
     assert names == {"Facturen", "Werkbonnen"}
     assert detail.json()["child_count"] == 2
 
-    listed = await client.get("/api/workforce/projects", headers=headers)
+    listed = await client.get("/api/folders", headers=headers)
     assert listed.status_code == 200
     rows = listed.json()
     roots = [row for row in rows if row["slug"] == "administratie-folders"]
@@ -104,10 +104,10 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
 
     removed = await client.request(
         "DELETE",
-        f"/api/workforce/projects/{admin['id']}",
+        f"/api/folders/{admin['id']}",
         headers=headers,
         json={"confirm_name": "Administratie"},
     )
     assert removed.status_code == 200
-    gone = await client.get(f"/api/workforce/projects/{invoices['id']}", headers=headers)
+    gone = await client.get(f"/api/folders/{invoices['id']}", headers=headers)
     assert gone.status_code == 404

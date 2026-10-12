@@ -435,7 +435,6 @@ async def _file_board_ticket_for_queue_item(
         signal_id=ticket_signal.id,
         tag_id=tag.id,
         project_id=project_id,
-        project_chosen=True,
         summary=(body or "")[:500],
         certainty=10,
         actor="operator",

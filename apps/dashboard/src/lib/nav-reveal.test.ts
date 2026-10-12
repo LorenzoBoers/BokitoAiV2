@@ -27,8 +27,8 @@ describe('nav reveal', () => {
   })
 
   it('maps leaves to sidebar sections', () => {
-    expect(sidebarSectionForLeaf({ type: 'project', projectId: 'p' })).toBe('projects')
-    expect(sidebarSectionForLeaf({ type: 'tag', tag: 'klacht' })).toBe('hashtags')
+    expect(sidebarSectionForLeaf({ type: 'project', projectId: 'p' })).toBe('folders')
+    expect(sidebarSectionForLeaf({ type: 'tag', tag: 'klacht' })).toBe('folders')
     expect(sidebarSectionForLeaf({ type: 'agent', agentId: 'a' })).toBe('agents')
     expect(sidebarSectionForLeaf({ type: 'inbox' })).toBe(null)
   })

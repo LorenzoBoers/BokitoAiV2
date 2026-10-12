@@ -41,9 +41,13 @@
       "title": "Flows",
       "subtitle": "Ticketflows met de actietag als titel"
     },
+    "folders": {
+      "title": "Mappen",
+      "subtitle": "Een tag met een plek: gesprekken, boards en docs onder één pad"
+    },
     "projects": {
-      "title": "Projecten",
-      "subtitle": "Gedeelde doelen, agents en flows voor een stuk werk"
+      "title": "Mappen",
+      "subtitle": "Een tag met een plek: gesprekken, boards en docs onder één pad"
     },
     "knowledge": {
       "title": "Kennis",
@@ -324,7 +328,8 @@
     "company": "Bedrijf",
     "person": "Persoon",
     "agent": "Agent",
-    "project": "Project",
+    "folder": "Map",
+    "project": "Map",
     "document": "Document",
     "learn": "Hulp",
     "docs": "Docs",
@@ -842,8 +847,7 @@
       "who": "Wie",
       "allProjects": "Alle projecten",
       "show": "Tonen",
-      "showAll": "Alles",
-      "hideAll": "Niets",
+      "addCalendar": "Agenda koppelen",
       "layersHint": "Taken dekken eenmalig en terugkerend werk voor mensen en agents. Opvolging uit flowfases staat hier ook.",
       "calendars": "Agenda's",
       "calendarsEmpty": "Koppel Google of Outlook onder Koppelingen.",
@@ -1051,6 +1055,8 @@
     "conversations": "Gesprekken",
     "threadCount": "{{count}} gesprekken met dit contact",
     "inFolders": "In mappen",
+    "tags": "Tags",
+    "viaCompany": "via bedrijf",
     "threadCountPartial": "De laatste {{shown}} van {{count}}",
     "threadCount_one": "{{count}} gesprek met dit contact",
     "noConversations": "Nog geen gesprekken.",
@@ -1207,6 +1213,8 @@
   },
   "loginPage": {
     "subtitle": "Log in op je dashboard",
+    "about": "Bokito runt gesprekken, de agenda en agents voor je bedrijf.",
+    "privacy": "Privacy",
     "email": "E-mail",
     "password": "Wachtwoord",
     "signIn": "Inloggen",
@@ -2648,7 +2656,8 @@
       "settings": "Instellingen",
       "teams": "Teams",
       "hashtags": "Tags",
-      "projects": "Projecten"
+      "projects": "Projecten",
+      "folders": "Mappen en tags"
     },
     "composeFromChannel": "Nieuw bericht vanaf dit kanaal",
     "composeToAgent": "Bericht naar deze agent",
@@ -2741,6 +2750,15 @@
     "projects": {
       "empty": "Maak een project",
       "settingsAria": "Projecten beheren"
+    },
+    "folders": {
+      "empty": "Maak een map of zet een tag vast",
+      "settingsAria": "Mappen en tags beheren",
+      "pin": "Vastzetten in rail",
+      "unpin": "Losmaken van rail",
+      "pinChild": "Vastzetten als map",
+      "pinnedChild": "Map vastgezet",
+      "pinChildFailed": "Kon deze map niet vastzetten."
     },
     "newConversation": "Nieuw gesprek"
   },
@@ -4182,19 +4200,19 @@
   },
   "projects": {
     "group": {
-      "nav": "Projecten"
+      "nav": "Mappen"
     },
     "links": {
-      "all": "Alle projecten",
-      "new": "Nieuw project"
+      "all": "Alle mappen",
+      "new": "Nieuwe map"
     },
     "page": {
-      "title": "Projecten",
-      "tenantTitle": "{{name}} projecten",
-      "subtitle": "Langer lopend werk met een eigen doel, tickets en documentatie. Elk project kan een projectagent hebben die het bewaakt.",
-      "new": "Nieuw project",
-      "loading": "Projecten laden...",
-      "emptyTitle": "Nog geen projecten",
+      "title": "Mappen",
+      "tenantTitle": "{{name}} mappen",
+      "subtitle": "Een tag met een plek: gesprekken, boards en docs onder één pad. Elke map kan een agent hebben die hem bewaakt.",
+      "new": "Nieuwe map",
+      "loading": "Mappen laden...",
+      "emptyTitle": "Nog geen mappen",
       "emptyBody": "Een project bevat het doel, de documentatie en de tickets voor werk dat langer loopt dan één gesprek.",
       "openAgents": "Agents openen",
       "openSetup": "Setupgids openen",
@@ -4585,8 +4603,13 @@
         "hourly": "Uurlijks",
         "daily": "Dagelijks",
         "weekly": "Wekelijks",
-        "monthly": "Maandelijks"
+        "monthly": "Maandelijks",
+        "custom": "Aangepast"
       },
+      "cronLabel": "Cron",
+      "cronPlaceholder": "0 8 * * 1-5",
+      "cronHint": "Vijf velden, UTC.",
+      "cronInvalid": "Vul een cron van vijf velden in.",
       "writing": "De beheeragent schrijft dit canvas.",
       "askAgent": "Vraag agent om bij te werken",
       "lastUpdated": "Bijgewerkt {{time}}{{who}}",
@@ -5102,6 +5125,7 @@
   },
   "publicTrust": {
     "title": "Beveiliging en privacy",
+    "privacyPolicy": "Privacybeleid",
     "subtitle": "Hoe Bokito workspacedata beschermt voor Nederlandse en EU-MKB.",
     "draftGate": "Vraag support om de actuele verwerkersovereenkomst en subverwerkerslijst voor jouw organisatie.",
     "highlightsTitle": "Kernpunten",

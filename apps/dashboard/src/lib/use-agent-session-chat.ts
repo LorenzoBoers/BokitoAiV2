@@ -23,6 +23,7 @@ export type SessionStreamState = {
 type PendingPart = {
   text: string
   attachments?: unknown[]
+  continuePending?: boolean
 }
 
 const SETTLE_MS = 400
@@ -50,7 +51,12 @@ export function useAiChatStream(token: string | null) {
   const flushTimerRef = useRef<number | null>(null)
   const onFinishedRef = useRef<(() => void | Promise<void>) | undefined>(undefined)
   const runStreamRef = useRef<
-    (sessionId: string, text: string, attachments?: unknown[]) => Promise<void>
+    (
+      sessionId: string,
+      text: string,
+      attachments?: unknown[],
+      continuePending?: boolean,
+    ) => Promise<void>
   >(async () => {})
 
   // Batched SSE text — mirrored into React on a timer, not per token.
@@ -107,17 +113,22 @@ export function useAiChatStream(token: string | null) {
     }
   }, [token])
 
-  const takePending = (): { text: string; attachments?: unknown[] } | null => {
+  const takePending = (): {
+    text: string
+    attachments?: unknown[]
+    continuePending?: boolean
+  } | null => {
     const parts = pendingPartsRef.current
     if (!parts.length) return null
     pendingPartsRef.current = []
+    const continuePending = parts.some((p) => p.continuePending)
     const text = parts
       .map((p) => p.text.trim())
       .filter(Boolean)
       .join('\n\n')
     const attachments = [...parts].reverse().find((p) => p.attachments?.length)?.attachments
-    if (!text && !attachments?.length) return null
-    return { text: text || ' ', attachments }
+    if (!continuePending && !text && !attachments?.length) return null
+    return { text: text || ' ', attachments, continuePending }
   }
 
   const scheduleFlush = useCallback((sessionId: string) => {
@@ -130,13 +141,18 @@ export function useAiChatStream(token: string | null) {
       }
       const next = takePending()
       if (!next) return
-      void runStreamRef.current(sessionId, next.text, next.attachments)
+      void runStreamRef.current(sessionId, next.text, next.attachments, next.continuePending)
     }, SETTLE_MS)
   }, [])
 
   const runStream = useCallback(
-    async (sessionId: string, text: string, attachments?: unknown[]) => {
-      if (!token || (!text.trim() && !attachments?.length)) return
+    async (
+      sessionId: string,
+      text: string,
+      attachments?: unknown[],
+      continuePending?: boolean,
+    ) => {
+      if (!token || (!continuePending && !text.trim() && !attachments?.length)) return
       sessionIdRef.current = sessionId
       streamingRef.current = true
       clearDeltaFlush()
@@ -163,7 +179,10 @@ export function useAiChatStream(token: string | null) {
             pendingDeltaRef.current.thinking += thinkingDelta
             scheduleDeltaFlush()
           },
-          attachments?.length ? { attachments } : undefined,
+          {
+            ...(attachments?.length ? { attachments } : {}),
+            ...(continuePending ? { continuePending: true } : {}),
+          },
         )
       } catch (err) {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
@@ -211,27 +230,39 @@ export function useAiChatStream(token: string | null) {
       opts?: {
         onFinished?: () => void | Promise<void>
         attachments?: unknown[]
+        /** Kick the agent on an opener already stored with the thread. */
+        continuePending?: boolean
       },
     ) => {
       const trimmed = text.trim()
       const attachments = opts?.attachments?.length ? opts.attachments : undefined
-      if (!token || (!trimmed && !attachments?.length)) return false
+      const continuePending = Boolean(opts?.continuePending)
+      if (!token || (!continuePending && !trimmed && !attachments?.length)) return false
       onFinishedRef.current = opts?.onFinished
       sessionIdRef.current = sessionId
-      const optimistic: ChatMessage = {
-        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        role: 'user',
-        content: trimmed || ' ',
-        created_at: new Date().toISOString(),
-        attachments: attachments ?? undefined,
+      // Opener is already on the server when continuePending; skip the phantom bubble.
+      if (!continuePending) {
+        const optimistic: ChatMessage = {
+          id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          role: 'user',
+          content: trimmed || ' ',
+          created_at: new Date().toISOString(),
+          attachments: attachments ?? undefined,
+        }
+        setStream((prev) => ({
+          ...prev,
+          optimisticUsers: [...prev.optimisticUsers, optimistic],
+          active: true,
+        }))
+      } else {
+        setStream((prev) => ({ ...prev, active: true }))
       }
-      setStream((prev) => ({
-        ...prev,
-        optimisticUsers: [...prev.optimisticUsers, optimistic],
-        active: true,
-      }))
 
-      pendingPartsRef.current.push({ text: trimmed || ' ', attachments })
+      pendingPartsRef.current.push({
+        text: trimmed || ' ',
+        attachments,
+        continuePending,
+      })
 
       if (streamingRef.current) {
         abortRef.current?.abort()
@@ -243,7 +274,7 @@ export function useAiChatStream(token: string | null) {
       clearFlushTimer()
       const next = takePending()
       if (!next) return false
-      await runStream(sessionId, next.text, next.attachments)
+      await runStream(sessionId, next.text, next.attachments, next.continuePending)
       return true
     },
     [token, scheduleFlush, runStream],

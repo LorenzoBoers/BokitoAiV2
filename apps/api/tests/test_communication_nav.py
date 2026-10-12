@@ -2,6 +2,8 @@
 
 import os
 
+from uuid import UUID
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -41,10 +43,13 @@ def _ids(response) -> set[str]:
 async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    project = Project(tenant_id=tenant.id, name="Repairs", slug="repairs")
-    session_override.add(project)
-    await session_override.commit()
-    project_id = str(project.id)
+    created = await client.post(
+        "/api/folders", headers=headers, json={"name": "Repairs", "slug": "repairs"}
+    )
+    assert created.status_code == 200, created.text
+    project_id = created.json()["id"]
+    assert created.json()["tag_name"] == "repairs"
+    project = await session_override.get(Project, UUID(project_id))
 
     category = (await client.post("/api/categories", headers=headers, json={"name": "storing"})).json()
     await client.patch(
@@ -52,7 +57,9 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
         headers=headers,
         json={"stages": STAGES, "project_ids": [project_id]},
     )
-    pinned = (await client.post("/api/signals/tags", headers=headers, json={"name": "#VIP", "pinned": True})).json()
+    pinned = (
+        await client.post("/api/signals/tags", headers=headers, json={"name": "#VIP", "show_in_nav": True})
+    ).json()
     assert pinned["name"] == "vip"
     await client.post("/api/signals/tags", headers=headers, json={"name": "hidden"})
 
@@ -82,10 +89,17 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     nav = await client.get("/api/signals/nav", headers=headers)
     assert nav.status_code == 200
     body = nav.json()
-    assert body["ticket_tags"] == [{"id": category["id"], "name": "storing", "count": 1}]
+    assert [(row["id"], row["name"], row["count"]) for row in body["ticket_tags"]] == [
+        (category["id"], "storing", 1)
+    ]
+    # The folder's own tag shows as the folder, not as a tag row.
     assert [row["name"] for row in body["tags"]] == ["vip"]
     assert body["tags"][0]["count"] == 1
-    assert {"id": project_id, "name": "Repairs", "count": 1} in body["projects"]
+    folder_rows = {row["id"]: row for row in body["projects"]}
+    assert folder_rows[project_id]["name"] == "Repairs"
+    assert folder_rows[project_id]["count"] == 1
+    assert folder_rows[project_id]["tag_id"] == str(project.tag_id)
+    assert folder_rows[project_id]["children"] == []
 
     hidden = await client.patch(f"/api/categories/{category['id']}", headers=headers, json={"show_in_nav": False})
     assert hidden.status_code == 200

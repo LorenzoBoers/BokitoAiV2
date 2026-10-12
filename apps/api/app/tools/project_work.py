@@ -23,7 +23,7 @@ from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 async def _resolve_project(ctx: ToolContext, tool_input: dict[str, Any]) -> Project | None:
     """Project from explicit id/slug, then the thread's project, then the run's."""
-    raw = str(tool_input.get("project_id") or "").strip()
+    raw = str(tool_input.get("folder_id") or tool_input.get("project_id") or "").strip()
     if raw:
         try:
             project_id = UUID(raw)
@@ -77,18 +77,18 @@ async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     showcase = await resolve_items(
         ctx.session,
         ctx.tenant_id,
-        [{"type": "project", "id": p["id"]} for p in projects],
+        [{"type": "folder", "id": p["id"]} for p in projects],
     )
     if showcase:
         stash_attach_items(ctx.signal_id, showcase)
-    return {"projects": projects, "items": showcase}
+    return {"folders": projects, "items": showcase}
 
 
 async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     project = await _resolve_project(ctx, tool_input)
     if project is None:
         return {
-            "error": "No project found. Pass project_id (id or slug); use list_projects to see them."
+            "error": "No folder found. Pass folder_id (id or slug); use list_folders to see them."
         }
     title = str(tool_input.get("title") or "").strip()
     if not title:
@@ -417,10 +417,10 @@ async def _propose_project_resource(ctx: ToolContext, tool_input: dict[str, Any]
 
 register_tool(
     ToolSpec(
-        name="list_projects",
+        name="list_folders",
         description=(
-            "List the tenant's projects (id, slug, description) to pick the "
-            "right one. Results are showcased as project cards under your "
+            "List the tenant's folders (id, slug, description) to pick the "
+            "right one. Results are showcased as folder cards under your "
             "reply — keep the text short; do not list every name again."
         ),
         category="projects",
@@ -561,7 +561,7 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="list_project_docs",
+        name="list_folder_docs",
         description="List a project's documentation with section statuses and linked queue items.",
         category="projects",
         input_schema={
@@ -576,7 +576,7 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="list_project_resources",
+        name="list_folder_resources",
         description=(
             "List external resources linked to a project (repo, drive, notion, "
             "vibecode, connection). Connection rows are integrations exclusive "
@@ -595,7 +595,7 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="propose_project_resource",
+        name="propose_folder_resource",
         description=(
             "Propose linking an external resource (repo, drive, notion, sheet, "
             "vibecode, site) to a project. Records the slot and reference; the "
@@ -650,6 +650,14 @@ async def _stash_canvas_showcase(
     return showcase
 
 
+def _canvas_reply(result: dict[str, Any], showcase: list[dict[str, Any]]) -> dict[str, Any]:
+    path = showcase[0].get("path") if showcase else None
+    body = {**result, "items": showcase}
+    if path:
+        body["path"] = path
+    return body
+
+
 async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from uuid import UUID as _UUID
 
@@ -661,7 +669,7 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     if canvas_id:
         canvas = await canvas_svc.get_canvas(ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id))
         showcase = await _stash_canvas_showcase(ctx, canvas)
-        return {**canvas, "items": showcase}
+        return _canvas_reply(canvas, showcase)
     owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
     slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
     try:
@@ -673,7 +681,7 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             slug=slug,
         )
         showcase = await _stash_canvas_showcase(ctx, canvas)
-        return {**canvas, "items": showcase}
+        return _canvas_reply(canvas, showcase)
     except HTTPException:
         listed = await canvas_svc.list_canvases(
             ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
@@ -726,13 +734,25 @@ async def _propose_canvas_change(
 
 
 async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    canvas_id = str(tool_input.get("canvas_id") or "").strip()
+    slug = str(tool_input.get("slug") or "").strip().lower()
+    if not canvas_id and not slug:
+        return {
+            "error": (
+                "Pass canvas_id from create_canvas, list_canvases, or get_folder_canvas. "
+                "A change updates that canvas. Do not create another one."
+            )
+        }
     owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
-    slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
     notes = str(tool_input.get("notes") or "").strip()
     source = tool_input.get("source")
     tree = tool_input.get("tree")
     reset = bool(tool_input.get("reset"))
-    if not reset and source is None and tree is None:
+    has_meta = any(
+        tool_input.get(key) not in (None, "")
+        for key in ("refresh_cadence", "refresh_cron", "managing_agent_id")
+    )
+    if not reset and source is None and tree is None and not has_meta:
         return {
             "error": "Pass source (bokito/canvas JSX) or tree, or reset=true to clear the canvas."
         }
@@ -740,36 +760,66 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
         "owner_kind": owner_kind,
         "owner_id": str(owner_id),
         "project_id": str(owner_id) if owner_kind == "project" else None,
-        "slug": slug,
+        "slug": slug or None,
         "notes": notes or None,
         "agent_id": str(ctx.agent.id) if ctx.agent else "",
         "updated_by_id": str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
         "reset": reset,
     }
-    if tool_input.get("canvas_id"):
-        after["canvas_id"] = str(tool_input.get("canvas_id"))
+    if canvas_id:
+        after["canvas_id"] = canvas_id
     if tool_input.get("title") is not None:
         after["title"] = str(tool_input.get("title") or "")
     if source is not None:
         after["source"] = str(source)
     if isinstance(tree, dict):
         after["tree"] = tree
-    summary = notes or f"Update canvas '{slug}'"
-    return await _propose_canvas_change(
+    if tool_input.get("refresh_cadence"):
+        after["refresh_cadence"] = str(tool_input.get("refresh_cadence"))
+    if tool_input.get("refresh_cron"):
+        after["refresh_cron"] = str(tool_input.get("refresh_cron"))
+    manager = str(tool_input.get("managing_agent_id") or "").strip()
+    if manager:
+        from uuid import UUID as _UUID
+
+        try:
+            _UUID(manager)
+        except ValueError:
+            return {"error": "managing_agent_id must be an agent id"}
+        after["managing_agent_id"] = manager
+    label = str(tool_input.get("title") or slug or canvas_id or "canvas")
+    summary = notes or f"Update canvas '{label}'"
+    result = await _propose_canvas_change(
         ctx,
         change_kind="update",
         after=after,
         before={"owner_kind": owner_kind, "owner_id": str(owner_id), "slug": slug},
         summary=summary,
-        tool_name="update_project_canvas",
+        tool_name="update_folder_canvas",
     )
+    canvas = result.get("canvas") if isinstance(result, dict) else None
+    if isinstance(canvas, dict) and canvas.get("id"):
+        showcase = await _stash_canvas_showcase(ctx, canvas)
+        return _canvas_reply(result, showcase)
+    return result
 
 
 async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
+    from uuid import UUID as _UUID
+
     title = str(tool_input.get("title") or "").strip()
     if not title:
         return {"error": "title is required"}
+    named_owner = str(tool_input.get("managing_agent_id") or "").strip()
+    if named_owner:
+        try:
+            _UUID(named_owner)
+        except ValueError:
+            return {"error": "managing_agent_id must be an agent id"}
+        manager = named_owner
+    else:
+        manager = str(ctx.agent.id) if ctx.agent else None
     after = {
         "owner_kind": owner_kind,
         "owner_id": str(owner_id),
@@ -778,9 +828,14 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         "slug": str(tool_input.get("slug") or "") or None,
         "refresh_minutes": tool_input.get("refresh_minutes"),
         "refresh_cadence": tool_input.get("refresh_cadence"),
+        "refresh_cron": str(tool_input.get("refresh_cron") or "") or None,
         "notes": str(tool_input.get("notes") or "") or None,
-        "managing_agent_id": str(ctx.agent.id) if ctx.agent else None,
+        "managing_agent_id": manager,
         "agent_id": str(ctx.agent.id) if ctx.agent else "",
+        # The agent writes the document in this conversation. A parallel refresh
+        # wake opened a second thread and asked the operator questions.
+        "kick": ctx.agent is None,
+        "force_new": bool(tool_input.get("force_new")),
     }
     result = await _propose_canvas_change(
         ctx,
@@ -793,7 +848,14 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     canvas = result.get("canvas") if isinstance(result, dict) else None
     if isinstance(canvas, dict) and canvas.get("id"):
         showcase = await _stash_canvas_showcase(ctx, canvas)
-        return {**result, "items": showcase}
+        reply = _canvas_reply(result, showcase)
+        if canvas.get("reused"):
+            reply["reused"] = True
+            reply["message"] = (
+                "A canvas with this title already exists. Call update_folder_canvas "
+                "with this canvas_id. Do not call create_canvas again."
+            )
+        return reply
     return result
 
 
@@ -828,11 +890,18 @@ async def _list_canvases_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
     )
     showcase = await _stash_canvas_showcase(ctx, listed)
+    paths = {str(item.get("id")): item.get("path") for item in showcase if isinstance(item, dict)}
     return {
         "owner_kind": owner_kind,
         "owner_id": str(owner_id),
         "canvases": [
-            {"id": i["id"], "slug": i["slug"], "title": i["title"], "empty": i.get("empty")}
+            {
+                "id": i["id"],
+                "slug": i["slug"],
+                "title": i["title"],
+                "empty": i.get("empty"),
+                "path": paths.get(str(i["id"])),
+            }
             for i in listed
         ],
         "items": showcase,
@@ -845,7 +914,8 @@ register_tool(
         description=(
             "List snapshot canvases for a project or the workspace Overview. "
             "Pass project_id / owner_kind=project for a project; omit or use "
-            "owner_kind=tenant for Overview canvases. Auto-showcases each canvas."
+            "owner_kind=tenant for Overview canvases. Auto-showcases a preview card "
+            "for each canvas. Link each path inline in the same sentence."
         ),
         category="projects",
         input_schema={
@@ -864,12 +934,13 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="get_project_canvas",
+        name="get_folder_canvas",
         description=(
             "Read a snapshot canvas (project or tenant/Overview). Returns bokito/canvas "
             "source and tree. Not live queue/budget data. Pass canvas_id, or owner_kind "
             "+ slug (project_id for a project canvas; omit for the workspace Overview). "
-            "Auto-showcases the canvas under your reply."
+            "Auto-showcases a preview card under your reply. Link the returned path "
+            "inline, for example [Title](path)."
         ),
         category="projects",
         input_schema={
@@ -890,13 +961,19 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="update_project_canvas",
+        name="update_folder_canvas",
         description=(
-            "Replace a snapshot canvas document. Write bokito/canvas JSX in `source` "
-            "(import only from bokito/canvas). Allowed: Stack, Grid, Row, Text, Heading, "
-            "Callout, Divider, List, Stat, Table, BarChart, LineChart, Card, Badge. "
-            "Embed numbers you just looked up — no live tiles. Omit empty sections. "
-            "Works for project canvases and tenant canvases on Overview. Governed."
+            "Replace one snapshot canvas, or change its refresh and owner. "
+            "Pass canvas_id from create_canvas or list_canvases. A tweak updates "
+            "that canvas; it does not create a second one. "
+            "Write bokito/canvas JSX in `source` (import only from bokito/canvas) in "
+            "the same turn you create a canvas. Allowed: Stack, Grid, Row, Text, "
+            "Heading, Callout, Divider, List, Stat, Table, BarChart, LineChart, Card, "
+            "Badge. Embed numbers you just looked up. Omit empty sections. "
+            "refresh_cadence is manual, hourly, daily, weekly, monthly, or custom "
+            "(then pass refresh_cron). managing_agent_id changes the owner. "
+            "Works for project canvases and tenant canvases on Overview. "
+            "A preview card is attached when the write applies. Link its path inline."
         ),
         category="projects",
         input_schema={
@@ -911,6 +988,12 @@ register_tool(
                 "title": {"type": "string"},
                 "notes": {"type": "string"},
                 "reset": {"type": "boolean"},
+                "refresh_cadence": {
+                    "type": "string",
+                    "enum": ["manual", "hourly", "daily", "weekly", "monthly", "custom"],
+                },
+                "refresh_cron": {"type": "string"},
+                "managing_agent_id": {"type": "string"},
             },
         },
         handler=_update_project_canvas,
@@ -921,11 +1004,18 @@ register_tool(
     ToolSpec(
         name="create_canvas",
         description=(
-            "Add an empty snapshot canvas under a project or the workspace Overview. "
-            "Operators can also add canvases in the UI. You write the content afterwards "
-            "with update_project_canvas. Optional notes brief the first write. "
-            "refresh_cadence is manual, hourly, daily (default), weekly or monthly "
-            "(Agenda wake; daily is 07:00 UTC)."
+            "Create a snapshot canvas under a project or the workspace Overview, "
+            "then write its content in the same turn with update_folder_canvas "
+            "and the returned canvas_id. Do not stop at an empty canvas. The same "
+            "title on that owner returns the existing canvas; update that id "
+            "instead of opening a second one. Pass force_new only when the person "
+            "explicitly wants another canvas with the same title. You are the "
+            "owner unless managing_agent_id names another agent. refresh_cadence "
+            "is manual (once), hourly, daily (default), weekly, monthly, or custom "
+            "with refresh_cron (five-field cron, UTC). A person can also add a "
+            "canvas in the UI. A preview card is attached when it is created. "
+            "Link its path inline in the same sentence. The reply stays in this "
+            "conversation."
         ),
         category="projects",
         input_schema={
@@ -938,9 +1028,12 @@ register_tool(
                 "refresh_minutes": {"type": "integer"},
                 "refresh_cadence": {
                     "type": "string",
-                    "enum": ["manual", "hourly", "daily", "weekly", "monthly"],
+                    "enum": ["manual", "hourly", "daily", "weekly", "monthly", "custom"],
                 },
+                "refresh_cron": {"type": "string"},
+                "managing_agent_id": {"type": "string"},
                 "notes": {"type": "string"},
+                "force_new": {"type": "boolean"},
             },
             "required": ["title"],
         },

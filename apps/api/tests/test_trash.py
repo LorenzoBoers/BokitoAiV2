@@ -72,7 +72,7 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
     assert live.deleted_at is None
 
     proj = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=headers,
         json={
             "name": "Bin Project",
@@ -84,13 +84,13 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
     project_id = proj.json()["id"]
     gone = await client.request(
         "DELETE",
-        f"/api/workforce/projects/{project_id}",
+        f"/api/folders/{project_id}",
         headers=headers,
         json={"confirm_name": "Bin Project"},
     )
     assert gone.status_code == 200, gone.text
     again = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=headers,
         json={
             "name": "Bin Project 2",
@@ -113,7 +113,7 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
     confirm = restored_row.name
     gone2 = await client.request(
         "DELETE",
-        f"/api/workforce/projects/{project_id}",
+        f"/api/folders/{project_id}",
         headers=headers,
         json={"confirm_name": confirm},
     )
@@ -141,7 +141,7 @@ async def test_restored_project_canvas_carries_project_hint(client: AsyncClient)
     """Restore answers with `restore_hint.project_id` so the dashboard can open the canvas on its folder."""
     headers = await _login(client)
     proj = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=headers,
         json={"name": "Canvas Home", "slug": "canvas-home", "autonomous_scope": "ops"},
     )

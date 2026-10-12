@@ -70,9 +70,28 @@ def test_split_chat_messages_merges_fragments_and_caps():
 def test_split_chat_messages_drops_blocks_without_text():
     text = "Hier zijn suggesties:\n\n---\n\n#### Actietags\n- #feature\n\n***\n\n**"
     assert split_chat_messages(text, max_messages=0) == [
-        "Hier zijn suggesties:",
-        "#### Actietags\n- #feature",
+        "Hier zijn suggesties:\n#### Actietags\n- #feature",
     ]
+
+
+def test_split_chat_messages_keeps_an_enumeration_in_one_bubble():
+    text = (
+        "Besluitpunten die wachten:\n\n"
+        "1. Koppelingen voor de workspace.\n\n"
+        "1. Open beslissingen in het overzicht.\n\n"
+        "Ik zet ze als kaarten neer."
+    )
+    assert split_chat_messages(text, max_messages=0) == [
+        "Besluitpunten die wachten:\n1. Koppelingen voor de workspace.\n1. Open beslissingen in het overzicht.",
+        "Ik zet ze als kaarten neer.",
+    ]
+
+
+def test_split_chat_messages_strips_heartbeat_prefix():
+    assert split_chat_messages("HEARTBEAT_OK — De workspace is actief.") == [
+        "De workspace is actief.",
+    ]
+    assert split_chat_messages("HEARTBEAT_OK") == []
 
 
 def test_format_for_channel_converts_markup():

@@ -30,7 +30,7 @@ Integrations are partner logins. A **module** is one package of hashtags, playbo
 2. Cards are one flat list — never nested inside a module, never grouped under a vendor. Microsoft 365, Outlook Calendar and Microsoft Graph each have their own card. A module card carries a **Module** label with its status; **Install** installs it, an installed module shows **Manage** and **Uninstall**. An integration card shows **Connect** for the first login, or **New connection** plus the count. Coming-soon modules and their planned programs (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) are faded until they ship.
 3. Choose an integration card. The panel opens on the right with the description, the **Tool endpoint** for remote MCP apps, **Capabilities**, **Works with modules** (the presets that can use this login), and **Set up new connection**. Finish OAuth or the provider setup and you return here with the panel open. A login stays on Connections until you attach it to a module.
 4. Agents link straight to this panel: a card in a conversation opens `/connections?connect=slack_mcp` with the Slack panel already open.
-5. Communication apps add queues (email, WhatsApp). Code apps attach to a [project](/docs/ai/projects). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Tools** or **Custom MCP servers**. See [MCP](/docs/integrations/mcp).
+5. Communication apps add queues (email, WhatsApp). Code apps attach to a [project](/docs/ai/folders). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Tools** or **Custom MCP servers**. See [MCP](/docs/integrations/mcp).
 
 WhatsApp itself is configured under **Channels**, not only here. The card points you there.
 
@@ -81,7 +81,7 @@ Link a registration to projects when it belongs to one client or department.
 3. A linked registration is exclusive: agents use it only for work in those projects (a conversation filed on the project, or a run with that project). Outside them it is not available.
 4. With no project selected the registration shows **All projects** and works everywhere. Inside a project, agents pick that project's registration before the module default.
 
-You can also link from the project page; see [Projects](/docs/ai/projects).
+You can also link from the project page; see [Projects](/docs/ai/folders).
 
 ## Choose who may use a connection
 

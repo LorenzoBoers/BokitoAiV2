@@ -243,6 +243,7 @@ export default function Login() {
           />
           <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
           <span className="text-sm text-text-secondary mt-1">{t('loginPage.subtitle')}</span>
+          <span className="text-sm text-text-muted mt-2 text-center">{t('loginPage.about')}</span>
         </div>
 
         {/* Card */}
@@ -528,6 +529,8 @@ export default function Login() {
         </div>
         <p className="text-center text-xs text-text-muted mt-3">
           © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
+          {' · '}
+          <a href="/privacy.html" className="hover:text-accent">{t('loginPage.privacy')}</a>
         </p>
         <p className="text-center text-2xs text-text-muted/80 mt-1">
           build: {APP_VERSION}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
-import { Code2, MessageSquare, RotateCcw, Trash2 } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Code2, MessageSquare, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { CANVAS_ICON } from '../../lib/entity-icons'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
@@ -33,7 +33,11 @@ import { isEmptyCanvasTree } from '../../lib/project-canvas/types'
 import { agentChatPath, newConversationPath } from '../../lib/messages-paths'
 import { formatAppDateTime } from '../../lib/app-locale'
 
-const REFRESH_CADENCES: RefreshCadence[] = ['manual', 'daily', 'weekly', 'hourly', 'monthly']
+const REFRESH_CADENCES: RefreshCadence[] = ['manual', 'daily', 'weekly', 'hourly', 'monthly', 'custom']
+
+function cronLooksValid(value: string): boolean {
+  return value.trim().split(/\s+/).length === 5
+}
 
 type Props = {
   ownerKind: 'project' | 'tenant'
@@ -44,6 +48,8 @@ type Props = {
 
 export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = false }: Props) {
   const { t, i18n } = useTranslation('nav')
+  const [searchParams] = useSearchParams()
+  const requestedCanvasId = searchParams.get('canvas')
   const confirm = useConfirm()
   const [items, setItems] = useState<ProjectCanvas[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -54,6 +60,8 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
   const [newTitle, setNewTitle] = useState('')
   const [newBrief, setNewBrief] = useState('')
   const [newCadence, setNewCadence] = useState<RefreshCadence>('daily')
+  const [newCron, setNewCron] = useState('0 8 * * 1-5')
+  const [cronDraft, setCronDraft] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -63,6 +71,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
       const rows = await listCanvases(ownerKind, ownerId)
       setItems(rows)
       setActiveId((current) => {
+        if (requestedCanvasId && rows.some((row) => row.id === requestedCanvasId)) return requestedCanvasId
         if (current && rows.some((row) => row.id === current)) return current
         return rows[0]?.id ?? null
       })
@@ -72,7 +81,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
     } finally {
       setLoading(false)
     }
-  }, [ownerKind, ownerId, t])
+  }, [ownerKind, ownerId, requestedCanvasId, t])
 
   useEffect(() => {
     void load()
@@ -86,7 +95,13 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
     setNewTitle('')
     setNewBrief('')
     setNewCadence('daily')
+    setNewCron('0 8 * * 1-5')
     setAdding(true)
+  }
+
+  function shownCadence(row: ProjectCanvas): RefreshCadence {
+    if (row.id in cronDraft) return 'custom'
+    return row.refresh_cadence || 'manual'
   }
 
   async function onAdd() {
@@ -95,12 +110,18 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
     if (!title || !notes) return
     setBusy(true)
     try {
+      if (newCadence === 'custom' && !cronLooksValid(newCron)) {
+        setError(t('projects.canvas.cronInvalid'))
+        setBusy(false)
+        return
+      }
       const created = await createCanvas({
         owner_kind: ownerKind,
         owner_id: ownerId,
         title,
         notes,
         refresh_cadence: newCadence,
+        refresh_cron: newCadence === 'custom' ? newCron.trim() : null,
       })
       setAdding(false)
       setItems((rows) => [...rows, created])
@@ -128,10 +149,44 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
   }
 
   async function onCadenceChange(id: string, cadence: RefreshCadence) {
+    if (cadence === 'custom') {
+      const row = items.find((item) => item.id === id)
+      setCronDraft((prev) => ({ ...prev, [id]: prev[id] ?? row?.refresh_cron ?? '0 8 * * 1-5' }))
+      return
+    }
+    setCronDraft((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
     setBusy(true)
     try {
       const updated = await patchCanvasMeta(id, { refresh_cadence: cadence })
       setItems((rows) => rows.map((row) => (row.id === id ? updated : row)))
+    } catch (err) {
+      setError(formatApiErrorMessage(err, t('projects.canvas.saveError')))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onCronCommit(id: string) {
+    const row = items.find((item) => item.id === id)
+    const value = (cronDraft[id] ?? row?.refresh_cron ?? '').trim()
+    if (!cronLooksValid(value)) {
+      setError(t('projects.canvas.cronInvalid'))
+      return
+    }
+    if (row?.refresh_cadence === 'custom' && (row.refresh_cron || '').trim() === value) return
+    setBusy(true)
+    try {
+      const updated = await patchCanvasMeta(id, { refresh_cadence: 'custom', refresh_cron: value })
+      setItems((rows) => rows.map((item) => (item.id === id ? updated : item)))
+      setCronDraft((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.canvas.saveError')))
     } finally {
@@ -162,12 +217,13 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
           {canEdit ? (
             <button
               type="button"
-              className="-mb-px inline-flex h-9 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-2.5 text-sm font-medium text-text-secondary hover:text-text-primary"
+              className="-mb-px inline-flex h-9 w-9 shrink-0 items-center justify-center border-b-2 border-transparent text-text-secondary hover:text-text-primary disabled:opacity-40"
               onClick={openAdd}
               disabled={busy}
+              title={t('projects.canvas.add')}
+              aria-label={t('projects.canvas.add')}
             >
-              <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
-              {t('projects.canvas.add')}
+              <Plus size={16} strokeWidth={2} aria-hidden />
             </button>
           ) : null}
         </TabsList>
@@ -179,7 +235,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
               <p className="text-sm text-text-muted">{t('projects.canvas.emptyHint')}</p>
               {canEdit ? (
                 <Button type="button" size="sm" variant="outline" onClick={openAdd} disabled={busy}>
-                  <CANVAS_ICON size={14} className="mr-1.5 shrink-0" aria-hidden />
+                  <Plus size={14} className="mr-1.5 shrink-0" aria-hidden />
                   {t('projects.canvas.add')}
                 </Button>
               ) : null}
@@ -205,7 +261,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
                   <div className="flex flex-wrap items-center gap-2">
                     {canEdit ? (
                       <Select
-                        value={row.refresh_cadence || 'manual'}
+                        value={shownCadence(row)}
                         disabled={busy}
                         onValueChange={(value) => void onCadenceChange(row.id, value as RefreshCadence)}
                       >
@@ -220,6 +276,17 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
                           ))}
                         </SelectContent>
                       </Select>
+                    ) : null}
+                    {canEdit && shownCadence(row) === 'custom' ? (
+                      <Input
+                        value={cronDraft[row.id] ?? row.refresh_cron ?? ''}
+                        onChange={(e) => setCronDraft((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                        onBlur={() => void onCronCommit(row.id)}
+                        placeholder={t('projects.canvas.cronPlaceholder')}
+                        aria-label={t('projects.canvas.cronLabel')}
+                        className="h-8 w-36 font-mono text-xs"
+                        disabled={busy}
+                      />
                     ) : null}
                     <Button type="button" size="sm" variant="outline" asChild>
                       <Link to={askHref}>
@@ -305,13 +372,30 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
                   ))}
                 </SelectContent>
               </Select>
+              {newCadence === 'custom' ? (
+                <div className="mt-2">
+                  <Label htmlFor="canvas-cron">{t('projects.canvas.cronLabel')}</Label>
+                  <Input
+                    id="canvas-cron"
+                    value={newCron}
+                    onChange={(e) => setNewCron(e.target.value)}
+                    placeholder={t('projects.canvas.cronPlaceholder')}
+                    className="mt-1 font-mono"
+                  />
+                  <p className="mt-1 text-xs text-text-muted">{t('projects.canvas.cronHint')}</p>
+                </div>
+              ) : null}
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setAdding(false)} disabled={busy}>
               {t('projects.canvas.cancel')}
             </Button>
-            <Button type="button" onClick={() => void onAdd()} disabled={busy || !newTitle.trim() || !newBrief.trim()}>
+            <Button
+              type="button"
+              onClick={() => void onAdd()}
+              disabled={busy || !newTitle.trim() || !newBrief.trim() || (newCadence === 'custom' && !cronLooksValid(newCron))}
+            >
               {t('projects.canvas.add')}
             </Button>
           </DialogFooter>

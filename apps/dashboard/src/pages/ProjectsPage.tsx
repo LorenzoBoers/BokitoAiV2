@@ -93,11 +93,11 @@ function ProjectCard({
         defaultValue: 'Open project {{name}}',
         name: project.name,
       })}
-      onClick={() => navigate(`/projects/${project.id}`)}
+      onClick={() => navigate(`/folders/${project.id}`)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          navigate(`/projects/${project.id}`)
+          navigate(`/folders/${project.id}`)
         }
       }}
       interactive
@@ -159,7 +159,7 @@ function ProjectCard({
               ) : canManage ? (
                 <DropdownMenu.Item
                   className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                  onSelect={() => navigate(`/projects/${project.id}`)}
+                  onSelect={() => navigate(`/folders/${project.id}`)}
                 >
                   <Bot size={14} />
                   {t('projects.page.assignLead')}
@@ -291,7 +291,7 @@ function ProjectCard({
         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
           {canManage && !project.po_agent ? (
             <Link
-              to={`/projects/${project.id}`}
+              to={`/folders/${project.id}`}
               onClick={(event) => event.stopPropagation()}
               className="text-xs font-medium text-accent hover:underline"
             >
@@ -407,7 +407,7 @@ export default function ProjectsPage() {
       setShowSlug(false)
       setCreateOpen(false)
       toast.success(t('projects.page.created'))
-      navigate(`/projects/${created.id}`)
+      navigate(`/folders/${created.id}`)
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('projects.page.createError')))
     } finally {
@@ -488,7 +488,7 @@ export default function ProjectsPage() {
             ) : undefined
           }
           footer={
-            <Link to="/docs/ai/projects" className="text-xs font-medium text-accent hover:underline">
+            <Link to="/docs/ai/folders" className="text-xs font-medium text-accent hover:underline">
               {t('pageGuides.learnMore')}
             </Link>
           }

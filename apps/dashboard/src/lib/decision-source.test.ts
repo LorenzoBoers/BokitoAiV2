@@ -38,7 +38,7 @@ describe('decisionSourceRef', () => {
   const open = (source: Parameters<typeof decisionSourceRef>[0]) => openEntityPath(decisionSourceRef(source))
 
   it('sends a queue item to its project, or the agenda without one', () => {
-    expect(open({ type: 'agent_task', id: 't', projectId: 'proj-2' })).toBe('/projects/proj-2')
+    expect(open({ type: 'agent_task', id: 't', projectId: 'proj-2' })).toBe('/folders/proj-2')
     expect(open({ type: 'agent_task', id: 't', projectId: null })).toBe('/agenda')
   })
 

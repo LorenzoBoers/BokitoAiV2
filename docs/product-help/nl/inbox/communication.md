@@ -180,24 +180,24 @@ Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld va
 ## Een gesprek taggen en een ticket vastleggen
 
 1. Open een klantgesprek. Het zijpaneel **Dit gesprek** toont de AI-samenvatting wanneer de kanaalagent het gesprek heeft gelezen, daarna prioriteit, opnieuw kijken, tags en het ticket. Kies **Tags toevoegen** voor vrije tags en actietags (actietags starten een ticketflow); zie [Actietags en tickets](/docs/ai/categories). Op een gesloten gesprek biedt het ⋯-menu **Gebruik als voorbeeld**, zodat het volgende vergelijkbare antwoord daarvan kan leren.
-2. Typ met een zachte `#`. Kies een vrije tag of een actietag (label **Actietag**). Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**. Als de flow projecten heeft, kies er een of **Geen project**. Mappen in een gekoppeld project staan ingesprongen eronder en zijn geldige keuzes.
+2. Typ met een zachte `#`. Kies een vrije tag of een actietag (label **Actietag**). Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**. Het gesprek landt in een map via die tags, inclusief tags op het contact. Tags van het contact tonen als gestippelde chips die je hier niet kunt verwijderen.
 3. De actietag-chip is vergrendeld op het gesprek. Wijzig die door te vervangen in de picker, of **Splits** als een tweede verzoek een eigen ticket nodig heeft. Vrije tags tonen een gedempte `#` en een **x** om te verwijderen.
-4. Beheer de lijst onder **Instellingen** → **# Tags**: hernoem een tag, voeg een omschrijving toe die agents lezen, zet een vrije tag vast in Communicatie, kies **Flow aanmaken** / **Flow openen**, of verwijder hem van alle gesprekken. Je kunt het ook een agent in de chat vragen (*voeg de tags #vip en #partner toe*): die stelt **Hashtag #vip aanmaken** en de rest voor als rijen op één kaart die je in het gesprek goedkeurt; zie [Beslissingen](/docs/ai/decisions). Actietags stellen agents op dezelfde manier voor, via Govern.
+4. Beheer de lijst onder **Instellingen** → **# Tags**: hernoem een tag, zet hem in een groep, voeg een omschrijving toe die agents lezen, zet hem vast in Communicatie, kies **Map aanmaken** of **Flow aanmaken** / **Flow openen**, of verwijder hem van alle gesprekken. Je kunt het ook een agent in de chat vragen (*voeg de tags #vip en #partner toe*): die stelt **Hashtag #vip aanmaken** en de rest voor als rijen op één kaart die je in het gesprek goedkeurt; zie [Beslissingen](/docs/ai/decisions). Actietags stellen agents op dezelfde manier voor, via Govern.
 5. Om automatisch te taggen voeg je onder **Instellingen** → **Kanalen** een automatiseringsregel toe met de actie **Tags toevoegen**. De regel tagt passende gesprekken en de normale afhandeling gaat door; de tijdlijn toont een regel zoals **Getagd met factuur door regel**.
 6. Duikt er een tweede verzoek op in hetzelfde gesprek, kies dan **Hier splitsen** op het bericht waar het begint, zodat elk gesprek één ticket houdt.
 
-## Werk vinden op tag of project
+## Werk vinden op map of tag
 
-Vastgezette vrije tags, actietags en projecten krijgen elk een rij in de zijbalk, met het aantal open gesprekken.
+**Mappen en tags** is één sectie in de zijbalk. Eerst mappen, daarna actietags en vastgezette vrije tags, elk met het aantal open gesprekken.
 
 ![Tags in de zijbalk van Communicatie](/api/docs/assets/communication/hashtags.png)
-*Actietags, een vastgezette vrije tag en een project, elk met het aantal open.*
+*Mappen, actietags en een vastgezette vrije tag, elk met het aantal open.*
 
-1. Klik onder **Tags** op een rij voor de gesprekken met die tag. Hij klapt uit in dezelfde submappen als een kanaal: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**.
-2. Klik onder **Projecten** op een project voor de gesprekken die erop zijn vastgelegd en op de mappen erin. De mappen erin verschijnen in diezelfde subweergave, boven Voor jou, Open, Niet toegewezen en Gesloten. Een map openen houdt het project erboven open. Open in een gesprek het menu met meer acties en kies **Opbergen in map** of **Sluiten en opbergen**. Met meerdere gesprekken geselecteerd doet **Meer acties** → **Opbergen in map** hetzelfde.
-3. Een opgeborgen gesprek toont zijn map op twee plekken: een mapchip op de lijstrij (verborgen zolang je al in die map zit) en de mapnaam achter de status in de kop van het gesprek. Beide openen de projectpagina. Hover voor het volledige pad, zoals **Opgeborgen in: Bokito Platform / Map 3**. De kaart **Ticket** in het zijpaneel noemt dezelfde map en biedt **Project openen**.
-4. Tagchips zijn ook links: klik op `#bug` onder **Tags** in het zijpaneel, of in een chatbericht, om alle gesprekken met die tag te openen.
-5. Zet elke tag vast met de punaise onder **Instellingen** → **# Tags** (vrije tags én actietags).
+1. Klik onder **Mappen en tags** op een map voor de gesprekken die daar en in de mappen erin liggen. Een groepmap klapt uit naar één kind per tag. Een virtueel kind heeft **Vastzetten als map** zodat het een agent, docs of budget kan krijgen.
+2. Klik op een tagrij voor elk gesprek met die tag, over mappen heen. Hij klapt uit in dezelfde submappen als een kanaal: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**.
+3. Open in een gesprek het menu met meer acties en kies **Opbergen in map** of **Sluiten en opbergen**. Dat voegt de tags van het gekozen pad toe. Met meerdere gesprekken geselecteerd doet **Meer acties** → **Opbergen in map** hetzelfde.
+4. Een opgeborgen gesprek toont zijn map op twee plekken: een mapchip op de lijstrij (verborgen zolang je al in die map zit) en de mapnaam achter de status in de kop van het gesprek. Beide openen de mappagina. Hover voor het volledige pad, zoals **Opgeborgen in: Relaties / Acme / Facturen**.
+5. Zet een map of tag vast in de rail met de punaise op die rij. Pins reizen mee tussen apparaten. Verberg een standaardrij op dezelfde manier.
 6. Kies onder **Instellingen** → **Kanalen** → **Tags en Communicatie** met welke submap elke rij opent.
 
 ## Wat nu

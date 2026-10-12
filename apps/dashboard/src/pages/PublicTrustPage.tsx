@@ -23,6 +23,9 @@ export default function PublicTrustPage() {
           </h1>
           <p className="mt-2 text-sm text-text-muted">{t('publicTrust.subtitle')}</p>
           <p className="mt-2 text-xs text-text-muted">{t('publicTrust.draftGate')}</p>
+          <p className="mt-2 text-sm">
+            <a className="text-accent hover:underline" href="/privacy.html">{t('publicTrust.privacyPolicy')}</a>
+          </p>
         </div>
 
         <section className="space-y-2">

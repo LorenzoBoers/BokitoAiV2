@@ -1,4 +1,11 @@
-"""Project hub service (CRUD, repo, workstreams, usage)."""
+"""Folder service (the dashboard calls them folders; the model is `Project`).
+
+Every folder carries a tag (``tag_id``); a conversation sits in a folder because
+it carries the tags on that folder's path (`services.folders`). A folder with
+``child_group_id`` shows one virtual child per tag in that group; pinning a
+virtual child creates a real row with that tag. Moving, pinning, trashing or
+restoring a folder refiles what it touches.
+"""
 
 import json
 from datetime import datetime, timedelta
@@ -13,7 +20,7 @@ from app.models.agent import Agent
 from app.models.orchestration import QUEUE_ITEM_KINDS, AgentTask
 from app.models.project import Project, ProjectAgent
 from app.models.project_work import ProjectResource
-from app.models.signal import Signal
+from app.models.signal import Signal, SignalTag, TagGroup
 from app.models.usage import UsageLedger
 
 DEFAULT_TOKEN_BUDGET_DAILY = 100_000
@@ -65,13 +72,20 @@ def serialize_project(
     project: Project,
     po_agent: Agent | None = None,
     repo: ProjectResource | None = None,
+    *,
+    tag_name: str | None = None,
+    group_name: str | None = None,
 ) -> dict[str, Any]:
-    """Project shape for the dashboard; repo fields derive from the repo resource."""
+    """Folder shape for the dashboard; repo fields derive from the repo resource."""
     config = _repo_config(repo)
     return {
         "id": str(project.id),
         "name": project.name,
         "slug": project.slug,
+        "tag_id": str(project.tag_id) if project.tag_id else None,
+        "tag_name": tag_name,
+        "child_group_id": str(project.child_group_id) if project.child_group_id else None,
+        "child_group_name": group_name,
         "description": project.description or "",
         "autonomous_scope": project.autonomous_scope or "",
         "active_domains": _parse_json(project.active_domains_json),
@@ -97,6 +111,116 @@ def serialize_project(
 
 
 MAX_FOLDER_DEPTH = 16
+
+
+async def _tag_names(session: AsyncSession, tenant_id: UUID, tag_ids: list[UUID]) -> dict[UUID, str]:
+    ids = [t for t in dict.fromkeys(tag_ids) if t is not None]
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(SignalTag.id, SignalTag.name).where(SignalTag.tenant_id == tenant_id, SignalTag.id.in_(ids))
+    )
+    return {row[0]: row[1] for row in rows.all()}
+
+
+async def _group_names(session: AsyncSession, tenant_id: UUID, group_ids: list[UUID]) -> dict[UUID, str]:
+    ids = [g for g in dict.fromkeys(group_ids) if g is not None]
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(TagGroup.id, TagGroup.name).where(TagGroup.tenant_id == tenant_id, TagGroup.id.in_(ids))
+    )
+    return {row[0]: row[1] for row in rows.all()}
+
+
+async def serialize_with_tag(
+    session: AsyncSession,
+    project: Project,
+    po_agent: Agent | None = None,
+    repo: ProjectResource | None = None,
+) -> dict[str, Any]:
+    tags = await _tag_names(session, project.tenant_id, [project.tag_id] if project.tag_id else [])
+    groups = await _group_names(
+        session, project.tenant_id, [project.child_group_id] if project.child_group_id else []
+    )
+    return serialize_project(
+        project,
+        po_agent,
+        repo,
+        tag_name=tags.get(project.tag_id) if project.tag_id else None,
+        group_name=groups.get(project.child_group_id) if project.child_group_id else None,
+    )
+
+
+async def folder_tag(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    tag_id: UUID | None = None,
+    tag: str | None = None,
+    fallback_name: str = "",
+    user_id: UUID | None = None,
+) -> SignalTag:
+    """The tag a folder carries: by id, by name, or a new tag named after the folder."""
+    from app.services.signal_tags import normalize_tag
+
+    if tag_id is not None:
+        row = (
+            await session.execute(
+                select(SignalTag).where(SignalTag.id == tag_id, SignalTag.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Tag not found")
+        return row
+    name = normalize_tag(tag or "") or normalize_tag(fallback_name)
+    if not name:
+        raise HTTPException(status_code=422, detail="A folder needs a tag")
+    row = (
+        await session.execute(
+            select(SignalTag).where(SignalTag.tenant_id == tenant_id, SignalTag.name == name)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        row = SignalTag(tenant_id=tenant_id, name=name, created_by_user_id=user_id)
+        session.add(row)
+        await session.flush()
+    return row
+
+
+async def assert_folder_tag(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    project_id: UUID | None,
+    parent_id: UUID | None,
+    tag: SignalTag,
+) -> None:
+    """A tag appears once on a path and once among siblings."""
+    from app.services.folders import load_tree
+
+    tree = await load_tree(session, tenant_id)
+    current = tree.nodes.get(parent_id) if parent_id else None
+    while current is not None:
+        if current.tag_id == tag.id:
+            raise HTTPException(
+                status_code=422, detail=f"#{tag.name} is already the tag of a folder above this one"
+            )
+        current = tree.nodes.get(current.parent_id) if current.parent_id else None
+    for sibling in tree.children.get(parent_id if parent_id in tree.nodes else None, []):
+        if sibling.id != project_id and sibling.tag_id == tag.id:
+            raise HTTPException(status_code=409, detail=f"A folder with #{tag.name} already sits here")
+
+
+async def _group_row(session: AsyncSession, tenant_id: UUID, group_id: UUID) -> TagGroup:
+    row = (
+        await session.execute(
+            select(TagGroup).where(TagGroup.id == group_id, TagGroup.tenant_id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Tag group not found")
+    return row
 
 
 def project_subtree_select(tenant_id: UUID, root_id: UUID):
@@ -316,7 +440,7 @@ async def get_project_detail(
 ) -> dict[str, Any]:
     project, po_agent = await get_project_row(session, tenant_id, project_id)
     repo = await get_repo_resource(session, tenant_id, project_id)
-    payload = serialize_project(project, po_agent, repo)
+    payload = await serialize_with_tag(session, project, po_agent, repo)
     projects = await _alive_projects(session, tenant_id)
     by_id = {row.id: row for row in projects}
     children_of = _children_of(projects)
@@ -327,6 +451,9 @@ async def get_project_detail(
     payload["child_count"] = len(children_of.get(project.id, []))
     payload["open_count"] = sum(open_counts.get(pid, 0) for pid in subtree)
     payload["closed_count"] = sum(closed_counts.get(pid, 0) for pid in subtree)
+    tag_names = await _tag_names(
+        session, tenant_id, [by_id[cid].tag_id for cid in children_of.get(project.id, []) if by_id[cid].tag_id]
+    )
     children: list[dict[str, Any]] = []
     for child_id in children_of.get(project.id, []):
         child = by_id[child_id]
@@ -336,14 +463,69 @@ async def get_project_detail(
                 "id": str(child.id),
                 "name": child.name,
                 "slug": child.slug,
+                "tag_id": str(child.tag_id) if child.tag_id else None,
+                "tag_name": tag_names.get(child.tag_id) if child.tag_id else None,
+                "virtual": False,
                 "child_count": len(children_of.get(child.id, [])),
                 "open_count": sum(open_counts.get(pid, 0) for pid in child_tree),
                 "closed_count": sum(closed_counts.get(pid, 0) for pid in child_tree),
             }
         )
+    children.extend(await _virtual_children(session, tenant_id, project, by_id))
     children.sort(key=lambda row: row["name"].lower())
     payload["children"] = children
     return payload
+
+
+async def _virtual_children(
+    session: AsyncSession, tenant_id: UUID, project: Project, by_id: dict[UUID, Project]
+) -> list[dict[str, Any]]:
+    """One row per tag in the folder's child group that has no pinned row yet."""
+    if project.child_group_id is None:
+        return []
+    from app.services.communication_nav import filter_predicates, virtual_row_id
+    from app.services.trash import alive
+
+    group_tags = list(
+        (
+            await session.execute(
+                select(SignalTag)
+                .where(SignalTag.tenant_id == tenant_id, SignalTag.group_id == project.child_group_id)
+                .order_by(SignalTag.name)
+            )
+        ).scalars()
+    )
+    pinned = {row.tag_id for row in by_id.values() if row.parent_id == project.id and row.tag_id}
+    out: list[dict[str, Any]] = []
+    for tag in group_tags:
+        if tag.id in pinned:
+            continue
+        counts: dict[str, int] = {}
+        for status in ("open", "closed"):
+            predicates = filter_predicates(tenant_id, {"project_id": project.id, "path": [tag.id]}) or []
+            counts[status] = int(
+                (
+                    await session.execute(
+                        select(func.count())
+                        .select_from(Signal)
+                        .where(Signal.tenant_id == tenant_id, alive(Signal), Signal.status == status, *predicates)
+                    )
+                ).scalar_one()
+            )
+        out.append(
+            {
+                "id": virtual_row_id(project.id, tag.id),
+                "name": tag.name,
+                "slug": tag.name,
+                "tag_id": str(tag.id),
+                "tag_name": tag.name,
+                "virtual": True,
+                "child_count": 0,
+                "open_count": counts["open"],
+                "closed_count": counts["closed"],
+            }
+        )
+    return out
 
 
 async def folder_digest(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> str:
@@ -464,12 +646,18 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             if status == "final":
                 done += count
             sections_by_project[project_id] = (total, done)
+    tag_names = await _tag_names(session, tenant_id, [p.tag_id for p in projects if p.tag_id])
+    group_names = await _group_names(
+        session, tenant_id, [p.child_group_id for p in projects if p.child_group_id]
+    )
     out = []
     for p in projects:
         item = serialize_project(
             p,
             agents_by_id.get(p.po_agent_id) if p.po_agent_id else None,
             repo_by_project.get(p.id),
+            tag_name=tag_names.get(p.tag_id) if p.tag_id else None,
+            group_name=group_names.get(p.child_group_id) if p.child_group_id else None,
         )
         item["agents"] = roster_by_project.get(p.id, [])
         item["open_tickets_count"] = open_tickets_by_project.get(p.id, 0)
@@ -490,11 +678,26 @@ async def create_project(
     autonomous_scope: str,
     description: str = "",
     parent_id: UUID | None = None,
+    tag_id: UUID | None = None,
+    tag: str | None = None,
+    child_group_id: UUID | None = None,
+    user_id: UUID | None = None,
 ) -> dict[str, Any]:
+    """Create a folder. Its tag comes from ``tag_id``, ``tag`` (a name, created
+    when new) or, by default, a tag named after the slug. Conversations that
+    already carry the path's tags move in."""
+    from app.services.folders import refile_tagged
+
     slug_norm = slug.strip().lower()
     await assert_folder_parent(session, tenant_id, project_id=None, parent_id=parent_id)
     if await _slug_in_use(session, tenant_id, slug_norm, parent_id):
         raise HTTPException(status_code=409, detail="Project slug already exists")
+    row_tag = await folder_tag(
+        session, tenant_id, tag_id=tag_id, tag=tag, fallback_name=slug_norm, user_id=user_id
+    )
+    await assert_folder_tag(session, tenant_id, project_id=None, parent_id=parent_id, tag=row_tag)
+    if child_group_id is not None:
+        await _group_row(session, tenant_id, child_group_id)
     now = datetime.utcnow()
     project = Project(
         tenant_id=tenant_id,
@@ -503,6 +706,8 @@ async def create_project(
         description=description,
         autonomous_scope=autonomous_scope.strip(),
         parent_id=parent_id,
+        tag_id=row_tag.id,
+        child_group_id=child_group_id,
         updated_at=now,
     )
     session.add(project)
@@ -512,9 +717,69 @@ async def create_project(
     from app.services.workstreams import ensure_default_workstream
 
     await ensure_default_workstream(session, tenant_id, project.id, commit=False)
+    await refile_tagged(session, tenant_id, await _refile_tags_for(session, tenant_id, project))
     await session.commit()
     await session.refresh(project)
-    return serialize_project(project)
+    return await serialize_with_tag(session, project)
+
+
+async def _refile_tags_for(session: AsyncSession, tenant_id: UUID, project: Project) -> list[UUID]:
+    """Tags whose conversations may land in (or leave) this folder: its own tag
+    and, for a group folder, every tag in the group."""
+    out: list[UUID] = [project.tag_id] if project.tag_id else []
+    if project.child_group_id is not None:
+        rows = await session.execute(
+            select(SignalTag.id).where(
+                SignalTag.tenant_id == tenant_id, SignalTag.group_id == project.child_group_id
+            )
+        )
+        out.extend(rows.scalars().all())
+    return out
+
+
+async def pin_virtual_child(
+    session: AsyncSession,
+    tenant_id: UUID,
+    project_id: UUID,
+    tag_id: UUID,
+    *,
+    user_id: UUID | None = None,
+) -> dict[str, Any]:
+    """"Vastzetten": turn a virtual child (group folder + tag) into a real row.
+    Nothing moves: the conversations already carried the tag."""
+    from app.services.signal_tags import normalize_tag
+
+    parent, _ = await get_project_row(session, tenant_id, project_id)
+    if parent.child_group_id is None:
+        raise HTTPException(status_code=400, detail="This folder has no tag group")
+    tag = await folder_tag(session, tenant_id, tag_id=tag_id)
+    if tag.group_id != parent.child_group_id:
+        raise HTTPException(status_code=422, detail=f"#{tag.name} is not in this folder's group")
+    existing = (
+        await session.execute(
+            select(Project).where(
+                Project.tenant_id == tenant_id,
+                Project.parent_id == parent.id,
+                Project.tag_id == tag.id,
+                Project.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return await serialize_with_tag(session, existing)
+    slug = normalize_tag(tag.name)
+    if await _slug_in_use(session, tenant_id, slug, parent.id):
+        slug = f"{slug}-{str(tag.id)[:8]}"
+    return await create_project(
+        session,
+        tenant_id,
+        name=tag.name,
+        slug=slug,
+        autonomous_scope=parent.autonomous_scope or "",
+        parent_id=parent.id,
+        tag_id=tag.id,
+        user_id=user_id,
+    )
 
 
 async def patch_project(
@@ -528,14 +793,22 @@ async def patch_project(
     token_budget_daily: int | None | object = ...,
     token_budget_hourly: int | None | object = ...,
     parent_id: UUID | None | object = ...,
+    tag_id: UUID | object = ...,
+    child_group_id: UUID | None | object = ...,
+    user_id: UUID | None = None,
 ) -> dict[str, Any]:
+    from app.services.folders import refile_subtree, refile_tagged
+
     project, po_agent = await get_project_row(session, tenant_id, project_id)
+    before_tags = await _refile_tags_for(session, tenant_id, project)
+    tree_changed = False
     if name is not None:
         project.name = name.strip()
     if description is not None:
         project.description = description
     if autonomous_scope is not None:
         project.autonomous_scope = autonomous_scope.strip()
+    next_parent = project.parent_id
     if parent_id is not ...:
         next_parent = parent_id if isinstance(parent_id, UUID) else None
         await assert_folder_parent(
@@ -545,17 +818,45 @@ async def patch_project(
             session, tenant_id, project.slug, next_parent, exclude_id=project.id
         ):
             raise HTTPException(status_code=409, detail="Project slug already exists")
-        project.parent_id = next_parent
+        tree_changed = tree_changed or next_parent != project.parent_id
+    next_tag_id = project.tag_id
+    if tag_id is not ...:
+        if not isinstance(tag_id, UUID):
+            raise HTTPException(status_code=422, detail="A folder needs a tag")
+        next_tag_id = tag_id
+        tree_changed = tree_changed or next_tag_id != project.tag_id
+    if tree_changed or next_tag_id != project.tag_id:
+        row_tag = await folder_tag(session, tenant_id, tag_id=next_tag_id)
+        await assert_folder_tag(
+            session, tenant_id, project_id=project.id, parent_id=next_parent, tag=row_tag
+        )
+    project.parent_id = next_parent
+    project.tag_id = next_tag_id
+    if child_group_id is not ...:
+        next_group = child_group_id if isinstance(child_group_id, UUID) else None
+        if next_group is not None:
+            await _group_row(session, tenant_id, next_group)
+        tree_changed = tree_changed or next_group != project.child_group_id
+        project.child_group_id = next_group
     if token_budget_daily is not ...:
         project.token_budget_daily = _positive_cap(token_budget_daily)
     if token_budget_hourly is not ...:
         project.token_budget_hourly = _positive_cap(token_budget_hourly)
     project.updated_at = datetime.utcnow()
     session.add(project)
+    await session.flush()
+    if tree_changed:
+        await refile_subtree(session, tenant_id, project.id, actor_id=str(user_id or ""))
+        await refile_tagged(
+            session,
+            tenant_id,
+            [*before_tags, *await _refile_tags_for(session, tenant_id, project)],
+            actor_id=str(user_id or ""),
+        )
     await session.commit()
     await session.refresh(project)
     repo = await get_repo_resource(session, tenant_id, project_id)
-    return serialize_project(project, po_agent, repo)
+    return await serialize_with_tag(session, project, po_agent, repo)
 
 
 async def _trash_project(
@@ -688,6 +989,21 @@ async def delete_project(
                 batch_id=batch_id,
                 commit=False,
             )
+        # The folder is gone from the tree: what sat in it lands on the
+        # nearest folder its tags still match (or none).
+        from app.services.folders import refile_many
+
+        await session.flush()
+        inside = (
+            await session.execute(
+                select(Signal.id).where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.project_id.in_(list(tree_ids)),
+                    Signal.deleted_at.is_(None),
+                )
+            )
+        ).scalars()
+        await refile_many(session, tenant_id, list(inside), actor_id=str(user_id or ""))
         if commit:
             await session.commit()
         return {"deleted": True}

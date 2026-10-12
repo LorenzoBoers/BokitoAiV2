@@ -12,7 +12,7 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/contacts/companies/')) return [{ labelKey: 'crumbs.company' }]
   if (/^\/contacts\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.person' }]
   if (/^\/agents\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.agent' }]
-  if (/^\/projects\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.project' }]
+  if (/^\/(?:folders|projects)\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.folder' }]
   if (/^\/knowledge\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.document' }]
   if (pathname.startsWith('/knowledge')) return []
   if (pathname.startsWith('/communication/new')) return [{ labelKey: 'crumbs.newConversation' }]

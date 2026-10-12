@@ -1,22 +1,22 @@
 ---
-title: Zo werken Projecten
-intro: Een project houdt een doel vast — de landingspagina, het snapshot-canvas, documentatie, wie het leidt, en hoeveel het mag uitgeven.
+title: Zo werken Mappen
+intro: Een map houdt een doel vast — de landingspagina, het snapshot-canvas, documentatie, wie het leidt, en hoeveel het mag uitgeven.
 description: Land op Project voor de flowborden en koppelingen, vraag een agent het snapshot-canvas te schrijven, houd documentatie bij en begrens uitgaven.
 keywords: projecten, mappen, canvas, dashboard, snapshot, tickets, flows, borden, documentatie, secties, resources, repository, budget, orkestratie
 sort: 40
 related: workstreams,categories,agenda,knowledge,communication
 ---
 
-# Zo werken Projecten
+# Zo werken Mappen
 
-Een project is werk over dagen, en het kan mappen bevatten die zelf projecten zijn. Open **Projecten** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een projectdetail heeft zes tabbladen: **Overzicht** (mappen, wie het uitvoert, agenda, budget, recente gesprekken en activiteit), **Gesprekken** (alles wat in deze map is opgeborgen), **Tickets** (flowborden), **Canvas** (snapshot-dashboard dat agents schrijven), **Documentatie** (wat waar is) en **Instellingen** (wie het uitvoert en waar het op werkt). De URL houdt het tabblad bij (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=settings`) zodat je dat oppervlak kunt delen.
+Een map is een tag met een plek. Gesprekken komen in een map terecht via hun tags, inclusief tags op het contact. Open **Mappen** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een mapdetail toont **Overzicht**, **Gesprekken** en **Instellingen**; **Tickets**, **Documentatie** en **Bestanden** verschijnen wanneer die map ze heeft. De URL houdt het tabblad bij (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) zodat je dat oppervlak kunt delen.
 
-## Maak of open een project
+## Maak of open een map
 
 ![Projectenlijst](/api/docs/assets/projects/project.png)
 *Elke kaart toont de projectagent, open tickets en het budget.*
 
-1. Open **Projecten**. Links staat een mappenmenu. Submappen blijven dicht tot je dat project opent. De titel op de pagina is **{workspace} projecten**; het hulp-icoon naast **Projecten** in de bovenbalk opent deze gids. Kies **Nieuw project** (of zoek **Nieuw project** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
+1. Open **Mappen**. Links staat een mappenmenu. Submappen blijven dicht tot je dat project opent. De titel op de pagina is **{workspace} projecten**; het hulp-icoon naast **Projecten** in de bovenbalk opent deze gids. Kies **Nieuwe map** (of zoek **Nieuwe map** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
 2. Lees de kaart: projectagent, open tickets (dezelfde borden als Project Home), documentatiegezondheid, repo-status, resterend budget. De projectagent en de agentchips openen de agentpagina; staat een zoekresultaat in een ander project, dan opent het pad boven de naam die bovenliggende map. Zoek op naam of agent als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
 3. Open die. Je landt op het tabblad **Overzicht**. Klik de projectagent om die te openen. Beheerders kiezen de pen in de kaartkop om een andere bedrijfsagent als projectstandaard te zetten, of maken er een. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
 
@@ -31,7 +31,7 @@ Het tabblad **Overzicht** is de landing. De kopkaart toont het mapicoon, de naam
 
 ## Bekijk de gesprekken in een map
 
-Elk gesprek dat op dit project of op een map erin is opgeborgen, staat in de Communicatie-zijbalk onder **Projecten**. Het tabblad **Gesprekken** toont dezelfde lijst naast de mappen en borden.
+Elk gesprek dat op dit project of op een map erin is opgeborgen, staat in de Communicatie-zijbalk onder **Mappen en tags**. Het tabblad **Gesprekken** toont dezelfde lijst naast de mappen en borden.
 
 1. Open het tabblad **Gesprekken**. Het getal in de tab is het aantal open gesprekken. Schakel tussen **Open** en **Gesloten**.
 2. Elke rij toont de statusstip, het kanaal, het onderwerp, het contact, de map waarin het zit als die dieper ligt dan dit project, en de actietag. Klik een rij om dat gesprek te openen in de map van dit project in Communicatie.
@@ -50,11 +50,11 @@ Elk gesprek dat op dit project of op een map erin is opgeborgen, staat in de Com
 
 ## Vraag een agent een canvas te schrijven
 
-Een project kan meerdere snapshot-canvasses hebben (geen live tegels). Jij voegt toe, verwijdert en zet **Verversen**; alleen agents schrijven het document met `bokito/canvas` via [Govern](/docs/govern/govern). De projectagent beheert ze standaard. Verversen is een [Agenda](/docs/ai/agenda)-wake (standaard dagelijks om 07:00 UTC), geen aparte scheduler.
+Een project kan meerdere snapshot-canvasses hebben (geen live tegels). Een agent maakt, vult en ververst een canvas; jij kunt dat ook vanaf dit tabblad. De agent die het aanmaakt is de eigenaar, tenzij je een andere noemt. Verversen is een [Agenda](/docs/ai/agenda)-wake: eenmalig (**Handmatig**), dagelijks om 07:00 UTC, wekelijks, maandelijks, uurlijks, of **Aangepast** (een cron van vijf velden). Op Assisted of Autonomous past de schrijfactie meteen toe. Op Manual wacht die als beslissing onder [Govern](/docs/govern/govern).
 
-1. Open het tabblad **Canvas**. Canvasnamen staan van links naar rechts. **Canvas toevoegen** is de tab ná de laatste canvas. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**). Dagelijks is de standaard. Sla op. De beheeragent begint vanuit je omschrijving.
-2. Canvasses staan als tabs van links naar rechts. Zolang het document leeg is, toont de tab dat de agent schrijft. Na toepassen zie je kaarten, stats, tabellen of grafieken van de laatste schrijfbeurt.
-3. Admins kunnen **Bron tonen**. Kies **Vraag agent om bij te werken** voor een eenmalige herschrijving, of wijzig Verversen zodat Agenda de agent blijft wekken. Workspace-canvasses staan op Overview **Canvas**.
+1. Open het tabblad **Canvas**. Canvasnamen staan van links naar rechts. De **+** ná de laatste naam voegt een canvas toe. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**, **Aangepast**). Bij **Aangepast** vul je een cron in, bijvoorbeeld `0 8 * * 1-5`. Dagelijks is de standaard. Sla op. De eigenaar begint vanuit de omschrijving.
+2. Canvasses staan als tabs van links naar rechts. Zolang het document leeg is, toont de tab dat de agent schrijft. Na de schrijfactie zie je kaarten, stats, tabellen of grafieken van de laatste snapshot.
+3. Vraag de agent in het gesprek om cijfers, een status of een dashboard; hij bouwt of werkt het canvas in die beurt bij. Een latere aanpassing werkt datzelfde canvas bij. Het antwoord noemt het canvas als link en toont een kleine preview van de snapshot. Open de preview om op dat canvas te landen. Een geplande verversing schrijft de snapshot en opent geen tweede gesprek. Admins kunnen **Bron tonen**. Kies **Vraag agent om bij te werken** voor een eenmalige herschrijving, of wijzig Verversen zodat Agenda de eigenaar blijft wekken. Workspace-canvasses staan op Overview **Canvas**.
 
 ## Tickets op een project krijgen
 

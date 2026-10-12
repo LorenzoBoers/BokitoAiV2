@@ -21,7 +21,9 @@ import {
   bokitoListChatTargets,
   startConversation,
   type ChatTarget,
+  type NavRow,
 } from '../lib/signals-api'
+import { useCommunicationNav } from '../hooks/useCommunicationNav'
 import { agentRoleLabel } from '../lib/agent-role-label'
 import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, channelPath, inboxPath } from '../lib/messages-paths'
@@ -40,6 +42,7 @@ import {
   type StoredMailDraft,
 } from '../lib/mail-draft-store'
 import type { MailComposerIntent } from '../lib/mail-reply'
+import { stashChatContinue } from '../lib/chat-auto-continue'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
@@ -66,6 +69,15 @@ import { cn } from '../lib/utils'
 type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket'
 
 const NO_PROJECT = '__none__'
+
+/** Pinned folder rows as `Parent / Child` options; virtual group children are skipped. */
+function flattenNavFolders(rows: NavRow[], prefix: string[] = []): { id: string; path: string }[] {
+  return rows.flatMap((row) => {
+    if (row.virtual) return []
+    const chain = [...prefix, row.name]
+    return [{ id: row.id, path: chain.join(' / ') }, ...flattenNavFolders(row.children ?? [], chain)]
+  })
+}
 
 function parseIntent(raw: string | null): Intent | null {
   if (raw === 'contact' || raw === 'agent' || raw === 'teammate' || raw === 'whatsapp' || raw === 'ticket') {
@@ -372,9 +384,21 @@ export default function NewConversationPage() {
     setSending(true)
     setError(null)
     try {
-      const created = await bokitoCreateConversation(token, 'New conversation', selectedAgent.id)
+      // Persist the opener with the thread so a lost navigation state cannot
+      // leave an empty "Untitled chat". ThreadDetail then continues the agent.
+      const created = await bokitoCreateConversation(token, 'New conversation', selectedAgent.id, {
+        message: content,
+      })
+      const path = agentChatPath(selectedAgent.id, created.id)
+      if (created.has_opener) {
+        stashChatContinue(created.id, { mode: 'continue' })
+        navigate(path, { state: { continuePending: true } })
+      } else {
+        // Server did not store the opener — fall back to a re-send.
+        stashChatContinue(created.id, { mode: 'send', text: content })
+        navigate(path, { state: { autoSend: content } })
+      }
       void refreshSessions()
-      navigate(agentChatPath(selectedAgent.id, created.id), { state: { autoSend: content } })
     } catch (err) {
       const message = err instanceof Error ? err.message : t('newConversation.startError')
       if (/no agents available/i.test(message)) {
@@ -420,7 +444,6 @@ export default function NewConversationPage() {
   )
 
   const selectedCategory = categories.find((row) => row.id === ticketTagId) ?? null
-  const ticketNeedsProject = (selectedCategory?.project_choices.length ?? 0) > 0
 
   const startWhatsapp = useCallback(async () => {
     if (!token || sending) return
@@ -445,14 +468,14 @@ export default function NewConversationPage() {
     setSending(true)
     setError(null)
     try {
-      const projectId =
-        !ticketNeedsProject || ticketProjectId === NO_PROJECT ? null : ticketProjectId || null
+      // Optional: filing in a folder adds that folder's tags to the new thread.
+      const projectId = ticketProjectId === NO_PROJECT ? null : ticketProjectId || null
       const result = await startConversation(token, {
         kind: 'ticket',
         tagId: selectedCategory.id,
         subject: ticketSubject,
         note: ticketNote,
-        projectId: ticketNeedsProject ? projectId : null,
+        projectId,
         fields: ticketFields,
       })
       navigate(channelPath('internal', { threadId: result.threadId }))
@@ -464,7 +487,6 @@ export default function NewConversationPage() {
     token,
     sending,
     selectedCategory,
-    ticketNeedsProject,
     ticketProjectId,
     ticketSubject,
     ticketNote,
@@ -975,11 +997,12 @@ function TicketStart({
   onSubmit: () => void
 }) {
   const { t } = useTranslation('communication')
+  const { nav } = useCommunicationNav()
   const category = categories.find((row) => row.id === tagId) ?? null
-  const needsProject = (category?.project_choices.length ?? 0) > 0
+  const folders = useMemo(() => flattenNavFolders(nav.projects), [nav.projects])
   const intake = category?.intake_fields ?? []
   const missingRequired = intake.some((field) => field.required && !(fields[field.key] || '').trim())
-  const ready = Boolean(category && subject.trim() && (!needsProject || projectId) && !missingRequired)
+  const ready = Boolean(category && subject.trim() && !missingRequired)
 
   if (categories.length === 0) {
     return (
@@ -1020,21 +1043,21 @@ function TicketStart({
           ]}
         />
       </label>
-      {needsProject ? (
+      {folders.length > 0 ? (
         <label className="block space-y-1.5">
           <span className="text-xs font-medium text-text-muted">{t('tags.chooseProject')}</span>
           <ChoiceSelect
             aria-label={t('tags.chooseProject')}
-            placeholder={t('tags.chooseProject')}
-            value={projectId}
+            placeholder={t('tags.noProject')}
+            value={projectId || NO_PROJECT}
             onValueChange={onProject}
             groups={[
               {
                 items: [
                   { value: NO_PROJECT, label: t('tags.noProject'), kind: 'project' as const },
-                  ...category!.project_choices.map((project) => ({
-                    value: project.id,
-                    label: project.name,
+                  ...folders.map((folder) => ({
+                    value: folder.id,
+                    label: folder.path,
                     kind: 'project' as const,
                   })),
                 ],

@@ -3,10 +3,9 @@
 A *category* is a hashtag with a playbook (`SignalTag.workstream_id`). Filing
 it on a conversation makes that conversation the ticket: `Signal.ticket_tag_id`
 plus `stage_key` in the playbook's stage pipeline. A conversation has at most
-one ticket; a second request is a split. Filing always settles a project: one
-of the playbook's projects, or none. A ticket shows on a project board only
-when its playbook is attached to that project and the conversation's
-`project_id` is that project.
+one ticket; a second request is a split. The folder is never chosen at
+filing: it follows from the conversation's tags (`services.folders`). A
+folder's board shows every flow with a ticket in its subtree.
 
 Stage moves come from a run entering a step with a ``stage_key``, a run
 changing state, or a person moving the card. Every move is written to the
@@ -22,7 +21,8 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import false as sa_false
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orchestra import Workstream, WorkstreamProject, WorkstreamRun
@@ -624,136 +624,21 @@ async def category_catalog_lines(session: AsyncSession, tenant_id: UUID) -> list
 
 
 # ---------------------------------------------------------------------------
-# Playbook projects
+# Folders
+#
+# A ticket's folder is not chosen at filing: it follows from the
+# conversation's tags (`services.folders.refile`), the action tag included.
+# Filing never asks "which project?"; when the tags leave the folder open,
+# `refile` asks "which folder?" in the thread.
 
 
-async def playbook_project_ids(
-    session: AsyncSession, tenant_id: UUID, workstream_id: UUID
-) -> list[UUID]:
-    rows = await session.execute(
-        select(WorkstreamProject.project_id)
-        .join(Project, Project.id == WorkstreamProject.project_id)
-        .where(
-            WorkstreamProject.tenant_id == tenant_id,
-            WorkstreamProject.workstream_id == workstream_id,
-        )
-        .order_by(Project.name)
-    )
-    return list(rows.scalars().all())
+async def folder_path_payload(session: AsyncSession, signal: Signal) -> dict[str, Any] | None:
+    from app.services.folders import resolve_signal
 
-
-def _folder_choices(
-    linked_ids: list[UUID],
-    by_id: dict[UUID, Project],
-    children_of: dict[UUID, list[UUID]],
-) -> list[dict[str, Any]]:
-    """Linked projects plus every folder inside them, indented by depth."""
-    depth_of: dict[UUID, int] = {}
-
-    def walk(project_id: UUID, depth: int) -> None:
-        if project_id not in by_id:
-            return
-        previous = depth_of.get(project_id)
-        if previous is not None and previous <= depth:
-            return
-        depth_of[project_id] = depth
-        for child_id in children_of.get(project_id, []):
-            walk(child_id, depth + 1)
-
-    for project_id in linked_ids:
-        walk(project_id, 0)
-
-    def emit(project_id: UUID, rows: list[dict[str, Any]]) -> None:
-        project = by_id[project_id]
-        rows.append({"id": str(project.id), "name": project.name, "depth": depth_of[project_id]})
-        for child_id in sorted(
-            children_of.get(project_id, []),
-            key=lambda cid: by_id[cid].name.lower() if cid in by_id else "",
-        ):
-            if child_id in depth_of:
-                emit(child_id, rows)
-
-    roots = [
-        project_id
-        for project_id in depth_of
-        if by_id[project_id].parent_id not in depth_of
-    ]
-    rows: list[dict[str, Any]] = []
-    for project_id in sorted(roots, key=lambda pid: by_id[pid].name.lower()):
-        emit(project_id, rows)
-    return rows
-
-
-async def project_choices_by_workstream(
-    session: AsyncSession, tenant_id: UUID, workstream_ids: list[UUID]
-) -> dict[UUID, list[dict[str, Any]]]:
-    """Projects per playbook in one query (names ordered)."""
-    unique = list(dict.fromkeys(wid for wid in workstream_ids if wid is not None))
-    if not unique:
-        return {}
-    rows = await session.execute(
-        select(WorkstreamProject.workstream_id, Project.id, Project.name)
-        .join(Project, Project.id == WorkstreamProject.project_id)
-        .where(
-            WorkstreamProject.tenant_id == tenant_id,
-            WorkstreamProject.workstream_id.in_(unique),
-        )
-        .order_by(Project.name)
-    )
-    linked: dict[UUID, list[UUID]] = {wid: [] for wid in unique}
-    for ws_id, pid, _name in rows.all():
-        linked.setdefault(ws_id, []).append(pid)
-    from app.services.projects import _alive_projects, _children_of
-
-    projects = await _alive_projects(session, tenant_id)
-    by_id = {project.id: project for project in projects}
-    children_of = _children_of(projects)
-    out: dict[UUID, list[dict[str, Any]]] = {}
-    for wid in unique:
-        out[wid] = _folder_choices(linked.get(wid, []), by_id, children_of)
-    return out
-
-
-async def project_choices(
-    session: AsyncSession, tenant_id: UUID, tag: SignalTag
-) -> list[dict[str, Any]]:
-    """The projects a ticket of this category may be filed on (plus No project)."""
-    if tag.workstream_id is None:
-        return []
-    by_ws = await project_choices_by_workstream(
-        session, tenant_id, [tag.workstream_id]
-    )
-    return by_ws.get(tag.workstream_id, [])
-
-
-async def _validate_project(
-    session: AsyncSession, tenant_id: UUID, tag: SignalTag, project_id: UUID | None
-) -> UUID | None:
-    if project_id is None:
+    placement = await resolve_signal(session, signal)
+    if placement.path is None or placement.path.depth == 0:
         return None
-    allowed = set(await playbook_project_ids(session, tenant_id, tag.workstream_id))
-    current_id: UUID | None = project_id
-    seen: set[UUID] = set()
-    while current_id is not None and current_id not in seen:
-        if current_id in allowed:
-            return project_id
-        seen.add(current_id)
-        row = (
-            await session.execute(
-                select(Project).where(
-                    Project.id == current_id,
-                    Project.tenant_id == tenant_id,
-                    Project.deleted_at.is_(None),
-                )
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            break
-        current_id = row.parent_id
-    raise HTTPException(
-        status_code=400,
-        detail="This project does not use the category's playbook. Pick one of its projects or No project.",
-    )
+    return placement.path.to_dict()
 
 
 # ---------------------------------------------------------------------------
@@ -809,8 +694,9 @@ async def ticket_payload(
         "stage": stage_payload(signal, stages),
         "stages": stages,
         "certainty": signal.ticket_certainty,
+        "folder_id": str(signal.project_id) if signal.project_id else None,
         "project_id": str(signal.project_id) if signal.project_id else None,
-        "project_choices": await project_choices(session, signal.tenant_id, tag),
+        "folder_path": await folder_path_payload(session, signal),
         "workstream_id": str(ws.id) if ws else None,
         "workstream_name": ws.name if ws else None,
         "workstream_run_id": str(run.id) if run else None,
@@ -1057,6 +943,10 @@ async def clear_ticket(session: AsyncSession, signal: Signal) -> str | None:
     signal.updated_at = datetime.utcnow()
     session.add(signal)
     await session.flush()
+    from app.services.folders import refile
+
+    # The action tag may have been the tag that placed the conversation.
+    await refile(session, signal)
     return tag.name if tag else None
 
 
@@ -1092,27 +982,17 @@ async def _ask_operator(
     user_id: UUID | None,
     agent_id: UUID | None,
 ) -> None:
-    """A Decision in the thread: file on one of the playbook's projects, no project, or dismiss."""
+    """A Decision in the thread: file this ticket, or dismiss."""
     from app.services.signal_decisions import create_decision
 
-    options: list[dict[str, Any]] = []
-    for choice in await project_choices(session, signal.tenant_id, tag):
-        options.append(
-            {
-                "id": f"project:{choice['id']}",
-                "label": f"File on {choice['name']}",
-                "action_type": "update_ticket",
-                "payload": {"signal_id": str(signal.id), "status": "open", "project_id": choice["id"]},
-            }
-        )
-    options.append(
+    options: list[dict[str, Any]] = [
         {
             "id": "approve",
-            "label": "File without project" if options else "File this ticket",
+            "label": "File this ticket",
             "action_type": "update_ticket",
-            "payload": {"signal_id": str(signal.id), "status": "open", "project_id": None},
+            "payload": {"signal_id": str(signal.id), "status": "open"},
         }
-    )
+    ]
     options.append(
         {
             "id": "reject",
@@ -1163,7 +1043,6 @@ async def file_ticket(
     signal_id: UUID,
     tag_id: UUID,
     project_id: UUID | None = None,
-    project_chosen: bool = False,
     fields: dict[str, Any] | None = None,
     summary: str = "",
     certainty: int | None = None,
@@ -1175,12 +1054,13 @@ async def file_ticket(
 ) -> dict[str, Any]:
     """File an action tag on a conversation.
 
-    Filing settles the project: ``project_chosen`` with ``project_id`` (one of
-    the flow's projects) or ``None`` (No project). A person must choose when
-    the flow has projects; an agent that does not choose leaves the ticket
-    proposed so the operator picks on the confirm chip. Optional intake
-    ``fields`` come from the first open stage.
+    The folder follows from the conversation's tags (the action tag included);
+    an explicit ``project_id`` files the conversation in that folder first,
+    which adds that folder's tags. Optional intake ``fields`` come from the
+    first open stage.
     """
+    from app.services.folders import file_in_folder, refile
+
     tag = await get_category(session, tenant_id, tag_id)
     signal = await _signal(session, tenant_id, signal_id)
     ws = await session.get(Workstream, tag.workstream_id) if tag.workstream_id else None
@@ -1192,7 +1072,10 @@ async def file_ticket(
         refresh = signal.ticket_status == "proposed" or (
             signal.ticket_status == "waiting" and tag.requires_verification and not signal.stage_key
         )
-        if signal.ticket_tag_id == tag.id and not refresh and not (actor == "operator" and project_chosen):
+        if signal.ticket_tag_id == tag.id and not refresh:
+            if project_id is not None and actor == "operator":
+                await file_in_folder(session, signal, project_id, user_id=user_id, actor_type=created_by_type, actor_id=created_by_id)
+                await session.commit()
             return {"ticket": await ticket_payload(session, signal, tag=tag), "existing": True}
         if signal.ticket_tag_id != tag.id and actor != "operator":
             raise HTTPException(
@@ -1206,16 +1089,6 @@ async def file_ticket(
         if cleared != tag.name:
             previous = cleared
 
-    choices = await playbook_project_ids(session, tenant_id, tag.workstream_id)
-    if project_chosen:
-        chosen_project = await _validate_project(session, tenant_id, tag, project_id)
-    elif not choices:
-        project_chosen, chosen_project = True, None
-    elif actor == "operator":
-        raise HTTPException(status_code=400, detail="Choose a project or No project for this ticket.")
-    else:
-        chosen_project = None
-
     field_values = normalize_ticket_fields(
         intake, fields or {}, require=actor == "operator"
     )
@@ -1228,8 +1101,17 @@ async def file_ticket(
     signal.ticket_filed_at = now
     signal.stage_key = ""
     signal.ticket_fields_json = json.dumps(field_values)
-    if project_chosen:
-        signal.project_id = chosen_project
+    session.add(signal)
+    await session.flush()
+    if project_id is not None:
+        try:
+            await file_in_folder(
+                session, signal, project_id, user_id=user_id, actor_type=created_by_type, actor_id=created_by_id
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Folder not found") from exc
+    else:
+        await refile(session, signal, actor_type=created_by_type, actor_id=created_by_id)
 
     if tag.requires_verification and actor != "operator" and not thread_assurance_valid(signal):
         signal.ticket_status = "waiting"
@@ -1255,9 +1137,6 @@ async def file_ticket(
         status = "open" if certain else "proposed"
     else:
         status = "open" if certain or score >= tag.ask_threshold else "proposed"
-    if status == "open" and not project_chosen:
-        # Autonomy never skips the project choice: the operator picks it on the chip.
-        status = "proposed"
 
     signal.ticket_status = status
     session.add(signal)
@@ -1273,8 +1152,6 @@ async def file_ticket(
         extra["asked_operator"] = True
     elif status == "proposed":
         extra["proposed"] = True
-        if not project_chosen:
-            extra["needs_project"] = True
     else:
         await _enter_pipeline(
             session, signal, tag, summary=summary, actor_type=created_by_type, actor_id=created_by_id
@@ -1292,11 +1169,12 @@ async def update_ticket(
     actor_type: str = "user",
     actor_id: str = "",
 ) -> dict[str, Any] | None:
-    """Accept, dismiss, move or re-project a ticket. Returns None when it was removed.
+    """Accept, dismiss, move or refile a ticket. Returns None when it was removed.
 
-    ``status``: ``open`` accepts a proposal (``project_id`` required when the
-    playbook has projects), ``dismissed`` drops a proposal or removes the
-    category, any other stage kind moves to the first stage of that kind.
+    ``status``: ``open`` accepts a proposal, ``dismissed`` drops a proposal or
+    removes the category, any other stage kind moves to the first stage of
+    that kind. ``project_id`` files the conversation in that folder (adds its
+    tags); ``None`` takes it out of its folder.
     """
     signal = await _signal(session, tenant_id, signal_id)
     if signal.ticket_tag_id is None:
@@ -1327,15 +1205,21 @@ async def update_ticket(
         session.add(signal)
 
     if "project_id" in patch:
+        from app.services.folders import file_in_folder
+
         raw = patch["project_id"]
-        signal.project_id = await _validate_project(
-            session, tenant_id, tag, UUID(str(raw)) if raw else None
-        )
-        session.add(signal)
-    elif pending and status == "open":
-        if await playbook_project_ids(session, tenant_id, tag.workstream_id):
-            raise HTTPException(status_code=400, detail="Choose a project or No project for this ticket.")
-        signal.project_id = None
+        try:
+            await file_in_folder(
+                session,
+                signal,
+                UUID(str(raw)) if raw else None,
+                actor_type=actor_type,
+                actor_id=actor_id,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Folder not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="project_id must be a folder id or null") from exc
 
     if pending and status == "open":
         signal.ticket_status = "open"
@@ -1395,61 +1279,90 @@ async def set_ticket_status_for_run(
 # Project board
 
 
-async def project_board(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> list[dict[str, Any]]:
-    """Every playbook attached to the project, each with its stages and tickets."""
+async def project_board(
+    session: AsyncSession, tenant_id: UUID, project_id: UUID, *, tag_ids: list[UUID] | None = None
+) -> list[dict[str, Any]]:
+    """Flow boards of a folder: every flow with a ticket in the folder's subtree,
+    every flow whose action tag is a folder in that subtree, and every flow
+    attached to the folder. Boards roll up: a parent shows its children's tickets.
+
+    ``tag_ids`` narrows the subtree to conversations carrying those tags (the
+    virtual remainder of a path under a group folder).
+    """
+    from app.services.folders import load_tree
     from app.services.trash import alive
 
-    links = (
+    tree = await load_tree(session, tenant_id)
+    subtree = tree.subtree_ids(project_id) if project_id in tree.nodes else [project_id]
+    folder_tag_ids = [tree.nodes[i].tag_id for i in subtree if i in tree.nodes and tree.nodes[i].tag_id is not None]
+
+    ticket_scope = [
+        Signal.tenant_id == tenant_id,
+        Signal.project_id.in_(subtree),
+        Signal.ticket_tag_id.is_not(None),
+        Signal.ticket_status != "proposed",
+        Signal.deleted_at.is_(None),
+    ]
+    if tag_ids:
+        from app.services.signal_tags import signals_with_tag_ids
+
+        for tag_id in tag_ids:
+            ticket_scope.append(Signal.id.in_(signals_with_tag_ids(tenant_id, [tag_id])))
+    signals = list(
+        (await session.execute(select(Signal).where(*ticket_scope).order_by(Signal.last_message_at.desc()))).scalars()
+    )
+    ws_ids: list[UUID] = []
+    linked_ws = (
         await session.execute(
-            select(WorkstreamProject, Workstream)
-            .join(Workstream, Workstream.id == WorkstreamProject.workstream_id)
-            .where(
-                WorkstreamProject.tenant_id == tenant_id,
-                WorkstreamProject.project_id == project_id,
-                alive(Workstream),
-            )
-            .order_by(WorkstreamProject.position, Workstream.name)
+            select(WorkstreamProject.workstream_id)
+            .where(WorkstreamProject.tenant_id == tenant_id, WorkstreamProject.project_id.in_(subtree))
+            .order_by(WorkstreamProject.position)
         )
-    ).all()
-    if not links:
-        return []
-    ws_ids = [ws.id for _, ws in links]
-    tags = list(
+    ).scalars()
+    ws_ids.extend(linked_ws)
+    tag_rows = list(
         (
             await session.execute(
                 select(SignalTag).where(
-                    SignalTag.tenant_id == tenant_id, SignalTag.workstream_id.in_(ws_ids)
+                    SignalTag.tenant_id == tenant_id,
+                    SignalTag.workstream_id.is_not(None),
+                    or_(
+                        SignalTag.id.in_(folder_tag_ids) if folder_tag_ids else sa_false(),
+                        SignalTag.id.in_([s.ticket_tag_id for s in signals]) if signals else sa_false(),
+                    ),
                 )
             )
         ).scalars()
     )
-    tag_by_id = {t.id: t for t in tags}
-    signals = (
-        list(
-            (
-                await session.execute(
-                    select(Signal)
-                    .where(
-                        Signal.tenant_id == tenant_id,
-                        Signal.project_id == project_id,
-                        Signal.ticket_tag_id.in_(list(tag_by_id)),
-                        Signal.ticket_status != "proposed",
-                        Signal.deleted_at.is_(None),
-                    )
-                    .order_by(Signal.last_message_at.desc())
-                )
-            ).scalars()
-        )
-        if tag_by_id
-        else []
+    ws_ids.extend(t.workstream_id for t in tag_rows if t.workstream_id is not None)
+    ws_ids = list(dict.fromkeys(ws_ids))
+    if not ws_ids:
+        return []
+    flows = list(
+        (
+            await session.execute(
+                select(Workstream).where(Workstream.tenant_id == tenant_id, Workstream.id.in_(ws_ids), alive(Workstream))
+            )
+        ).scalars()
     )
+    order = {wid: i for i, wid in enumerate(ws_ids)}
+    flows.sort(key=lambda ws: (order.get(ws.id, 0), ws.name.lower()))
+    tags = list(
+        (
+            await session.execute(
+                select(SignalTag).where(SignalTag.tenant_id == tenant_id, SignalTag.workstream_id.in_([f.id for f in flows]))
+            )
+        ).scalars()
+    )
+    tag_by_id = {t.id: t for t in tags}
+    signals = [s for s in signals if s.ticket_tag_id in tag_by_id]
     by_ws: dict[UUID, list[Signal]] = {}
     for signal in signals:
         tag = tag_by_id[signal.ticket_tag_id]
         by_ws.setdefault(tag.workstream_id, []).append(signal)
     checkups = await _checkups_by_signal(session, signals)
     out: list[dict[str, Any]] = []
-    for _, ws in links:
+    for ws in flows:
         stages = workstream_stages(ws)
         out.append(
             {

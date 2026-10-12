@@ -1,11 +1,17 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useAuth } from './AuthContext'
 import {
   DEFAULT_SECTION_ORDER,
+  folderPinRef,
   loadSidebarPrefs,
+  pathPinRef,
   saveSidebarPrefs,
+  tagPinRef,
+  type RailPin,
   type SidebarPrefs,
   type SidebarSection,
 } from '../lib/communication-sidebar-prefs'
+import { fetchRailPrefs, saveRailPrefs, togglePin } from '../lib/rail-prefs'
 
 type SidebarPrefsContextValue = {
   prefs: SidebarPrefs
@@ -23,25 +29,60 @@ type SidebarPrefsContextValue = {
     extra?: { retain?: string[]; close?: string[] },
   ) => void
   resetPrefs: () => void
+  isPinned: (ref: string) => boolean
+  toggleRailPin: (ref: string) => void
+  hideDefaultRow: (ref: string, hidden: boolean) => void
 }
 
 const SidebarPrefsContext = createContext<SidebarPrefsContextValue | null>(null)
 
 export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
+  const { token } = useAuth()
   const [prefs, setPrefs] = useState<SidebarPrefs>(loadSidebarPrefs)
 
-  const update = useCallback((updater: (prev: SidebarPrefs) => SidebarPrefs) => {
-    setPrefs((prev) => {
-      const next = updater(prev)
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void fetchRailPrefs(token)
+      .then((remote) => {
+        if (cancelled) return
+        setPrefs((prev) => {
+          const next = {
+            ...remote,
+            expandedLeaves: prev.expandedLeaves.length ? prev.expandedLeaves : remote.expandedLeaves,
+          }
+          saveSidebarPrefs(next)
+          return next
+        })
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  const persist = useCallback(
+    (next: SidebarPrefs) => {
       saveSidebarPrefs(next)
-      return next
-    })
-  }, [])
+      if (token) void saveRailPrefs(token, next).catch(() => undefined)
+    },
+    [token],
+  )
+
+  const update = useCallback(
+    (updater: (prev: SidebarPrefs) => SidebarPrefs) => {
+      setPrefs((prev) => {
+        const next = updater(prev)
+        persist(next)
+        return next
+      })
+    },
+    [persist],
+  )
 
   const setOrder = useCallback(
     (order: SidebarSection[]) =>
       update((prev) => {
-        // Settings stays anchored at the bottom of the rail.
         const middle = order.filter((s) => s !== 'settings')
         return { ...prev, order: [...middle, 'settings'] }
       }),
@@ -80,8 +121,6 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
             expandedLeaves: prev.expandedLeaves.filter((key) => !drop.has(key)),
           }
         }
-        // Channels, tags and agents stay one-at-a-time. A project keeps the
-        // folders above it open, so a nested folder does not hide its parent.
         if (scopeKey.startsWith('project:')) {
           const retain = extra?.retain ?? prev.expandedLeaves.filter((key) => key.startsWith('project:'))
           const chain = [...retain.filter((key) => key.startsWith('project:') && key !== scopeKey), scopeKey]
@@ -93,11 +132,40 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
   )
 
   const resetPrefs = useCallback(
-    () => update(() => ({ order: [...DEFAULT_SECTION_ORDER], hidden: [], collapsed: [], expandedLeaves: [] })),
+    () =>
+      update(() => ({
+        order: [...DEFAULT_SECTION_ORDER],
+        hidden: [],
+        collapsed: [],
+        expandedLeaves: [],
+        railPins: [],
+        railHiddenDefaults: [],
+      })),
     [update],
   )
 
-  /** Visible middle sections (excludes anchored Settings). */
+  const isPinned = useCallback((ref: string) => prefs.railPins.some((pin) => pin.ref === ref), [prefs.railPins])
+
+  const toggleRailPin = useCallback(
+    (ref: string) =>
+      update((prev) => ({
+        ...prev,
+        railPins: togglePin(prev.railPins, ref).map((pin, index) => ({ ...pin, position: index })),
+      })),
+    [update],
+  )
+
+  const hideDefaultRow = useCallback(
+    (ref: string, hidden: boolean) =>
+      update((prev) => ({
+        ...prev,
+        railHiddenDefaults: hidden
+          ? [...prev.railHiddenDefaults.filter((item) => item !== ref), ref]
+          : prev.railHiddenDefaults.filter((item) => item !== ref),
+      })),
+    [update],
+  )
+
   const visibleSections = useMemo(
     () => prefs.order.filter((s) => s !== 'settings' && !prefs.hidden.includes(s)),
     [prefs.order, prefs.hidden],
@@ -115,6 +183,9 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
       setSectionCollapsed,
       setLeafExpanded,
       resetPrefs,
+      isPinned,
+      toggleRailPin,
+      hideDefaultRow,
     }),
     [
       prefs,
@@ -125,6 +196,9 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
       setSectionCollapsed,
       setLeafExpanded,
       resetPrefs,
+      isPinned,
+      toggleRailPin,
+      hideDefaultRow,
     ],
   )
 
@@ -136,3 +210,6 @@ export function useSidebarPrefs(): SidebarPrefsContextValue {
   if (!ctx) throw new Error('useSidebarPrefs must be used within SidebarPrefsProvider')
   return ctx
 }
+
+export { folderPinRef, pathPinRef, tagPinRef }
+export type { RailPin }

@@ -47,7 +47,7 @@ export function ProjectFolderGrid({
 export function ProjectFolderCard({ folder }: { folder: ProjectChild }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
-  const open = () => navigate(`/projects/${folder.id}`)
+  const open = () => navigate(`/folders/${folder.id}`)
   return (
     <Card
       role="link"

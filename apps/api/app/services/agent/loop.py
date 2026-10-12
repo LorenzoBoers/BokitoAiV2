@@ -90,6 +90,7 @@ class AgentLoop:
         reply_mode: str | None = None,
         model_override: str | None = None,
         task_hint: str | None = None,
+        canvas_refresh: bool = False,
     ):
         self.session = session
         # mail | chat | document; resolved from the thread channel when None.
@@ -110,6 +111,7 @@ class AgentLoop:
         # stays in the session, while replies/tags/handover hit the real thread.
         self.tool_signal_id = tool_signal_id or signal_id
         self.trust = trust
+        self.canvas_refresh = canvas_refresh
         self.surface = surface
         self.audience = audience_for_trust(trust)
         # Showcase cards from attach_items for this turn (request-scoped backup
@@ -144,7 +146,7 @@ class AgentLoop:
             )
             if handoff:
                 tools = [*tools, handoff]
-        self.tools = tools
+        self.tools = self._with_canvas_tools(tools)
         self.max_loops = agent.max_loops if agent else 15
         # Compact step log for chat history (tool calls / think) + token usage UI.
         self.trace_steps: list[dict[str, Any]] = []
@@ -554,6 +556,9 @@ class AgentLoop:
             operator = await self._operator_context()
             if operator:
                 parts.append(operator)
+            from app.services.agent.style import CANVAS_OPERATOR_PROMPT
+
+            parts.append(CANVAS_OPERATOR_PROMPT)
             # The personal assistant is the one agent that carries memory of
             # the person across workspaces.
             if self.agent is not None and self.agent.acts_for_user:
@@ -586,7 +591,19 @@ class AgentLoop:
         resolved = getattr(self, "resolved_call", None)
         if resolved is not None and resolved.provider == "bokito":
             parts.append(identity_for_bokito_slug(resolved.slug))
+        if self.canvas_refresh:
+            from app.services.agent.style import CANVAS_REFRESH_TURN
+
+            parts.append(CANVAS_REFRESH_TURN)
         return "\n\n".join(parts).strip()
+
+    def _with_canvas_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        from app.tools.registry import CANVAS_WAKE_DENY, with_operator_canvas_tools
+
+        tools = with_operator_canvas_tools(tools, trust=self.trust, refresh=self.canvas_refresh)
+        if self.canvas_refresh:
+            tools = [t for t in tools if t["name"] not in CANVAS_WAKE_DENY]
+        return tools
 
     async def _team_reachable(self) -> bool:
         if self.trust != "external":
@@ -785,6 +802,7 @@ class AgentLoop:
                 self.audience,
                 enabled_customer_tools=enabled_customer,
             )
+            self.tools = self._with_canvas_tools(self.tools)
             self._module_tools_applied = True
         if self.trust == "external" and not getattr(self, "_reachability_tools_applied", False):
             await self._apply_reachability_tools()
@@ -980,6 +998,25 @@ class AgentLoop:
                     }
                 )
                 continue
+            if self.canvas_refresh:
+                from app.tools.registry import CANVAS_WAKE_DENY
+
+                if tool_use["name"] in CANVAS_WAKE_DENY:
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tool_use["id"],
+                            "content": json.dumps(
+                                {
+                                    "error": (
+                                        "This wake only updates the snapshot. "
+                                        "Call update_folder_canvas, then reply HEARTBEAT_OK."
+                                    )
+                                }
+                            ),
+                        }
+                    )
+                    continue
             await self._maybe_promote_to_task(tool_use["name"])
             await self._log_event("tool_call", tool_use["name"], tool_use.get("input"))
             tool_input = tool_use.get("input", {})

@@ -33,18 +33,23 @@ def _actor(ctx: ToolContext) -> tuple[str, str]:
 
 async def _list_categories(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.models.orchestra import Workstream
+    from app.services.folders import load_tree
     from app.services.tickets import (
         intake_fields,
         list_categories,
-        project_choices,
         serialize_category,
         workstream_stages,
     )
 
+    tree = await load_tree(ctx.session, ctx.tenant_id)
     items = []
     for row in await list_categories(ctx.session, ctx.tenant_id):
         item = serialize_category(row)
-        item["projects"] = await project_choices(ctx.session, ctx.tenant_id, row)
+        item["folders"] = [
+            {"id": str(node.id), "path": tree.static_path(node.id).label}
+            for node in tree.nodes.values()
+            if node.tag_id == row.id
+        ]
         ws = await ctx.session.get(Workstream, row.workstream_id) if row.workstream_id else None
         item["intake_fields"] = intake_fields(workstream_stages(ws))
         items.append(item)
@@ -74,13 +79,12 @@ async def _file_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     tag = await find_category(ctx.session, ctx.tenant_id, ref)
     if tag is None:
         return {"error": "Unknown action tag. Use list_categories for the hashtags that start a ticket flow."}
-    project_chosen = "project_id" in tool_input
-    raw_project = tool_input.get("project_id")
+    raw_project = tool_input.get("folder_id", tool_input.get("project_id"))
     project_id = None
-    if project_chosen and str(raw_project or "").strip().lower() not in _NO_PROJECT:
+    if str(raw_project or "").strip().lower() not in _NO_PROJECT:
         project_id = _uuid(raw_project)
         if project_id is None:
-            return {"error": "project_id must be a project id, or null for No project"}
+            return {"error": "folder_id must be a folder id"}
     raw_fields = tool_input.get("fields")
     fields = raw_fields if isinstance(raw_fields, dict) else None
     certainty = tool_input.get("certainty")
@@ -96,7 +100,6 @@ async def _file_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
             signal_id=signal_id,
             tag_id=tag.id,
             project_id=project_id,
-            project_chosen=project_chosen,
             fields=fields,
             summary=str(tool_input.get("summary") or ""),
             certainty=score,
@@ -121,6 +124,8 @@ async def _update_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         for k in ("status", "stage_key", "project_id", "fields")
         if k in tool_input
     }
+    if "folder_id" in tool_input:
+        patch["project_id"] = tool_input["folder_id"]
     if "project_id" in patch and str(patch["project_id"] or "").strip().lower() in _NO_PROJECT:
         patch["project_id"] = None
     actor_type, actor_id = _actor(ctx)
@@ -143,8 +148,8 @@ register_tool(
         name="list_categories",
         description=(
             "List action tags (also called categories): hashtags that start a ticket "
-            "flow. Each lists the projects its tickets may be filed on (or none). "
-            "Free hashtags without a flow are not listed here — use set_thread_tags for those."
+            "flow, with the folders that carry each tag. "
+            "Free hashtags without a flow are not listed here; use set_thread_tags for those."
         ),
         category="tickets",
         input_schema={"type": "object", "properties": {}},
@@ -159,7 +164,7 @@ register_tool(
     ToolSpec(
         name="get_ticket",
         description=(
-            "Show a conversation's ticket: action tag, stage, flow and project "
+            "Show a conversation's ticket: action tag, stage, flow and folder path "
             "(defaults to the current thread)."
         ),
         category="tickets",
@@ -177,10 +182,10 @@ register_tool(
         description=(
             "File an action tag on this conversation, making it a ticket in that tag's "
             "flow. A conversation has one action tag; when it already has another one, "
-            "split the conversation instead (do not stack). Always choose the project: "
-            "one of the action tag's projects, or null for No project. When you are not "
-            "sure, leave project_id out and the team picks it. Pass optional intake "
-            "fields from list_categories (first open stage). Same path as the Hashtags picker."
+            "split the conversation instead (do not stack). The folder follows from the "
+            "conversation's tags (its own, the action tag, and its contact's); add the "
+            "missing tag with set_thread_tags rather than guessing a folder. Pass optional "
+            "intake fields from list_categories (first open stage). Same path as the Hashtags picker."
         ),
         category="tickets",
         input_schema={
@@ -191,9 +196,9 @@ register_tool(
                     "description": "Action-tag hashtag name (e.g. klacht) or id",
                 },
                 "signal_id": {"type": "string"},
-                "project_id": {
+                "folder_id": {
                     "type": ["string", "null"],
-                    "description": "One of the action tag's projects, or null for No project",
+                    "description": "Optional: file the conversation in this folder first (adds the folder's tags)",
                 },
                 "fields": {
                     "type": "object",
@@ -221,9 +226,9 @@ register_tool(
         name="update_ticket",
         description=(
             "Move a ticket to a stage (stage_key from its flow), accept a proposed "
-            "ticket (status open, with project_id or null), dismiss it (status dismissed), "
-            "or change its project. When the target stage has required fields, pass them "
-            "in fields in the same call or the move is rejected."
+            "ticket (status open), dismiss it (status dismissed), or file it in a folder "
+            "(folder_id; null takes it out of its folder). When the target stage has "
+            "required fields, pass them in fields in the same call or the move is rejected."
         ),
         category="tickets",
         input_schema={
@@ -232,7 +237,7 @@ register_tool(
                 "signal_id": {"type": "string"},
                 "stage_key": {"type": "string"},
                 "status": {"type": "string", "enum": ["open", "waiting", "done", "dismissed"]},
-                "project_id": {"type": ["string", "null"]},
+                "folder_id": {"type": ["string", "null"]},
                 "fields": {
                     "type": "object",
                     "description": "Field values for the target stage, keyed by field key",

@@ -15,8 +15,11 @@ export const APP_SCOPED_API_BASE = '/api/app'
 /** Auth router (`/api/auth/*`): login, refresh, me, profile, avatar, staff. */
 export const AUTH_API_BASE = '/api/auth'
 
-/** Workforce router (`/api/workforce/*`): agents, work logs, projects, OS graph. */
+/** Workforce router (`/api/workforce/*`): agents, work logs, OS graph. */
 export const WORKFORCE_API_BASE = '/api/workforce'
+
+/** Folders router (`/api/folders/*`): folders (Map), their queue, docs, resources, canvases. */
+export const FOLDERS_API_BASE = '/api/folders'
 
 /** Livechat router (`/api/livechat/*`): widget streaming endpoints. */
 export const LIVECHAT_API_BASE = '/api/livechat'

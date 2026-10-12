@@ -29,6 +29,7 @@ import {
   linkConversationContact,
   normalizeContactBasis,
   resolveContact,
+  setContactTags,
   updateContact,
   type ContactLinkCandidate,
   type ContactOwner,
@@ -36,6 +37,7 @@ import {
   type ContactStatus,
 } from '../../lib/contacts-api'
 import ContactOwnerPicker from './ContactOwnerPicker'
+import { OwnerTagsField } from '../contacts/OwnerTagsField'
 import {
   humanizeContactName,
   isAnonymousContact,
@@ -677,6 +679,32 @@ export default function ContactPanel({
               disabled={saving}
             />
           </SettingRow>
+        </div>
+      ) : null}
+
+      {!anonymous ? (
+        <div className="border-b border-border/40 px-4 py-2" data-testid="contact-panel-tags">
+          <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactPanel.tags')}</p>
+          <OwnerTagsField
+            tags={contact.tags ?? []}
+            inherited={contact.companyTags ?? []}
+            inheritedLabel={t('contactPanel.viaCompany')}
+            disabled={saving}
+            onChange={(names) => {
+              void (async () => {
+                if (!token) return
+                setSaving(true)
+                try {
+                  const tags = await setContactTags(token, contact.id, names)
+                  setContact((prev) => (prev ? { ...prev, tags } : prev))
+                } catch (err) {
+                  toast.error(formatApiErrorMessage(err, t('contactPanel.saveError')))
+                } finally {
+                  setSaving(false)
+                }
+              })()
+            }}
+          />
         </div>
       ) : null}
 

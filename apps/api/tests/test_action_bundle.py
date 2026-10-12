@@ -97,10 +97,10 @@ async def test_create_tag_and_set_thread_tags_create_missing(client: AsyncClient
     assert out["tag"]["name"] == name
     assert out["tag"]["is_category"] is False
 
-    renamed = await _update_tag(ctx, {"name": name, "new_name": f"{name}-2", "pinned": True})
+    renamed = await _update_tag(ctx, {"name": name, "new_name": f"{name}-2", "show_in_nav": True})
     assert renamed["ok"] is True
     assert renamed["tag"]["name"] == f"{name}-2"
-    assert renamed["tag"]["pinned"] is True
+    assert renamed["tag"]["show_in_nav"] is True
 
     fresh = f"nieuw-{uuid4().hex[:6]}"
     refused = await _set_thread_tags(ctx, {"tags": [fresh]})

@@ -499,7 +499,7 @@ export default function AiAgents() {
           { to: '/team', label: t('workforce.agents.relatedWorkforce') },
           ...(isAdmin
             ? [
-                { to: '/projects', label: t('workforce.agents.projectsLink') },
+                { to: '/folders', label: t('workforce.agents.projectsLink') },
                 { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
               ]
             : []),

@@ -47,11 +47,13 @@ async def _assistant(session) -> Agent:
 
 
 async def _project(session, tenant_id, name="Acme") -> Project:
-    project = Project(tenant_id=tenant_id, name=name, slug=name.lower(), autonomous_scope="project")
-    session.add(project)
-    await session.commit()
-    await session.refresh(project)
-    return project
+    """A folder with its own tag (named after the slug), like the API creates."""
+    from app.services.projects import create_project
+
+    created = await create_project(
+        session, tenant_id, name=name, slug=name.lower(), autonomous_scope="project"
+    )
+    return await session.get(Project, UUID(created["id"]))
 
 
 async def _category(
@@ -117,7 +119,8 @@ async def test_seeds_are_free_tags_and_promote_makes_a_category(client: AsyncCli
 
 
 @pytest.mark.asyncio
-async def test_operator_must_choose_a_project(client: AsyncClient, session_override):
+async def test_folder_follows_from_tags(client: AsyncClient, session_override):
+    """Filing in a folder adds the folder's tag; the folder follows from the tags."""
     headers = await _login(client)
     tenant = await _tenant(session_override)
     acme = await _project(session_override, tenant.id, "Acme")
@@ -125,16 +128,14 @@ async def test_operator_must_choose_a_project(client: AsyncClient, session_overr
     repair = await _category(client, headers, "reparatie", project_ids=[str(acme.id)])
     signal = await _signal(session_override, tenant.id, subject="Broken pump")
 
-    missing = await client.put(
+    # No folder tag yet: the ticket is open and sits in no folder.
+    plain = await client.put(
         f"/api/signals/{signal.id}/ticket", headers=headers, json={"tag_id": repair["id"]}
     )
-    assert missing.status_code == 400
-    wrong = await client.put(
-        f"/api/signals/{signal.id}/ticket",
-        headers=headers,
-        json={"tag_id": repair["id"], "project_id": str(other.id)},
-    )
-    assert wrong.status_code == 400
+    assert plain.status_code == 200, plain.text
+    assert plain.json()["ticket"]["status"] == "open"
+    assert plain.json()["ticket"]["project_id"] is None
+    assert plain.json()["ticket"]["folder_path"] is None
 
     filed = await client.put(
         f"/api/signals/{signal.id}/ticket",
@@ -145,29 +146,47 @@ async def test_operator_must_choose_a_project(client: AsyncClient, session_overr
     ticket = filed.json()["ticket"]
     assert ticket["status"] == "open"
     assert ticket["project_id"] == str(acme.id)
-    assert [c["id"] for c in ticket["project_choices"]] == [str(acme.id)]
+    assert ticket["folder_path"]["label"] == "Acme"
+    thread = (await client.get(f"/api/signals/{signal.id}", headers=headers)).json()["thread"]
+    assert "acme" in thread["tags"]
 
-    board = (await client.get(f"/api/projects/{acme.id}/board", headers=headers)).json()["playbooks"]
-    assert len(board) == 1
-    assert [t["signal_id"] for t in board[0]["tickets"]] == [str(signal.id)]
-    assert board[0]["tickets"][0]["stage_key"] == board[0]["stages"][0]["key"]
-    assert (await client.get(f"/api/projects/{other.id}/board", headers=headers)).json()["playbooks"] == []
+    def _lane(board):
+        return next(lane for lane in board if lane["workstream_id"] == repair["workstream_id"])
 
-    # No project: the ticket leaves the project board but stays a ticket.
+    board = (await client.get(f"/api/folders/{acme.id}/board", headers=headers)).json()["playbooks"]
+    lane = _lane(board)
+    assert [t["signal_id"] for t in lane["tickets"]] == [str(signal.id)]
+    assert lane["tickets"][0]["stage_key"] == lane["stages"][0]["key"]
+    other_board = (await client.get(f"/api/folders/{other.id}/board", headers=headers)).json()["playbooks"]
+    assert repair["workstream_id"] not in {lane["workstream_id"] for lane in other_board}
+
+    # Out of the folder: the folder's tag goes, the ticket stays a ticket.
     moved = await client.patch(
         f"/api/signals/{signal.id}/ticket", headers=headers, json={"project_id": None}
     )
     assert moved.json()["ticket"]["project_id"] is None
-    board = (await client.get(f"/api/projects/{acme.id}/board", headers=headers)).json()["playbooks"]
-    assert board[0]["tickets"] == []
-
+    board = (await client.get(f"/api/folders/{acme.id}/board", headers=headers)).json()["playbooks"]
+    assert _lane(board)["tickets"] == []
     thread = (await client.get(f"/api/signals/{signal.id}", headers=headers)).json()["thread"]
+    assert "acme" not in thread["tags"]
     assert thread["ticket"]["name"] == "reparatie"
     assert thread["ticket"]["status"] == "open"
 
+    # Tagging alone moves it: #other lands it in Other.
+    tagged = await client.patch(f"/api/signals/{signal.id}", headers=headers, json={"tags": ["other"]})
+    assert tagged.status_code == 200, tagged.text
+    thread = (await client.get(f"/api/signals/{signal.id}", headers=headers)).json()["thread"]
+    assert thread["project_id"] == str(other.id)
+    events = (
+        await session_override.execute(
+            select(SignalEvent).where(SignalEvent.signal_id == signal.id, SignalEvent.event_type == "folder_set")
+        )
+    ).scalars().all()
+    assert len(events) >= 3
+
 
 @pytest.mark.asyncio
-async def test_agent_without_project_choice_leaves_a_proposal(client: AsyncClient, session_override):
+async def test_agent_filing_does_not_need_a_folder(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
     acme = await _project(session_override, tenant.id, "Acme")
@@ -178,29 +197,27 @@ async def test_agent_without_project_choice_leaves_a_proposal(client: AsyncClien
         session_override, tenant.id, signal_id=signal.id, tag_id=UUID(repair["id"]),
         certainty=10, actor="agent",
     )
-    assert result["ticket"]["status"] == "proposed"
-    assert result["needs_project"] is True
+    assert result["ticket"]["status"] == "open"
+    assert result["ticket"]["project_id"] is None
+    assert "needs_project" not in result
 
-    no_choice = await client.patch(
-        f"/api/signals/{signal.id}/ticket", headers=headers, json={"status": "open"}
-    )
-    assert no_choice.status_code == 400
     accepted = await client.patch(
         f"/api/signals/{signal.id}/ticket",
         headers=headers,
-        json={"status": "open", "project_id": str(acme.id)},
+        json={"project_id": str(acme.id)},
     )
-    assert accepted.status_code == 200
-    assert accepted.json()["ticket"]["status"] == "open"
+    assert accepted.status_code == 200, accepted.text
     assert accepted.json()["ticket"]["project_id"] == str(acme.id)
 
-    chosen = await _signal(session_override, tenant.id, subject="Chosen")
+    # Filing a proposal with status open accepts it without a folder.
+    low = await _signal(session_override, tenant.id, subject="Low certainty")
     result = await file_ticket(
-        session_override, tenant.id, signal_id=chosen.id, tag_id=UUID(repair["id"]),
-        project_id=None, project_chosen=True, certainty=10, actor="agent",
+        session_override, tenant.id, signal_id=low.id, tag_id=UUID(repair["id"]), certainty=2, actor="agent"
     )
-    assert result["ticket"]["status"] == "open"
-    assert result["ticket"]["project_id"] is None
+    assert result["ticket"]["status"] == "proposed"
+    opened = await client.patch(f"/api/signals/{low.id}/ticket", headers=headers, json={"status": "open"})
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["ticket"]["status"] == "open"
 
 
 @pytest.mark.asyncio
@@ -284,7 +301,7 @@ async def test_ask_operator_decision_offers_projects(client: AsyncClient, sessio
     ).scalar_one()
     assert decision.source_type == "ticket"
     labels = [o["label"] for o in __import__("json").loads(decision.options_json)]
-    assert labels == ["File on Acme", "File without project", "Dismiss"]
+    assert labels == ["File this ticket", "Dismiss"]
     note = (
         await session_override.execute(
             select(SignalMessage).where(
@@ -498,25 +515,35 @@ async def test_category_map_lists_categories(client: AsyncClient, session_overri
 
 
 @pytest.mark.asyncio
-async def test_project_choices_by_workstream_batches(client: AsyncClient, session_override):
+async def test_action_tag_can_be_a_folder(client: AsyncClient, session_override):
+    """A folder that carries an action tag collects every ticket of that tag."""
     headers = await _login(client)
     tenant = await _tenant(session_override)
-    acme = await _project(session_override, tenant.id, "Acme")
-    beta = await _project(session_override, tenant.id, "Beta")
-    a = await _category(client, headers, "alpha", project_ids=[str(acme.id)])
-    b = await _category(client, headers, "bravo", project_ids=[str(acme.id), str(beta.id)])
-    from app.services.tickets import project_choices_by_workstream
-
-    by_ws = await project_choices_by_workstream(
-        session_override,
-        tenant.id,
-        [UUID(a["workstream_id"]), UUID(b["workstream_id"])],
+    repair = await _category(client, headers, "reparatie")
+    created = await client.post(
+        "/api/folders",
+        headers=headers,
+        json={"name": "Reparaties", "slug": "reparaties", "tag_id": repair["id"]},
     )
-    assert by_ws[UUID(a["workstream_id"])] == [{"id": str(acme.id), "name": "Acme", "depth": 0}]
-    assert [p["name"] for p in by_ws[UUID(b["workstream_id"])]] == ["Acme", "Beta"]
+    assert created.status_code == 200, created.text
+    folder = created.json()
+    assert folder["tag_id"] == repair["id"]
+    assert folder["tag_name"] == "reparatie"
+
+    signal = await _signal(session_override, tenant.id, subject="Pump")
+    filed = await client.put(f"/api/signals/{signal.id}/ticket", headers=headers, json={"tag_id": repair["id"]})
+    assert filed.json()["ticket"]["project_id"] == folder["id"]
+    row = (await client.get("/api/categories", headers=headers)).json()["items"][0]
+    assert [f["id"] for f in row["folders"]] == [folder["id"]]
+    # The nav lists the tag as a folder, not twice.
+    nav = (await client.get("/api/signals/nav", headers=headers)).json()
+    assert nav["ticket_tags"] == []
+    assert [row["id"] for row in nav["projects"]] == [folder["id"]]
+    assert nav["projects"][0]["count"] == 1
+
 
 @pytest.mark.asyncio
-async def test_category_list_carries_project_choices_and_counts(client: AsyncClient, session_override):
+async def test_category_list_carries_folders_and_counts(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
     acme = await _project(session_override, tenant.id, "Acme")
@@ -535,7 +562,7 @@ async def test_category_list_carries_project_choices_and_counts(client: AsyncCli
     )
 
     row = (await client.get("/api/categories", headers=headers)).json()["items"][0]
-    assert row["project_choices"] == [{"id": str(acme.id), "name": "Acme", "depth": 0}]
+    assert row["folders"] == []
     assert (row["open"], row["waiting"], row["proposed"]) == (2, 0, 1)
     assert row["filed_7d"] == 2
     assert row["filed_prev_7d"] == 0

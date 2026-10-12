@@ -101,6 +101,9 @@ class ConversationCreate(BaseModel):
     agent_id: UUID | None = None
     # Ask-assistant: ground the conversation in this customer thread.
     context_signal_id: UUID | None = None
+    # Opener from "New conversation": persisted with the thread so a lost
+    # client-side auto-send cannot leave an empty "Untitled chat".
+    message: str = ""
 
 
 class ConversationUpdate(BaseModel):
@@ -108,11 +111,68 @@ class ConversationUpdate(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    content: str
+    content: str = ""
     attachments: list[dict] = []
     # In-app assistant: what the operator is looking at (route + entity), sent
     # with every turn so the agent can help in context.
     page_context: str = ""
+    # After create-with-message: run the agent on the last user bubble without
+    # appending a duplicate. content may be empty; the last user message is used.
+    continue_pending: bool = False
+
+
+async def _resolve_turn_content(
+    session: AsyncSession,
+    signal: Signal,
+    body: MessageCreate,
+    *,
+    author_user_id: UUID,
+) -> tuple[str, list[dict]]:
+    """Persist a new user bubble, or reuse the opener after create-with-message.
+
+    ``continue_pending`` skips appending so New conversation / Correction can
+    create the thread with the opener already stored, then kick the agent
+    without duplicating the user message when client-side auto-send is flaky.
+    """
+    if body.continue_pending:
+        last = (
+            await session.execute(
+                select(SignalMessage)
+                .where(
+                    SignalMessage.signal_id == signal.id,
+                    SignalMessage.role == "user",
+                )
+                .order_by(SignalMessage.received_at.desc(), SignalMessage.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        content = (body.content or "").strip() or ((last.body_text if last else "") or "").strip()
+        if not content:
+            raise HTTPException(status_code=400, detail="No pending message to continue")
+        attachments = body.attachments or []
+        if last and not attachments:
+            try:
+                raw = json.loads(last.attachments_json or "[]")
+                if isinstance(raw, list):
+                    attachments = [a for a in raw if isinstance(a, dict)]
+            except (TypeError, ValueError, json.JSONDecodeError):
+                attachments = []
+        _apply_intent_title_once(signal, content)
+        return content, attachments
+
+    content = (body.content or "").strip()
+    if not content and not body.attachments:
+        raise HTTPException(status_code=400, detail="A message is required")
+    await append_signal_chat_message(
+        session,
+        signal,
+        role="user",
+        content=content or " ",
+        author_user_id=author_user_id,
+        attachments=body.attachments,
+    )
+    _apply_intent_title_once(signal, content)
+    return content or " ", list(body.attachments or [])
 
 
 def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = None) -> dict:
@@ -207,6 +267,7 @@ async def create_conversation(
         )
         if ctx_result.scalar_one_or_none():
             context_signal_id = body.context_signal_id
+    opener = (body.message or "").strip()
     signal = Signal(
         tenant_id=auth.tenant.id,
         channel="assistant",
@@ -223,6 +284,16 @@ async def create_conversation(
 
     set_owner(signal, "user", auth.user.id, by_user_id=auth.user.id)
     session.add(signal)
+    await session.flush()
+    if opener:
+        await append_signal_chat_message(
+            session,
+            signal,
+            role="user",
+            content=opener,
+            author_user_id=auth.user.id,
+        )
+        _apply_intent_title_once(signal, opener)
     await session.commit()
     await session.refresh(signal)
     return {
@@ -232,6 +303,7 @@ async def create_conversation(
         "agent_id": str(agent.id),
         "agent_name": agent.name,
         "agent_kind": agent.kind,
+        "has_opener": bool(opener),
     }
 
 
@@ -345,15 +417,9 @@ async def send_message(
 ):
     signal = await _get_thread(session, conversation_id, auth.tenant.id)
     await _ensure_session_idle(session, auth.tenant.id, conversation_id)
-    await append_signal_chat_message(
-        session,
-        signal,
-        role="user",
-        content=body.content,
-        author_user_id=auth.user.id,
-        attachments=body.attachments,
+    turn_content, turn_attachments = await _resolve_turn_content(
+        session, signal, body, author_user_id=auth.user.id
     )
-    _apply_intent_title_once(signal, body.content)
     await _withdraw_session_checkout(session, auth.tenant.id, signal)
     await session.commit()
 
@@ -364,9 +430,9 @@ async def send_message(
             "llm_configured": True,
         }
 
-    agent, run = await _agent_run(session, auth, signal, body.content)
+    agent, run = await _agent_run(session, auth, signal, turn_content)
     await _set_chat_agent_live(
-        session, agent, status="working", signal=signal, run=run, summary=body.content
+        session, agent, status="working", signal=signal, run=run, summary=turn_content
     )
     history = await signal_chat_history(session, conversation_id)
     loop = AgentLoop(
@@ -383,7 +449,7 @@ async def send_message(
             reply_text, tokens = await loop.run_chat(
                 history,
                 extra_context=page_context_block(body.page_context),
-                attachments=body.attachments,
+                attachments=turn_attachments,
             )
         except Exception as exc:
             logger.exception("assistant chat failed for signal %s", signal.id)
@@ -441,7 +507,7 @@ async def send_message(
             metadata=llm_meta,
             final_metadata={"usage": tokens, **({"thinking": thinking_meta} if thinking_meta else {})},
         )
-        _apply_intent_title_once(signal, body.content)
+        _apply_intent_title_once(signal, turn_content)
         await _finalize_run(session, run, status="completed", tokens=tokens)
         await session.commit()
         for msg in saved:
@@ -468,15 +534,9 @@ async def stream_message(
 ):
     signal = await _get_thread(session, conversation_id, auth.tenant.id)
     await _ensure_session_idle(session, auth.tenant.id, conversation_id)
-    await append_signal_chat_message(
-        session,
-        signal,
-        role="user",
-        content=body.content,
-        author_user_id=auth.user.id,
-        attachments=body.attachments,
+    turn_content, turn_attachments = await _resolve_turn_content(
+        session, signal, body, author_user_id=auth.user.id
     )
-    _apply_intent_title_once(signal, body.content)
     await _withdraw_session_checkout(session, auth.tenant.id, signal)
     await session.commit()
 
@@ -492,9 +552,9 @@ async def stream_message(
     agent = None
     run = None
     try:
-        agent, run = await _agent_run(session, auth, signal, body.content)
+        agent, run = await _agent_run(session, auth, signal, turn_content)
         await _set_chat_agent_live(
-            session, agent, status="working", signal=signal, run=run, summary=body.content
+            session, agent, status="working", signal=signal, run=run, summary=turn_content
         )
         history = await signal_chat_history(session, conversation_id)
         loop = AgentLoop(
@@ -544,7 +604,7 @@ async def stream_message(
             async for event in loop.stream_chat(
                 history,
                 extra_context=page_context_block(body.page_context),
-                attachments=body.attachments,
+                attachments=turn_attachments,
             ):
                 if event["type"] == "thinking":
                     yield {
@@ -581,7 +641,7 @@ async def stream_message(
                             signal, metadata=llm_meta, final_metadata=final_meta
                         )
                     if not cancelled:
-                        _apply_intent_title_once(signal, body.content)
+                        _apply_intent_title_once(signal, turn_content)
                     await _finalize_run(
                         session,
                         run,

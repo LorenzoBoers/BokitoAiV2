@@ -1,4 +1,4 @@
-import type { ComponentType, MouseEvent } from 'react'
+import { useEffect, useState, type ComponentType, MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -19,6 +19,9 @@ import {
 import type { ProposalItem } from '../../lib/inbox-api'
 import { CANVAS_ICON } from '../../lib/entity-icons'
 import { openEntityPath, type EntityRef } from '../../lib/open-entity'
+import { getCanvasById } from '../../lib/project-canvas-api'
+import { renderCanvasTree } from '../../lib/project-canvas/render'
+import { isEmptyCanvasTree, type CanvasNode } from '../../lib/project-canvas/types'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
 import { BrandTile } from '../integrations/BrandMark'
@@ -67,8 +70,9 @@ function itemRef(item: ProposalItem): EntityRef | null {
       return { type: 'tag', name: item.name || item.title }
     case 'flow':
       return { type: 'flow', id: item.id }
+    case 'folder':
     case 'project':
-      return { type: 'project', id: item.id }
+      return { type: 'folder', id: item.id }
     case 'canvas':
       return { type: 'canvas', id: item.id, path: item.path }
     case 'contact':
@@ -241,6 +245,90 @@ function ImageGallery({ items }: { items: ProposalItem[] }) {
   )
 }
 
+function canvasHref(item: ProposalItem): string | null {
+  const ref = itemRef(item)
+  const path = ref ? openEntityPath(ref) : item.path || null
+  return path || null
+}
+
+/** Snapshot preview under an agent reply. The whole card opens that canvas. */
+function CanvasShowcaseCard({
+  item,
+  onSelect,
+  selected,
+}: {
+  item: ProposalItem
+  onSelect?: (item: ProposalItem) => void
+  selected?: boolean
+}) {
+  const { t } = useTranslation('communication')
+  const [tree, setTree] = useState<CanvasNode | null>(item.preview ?? null)
+  const [settled, setSettled] = useState(item.missing || !item.id)
+  useEffect(() => {
+    if (item.missing || !item.id) return
+    let cancel = false
+    getCanvasById(item.id)
+      .then((canvas) => {
+        if (!cancel) setTree(canvas.tree)
+      })
+      .catch(() => {
+        /* Keep the snapshot stored on the message. */
+      })
+      .finally(() => {
+        if (!cancel) setSettled(true)
+      })
+    return () => {
+      cancel = true
+    }
+  }, [item.id, item.missing])
+  const preview = tree && !isEmptyCanvasTree(tree) ? tree : null
+  const card = (
+    <div
+      className={cn(
+        'overflow-hidden rounded-xl border border-border/60 bg-bg-surface text-left',
+        selected && 'ring-1 ring-ai/50 border-ai/40',
+        item.missing && 'opacity-60',
+      )}
+      data-testid="canvas-showcase"
+    >
+      <div className="flex items-center gap-2 px-3 py-2">
+        <IconTile icon={CANVAS_ICON} tone={item.missing ? 'neutral' : 'accent'} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-text-primary">{item.title || t('proposal.itemType.canvas')}</p>
+          {item.subtitle ? <p className="truncate text-xs text-text-muted">{item.subtitle}</p> : null}
+        </div>
+      </div>
+      {preview ? (
+        <div className="relative h-36 overflow-hidden border-t border-border/50 bg-bg-input/30">
+          <div className="pointer-events-none origin-top-left scale-[0.62] p-3" style={{ width: '160%' }}>
+            {renderCanvasTree(preview)}
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-bg-surface to-transparent" />
+        </div>
+      ) : settled ? (
+        <p className="border-t border-border/50 px-3 py-3 text-xs text-text-muted">{t('proposal.canvasEmpty')}</p>
+      ) : (
+        <div className="h-16 border-t border-border/50 bg-bg-input/20" />
+      )}
+    </div>
+  )
+  if (item.missing) return card
+  if (onSelect) {
+    return (
+      <button type="button" className="block w-full" onClick={() => onSelect(item)}>
+        {card}
+      </button>
+    )
+  }
+  const path = canvasHref(item)
+  if (!path) return card
+  return (
+    <Link to={path} className="block no-underline">
+      {card}
+    </Link>
+  )
+}
+
 function isConnectorItem(item: ProposalItem): boolean {
   return item.type === 'integration' || item.type === 'marketplace'
 }
@@ -295,14 +383,23 @@ export function ProposalItemList({
   return (
     <div className="mt-2 space-y-1.5">
       {images.length > 0 && !onSelect ? <ImageGallery items={images} /> : null}
-      {(onSelect ? items : rest).map((item) => (
-        <ProposalItemPreview
-          key={`${item.type}:${item.id}`}
-          item={item}
-          onSelect={onSelect}
-          selected={selectedIds?.has(item.id)}
-        />
-      ))}
+      {(onSelect ? items : rest).map((item) =>
+        item.type === 'canvas' ? (
+          <CanvasShowcaseCard
+            key={`${item.type}:${item.id}`}
+            item={item}
+            onSelect={onSelect}
+            selected={selectedIds?.has(item.id)}
+          />
+        ) : (
+          <ProposalItemPreview
+            key={`${item.type}:${item.id}`}
+            item={item}
+            onSelect={onSelect}
+            selected={selectedIds?.has(item.id)}
+          />
+        ),
+      )}
     </div>
   )
 }

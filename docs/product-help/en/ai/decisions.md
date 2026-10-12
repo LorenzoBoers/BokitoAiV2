@@ -43,7 +43,7 @@ When an agent needs your OK for more than one change in the same turn (for examp
 ![One card listing several agent actions with checkboxes and Approve all](/api/docs/assets/decisions/action-bundle.png)
 *Each row is one action; approve them all, pick some, or decline the rest.*
 
-1. Read the rows under the agent's message. Each row names the action in plain words, for example **Create hashtag #vip** or **Create action tag #complaint**, with the tool name as a small chip. The header counts how many still wait.
+1. Read the rows under the agent's message. Each row names the action and the object, for example **Create hashtag #vip**, **Connect GitHub**, or **Turn on Accounting**, with the tool name as a small chip. The header counts how many still wait.
 2. Choose **Approve all** to run every open row. To approve a part, tick the rows you want and choose **Approve selected**; the others stay open. **Decline** (or **Decline the rest**) answers no to every row that is still open.
 3. Open the menu on a row for **Only this time** (run just this row) or **Decline this one**.
 4. A row that fails stays open and reads *Failed*; the others keep their result. Fix the cause and approve the row again.

@@ -91,6 +91,8 @@ export default function AgendaPage() {
   )
   const who = parseWho(searchParams.get('who'))
   const projectId = searchParams.get('project') ?? ''
+  const tagFilter = searchParams.get('tag') ?? ''
+  const pathFilter = searchParams.get('path') ?? ''
   const layers = useMemo(() => parseLayers(searchParams.get('layers')), [searchParams])
 
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -176,14 +178,6 @@ export default function AgendaPage() {
   // Calendars inside an account (`connection|calendar`), remembered on this browser.
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => readHiddenCalendars())
   const [agendaQuery, setAgendaQuery] = useState('')
-  const showEverything = () => {
-    setHiddenCalendars(new Set())
-    writeHiddenCalendars(new Set())
-    setParams({ layers: null, cals: null })
-  }
-  const hideEverything = () => {
-    setParams({ layers: 'none', cals: availableCalendarIds.length ? 'none' : null })
-  }
   const toggleCalendar = (connectionId: string) => {
     const next = new Set(calendarIds)
     const connection = calendars.find((row) => row.id === connectionId)
@@ -276,6 +270,8 @@ export default function AgendaPage() {
           to: range.to.toISOString(),
           sources: ALL_SOURCES,
           projectId: projectId || undefined,
+          tag: tagFilter || undefined,
+          path: pathFilter || undefined,
           agentId: whoAgentId,
           userId: whoUserId,
         }),
@@ -285,6 +281,8 @@ export default function AgendaPage() {
           sources: ['task', 'checkup', 'session'],
           scheduledOnly: true,
           projectId: projectId || undefined,
+          tag: tagFilter || undefined,
+          path: pathFilter || undefined,
           agentId: whoAgentId,
           userId: whoUserId,
         }),
@@ -299,7 +297,7 @@ export default function AgendaPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, range, projectId, who, user?.uuid, t])
+  }, [token, range, projectId, tagFilter, pathFilter, who, user?.uuid, t])
 
   useEffect(() => {
     void load()
@@ -575,8 +573,17 @@ export default function AgendaPage() {
           people={people}
           agents={agents}
           projectId={projectId}
-          onProject={(id) => setParams({ project: id || null })}
+          onProject={(id) => setParams({ project: id || null, tag: null, path: null })}
           projects={projects}
+          tag={tagFilter}
+          path={pathFilter}
+          onPath={(next) =>
+            setParams({
+              project: next.projectId || null,
+              tag: next.tag || null,
+              path: next.path || null,
+            })
+          }
           layers={layers}
           counts={counts}
           onToggleLayer={toggleLayer}
@@ -587,8 +594,6 @@ export default function AgendaPage() {
           hiddenCalendars={hiddenCalendars}
           onToggleSubCalendar={toggleSubCalendar}
           onEnableCalendar={(connectionId, calendarId) => void enableCalendar(connectionId, calendarId)}
-          onShowAll={showEverything}
-          onHideAll={hideEverything}
           calendarsLoading={calendarsLoading}
           onCalendars={setCalendars}
           onSynced={reload}

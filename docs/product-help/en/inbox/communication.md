@@ -180,24 +180,24 @@ You called the customer, answered from a personal WhatsApp or settled it from an
 ## Tag a conversation and file a ticket
 
 1. Open a customer conversation. The side panel **This conversation** shows the AI summary when the channel agent has read the thread, then priority, look-again, tags and the ticket. Choose **Add tags** for free tags and action tags (action tags start a ticket flow); see [Action tags and tickets](/docs/ai/categories). On a closed conversation, the ⋯ menu offers **Use as example** so the next similar reply can learn from it.
-2. Type with a soft `#`. Pick a free tag or an action tag (label **Action tag**). An unknown name asks whether to add it as a tag or **Make action tag**. When the flow has projects, pick one or **No project**. Folders inside a linked project are indented under it and are valid choices.
+2. Type with a soft `#`. Pick a free tag or an action tag (label **Action tag**). An unknown name asks whether to add it as a tag or **Make action tag**. The conversation lands in a folder from those tags, including tags on the contact. Tags inherited from the contact show as dashed chips you cannot remove here.
 3. The action-tag chip is locked on the conversation. Change it by replacing in the picker, or **Split** when a second request needs its own ticket. Free tags show a muted `#` and an **x** to remove.
-4. Manage the list under **Settings** → **# Tags**: rename a tag, add a description agents read, pin a free tag to Communication, choose **Create flow** / **Open flow**, or delete it from every conversation. You can also ask an agent in chat (*add the tags #vip and #partner*): it proposes **Create hashtag #vip** and the rest as rows on one card you approve in the thread; see [Decisions](/docs/ai/decisions). Agents propose action tags the same way, through Govern.
+4. Manage the list under **Settings** → **# Tags**: rename a tag, put it in a group, add a description agents read, pin it to Communication, choose **Create folder** or **Create flow** / **Open flow**, or delete it from every conversation. You can also ask an agent in chat (*add the tags #vip and #partner*): it proposes **Create hashtag #vip** and the rest as rows on one card you approve in the thread; see [Decisions](/docs/ai/decisions). Agents propose action tags the same way, through Govern.
 5. To tag automatically, add an automation rule with the action **Add tags** under **Settings** → **Channels**. The rule tags matching conversations and the normal flow continues; the timeline shows a line such as **Tagged billing by rule**.
 6. When a second request shows up in the same thread, choose **Split from here** on the message where it starts, so each conversation keeps one ticket.
 
-## Find work by tag or project
+## Find work by folder or tag
 
-Pinned free tags, action tags, and projects each get a row in the sidebar with their count of open conversations.
+**Folders and tags** is one sidebar section. Folders sit first, then action tags and pinned free tags, each with the count of open conversations.
 
 ![Tags in the Communication sidebar](/api/docs/assets/communication/hashtags.png)
-*Action tags, a pinned free tag, and a project, each with its open count.*
+*Folders, action tags and a pinned free tag, each with its open count.*
 
-1. Under **Tags**, click a row to see the conversations with that tag. It expands into the same sub-views as a channel: **For you**, **Open**, **Unassigned** and **Closed**.
-2. Under **Projects**, click a project to see the conversations filed on it and on the folders inside it. The folders inside it appear in that same sub-view, above For you, Open, Unassigned and Closed. Opening a folder keeps the project above it open. Open the more-actions menu on a conversation and choose **File in folder** or **Close and file**. With several conversations selected, **More actions** → **File in folder** does the same.
-3. A filed conversation shows its folder in two places: a folder chip on the list row (hidden while you are already inside that folder) and the folder name after the status in the thread header. Both open the project page. Hover for the full path, such as **Filed in: Bokito Platform / Map 3**. The **Ticket** card in the side panel names the same folder and offers **Open project**.
-4. Tag chips are links too: click `#bug` under **Tags** in the side panel, or in a chat message, to open every conversation with that tag.
-5. Pin any tag with the pin under **Settings** → **# Tags** (free tags and action tags).
+1. Under **Folders and tags**, click a folder to see the conversations filed there and in the folders inside it. A group folder expands into one child per tag. A virtual child has **Pin as folder** so it can hold an agent, docs or a budget.
+2. Click a tag row to see every conversation with that tag, across folders. It expands into the same sub-views as a channel: **For you**, **Open**, **Unassigned** and **Closed**.
+3. Open the more-actions menu on a conversation and choose **File in folder** or **Close and file**. That adds the tags of the chosen path. With several conversations selected, **More actions** → **File in folder** does the same.
+4. A filed conversation shows its folder in two places: a folder chip on the list row (hidden while you are already inside that folder) and the folder name after the status in the thread header. Both open the folder page. Hover for the full path, such as **Filed in: Relaties / Acme / Facturen**.
+5. Pin a folder or tag in the rail from the pin on that row. Pins travel with you between devices. Hide a workspace-default row the same way.
 6. Choose which sub-view each row opens on under **Settings** → **Channels** → **Tags and Communication**.
 
 ## What to do next

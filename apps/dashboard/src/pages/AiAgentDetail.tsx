@@ -352,7 +352,7 @@ export default function AiAgentDetail() {
             ) : null}
             {isOrchestratorAgent(agent) && linkedProject ? (
               <p className="mt-2 text-sm text-text-muted">
-                <Link to={`/projects/${linkedProject.id}`} className="font-medium text-accent hover:underline">
+                <Link to={`/folders/${linkedProject.id}`} className="font-medium text-accent hover:underline">
                   {t('workforce.agents.projectLink', { name: linkedProject.name })}
                 </Link>
               </p>

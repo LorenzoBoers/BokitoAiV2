@@ -36,8 +36,13 @@ logger = logging.getLogger(__name__)
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 MIN_REFRESH_MINUTES = 5
-REFRESH_CADENCES = ("manual", "hourly", "daily", "weekly", "monthly")
+REFRESH_CADENCES = ("manual", "hourly", "daily", "weekly", "monthly", "custom")
 DEFAULT_REFRESH_CADENCE = "daily"
+_PRESET_CRONS = {
+    "0 7 * * *": "daily",
+    "0 7 * * 1": "weekly",
+    "0 7 1 * *": "monthly",
+}
 
 
 def _parse_json(raw: str | None, fallback: Any) -> Any:
@@ -86,15 +91,34 @@ def refresh_instructions(
         f"{brief_line}"
         f"{lookup}\n"
         f"{folder_block}"
-        "Call get_project_canvas, then update_project_canvas with a full bokito/canvas "
-        "document. Import only from bokito/canvas. Embed figures you just fetched, "
-        "including the folder counts above when they are present. "
-        "Do not promise live tiles. Omit empty cards."
+        "This wake is only a canvas refresh. Call get_folder_canvas, then "
+        "update_folder_canvas with this canvas_id and a full bokito/canvas document. "
+        "Import only from bokito/canvas. Embed figures you just fetched, including "
+        "the folder counts above when they are present. Do not create another canvas. "
+        "Do not ask the operator, do not call create_decision_request, and do not "
+        "call propose_action. Do not promise live tiles. Omit empty cards. "
+        "After the write, reply with only HEARTBEAT_OK."
     )
 
 
-def cadence_schedule(cadence: str) -> tuple[str, int, str] | None:
+def is_canvas_refresh_trigger(name: str, instructions: str = "") -> bool:
+    """True when this Agenda rule exists only to rewrite one snapshot."""
+    title = (name or "").strip()
+    body = (instructions or "").lstrip()
+    return (
+        title.startswith("Refresh canvas")
+        or title.startswith("Write canvas")
+        or body.startswith("Write or refresh snapshot canvas")
+    )
+
+
+def cadence_schedule(cadence: str, cron_expr: str = "") -> tuple[str, int, str] | None:
     key = (cadence or "").strip().lower()
+    if key == "custom":
+        expr = " ".join((cron_expr or "").split())
+        if len(expr.split()) != 5:
+            return None
+        return ("cron", 0, expr)
     if key == "hourly":
         return ("interval", 60, "")
     if key == "daily":
@@ -107,27 +131,18 @@ def cadence_schedule(cadence: str) -> tuple[str, int, str] | None:
 
 
 def cadence_from_trigger(trigger: Trigger | None) -> str:
-    if not trigger or not trigger.enabled:
+    if not trigger or not trigger.enabled or trigger.kind == "once":
         return "manual"
     if trigger.kind == "interval":
-        minutes = int(trigger.interval_minutes or 0)
-        if minutes <= 90:
+        if int(trigger.interval_minutes or 0) == 60:
             return "hourly"
-        if minutes <= 2_000:
-            return "daily"
-        if minutes <= 15_000:
-            return "weekly"
-        return "monthly"
-    parts = (trigger.cron_expr or "").split()
-    if len(parts) == 5:
-        if parts[2] not in {"*", "?"}:
-            return "monthly"
-        if parts[4] not in {"*", "?"}:
-            return "weekly"
-        if parts[1] == "*":
-            return "hourly"
-        return "daily"
-    return "daily"
+        return "custom"
+    if trigger.kind != "cron":
+        return "manual"
+    expr = " ".join((trigger.cron_expr or "").split())
+    if len(expr.split()) != 5:
+        return "manual"
+    return _PRESET_CRONS.get(expr, "custom")
 
 
 def resolve_refresh_cadence(
@@ -252,6 +267,11 @@ def serialize_canvas(canvas: ProjectCanvas, *, trigger: Trigger | None = None) -
         "refresh_trigger_id": str(canvas.refresh_trigger_id) if canvas.refresh_trigger_id else None,
         "refresh_minutes": refresh_minutes,
         "refresh_cadence": cadence,
+        "refresh_cron": (
+            " ".join((trigger.cron_expr or "").split())
+            if cadence == "custom" and trigger and trigger.kind == "cron"
+            else None
+        ),
         "next_run_at": next_run_at,
         "updated_by_type": canvas.updated_by_type,
         "updated_by_id": canvas.updated_by_id or None,
@@ -375,6 +395,40 @@ async def find_canvas(
     ).scalar_one_or_none()
 
 
+def _title_key(title: str) -> str:
+    return " ".join((title or "").casefold().split())
+
+
+async def find_canvas_by_title(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    owner_kind: str,
+    owner_id: UUID,
+    title: str,
+) -> ProjectCanvas | None:
+    """The living canvas on this owner whose title matches, ignoring case and spacing."""
+    key = _title_key(title)
+    if not key:
+        return None
+    from app.services.trash import alive
+
+    rows = (
+        await session.execute(
+            select(ProjectCanvas).where(
+                ProjectCanvas.tenant_id == tenant_id,
+                ProjectCanvas.owner_kind == owner_kind,
+                ProjectCanvas.owner_id == owner_id,
+                alive(ProjectCanvas),
+            )
+        )
+    ).scalars().all()
+    for row in rows:
+        if _title_key(row.title) == key:
+            return row
+    return None
+
+
 async def list_canvases(
     session: AsyncSession,
     tenant_id: UUID,
@@ -487,12 +541,26 @@ async def sync_refresh_trigger(
     canvas: ProjectCanvas,
     *,
     refresh_cadence: str,
+    refresh_cron: str | None = None,
     kick: bool = False,
 ) -> UUID | None:
     from app.services import triggers as trigger_svc
 
     existing = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
-    schedule = cadence_schedule(refresh_cadence)
+    key = (refresh_cadence or "").strip().lower()
+    cron = " ".join((refresh_cron or "").split())
+    if key == "custom" and not cron and existing and existing.kind == "cron":
+        cron = " ".join((existing.cron_expr or "").split())
+    if key == "custom" and len(cron.split()) != 5:
+        raise HTTPException(
+            status_code=400,
+            detail="Custom refresh needs a five-field cron expression",
+        )
+    if key == "custom" and trigger_svc.next_cron_run(cron, datetime.utcnow()) is None:
+        raise HTTPException(status_code=400, detail="Invalid cron expression")
+    schedule = cadence_schedule(key, cron)
+    if key == "custom" and schedule is None:
+        raise HTTPException(status_code=400, detail="Invalid cron expression")
     if schedule is None:
         if existing:
             await session.delete(existing)
@@ -520,7 +588,12 @@ async def sync_refresh_trigger(
         existing.agent_id = canvas.managing_agent_id
         existing.instructions = instructions
         existing.enabled = True
-        existing.next_run_at = datetime.utcnow() if kick else trigger_svc.compute_next_run(existing)
+        # A kick fires once below. Leaving next_run_at in the past lets the
+        # scheduler start a second copy of the same wake.
+        if kick and (existing.next_run_at is None or existing.next_run_at <= datetime.utcnow()):
+            existing.next_run_at = trigger_svc.compute_next_run(existing, datetime.utcnow())
+        elif not kick:
+            existing.next_run_at = trigger_svc.compute_next_run(existing)
         session.add(existing)
         return existing.id if kick else None
     trigger = await trigger_svc.create_trigger(
@@ -533,12 +606,10 @@ async def sync_refresh_trigger(
         agent_id=canvas.managing_agent_id,
         instructions=instructions,
         enabled=True,
+        # An agent writing this canvas in the current chat does not need a
+        # second thread until the cadence actually comes due.
+        defer_thread=not kick,
     )
-    if kick:
-        trigger.next_run_at = datetime.utcnow()
-        session.add(trigger)
-        await session.commit()
-        await session.refresh(trigger)
     canvas.refresh_trigger_id = trigger.id
     return trigger.id if kick else None
 
@@ -565,6 +636,7 @@ async def _schedule_once_write(
         ),
         enabled=True,
         run_at=datetime.utcnow(),
+        hold=True,
     )
 
 
@@ -575,7 +647,8 @@ async def _fire_canvas_trigger(tenant_id: UUID, trigger_id: UUID) -> None:
     try:
         async with async_session_factory() as session:
             trigger = await get_trigger(session, tenant_id, trigger_id)
-            await fire_trigger(session, trigger)
+            # manual keeps the next slot where sync_refresh_trigger left it.
+            await fire_trigger(session, trigger, manual=True)
     except Exception:
         logger.exception("canvas write kick failed trigger=%s", trigger_id)
 
@@ -603,14 +676,46 @@ async def create_canvas(
     managing_agent_id: UUID | None = None,
     refresh_minutes: int | None = None,
     refresh_cadence: str | None = None,
+    refresh_cron: str | None = None,
     notes: str | None = None,
     updated_by_type: str = "user",
     updated_by_id: str = "",
+    kick: bool = True,
+    force_new: bool = False,
 ) -> dict[str, Any]:
     kind, oid = await resolve_owner(
         session, tenant_id, owner_kind=owner_kind, owner_id=owner_id
     )
     name = (title or "").strip() or "Canvas"
+    if not force_new:
+        existing = await find_canvas_by_title(
+            session, tenant_id, owner_kind=kind, owner_id=oid, title=name
+        )
+        if existing is not None:
+            brief = (notes or "").strip() or None
+            if brief and len(brief) > 2000:
+                brief = brief[:2000]
+            meta_changed = any(
+                value is not None
+                for value in (brief, managing_agent_id, refresh_cadence, refresh_minutes, refresh_cron)
+            )
+            if meta_changed:
+                if (refresh_cron or "").strip() and not (refresh_cadence or "").strip():
+                    refresh_cadence = "custom"
+                payload = await patch_canvas_meta(
+                    session,
+                    tenant_id,
+                    existing.id,
+                    notes=brief,
+                    managing_agent_id=managing_agent_id,
+                    refresh_cadence=refresh_cadence,
+                    refresh_minutes=refresh_minutes,
+                    refresh_cron=refresh_cron,
+                )
+            else:
+                payload = await _serialize(session, tenant_id, existing)
+            payload["reused"] = True
+            return payload
     slug_key = await _unique_slug(
         session, tenant_id, kind, oid, (slug or slugify_title(name)).strip().lower()
     )
@@ -640,13 +745,20 @@ async def create_canvas(
     session.add(canvas)
     await session.commit()
     await session.refresh(canvas)
+    if (refresh_cron or "").strip() and not (refresh_cadence or "").strip():
+        refresh_cadence = "custom"
     cadence = resolve_refresh_cadence(
         refresh_cadence=refresh_cadence,
         refresh_minutes=refresh_minutes,
         default=DEFAULT_REFRESH_CADENCE,
     )
     kick_id = await sync_refresh_trigger(
-        session, tenant_id, canvas, refresh_cadence=cadence, kick=True
+        session,
+        tenant_id,
+        canvas,
+        refresh_cadence=cadence,
+        refresh_cron=refresh_cron,
+        kick=kick,
     )
     session.add(canvas)
     await session.commit()
@@ -665,6 +777,7 @@ async def patch_canvas_meta(
     managing_agent_id: UUID | None = None,
     refresh_minutes: int | None = None,
     refresh_cadence: str | None = None,
+    refresh_cron: str | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
     canvas = await get_canvas_row(session, tenant_id, canvas_id)
@@ -699,12 +812,21 @@ async def patch_canvas_meta(
         or notes is not None
     ):
         trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
+        if (refresh_cron or "").strip() and not (refresh_cadence or "").strip():
+            refresh_cadence = "custom"
         cadence = resolve_refresh_cadence(
             refresh_cadence=refresh_cadence,
             refresh_minutes=refresh_minutes,
             default=cadence_from_trigger(trigger),
         )
-        await sync_refresh_trigger(session, tenant_id, canvas, refresh_cadence=cadence, kick=False)
+        await sync_refresh_trigger(
+            session,
+            tenant_id,
+            canvas,
+            refresh_cadence=cadence,
+            refresh_cron=refresh_cron,
+            kick=False,
+        )
     canvas.updated_at = datetime.utcnow()
     session.add(canvas)
     await session.commit()
@@ -861,9 +983,12 @@ async def apply_canvas_document(
             managing_agent_id=UUID(after["managing_agent_id"]) if after.get("managing_agent_id") else None,
             refresh_minutes=int(after["refresh_minutes"]) if after.get("refresh_minutes") is not None else None,
             refresh_cadence=str(after.get("refresh_cadence") or "") or None,
+            refresh_cron=str(after.get("refresh_cron") or "") or None,
             notes=str(after.get("notes") or "") or None,
             updated_by_type="agent",
             updated_by_id=str(after.get("agent_id") or after.get("updated_by_id") or ""),
+            kick=bool(after.get("kick", True)),
+            force_new=bool(after.get("force_new")),
         )
         return {"status": "applied", "canvas": result}
 
@@ -871,25 +996,60 @@ async def apply_canvas_document(
     project_raw = str(after.get("project_id") or "").strip()
     owner_kind = str(after.get("owner_kind") or (OWNER_PROJECT if project_raw else "")).strip() or None
     owner_raw = str(after.get("owner_id") or project_raw).strip()
-    slug = str(after.get("slug") or "main").strip().lower() or "main"
+    slug = str(after.get("slug") or "").strip().lower()
+    if not canvas_id_raw and not slug:
+        raise HTTPException(status_code=400, detail="canvas_id or slug required")
     agent_id = str(after.get("agent_id") or after.get("updated_by_id") or "")
-    result = await put_canvas_source(
-        session,
-        tenant_id,
-        canvas_id=UUID(canvas_id_raw) if canvas_id_raw else None,
-        owner_kind=owner_kind,
-        owner_id=UUID(owner_raw) if owner_raw else None,
-        project_id=UUID(project_raw) if project_raw else None,
-        slug=slug,
-        title=str(after["title"]) if after.get("title") is not None else None,
-        source=after.get("source"),
-        tree=after.get("tree"),
-        notes=str(after.get("notes") or "") or None,
-        reset=bool(after.get("reset") or after.get("reset_to_default")),
-        updated_by_type="agent",
-        updated_by_id=agent_id,
-        create_if_missing=True,
+    has_document = (
+        after.get("source") is not None
+        or after.get("tree") is not None
+        or bool(after.get("reset") or after.get("reset_to_default"))
     )
+    has_meta = bool(
+        after.get("refresh_cadence") or after.get("refresh_cron") or after.get("managing_agent_id")
+    )
+    result: dict[str, Any] | None = None
+    if has_document or not has_meta:
+        result = await put_canvas_source(
+            session,
+            tenant_id,
+            canvas_id=UUID(canvas_id_raw) if canvas_id_raw else None,
+            owner_kind=owner_kind,
+            owner_id=UUID(owner_raw) if owner_raw else None,
+            project_id=UUID(project_raw) if project_raw else None,
+            slug=slug or "main",
+            title=str(after["title"]) if after.get("title") is not None else None,
+            source=after.get("source"),
+            tree=after.get("tree"),
+            notes=str(after.get("notes") or "") or None,
+            reset=bool(after.get("reset") or after.get("reset_to_default")),
+            updated_by_type="agent",
+            updated_by_id=agent_id,
+            create_if_missing=False,
+        )
+    if has_meta:
+        if result and result.get("id"):
+            canvas_id = UUID(str(result["id"]))
+        elif canvas_id_raw:
+            canvas_id = UUID(canvas_id_raw)
+        else:
+            found = await get_canvas(
+                session,
+                tenant_id,
+                owner_kind=owner_kind,
+                owner_id=UUID(owner_raw) if owner_raw else None,
+                slug=slug,
+            )
+            canvas_id = UUID(str(found["id"]))
+        manager = UUID(str(after["managing_agent_id"])) if after.get("managing_agent_id") else None
+        result = await patch_canvas_meta(
+            session,
+            tenant_id,
+            canvas_id,
+            managing_agent_id=manager,
+            refresh_cadence=str(after.get("refresh_cadence") or "") or None,
+            refresh_cron=str(after.get("refresh_cron") or "") or None,
+        )
     return {"status": "applied", "canvas": result}
 
 

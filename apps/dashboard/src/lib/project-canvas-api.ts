@@ -2,7 +2,7 @@ import { canvasesRoutes } from '../api/routes'
 import { workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
 import type { CanvasNode } from './project-canvas/types'
 
-export type RefreshCadence = 'manual' | 'hourly' | 'daily' | 'weekly' | 'monthly'
+export type RefreshCadence = 'manual' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
 
 export type ProjectCanvas = {
   id: string
@@ -20,6 +20,7 @@ export type ProjectCanvas = {
   refresh_trigger_id?: string | null
   refresh_minutes?: number
   refresh_cadence?: RefreshCadence
+  refresh_cron?: string | null
   next_run_at?: string | null
   updated_by_type: string
   updated_by_id?: string | null
@@ -45,6 +46,7 @@ export async function createCanvas(body: {
   managing_agent_id?: string | null
   refresh_minutes?: number | null
   refresh_cadence?: RefreshCadence
+  refresh_cron?: string | null
   notes?: string | null
 }): Promise<ProjectCanvas> {
   return workforcePost<ProjectCanvas>(canvasesRoutes.create, body)
@@ -58,6 +60,7 @@ export async function patchCanvasMeta(
     managing_agent_id?: string | null
     refresh_minutes?: number | null
     refresh_cadence?: RefreshCadence
+    refresh_cron?: string | null
     notes?: string | null
   },
 ): Promise<ProjectCanvas> {

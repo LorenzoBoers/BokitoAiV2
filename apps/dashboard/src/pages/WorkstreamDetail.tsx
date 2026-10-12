@@ -409,7 +409,7 @@ export default function WorkstreamDetail() {
                   linkedProjects.map((project) => (
                     <Link
                       key={project.id}
-                      to={`/projects/${encodeURIComponent(project.id)}`}
+                      to={`/folders/${encodeURIComponent(project.id)}`}
                       className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-muted/40 px-1.5 py-0.5 text-text-heading hover:border-border"
                     >
                       <FolderKanban size={12} className="text-text-muted" aria-hidden />

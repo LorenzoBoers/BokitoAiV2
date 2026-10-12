@@ -1,4 +1,4 @@
-﻿"""Continue a website chat on WhatsApp: settings, link, claim by code."""
+"""Continue a website chat on WhatsApp: settings, link, claim by code."""
 
 import hashlib
 import hmac

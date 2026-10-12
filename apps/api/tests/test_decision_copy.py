@@ -6,10 +6,12 @@ from sqlalchemy import select
 
 from app.models.auth import Tenant
 from app.tools.decision_copy import (
+    describe_action,
     format_policy_decision,
     is_mcp_discovery_tool,
     mcp_override_key,
 )
+from app.tools.executor import resolve_tool_alias
 from app.tools.policy import resolve_tool_mode, set_tool_override
 from app.tools.registry import get_tool_spec
 
@@ -49,6 +51,33 @@ def test_format_mcp_decision_with_args():
     )
     assert "get_order" in title.lower() or "Get order" in title
     assert "Order id: 99112" in summary
+
+
+def test_connect_and_module_decisions_name_the_target():
+    title, _summary = format_policy_decision(
+        "connect_integration",
+        {"provider": "github"},
+    )
+    assert "github" in title.lower()
+    described = describe_action("connect_integration", {"provider": "github"})
+    assert described["args"]["provider"]
+    assert "github" in described["args"]["provider"].lower() or "Git" in described["args"]["provider"]
+
+    module_title, _ = format_policy_decision("recommend_module", {"slug": "accounting"})
+    assert "accounting" in module_title.lower()
+    module = describe_action("enable_module", {"module": "accounting"})
+    assert module["args"]["slug"]
+    assert "account" in module["args"]["slug"].lower()
+
+
+def test_open_internal_threads_alias_runs_list_threads():
+    name, payload = resolve_tool_alias("list_open_internal_threads", {})
+    assert name == "list_threads"
+    assert payload["channel"] == "internal"
+    assert payload["status"] == "open"
+    named, explicit = resolve_tool_alias("list_open_internal_threads", {"channel": "email"})
+    assert named == "list_threads"
+    assert explicit["channel"] == "email"
 
 
 def test_mcp_discovery_detection():

@@ -50,6 +50,53 @@ async def test_chat_flow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_create_conversation_stores_opener_and_continue_pending(client: AsyncClient):
+    """New conversation must persist the first message so a lost auto-send
+    cannot leave an empty Untitled chat; continue_pending then runs the agent
+    without duplicating that opener."""
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    targets = await client.get("/api/signals/chat/targets", headers=headers)
+    agent_id = targets.json()["items"][0]["id"]
+    opener = "Please review our outbound channel options and recommend one."
+    created = await client.post(
+        "/api/signals/conversations",
+        json={"title": "New conversation", "agent_id": agent_id, "message": opener},
+        headers=headers,
+    )
+    assert created.status_code == 200, created.text
+    body = created.json()
+    assert body["has_opener"] is True
+    conv_id = body["id"]
+    assert body["title"] != "New conversation"
+    assert body["title"] != opener
+    assert len(body["title"]) <= 48
+
+    listed = await client.get(f"/api/signals/conversations/{conv_id}/messages", headers=headers)
+    assert listed.status_code == 200
+    items = listed.json()["items"]
+    assert len(items) == 1
+    assert items[0]["role"] == "user"
+    assert opener in (items[0].get("content") or "")
+
+    continued = await client.post(
+        f"/api/signals/conversations/{conv_id}/messages",
+        json={"content": "", "continue_pending": True},
+        headers=headers,
+    )
+    assert continued.status_code == 200, continued.text
+    assert continued.json()["message"]["role"] == "assistant"
+
+    after = await client.get(f"/api/signals/conversations/{conv_id}/messages", headers=headers)
+    roles = [row.get("role") for row in after.json()["items"]]
+    assert roles.count("user") == 1
+    assert "assistant" in roles
+
+
+@pytest.mark.asyncio
 async def test_chat_message_accepts_page_context(client: AsyncClient):
     """The in-app assistant sends the operator's current page with each turn."""
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD

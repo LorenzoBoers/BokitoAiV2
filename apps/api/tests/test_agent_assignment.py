@@ -98,7 +98,7 @@ async def test_project_agents_crud_and_default(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
 
     r = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=owner,
         json={"name": "Roster Project", "slug": "roster", "autonomous_scope": "draft"},
     )
@@ -111,7 +111,7 @@ async def test_project_agents_crud_and_default(client: AsyncClient):
 
     # Add to roster as default.
     r = await client.post(
-        f"/api/workforce/projects/{project_id}/agents",
+        f"/api/folders/{project_id}/agents",
         headers=owner,
         json={"agent_id": assistant["id"], "is_default": True},
     )
@@ -120,26 +120,26 @@ async def test_project_agents_crud_and_default(client: AsyncClient):
 
     # Duplicate add is a conflict.
     r = await client.post(
-        f"/api/workforce/projects/{project_id}/agents",
+        f"/api/folders/{project_id}/agents",
         headers=owner,
         json={"agent_id": assistant["id"]},
     )
     assert r.status_code == 409
 
-    r = await client.get(f"/api/workforce/projects/{project_id}/agents", headers=owner)
+    r = await client.get(f"/api/folders/{project_id}/agents", headers=owner)
     assert r.status_code == 200
     roster = r.json()
     assert len(roster) == 1
     assert roster[0]["agent_id"] == assistant["id"]
 
     # Projects list exposes roster chips.
-    r = await client.get("/api/workforce/projects", headers=owner)
+    r = await client.get("/api/folders", headers=owner)
     listed = next(p for p in r.json() if p["id"] == project_id)
     assert listed["agents"] and listed["agents"][0]["agent_id"] == assistant["id"]
 
     # Unset default via PATCH.
     r = await client.patch(
-        f"/api/workforce/projects/{project_id}/agents/{assistant['id']}",
+        f"/api/folders/{project_id}/agents/{assistant['id']}",
         headers=owner,
         json={"is_default": False},
     )
@@ -148,10 +148,10 @@ async def test_project_agents_crud_and_default(client: AsyncClient):
 
     # Remove from roster.
     r = await client.delete(
-        f"/api/workforce/projects/{project_id}/agents/{assistant['id']}", headers=owner
+        f"/api/folders/{project_id}/agents/{assistant['id']}", headers=owner
     )
     assert r.status_code == 200
-    r = await client.get(f"/api/workforce/projects/{project_id}/agents", headers=owner)
+    r = await client.get(f"/api/folders/{project_id}/agents", headers=owner)
     assert r.json() == []
 
 
@@ -168,7 +168,7 @@ async def test_project_default_agent_routes_thread(
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
 
     r = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=owner,
         json={"name": "Routing Project", "slug": "routing", "autonomous_scope": "draft"},
     )
@@ -183,7 +183,7 @@ async def test_project_default_agent_routes_thread(
     specialist_id = (created.get("agent") or created)["id"]
 
     r = await client.post(
-        f"/api/workforce/projects/{project_id}/agents",
+        f"/api/folders/{project_id}/agents",
         headers=owner,
         json={"agent_id": specialist_id, "is_default": True},
     )

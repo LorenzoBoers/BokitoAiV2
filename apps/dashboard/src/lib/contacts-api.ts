@@ -1,7 +1,7 @@
 /** CRM contacts API (channel contacts with profile fields and thread history). */
 
 import { appRoutes } from '../api/routes/app.routes'
-import { apiDelete, apiGet, apiPatch, apiPost } from './api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 import { isGenericVisitorName, isPlaceholderContactAddress } from './contact-label'
 import type { InboxThread } from './inbox-api'
 import { normalizeThreadRow } from './inbox-api'
@@ -30,6 +30,8 @@ export type ContactRow = {
   owner: ContactOwner | null
   /** Other ways to reach this person (visitor key, email, WhatsApp number). Detail only. */
   identities: ContactIdentity[]
+  tags?: { id: string; name: string }[]
+  companyTags?: { id: string; name: string }[]
 }
 
 export type ContactOwner = { kind: 'user' | 'team'; id: string }
@@ -117,7 +119,19 @@ function normalizeContact(row: unknown): ContactRow | null {
     identities: Array.isArray(raw.identities)
       ? raw.identities.map(normalizeIdentity).filter((i): i is ContactIdentity => i !== null)
       : [],
+    tags: normalizeOwnerTags(raw.tags),
+    companyTags: normalizeOwnerTags(raw.company_tags),
   }
+}
+
+function normalizeOwnerTags(raw: unknown): { id: string; name: string }[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Record<string, unknown>
+    if (typeof row.id !== 'string' || typeof row.name !== 'string') return []
+    return [{ id: row.id, name: row.name }]
+  })
 }
 
 export type ContactListPage = {
@@ -486,6 +500,7 @@ export type CompanyRow = {
   contactCount: number
   createdAt: string
   updatedAt: string
+  tags?: { id: string; name: string }[]
 }
 
 export type CompanyDetail = CompanyRow & {
@@ -508,6 +523,7 @@ function normalizeCompany(row: unknown): CompanyRow | null {
     contactCount: typeof raw.contact_count === 'number' ? raw.contact_count : 0,
     createdAt: asString(raw.created_at),
     updatedAt: asString(raw.updated_at),
+    tags: normalizeOwnerTags(raw.tags),
   }
 }
 
@@ -557,6 +573,24 @@ export async function getCompany(token: string, companyId: string): Promise<Comp
     threads,
     threadsTruncated: payload.threads_truncated === true,
   }
+}
+
+export async function setContactTags(
+  token: string,
+  contactId: string,
+  tags: string[],
+): Promise<{ id: string; name: string }[]> {
+  const payload = await apiPut<{ tags?: unknown }>(appRoutes.contacts.tags(contactId), { tags }, token)
+  return normalizeOwnerTags(payload.tags)
+}
+
+export async function setCompanyTags(
+  token: string,
+  companyId: string,
+  tags: string[],
+): Promise<{ id: string; name: string }[]> {
+  const payload = await apiPut<{ tags?: unknown }>(appRoutes.companies.tags(companyId), { tags }, token)
+  return normalizeOwnerTags(payload.tags)
 }
 
 export async function updateCompany(

@@ -37,6 +37,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun
+from app.models.signal import Signal
 from app.models.trigger import Trigger
 
 TIME_KINDS = frozenset({"session", "wake", "checkup", "task", "calendar", "activity"})
@@ -375,6 +376,8 @@ async def list_time_items(
     project_id: UUID | None = None,
     connection_ids: Iterable[str] | None = None,
     viewer: Any = None,
+    tag: str | None = None,
+    path: str | None = None,
 ) -> list[dict[str, Any]]:
     """Every time item in [start, end], sorted by start.
 
@@ -382,6 +385,7 @@ async def list_time_items(
     ``scheduled_only`` keeps only sessions fired by a trigger (planning view);
     on-demand work such as email replies stays on the activity timeline.
     ``project_id`` keeps items tied to that project's conversations or runs.
+    ``tag`` and ``path`` keep items whose conversation carries that tag (own or inherited).
     ``connection_ids`` limits calendar events to those connections (None = all).
     ``user_id`` keeps activity and decisions for that person before the cap,
     so Who = you does not lose their older events in the window.
@@ -703,7 +707,44 @@ async def list_time_items(
         )
 
     items.sort(key=lambda item: item["start"] or "")
-    return items
+    return await _filter_items_by_tag(session, tenant_id, items, tag=tag, path=path)
+
+
+async def _filter_items_by_tag(
+    session: AsyncSession,
+    tenant_id: UUID,
+    items: list[dict[str, Any]],
+    *,
+    tag: str | None,
+    path: str | None,
+) -> list[dict[str, Any]]:
+    """Keep items whose conversation carries ``tag`` or the tag id in ``path``."""
+    from uuid import UUID as _UUID
+
+    from app.services.signal_tags import normalize_tag, signals_tagged, signals_with_tag_ids
+
+    wanted_name = normalize_tag(tag or "")
+    path_ids: list[_UUID] = []
+    if path:
+        for part in str(path).split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                path_ids.append(_UUID(part))
+            except (TypeError, ValueError):
+                continue
+    if not wanted_name and not path_ids:
+        return items
+    clauses = []
+    if wanted_name:
+        clauses.append(signals_tagged(tenant_id, wanted_name))
+    if path_ids:
+        clauses.append(signals_with_tag_ids(tenant_id, path_ids))
+    allowed: set[str] = set()
+    for clause in clauses:
+        allowed.update(str(sid) for sid in (await session.execute(select(Signal.id).where(Signal.id.in_(clause)))).scalars())
+    return [item for item in items if not item.get("signal_id") or str(item["signal_id"]) in allowed]
 
 
 async def _activity(

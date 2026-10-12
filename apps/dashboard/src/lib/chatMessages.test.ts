@@ -16,7 +16,20 @@ describe('splitChatMessages', () => {
   it('drops blocks without text, such as a lone horizontal rule', () => {
     expect(
       splitChatMessages('Hier zijn suggesties:\n\n---\n\n#### Actietags\n- #feature\n\n***\n\n**', 0),
-    ).toEqual(['Hier zijn suggesties:', '#### Actietags\n- #feature'])
+    ).toEqual(['Hier zijn suggesties:\n#### Actietags\n- #feature'])
+  })
+
+  it('keeps a numbered list in one bubble and drops a heartbeat prefix', () => {
+    expect(
+      splitChatMessages(
+        'Besluitpunten die wachten:\n\n1. Koppelingen\n\n1. Open beslissingen\n\nLos daarvan is dit een volgende beat.',
+        0,
+      ),
+    ).toEqual([
+      'Besluitpunten die wachten:\n1. Koppelingen\n1. Open beslissingen',
+      'Los daarvan is dit een volgende beat.',
+    ])
+    expect(splitChatMessages('HEARTBEAT_OK — De workspace is actief.')).toEqual(['De workspace is actief.'])
   })
 
   it('keeps fenced code in one message', () => {

@@ -4,7 +4,7 @@ intro: Markdown the workspace owns across organization, project, and agent scope
 description: Browse Knowledge as a hub for org, project, and agent docs, edit in Write or Markdown mode, and publish customer help articles.
 keywords: knowledge, docs, voice, memory, skills, help center, grounding, project documentation
 sort: 30
-related: agents,communication,projects,workstreams
+related: agents,communication,folders,workstreams
 ---
 
 # How Knowledge works
@@ -55,4 +55,4 @@ Customer help articles live in Knowledge, not under a separate **Help center** s
 
 ## What to do next
 
-Keep project-specific docs on the [Projects](/docs/ai/projects) Documentation tab — they appear under Knowledge when you click that project name. Point agents at Skills and Memory so replies stay grounded.
+Keep project-specific docs on the [Projects](/docs/ai/folders) Documentation tab — they appear under Knowledge when you click that project name. Point agents at Skills and Memory so replies stay grounded.

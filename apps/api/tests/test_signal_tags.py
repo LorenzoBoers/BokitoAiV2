@@ -254,3 +254,18 @@ async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_o
     )
     assert cleared.status_code == 200
     assert cleared.json()["default_outbound_connection_id"] is None
+
+    rail = await client.patch(
+        "/api/me/preferences",
+        headers=headers,
+        json={
+            "rail_pins": [{"ref": "folder:abc", "position": 1}, {"ref": "tag:vip", "position": 0}],
+            "rail_hidden_defaults": ["tag:old"],
+            "sidebar": {"order": ["hashtags", "channels"], "hidden": ["projects"], "collapsed": []},
+        },
+    )
+    assert rail.status_code == 200
+    assert [row["ref"] for row in rail.json()["rail_pins"]] == ["tag:vip", "folder:abc"]
+    assert rail.json()["rail_hidden_defaults"] == ["tag:old"]
+    assert rail.json()["sidebar"]["order"][0] == "folders"
+    assert "folders" in rail.json()["sidebar"]["hidden"]

@@ -19,7 +19,7 @@ DEFAULT_JOB_TOOLS = [
     "attach_artifact",
     "search_index",
     "search_repo",
-    "get_project_canvas",
+    "get_folder_canvas",
     "list_queue_items",
     "read_doc",
 ]

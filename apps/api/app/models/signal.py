@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Index
+from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 SIGNAL_CHANNELS = (
@@ -257,17 +257,44 @@ class SavedReply(SQLModel, table=True):
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
 
-class SignalTag(SQLModel, table=True):
-    """A hashtag: the workspace vocabulary for finding and grouping conversations.
+class TagGroup(SQLModel, table=True):
+    """A dimension of tags the operator names (Relatie, Documenttype, Periode).
 
-    Conversations link to free tags through `SignalTagLink`. A tag with a
-    ``workstream_id`` is a *category* (ticket-hashtag): filing it on a
-    conversation makes that conversation a ticket in the playbook's pipeline
-    (`Signal.ticket_tag_id`). The intake fields below only apply to categories.
-    Agents and inbox rules may only apply names the registry already has.
+    Groups order the catalog for people and agents, drive dynamic folders
+    (a `Project.child_group_id` folder shows one virtual child per tag in the
+    group) and, when ``exclusive``, allow at most one tag of the group per
+    conversation.
+    """
+
+    __tablename__ = "tag_groups"
+    __table_args__ = (UniqueConstraint("tenant_id", "slug", name="uq_tag_groups_tenant_slug"),)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    name: str = ""
+    slug: str = Field(default="", index=True)
+    description: str = ""
+    exclusive: bool = False
+    sort_order: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SignalTag(SQLModel, table=True):
+    """A hashtag: the one label people learn. Roles are orthogonal:
+
+    - free label on conversations (`SignalTagLink`), contacts and companies;
+    - *action tag* when ``workstream_id`` is set: filing it makes the
+      conversation a ticket in that flow (`Signal.ticket_tag_id`);
+    - *folder* when a `Project` carries it as ``tag_id``: the conversation's
+      folder is derived from its tags (`services.folders`).
+
+    The intake fields below only apply to action tags. Agents and inbox rules
+    may only apply names the registry already has.
     """
 
     __tablename__ = "signal_tags"
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_signal_tags_tenant_name"),)
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
@@ -276,8 +303,8 @@ class SignalTag(SQLModel, table=True):
     # When to use this tag. Shown in settings and fed to AI tagging.
     description: str = ""
     workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
-    # A row in Communication's Tags and categories section.
-    pinned: bool = False
+    group_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tag_groups.id", index=True)
+    # Workspace default: a row in the Folders and tags rail for everyone.
     show_in_nav: bool = False
     # When false, triage does not offer or apply this tag automatically.
     ai_auto_tag: bool = True
@@ -304,6 +331,29 @@ class SignalTagLink(SQLModel, table=True):
     __tablename__ = "signal_tag_links"
 
     signal_id: uuid.UUID = Field(foreign_key="signals.id", primary_key=True)
+    tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ContactTagLink(SQLModel, table=True):
+    """One tag on one contact. Read, never copied: a conversation's effective
+    tags include its primary contact's tags (and the contact's company's)."""
+
+    __tablename__ = "contact_tag_links"
+
+    contact_id: uuid.UUID = Field(foreign_key="contacts.id", primary_key=True)
+    tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CompanyTagLink(SQLModel, table=True):
+    """One tag on one company; every contact of the company inherits it."""
+
+    __tablename__ = "company_tag_links"
+
+    company_id: uuid.UUID = Field(foreign_key="companies.id", primary_key=True)
     tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)

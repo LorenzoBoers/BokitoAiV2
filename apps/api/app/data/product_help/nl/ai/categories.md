@@ -1,15 +1,15 @@
 ---
 title: Actietags en tickets
 intro: Een actietag is een hashtag die een ticketflow start. Leg je haar vast op een gesprek, dan wordt dat gesprek een ticket dat door de fasen van de flow gaat.
-description: Maak van een tag een actietag, leg een ticket vast met een projectkeuze via Tags toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en splits een gesprek als er een tweede verzoek in opduikt.
+description: Maak van een tag een actietag, leg een ticket vast via Tags toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en splits een gesprek als er een tweede verzoek in opduikt.
 keywords: actietags, tickets, hashtags, fasen, flow, project, intake, gesprek splitsen, categorieën
 sort: 46
-related: workstreams,communication,channels,projects,widget
+related: workstreams,communication,channels,folders,widget
 ---
 
 # Actietags en tickets
 
-Een actietag is een tag met een flow. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat, op een van de projecten van de flow of op geen project.
+Een actietag is een tag met een flow. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat. De map volgt uit de tags van het gesprek, inclusief tags op het contact. Dezelfde tag kan via **Map aanmaken** ook een map zijn.
 
 Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend bericht (samenvatting, prioriteit, tags en tickets) in één run. Bij AI-afhandeling **Handmatig** leest de agent nog wel en mag die tags of tickets vastleggen, maar er komt geen conceptantwoord naar de klant. Zonder kanaalagent is er geen AI-lezing. Een zekere lezing legt het ticket vast wanneer die actietag automatisch taggen toestaat. Een zekere lezing op een tag zonder automatisch taggen wordt een kaart **Dien in als #naam** met **Dien in** en **Niet nu**. Een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije tags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
 
@@ -20,8 +20,8 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 
 1. Open **Instellingen**, dan **# Tags**. De pagina toont één **Tags**-lijst (actietags eerst, met accent-`#`), dan **Wat we misten** en wie tickets mag bevestigen.
 2. Kies **Nieuwe tag** om een vrije tag toe te voegen, daarna **Flow aanmaken** op die rij. Dat maakt of koppelt een flow met titel `#naam`. De tag wordt een actietag in dezelfde lijst.
-3. Op een actietag kies je **Flow openen** om fasen, vastleggen en projecten op de flowpagina in te richten. Een nieuwe flow start met Open, Wachtend en Klaar.
-4. Gebruik de punaise op elke tag voor een rij in de zijbalk van Communicatie. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen. Het aantal gesprekken op een rij opent die gesprekken in Communicatie.
+3. Op een actietag kies je **Flow openen** om fasen en vastleggen op de flowpagina in te richten. Een nieuwe flow start met Open, Wachtend en Klaar. Kies **Map aanmaken** om dezelfde tag een plek in de mappenboom te geven.
+4. Gebruik de punaise op elke tag voor een rij in **Mappen en tags**. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen. Zet samenhangende tags in een groep (optioneel exclusief). Het aantal gesprekken op een rij opent die gesprekken in Communicatie.
 
 ## Een ticket op een gesprek vastleggen
 
@@ -30,20 +30,20 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 
 1. Open een gesprek in **Communicatie**. Onder **Dit gesprek** kies je **Tags toevoegen**.
 2. Typ met een zachte `#` en kies een actietag (gemarkeerd **Actietag**), of een vrije tag. Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**.
-3. Als de flow op een of meer projecten staat, kies er een of **Geen project**. Vastleggen vraagt dit altijd; agents kiezen ook, of laten het ticket voorgesteld.
+3. Vastleggen vraagt niet om een map. Het gesprek landt via zijn tags. Als tags bij meer dan één map passen, toont het gesprek **Welke map?**.
 4. Het ticket start in de eerste fase van de flow. De lijstrij toont de actietag met fase en gekleurde stip. Een andere actietag kiezen vraagt om **Vervangen** (of splits het gesprek voor een tweede verzoek).
-5. In de composer legt `/ticket #naam` hetzelfde ticket vast. Bij projecten stuurt Bokito je naar het **Ticket**-paneel om er een te kiezen.
+5. In de composer legt `/ticket #naam` hetzelfde ticket vast.
 
 ## Bevestigen wat de AI voorstelde
 
-1. Een onzekere lezing toont op het gesprek als "Lijkt op #klacht" met **Bevestigen** en **Afwijzen**. Bij projecten opent bevestigen de projectkeuze.
+1. Een onzekere lezing toont op het gesprek als "Lijkt op #klacht" met **Bevestigen** en **Afwijzen**.
 2. Niets routeert en geen flow start voordat iemand bevestigt. Leden mogen zelf altijd een ticket vastleggen; **Wie mag tickets bevestigen** op **Instellingen** → **# Tags** bepaalt wie een voorstel mag bevestigen.
 3. Voorstellen tellen niet mee als vastgelegde tickets op Overview tot ze bevestigd zijn.
 4. Stel de **Tickets**-houding in op [Govern](/docs/govern/govern) als agents moeten stoppen met tickets vastleggen.
 
 ## Een ticket door de fasen verplaatsen
 
-1. Klik in het **Ticket**-paneel op een segment van de fasebalk om het ticket naar die fase te zetten; **Fase 2 van 3** toont waar het staat, gevolgd door de volgende check-up als de fase er een heeft. Op een flow- of projectbord sleep je de kaart naar een andere kolom; zie [Projecten](/docs/ai/projects). Op een bordkaart is de contactnaam een link naar dat contact zodra het gesprek aan een contact is gekoppeld.
+1. Klik in het **Ticket**-paneel op een segment van de fasebalk om het ticket naar die fase te zetten; **Fase 2 van 3** toont waar het staat, gevolgd door de volgende check-up als de fase er een heeft. Op een flow- of projectbord sleep je de kaart naar een andere kolom; zie [Projecten](/docs/ai/folders). Op een bordkaart is de contactnaam een link naar dat contact zodra het gesprek aan een contact is gekoppeld.
 2. Als de doelfase verplichte velden heeft die nog leeg zijn, vraagt een dialoog ze in te vullen. Het ticket blijft in de huidige fase tot die waarden er zijn. Dezelfde dialoog verschijnt bij slepen. Het gesprek sluiten zet het ticket in de klaar-fase. Mist die fase nog verplichte velden, dan blijft het ticket staan en sluit het gesprek toch.
 3. Elke verplaatsing verschijnt in de tijdlijn, bijvoorbeeld **Ticket verplaatst naar Waiting**. De status van het ticket volgt altijd het soort van de fase: open, waiting of done.
 4. Onder het project heeft elk eigen veld van de flow een eigen rij. Klik op een waarde om die te wijzigen; die wordt opgeslagen als je op Enter drukt, het veld verlaat of een optie kiest. Een `*` markeert een verplicht veld en kleurt oranje zolang het leeg is.
@@ -66,4 +66,4 @@ Als een klant iets nieuws in een oud thread opbrengt, krijgt dat verzoek een eig
 
 ## Wat daarna
 
-Zet de flow op een [project](/docs/ai/projects) met **Flow toevoegen** op de projectpagina, zodat de tickets daar als bord verschijnen. Geef elke fase een eigenaar en een check-up-ritme op [Flows](/docs/ai/workstreams); openstaande check-ups staan op [Agenda](/docs/ai/agenda) en in het ticketpaneel.
+Zet de flow op een [project](/docs/ai/folders) met **Flow toevoegen** op de projectpagina, zodat de tickets daar als bord verschijnen. Geef elke fase een eigenaar en een check-up-ritme op [Flows](/docs/ai/workstreams); openstaande check-ups staan op [Agenda](/docs/ai/agenda) en in het ticketpaneel.

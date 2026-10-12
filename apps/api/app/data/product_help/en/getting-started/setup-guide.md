@@ -38,7 +38,7 @@ The quickstart gets you running. This guide gets you configured. The settings si
 1. Add daily documents in [Knowledge](/docs/ai/knowledge). Start with Voice and Memory.
 2. Review the default assistant under [Agents](/docs/ai/agents). Deactivate agents you do not want on the roster; tighten chat access if they should not appear in Communication.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
-4. Optional: open **Projects** when work should be grouped around a goal. See [Projects](/docs/ai/projects).
+4. Optional: open **Projects** when work should be grouped around a goal. See [Projects](/docs/ai/folders).
 5. Optional: open **Connections** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
 
 ## Schedule recurring work

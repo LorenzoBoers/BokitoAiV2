@@ -27,6 +27,8 @@ _DROPPED_TABLES = ("cases", "case_type_fields", "case_type_bindings", "case_type
 # orphans in dev databases while Alembic drops them on Postgres.
 _RETIRED_COLUMNS = {
     "workstreams": ("project_id", "is_default"),
+    # 088: pinned folded into show_in_nav.
+    "signal_tags": ("pinned",),
     "agent_runs": ("signal_type_id",),
     "usage_ledger": ("signal_type_id",),
     "work_jobs": ("case_id",),
@@ -41,7 +43,6 @@ _SEED_NAMES = {
 }
 
 _TAG_DEFAULTS = {
-    "pinned": "0",
     "show_in_nav": "0",
     "ai_auto_tag": "1",
     "create_mode": "'ask_customer'",
@@ -59,6 +60,7 @@ _TAG_DEFAULTS = {
 def converge_sqlite_schema(connection: Connection) -> None:
     _tags_to_links(connection)
     _fill_tag_defaults(connection)
+    _pinned_to_nav(connection)
     _normalize_tag_names(connection)
     _workstream_projects(connection)
     _cases_to_tickets(connection)
@@ -155,6 +157,13 @@ def _fill_tag_defaults(connection: Connection) -> None:
             connection.execute(
                 text(f"UPDATE signal_tags SET {column} = {value} WHERE {column} IS NULL")
             )
+
+
+def _pinned_to_nav(connection: Connection) -> None:
+    """088: a pinned free tag is a workspace-default rail row."""
+    columns = {c["name"] for c in inspect(connection).get_columns("signal_tags")}
+    if "pinned" in columns and "show_in_nav" in columns:
+        connection.execute(text("UPDATE signal_tags SET show_in_nav = 1 WHERE pinned = 1"))
 
 
 def _merge_tag(connection: Connection, source_id: str, target_id: str) -> None:

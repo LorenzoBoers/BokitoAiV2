@@ -41,9 +41,13 @@
       "title": "Flows",
       "subtitle": "Ticket flows titled by their action-tag hashtag"
     },
+    "folders": {
+      "title": "Folders",
+      "subtitle": "A tag with a place: conversations, boards and docs under one path"
+    },
     "projects": {
-      "title": "Projects",
-      "subtitle": "Shared goals, agents and flows for a body of work"
+      "title": "Folders",
+      "subtitle": "A tag with a place: conversations, boards and docs under one path"
     },
     "knowledge": {
       "title": "Knowledge",
@@ -324,7 +328,8 @@
     "company": "Company",
     "person": "Person",
     "agent": "Agent",
-    "project": "Project",
+    "folder": "Folder",
+    "project": "Folder",
     "document": "Document",
     "learn": "Help",
     "docs": "Docs",
@@ -842,8 +847,7 @@
       "who": "Who",
       "allProjects": "All projects",
       "show": "Show",
-      "showAll": "All",
-      "hideAll": "None",
+      "addCalendar": "Connect a calendar",
       "layersHint": "Tasks cover one-off and recurring work for people and agents. Stage follow-ups from flows show here too.",
       "calendars": "Calendars",
       "calendarsEmpty": "Connect Google or Outlook under Connections.",
@@ -1051,6 +1055,8 @@
     "conversations": "Conversations",
     "threadCount": "{{count}} threads with this contact",
     "inFolders": "In folders",
+    "tags": "Tags",
+    "viaCompany": "via company",
     "threadCount_one": "{{count}} thread with this contact",
     "threadCountPartial": "Showing the latest {{shown}} of {{count}}",
     "noConversations": "No conversations yet.",
@@ -1207,6 +1213,8 @@
   },
   "loginPage": {
     "subtitle": "Sign in to your dashboard",
+    "about": "Bokito runs conversations, the agenda, and agents for your company.",
+    "privacy": "Privacy",
     "email": "Email",
     "password": "Password",
     "signIn": "Sign in",
@@ -2648,7 +2656,8 @@
       "settings": "Settings",
       "teams": "Teams",
       "hashtags": "Tags",
-      "projects": "Projects"
+      "projects": "Projects",
+      "folders": "Folders and tags"
     },
     "composeFromChannel": "New message from this channel",
     "composeToAgent": "Message this agent",
@@ -2741,6 +2750,15 @@
     "projects": {
       "empty": "Create a project",
       "settingsAria": "Manage projects"
+    },
+    "folders": {
+      "empty": "Create a folder or pin a tag",
+      "settingsAria": "Manage folders and tags",
+      "pin": "Pin in rail",
+      "unpin": "Unpin from rail",
+      "pinChild": "Pin as folder",
+      "pinnedChild": "Folder pinned",
+      "pinChildFailed": "Could not pin this folder."
     },
     "newConversation": "New conversation"
   },
@@ -4182,19 +4200,19 @@
   },
   "projects": {
     "group": {
-      "nav": "Projects"
+      "nav": "Folders"
     },
     "links": {
-      "all": "All projects",
-      "new": "New project"
+      "all": "All folders",
+      "new": "New folder"
     },
     "page": {
-      "title": "Projects",
-      "tenantTitle": "{{name}} projects",
-      "subtitle": "Longer-running work with its own goal, tickets and docs. Each project can have a project agent that watches it.",
-      "new": "New project",
-      "loading": "Loading projects...",
-      "emptyTitle": "No projects yet",
+      "title": "Folders",
+      "tenantTitle": "{{name}} folders",
+      "subtitle": "A tag with a place: conversations, boards and docs under one path. Each folder can have an agent that watches it.",
+      "new": "New folder",
+      "loading": "Loading folders...",
+      "emptyTitle": "No folders yet",
       "emptyBody": "A project holds the goal, documentation and signals for work that runs longer than one conversation.",
       "openAgents": "Open Agents",
       "openSetup": "Open setup guide",
@@ -4585,8 +4603,13 @@
         "hourly": "Hourly",
         "daily": "Daily",
         "weekly": "Weekly",
-        "monthly": "Monthly"
+        "monthly": "Monthly",
+        "custom": "Custom"
       },
+      "cronLabel": "Cron",
+      "cronPlaceholder": "0 8 * * 1-5",
+      "cronHint": "Five fields, UTC.",
+      "cronInvalid": "Enter a five-field cron expression.",
       "writing": "The managing agent is writing this canvas.",
       "askAgent": "Ask agent to update",
       "lastUpdated": "Updated {{time}}{{who}}",
@@ -5102,6 +5125,7 @@
   },
   "publicTrust": {
     "title": "Security and privacy",
+    "privacyPolicy": "Privacy policy",
     "subtitle": "How Bokito protects workspace data for Dutch and EU SMBs.",
     "draftGate": "Ask support for the current DPA and subprocessors list for your organisation.",
     "highlightsTitle": "Highlights",

@@ -37,10 +37,10 @@ async def _file_from_triage(
     A conversation has one category. Once it has a settled one, a certain read
     of a different category on the newest message is a new request: it goes to
     ``split_or_propose``. The ticket path enforces the category's create mode,
-    thresholds, verification and the project choice; this never bypasses those.
+    thresholds and verification; the folder follows from the tags.
     """
     from app.models.signal import Signal
-    from app.services.tickets import file_ticket, playbook_project_ids
+    from app.services.tickets import file_ticket
 
     signal = await session.get(Signal, signal_id)
     if signal is None:
@@ -50,16 +50,12 @@ async def _file_from_triage(
             return
         await _split_new_intent(session, tenant_id, signal_id, category, summary)
         return
-    choices = await playbook_project_ids(session, tenant_id, category.workstream_id)
-    project_chosen = not choices or signal.project_id in choices
     try:
         await file_ticket(
             session,
             tenant_id,
             signal_id=signal_id,
             tag_id=category.id,
-            project_id=signal.project_id if choices and project_chosen else None,
-            project_chosen=project_chosen,
             summary=summary,
             certainty=max(0, min(10, round(certainty / 10))),
             actor="agent",

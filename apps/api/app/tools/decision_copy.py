@@ -105,7 +105,16 @@ _LABEL_ARGS = (
     "email",
     "stage",
     "stage_key",
+    "provider",
+    "display_name",
+    "slug",
+    "module",
 )
+
+_CONNECT_TOOLS = frozenset(
+    {"connect_integration", "suggest_integration", "propose_integration", "setup_integration"}
+)
+_MODULE_TOOLS = frozenset({"recommend_module", "enable_module", "setup_integration"})
 
 
 def _short(value: Any, limit: int = 60) -> str:
@@ -139,6 +148,34 @@ def _named_target(tool_name: str, payload: dict[str, Any]) -> str:
     return ""
 
 
+def _pretty_provider(payload: dict[str, Any]) -> str:
+    """Catalog display name for a connection the operator is asked to approve."""
+    from app.services.integrations_catalog import PROVIDER_BY_SLUG, canonical_provider_slug
+
+    raw = str(payload.get("display_name") or payload.get("provider") or "").strip()
+    if not raw:
+        return ""
+    slug = canonical_provider_slug(raw) or raw.lower().replace(" ", "_")
+    catalog = PROVIDER_BY_SLUG.get(slug)
+    if isinstance(catalog, dict):
+        name = str(catalog.get("name") or catalog.get("title") or "").strip()
+        if name:
+            return name
+    return _humanize_token(raw)
+
+
+def _pretty_module(payload: dict[str, Any]) -> str:
+    from app.modules.catalog import get_module
+
+    slug = str(payload.get("slug") or payload.get("module") or "").strip()
+    if not slug:
+        return ""
+    spec = get_module(slug)
+    if spec is not None and spec.name:
+        return spec.name
+    return _humanize_token(slug)
+
+
 def describe_action(tool_name: str, tool_input: dict[str, Any] | None) -> dict[str, Any]:
     """Structured description of a tool call for client-side labels.
 
@@ -154,6 +191,15 @@ def describe_action(tool_name: str, tool_input: dict[str, Any] | None) -> dict[s
     if tool_name == "call_mcp_tool":
         args.setdefault("server_name", str(payload.get("server_name") or "integration"))
         args["tool_name"] = _humanize_token(str(payload.get("tool_name") or "tool"))
+    if tool_name in _CONNECT_TOOLS:
+        provider = _pretty_provider(payload)
+        if provider:
+            args["provider"] = provider
+    if tool_name in _MODULE_TOOLS:
+        module = _pretty_module(payload)
+        if module:
+            args["slug"] = module
+            args["module"] = module
     title, _ = format_policy_decision(tool_name, payload)
     fallback = title[len("Approve: "):] if title.startswith("Approve: ") else title
     return {"tool": tool_name, "key": tool_name, "args": args, "fallback": fallback}
@@ -184,6 +230,14 @@ def format_policy_decision(tool_name: str, tool_input: dict[str, Any] | None) ->
     named = _named_target(tool_name, payload)
     if named:
         verb = f"{verb} {named}"
+    elif tool_name in _CONNECT_TOOLS:
+        provider = _pretty_provider(payload)
+        if provider:
+            verb = f"Connect {provider}"
+    elif tool_name in _MODULE_TOOLS:
+        module = _pretty_module(payload)
+        if module:
+            verb = f"Turn on {module}"
     title = f"Approve: {verb}"
     arg_lines = _format_args(payload)
     if arg_lines:

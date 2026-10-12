@@ -54,7 +54,7 @@ async def test_signal_thread_project_link(client: AsyncClient, session_override)
     headers = await _auth_headers(client)
 
     project = await client.post(
-        "/api/workforce/projects",
+        "/api/folders",
         headers=headers,
         json={"name": "Ops Project", "slug": "ops-project", "autonomous_scope": "ops"},
     )

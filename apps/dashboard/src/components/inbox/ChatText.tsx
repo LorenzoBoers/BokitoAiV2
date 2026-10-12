@@ -40,8 +40,9 @@ function LinkIcon({ href }: { href: string }) {
       return <Plug {...props} />
     case 'settings':
       return <Settings {...props} />
+    case 'folder':
     case 'project': {
-      const Icon = ENTITY_ICONS.project
+      const Icon = ENTITY_ICONS.folder
       return <Icon {...props} />
     }
     case 'canvas': {

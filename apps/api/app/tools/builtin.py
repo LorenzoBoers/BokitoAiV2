@@ -949,7 +949,7 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
 
     from app.gateway.publish import publish_thread_update
     from app.models.signal import Signal, SignalEvent
-    from app.services.signal_tags import add_signal_tags, allowed_tag_names, normalize_tag
+    from app.services.signal_tags import allowed_tag_names, normalize_tag
 
     signal_id = ctx.signal_id
     raw_signal = tool_input.get("signal_id")
@@ -991,10 +991,37 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
             "catalog": sorted(catalog)[:30],
         }
 
-    tags, added = await add_signal_tags(
-        ctx.session, ctx.tenant_id, signal.id, allowed, registered_only=not create_missing
+    from app.services.signal_tags import add_signal_tag_rows, ensure_tags
+
+    rows_by_name = await ensure_tags(ctx.session, ctx.tenant_id, allowed, user_id=ctx.user_id) if create_missing else {}
+    if not create_missing:
+        from app.models.signal import SignalTag
+
+        rows_by_name = {
+            row.name: row
+            for row in (
+                await ctx.session.execute(
+                    select(SignalTag).where(
+                        SignalTag.tenant_id == ctx.tenant_id,
+                        SignalTag.name.in_(allowed),
+                        SignalTag.workstream_id.is_(None),
+                    )
+                )
+            ).scalars()
+        }
+    outcome = await add_signal_tag_rows(
+        ctx.session,
+        ctx.tenant_id,
+        signal.id,
+        [rows_by_name[n] for n in allowed if n in rows_by_name],
+        # An agent never replaces a competing tag from an exclusive group; it
+        # reports the conflict and lets a person (or the contact) settle it.
+        replace_exclusive=not ctx.agent,
+        actor_type="agent" if ctx.agent else "user",
+        actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
     )
-    if added:
+    tags, added = outcome["tags"], outcome["added"]
+    if added or outcome["replaced"]:
         signal.updated_at = datetime.utcnow()
         ctx.session.add(signal)
         ctx.session.add(
@@ -1009,13 +1036,21 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
         )
         await ctx.session.flush()
         await publish_thread_update(signal, tags=tags)
-    return {
+    out: dict[str, Any] = {
         "ok": True,
         "signal_id": str(signal.id),
         "added": added,
         "tags": tags,
         "rejected": rejected,
+        "folder_id": str(signal.project_id) if signal.project_id else None,
     }
+    if outcome["skipped_exclusive"]:
+        out["skipped_exclusive"] = outcome["skipped_exclusive"]
+        out["note"] = (
+            "Some tags were skipped: the conversation already carries another tag of the same "
+            "exclusive group. Pick one and explain, or leave it to the team."
+        )
+    return out
 
 
 async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -1419,6 +1454,7 @@ async def _suggest_integration(ctx: ToolContext, tool_input: dict[str, Any]) -> 
             "title": f"Connect {display_name}?",
             "summary": tool_input.get("reason", ""),
             "signal_id": tool_input.get("signal_id"),
+            "items": [{"type": "marketplace", "id": provider}],
             "options": options,
         },
     )
@@ -2907,9 +2943,18 @@ async def _list_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
                 "kind": kind,
                 "description": row.description or "",
                 "workstream_id": str(row.workstream_id) if row.workstream_id else None,
+                "group_id": str(row.group_id) if row.group_id else None,
                 "markup": f"#[[{row.name}]]({'action_tag' if is_action else 'tag'}:{row.id})",
             }
         )
+    from app.services.signal_tags import registry_with_counts
+
+    catalog = {row["id"]: row for row in await registry_with_counts(ctx.session, ctx.tenant_id)}
+    for tag in tags:
+        extra = catalog.get(tag["id"]) or {}
+        tag["group_name"] = extra.get("group_name")
+        tag["folders"] = extra.get("folders") or []
+        tag["path"] = " | ".join(folder.get("path") or folder.get("name") or "" for folder in tag["folders"])
     return {"tags": tags, "count": len(tags)}
 
 
@@ -2954,9 +2999,10 @@ register_tool(
     ToolSpec(
         name="list_tags",
         description=(
-            "List workspace tags: free tags and action tags (ticket flows). "
+            "List workspace tags: free tags and action tags (ticket flows), "
+            "grouped by tag group, with the folder paths each tag defines. "
             "Use #name in chat for inline chips, or attach_items with type tag. "
-            "Returns id, name, kind (tag|action_tag), description, and markup."
+            "Returns id, name, kind (tag|action_tag), group, folders, and markup."
         ),
         category="messaging",
         input_schema={
@@ -3048,7 +3094,7 @@ async def _create_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         ctx.tenant_id,
         name,
         description=str(tool_input.get("description") or ""),
-        pinned=bool(tool_input.get("pinned")),
+        show_in_nav=bool(tool_input.get("show_in_nav")),
         user_id=ctx.user_id,
         commit=False,
     )
@@ -3070,11 +3116,11 @@ async def _update_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         fields["name"] = str(tool_input["new_name"])
     if "description" in tool_input and tool_input["description"] is not None:
         fields["description"] = str(tool_input["description"])
-    for key in ("pinned", "show_in_nav", "ai_auto_tag"):
+    for key in ("show_in_nav", "ai_auto_tag"):
         if key in tool_input and tool_input[key] is not None:
             fields[key] = bool(tool_input[key])
     if not fields:
-        return {"error": "nothing_to_change", "message": "Pass new_name, description, pinned, show_in_nav or ai_auto_tag."}
+        return {"error": "nothing_to_change", "message": "Pass new_name, description, show_in_nav or ai_auto_tag."}
     try:
         row = await update_tag(ctx.session, ctx.tenant_id, row.id, commit=False, **fields)
     except ValueError as exc:
@@ -3096,7 +3142,7 @@ register_tool(
             "properties": {
                 "name": {"type": "string", "description": "Hashtag name without #"},
                 "description": {"type": "string", "description": "When to apply it"},
-                "pinned": {"type": "boolean", "description": "Show in the hashtag rail"},
+                "show_in_nav": {"type": "boolean", "description": "Show in the Folders and tags rail for everyone"},
             },
             "required": ["name"],
         },
@@ -3112,7 +3158,7 @@ register_tool(
     ToolSpec(
         name="update_tag",
         description=(
-            "Rename or describe a hashtag, or change where it shows (pinned, show_in_nav, "
+            "Rename or describe a hashtag, or change where it shows (show_in_nav, "
             "ai_auto_tag). Pass tag_id or name to pick the tag and new_name to rename. "
             "Renaming onto an existing free tag merges the two."
         ),
@@ -3124,7 +3170,6 @@ register_tool(
                 "name": {"type": "string", "description": "Current name without #"},
                 "new_name": {"type": "string", "description": "New name without #"},
                 "description": {"type": "string"},
-                "pinned": {"type": "boolean"},
                 "show_in_nav": {"type": "boolean"},
                 "ai_auto_tag": {"type": "boolean", "description": "Agents may apply it on their own"},
             },
@@ -3709,13 +3754,14 @@ async def _set_platform_watch(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 
 
 async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.proposal_items import resolve_items, stash_attach_items
     from app.services.tenant_introspection import list_threads_summary
 
     older_raw = tool_input.get("older_than_days")
     older_than_days = int(older_raw) if older_raw is not None else None
     scheduled_from = _parse_when(tool_input.get("scheduled_from"))
     scheduled_to = _parse_when(tool_input.get("scheduled_to"))
-    return await list_threads_summary(
+    payload = await list_threads_summary(
         ctx.session,
         ctx.tenant_id,
         status=tool_input.get("status", "open"),
@@ -3725,6 +3771,12 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         scheduled_from=scheduled_from,
         scheduled_to=scheduled_to,
     )
+    refs = [{"type": "conversation", "id": row["id"]} for row in payload.get("threads") or [] if row.get("id")]
+    showcase = await resolve_items(ctx.session, ctx.tenant_id, refs)
+    if showcase:
+        stash_attach_items(ctx.signal_id, showcase)
+    payload["items"] = showcase
+    return payload
 
 
 async def _close_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -3867,6 +3919,9 @@ register_tool(
         name="list_threads",
         description=(
             "Summarize Signal threads (subject, channel, status, last activity, path). "
+            "This is the only thread list — do not invent list_open_internal_threads. "
+            "Open internal threads: channel=internal (status defaults to open). "
+            "Results are showcased as conversation cards; do not repeat them as a numbered list. "
             "Defaults to open/pending threads. Does not include Bin items — use list_trash "
             "for deleted conversations (type conversation, alias signal). "
             "In prose chip a thread with [Subject](/communication/inbox/open/t/{id}) from "
@@ -4290,15 +4345,20 @@ async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
         ctx,
         resource_type="project",
         change_kind="create",
-        summary=f"Create project {name}",
+        summary=f"Create folder {name}",
         after={
             "name": name,
             "slug": slug,
             "description": str(tool_input.get("description") or ""),
             "autonomous_scope": str(tool_input.get("autonomous_scope") or "project"),
             "parent_id": str(tool_input["parent_id"]).strip() if tool_input.get("parent_id") else None,
+            "tag": str(tool_input["tag"]).strip() if tool_input.get("tag") else None,
+            "tag_id": str(tool_input["tag_id"]).strip() if tool_input.get("tag_id") else None,
+            "child_group_id": str(tool_input["child_group_id"]).strip()
+            if tool_input.get("child_group_id")
+            else None,
         },
-        tool_name="create_project",
+        tool_name="create_folder",
     )
 
 
@@ -4330,9 +4390,9 @@ async def _set_posture(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
 
 register_tool(
     ToolSpec(
-        name="create_project",
+        name="create_folder",
         description=(
-            "Propose creating a Project (container for signals and conversations). "
+            "Propose creating a Folder (a tag with a place: conversations, boards and docs). "
             "Goes through Govern like other structural changes."
         ),
         category="workspace",
@@ -4343,7 +4403,13 @@ register_tool(
                 "slug": {"type": "string"},
                 "description": {"type": "string"},
                 "autonomous_scope": {"type": "string"},
-                "parent_id": {"type": "string", "description": "Folder this project sits inside"},
+                "parent_id": {"type": "string", "description": "Folder this folder sits inside"},
+                "tag": {"type": "string", "description": "Tag name that defines this folder (created when new)"},
+                "tag_id": {"type": "string", "description": "Existing tag id that defines this folder"},
+                "child_group_id": {
+                    "type": "string",
+                    "description": "Tag group: the folder shows one virtual child per tag in it",
+                },
             },
             "required": ["name"],
         },
@@ -4352,6 +4418,91 @@ register_tool(
         gated=True,
     )
 )
+
+
+async def _create_tag_group(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.signal_tags import create_group, serialize_group
+
+    name = str(tool_input.get("name") or "").strip()
+    if not name:
+        return {"error": "name is required"}
+    try:
+        row = await create_group(
+            ctx.session,
+            ctx.tenant_id,
+            name,
+            description=str(tool_input.get("description") or ""),
+            exclusive=bool(tool_input.get("exclusive")),
+            commit=False,
+        )
+    except ValueError as exc:
+        return {"error": "invalid", "message": str(exc)}
+    return {"ok": True, "group": serialize_group(row)}
+
+
+async def _set_contact_tags_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.signal_tags import set_contact_tags
+
+    raw_id = tool_input.get("contact_id")
+    try:
+        contact_id = UUID(str(raw_id))
+    except (TypeError, ValueError):
+        return {"error": "invalid_id", "message": "contact_id must be a contact UUID"}
+    names = tool_input.get("tags")
+    if not isinstance(names, list):
+        return {"error": "tags_required", "message": "Pass tags as a list of names."}
+    tags = await set_contact_tags(
+        ctx.session, ctx.tenant_id, contact_id, [str(name) for name in names], user_id=ctx.user_id
+    )
+    return {"ok": True, "contact_id": str(contact_id), "tags": tags}
+
+
+register_tool(
+    ToolSpec(
+        name="create_tag_group",
+        description=(
+            "Create a tag group (a dimension such as Client or Document type). "
+            "An exclusive group allows one tag of the group per conversation. "
+            "A folder with this group shows one virtual child per tag."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "exclusive": {"type": "boolean"},
+            },
+            "required": ["name"],
+        },
+        handler=_create_tag_group,
+        mutating=True,
+        gated=True,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="set_contact_tags",
+        description=(
+            "Replace the tags on a contact. Those tags apply to every conversation "
+            "of the contact (inherited, not copied). Conversations are refiled."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "contact_id": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["contact_id", "tags"],
+        },
+        handler=_set_contact_tags_tool,
+        mutating=True,
+        gated=True,
+    )
+)
+
 
 register_tool(
     ToolSpec(

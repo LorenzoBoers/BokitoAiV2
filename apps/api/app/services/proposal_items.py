@@ -9,6 +9,7 @@ or renamed objects still render as proposed. Unresolved refs come back with
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from uuid import UUID
 
@@ -27,6 +28,7 @@ ITEM_TYPES = (
     "agent",
     "tag",
     "flow",
+    "folder",
     "project",
     "canvas",
     "contact",
@@ -47,6 +49,7 @@ _TYPE_ALIASES = {
     "attachment": "file",
     "member": "user",
     "workstream": "flow",
+    "project": "folder",
     "hashtag": "tag",
     "connection": "integration",
     "provider": "marketplace",
@@ -106,6 +109,91 @@ def _uuid(value: Any) -> UUID | None:
 def _clip(value: Any, limit: int = 140) -> str:
     text = " ".join(str(value or "").split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+_PREVIEW_KEEP = {
+    "Stack",
+    "Grid",
+    "Row",
+    "Card",
+    "Heading",
+    "Text",
+    "Stat",
+    "Badge",
+    "Callout",
+    "Divider",
+    "List",
+    "Table",
+    "BarChart",
+    "LineChart",
+}
+_PREVIEW_NODE_CAP = 16
+
+
+def canvas_chat_preview(tree: Any) -> dict[str, Any] | None:
+    """Small snapshot of a canvas document for the chat preview card."""
+    if isinstance(tree, str):
+        try:
+            tree = json.loads(tree or "{}")
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(tree, dict):
+        return None
+    remaining = _PREVIEW_NODE_CAP
+
+    def clip_text(value: Any, limit: int = 80) -> str:
+        return _clip(value, limit)
+
+    def walk(node: Any) -> dict[str, Any] | None:
+        nonlocal remaining
+        if remaining <= 0 or not isinstance(node, dict):
+            return None
+        kind = str(node.get("type") or "")
+        if kind not in _PREVIEW_KEEP:
+            return None
+        remaining -= 1
+        props_in = node.get("props") if isinstance(node.get("props"), dict) else {}
+        props: dict[str, Any] = {}
+        for key, value in props_in.items():
+            if isinstance(value, str):
+                props[key] = clip_text(value)
+            elif isinstance(value, (int, float, bool)) or value is None:
+                props[key] = value
+            elif key == "series" and isinstance(value, list):
+                series = []
+                for item in value[:2]:
+                    if not isinstance(item, dict):
+                        continue
+                    points = item.get("points") if isinstance(item.get("points"), list) else item.get("values")
+                    series.append(
+                        {
+                            "name": clip_text(item.get("name") or item.get("label") or ""),
+                            "points": list(points)[:4] if isinstance(points, list) else [],
+                        }
+                    )
+                props[key] = series
+            elif key == "rows" and isinstance(value, list):
+                props[key] = value[:3]
+            elif key == "columns" and isinstance(value, list):
+                props[key] = [clip_text(cell, 40) for cell in value[:6]]
+            elif key == "items" and isinstance(value, list):
+                props[key] = [clip_text(cell, 60) for cell in value[:4]]
+        children: list[Any] = []
+        for child in node.get("children") or []:
+            if isinstance(child, str) and child.strip():
+                children.append(clip_text(child))
+                continue
+            walked = walk(child)
+            if walked:
+                children.append(walked)
+        if kind == "Stack" and not children and not props:
+            return None
+        return {"type": kind, "props": props, "children": children}
+
+    preview = walk(tree)
+    if not preview or (preview.get("type") == "Stack" and not preview.get("children")):
+        return None
+    return preview
 
 
 def _missing(item_type: str, ref: dict[str, Any]) -> dict[str, Any]:
@@ -268,7 +356,7 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
             "subtitle": _clip(row.description, 100),
         }
 
-    if item_type == "project":
+    if item_type in ("project", "folder"):
         from app.models.project import Project
 
         row = (
@@ -277,7 +365,7 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         if not row:
             return _missing(item_type, ref)
         return {
-            "type": item_type,
+            "type": "folder",
             "id": str(row.id),
             "title": _clip(row.name),
             "subtitle": _clip(row.description, 100),
@@ -306,16 +394,17 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
                 )
             ).scalar_one_or_none()
             subtitle = project.name if project else "Project"
-            path = f"/projects/{row.owner_id}?tab=canvas"
+            path = f"/projects/{row.owner_id}?tab=canvas&canvas={row.id}"
             project_id = str(row.project_id or row.owner_id)
         else:
             tenant = (
                 await session.execute(select(Tenant).where(Tenant.id == tenant_id))
             ).scalar_one_or_none()
             subtitle = tenant.name if tenant else "Workspace"
-            path = "/cockpit/canvas"
+            path = f"/cockpit/canvas?canvas={row.id}"
             project_id = None
-        return {
+        preview = canvas_chat_preview(row.tree_json)
+        payload = {
             "type": item_type,
             "id": str(row.id),
             "title": _clip(row.title),
@@ -325,6 +414,9 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
             "path": path,
             "project_id": project_id,
         }
+        if preview:
+            payload["preview"] = preview
+        return payload
 
     if item_type == "contact":
         from app.models.channel import Contact
@@ -601,6 +693,21 @@ def policy_item_refs(
         refs.extend({"type": "tag", "name": str(tag)} for tag in tool_input.get("tags") or [] if str(tag).strip())
     elif tool_name == "close_threads":
         refs.extend({"type": "conversation", "id": sid} for sid in (tool_input.get("signal_ids") or [])[:MAX_ITEMS])
+    elif tool_name in ("connect_integration", "suggest_integration", "propose_integration"):
+        provider = str(tool_input.get("provider") or tool_input.get("display_name") or "").strip()
+        if provider:
+            refs.append({"type": "marketplace", "id": provider})
+    elif tool_name in ("recommend_module", "enable_module"):
+        slug = str(tool_input.get("slug") or tool_input.get("module") or "").strip()
+        if slug:
+            refs.append({"type": "module", "id": slug})
+    elif tool_name == "setup_integration":
+        slug = str(tool_input.get("slug") or tool_input.get("module") or "").strip()
+        provider = str(tool_input.get("provider") or "").strip()
+        if slug:
+            refs.append({"type": "module", "id": slug})
+        if provider:
+            refs.append({"type": "marketplace", "id": provider})
     for key, item_type in _ID_KEYS.items():
         if tool_input.get(key):
             refs.append({"type": item_type, "id": tool_input[key]})

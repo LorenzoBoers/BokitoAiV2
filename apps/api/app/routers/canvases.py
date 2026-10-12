@@ -22,6 +22,7 @@ class CanvasCreateBody(BaseModel):
     managing_agent_id: UUID | None = None
     refresh_minutes: int | None = None
     refresh_cadence: str | None = None
+    refresh_cron: str | None = None
     notes: str | None = None
 
 
@@ -31,6 +32,7 @@ class CanvasMetaBody(BaseModel):
     managing_agent_id: UUID | None = None
     refresh_minutes: int | None = None
     refresh_cadence: str | None = None
+    refresh_cron: str | None = None
     notes: str | None = None
 
 
@@ -65,6 +67,7 @@ async def create_canvas(
         managing_agent_id=body.managing_agent_id,
         refresh_minutes=body.refresh_minutes,
         refresh_cadence=body.refresh_cadence,
+        refresh_cron=body.refresh_cron,
         notes=body.notes,
         updated_by_type="user",
         updated_by_id=str(auth.user.id),
@@ -97,6 +100,7 @@ async def patch_canvas(
         managing_agent_id=body.managing_agent_id,
         refresh_minutes=body.refresh_minutes,
         refresh_cadence=body.refresh_cadence,
+        refresh_cron=body.refresh_cron,
         notes=body.notes,
     )
 

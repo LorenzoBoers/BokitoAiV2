@@ -17,15 +17,32 @@ import { actionTitle, useDecisionResolve } from './useDecisionResolve'
 
 type RowState = 'awaiting_human' | 'approved' | 'rejected' | 'deferred' | 'failed' | 'missing'
 
+/** Which arg makes an action row name the object, not only the verb. */
+const NAMED_ARG: Record<string, string> = {
+  connect_integration: 'provider',
+  suggest_integration: 'provider',
+  propose_integration: 'provider',
+  recommend_module: 'slug',
+  enable_module: 'slug',
+  setup_integration: 'provider',
+}
+
 /** Operator label for one action row: `actions.{tool}` in the UI language, else the server title. */
 export function useActionLabel() {
   const { t, i18n } = useTranslation('communication')
   return (entry: ProposalBundleEntry): string => {
     const action = entry.action
     if (action) {
+      const namedField = NAMED_ARG[action.key]
+      const namedValue = namedField ? action.args[namedField] || action.args.module || action.args.display_name : ''
       const key = action.args.new_name && action.key === 'update_tag' ? 'actions.update_tag_rename' : `actions.${action.key}`
-      if (i18n.exists(`communication:${key}`)) return t(key, action.args)
-      if (action.fallback) return action.fallback
+      if (namedField && !namedValue) {
+        if (action.fallback) return action.fallback
+      } else if (i18n.exists(`communication:${key}`)) {
+        return t(key, { ...action.args, ...(namedField && namedValue ? { [namedField]: namedValue } : {}) })
+      } else if (action.fallback) {
+        return action.fallback
+      }
     }
     return actionTitle(entry.title)
   }

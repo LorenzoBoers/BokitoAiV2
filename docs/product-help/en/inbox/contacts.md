@@ -19,7 +19,7 @@ Everyone who writes in with a real name or address lands here. Open Contacts to 
 1. Open a thread in [Communication](/docs/inbox/communication).
 2. For a known person, click their name in the side panel or the thread header to open their contact.
 3. Read their history, last-seen and other conversations, then jump back to the open work. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
-4. Above the conversations, **In folders** lists every project folder this contact's conversations are filed in, with a count per folder. Click a folder to open that project. Companies show the same row for all their people together.
+4. On the contact, **Tags** label the person. Those tags apply to every conversation of this contact (dashed **via contact** chips on the thread). Company tags show as dashed **via company** chips. Changing them refiles every conversation. Above the conversations, **In folders** lists every folder those conversations land in. Click a folder to open it. Companies show the same row for all their people together.
 
 Unknown website visitors stay in the conversation as **Website visitor**. They have no **Profile** and are not listed under Contacts until they fill the widget [pre-chat form](/docs/inbox/widget) or you [link the conversation](#link-a-conversation-to-a-contact).
 

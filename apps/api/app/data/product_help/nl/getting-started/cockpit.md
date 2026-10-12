@@ -26,11 +26,11 @@ In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via d
 
 ## Lees workspace-canvasses
 
-Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview staan de tabs **Overzicht**, **Verbruik**, daarna **Canvas** (layout-template-icoon). De lead-agent schrijft ze; jij voegt toe, verwijdert en zet verversen.
+Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview staan de tabs **Overzicht**, **Verbruik**, daarna **Canvas** (layout-template-icoon). Een agent maakt, vult en ververst ze; jij kunt ze ook toevoegen, verwijderen en verversen. De lead-agent is eigenaar van een workspace-canvas, tenzij een andere agent genoemd is.
 
-1. Open **Overview**, daarna het tabblad **Canvas** (derde tab). Canvasnamen staan van links naar rechts; **Canvas toevoegen** is de tab ná de laatste canvas. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**). Dagelijks is de standaard.
-2. Sla op. De lead-agent begint vanuit je omschrijving. Verversen is een [Agenda](/docs/ai/agenda)-wake op die agent — geen aparte scheduler.
-3. Bewerk inhoud alleen via agents. Kies **Vraag agent om bij te werken** voor een eenmalige herschrijving, of wijzig Verversen zodat Agenda de agent blijft wekken. Projectcanvasses staan op het [Canvas](/docs/ai/projects)-tabblad van het project.
+1. Open **Overview**, daarna het tabblad **Canvas** (derde tab). Canvasnamen staan van links naar rechts; de **+** ná de laatste naam voegt een canvas toe. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**, **Aangepast**). Dagelijks is de standaard. Bij **Aangepast** vul je een cron van vijf velden in.
+2. Sla op. De eigenaar begint vanuit de omschrijving. Verversen is een [Agenda](/docs/ai/agenda)-wake van die agent.
+3. Vraag een agent om cijfers, een status of een dashboard; hij bouwt de snapshot in die beurt. Het antwoord linkt het canvas en toont een kleine preview; de preview opent dat canvas. Een latere aanpassing werkt datzelfde canvas bij. De geplande verversing schrijft de snapshot en opent geen tweede gesprek. Kies **Vraag agent om bij te werken** voor een eenmalige herschrijving, of wijzig Verversen zodat Agenda de eigenaar blijft wekken. Projectcanvasses staan op het [Canvas](/docs/ai/folders)-tabblad van het project.
 
 ## Open werk dat op jou wacht
 

@@ -969,6 +969,10 @@ class ContactMergeBody(BaseModel):
     source_contact_ids: list[UUID]
 
 
+class OwnerTagsBody(BaseModel):
+    tags: list[str] = []
+
+
 class ContactSplitBody(BaseModel):
     signal_ids: list[UUID] = []
     channel: str
@@ -1230,7 +1234,14 @@ async def get_contact(
             Signal.contact_id.in_([contact.id, *[row.id for row in identities]]),
         )
     )
+    from app.services import signal_tags as tags_svc
+
     data = _serialize_contact(contact, thread_count=count_result.scalar_one())
+    data["tags"] = await tags_svc.list_contact_tags(session, auth.tenant.id, contact.id)
+    if contact.company_id:
+        data["company_tags"] = await tags_svc.list_company_tags(session, auth.tenant.id, contact.company_id)
+    else:
+        data["company_tags"] = []
     data["identities"] = [
         {
             "id": str(row.id),
@@ -1242,6 +1253,41 @@ async def get_contact(
         for row in identities
     ]
     return data
+
+
+@router.get("/contacts/{contact_id}/tags")
+async def get_contact_tags(
+    contact_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import signal_tags as tags_svc
+
+    contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    tags = await tags_svc.list_contact_tags(session, auth.tenant.id, contact.id)
+    company_tags = (
+        await tags_svc.list_company_tags(session, auth.tenant.id, contact.company_id)
+        if contact.company_id
+        else []
+    )
+    return {"tags": tags, "company_tags": company_tags}
+
+
+@router.put("/contacts/{contact_id}/tags")
+async def put_contact_tags(
+    contact_id: UUID,
+    body: OwnerTagsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import signal_tags as tags_svc
+
+    contact = await _contact_or_404(session, auth.tenant.id, contact_id)
+    tags = await tags_svc.set_contact_tags(
+        session, auth.tenant.id, contact.id, body.tags, user_id=auth.user.id
+    )
+    await session.commit()
+    return {"tags": tags}
 
 
 async def _identity_rows(session: AsyncSession, tenant_id: UUID, person_id: UUID) -> list[Contact]:
@@ -1614,12 +1660,44 @@ async def get_company(
         .limit(100)
     )
     thread_rows = list(threads.scalars().all())
+    from app.services import signal_tags as tags_svc
+
     return {
         **serialize_company(company, contact_count=int(people_count or 0)),
+        "tags": await tags_svc.list_company_tags(session, auth.tenant.id, company.id),
         "contacts": [_serialize_contact(c) for c in contact_rows],
         "threads": [serialize_thread(s) for s in thread_rows],
         "threads_truncated": len(thread_rows) == 100,
     }
+
+
+@router.get("/companies/{company_id}/tags")
+async def get_company_tags(
+    company_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import signal_tags as tags_svc
+
+    company = await _company_or_404(session, auth.tenant.id, company_id)
+    return {"tags": await tags_svc.list_company_tags(session, auth.tenant.id, company.id)}
+
+
+@router.put("/companies/{company_id}/tags")
+async def put_company_tags(
+    company_id: UUID,
+    body: OwnerTagsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services import signal_tags as tags_svc
+
+    company = await _company_or_404(session, auth.tenant.id, company_id)
+    tags = await tags_svc.set_company_tags(
+        session, auth.tenant.id, company.id, body.tags, user_id=auth.user.id
+    )
+    await session.commit()
+    return {"tags": tags}
 
 
 @router.patch("/companies/{company_id}")

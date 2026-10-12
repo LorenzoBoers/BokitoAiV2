@@ -94,7 +94,9 @@ describe('threadMatchesFilters', () => {
     expect(threadMatchesFilters(thread({ ticket: undefined }), { categoryId: 'cat-1' }, me)).toBeNull()
     expect(threadMatchesFilters(row, { tag: 'repair' }, me)).toBe(true)
     expect(threadMatchesFilters(thread({ projectId: 'p1' }), { projectId: 'p1' }, me)).toBe(true)
-    expect(threadMatchesFilters(thread({ projectId: null }), { projectId: 'p1' }, me)).toBe(false)
+    // Folder rows list a subtree; a row outside the exact folder is uncertain.
+    expect(threadMatchesFilters(thread({ projectId: null }), { projectId: 'p1' }, me)).toBeNull()
+    expect(threadMatchesFilters(thread({ projectId: 'p1' }), { projectId: 'p1:tag-1' }, me)).toBeNull()
   })
 
   it('applies view predicates that mirror the server', () => {

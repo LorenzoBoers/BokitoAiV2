@@ -43,6 +43,8 @@ def is_customer_channel(channel: str | None) -> bool:
 
 _FENCE_RE = re.compile(r"^\s*```")
 _VISIBLE_RE = re.compile(r"[^\W_]")
+_LIST_LINE_RE = re.compile(r"^(?:[-*+]|\d+[.)])\s+\S")
+_HEARTBEAT_PREFIX_RE = re.compile(r"^\s*HEARTBEAT_OK\b\s*[—–\-:]?\s*", re.IGNORECASE)
 
 
 def _blocks(text: str) -> list[str]:
@@ -70,15 +72,48 @@ def _blocks(text: str) -> list[str]:
     return [b for b in blocks if _VISIBLE_RE.search(b)]
 
 
+def _strip_heartbeat(block: str) -> str:
+    """A wake token is not a chat line. Drop a leading HEARTBEAT_OK."""
+    return _HEARTBEAT_PREFIX_RE.sub("", block).strip()
+
+
+def _is_list_block(block: str) -> bool:
+    """A markdown list, including one we already joined under a short lead-in."""
+    lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+    while lines and not _LIST_LINE_RE.match(lines[0]) and (
+        lines[0].startswith("#") or (lines[0].endswith(":") and len(lines[0]) <= 80)
+    ):
+        lines = lines[1:]
+    return bool(lines) and all(_LIST_LINE_RE.match(ln) for ln in lines)
+
+
+def _is_list_lead(block: str) -> bool:
+    """A one-line label that only exists to introduce the list after it."""
+    text = block.strip()
+    if not text or "\n" in text or text.startswith("```"):
+        return False
+    if text.startswith("#") and len(text) <= 80:
+        return True
+    return text.endswith(":") and len(text) <= 80
+
+
 def split_chat_messages(text: str, max_messages: int = MAX_CHAT_MESSAGES) -> list[str]:
     """Blank line = new message (as on WhatsApp). Lists and code stay together.
 
-    Fragments shorter than ``MIN_MESSAGE_CHARS`` join the previous message;
-    anything past ``max_messages`` merges into the last one.
+    Fragments shorter than ``MIN_MESSAGE_CHARS`` join the previous message.
+    Numbered or bulleted blocks join each other, and a short lead-in
+    (``Besluitpunten:``) joins the list that follows, so an enumeration is
+    one bubble. Anything past ``max_messages`` merges into the last one.
     """
     merged: list[str] = []
-    for block in _blocks(text or ""):
+    for raw in _blocks(text or ""):
+        block = _strip_heartbeat(raw)
+        if not block or not _VISIBLE_RE.search(block):
+            continue
         if merged and len(block) < MIN_MESSAGE_CHARS:
+            merged[-1] = f"{merged[-1]}\n{block}"
+            continue
+        if merged and _is_list_block(block) and (_is_list_block(merged[-1]) or _is_list_lead(merged[-1])):
             merged[-1] = f"{merged[-1]}\n{block}"
             continue
         merged.append(block)

@@ -87,7 +87,11 @@ export function threadMatchesFilters(
   if (filters.folder === 'assistant') return null
 
   if (filters.channel && channel !== filters.channel) return false
-  if (filters.projectId && (thread.projectId ?? '') !== filters.projectId) return false
+  if (filters.projectId) {
+    // Folder rows list a subtree (and virtual children a tag path): a row that
+    // is not exactly in the folder may still belong; let the list decide.
+    if ((thread.projectId ?? '') !== filters.projectId) return null
+  }
   if (filters.categoryId || filters.stage) {
     const ticket = thread.ticket
     if (ticket === undefined) return null

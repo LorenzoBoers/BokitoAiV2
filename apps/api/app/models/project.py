@@ -7,12 +7,24 @@ from sqlmodel import Field, SQLModel
 
 
 class Project(SQLModel, table=True):
+    """A folder (operators see "Folder" / "Map"; the table keeps its historical name).
+
+    A folder is a tag with a place: ``tag_id`` is the tag it contributes to the
+    path of every conversation inside it. A folder with ``child_group_id`` is a
+    *group folder*: it shows one virtual child per tag in that group and its
+    static children apply under each of them. A conversation's folder is
+    derived from its tags (`services.folders`); ``Signal.project_id`` caches
+    the deepest materialised folder on that path.
+    """
+
     __tablename__ = "projects"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     name: str
     slug: str = Field(index=True)
+    tag_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signal_tags.id", index=True)
+    child_group_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tag_groups.id", index=True)
     description: str = ""
     autonomous_scope: str = ""
     active_domains_json: str = Field(default="[]")

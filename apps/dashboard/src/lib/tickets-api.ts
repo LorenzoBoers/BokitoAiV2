@@ -1,10 +1,11 @@
 import type { TFunction } from 'i18next'
-import { appRoutes, categoriesRoutes } from '../api/routes'
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
+import { appRoutes, categoriesRoutes, foldersRoutes } from '../api/routes'
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, foldersGet } from './api'
+import type { TagFolderRef } from './signals-api'
 
 /**
- * `proposed` sits before the pipeline: an unsure read (or a filing without a
- * project choice) the operator still has to accept on the thread. Accepted
+ * `proposed` sits before the pipeline: an unsure read the operator still has
+ * to accept on the thread. Accepted
  * tickets move through the playbook's stages; the status is the kind of the
  * current stage.
  *
@@ -142,8 +143,9 @@ export type CategoryRow = {
   is_category: true
   workstream_id: string
   workstream_name?: string
-  pinned: boolean
   show_in_nav: boolean
+  group_id?: string | null
+  group_name?: string | null
   create_mode: CategoryCreateMode
   ask_threshold: number
   auto_threshold: number
@@ -154,8 +156,8 @@ export type CategoryRow = {
   module_slug: string
   template_slug: string
   sort_order: number
-  /** Projects the flow is on. Non-empty: filing needs a project or No project. */
-  project_choices: ProjectChoice[]
+  /** Folders that carry this action tag (every ticket of the tag lands there). */
+  folders: TagFolderRef[]
   /** Intake fields from the first open stage. */
   intake_fields?: TicketStageField[]
   /** Live tickets per status. */
@@ -167,7 +169,11 @@ export type CategoryRow = {
   filed_prev_7d: number
 }
 
-export type ProjectChoice = { id: string; name: string; depth?: number }
+/** One step on a folder path: a folder row, or a virtual group child (no `project_id`). */
+export type FolderPathSegment = { name: string; tag_id: string | null; project_id: string | null }
+
+/** Where the conversation sits, derived from its tags. */
+export type FolderPath = { project_id: string | null; label: string; segments: FolderPathSegment[] }
 
 /** The conversation's ticket, as thread detail and the ticket endpoints return it. */
 export type Ticket = {
@@ -179,10 +185,10 @@ export type Ticket = {
   stage: TicketStage | null
   stages: TicketStage[]
   certainty: number | null
-  /** The project chosen when filing; null is No project. */
+  /** The folder the conversation's tags place it in; null is no folder. */
   project_id: string | null
-  /** Projects the playbook is attached to. Empty: the ticket has no project. */
-  project_choices: ProjectChoice[]
+  /** The full path (rows and virtual group children); null when in no folder. */
+  folder_path: FolderPath | null
   workstream_id: string | null
   workstream_name: string | null
   workstream_run_id: string | null
@@ -256,8 +262,8 @@ export async function getTicket(signalId: string): Promise<Ticket | null> {
 }
 
 /**
- * File a category on the conversation. When the playbook has projects,
- * `projectId` must be passed: a project id, or `null` for No project.
+ * File a category on the conversation. The folder follows from the tags;
+ * pass `projectId` to file in a folder first (adds that folder's tags).
  */
 export async function fileTicket(
   signalId: string,
@@ -272,7 +278,7 @@ export async function fileTicket(
   return res.ticket ?? null
 }
 
-/** Accept (`status: open`), dismiss, move or re-project. Null when the ticket was removed. */
+/** Accept (`status: open`), dismiss, move or refile (`project_id`). Null when the ticket was removed. */
 export async function patchTicket(
   signalId: string,
   body: {
@@ -328,7 +334,7 @@ export type ProjectFlowBoard = {
 }
 
 export async function getProjectBoard(projectId: string): Promise<ProjectFlowBoard[]> {
-  const res = await apiGet<{ playbooks: ProjectFlowBoard[] }>(categoriesRoutes.projectBoard(projectId))
+  const res = await foldersGet<{ playbooks: ProjectFlowBoard[] }>(foldersRoutes.board(projectId))
   return res.playbooks ?? []
 }
 

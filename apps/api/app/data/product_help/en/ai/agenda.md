@@ -4,7 +4,7 @@ intro: Everything that happens in the workspace, by people and agents, on one ca
 description: See what happened, what is due and what is planned, follow up on tickets, and plan tasks for people and agents.
 keywords: agenda, calendar, schedule, task, check-up, wake, google calendar, outlook calendar
 sort: 50
-related: agents,projects,workstreams,communication,agent-runs,integrations
+related: agents,folders,workstreams,communication,agent-runs,integrations
 ---
 
 # How Agenda works
@@ -18,7 +18,7 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 
 1. Open **Agenda**. The help icon next to the title in the top bar opens this guide. **Week** is the default; switch to **Day**, **Month** or **List** on the same row as **New**, or press D, W, M or L.
 2. Use **Today** and the arrows (or the arrow keys) to move through time. In **List**, the current day starts at the top; scroll up for earlier days, pick a date on the mini calendar on the left, or use **Back to top** after you scroll down. **Who** and **Show** stay on screen while the list scrolls.
-3. On the left, choose **Who** (**Everyone**, **Only me**, **People**, **Agents**) and a project. Under **Show**, turn on each connected calendar, plus **Tasks** and **Activity**.
+3. On the left, choose **Who** (**Everyone**, **Only me**, **People**, **Agents**) and a folder or tag under **Folders and tags**. That same tree filters Day, Week, Month and List. Under **Show**, turn on each connected calendar, plus **Tasks** and **Activity**. The plus next to **Show** opens Connections filtered to calendars, so you can connect another Google or Outlook account.
 4. Choose an item to open its details on the right, with who is responsible (a person, a team or an agent), and links to the conversation, project or agent.
 
 ## Act on what needs attention
@@ -49,7 +49,7 @@ You plan the same way from a conversation: choose **Plan** in the thread menu. S
 
 ## Show your Google or Outlook calendars
 
-1. If no calendar is connected, the sidebar shows **Connect your calendars** with a link to **Connections**. Open **Connections**, filter by **Agenda**, and choose **Connect Google Calendar** or **Connect Outlook Calendar** under **Calendar accounts**.
+1. Choose the plus next to **Show**. It opens **Connections** filtered to calendars, whether or not an account is already connected. Choose **Connect Google Calendar** or **Connect Outlook Calendar** under **Calendar accounts**.
 2. Finish sign-in. Each account appears as its own checkbox under **Show**, with the account address below it. Only your primary calendar is on at first; choose **Manage** on the account under **Connections** to switch on other calendars, such as a shared team calendar.
 3. When an account shows more than one calendar, each one gets its own color and toggle under the account, so you can hide a single calendar without hiding the rest.
 4. Choose a meeting to see its calendar, account and details. **Edit** and **Delete** appear only when you may manage that account and the calendar accepts changes.
@@ -59,4 +59,4 @@ You see your own calendar accounts and the ones shared with you. See [Connect in
 
 ## What to do next
 
-Finished runs appear under [Agent runs](/docs/inbox/agent-runs). Each [project](/docs/ai/projects) shows its own agenda on the project page.
+Finished runs appear under [Agent runs](/docs/inbox/agent-runs). Each [project](/docs/ai/folders) shows its own agenda on the project page.

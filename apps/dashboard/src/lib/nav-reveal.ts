@@ -36,9 +36,8 @@ export function hasNavReveal(search: string): boolean {
 export function sidebarSectionForLeaf(leaf: HubLeaf): SidebarSection | null {
   switch (leaf.type) {
     case 'project':
-      return 'projects'
     case 'tag':
-      return 'hashtags'
+      return 'folders'
     case 'channel':
       return 'channels'
     case 'agent':

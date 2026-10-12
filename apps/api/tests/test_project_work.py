@@ -13,7 +13,7 @@ from app.services import project_work as svc
 from app.services.workspace import upsert_doc
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
-API = "/api/workforce/projects"
+API = "/api/folders"
 
 
 async def _tenant(session) -> Tenant:
@@ -503,7 +503,7 @@ async def test_agent_scoped_workspace_doc(client: AsyncClient, session_override)
 
 @pytest.mark.asyncio
 async def test_list_projects_auto_showcases(client: AsyncClient, session_override):
-    """list_projects stashes project cards so the reply shows them without attach_items."""
+    """list_folders stashes folder cards so the reply shows them without attach_items."""
     from app.models.signal import Signal
     from app.services.proposal_items import take_attach_items
     from app.tools import execute_tool
@@ -518,14 +518,14 @@ async def test_list_projects_auto_showcases(client: AsyncClient, session_overrid
         session_override,
         tenant.id,
         None,
-        "list_projects",
+        "list_folders",
         {},
         signal_id=chat.id,
     )
     assert "error" not in result, result
-    ids = {p["id"] for p in result["projects"]}
+    ids = {p["id"] for p in result["folders"]}
     assert str(project.id) in ids
-    assert any(i.get("type") == "project" and i.get("id") == str(project.id) for i in result.get("items") or [])
+    assert any(i.get("type") == "folder" and i.get("id") == str(project.id) for i in result.get("items") or [])
 
     pending = take_attach_items(chat.id)
-    assert any(i.get("type") == "project" and i.get("id") == str(project.id) for i in pending)
+    assert any(i.get("type") == "folder" and i.get("id") == str(project.id) for i in pending)

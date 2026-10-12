@@ -25,6 +25,7 @@ export type EntityRef =
     }
   | { type: 'trigger'; id?: string | null; agentId?: string | null }
   | { type: 'calendar' }
+  | { type: 'folder'; id: string }
   | { type: 'project'; id: string }
   | { type: 'canvas'; id: string; projectId?: string | null; path?: string | null }
   | { type: 'work_item'; id?: string | null; projectId?: string | null }
@@ -76,14 +77,15 @@ export function openEntityPath(ref: EntityRef): string | null {
       return ref.agentId ? `/agenda?agent=${enc(ref.agentId)}` : '/agenda'
     case 'calendar':
       return '/agenda'
+    case 'folder':
     case 'project':
-      return `/projects/${enc(ref.id)}`
+      return `/folders/${enc(ref.id)}`
     case 'canvas':
       if (ref.path) return ref.path
-      if (ref.projectId) return `/projects/${enc(ref.projectId)}?tab=canvas`
-      return '/cockpit/canvas'
+      if (ref.projectId) return `/folders/${enc(ref.projectId)}?tab=canvas&canvas=${enc(ref.id)}`
+      return `/cockpit/canvas?canvas=${enc(ref.id)}`
     case 'work_item':
-      return ref.projectId ? `/projects/${enc(ref.projectId)}` : '/agenda'
+      return ref.projectId ? `/folders/${enc(ref.projectId)}` : '/agenda'
     case 'contact':
       return `/contacts/${enc(ref.id)}`
     case 'company':
@@ -175,10 +177,15 @@ export function restoredEntityPath(
     case 'conversation':
     case 'signal':
       return openEntityPath({ type: 'signal', id: resourceId })
+    case 'folder':
     case 'project':
-      return openEntityPath({ type: 'project', id: resourceId })
+      return openEntityPath({ type: 'folder', id: resourceId })
     case 'canvas':
-      return openEntityPath({ type: 'canvas', id: resourceId, projectId: stringField(hint, 'project_id') })
+      return openEntityPath({
+        type: 'canvas',
+        id: resourceId,
+        projectId: stringField(hint, 'folder_id') ?? stringField(hint, 'project_id'),
+      })
     case 'knowledge':
       return openEntityPath({ type: 'knowledge', id: resourceId })
     case 'contact':
@@ -231,8 +238,9 @@ export function activityEntryPath(entry: {
     switch (entry.resourceType) {
       case 'agent':
         return openEntityPath({ type: 'agent', id: resourceId })
+      case 'folder':
       case 'project':
-        return openEntityPath({ type: 'project', id: resourceId })
+        return openEntityPath({ type: 'folder', id: resourceId })
       case 'contact':
         return openEntityPath({ type: 'contact', id: resourceId })
       case 'trigger':

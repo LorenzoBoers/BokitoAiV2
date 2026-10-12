@@ -128,6 +128,16 @@ function normalizeSignalEvent(row: unknown): InboxEvent | null {
   }
 }
 
+/**
+ * A folder key as the rail uses it: a folder id, or `{folderId}:{tagId}` for a
+ * virtual group child. Split into the list's `project_id` and `path` filters.
+ */
+export function splitFolderKey(key: string): { projectId: string; path?: string } {
+  const [projectId, ...rest] = key.split(':')
+  const path = rest.join(':')
+  return path ? { projectId, path } : { projectId }
+}
+
 export async function listSignalThreads(token: string, filters: ThreadFilters = {}): Promise<PagedThreadResult> {
   const params = new URLSearchParams()
   if (filters.view) params.set('view', filters.view)
@@ -135,7 +145,11 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.channel) params.set('channel', filters.channel)
   if (filters.agentId) params.set('agent_id', filters.agentId)
   if (filters.teamId) params.set('team_id', filters.teamId)
-  if (filters.projectId) params.set('project_id', filters.projectId)
+  if (filters.projectId) {
+    const folder = splitFolderKey(filters.projectId)
+    params.set('project_id', folder.projectId)
+    if (folder.path) params.set('path', folder.path)
+  }
   if (filters.tag) params.set('tag', filters.tag)
   if (filters.categoryId) params.set('category_id', filters.categoryId)
   if (filters.stage) params.set('stage', filters.stage)
@@ -858,14 +872,45 @@ export type SignalTag = {
   isCategory: boolean
   workstreamId: string | null
   workstreamName: string | null
-  /** Free tag shown in the Communication rail. */
-  pinned: boolean
-  /** Action tag shown in the Communication rail. */
+  /** Shown as a row in the Communication rail (workspace default). */
   showInNav: boolean
+  /** Tag group (a dimension such as Client or Region); null for loose tags. */
+  groupId: string | null
+  groupName: string | null
+  /** Folders that carry this tag. Non-empty: the tag is a folder. */
+  folders: TagFolderRef[]
   /** When false, triage does not offer or apply this tag. */
   aiAutoTag: boolean
   /** draft/ask force a concept; send follows AI handling. */
   sendMode: 'draft' | 'ask' | 'send'
+}
+
+export type TagFolderRef = { id: string; name: string; path: string }
+
+export type TagGroup = {
+  id: string
+  name: string
+  slug: string
+  description: string
+  /** One tag of this group per conversation; the newest wins. */
+  exclusive: boolean
+  tagCount: number
+}
+
+function normalizeTagFolders(raw: unknown): TagFolderRef[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Record<string, unknown>
+    if (typeof row.id !== 'string') return []
+    return [
+      {
+        id: row.id,
+        name: typeof row.name === 'string' ? row.name : '',
+        path: typeof row.path === 'string' ? row.path : '',
+      },
+    ]
+  })
 }
 
 function normalizeSignalTag(raw: unknown): SignalTag | null {
@@ -880,10 +925,26 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     isCategory: row.is_category === true,
     workstreamId: typeof row.workstream_id === 'string' ? row.workstream_id : null,
     workstreamName: typeof row.workstream_name === 'string' ? row.workstream_name : null,
-    pinned: row.pinned === true,
     showInNav: row.show_in_nav === true,
+    groupId: typeof row.group_id === 'string' ? row.group_id : null,
+    groupName: typeof row.group_name === 'string' ? row.group_name : null,
+    folders: normalizeTagFolders(row.folders),
     aiAutoTag: row.ai_auto_tag !== false,
     sendMode: row.send_mode === 'draft' || row.send_mode === 'ask' ? row.send_mode : 'send',
+  }
+}
+
+function normalizeTagGroup(raw: unknown): TagGroup | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (typeof row.id !== 'string' || typeof row.name !== 'string') return null
+  return {
+    id: row.id,
+    name: row.name,
+    slug: typeof row.slug === 'string' ? row.slug : '',
+    description: typeof row.description === 'string' ? row.description : '',
+    exclusive: row.exclusive === true,
+    tagCount: typeof row.tag_count === 'number' ? row.tag_count : 0,
   }
 }
 
@@ -896,26 +957,32 @@ export async function listSignalTags(token: string): Promise<SignalTag[]> {
 
 export async function createSignalTag(
   token: string,
-  input: { name: string; description?: string; pinned?: boolean },
+  input: { name: string; description?: string; showInNav?: boolean; groupId?: string | null },
 ): Promise<SignalTag | null> {
   const payload = await apiPost<unknown>(
     appRoutes.signals.tags,
-    { name: input.name, description: input.description ?? '', pinned: input.pinned ?? false },
+    {
+      name: input.name,
+      description: input.description ?? '',
+      show_in_nav: input.showInNav ?? false,
+      group_id: input.groupId ?? null,
+    },
     token,
   )
   return normalizeSignalTag(payload)
 }
 
-/** Rename, describe, pin or show a tag. Renaming onto an existing free tag merges the two. */
+/** Rename, describe, show or regroup a tag. Renaming onto an existing tag merges the two. */
 export async function updateSignalTag(
   token: string,
   tagId: string,
   patch: {
     name?: string
     description?: string
-    pinned?: boolean
     show_in_nav?: boolean
     ai_auto_tag?: boolean
+    group_id?: string | null
+    clear_group?: boolean
   },
 ): Promise<SignalTag | null> {
   const payload = await apiPatch<unknown>(appRoutes.signals.tag(tagId), patch, token)
@@ -926,8 +993,40 @@ export async function deleteSignalTag(token: string, tagId: string): Promise<voi
   await apiDelete(appRoutes.signals.tag(tagId), token)
 }
 
+export async function listTagGroups(token: string): Promise<TagGroup[]> {
+  const payload = await apiGet<unknown>(appRoutes.signals.tagGroups, token)
+  return (Array.isArray(payload) ? payload : [])
+    .map(normalizeTagGroup)
+    .filter((group): group is TagGroup => group !== null)
+}
+
+export async function createTagGroup(
+  token: string,
+  input: { name: string; description?: string; exclusive?: boolean },
+): Promise<TagGroup | null> {
+  const payload = await apiPost<unknown>(
+    appRoutes.signals.tagGroups,
+    { name: input.name, description: input.description ?? '', exclusive: input.exclusive ?? false },
+    token,
+  )
+  return normalizeTagGroup(payload)
+}
+
+export async function updateTagGroup(
+  token: string,
+  groupId: string,
+  patch: { name?: string; description?: string; exclusive?: boolean },
+): Promise<TagGroup | null> {
+  const payload = await apiPatch<unknown>(appRoutes.signals.tagGroup(groupId), patch, token)
+  return normalizeTagGroup(payload)
+}
+
+export async function deleteTagGroup(token: string, groupId: string): Promise<void> {
+  await apiDelete(appRoutes.signals.tagGroup(groupId), token)
+}
+
 /** Conversation list filters a rail row or deep link may set. */
-export const LIST_FILTER_KEYS = ['project_id', 'category_id', 'tag', 'stage'] as const
+export const LIST_FILTER_KEYS = ['project_id', 'path', 'category_id', 'tag', 'stage'] as const
 export type ListFilterKey = (typeof LIST_FILTER_KEYS)[number]
 export type ListFilter = Partial<Record<ListFilterKey, string>>
 
@@ -958,7 +1057,16 @@ export type NavRow = {
   count: number
   parentId?: string | null
   children?: NavRow[]
+  /** The tag the row stands for (a tag row, or a folder's tag). */
+  tagId?: string | null
+  /** Group folder: one virtual child per tag in this group. */
+  groupId?: string | null
+  /** A group child without a pinned folder row: open with `project_id` + `path`. */
+  virtual?: boolean
+  /** For virtual rows: the group folder that lists them. */
+  projectId?: string | null
 }
+
 
 /** The folder row with this id anywhere in the tree, with its ancestors first. */
 export function findNavRowPath(rows: NavRow[], id: string): NavRow[] | null {
@@ -1006,6 +1114,10 @@ function normalizeNavRows(raw: unknown): NavRow[] {
         count: typeof row.count === 'number' ? row.count : 0,
         parentId: typeof row.parent_id === 'string' ? row.parent_id : null,
         children: normalizeNavRows(row.children),
+        tagId: typeof row.tag_id === 'string' ? row.tag_id : null,
+        groupId: typeof row.group_id === 'string' ? row.group_id : null,
+        virtual: row.virtual === true,
+        projectId: typeof row.project_id === 'string' ? row.project_id : null,
       },
     ]
   })
@@ -1412,11 +1524,18 @@ export async function bokitoCreateConversation(
   options?: {
     /** Ground the conversation in a customer thread (Ask assistant). */
     contextSignalId?: string
+    /**
+     * First operator message. Persist on create so a lost client-side
+     * auto-send cannot leave an empty "Untitled chat".
+     */
+    message?: string
   },
 ) {
   const body: Record<string, unknown> = { title }
   if (agentId) body.agent_id = agentId
   if (options?.contextSignalId) body.context_signal_id = options.contextSignalId
+  const opener = options?.message?.trim()
+  if (opener) body.message = opener
   return apiPost<{
     id: string
     title: string
@@ -1424,6 +1543,7 @@ export async function bokitoCreateConversation(
     agent_id?: string
     agent_name?: string
     agent_kind?: string
+    has_opener?: boolean
   }>(appRoutes.signals.conversations, body, token)
 }
 
@@ -1517,11 +1637,17 @@ export async function bokitoStreamMessage(
     pageContext?: string
     /** Uploaded files / pasted images for multimodal turns. */
     attachments?: unknown[]
+    /**
+     * After create-with-message: run the agent on the stored opener without
+     * appending a duplicate user bubble.
+     */
+    continuePending?: boolean
   },
 ): Promise<string> {
   const payload: Record<string, unknown> = { content }
   if (options?.pageContext) payload.page_context = options.pageContext
   if (options?.attachments?.length) payload.attachments = options.attachments
+  if (options?.continuePending) payload.continue_pending = true
   const res = await fetch(
     `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
     {

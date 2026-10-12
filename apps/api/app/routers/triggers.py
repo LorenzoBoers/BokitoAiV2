@@ -76,7 +76,11 @@ async def agenda(
     scheduled_only: bool = Query(
         False, description="Only sessions fired by a trigger (planning view)"
     ),
-    project_id: UUID | None = Query(None, description="Only items tied to this project"),
+    project_id: UUID | None = Query(None, description="Only items tied to this folder"),
+    tag: str | None = Query(None, description="Only items whose conversation carries this tag"),
+    path: str | None = Query(
+        None, description="Comma-separated tag ids that further narrow a folder (virtual child)"
+    ),
     connection_ids: str | None = Query(
         None,
         description="Comma list of calendar connection ids (default: all connected)",
@@ -109,6 +113,8 @@ async def agenda(
         sources=wanted,
         scheduled_only=scheduled_only,
         project_id=project_id,
+        tag=tag,
+        path=path,
         connection_ids=cal_ids,
         viewer=CalendarViewer(user_id=auth.user.id, role=auth.role),
     )

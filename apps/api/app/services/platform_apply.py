@@ -614,7 +614,6 @@ async def apply_category_change(
             raise HTTPException(status_code=404, detail="Playbook not found")
     row.workstream_id = workstream_id
     row.show_in_nav = True
-    row.pinned = False
     if after.get("description"):
         row.description = str(after["description"]).strip()[:300]
     apply_category_config(row, after)
@@ -687,13 +686,25 @@ async def apply_project_change(
     autonomous_scope = str(after.get("autonomous_scope") or "project")
     parent_raw = after.get("parent_id")
     parent_id = None
-    if parent_raw:
-        from uuid import UUID as _UUID
+    tag_id = None
+    child_group_id = None
+    from uuid import UUID as _UUID
 
+    if parent_raw:
         try:
             parent_id = _UUID(str(parent_raw))
         except (TypeError, ValueError):
             return {"status": "invalid", "error": "parent_id is not a folder id"}
+    if after.get("tag_id"):
+        try:
+            tag_id = _UUID(str(after["tag_id"]))
+        except (TypeError, ValueError):
+            return {"status": "invalid", "error": "tag_id is not a tag id"}
+    if after.get("child_group_id"):
+        try:
+            child_group_id = _UUID(str(after["child_group_id"]))
+        except (TypeError, ValueError):
+            return {"status": "invalid", "error": "child_group_id is not a group id"}
     try:
         row = await create_project(
             session,
@@ -703,6 +714,9 @@ async def apply_project_change(
             autonomous_scope=autonomous_scope,
             description=description,
             parent_id=parent_id,
+            tag_id=tag_id,
+            tag=str(after["tag"]).strip() if after.get("tag") else None,
+            child_group_id=child_group_id,
         )
     except Exception as exc:  # noqa: BLE001 — surface to Govern
         return {"status": "error", "error": str(exc)}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
@@ -12,7 +11,6 @@ import {
   fileTicket,
   listCategories,
   type CategoryRow,
-  type ProjectChoice,
   type TicketStageField,
 } from '../../lib/tickets-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -29,17 +27,12 @@ import { Hashtag, HashtagMark } from '../ui/HashtagMark'
 import { cn } from '../../lib/utils'
 import { TicketFieldControl } from './TicketFieldControl'
 
-const FolderKanban = ENTITY_ICONS.project
-
-type Phase = 'pick' | 'create' | 'project' | 'intake' | 'replace'
+type Phase = 'pick' | 'create' | 'intake' | 'replace'
 
 type PendingFile = {
   tagId: string
   name: string
-  choices: ProjectChoice[]
   intakeFields: TicketStageField[]
-  projectId?: string | null
-  projectChosen?: boolean
 }
 
 type Props = {
@@ -52,8 +45,9 @@ type Props = {
 
 /**
  * One modal for free hashtags and action-tag filing on a conversation.
- * Soft `#` input, typeahead, project settle, and replace confirm when another
- * action tag is already filed.
+ * Soft `#` input, typeahead, intake fields, and replace confirm when another
+ * action tag is already filed. The folder follows from the tags, so there is
+ * no folder step here.
  */
 export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTicketChanged }: Props) {
   const { t } = useTranslation('communication')
@@ -139,13 +133,8 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
     }
   }
 
-  const beginFile = (
-    tagId: string,
-    name: string,
-    choices: ProjectChoice[],
-    intakeFields: TicketStageField[],
-  ) => {
-    const next: PendingFile = { tagId, name, choices, intakeFields }
+  const beginFile = (tagId: string, name: string, intakeFields: TicketStageField[]) => {
+    const next: PendingFile = { tagId, name, intakeFields }
     if (currentTicket && currentTicket.tagId !== tagId) {
       setReplaceNext(next)
       setPhase('replace')
@@ -155,15 +144,6 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
   }
 
   const continueAfterReplace = (next: PendingFile) => {
-    if (next.choices.length > 0) {
-      setPending(next)
-      setPhase('project')
-      return
-    }
-    continueAfterProject({ ...next, projectId: undefined, projectChosen: true })
-  }
-
-  const continueAfterProject = (next: PendingFile) => {
     if (next.intakeFields.length > 0) {
       setPending(next)
       setFieldValues({})
@@ -176,14 +156,13 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
   const runFile = async (target: PendingFile, values?: Record<string, string>) => {
     setBusy(true)
     try {
-      const projectArg = target.projectChosen ? (target.projectId ?? null) : undefined
       const fields =
         target.intakeFields.length > 0
           ? Object.fromEntries(
               target.intakeFields.map((field) => [field.key, (values ?? fieldValues)[field.key] ?? '']),
             )
           : undefined
-      await fileTicket(String(thread.id), target.tagId, projectArg, fields)
+      await fileTicket(String(thread.id), target.tagId, undefined, fields)
       onTicketChanged?.()
       close()
     } catch (err) {
@@ -196,12 +175,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
   const pickRow = (row: SignalTag) => {
     if (row.isCategory) {
       const category = categoryById.get(row.id)
-      beginFile(
-        row.id,
-        row.name,
-        category?.project_choices ?? [],
-        category?.intake_fields ?? [],
-      )
+      beginFile(row.id, row.name, category?.intake_fields ?? [])
       return
     }
     void addFree(row.name)
@@ -232,19 +206,16 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
           isCategory: true,
           workstreamId: created.workstream_id,
           workstreamName: created.workstream_name ?? created.name,
-          pinned: created.pinned,
           showInNav: created.show_in_nav,
+          groupId: created.group_id ?? null,
+          groupName: created.group_name ?? null,
+          folders: created.folders ?? [],
           aiAutoTag: true,
           sendMode: created.send_mode,
         },
       ])
       setBusy(false)
-      beginFile(
-        created.id,
-        created.name,
-        created.project_choices ?? [],
-        created.intake_fields ?? [],
-      )
+      beginFile(created.id, created.name, created.intake_fields ?? [])
     } catch (err) {
       setBusy(false)
       toast.error(formatApiErrorMessage(err, t('tags.createError')))
@@ -289,51 +260,6 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               >
                 {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
                 {t('tags.replaceConfirm')}
-              </Button>
-            </DialogFooter>
-          </>
-        ) : phase === 'project' && pending ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>{t('tags.chooseProject')}</DialogTitle>
-              <DialogDescription>
-                <Hashtag name={pending.name} category className="text-sm text-text-heading" />
-              </DialogDescription>
-            </DialogHeader>
-            <div className="max-h-64 space-y-1 overflow-y-auto">
-              {pending.choices.map((choice) => (
-                <button
-                  key={choice.id}
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    continueAfterProject({
-                      ...pending,
-                      projectId: choice.id,
-                      projectChosen: true,
-                    })
-                  }
-                  style={{ paddingLeft: 12 + (choice.depth ?? 0) * 16 }}
-                  className="flex w-full items-center gap-2 rounded-md border border-border/60 py-2 pr-3 text-left text-sm hover:bg-bg-hover/70 disabled:opacity-40"
-                >
-                  <FolderKanban size={14} className="shrink-0 text-text-muted" />
-                  {choice.name}
-                </button>
-              ))}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  continueAfterProject({ ...pending, projectId: null, projectChosen: true })
-                }
-                className="flex w-full items-center gap-2 rounded-md border border-dashed border-border/60 px-3 py-2 text-left text-sm text-text-secondary hover:bg-bg-hover/70 disabled:opacity-40"
-              >
-                {t('tags.noProject')}
-              </button>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setPhase('pick')}>
-                {t('tags.cancel')}
               </Button>
             </DialogFooter>
           </>

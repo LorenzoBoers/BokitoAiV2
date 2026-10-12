@@ -37,6 +37,13 @@ class PreferencesPatch(BaseModel):
     # Numeric EmailConnection / ChannelAccount id used as From: when starting
     # outbound mail. Null clears the preference.
     default_outbound_connection_id: int | None = None
+    # Personal Communication/Agenda rail pins. Each pin is {ref, position}.
+    # ref is folder:<id>, tag:<name>, or path:<folder_id>:<tag_id>.
+    rail_pins: list[dict] | None = None
+    # Workspace-default rail rows this person hid (same ref shape as rail_pins).
+    rail_hidden_defaults: list[str] | None = None
+    # Communication sidebar: section order, hidden, collapsed, expanded leaves.
+    sidebar: dict | None = None
 
 
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
@@ -86,6 +93,96 @@ def _inbox_folders_state(stored: dict) -> dict:
     }
 
 
+SIDEBAR_SECTIONS = ("folders", "hashtags", "projects", "channels", "agents", "teams", "settings")
+MAX_RAIL_PINS = 80
+
+
+def _normalize_section(value: str) -> str:
+    if value in ("hashtags", "projects"):
+        return "folders"
+    return value
+
+
+def _rail_pins_state(stored: dict) -> list[dict]:
+    raw = stored.get("rail_pins")
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        ref = str(item.get("ref") or "").strip()[:80]
+        if not ref or ref in seen:
+            continue
+        seen.add(ref)
+        try:
+            position = int(item.get("position") or 0)
+        except (TypeError, ValueError):
+            position = 0
+        out.append({"ref": ref, "position": position})
+        if len(out) >= MAX_RAIL_PINS:
+            break
+    out.sort(key=lambda row: row["position"])
+    return out
+
+
+def _rail_hidden_defaults_state(stored: dict) -> list[str]:
+    raw = stored.get("rail_hidden_defaults")
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        ref = item.strip()[:80]
+        if ref and ref not in out:
+            out.append(ref)
+        if len(out) >= MAX_RAIL_PINS:
+            break
+    return out
+
+
+def _sidebar_state(stored: dict) -> dict:
+    raw = stored.get("sidebar")
+    if not isinstance(raw, dict):
+        return {"order": ["folders", "channels", "agents", "teams", "settings"], "hidden": [], "collapsed": [], "expanded_leaves": []}
+    order_raw = raw.get("order") if isinstance(raw.get("order"), list) else []
+    order: list[str] = []
+    for item in order_raw:
+        if not isinstance(item, str):
+            continue
+        section = _normalize_section(item)
+        if section in SIDEBAR_SECTIONS and section not in order:
+            order.append(section)
+    for section in ("folders", "channels", "agents", "teams", "settings"):
+        if section not in order:
+            order.append(section)
+    if order[-1] != "settings":
+        order = [s for s in order if s != "settings"] + ["settings"]
+    hidden = [
+        _normalize_section(item)
+        for item in (raw.get("hidden") if isinstance(raw.get("hidden"), list) else [])
+        if isinstance(item, str) and _normalize_section(item) in SIDEBAR_SECTIONS
+    ]
+    collapsed = [
+        _normalize_section(item)
+        for item in (raw.get("collapsed") if isinstance(raw.get("collapsed"), list) else [])
+        if isinstance(item, str) and _normalize_section(item) in SIDEBAR_SECTIONS
+    ]
+    expanded = [
+        str(item)[:80]
+        for item in (raw.get("expanded_leaves") if isinstance(raw.get("expanded_leaves"), list) else [])
+        if isinstance(item, str)
+    ][:200]
+    return {
+        "order": order,
+        "hidden": list(dict.fromkeys(hidden)),
+        "collapsed": list(dict.fromkeys(collapsed)),
+        "expanded_leaves": expanded,
+    }
+
+
 @router.get("/preferences")
 async def get_my_preferences(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -108,6 +205,9 @@ async def get_my_preferences(
         "inbox_folders": _inbox_folders_state(stored),
         "default_landing": _default_landing_state(stored),
         "default_outbound_connection_id": _outbound_connection_id(stored),
+        "rail_pins": _rail_pins_state(stored),
+        "rail_hidden_defaults": _rail_hidden_defaults_state(stored),
+        "sidebar": _sidebar_state(stored),
     }
 
 
@@ -176,6 +276,14 @@ async def patch_my_preferences(
             raise HTTPException(status_code=400, detail="default_outbound_connection_id must be positive")
         else:
             stored["default_outbound_connection_id"] = int(body.default_outbound_connection_id)
+    if body.rail_pins is not None:
+        stored["rail_pins"] = _rail_pins_state({"rail_pins": body.rail_pins})
+    if body.rail_hidden_defaults is not None:
+        stored["rail_hidden_defaults"] = _rail_hidden_defaults_state(
+            {"rail_hidden_defaults": body.rail_hidden_defaults}
+        )
+    if body.sidebar is not None:
+        stored["sidebar"] = _sidebar_state({"sidebar": body.sidebar})
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
 
@@ -211,6 +319,9 @@ async def patch_my_preferences(
         "inbox_folders": _inbox_folders_state(stored),
         "default_landing": _default_landing_state(stored),
         "default_outbound_connection_id": _outbound_connection_id(stored),
+        "rail_pins": _rail_pins_state(stored),
+        "rail_hidden_defaults": _rail_hidden_defaults_state(stored),
+        "sidebar": _sidebar_state(stored),
         "default_chat_agent_id": default_chat_agent_id,
     }
 

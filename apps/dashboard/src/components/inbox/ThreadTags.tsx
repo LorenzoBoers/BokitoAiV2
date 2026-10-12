@@ -28,6 +28,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
   const { t } = useTranslation('communication')
   const [open, setOpen] = useState(false)
   const tags = thread.tags ?? []
+  const inherited = thread.inheritedTags ?? []
   const actionTag = thread.ticket && thread.ticket.status !== 'proposed' ? thread.ticket : null
 
   const save = (next: string[]) => (onPatch ? onPatch({ tags: next }) : Promise.resolve())
@@ -66,6 +67,22 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
                 <X size={11} />
               </button>
             ) : null}
+          </span>
+        ))}
+        {inherited.map((tag) => (
+          <span
+            key={`via-${tag}`}
+            className={`${CHIP} border-dashed text-text-muted`}
+            title={t('tags.viaContact', { defaultValue: 'Via contact' })}
+          >
+            <Link
+              to={openEntityPath({ type: 'tag', name: tag })}
+              className={CHIP_LINK}
+              title={t('tags.openFolder', { tag })}
+            >
+              <Hashtag name={tag} />
+            </Link>
+            <span className="text-2xs">{t('tags.viaContact', { defaultValue: 'via contact' })}</span>
           </span>
         ))}
         {onPatch ? (

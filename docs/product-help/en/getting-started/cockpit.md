@@ -26,11 +26,11 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Read workspace canvases
 
-Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-page tabs are **Overview**, **Usage**, then **Canvas** (layout-template icon). The lead agent writes them; you add, delete and set refresh.
+Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-page tabs are **Overview**, **Usage**, then **Canvas** (layout-template icon). An agent creates, fills and refreshes them; you can add, delete and set refresh too. The lead agent owns a workspace canvas unless another agent is named.
 
-1. Open **Overview**, then the **Canvas** tab (third tab). Canvas names sit left to right; **Add canvas** is the tab after the last canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**). Daily is the default.
-2. Save. The lead agent starts writing from your brief. Refresh is an [Agenda](/docs/ai/agenda) wake on that agent — not a separate scheduler.
-3. Edit content only through agents. Choose **Ask agent to update** for a one-off rewrite, or change Refresh so Agenda keeps waking the agent. Project canvases live on the project [Canvas](/docs/ai/projects) tab.
+1. Open **Overview**, then the **Canvas** tab (third tab). Canvas names sit left to right; the **+** after the last name adds a canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**, **Custom**). Daily is the default. **Custom** asks for a five-field cron.
+2. Save. The owner starts writing from the brief. Refresh is an [Agenda](/docs/ai/agenda) wake on that agent.
+3. Ask an agent for figures, a status, or a dashboard and it builds the snapshot in that turn. The reply links the canvas and shows a small preview; opening the preview lands on that canvas. A later change updates that same canvas. The scheduled refresh writes the snapshot and does not open a second conversation. Choose **Ask agent to update** for a one-off rewrite, or change Refresh so Agenda keeps waking the owner. Project canvases live on the project [Canvas](/docs/ai/folders) tab.
 
 ## Open work that is waiting on you
 

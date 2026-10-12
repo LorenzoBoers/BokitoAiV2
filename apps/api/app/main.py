@@ -292,7 +292,6 @@ app.include_router(workstreams.router, prefix=api_prefix)
 app.include_router(customer_verify.router, prefix=api_prefix)
 app.include_router(categories.router, prefix=api_prefix)
 app.include_router(categories.ticket_router, prefix=api_prefix)
-app.include_router(categories.board_router, prefix=api_prefix)
 # Custom DB builder retired from core — Contact + Project + typed signal fields
 # replace it. The router module and its tables still exist so nothing migrates
 # out from under an existing tenant, but nothing is mounted: /api/app/custom-*

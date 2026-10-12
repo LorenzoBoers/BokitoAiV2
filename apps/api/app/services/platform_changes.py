@@ -265,13 +265,18 @@ async def propose_platform_change(
 
     # Land the approval in Messages (same thread as the agent that proposed it
     # when signal_id is known; otherwise create an internal Activity thread).
+    from app.services.proposal_items import policy_item_refs, resolve_items
     from app.services.signal_decisions import create_decision
+
+    item_refs = policy_item_refs(tool_name or "", after if isinstance(after, dict) else {})
+    proposal_items = await resolve_items(session, tenant.id, item_refs) if item_refs else None
 
     decision, _ = await create_decision(
         session,
         tenant.id,
         title=f"Review: {summary}",
         summary=summary,
+        items=proposal_items,
         options=[
             {
                 "id": "approve",

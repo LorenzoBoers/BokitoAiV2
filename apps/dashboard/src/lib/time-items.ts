@@ -75,6 +75,8 @@ export async function listTimeItems(params: {
   sources?: TimeItemKind[]
   scheduledOnly?: boolean
   projectId?: string
+  tag?: string
+  path?: string
 }): Promise<TimeWindow> {
   const query = new URLSearchParams()
   if (params.from) query.set('from', params.from)
@@ -82,6 +84,8 @@ export async function listTimeItems(params: {
   if (params.agentId) query.set('agent_id', params.agentId)
   if (params.userId) query.set('user_id', params.userId)
   if (params.projectId) query.set('project_id', params.projectId)
+  if (params.tag) query.set('tag', params.tag)
+  if (params.path) query.set('path', params.path)
   if (params.sources?.length) query.set('sources', params.sources.join(','))
   if (params.scheduledOnly) query.set('scheduled_only', 'true')
   const res = await apiGet<Partial<TimeWindow>>(appRoutes.agenda.occurrencesQuery(query))

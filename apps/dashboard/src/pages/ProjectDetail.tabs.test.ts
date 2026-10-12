@@ -11,6 +11,7 @@ describe('ProjectDetail tabs', () => {
     expect(src).toContain("if (raw === 'queue') return 'home'")
     expect(src).toContain('value="canvas"')
     expect(src).toContain('value="docs"')
+    expect(src).toContain('value="files"')
     expect(src).toContain('value="settings"')
     expect(src).not.toContain('value="queue"')
     expect(src).not.toContain('tabQueue')

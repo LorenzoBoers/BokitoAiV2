@@ -1,7 +1,7 @@
 import { authRoutes } from '../api/routes/auth.routes';
-import { APP_API_BASE, APP_SCOPED_API_BASE, AUTH_API_BASE, SETTINGS_API_BASE, STAFF_API_BASE, WORKFORCE_API_BASE } from './api.config';
+import { APP_API_BASE, APP_SCOPED_API_BASE, AUTH_API_BASE, FOLDERS_API_BASE, SETTINGS_API_BASE, STAFF_API_BASE, WORKFORCE_API_BASE } from './api.config';
 
-export { APP_API_BASE, APP_SCOPED_API_BASE, AUTH_API_BASE, SETTINGS_API_BASE, STAFF_API_BASE, WORKFORCE_API_BASE };
+export { APP_API_BASE, APP_SCOPED_API_BASE, AUTH_API_BASE, FOLDERS_API_BASE, SETTINGS_API_BASE, STAFF_API_BASE, WORKFORCE_API_BASE };
 
 const DEFAULT_ACCESS_TOKEN_TTL_S = 3600;
 const DEFAULT_REFRESH_TOKEN_TTL_S = 30 * 24 * 60 * 60;
@@ -221,6 +221,36 @@ export async function workforceDelete<T = unknown>(
 ): Promise<T | void> {
   const headers = buildAuthHeaders(token, body != null);
   const res = await fetch(`${WORKFORCE_API_BASE}${path}`, {
+    method: 'DELETE',
+    headers,
+    credentials: 'include',
+    ...(body != null ? { body: JSON.stringify(body) } : {}),
+  });
+  if (res.status === 204) return undefined as T;
+  return readJsonResponse<T>(res, path);
+}
+
+// ── folders base (`/api/folders`) ────────────────────────────────────
+
+export async function foldersGet<T>(path: string, token?: string): Promise<T> {
+  return request<T>(FOLDERS_API_BASE, path, 'GET', { token });
+}
+
+export async function foldersPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(FOLDERS_API_BASE, path, 'POST', { body, token, requireAuth: false });
+}
+
+export async function foldersPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return request<T>(FOLDERS_API_BASE, path, 'PATCH', { body, token, requireAuth: false });
+}
+
+export async function foldersDelete<T = unknown>(
+  path: string,
+  body?: object,
+  token?: string,
+): Promise<T | void> {
+  const headers = buildAuthHeaders(token, body != null);
+  const res = await fetch(`${FOLDERS_API_BASE}${path}`, {
     method: 'DELETE',
     headers,
     credentials: 'include',

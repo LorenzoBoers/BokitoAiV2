@@ -310,9 +310,10 @@ knowledge:
   screenshots:
     - add-doc
 
-projects:
+folders:
   section: ai
   routes:
+    - /folders
     - /projects
   code_globs:
     - apps/dashboard/src/pages/ProjectsPage.tsx

@@ -100,9 +100,11 @@ import { sessionTimelineMessages } from '../../lib/session-timeline'
 import { useAiChatStream } from '../../lib/use-agent-session-chat'
 import { applyAgentLive } from '../../hooks/useAgentPresence'
 import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
+import { takeChatContinue } from '../../lib/chat-auto-continue'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { toast } from 'sonner'
 
+/** Threads whose opener has already been continued or auto-sent this session. */
 const autoSentThreads = new Set<string>()
 
 type Props = {
@@ -978,10 +980,6 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           toast.error(t('tickets.unknownCategory', { ns: 'nav', name: q }))
           return true
         }
-        if (match.project_choices.length > 0) {
-          toast.message(t('tickets.chooseProjectInPanel', { ns: 'nav', name: match.name }))
-          return true
-        }
         await fileTicket(threadIdString, match.id)
         onRefresh()
         toast.success(`#${match.name}`)
@@ -1042,13 +1040,18 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   }, [])
 
   const handleAgentMessage = useCallback(
-    async (bodyText: string, attachments?: MessageAttachment[]): Promise<boolean> => {
+    async (
+      bodyText: string,
+      attachments?: MessageAttachment[],
+      opts?: { continuePending?: boolean },
+    ): Promise<boolean> => {
       if (!token || !threadIdString) return false
+      const continuePending = Boolean(opts?.continuePending)
       const text = stripMentionMarkup(bodyText).trim()
-      if (!text && !attachments?.length) return false
+      if (!continuePending && !text && !attachments?.length) return false
       // Soft "Ja"/"Nee" in Ask resolves the sole binary open proposal — same as buttons.
       // Multi/text cards may stay open; several binary Ja/Nee cards stay button-only.
-      if (text && !attachments?.length && detail) {
+      if (!continuePending && text && !attachments?.length && detail) {
         const openCards: { messageId: string; options: ReturnType<typeof parseDecisionOptions> }[] = []
         for (const m of detail.messages) {
           if (m.kind === 'decision_request' && decisionCardOpen(m, detail.events) === true) {
@@ -1112,6 +1115,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
       try {
         const sendPromise = sendAgentSessionMessage(sessionId, text || ' ', {
           attachments,
+          continuePending,
           onFinished: async () => {
             if (!isAssistant) await loadSessionMessages(sessionId)
             // Quiet: keep bubbles on screen; never flash the thread skeleton.
@@ -1162,17 +1166,36 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
   )
 
   useEffect(() => {
-    const draft =
-      typeof (location.state as { autoSend?: unknown } | null)?.autoSend === 'string'
-        ? (location.state as { autoSend: string }).autoSend.trim()
-        : ''
-    if (!draft || !detail || !threadIdString) return
+    if (!detail || !threadIdString) return
     if (String(detail.thread.id) !== String(threadIdString)) return
     if ((detail.thread.channel ?? '') !== 'assistant') return
     if (autoSentThreads.has(threadIdString)) return
+
+    const state = (location.state as {
+      autoSend?: unknown
+      continuePending?: unknown
+    } | null) ?? null
+    const stateContinue = state?.continuePending === true
+    const stateDraft =
+      typeof state?.autoSend === 'string' ? state.autoSend.trim() : ''
+    // sessionStorage survives Communication remounts that wipe location.state.
+    const stashed = takeChatContinue(threadIdString)
+    const continuePending = stateContinue || stashed?.mode === 'continue'
+    const draft =
+      stateDraft || (stashed?.mode === 'send' ? stashed.text : '') || ''
+    if (!continuePending && !draft) return
+
     autoSentThreads.add(threadIdString)
-    navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
-    void handleAgentMessage(draft)
+    // Clear navigation state only after we know we will attempt the kick-off.
+    if (stateContinue || stateDraft) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
+    }
+    void handleAgentMessage(draft, undefined, { continuePending }).then((ok) => {
+      if (!ok) {
+        // Allow a retry if the stream never started (busy / no session).
+        autoSentThreads.delete(threadIdString)
+      }
+    })
   }, [
     detail,
     threadIdString,

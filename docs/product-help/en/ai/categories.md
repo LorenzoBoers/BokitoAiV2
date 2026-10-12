@@ -1,15 +1,15 @@
 ---
 title: Action tags and tickets
 intro: An action tag is a hashtag that starts a ticket flow. Filing it on a conversation turns that conversation into a ticket that moves through the flow's stages.
-description: Make a tag an action tag, file a ticket with a project choice from the Tags picker, confirm what the AI proposed, move a ticket through its stages, and split a conversation when a second request shows up.
+description: Make a tag an action tag, file a ticket from the Tags picker, confirm what the AI proposed, move a ticket through its stages, and split a conversation when a second request shows up.
 keywords: action tags, actietags, tickets, hashtags, stages, flow, project, intake, split conversation, categories
 sort: 46
-related: workstreams,communication,channels,projects,widget
+related: workstreams,communication,channels,folders,widget
 ---
 
 # Action tags and tickets
 
-An action tag is a tag with a flow. A conversation carries at most one action tag: filing it makes the conversation a ticket that moves through that flow's stages, on one of the flow's projects or on no project.
+An action tag is a tag with a flow. A conversation carries at most one action tag: filing it makes the conversation a ticket that moves through that flow's stages. The folder comes from the conversation's tags, including tags on the contact. The same tag can also be a folder via **Create folder**.
 
 When a channel has an **AI agent** linked, that agent reads each inbound message (summary, priority, tags and tickets) in one run. Under **Manual** AI handling the agent still reads and may file tags or tickets, but it does not draft a customer reply. Without a channel agent there is no AI read. A certain read files the ticket when that action tag allows auto-tagging. A certain read on a tag that does not auto-tag becomes a card **File as #name** with **File** and **Not now**. An unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free tags stay next to the action tag for grouping; see [Communication](/docs/inbox/communication).
 
@@ -20,8 +20,8 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 
 1. Open **Settings**, then **# Tags**. The page shows one **Tags** list (action tags first, with an accent `#`), then **What we missed** and who may confirm tickets.
 2. Choose **New tag** to add a free tag, then **Create flow** on that row. That creates or links a flow titled `#name`. The tag becomes an action tag in the same list.
-3. On an action tag, choose **Open flow** to configure stages, filing and projects on the flow page. A new flow starts with Open, Waiting and Done.
-4. Use the pin on any tag for a row in the Communication sidebar. Use the AI switch to allow or block triage from auto-tagging with that tag. The conversation count on a row opens those conversations in Communication.
+3. On an action tag, choose **Open flow** to configure stages and filing on the flow page. A new flow starts with Open, Waiting and Done. Choose **Create folder** to give the same tag a place in the folder tree.
+4. Use the pin on any tag for a row in **Folders and tags**. Use the AI switch to allow or block triage from auto-tagging with that tag. Put related tags in a group (optionally exclusive). The conversation count on a row opens those conversations in Communication.
 
 ## File a ticket on a conversation
 
@@ -30,20 +30,20 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 
 1. Open a conversation in **Communication**. Under **This conversation**, choose **Add tags**.
 2. Type with a soft `#` and pick an action tag (marked **Action tag**), or a free tag. An unknown name asks whether to add it as a tag or **Make action tag**.
-3. When the flow is on one or more projects, pick one of them or **No project**. Filing always asks this; agents choose too, or leave the ticket proposed.
+3. Filing does not ask for a folder. The conversation lands from its tags. When tags match more than one folder, the thread shows **Which folder?**
 4. The ticket starts in the first stage of the flow. The list row shows the action tag with the stage and a colored dot. Changing to another action tag asks to **Replace** (or split the conversation for a second request).
-5. In the composer, `/ticket #name` files the same ticket. When the action tag has projects, Bokito sends you to the **Ticket** panel to choose one.
+5. In the composer, `/ticket #name` files the same ticket.
 
 ## Confirm what the AI proposed
 
-1. An unsure read shows on the conversation as "Looks like #complaint" with **Confirm** and **Dismiss**. When the flow has projects, confirming opens the project choice.
+1. An unsure read shows on the conversation as "Looks like #complaint" with **Confirm** and **Dismiss**.
 2. Nothing routes and no flow starts before someone confirms. Members can always file a ticket themselves; **Who may confirm tickets** on **Settings** → **# Tags** decides who may confirm a proposal.
 3. Proposals do not count as filed tickets on Overview until they are confirmed.
 4. Set the **Tickets** posture on [Govern](/docs/govern/govern) if agents should stop filing tickets.
 
 ## Move a ticket through its stages
 
-1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or project board, drag the card to another column instead; see [Projects](/docs/ai/projects). On a board card, the contact name is a link to that contact when the conversation is linked to one.
+1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or project board, drag the card to another column instead; see [Projects](/docs/ai/folders). On a board card, the contact name is a link to that contact when the conversation is linked to one.
 2. If the target stage has required fields that are still empty, a dialog asks for them. The ticket stays on its current stage until those values are filled. The same dialog appears when you drag a card. Closing the conversation moves its ticket to the done stage. If that stage still needs required fields, the ticket stays where it is and the conversation still closes.
 3. Every move shows in the timeline, for example **Ticket moved to Waiting**. The ticket's status always follows the kind of its stage: open, waiting or done.
 4. Under the project, every custom field of the flow has its own row. Click a value to edit it; it saves when you press Enter, leave the field, or pick an option. A `*` marks a required field and turns orange while it is empty.
@@ -66,4 +66,4 @@ When a customer raises something new in an old thread, the new request gets its 
 
 ## What to do next
 
-Add the flow to a [project](/docs/ai/projects) with **Add flow** on the project page, so its tickets show as a board there. Give each stage an owner and a check-up rhythm on [Flows](/docs/ai/workstreams); due check-ups show on [Agenda](/docs/ai/agenda) and on the ticket panel.
+Add the flow to a [project](/docs/ai/folders) with **Add flow** on the project page, so its tickets show as a board there. Give each stage an owner and a check-up rhythm on [Flows](/docs/ai/workstreams); due check-ups show on [Agenda](/docs/ai/agenda) and on the ticket panel.

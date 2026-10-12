@@ -516,8 +516,14 @@ def _attach_proposal(
         other_meta = _json_meta(other)
         other_meta["attached_to_message_id"] = str(last_bubble.id)
         other.metadata_json = json.dumps(other_meta, default=str)
-    if card_meta.get("proposal_items"):
-        proposal["items"] = card_meta["proposal_items"]
+    card_items = [
+        item
+        for c in ordered
+        for item in (_json_meta(c).get("proposal_items") or [])
+        if isinstance(item, dict)
+    ]
+    if card_items:
+        proposal["items"] = card_items
     if card_meta.get("question"):
         proposal["question"] = card_meta["question"]
     selection = str(card_meta.get("selection") or "single").lower()

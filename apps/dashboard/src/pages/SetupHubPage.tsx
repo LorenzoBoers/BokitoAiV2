@@ -213,7 +213,7 @@ export default function SetupHubPage() {
         label: t('setupGuidePage.later.modules', { defaultValue: 'Add a field of work' }),
         to: '/connections',
       },
-      { label: t('setupGuidePage.later.projects', { defaultValue: 'Projects' }), to: '/projects' },
+      { label: t('setupGuidePage.later.projects', { defaultValue: 'Projects' }), to: '/folders' },
       { label: t('setupGuidePage.later.govern', { defaultValue: 'Govern' }), to: '/settings/govern' },
     ],
     [t],
