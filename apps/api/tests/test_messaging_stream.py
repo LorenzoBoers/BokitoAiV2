@@ -179,7 +179,7 @@ async def test_chat_stream_sse(client: AsyncClient):
     conv = await client.post("/api/signals/conversations", json={"title": "Stream test"}, headers=headers)
     conv_id = conv.json()["id"]
 
-    async def fake_stream(self, messages, extra_context="", attachments=None):
+    async def fake_stream(self, messages, extra_context="", attachments=None, **kwargs):
         yield {"type": "delta", "text": "Streamed "}
         yield {"type": "delta", "text": "reply"}
         yield {"type": "done", "text": "Streamed reply", "usage": {"input_tokens": 1, "output_tokens": 2}}
@@ -211,7 +211,7 @@ async def test_chat_stream_broadcasts_agent_working_then_standby(client: AsyncCl
     conv = await client.post("/api/signals/conversations", json={"title": "Live status"}, headers=headers)
     conv_id = conv.json()["id"]
 
-    async def fake_stream(self, messages, extra_context="", attachments=None):
+    async def fake_stream(self, messages, extra_context="", attachments=None, **kwargs):
         yield {"type": "delta", "text": "Hi"}
         yield {"type": "done", "text": "Hi", "usage": {}}
 
@@ -268,7 +268,7 @@ async def test_stale_chat_run_is_reclaimed_before_busy(client: AsyncClient, sess
     session_override.add(stuck)
     await session_override.commit()
 
-    async def fake_stream(self, messages, extra_context="", attachments=None):
+    async def fake_stream(self, messages, extra_context="", attachments=None, **kwargs):
         yield {"type": "delta", "text": "Ok"}
         yield {"type": "done", "text": "Ok", "usage": {}}
 
@@ -325,7 +325,7 @@ async def test_fresh_orphaned_chat_run_is_reclaimed_without_live_task(
     session_override.add(stuck)
     await session_override.commit()
 
-    async def fake_stream(self, messages, extra_context="", attachments=None):
+    async def fake_stream(self, messages, extra_context="", attachments=None, **kwargs):
         yield {"type": "delta", "text": "Ok"}
         yield {"type": "done", "text": "Ok", "usage": {}}
 

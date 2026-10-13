@@ -544,7 +544,7 @@ async def test_widget_stream_breaks_bubbles_between_segments(client: AsyncClient
     assert start.status_code == 200
     token = start.json()["session_token"]
 
-    async def fake_stream(self, messages, extra_context="", attachments=None):
+    async def fake_stream(self, messages, extra_context="", attachments=None, **kwargs):
         yield {"type": "delta", "text": "Let me check.", "segment_id": "a"}
         yield {"type": "delta", "text": "It ships today.", "segment_id": "b"}
         yield {"type": "done", "text": "It ships today.", "usage": {}}
