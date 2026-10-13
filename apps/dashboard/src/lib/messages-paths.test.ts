@@ -138,7 +138,7 @@ describe('legacyHubRedirect', () => {
       '/communication/inbox/for_you/t/s1?message=m1',
     )
     expect(legacyHubRedirect('/communication/runs/results/t/r1')).toBe('/communication/inbox/all/t/r1')
-    expect(legacyHubRedirect('/communication/runs/all')).toBe('/activity')
+    expect(legacyHubRedirect('/communication/runs/all')).toBe('/agents#activity')
     expect(legacyHubRedirect('/communication/agent/a1/open/t/t1')).toBeNull()
     expect(legacyHubRedirect('/communication/channel/email/12/mine')).toBeNull()
     expect(legacyHubRedirect('/communication/inbox/mine')).toBe('/communication/inbox/for_you')

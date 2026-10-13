@@ -10,6 +10,7 @@ import {
   layerOf,
   layersParam,
   layoutDay,
+  matchesOwnerVisibility,
   matchesWho,
   parseCalendarIds,
   parseLayers,
@@ -91,6 +92,20 @@ describe('matchesWho', () => {
     expect(matchesWho(agents, 'agent:a1', 'u1')).toBe(true)
     expect(matchesWho(item({ kind: 'calendar' }), 'me', 'u1')).toBe(true)
     expect(matchesWho(item({ kind: 'calendar' }), 'agent:a1', 'u1')).toBe(false)
+  })
+})
+
+describe('matchesOwnerVisibility', () => {
+  const mine = item({ kind: 'checkup', owner_kind: 'user', owner_id: 'u1' })
+  const agents = item({ kind: 'checkup', owner_kind: 'agent', owner_id: 'a1' })
+  it('hides unchecked people and agents; calendars stay', () => {
+    expect(matchesOwnerVisibility(mine, new Set())).toBe(true)
+    expect(matchesOwnerVisibility(mine, new Set(['user:u1']))).toBe(false)
+    expect(matchesOwnerVisibility(agents, new Set(['agent:a1']))).toBe(false)
+    expect(matchesOwnerVisibility(agents, new Set(['user:u1']))).toBe(true)
+    expect(matchesOwnerVisibility(item({ kind: 'calendar' }), new Set(['user:u1', 'agent:a1']))).toBe(
+      true,
+    )
   })
 })
 

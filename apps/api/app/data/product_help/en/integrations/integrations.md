@@ -103,7 +103,7 @@ Each Google or Microsoft account is one connection; add as many as you need and 
 
 1. Open **Connections** and choose the **Agenda** filter. Under **Calendar accounts**, choose **Connect Google Calendar** or **Connect Outlook Calendar** and finish sign-in. With an account already connected, the buttons read **Add Google account** and **Add Microsoft account**.
 2. Each account row shows its address, the sync status, the number of events, and a colored dot per calendar that is on. **Shared with you** marks an account someone else connected.
-3. Choose **Manage**. Under **Calendars**, switch on the calendars to sync (only the primary calendar is on at first) and pick the **Default calendar for new events**. Read-only calendars sync but never receive new events. Switched-on calendars sync every 15 minutes; **Sync now** runs it right away.
+3. Choose **Manage**. Under **Calendars**, switch on the calendars to sync (only the primary calendar is on at first) and pick the **Default calendar for new events**. Read-only calendars sync but never receive new events. Switched-on calendars update automatically in Agenda.
 4. Under **Access**, choose who may see and use the account. A new account is yours to manage, and agents may read it. Give a colleague **Use** to show it in their Agenda, or **Manage** to let them change calendars and access. Owners and admins always manage.
 5. When the row says **Sign in again to keep this calendar in sync**, choose **Reconnect**. **Disconnect** removes the account and its events from Agenda; nothing changes in Google or Outlook.
 

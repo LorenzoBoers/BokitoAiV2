@@ -178,23 +178,40 @@ function syntheticAnswerMessage(
   } as InboxMessage
 }
 
+/** Decision ids already covered by a real operator answer bubble. */
+export function answeredDecisionIds(messages: InboxMessage[]): Set<string> {
+  const answered = new Set<string>()
+  for (const message of messages) {
+    if (!message.decisionResponse) continue
+    for (const id of message.decisionResponseDecisionIds ?? []) {
+      if (id) answered.add(String(id))
+    }
+    if (message.decisionResponseDecisionId) {
+      answered.add(String(message.decisionResponseDecisionId))
+    }
+  }
+  return answered
+}
+
 /** Older silent resolves have no user bubble — rebuild one from the chosen labels. */
 export function syntheticDecisionAnswers(
   messages: InboxMessage[],
   threadId: string,
   t: (key: string) => string,
 ): InboxMessage[] {
-  const answered = new Set(
-    messages
-      .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
-      .map((m) => String(m.decisionResponseDecisionId)),
-  )
+  const answered = answeredDecisionIds(messages)
   const extras: InboxMessage[] = []
   for (const message of messages) {
     if (message.proposal) {
       const proposal = message.proposal
       if (proposal.status === 'awaiting_human' || proposal.status === 'pending') continue
       if (answered.has(proposal.decisionId)) continue
+      // Bundle rows share one operator answer; skip if any sibling is covered.
+      if (proposal.bundle.some((entry) => answered.has(entry.decisionId))) {
+        answered.add(proposal.decisionId)
+        for (const entry of proposal.bundle) answered.add(entry.decisionId)
+        continue
+      }
       if (isReplySendDecision(proposal.options)) continue
       const ids = proposal.chosenOptionIds.length
         ? proposal.chosenOptionIds
@@ -212,6 +229,7 @@ export function syntheticDecisionAnswers(
         ),
       )
       answered.add(proposal.decisionId)
+      for (const entry of proposal.bundle) answered.add(entry.decisionId)
     }
     if (message.kind !== 'decision_request' || !message.decisionId) continue
     const decisionId = String(message.decisionId)
@@ -256,11 +274,7 @@ export function buildTimelineRows(
   const inlineHosts = new Set(
     healed.filter((m) => m.proposal).map((m) => String(m.id)),
   )
-  const answeredDecisionIds = new Set(
-    healed
-      .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
-      .map((m) => String(m.decisionResponseDecisionId)),
-  )
+  const answeredIds = answeredDecisionIds(healed)
   const questionDecisionIds = new Set<string>()
   for (const message of healed) {
     if (message.proposal?.decisionId) questionDecisionIds.add(message.proposal.decisionId)
@@ -278,7 +292,7 @@ export function buildTimelineRows(
       data: m,
     })),
     ...detail.events
-      .filter((e) => !isHiddenEvent(e.eventType, e.payload, answeredDecisionIds, questionDecisionIds))
+      .filter((e) => !isHiddenEvent(e.eventType, e.payload, answeredIds, questionDecisionIds))
       .map((e) => ({ kind: 'event' as const, time: e.createdAt, id: `e-${e.id}`, data: e })),
     ...(detail.sessions ?? []).map((s) => ({
       kind: 'session' as const,
@@ -347,7 +361,7 @@ export function buildTimelineRows(
  */
 function messageStackKey(message: InboxMessage): string | null {
   if (message.kind === 'decision_request') return null
-  // System activity renders as centered pills, not stacked note bubbles.
+  // System activity is a meta row, not a stacked note bubble.
   if (message.kind === 'system_event') return null
   // Session turns stack among themselves, never onto a customer reply.
   const sessionId = sessionIdOf(message)
@@ -525,6 +539,7 @@ type Props = {
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
+  agentAvatarShape?: string | null
   agentAvatarImageUrl?: string | null
   /** Tag name -> kind for #chips in agent/operator bubbles. */
   chatTags?: ChatTagMap
@@ -631,6 +646,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     agentAvatarKind,
     agentAvatarIcon,
     agentAvatarColor,
+    agentAvatarShape,
     agentAvatarImageUrl,
     chatTags,
     events,
@@ -896,10 +912,19 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   useEffect(() => () => footerRoRef.current?.disconnect(), [])
 
   const hasLive = Boolean(liveTrace)
+  const wasLiveRef = useRef(hasLive)
   useLayoutEffect(() => {
     if (readingHistoryRef.current) return
+    const liveEnded = wasLiveRef.current && !hasLive
+    wasLiveRef.current = hasLive
+    // Live overlay → saved bubbles: height churn underscrolls a single pin.
+    // Settle briefly so Virtuoso can lay out the revealed rows.
+    if (liveEnded) {
+      scrollToAbsoluteBottom('auto', 200)
+      return
+    }
     pinScrollerToEnd()
-  }, [hasLive, rows.length, pinScrollerToEnd])
+  }, [hasLive, rows.length, pinScrollerToEnd, scrollToAbsoluteBottom])
 
   useImperativeHandle(
     ref,
@@ -990,6 +1015,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       agentAvatarKind={agentAvatarKind}
       agentAvatarIcon={agentAvatarIcon}
       agentAvatarColor={agentAvatarColor}
+      agentAvatarShape={agentAvatarShape}
       agentAvatarImageUrl={agentAvatarImageUrl}
       membersById={membersById}
       noteActions={noteActions}
@@ -1038,6 +1064,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             agentAvatarKind={agentAvatarKind}
             agentAvatarIcon={agentAvatarIcon}
             agentAvatarColor={agentAvatarColor}
+      agentAvatarShape={agentAvatarShape}
             agentAvatarImageUrl={agentAvatarImageUrl}
           />
         </div>
@@ -1081,6 +1108,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             agentAvatarKind={agentAvatarKind}
             agentAvatarIcon={agentAvatarIcon}
             agentAvatarColor={agentAvatarColor}
+      agentAvatarShape={agentAvatarShape}
             agentAvatarImageUrl={agentAvatarImageUrl}
             compactReplyProposal={compact.has(String(message.id))}
             activeInComposer={composerDecisionMessageId === String(message.id)}

@@ -1,8 +1,8 @@
 ---
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
-description: Brief company agents, set chat access, deactivate them, add a signature, and set name, description or icon.
-keywords: agents, ai workforce, deactivate, reactivate, chat access, signature, avatar, icon, default agent, ceiling, rules, try out, ask questions to
+description: Brief company agents, set chat access, deactivate them, add a signature, and set name, description or bot look.
+keywords: agents, ai workforce, deactivate, reactivate, chat access, signature, avatar, bot, color, default agent, ceiling, rules, try out, ask questions to
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -76,11 +76,11 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 4. Save. Approvals for this agent use that default until you pick another Send as on the card.
 
 
-## Set name, description or icon
+## Set name, description or look
 
 1. Open a company agent.
 2. Choose **Edit** at the top right of the header.
-3. Change the **name**, fill in the **Description** (the short role on the library card), pick **Initials** or **Icon**, then save. Agents always use the platform AI violet — there is no per-agent color or photo picker. Instructions stay on the agent page; they are not this description.
+3. Change the **name**, fill in the **Description** (the short role on the library card), then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face, then save. Instructions stay on the agent page; they are not this description.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.
 

@@ -28,6 +28,29 @@ async def summary(
     return await cockpit_summary(session, auth.tenant.id)
 
 
+@router.get("/action-mix")
+async def action_mix(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    days: int = Query(30, ge=7, le=90),
+):
+    """Weighted AI vs manual mix for Overview. Series is up to 2×days (capped at 90) for trends."""
+    from app.services.time_saved import compute_time_saved
+
+    window = days if days in (7, 30, 90) else 30
+    series_days = min(90, window * 2)
+    result = await compute_time_saved(
+        session, auth.tenant.id, days=window, series_days=series_days
+    )
+    return {
+        "days": window,
+        "time_saved_minutes": result["minutes"],
+        "time_saved_breakdown": result["by_action"],
+        "action_mix": result["by_mode"],
+        "action_mix_series": result.get("by_day") or [],
+    }
+
+
 @router.get("/activity")
 async def activity(
     auth: Annotated[AuthContext, Depends(get_current_auth)],

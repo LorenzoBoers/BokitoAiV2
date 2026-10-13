@@ -270,11 +270,15 @@ async def playbook_project_map(
 ) -> dict[UUID, list[str]]:
     if not workstream_ids:
         return {}
+    from app.models.project import Project
+
     rows = await session.execute(
         select(WorkstreamProject.workstream_id, WorkstreamProject.project_id)
+        .join(Project, Project.id == WorkstreamProject.project_id)
         .where(
             WorkstreamProject.tenant_id == tenant_id,
             WorkstreamProject.workstream_id.in_(workstream_ids),
+            Project.deleted_at.is_(None),
         )
         .order_by(WorkstreamProject.created_at)
     )
@@ -365,9 +369,23 @@ async def get_workstream(
 async def list_workstreams(
     session: AsyncSession, tenant_id: UUID, *, project_id: UUID | None = None
 ) -> list[dict[str, Any]]:
+    """List operator Flows — workstreams that have an action tag.
+
+    Internal project defaults ("Review and execute") have no action tag and
+    must not appear on `/workstreams` or in agent ``list_playbooks``.
+    """
+    from app.models.signal import SignalTag
     from app.services.trash import alive
 
-    query = select(Workstream).where(Workstream.tenant_id == tenant_id, alive(Workstream))
+    tagged = select(SignalTag.workstream_id).where(
+        SignalTag.tenant_id == tenant_id,
+        SignalTag.workstream_id.isnot(None),
+    )
+    query = select(Workstream).where(
+        Workstream.tenant_id == tenant_id,
+        alive(Workstream),
+        Workstream.id.in_(tagged),
+    )
     if project_id is not None:
         query = query.where(
             Workstream.id.in_(
@@ -556,13 +574,129 @@ async def delete_workstream(
     await session.flush()
 
 
+async def _untagged_default_ids(session: AsyncSession, tenant_id: UUID) -> list[UUID]:
+    """Alive Review-and-execute workstreams that are not operator Flows."""
+    from app.models.signal import SignalTag
+
+    tagged = select(SignalTag.workstream_id).where(
+        SignalTag.tenant_id == tenant_id,
+        SignalTag.workstream_id.isnot(None),
+    )
+    rows = (
+        await session.execute(
+            select(Workstream.id)
+            .where(
+                Workstream.tenant_id == tenant_id,
+                Workstream.name == DEFAULT_WORKSTREAM_NAME,
+                Workstream.deleted_at.is_(None),
+                Workstream.id.notin_(tagged),
+            )
+            .order_by(Workstream.created_at)
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+async def _find_or_create_shared_default(
+    session: AsyncSession, tenant_id: UUID
+) -> Workstream:
+    """One shared untagged default per tenant — folders must not mint copies."""
+    ids = await _untagged_default_ids(session, tenant_id)
+    if ids:
+        ws = await session.get(Workstream, ids[0])
+        if ws is not None:
+            return ws
+    ws = Workstream(
+        tenant_id=tenant_id,
+        name=DEFAULT_WORKSTREAM_NAME,
+        description=DEFAULT_WORKSTREAM_DESCRIPTION,
+        enabled=True,
+    )
+    session.add(ws)
+    await session.flush()
+    return ws
+
+
+async def prune_internal_default_workstreams(
+    session: AsyncSession, tenant_id: UUID, *, commit: bool = True
+) -> dict[str, int]:
+    """Collapse duplicate Review-and-execute copies onto one shared default.
+
+    Soft-deletes extras and re-points alive project links at the shared row.
+    Operator Flows (with an action tag) are untouched.
+    """
+    from app.models.project import Project
+
+    ids = await _untagged_default_ids(session, tenant_id)
+    if not ids:
+        return {"kept": 0, "pruned": 0, "relinked": 0}
+    keep_id = ids[0]
+    drop_ids = ids[1:]
+    relinked = 0
+    if drop_ids:
+        links = (
+            await session.execute(
+                select(WorkstreamProject).where(
+                    WorkstreamProject.tenant_id == tenant_id,
+                    WorkstreamProject.workstream_id.in_(drop_ids),
+                )
+            )
+        ).scalars().all()
+        alive_project_ids = set(
+            (
+                await session.execute(
+                    select(Project.id).where(
+                        Project.tenant_id == tenant_id,
+                        Project.deleted_at.is_(None),
+                    )
+                )
+            ).scalars().all()
+        )
+        already = set(
+            (
+                await session.execute(
+                    select(WorkstreamProject.project_id).where(
+                        WorkstreamProject.tenant_id == tenant_id,
+                        WorkstreamProject.workstream_id == keep_id,
+                    )
+                )
+            ).scalars().all()
+        )
+        for link in links:
+            if link.project_id in alive_project_ids and link.project_id not in already:
+                session.add(
+                    WorkstreamProject(
+                        tenant_id=tenant_id,
+                        workstream_id=keep_id,
+                        project_id=link.project_id,
+                        is_default=True,
+                    )
+                )
+                already.add(link.project_id)
+                relinked += 1
+            await session.delete(link)
+        now = datetime.utcnow()
+        for ws_id in drop_ids:
+            ws = await session.get(Workstream, ws_id)
+            if ws is None or ws.deleted_at is not None:
+                continue
+            ws.deleted_at = now
+            session.add(ws)
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return {"kept": 1, "pruned": len(drop_ids), "relinked": relinked}
+
+
 async def ensure_default_workstream(
     session: AsyncSession, tenant_id: UUID, project_id: UUID, *, commit: bool = True
 ) -> Workstream:
-    """Return the project's default playbook, creating it when missing.
+    """Return the project's default playbook, creating/linking it when missing.
 
     Every project must have at least one playbook: agent edits to project
-    docs run exclusively through playbook runs.
+    docs run exclusively through playbook runs. Defaults are shared per
+    tenant (no action tag) so folders do not flood the Flows list.
     """
     links = (
         await session.execute(
@@ -588,14 +722,7 @@ async def ensure_default_workstream(
         else:
             await session.flush()
         return ws
-    ws = Workstream(
-        tenant_id=tenant_id,
-        name=DEFAULT_WORKSTREAM_NAME,
-        description=DEFAULT_WORKSTREAM_DESCRIPTION,
-        enabled=True,
-    )
-    session.add(ws)
-    await session.flush()
+    ws = await _find_or_create_shared_default(session, tenant_id)
     session.add(
         WorkstreamProject(
             tenant_id=tenant_id, workstream_id=ws.id, project_id=project_id, is_default=True

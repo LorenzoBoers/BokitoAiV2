@@ -978,20 +978,22 @@ def apply_data_repairs(connection: Connection) -> None:
     # Remove orphan tenant-level orchestrators (no project link, no runs) in
     # tenants that already have a project-linked orchestrator.
     if inspector.has_table("projects") and inspector.has_table("agent_runs"):
-        connection.execute(
-            text(
-                """
-                DELETE FROM agents
-                WHERE role = 'orchestrator'
-                  AND id NOT IN (
-                    SELECT po_agent_id FROM projects WHERE po_agent_id IS NOT NULL
-                  )
-                  AND tenant_id IN (
-                    SELECT tenant_id FROM projects WHERE po_agent_id IS NOT NULL
-                  )
-                  AND id NOT IN (
-                    SELECT agent_id FROM agent_runs WHERE agent_id IS NOT NULL
-                  )
-                """
+        project_cols = {c["name"] for c in inspector.get_columns("projects")}
+        if "po_agent_id" in project_cols:
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM agents
+                    WHERE role = 'orchestrator'
+                      AND id NOT IN (
+                        SELECT po_agent_id FROM projects WHERE po_agent_id IS NOT NULL
+                      )
+                      AND tenant_id IN (
+                        SELECT tenant_id FROM projects WHERE po_agent_id IS NOT NULL
+                      )
+                      AND id NOT IN (
+                        SELECT agent_id FROM agent_runs WHERE agent_id IS NOT NULL
+                      )
+                    """
+                )
             )
-        )

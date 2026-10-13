@@ -42,8 +42,8 @@ describe('decisionSourceRef', () => {
     expect(open({ type: 'agent_task', id: 't', projectId: null })).toBe('/agenda')
   })
 
-  it('sends runs to activity and platform changes to Govern drafts', () => {
-    expect(open({ type: 'agent_run', id: 'r', projectId: null })).toBe('/activity')
+  it('sends runs to the Agents activity section and platform changes to Govern drafts', () => {
+    expect(open({ type: 'agent_run', id: 'r', projectId: null })).toBe('/agents#activity')
     expect(open({ type: 'platform_change', id: 'c', projectId: null })).toBe('/settings/govern?tab=drafts')
   })
 })

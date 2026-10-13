@@ -222,6 +222,7 @@ export function ModuleAgentsSection({
                         avatar_kind: row.avatar_kind,
                         avatar_icon: row.avatar_icon,
                         avatar_color: row.avatar_color,
+                        avatar_shape: row.avatar_shape,
                         avatar_image_url: row.avatar_image_url,
                       }}
                       size={20}

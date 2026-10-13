@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Loader2, Plus, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { Switch } from '../ui/switch'
@@ -17,15 +17,11 @@ import {
   listCalendarConnections,
   saveAccountCalendars,
   startCalendarConnect,
-  syncCalendarConnection,
-  utcIso,
   type CalendarConnection,
   type CalendarInfo,
   type CalendarProvider,
 } from '../../lib/calendars-api'
 import { revokeIntegrationConnection } from '../../lib/integrations-api'
-import { timeAgo } from '../../lib/time-ago'
-import { cn } from '../../lib/utils'
 
 /** Google and Microsoft calendar accounts on the Connections page (Agenda filter). */
 export function CalendarAccountsSection() {
@@ -137,10 +133,7 @@ function StatusLine({ row }: { row: CalendarConnection }) {
       </span>
     )
   }
-  if (status === 'ok' && row.last_synced_at) {
-    return <span>{t('status.ok', { when: timeAgo(utcIso(row.last_synced_at), t) })}</span>
-  }
-  return <span>{t('status.idle')}</span>
+  return <span>{t('status.connected')}</span>
 }
 
 function CalendarAccountRow({
@@ -155,21 +148,8 @@ function CalendarAccountRow({
   const { t } = useTranslation('calendar')
   const confirm = useConfirm()
   const [open, setOpen] = useState(false)
-  const [syncing, setSyncing] = useState(false)
   const canManage = Boolean(row.can_manage)
   const needsSignIn = row.sync_status === 'reconnect'
-
-  const sync = async () => {
-    setSyncing(true)
-    try {
-      await syncCalendarConnection(row.id)
-      await onChanged()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('actions.syncError')))
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   const disconnect = async () => {
     if (
@@ -221,22 +201,9 @@ function CalendarAccountRow({
             </Button>
           ) : null}
           {canManage ? (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                disabled={syncing}
-                onClick={() => void sync()}
-              >
-                <RefreshCw size={13} className={cn(syncing && 'animate-spin')} aria-hidden />
-                {syncing ? t('actions.syncing') : t('actions.syncNow')}
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
-                {open ? t('actions.close') : t('actions.manage')}
-              </Button>
-            </>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
+              {open ? t('actions.close') : t('actions.manage')}
+            </Button>
           ) : null}
         </div>
       </div>

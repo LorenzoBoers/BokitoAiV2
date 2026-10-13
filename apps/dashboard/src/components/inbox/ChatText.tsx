@@ -102,14 +102,15 @@ function MentionChip({ name, kind, id }: { name: string; kind: string; id?: stri
 }
 
 function TagChip({ name, action }: { name: string; action: boolean }) {
+  const bare = name.replace(/^#/, '')
   return (
     <Link
-      to={openEntityPath({ type: 'tag', name })}
-      className="chat-tag-chip"
+      to={openEntityPath({ type: 'tag', name: bare })}
+      className="chat-tag-chip inline-flex items-center gap-1"
       data-tag-kind={action ? 'action_tag' : 'tag'}
     >
       <HashtagMark category={action} />
-      <span>{name}</span>
+      <span>{bare}</span>
     </Link>
   )
 }

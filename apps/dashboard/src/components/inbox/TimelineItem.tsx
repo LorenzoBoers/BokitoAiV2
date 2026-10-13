@@ -1,9 +1,10 @@
-import { AlertCircle, BookOpen, Check, Copy, EyeOff, Forward, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, Users, X as XIcon } from 'lucide-react'
+import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Forward, Hash, Layers, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, Users, X as XIcon } from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labels'
+import { humanizeIsoDatetimes } from '../../lib/bundleActionLabel'
 import { cn } from '../../lib/utils'
 import { cancelScheduledMessage, submitMessageFeedback } from '../../lib/signals-api'
 import { useCorrectionChat } from '../../lib/correction-chat'
@@ -52,6 +53,7 @@ import {
 import MessageAttachments from './MessageAttachments'
 import ChatText from './ChatText'
 import ActivityTrail from './ActivityTrail'
+import { THREAD_ICON, THREAD_INDENT, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
 import { TimelineScrollContext } from './timeline-scroll'
 import { isCustomerChannel } from '../../lib/chatMessages'
 import { isSessionMessage } from '../../lib/session-timeline'
@@ -105,6 +107,7 @@ type MessageItemProps = {
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
+  agentAvatarShape?: string | null
   agentAvatarImageUrl?: string | null
   /** WhatsApp-style group position among consecutive same-author bubbles. */
   stack?: BubbleStack
@@ -1185,25 +1188,39 @@ function eventPresentation(
   if (handlingMode) {
     return {
       ai: handlingMode !== 'manual',
-      icon: <AiHandlingIcon mode={handlingMode} size={10} />,
+      icon: <AiHandlingIcon mode={handlingMode} size={THREAD_ICON} />,
     }
   }
-  if (eventType === 'decision_approved') return { ai: true, icon: <Check size={10} /> }
-  if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={10} /> }
-  if (eventType === 'triaged') return { ai: true, icon: <BookOpen size={10} /> }
+  if (eventType === 'decision_approved') return { ai: true, icon: <Check size={THREAD_ICON} /> }
+  if (eventType === 'decision_dismissed') return { ai: true, icon: <XIcon size={THREAD_ICON} /> }
+  if (eventType === 'triaged') return { ai: true, icon: <BookOpen size={THREAD_ICON} /> }
   if (eventType === 'auto_assigned' && payload.reason === 'autonomous') {
-    return { ai: true, icon: <AiHandlingIcon mode="autonomous" size={10} /> }
+    return { ai: true, icon: <AiHandlingIcon mode="autonomous" size={THREAD_ICON} /> }
   }
   if (eventType === 'auto_assigned' && payload.reason === 'assisted') {
-    return { ai: true, icon: <AiHandlingIcon mode="assisted" size={10} /> }
+    return { ai: true, icon: <AiHandlingIcon mode="assisted" size={THREAD_ICON} /> }
   }
   if (eventType === 'closed' && payload.via === 'close_after_agent_reply') {
-    return { ai: true, icon: <AiMark size={10} /> }
+    return { ai: true, icon: <AiMark size={THREAD_ICON} /> }
   }
   if (AI_EVENT_TYPES.has(eventType) || (eventType && eventType.startsWith('decision_'))) {
-    return { ai: true, icon: <AiMark size={10} /> }
+    return { ai: true, icon: <AiMark size={THREAD_ICON} /> }
   }
-  return { ai: false, icon: null }
+  if (eventType === 'ticket_stage_changed') {
+    return { ai: false, icon: <Layers size={THREAD_ICON} /> }
+  }
+  if (eventType === 'tag_added' || eventType === 'tag_removed' || eventType === 'category_set') {
+    return { ai: false, icon: <Hash size={THREAD_ICON} /> }
+  }
+  if (
+    eventType === 'assigned' ||
+    eventType === 'unassigned' ||
+    eventType === 'picked_up' ||
+    eventType === 'agent_assigned'
+  ) {
+    return { ai: false, icon: <User size={THREAD_ICON} /> }
+  }
+  return { ai: false, icon: <CircleDot size={THREAD_ICON} /> }
 }
 
 function eventLabel(
@@ -1323,8 +1340,7 @@ function assistedHandoverLabel(event: InboxEvent, t: TFunction): ReactNode | nul
   return <Trans t={t} i18nKey="timeline.events.assistDecision" components={{ owner }} />
 }
 
-// Compact centered pill shared by SignalEvents and system_event messages.
-// AI-flow events share one accent-tinted style; plain system activity stays muted.
+// Same meta line as activity: icon + sentence, no competing chip sizes.
 function ActivityPill({
   label,
   ai = false,
@@ -1339,15 +1355,9 @@ function ActivityPill({
 }) {
   return (
     <Tip label={tip}>
-      <span
-        className={cn(
-          'inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-2xs leading-4',
-          ai ? 'bg-ai/[0.08] text-ai-ink' : 'bg-bg-elevated/70 text-text-muted',
-        )}
-      >
-        {icon}
-        <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">{label}</span>
-      </span>
+      <ThreadMetaRow ai={ai} icon={icon}>
+        <span className="inline-flex min-w-0 flex-wrap items-center gap-x-1.5">{label}</span>
+      </ThreadMetaRow>
     </Tip>
   )
 }
@@ -1385,7 +1395,7 @@ function EventPill({
   const linkedId = event.eventType === 'split' ? event.payload?.other_signal_id : null
   if (typeof linkedId === 'string' && linkedId) {
     return (
-      <Link to={inboxPath('all', linkedId)} className="rounded-full hover:ring-1 hover:ring-border">
+      <Link to={inboxPath('all', linkedId)} className="rounded-md hover:text-text-primary">
         {pill}
       </Link>
     )
@@ -1430,8 +1440,10 @@ function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
   const handled = handledExternallyLabel(message.payload, t)
   if (handled) {
     return (
-      <div className="flex justify-center py-0.5 px-2" data-testid="handled-externally-pill">
-        <ActivityPill label={handled} />
+      <div data-testid="handled-externally-pill">
+        <ThreadMetaBlock>
+          <ActivityPill label={handled} />
+        </ThreadMetaBlock>
       </div>
     )
   }
@@ -1446,9 +1458,9 @@ function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
       : raw
   if (!label) return null
   return (
-    <div className="flex justify-center py-0.5 px-2">
+    <ThreadMetaBlock>
       <ActivityPill label={label} />
-    </div>
+    </ThreadMetaBlock>
   )
 }
 
@@ -1576,6 +1588,7 @@ export function MessageTimelineItem({
   agentAvatarKind,
   agentAvatarIcon,
   agentAvatarColor,
+  agentAvatarShape,
   agentAvatarImageUrl,
   stack = 'single',
   onProposalResolved,
@@ -1780,9 +1793,9 @@ export function MessageTimelineItem({
     (message.bodyHtml
       ? htmlToPlainPreview(message.bodyHtml)
       : '')
-  const displayBody = translateMockAgentBody(
-    message.proposal ? stripChoiceEcho(plainBody) : plainBody,
-    t,
+  const displayBody = humanizeIsoDatetimes(
+    translateMockAgentBody(message.proposal ? stripChoiceEcho(plainBody) : plainBody, t),
+    i18n.language,
   )
   // Prefer HTML whenever we have it (or the plain body is mislabelled HTML).
   // Only force plain when a mock/placeholder body was actually rewritten —
@@ -1883,6 +1896,7 @@ export function MessageTimelineItem({
           agentAvatarKind,
           agentAvatarIcon,
           agentAvatarColor,
+          agentAvatarShape,
           agentAvatarImageUrl,
         },
         t('timeline.aiAgent'),
@@ -2492,7 +2506,7 @@ export function MessageTimelineItem({
     />
   ) : null
 
-  const traceIndent = isOwn ? 'ml-auto' : 'ml-9'
+  const traceIndent = isOwn ? 'ml-auto' : THREAD_INDENT
   const proposalActions =
     proposal && threadId ? (
       <div className={cn(traceIndent, 'mb-1 min-w-0 max-w-full', proposal.bundle.length > 0 && 'self-stretch')}>
@@ -2502,6 +2516,7 @@ export function MessageTimelineItem({
             threadId={threadId}
             agentName={agentName}
             onResolved={onProposalResolved}
+            onAnswer={onAnswer}
           />
         ) : (
           <ProposalActions
@@ -2522,7 +2537,7 @@ export function MessageTimelineItem({
   if (activityBefore.length === 0 && activityAfter.length === 0) {
     if (!workbenchCard && !proposalActions) return bubble
     return (
-      <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
+      <div className={cn('flex flex-col gap-1.5', isOwn ? 'items-end' : 'items-start')}>
         <div className="w-full">{bubble}</div>
         {proposalActions}
         {workbenchCard}
@@ -2532,7 +2547,7 @@ export function MessageTimelineItem({
 
   const loadDetail = message.activityDetail ? undefined : () => void ensureFullMessage()
   return (
-    <div className={cn('flex flex-col gap-1', isOwn ? 'items-end' : 'items-start')}>
+    <div className={cn('flex flex-col gap-1.5', isOwn ? 'items-end' : 'items-start')}>
       {activityBefore.length > 0 ? (
         <ActivityTrail items={activityBefore} onExpand={loadDetail} className={traceIndent} />
       ) : null}
@@ -2548,17 +2563,15 @@ export function MessageTimelineItem({
 
 export function EventTimelineItem({ event, memberName, memberNameFor }: EventItemProps) {
   return (
-    <div className="flex justify-center py-0.5 px-2">
+    <ThreadMetaBlock>
       <EventPill event={event} memberName={memberName} memberNameFor={memberNameFor} />
-    </div>
+    </ThreadMetaBlock>
   )
 }
 
-// Consecutive events render as one compact centered cluster of pills instead
-// of a stack of full-width divider lines.
+// Consecutive events share one left-aligned meta block (same rail as activity).
 export function EventClusterTimelineItem({
   events,
-  time,
   memberNameFor,
   startedByName,
   agentName,
@@ -2566,6 +2579,7 @@ export function EventClusterTimelineItem({
   agentAvatarKind,
   agentAvatarIcon,
   agentAvatarColor,
+  agentAvatarShape,
   agentAvatarImageUrl,
 }: {
   events: InboxEvent[]
@@ -2577,11 +2591,10 @@ export function EventClusterTimelineItem({
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
+  agentAvatarShape?: string | null
   agentAvatarImageUrl?: string | null
 }) {
-  const { i18n } = useTranslation('communication')
   if (events.length === 0) return null
-  const clock = time ? formatHourMinute(time, i18n.language) : ''
   const agentSide = events.every(isAgentSideEvent)
   const named =
     events
@@ -2599,12 +2612,7 @@ export function EventClusterTimelineItem({
     agentId ||
     null
   const pills = (
-    <div
-      className={cn(
-        'flex flex-wrap items-center gap-1 py-0.5',
-        agentSide ? 'justify-start' : 'justify-center px-2',
-      )}
-    >
+    <div className="flex min-w-0 flex-col">
       {events.map((event) => (
         <EventPill
           key={event.id}
@@ -2618,40 +2626,34 @@ export function EventClusterTimelineItem({
   )
   if (agentSide) {
     return (
-      <div className="flex items-start gap-2 py-0.5">
-        <AiAvatar
-          {...toAiAvatarProps(
-            {
-              name: named,
-              agentId: avatarAgentId,
-              agentAvatarKind,
-              agentAvatarIcon,
-              agentAvatarColor,
-              agentAvatarImageUrl,
-            },
-            named || 'Agent',
-          )}
-          size={28}
-          decorative
-        />
-        <div className="flex min-w-0 flex-col items-start gap-1 pt-0.5">
-          {named ? <span className="text-2xs font-medium text-text-secondary">{named}</span> : null}
-          {pills}
-        </div>
-      </div>
+      <ThreadMetaBlock
+        header={named || undefined}
+        avatar={
+          <AiAvatar
+            {...toAiAvatarProps(
+              {
+                name: named,
+                agentId: avatarAgentId,
+                agentAvatarKind,
+                agentAvatarIcon,
+                agentAvatarColor,
+                agentAvatarShape,
+                agentAvatarImageUrl,
+              },
+              named || 'Agent',
+            )}
+            size={28}
+            decorative
+          />
+        }
+      >
+        {pills}
+      </ThreadMetaBlock>
     )
   }
-  if (!clock) return pills
   return (
-    <div className="flex flex-col items-center gap-1">
-      <time
-        dateTime={time}
-        className="text-2xs font-medium text-text-muted/80"
-        title={time ? new Date(time).toLocaleString(i18n.language) : undefined}
-      >
-        {clock}
-      </time>
+    <ThreadMetaBlock>
       {pills}
-    </div>
+    </ThreadMetaBlock>
   )
 }

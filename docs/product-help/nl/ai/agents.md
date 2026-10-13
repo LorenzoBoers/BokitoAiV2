@@ -1,8 +1,8 @@
 ---
 title: Zo werken Agents
 intro: De bibliotheek van AI-werkers. Communicatie is waar ze praten; deze pagina is waar je ze aanneemt en brief.
-description: Brief bedrijfsagents, zet chattoegang, deactiveer ze, voeg een handtekening toe en stel naam, omschrijving of icoon in.
-keywords: agents, ai-workforce, deactiveren, opnieuw activeren, chattoegang, handtekening, avatar, icoon, standaardagent
+description: Brief bedrijfsagents, zet chattoegang, deactiveer ze, voeg een handtekening toe en stel naam, omschrijving of bot-uiterlijk in.
+keywords: agents, ai-workforce, deactiveren, opnieuw activeren, chattoegang, handtekening, avatar, bot, kleur, standaardagent
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -75,11 +75,11 @@ Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading). Die
 3. Vul een platte-teksthandtekening in. Regelafbrekingen blijven staan. Wanneer de agent namens zichzelf mailt, voegt Bokito altijd een korte regel “Beantwoord door een AI-agent · Powered by Bokito AI” toe met een link naar [bokito.ai](https://bokito.ai).
 4. Sla op. Goedkeuringen voor deze agent gebruiken die standaard tot je op de kaart een andere Send as kiest.
 
-## Stel naam, omschrijving of icoon in
+## Stel naam, omschrijving of uiterlijk in
 
 1. Open een bedrijfsagent.
 2. Kies **Bewerken** rechtsboven in de header.
-3. Pas de **naam** aan, vul de **Omschrijving** in (de korte rol op de bibliotheekkaart), kies **Initialen** of **Icoon**, en sla op. Agents gebruiken altijd het platform-AI-violet — er is geen eigen kleur- of fotokiezer. Instructies blijven op de agentpagina; dat is niet deze omschrijving.
+3. Pas de **naam** aan, vul de **Omschrijving** in (de korte rol op de bibliotheekkaart), kies **Initialen** of **Bot**. Bij **Bot** kies je een **vorm** en een **kleur** voor het geanimeerde gezicht, en sla op. Instructies blijven op de agentpagina; dat is niet deze omschrijving.
 
 Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Communicatie en de webchat-headerbubble van de antwoordingende agent.
 

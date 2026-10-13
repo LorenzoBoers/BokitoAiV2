@@ -233,7 +233,9 @@ export function useThreadDetail(
           setRawDetail(null)
         }
       } finally {
-        if (!quiet && generation === fetchGeneration.current) setLoading(false)
+        // Always clear when we are still the latest fetch. A quieter follow-up
+        // must not leave loading stuck after an aborted non-quiet refresh.
+        if (generation === fetchGeneration.current) setLoading(false)
       }
     },
     [token, threadId, options?.skipMarkRead, restoreUnread],

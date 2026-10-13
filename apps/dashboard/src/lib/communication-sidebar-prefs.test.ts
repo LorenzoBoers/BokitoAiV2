@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { normalizeSidebarPrefs } from './communication-sidebar-prefs'
 
 describe('communication sidebar prefs', () => {
-  it('folds legacy hashtags and projects into folders', () => {
+  it('folds legacy hashtags and projects into folders and inserts flows after folders', () => {
     const prefs = normalizeSidebarPrefs({
       order: ['hashtags', 'channels', 'projects', 'agents'],
       hidden: ['projects'],
       collapsed: ['hashtags'],
     })
-    expect(prefs.order).toEqual(['folders', 'channels', 'agents', 'teams', 'settings'])
+    expect(prefs.order).toEqual(['folders', 'flows', 'channels', 'agents', 'teams', 'settings'])
     expect(prefs.hidden).toEqual(['folders'])
     expect(prefs.collapsed).toEqual(['folders'])
   })
@@ -20,5 +20,12 @@ describe('communication sidebar prefs', () => {
     })
     expect(prefs.railPins.map((pin) => pin.ref)).toEqual(['tag:vip', 'folder:1'])
     expect(prefs.railHiddenDefaults).toEqual(['tag:old'])
+  })
+
+  it('preserves an explicit flows section in order', () => {
+    const prefs = normalizeSidebarPrefs({
+      order: ['folders', 'flows', 'channels', 'teams', 'agents', 'settings'],
+    })
+    expect(prefs.order).toEqual(['folders', 'flows', 'channels', 'teams', 'agents', 'settings'])
   })
 })

@@ -5,7 +5,7 @@ import { helpLang, publicOpenApiUrl, PRODUCT_HELP_SECTIONS } from './product-hel
 
 describe('product help routes', () => {
   it('builds same-origin docs paths', () => {
-    expect(docsRoutes.index).toBe('/')
+    expect(docsRoutes.index).toBe('')
     expect(docsRoutes.article('channels')).toBe('/channels')
     expect(docsRoutes.article('how to')).toBe('/how%20to')
     expect(docsRoutes.articleMarkdown('channels')).toBe('/channels.md')

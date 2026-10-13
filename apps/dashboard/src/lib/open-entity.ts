@@ -3,7 +3,6 @@
  * decision cards and the command palette all link through `openEntityPath`.
  */
 import {
-  activityTerminalPath,
   channelPath,
   forYouPath,
   inboxPath,
@@ -67,7 +66,8 @@ export function openEntityPath(ref: EntityRef): string | null {
       return forYouPath(ref.signalId, ref.messageId ? { message: ref.messageId } : undefined)
     case 'run':
       if (ref.id && ref.agentId) return `/agents/${enc(ref.agentId)}/runs/${enc(ref.id)}`
-      return activityTerminalPath(ref.agentId)
+      if (ref.agentId) return `/agents/${enc(ref.agentId)}#activity`
+      return '/agents#activity'
     case 'agent':
       if (ref.live?.threadId) return inboxPath('open', ref.live.threadId)
       if (ref.live?.activityId) return openEntityPath({ type: 'run', id: ref.live.activityId, agentId: ref.id })
@@ -158,9 +158,9 @@ function notificationPath(kind: string, payload: Record<string, unknown>): strin
   const internal =
     stringField(payload, 'folder') === 'internal' || channel === 'internal' || channel === 'assistant'
   if (kind === 'ops_alert') {
-    return stringField(payload, 'account_id') ? '/settings/channels' : activityTerminalPath()
+    return stringField(payload, 'account_id') ? '/settings/channels' : '/agents#activity'
   }
-  if (kind === 'status_update') return internal ? activityTerminalPath() : inboxPath('all')
+  if (kind === 'status_update') return internal ? '/agents#activity' : inboxPath('all')
   return null
 }
 
@@ -311,5 +311,5 @@ export function runThreadPath(
 ): string {
   const thread = pickClosestThreadBySubject(threads, run.task_subject?.trim() ?? '', startedAtIso(run.started_at))
   if (thread) return inboxPath('all', String(thread.id))
-  return openEntityPath({ type: 'run', id: run.id, agentId: run.agent_id }) ?? activityTerminalPath()
+  return openEntityPath({ type: 'run', id: run.id, agentId: run.agent_id }) ?? '/agents#activity'
 }

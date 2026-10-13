@@ -62,7 +62,7 @@ describe('Communication folders', () => {
 describe('openEntityPath', () => {
   it('opens runs on the agent page, or Activity without an agent', () => {
     expect(openEntityPath({ type: 'run', id: 'r1', agentId: 'a1' })).toBe('/agents/a1/runs/r1')
-    expect(openEntityPath({ type: 'run', id: 'r1' })).toBe('/activity')
+    expect(openEntityPath({ type: 'run', id: 'r1' })).toBe('/agents#activity')
   })
 
   it('opens a working agent where it works', () => {
@@ -108,7 +108,7 @@ describe('notification links', () => {
 
   it('routes system notices to their surface', () => {
     expect(open('ops_alert', { account_id: 'acc-1' })).toBe('/settings/channels')
-    expect(open('ops_alert', {})).toBe('/activity')
+    expect(open('ops_alert', {})).toBe('/agents#activity')
     expect(open('status_update', { agent_id: 'a1' })).toBe('/agents/a1')
     expect(open('mystery', {})).toBeNull()
   })

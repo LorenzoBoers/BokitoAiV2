@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { CalendarDays, Inbox, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { AiAvatar } from '../components/ui/AiAvatar'
+import { AgentMark } from '../components/ui/AgentMark'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
@@ -111,15 +111,10 @@ function AgentLibraryCard({
         className="flex h-full flex-col gap-3 border-border/50 p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
       >
         <div className="flex items-start gap-3">
-          <AiAvatar
-            name={agent.name}
-            seed={agent.id}
+          <AgentMark
+            agent={agent}
             size={40}
             className="mt-0.5"
-            kind={agent.avatar_kind}
-            icon={agent.avatar_icon}
-            imageUrl={agent.avatar_image_url}
-            decorative
             activity={
               work === 'working' ? 'working' : work === 'error' ? 'error' : 'standby'
             }
@@ -392,6 +387,8 @@ export default function AiAgents() {
               name: agent.name,
               avatar_kind: agent.avatar_kind,
               avatar_icon: agent.avatar_icon,
+              avatar_color: agent.avatar_color,
+              avatar_shape: agent.avatar_shape,
               avatar_image_url: agent.avatar_image_url,
             }))}
         />

@@ -1,9 +1,9 @@
-"""Assistant conversation endpoints of the unified Signals API.
+"""Operator chat endpoints of the unified Signals API.
 
-An assistant conversation is a `Signal` with channel="assistant" owned by the
-requesting user. These routes live under the `/signals` prefix (included by
-`app.routers.signals`) so Messages, email, the widget, and assistant chats all
-share one API family. Paths:
+Ask/stream works on assistant chats (`channel=assistant`) and on wake /
+agent-run threads (`channel=internal`) the same way. Widget visitor chats can
+share these routes too. List/create defaults stay assistant-scoped. Routes
+live under `/signals` (included by `app.routers.signals`). Paths:
 
 - GET  /signals/chat/targets
 - GET/POST  /signals/conversations
@@ -51,7 +51,13 @@ from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
 router = APIRouter(tags=["signals"])
 logger = logging.getLogger(__name__)
 
-ASSISTANT_CHANNELS = ("assistant", "widget")
+# Operator Ask/stream uses the same path for assistant chats and wake /
+# agent-run threads (channel=internal). Widget stays for visitor chats that
+# share these conversation routes. Keep in sync with is_internal_channel /
+# ownership.INTERNAL_CHANNELS for team-facing turns.
+OPERATOR_CHAT_CHANNELS = ("assistant", "internal", "widget")
+# Back-compat alias for imports/tests that still say ASSISTANT_CHANNELS.
+ASSISTANT_CHANNELS = OPERATOR_CHAT_CHANNELS
 # Last-resort age cap. The turn usually lives on the worker, so a missing
 # in-process task is not a ghost. Only age (or Stop) reclaims the row.
 CHAT_BUSY_STALE = timedelta(minutes=15)
@@ -118,13 +124,13 @@ async def _set_chat_agent_live(
 
     try:
         working = status == "working"
+        # Never put the thread subject (often the operator's last message) into
+        # live.summary — the Communication agent nav would echo it as a row.
         await mark_agent_activity(
             session,
             agent,
             status=status,
-            summary=(summary or (signal.subject if signal else None) or "Replying")[:200]
-            if working
-            else None,
+            summary=(summary or "Replying")[:200] if working else None,
             signal_id=signal.id if working and signal is not None else None,
             activity_id=run.id if working and run is not None else None,
         )
@@ -220,7 +226,11 @@ def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = N
         "title": signal.subject,
         "channel": signal.channel,
         "source": signal.source,
-        "audience": "internal" if signal.channel == "assistant" else "external",
+        "audience": (
+            "internal"
+            if signal.channel in ("assistant", "internal")
+            else "external"
+        ),
         "ai_handling": signal.ai_handling,
         "agent_id": str(signal.agent_id) if signal.agent_id else None,
         "agent_name": agent.name if agent else None,
@@ -1051,11 +1061,12 @@ async def _ensure_session_idle(
 
 
 async def _get_thread(session: AsyncSession, conversation_id: UUID, tenant_id: UUID) -> Signal:
+    """Load a thread the operator may Ask on (assistant chat or wake/run)."""
     result = await session.execute(
         select(Signal).where(
             Signal.id == conversation_id,
             Signal.tenant_id == tenant_id,
-            Signal.channel.in_(ASSISTANT_CHANNELS),
+            Signal.channel.in_(OPERATOR_CHAT_CHANNELS),
         )
     )
     signal = result.scalar_one_or_none()

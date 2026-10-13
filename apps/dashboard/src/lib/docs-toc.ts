@@ -6,6 +6,7 @@
 export interface TocItem {
   id: string
   text: string
+  level: 2 | 3
 }
 
 /** Strip inline markdown (bold, code, links) from a heading line. */
@@ -25,7 +26,7 @@ export function headingId(raw: string): string {
     .replace(/[\s-]+/g, '-')
 }
 
-/** All `##` headings in document order, skipping fenced code blocks. */
+/** All `##` and `###` headings in document order, skipping fenced code blocks. */
 export function extractToc(content: string): TocItem[] {
   const items: TocItem[] = []
   let inFence = false
@@ -35,9 +36,10 @@ export function extractToc(content: string): TocItem[] {
       continue
     }
     if (inFence) continue
-    const match = line.match(/^##\s+(.+)$/)
+    const match = line.match(/^(#{2,3})\s+(.+)$/)
     if (match) {
-      items.push({ id: headingId(match[1]), text: headingText(match[1]) })
+      const level = match[1].length === 2 ? 2 : 3
+      items.push({ id: headingId(match[2]), text: headingText(match[2]), level })
     }
   }
   return items

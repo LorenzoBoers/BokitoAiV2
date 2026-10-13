@@ -20,6 +20,7 @@ import {
 } from '../../lib/agentActivity'
 import { cn } from '../../lib/utils'
 import { KnowledgeMark } from '../knowledge/KnowledgeMark'
+import { THREAD_ICON, THREAD_META, ThreadMetaRow } from './ThreadMeta'
 
 function ProviderLogo({ provider, size }: { provider: string; size: number }) {
   const brand = useIntegrationBrand(provider)
@@ -57,7 +58,7 @@ function SiteFavicon({ src, size }: { src: string; size: number }) {
  */
 function WebSearchLead({
   item,
-  size = 12,
+  size = THREAD_ICON,
   live = false,
 }: {
   item: ActivityItem
@@ -87,7 +88,7 @@ const GROUP_ICON_MAX = 6
 /** Inline icons for every action in a group (globe+favicon for web search). */
 function GroupIconStrip({
   items,
-  size = 12,
+  size = THREAD_ICON,
   liveLast = false,
 }: {
   items: ActivityItem[]
@@ -127,7 +128,7 @@ export function ActivityIcon({
   kind,
   tool = '',
   provider = '',
-  size = 13,
+  size = THREAD_ICON,
   live = false,
 }: {
   kind: ActivityKind
@@ -183,21 +184,23 @@ function ItemRow({ item }: { item: ActivityItem }) {
         disabled={!detail}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex w-full min-w-0 items-center gap-1.5 py-0.5 text-left text-xs text-text-secondary',
+          'flex min-h-7 w-full min-w-0 items-center gap-2 text-left',
+          THREAD_META,
+          'text-text-secondary',
           detail ? 'hover:text-text-primary' : 'cursor-default',
         )}
       >
         {item.tool === 'web_search' ? (
-          <WebSearchLead item={item} size={12} />
+          <WebSearchLead item={item} />
         ) : (
-          <ActivityIcon kind={item.kind} tool={item.tool} provider={item.provider} size={12} />
+          <ActivityIcon kind={item.kind} tool={item.tool} provider={item.provider} />
         )}
         <span className="min-w-0 truncate-fade">{itemLabel(item, t)}</span>
         {item.status === 'error' ? (
-          <AlertCircle size={11} className="shrink-0 text-status-error" aria-label={t('activity.failed')} />
+          <AlertCircle size={THREAD_ICON} className="shrink-0 text-status-error" aria-label={t('activity.failed')} />
         ) : null}
         {duration > 0 ? (
-          <span className="ml-auto shrink-0 tabular-nums text-2xs text-text-muted">
+          <span className="ml-auto shrink-0 tabular-nums text-text-muted">
             {formatDuration(duration)}
           </span>
         ) : null}
@@ -250,20 +253,21 @@ function LiveThinkLine({ group }: { group: ActivityGroup }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className={cn(
-          'group flex min-w-0 items-center gap-2 py-0.5 text-left text-sm',
+          'group flex min-h-7 min-w-0 items-center gap-2 text-left',
+          THREAD_META,
           text ? 'cursor-pointer' : 'cursor-default',
         )}
       >
-        <ActivityIcon kind="think" size={14} live />
-        <span className="activity-live-label min-w-0 truncate-fade font-medium" role="status" aria-live="polite">
+        <ActivityIcon kind="think" live />
+        <span className="activity-live-label min-w-0 truncate-fade" role="status" aria-live="polite">
           <span className="thinking-shimmer-text">{t('activity.thinking')}</span>
         </span>
-        <span className="shrink-0 tabular-nums text-2xs text-text-muted">{formatDuration(group.durationMs)}</span>
+        <span className="shrink-0 tabular-nums text-text-muted">{formatDuration(group.durationMs)}</span>
         {text ? (
           open ? (
-            <ChevronDown size={12} className="shrink-0 text-text-muted" />
+            <ChevronDown size={THREAD_ICON} className="shrink-0 text-text-muted" />
           ) : (
-            <ChevronRight size={12} className="shrink-0 text-text-muted opacity-60 group-hover:opacity-100" />
+            <ChevronRight size={THREAD_ICON} className="shrink-0 text-text-muted opacity-60 group-hover:opacity-100" />
           )
         ) : null}
       </button>
@@ -310,14 +314,14 @@ export function ActivityGroupLine({
   if (live) {
     const label = groupLiveLabel(group, t)
     return (
-      <div className="flex min-w-0 items-center gap-2 py-0.5 text-sm" role="status" aria-live="polite">
-        <GroupIconStrip items={group.items} size={14} liveLast />
-        <span key={current?.id} className="activity-live-label min-w-0 truncate-fade font-medium">
-          <span className="thinking-shimmer-text">{label}</span>
-        </span>
-        {group.kind === 'work' && group.items.length > 1 ? (
-          <span className="shrink-0 text-2xs tabular-nums text-text-muted">{group.items.length}</span>
-        ) : null}
+      <div key={current?.id} role="status" aria-live="polite">
+        <ThreadMetaRow
+          live
+          lead={<GroupIconStrip items={group.items} liveLast />}
+          trailing={group.kind === 'work' && group.items.length > 1 ? group.items.length : undefined}
+        >
+          {label}
+        </ThreadMetaRow>
       </div>
     )
   }
@@ -325,10 +329,9 @@ export function ActivityGroupLine({
   // A lone note is its own label; expanding would only repeat it.
   if (group.kind === 'other' && group.items.length === 1 && current?.label === 'note') {
     return (
-      <div className="flex min-w-0 items-start gap-1.5 py-0.5 text-xs text-text-muted">
-        <ActivityIcon kind="other" tool={current.tool} size={12} />
-        <span className="min-w-0 whitespace-pre-wrap break-words">{itemLabel(current, t)}</span>
-      </div>
+      <ThreadMetaRow icon={<ActivityIcon kind="other" tool={current.tool} />}>
+        <span className="whitespace-pre-wrap break-words">{itemLabel(current, t)}</span>
+      </ThreadMetaRow>
     )
   }
 
@@ -341,16 +344,24 @@ export function ActivityGroupLine({
           setExpanded((v) => !v)
         }}
         aria-expanded={expanded}
-        className="group flex min-w-0 items-center gap-1.5 py-0.5 text-left text-xs text-text-muted hover:text-text-secondary"
+        className="group w-full min-w-0 text-left"
       >
-        <GroupIconStrip items={group.items} size={12} />
-        <span className="min-w-0 truncate-fade">{groupSummary(group, t)}</span>
-        {hasError ? <AlertCircle size={11} className="shrink-0 text-status-error" /> : null}
-        {expanded ? (
-          <ChevronDown size={12} className="shrink-0 opacity-70" />
-        ) : (
-          <ChevronRight size={12} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-70" />
-        )}
+        <ThreadMetaRow
+          lead={<GroupIconStrip items={group.items} />}
+          suffix={
+            <>
+              {hasError ? <AlertCircle size={THREAD_ICON} className="text-status-error" /> : null}
+              {expanded ? (
+                <ChevronDown size={THREAD_ICON} className="opacity-70" />
+              ) : (
+                <ChevronRight size={THREAD_ICON} className="opacity-0 transition-opacity group-hover:opacity-70" />
+              )}
+            </>
+          }
+          className="hover:text-text-primary"
+        >
+          {groupSummary(group, t)}
+        </ThreadMetaRow>
       </button>
       {expanded ? (
         <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border/60 pl-3">
@@ -382,7 +393,7 @@ export default function ActivityTrail({
   const groups = groupActivity(items.filter(isVisibleActivity), now)
   if (groups.length === 0) return null
   return (
-    <div className={cn('min-w-0 max-w-[82%] space-y-0.5', className)}>
+    <div className={cn('min-w-0 max-w-[85%]', className)}>
       {groups.map((group, index) => (
         <ActivityGroupLine
           key={group.key}

@@ -16,6 +16,7 @@
   "status": {
     "ok": "Gesynchroniseerd {{when}}",
     "idle": "Wacht op de eerste synchronisatie",
+    "connected": "Gekoppeld",
     "reconnect": "Log opnieuw in om deze agenda bij te houden",
     "error": "Synchroniseren mislukt: {{error}}"
   },
@@ -27,11 +28,11 @@
     "close": "Sluiten",
     "disconnect": "Ontkoppelen",
     "disconnectConfirm": "Dit agenda-account ontkoppelen? De afspraken verdwijnen uit Agenda. In Google of Outlook verandert niets.",
-    "syncError": "Synchroniseren mislukt."
+    "syncError": "Dit agenda-account kon niet worden bijgewerkt."
   },
   "calendars": {
     "title": "Agenda's",
-    "hint": "Aangezette agenda's synchroniseren elke 15 minuten en staan in Agenda.",
+    "hint": "Aangezette agenda's worden automatisch bijgewerkt en staan in Agenda.",
     "loading": "Agenda's laden...",
     "readOnly": "Alleen lezen",
     "primary": "Hoofdagenda",

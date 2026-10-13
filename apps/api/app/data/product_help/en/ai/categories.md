@@ -21,7 +21,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 1. Open **Settings**, then **# Tags**. The page shows one **Tags** list (action tags first, with an accent `#`), then **What we missed** and who may confirm tickets.
 2. Choose **New tag** to add a free tag, then **Create flow** on that row. That creates or links a flow titled `#name`. The tag becomes an action tag in the same list.
 3. On an action tag, choose **Open flow** to configure stages and filing on the flow page. A new flow starts with Open, Waiting and Done. Choose **Create folder** to give the same tag a place in the folder tree.
-4. Use the pin on any tag for a row in **Folders and tags**. Use the AI switch to allow or block triage from auto-tagging with that tag. Put related tags in a group (optionally exclusive). The conversation count on a row opens those conversations in Communication.
+4. Use the pin on a free tag for a row under **Folders** in Communication. Action tags with a flow appear under **Flows**. Use the AI switch to allow or block triage from auto-tagging with that tag. Put related tags in a group (optionally exclusive). The conversation count on a row opens those conversations in Communication.
 
 ## File a ticket on a conversation
 
@@ -30,7 +30,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 
 1. Open a conversation in **Communication**. Under **This conversation**, choose **Add tags**.
 2. Type with a soft `#` and pick an action tag (marked **Action tag**), or a free tag. An unknown name asks whether to add it as a tag or **Make action tag**.
-3. Filing does not ask for a folder. The conversation lands from its tags. A conversation can match more than one folder; the header shows every matching path. Canvas, docs and budget stay on one home (the deepest path).
+3. Filing does not ask for a folder. The conversation matches every saved map whose tags it fully covers; the header shows those maps. Canvas and docs live on the folder hub under **Folders**.
 4. The ticket starts in the first stage of the flow. The list row shows the action tag with the stage and a colored dot. Changing to another action tag asks to **Replace** (or split the conversation for a second request).
 5. In the composer, `/ticket #name` files the same ticket.
 

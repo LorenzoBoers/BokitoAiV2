@@ -380,6 +380,8 @@ async def resolve_decision(
             "draft",
             "escalate",
             "acknowledge",
+            # Soft record-only (module propose_* cards, priority picks). No tool run.
+            "approve",
             "human_takeover",
             "assign_me",
             "take_over",

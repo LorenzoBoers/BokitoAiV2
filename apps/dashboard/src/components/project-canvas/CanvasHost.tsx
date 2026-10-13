@@ -215,26 +215,28 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
           if (value !== 'empty') setActiveId(value)
         }}
       >
-        <TabsList className="h-auto min-h-9 w-full flex-wrap justify-start overflow-visible">
-          {items.map((row) => (
-            <TabsTrigger key={row.id} value={row.id}>
-              <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
-              {row.title}
-            </TabsTrigger>
-          ))}
-          {canEdit ? (
-            <button
-              type="button"
-              className="-mb-px inline-flex h-9 w-9 shrink-0 items-center justify-center border-b-2 border-transparent text-text-secondary hover:text-text-primary disabled:opacity-40"
-              onClick={openAdd}
-              disabled={busy}
-              title={t('projects.canvas.add')}
-              aria-label={t('projects.canvas.add')}
-            >
-              <Plus size={16} strokeWidth={2} aria-hidden />
-            </button>
-          ) : null}
-        </TabsList>
+        {items.length > 0 ? (
+          <TabsList className="h-auto min-h-9 w-full flex-wrap justify-start overflow-visible">
+            {items.map((row) => (
+              <TabsTrigger key={row.id} value={row.id}>
+                <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
+                {row.title}
+              </TabsTrigger>
+            ))}
+            {canEdit ? (
+              <button
+                type="button"
+                className="-mb-px inline-flex h-9 w-9 shrink-0 items-center justify-center border-b-2 border-transparent text-text-secondary hover:text-text-primary disabled:opacity-40"
+                onClick={openAdd}
+                disabled={busy}
+                title={t('projects.canvas.add')}
+                aria-label={t('projects.canvas.add')}
+              >
+                <Plus size={16} strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+          </TabsList>
+        ) : null}
 
         {items.length === 0 ? (
           <TabsContent value="empty">

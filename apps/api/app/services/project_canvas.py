@@ -223,9 +223,7 @@ async def resolve_managing_agent(
             raise HTTPException(status_code=400, detail="Managing agent not found")
         return row.id
     if owner_kind == OWNER_PROJECT:
-        project = await _require_project(session, tenant_id, owner_id)
-        if project.po_agent_id:
-            return project.po_agent_id
+        await _require_project(session, tenant_id, owner_id)
     from app.services.lead_agent import get_lead_agent
 
     lead = await get_lead_agent(session, tenant_id)
@@ -993,6 +991,54 @@ async def patch_canvas_meta(
     return await _serialize(session, tenant_id, canvas)
 
 
+async def disable_refresh_trigger_for_canvas(
+    session: AsyncSession,
+    tenant_id: UUID,
+    canvas: ProjectCanvas,
+) -> None:
+    """Stop Agenda wakes when a canvas is binned — soft-delete must not leave cron live."""
+    from app.models.signal import Signal
+    from app.services.thread_schedule import mirror_next_at
+
+    trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
+    if not trigger:
+        return
+    trigger.enabled = False
+    trigger.next_run_at = None
+    trigger.last_status = "canvas_binned"
+    session.add(trigger)
+    if trigger.signal_id:
+        signal = await session.get(Signal, trigger.signal_id)
+        if signal is not None and signal.tenant_id == tenant_id:
+            mirror_next_at(signal, trigger)
+            session.add(signal)
+
+
+async def resume_refresh_trigger_for_canvas(
+    session: AsyncSession,
+    tenant_id: UUID,
+    canvas: ProjectCanvas,
+) -> None:
+    """Re-arm a canvas refresh wake after restore from Bin."""
+    from app.models.signal import Signal
+    from app.services import triggers as trigger_svc
+    from app.services.thread_schedule import mirror_next_at
+
+    trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
+    if not trigger:
+        return
+    trigger.enabled = True
+    trigger.next_run_at = trigger_svc.compute_next_run(trigger)
+    if trigger.last_status == "canvas_binned":
+        trigger.last_status = ""
+    session.add(trigger)
+    if trigger.signal_id:
+        signal = await session.get(Signal, trigger.signal_id)
+        if signal is not None and signal.tenant_id == tenant_id:
+            mirror_next_at(signal, trigger)
+            session.add(signal)
+
+
 async def delete_canvas(
     session: AsyncSession,
     tenant_id: UUID,
@@ -1006,6 +1052,8 @@ async def delete_canvas(
     if not permanent:
         from app.services.trash import load_tenant, move_to_bin
 
+        # Binning used to leave refresh cron enabled → ghost Agenda blocks.
+        await disable_refresh_trigger_for_canvas(session, tenant_id, canvas)
         tenant = await load_tenant(session, tenant_id)
         await move_to_bin(
             session,

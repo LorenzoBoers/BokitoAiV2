@@ -118,6 +118,8 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
         name: fromCandidates.name,
         avatar_kind: fromCandidates.avatarKind,
         avatar_icon: fromCandidates.avatarIcon,
+        avatar_color: fromCandidates.avatarColor,
+        avatar_shape: fromCandidates.avatarShape,
         avatar_image_url: fromCandidates.avatarImageUrl,
       }
     }
@@ -142,13 +144,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
     />
   ) : owner?.kind === 'agent' && owner.agentId ? (
     <AiAvatar
-      {...toAiAvatarProps({
-        id: owner.agentId,
-        name: currentAgent?.name ?? owner.agentId,
-        avatar_kind: currentAgent?.avatar_kind,
-        avatar_icon: currentAgent?.avatar_icon,
-        avatar_image_url: currentAgent?.avatar_image_url,
-      })}
+      {...toAiAvatarProps(currentAgent ?? { id: owner.agentId, name: owner.agentId })}
       size={18}
       decorative
       activity={currentAgentActivity}
@@ -239,9 +235,11 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                     {...toAiAvatarProps({
                       id: a.id,
                       name: a.name,
-                      avatar_kind: a.avatarKind,
-                      avatar_icon: a.avatarIcon,
-                      avatar_image_url: a.avatarImageUrl,
+                      avatarKind: a.avatarKind,
+                      avatarIcon: a.avatarIcon,
+                      avatarColor: a.avatarColor,
+                      avatarShape: a.avatarShape,
+                      avatarImageUrl: a.avatarImageUrl,
                     })}
                     size={18}
                     decorative

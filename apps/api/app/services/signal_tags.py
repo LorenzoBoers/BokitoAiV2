@@ -413,28 +413,15 @@ async def registry_with_counts(session: AsyncSession, tenant_id: UUID) -> list[d
     names = dict(
         (await session.execute(select(Workstream.id, Workstream.name).where(Workstream.tenant_id == tenant_id))).all()
     )
-    from app.services.folders import load_tree
+    from app.services.folders import load_catalog, serialize_folders_for_tag
 
-    tree = await load_tree(session, tenant_id)
-    folders_by_tag: dict[UUID, list[dict[str, Any]]] = {}
-    for node in tree.nodes.values():
-        if node.tag_id is not None:
-            path = tree.static_path(node.id)
-            tag_names = [tree.tag_name(segment.tag_id) for segment in path.segments if segment.tag_id]
-            folders_by_tag.setdefault(node.tag_id, []).append(
-                {
-                    "id": str(node.id),
-                    "name": node.name,
-                    "path": " / ".join(f"#{part}" for part in tag_names),
-                    "tag_names": tag_names,
-                }
-            )
-    groups = {g.id: g for g in tree.groups.values()}
+    catalog = await load_catalog(session, tenant_id)
+    groups = catalog.groups
     out = []
     for row in await registry_rows(session, tenant_id):
         item = serialize_tag(row, counts.get(row.id, 0) + ticket_counts.get(row.id, 0))
         item["workstream_name"] = names.get(row.workstream_id) if row.workstream_id else None
-        item["folders"] = sorted(folders_by_tag.get(row.id, []), key=lambda f: f["path"].lower())
+        item["folders"] = serialize_folders_for_tag(catalog, row.id)
         group = groups.get(row.group_id) if row.group_id else None
         item["group_name"] = group.name if group else None
         out.append(item)
@@ -576,9 +563,6 @@ async def delete_group(session: AsyncSession, tenant_id: UUID, group_id: UUID, *
     await session.execute(
         update(SignalTag).where(SignalTag.tenant_id == tenant_id, SignalTag.group_id == row.id).values(group_id=None)
     )
-    await session.execute(
-        update(Project).where(Project.tenant_id == tenant_id, Project.child_group_id == row.id).values(child_group_id=None)
-    )
     await session.flush()
     await refile_tagged(session, tenant_id, tag_ids)
     await session.delete(row)
@@ -688,13 +672,22 @@ async def update_tag(
                     ws.name = clean[:120]
                     ws.updated_at = datetime.utcnow()
                     session.add(ws)
-            from app.models.project import Project
+            from app.models.project import Project, ProjectTagLink
 
-            await session.execute(
-                update(Project)
-                .where(Project.tag_id == row.id, Project.deleted_at.is_(None))
-                .values(name=clean, slug=clean, updated_at=datetime.utcnow())
-            )
+            single_tag_projects = (
+                await session.execute(
+                    select(ProjectTagLink.project_id)
+                    .where(ProjectTagLink.tag_id == row.id)
+                    .group_by(ProjectTagLink.project_id)
+                    .having(func.count() == 1)
+                )
+            ).scalars()
+            if single_tag_projects:
+                await session.execute(
+                    update(Project)
+                    .where(Project.id.in_(list(single_tag_projects)), Project.deleted_at.is_(None))
+                    .values(name=clean, slug=clean, updated_at=datetime.utcnow())
+                )
     if description is not None:
         row.description = description.strip()[:300]
     if show_in_nav is not None:
@@ -744,9 +737,24 @@ async def _merge_into(session: AsyncSession, source: SignalTag, target: SignalTa
             if owner_id not in have:
                 session.add(model(**{owner.key: owner_id, "tag_id": target.id, "tenant_id": target.tenant_id}))
             await session.delete(link)
-    from app.models.project import Project
+    from app.models.project import ProjectTagLink
 
-    await session.execute(update(Project).where(Project.tag_id == source.id).values(tag_id=target.id))
+    for link in list(
+        (await session.execute(select(ProjectTagLink).where(ProjectTagLink.tag_id == source.id))).scalars()
+    ):
+        exists = (
+            await session.execute(
+                select(ProjectTagLink.project_id).where(
+                    ProjectTagLink.project_id == link.project_id,
+                    ProjectTagLink.tag_id == target.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if exists is None:
+            link.tag_id = target.id
+            session.add(link)
+        else:
+            await session.delete(link)
     await session.flush()
     await session.delete(source)
 
@@ -755,16 +763,21 @@ async def delete_tag(session: AsyncSession, tenant_id: UUID, tag_id: UUID, *, co
     """Remove a tag from the registry, every conversation, contact and company.
     A category's tickets lose their category. A tag that defines a folder
     cannot go: move or remove the folder first."""
-    from app.models.project import Project
+    from app.models.project import Project, ProjectTagLink
     from app.services.folders import refile_many
 
     row = await _tag_row(session, tenant_id, tag_id)
     folders = list(
         (
             await session.execute(
-                select(Project.name).where(
-                    Project.tenant_id == tenant_id, Project.tag_id == row.id, Project.deleted_at.is_(None)
+                select(Project.name)
+                .join(ProjectTagLink, ProjectTagLink.project_id == Project.id)
+                .where(
+                    Project.tenant_id == tenant_id,
+                    ProjectTagLink.tag_id == row.id,
+                    Project.deleted_at.is_(None),
                 )
+                .distinct()
             )
         ).scalars()
     )

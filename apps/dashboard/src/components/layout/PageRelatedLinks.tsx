@@ -20,7 +20,7 @@ export function PageRelatedLinks({
   className?: string
 }) {
   const { t } = useTranslation('nav')
-  if (links.length === 0) return null
+  if (!links?.length) return null
   return (
     <nav
       aria-label={t('pageRelated.ariaLabel', { defaultValue: 'Related' })}

@@ -674,37 +674,71 @@ async def apply_project_change(
     after: dict[str, Any],
     before: dict[str, Any],
 ) -> dict[str, Any]:
-    from app.services.projects import create_project, serialize_project
+    from uuid import UUID as _UUID
+
+    from app.services.projects import (
+        create_project,
+        delete_project,
+        get_project_row,
+        nest_folder,
+        resolve_folder_ref,
+    )
+
+    if change_kind == "delete":
+        raw_id = after.get("project_id") or before.get("project_id") or after.get("id")
+        if not raw_id:
+            return {"status": "invalid", "error": "project_id required for delete"}
+        try:
+            project_id = _UUID(str(raw_id))
+        except (TypeError, ValueError):
+            return {"status": "invalid", "error": "project_id must be a folder UUID"}
+        try:
+            project, _ = await get_project_row(session, tenant_id, project_id)
+        except HTTPException as exc:
+            return {"status": "error", "error": str(exc.detail)}
+        confirm = str(after.get("confirm_name") or after.get("name") or project.name or "").strip()
+        if not confirm:
+            confirm = project.name
+        try:
+            result = await delete_project(
+                session,
+                tenant_id,
+                project_id,
+                confirm,
+                permanent=False,
+                commit=False,
+            )
+        except HTTPException as exc:
+            return {"status": "error", "error": str(exc.detail)}
+        except Exception as exc:  # noqa: BLE001 — surface to Govern
+            return {"status": "error", "error": str(exc)}
+        return {"deleted": True, "project_id": str(project_id), **(result if isinstance(result, dict) else {})}
 
     if change_kind != "create":
         return {"status": "unsupported", "change_kind": change_kind}
     name = str(after.get("name") or "").strip()
-    if not name:
-        return {"status": "invalid", "error": "name required"}
     slug = str(after.get("slug") or name).strip().lower().replace(" ", "-")
     description = str(after.get("description") or "")
     autonomous_scope = str(after.get("autonomous_scope") or "project")
-    parent_raw = after.get("parent_id")
-    parent_id = None
-    tag_id = None
-    child_group_id = None
-    from uuid import UUID as _UUID
-
+    tag_ids: list[_UUID] = []
+    for raw in after.get("tag_ids") or []:
+        try:
+            tag_ids.append(_UUID(str(raw)))
+        except (TypeError, ValueError):
+            return {"status": "invalid", "error": "tag_ids contains an invalid id"}
+    tags = [str(t).strip() for t in (after.get("tags") or []) if str(t).strip()]
+    if after.get("tag") and not tags:
+        tags = [str(after["tag"]).strip()]
+    parent_raw = after.get("nest_under") or after.get("parent_id") or after.get("onto_folder_id")
+    onto_id: _UUID | None = None
     if parent_raw:
-        try:
-            parent_id = _UUID(str(parent_raw))
-        except (TypeError, ValueError):
-            return {"status": "invalid", "error": "parent_id is not a folder id"}
-    if after.get("tag_id"):
-        try:
-            tag_id = _UUID(str(after["tag_id"]))
-        except (TypeError, ValueError):
-            return {"status": "invalid", "error": "tag_id is not a tag id"}
-    if after.get("child_group_id"):
-        try:
-            child_group_id = _UUID(str(after["child_group_id"]))
-        except (TypeError, ValueError):
-            return {"status": "invalid", "error": "child_group_id is not a group id"}
+        parent, parent_err = await resolve_folder_ref(session, tenant_id, str(parent_raw))
+        if parent_err:
+            return {"status": "invalid", "error": parent_err}
+        if parent is None:
+            return {"status": "invalid", "error": "nest_under is not a folder id"}
+        onto_id = parent.id
+        after["onto_folder_id"] = str(parent.id)
     try:
         row = await create_project(
             session,
@@ -713,15 +747,16 @@ async def apply_project_change(
             slug=slug,
             autonomous_scope=autonomous_scope,
             description=description,
-            parent_id=parent_id,
-            tag_id=tag_id,
-            tag=str(after["tag"]).strip() if after.get("tag") else None,
-            child_group_id=child_group_id,
+            tag_ids=tag_ids or None,
+            tags=tags or None,
+            sort_order=int(after.get("sort_order") or 0),
         )
+        if onto_id and isinstance(row, dict) and row.get("id"):
+            row = await nest_folder(session, tenant_id, _UUID(str(row["id"])), onto_id)
     except Exception as exc:  # noqa: BLE001 — surface to Govern
         return {"status": "error", "error": str(exc)}
     after["project_id"] = row.get("id") if isinstance(row, dict) else None
-    return row if isinstance(row, dict) else {"status": "applied", "project": serialize_project(row)}
+    return row if isinstance(row, dict) else {"status": "applied", "project": row}
 
 
 async def apply_trigger_change(

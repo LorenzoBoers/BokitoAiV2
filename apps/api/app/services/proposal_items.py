@@ -424,17 +424,25 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
 
     if item_type == "agent":
         from app.models.agent import Agent
+        from app.services.agent_avatar import avatar_payload
 
         row = (
             await session.execute(select(Agent).where(Agent.id == row_id, Agent.tenant_id == tenant_id))
         ).scalar_one_or_none() if row_id else None
         if not row:
             return _missing(item_type, ref)
+        mark = avatar_payload(row)
         return {
             "type": item_type,
             "id": str(row.id),
             "title": _clip(row.name),
             "subtitle": _clip(row.description, 100),
+            "avatar_kind": mark.get("avatar_kind"),
+            "avatar_icon": mark.get("avatar_icon"),
+            "avatar_color": mark.get("avatar_color"),
+            "avatar_shape": mark.get("avatar_shape"),
+            "avatar_image_url": mark.get("avatar_image_url"),
+            "image_url": mark.get("avatar_image_url"),
         }
 
     if item_type == "tag":
@@ -485,11 +493,14 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         ).scalar_one_or_none() if row_id else None
         if not row:
             return _missing(item_type, ref)
+        path = f"/folders/{row.id}"
         return {
             "type": "folder",
             "id": str(row.id),
             "title": _clip(row.name),
             "subtitle": _clip(row.description, 100),
+            "path": path,
+            "url": path,
         }
 
     if item_type == "canvas":

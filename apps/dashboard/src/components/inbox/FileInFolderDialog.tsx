@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { filtersetLabel } from '../../lib/folder-filter-tree'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { folderRows, folderSubtreeIds } from '../../lib/project-folders'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -22,16 +23,13 @@ type Props = {
   title: string
   description?: string
   confirmLabel: string
-  /** Folder ids that cannot be chosen (the folder itself, or one inside it). */
   excludeIds?: string[]
-  /** Hide this folder and every folder inside it. */
   excludeSubtreeOf?: string
-  /** When set, the list also offers the workspace root (no parent). */
   allowRoot?: boolean
   onConfirm: (projectId: string | null) => Promise<void>
 }
 
-/** Pick a project folder. The same tree is used to file a conversation or move a folder. */
+/** Pick a saved map. Confirming applies that map's tags to the conversation (file in folder). */
 export default function FileInFolderDialog({
   open,
   onOpenChange,
@@ -64,6 +62,7 @@ export default function FileInFolderDialog({
   }, [open, allowRoot, t])
 
   const rows = useMemo(() => folderRows(projects), [projects])
+  const byId = useMemo(() => new Map(projects.map((row) => [row.id, row])), [projects])
   const hidden = useMemo(() => {
     const ids = new Set(excludeIds ?? [])
     if (excludeSubtreeOf) {
@@ -75,7 +74,8 @@ export default function FileInFolderDialog({
   const visible = rows.filter((row) => {
     if (hidden.has(row.id)) return false
     if (!needle) return true
-    return row.name.toLowerCase().includes(needle)
+    const tags = row.tag_names.join(' ')
+    return row.name.toLowerCase().includes(needle) || tags.toLowerCase().includes(needle)
   })
 
   const confirm = async () => {
@@ -92,12 +92,16 @@ export default function FileInFolderDialog({
     }
   }
 
+  const defaultDescription = t('threadChrome.fileApplyTags', {
+    defaultValue: 'Applies every tag in that map to the conversation.',
+  })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
+          <DialogDescription>{description ?? defaultDescription}</DialogDescription>
         </DialogHeader>
         <input
           value={query}
@@ -120,21 +124,28 @@ export default function FileInFolderDialog({
               {t('threadChrome.fileRoot')}
             </button>
           ) : null}
-          {visible.map((row) => (
-            <button
-              key={row.id}
-              type="button"
-              disabled={busy}
-              onClick={() => setPicked(row.id)}
-              style={{ paddingLeft: 12 + row.depth * 16 }}
-              className={`flex w-full items-center gap-2 rounded-md border py-2 pr-3 text-left text-sm disabled:opacity-40 ${
-                picked === row.id ? 'border-accent bg-accent/10' : 'border-border/60 hover:bg-bg-hover/70'
-              }`}
-            >
-              <FolderKanban size={14} className="shrink-0 text-text-muted" aria-hidden />
-              <span className="min-w-0 truncate">{row.name}</span>
-            </button>
-          ))}
+          {visible.map((row) => {
+            const project = byId.get(row.id)
+            const tagLine = row.tag_names.length ? filtersetLabel(row.tag_names) : project?.name
+            return (
+              <button
+                key={row.id}
+                type="button"
+                disabled={busy}
+                onClick={() => setPicked(row.id)}
+                style={{ paddingLeft: 12 + row.depth * 16 }}
+                className={`flex w-full flex-col gap-0.5 rounded-md border py-2 pr-3 text-left text-sm disabled:opacity-40 ${
+                  picked === row.id ? 'border-accent bg-accent/10' : 'border-border/60 hover:bg-bg-hover/70'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <FolderKanban size={14} className="shrink-0 text-text-muted" aria-hidden />
+                  <span className="min-w-0 truncate font-medium">{row.name}</span>
+                </span>
+                {tagLine ? <span className="truncate pl-6 text-2xs text-text-muted">{tagLine}</span> : null}
+              </button>
+            )
+          })}
           {!loading && visible.length === 0 ? (
             <p className="px-2 py-3 text-sm text-text-muted">{t('threadChrome.fileEmpty')}</p>
           ) : null}

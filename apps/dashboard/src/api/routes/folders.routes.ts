@@ -7,24 +7,9 @@ const base = (folderId: string) => `/${encodeURIComponent(folderId)}`
 export const foldersRoutes = {
   list: '',
   byId: (folderId: string) => base(folderId),
-  children: (folderId: string) => `${base(folderId)}/children`,
+  nest: (folderId: string) => `${base(folderId)}/nest`,
   files: (folderId: string) => `${base(folderId)}/files`,
   board: (folderId: string) => `${base(folderId)}/board`,
-  usageBudget: (folderId: string) => `${base(folderId)}/usage/budget`,
-  usageSummary: (folderId: string, period?: string) => {
-    const search = new URLSearchParams()
-    if (period) search.set('period', period)
-    const qs = search.toString()
-    const path = `${base(folderId)}/usage/summary`
-    return qs ? `${path}?${qs}` : path
-  },
-  repo: (folderId: string) => `${base(folderId)}/repo`,
-  repoReindex: (folderId: string) => `${base(folderId)}/repo/reindex`,
-  repoStatus: (folderId: string) => `${base(folderId)}/repo/status`,
-  poAgent: (folderId: string) => `${base(folderId)}/po-agent`,
-  agents: (folderId: string) => `${base(folderId)}/agents`,
-  agentById: (folderId: string, agentId: string) =>
-    `${base(folderId)}/agents/${encodeURIComponent(agentId)}`,
   queue: (folderId: string, params?: { status?: string; kind?: string }) => {
     const search = new URLSearchParams()
     if (params?.status) search.set('status', params.status)

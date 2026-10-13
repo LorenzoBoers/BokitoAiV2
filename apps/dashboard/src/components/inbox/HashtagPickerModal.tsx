@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
-import { normalizeHashtag, stripHash } from '../../lib/hashtag'
+import { normalizeHashtag } from '../../lib/hashtag'
 import { listSignalTags, type SignalTag } from '../../lib/signals-api'
 import {
   createCategory,
@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { Hashtag, HashtagMark } from '../ui/HashtagMark'
-import { cn } from '../../lib/utils'
+import { TagSetPicker } from '../ui/TagSetPicker'
 import { TicketFieldControl } from './TicketFieldControl'
 
 type Phase = 'pick' | 'create' | 'intake' | 'replace'
@@ -44,20 +44,17 @@ type Props = {
 }
 
 /**
- * One modal for free hashtags and action-tag filing on a conversation.
- * Soft `#` input, typeahead, intake fields, and replace confirm when another
- * action tag is already filed. The folder follows from the tags, so there is
- * no folder step here.
+ * Thread tag picker: multi-select free tags / maps via TagSetPicker, then apply
+ * once. Action tags still file immediately (intake / replace when needed).
  */
 export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTicketChanged }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
-  const [query, setQuery] = useState('')
   const [registry, setRegistry] = useState<SignalTag[]>([])
   const [categories, setCategories] = useState<CategoryRow[]>([])
-  const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState<Phase>('pick')
+  const [createName, setCreateName] = useState('')
   const [pending, setPending] = useState<PendingFile | null>(null)
   const [replaceNext, setReplaceNext] = useState<PendingFile | null>(null)
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({})
@@ -65,16 +62,16 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
   const tags = thread.tags ?? []
   const currentTicket =
     thread.ticket && thread.ticket.status !== 'proposed' ? thread.ticket : null
+  const categoryById = useMemo(() => new Map(categories.map((row) => [row.id, row])), [categories])
 
   useEffect(() => {
     if (!open || !token) return
     let cancelled = false
-    setLoading(true)
-    setQuery('')
     setPhase('pick')
     setPending(null)
     setReplaceNext(null)
     setFieldValues({})
+    setCreateName('')
     void Promise.all([listSignalTags(token), listCategories()])
       .then(([rows, cats]) => {
         if (cancelled) return
@@ -86,127 +83,26 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
         setRegistry([])
         setCategories([])
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
     return () => {
       cancelled = true
     }
   }, [open, token])
 
-  const normalized = normalizeHashtag(query)
-  const inherited = thread.inheritedTags ?? []
-  const categoryById = useMemo(() => new Map(categories.map((row) => [row.id, row])), [categories])
-
-  const pathOptions = useMemo(() => {
-    const q = normalized
-    type PathOption = {
-      key: string
-      label: string
-      tagNames: string[]
-      viaContact: boolean
-      isCategory: boolean
-      tagId?: string
-    }
-    const out: PathOption[] = []
-    for (const row of registry) {
-      if (row.isCategory) {
-        if (q && !row.name.includes(q) && !row.description.toLowerCase().includes(q)) continue
-        out.push({
-          key: `cat-${row.id}`,
-          label: `#${row.name}`,
-          tagNames: [row.name],
-          viaContact: inherited.includes(row.name),
-          isCategory: true,
-          tagId: row.id,
-        })
-        continue
-      }
-      const folders = row.folders ?? []
-      if (folders.length) {
-        for (const folder of folders) {
-          const names = folder.tagNames.length
-            ? folder.tagNames
-            : folder.path
-                .split(' / ')
-                .map((part) => part.replace(/^#/, '').trim())
-                .filter(Boolean)
-          if (!names.length) names.push(row.name)
-          if (q && !names.some((name) => name.includes(q)) && !folder.path.toLowerCase().includes(q)) {
-            continue
-          }
-          out.push({
-            key: `path-${folder.id}`,
-            label: names.map((name) => `#${name}`).join(' / '),
-            tagNames: names,
-            viaContact: names.some((name) => inherited.includes(name)),
-            isCategory: false,
-          })
-        }
-        continue
-      }
-      if (q && !row.name.includes(q) && !row.description.toLowerCase().includes(q)) continue
-      out.push({
-        key: `tag-${row.id}`,
-        label: `#${row.name}`,
-        tagNames: [row.name],
-        viaContact: inherited.includes(row.name),
-        isCategory: false,
-      })
-    }
-    return out.sort((a, b) => {
-      if (a.isCategory !== b.isCategory) return a.isCategory ? -1 : 1
-      return a.label.localeCompare(b.label)
-    })
-  }, [registry, normalized, inherited])
-
-  const exactPaths = pathOptions.filter(
-    (row) => row.tagNames[row.tagNames.length - 1] === normalized || row.label.replace(/#/g, '') === normalized,
-  )
-  const exactMatch = registry.find((row) => row.name === normalized) ?? null
-  const isNewName = Boolean(normalized) && !exactMatch
-
   const close = () => onOpenChange(false)
 
-  const addFree = async (name: string) => {
-    const clean = normalizeHashtag(name)
-    if (!clean || !onPatch) return
-    if (tags.includes(clean) || inherited.includes(clean)) {
-      close()
-      return
-    }
-    setBusy(true)
-    try {
-      await onPatch({ tags: [...tags, clean] })
-      close()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('tags.createError')))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const addPath = async (names: string[]) => {
+  const applyTags = async (names: string[]) => {
     if (!onPatch) return
     const next = [...tags]
     for (const name of names) {
       const clean = normalizeHashtag(name)
-      if (!clean || next.includes(clean) || inherited.includes(clean)) continue
+      if (!clean || next.includes(clean) || (thread.inheritedTags ?? []).includes(clean)) continue
       next.push(clean)
     }
     if (next.length === tags.length) {
       close()
       return
     }
-    setBusy(true)
-    try {
-      await onPatch({ tags: next })
-      close()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('tags.createError')))
-    } finally {
-      setBusy(false)
-    }
+    await onPatch({ tags: next })
   }
 
   const beginFile = (tagId: string, name: string, intakeFields: TicketStageField[]) => {
@@ -248,31 +144,8 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
     }
   }
 
-  const pickRow = (row: SignalTag) => {
-    if (row.isCategory) {
-      const category = categoryById.get(row.id)
-      beginFile(row.id, row.name, category?.intake_fields ?? [])
-      return
-    }
-    void addFree(row.name)
-  }
-
-  const pickPath = (option: { isCategory: boolean; tagId?: string; tagNames: string[] }) => {
-    if (option.isCategory && option.tagId) {
-      const category = categoryById.get(option.tagId)
-      beginFile(option.tagId, option.tagNames[0] ?? '', category?.intake_fields ?? [])
-      return
-    }
-    void addPath(option.tagNames)
-  }
-
-  const intakeValid =
-    !pending ||
-    pending.intakeFields.every(
-      (field) => !field.required || Boolean((fieldValues[field.key] || '').trim()),
-    )
-
   const makeActionTag = async () => {
+    const normalized = normalizeHashtag(createName)
     if (!normalized) return
     setBusy(true)
     try {
@@ -307,18 +180,36 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
     }
   }
 
-  const submitQuery = () => {
-    if (!normalized) return
-    if (exactPaths.length === 1) {
-      pickPath(exactPaths[0])
-      return
-    }
-    if (exactMatch && exactPaths.length === 0) {
-      pickRow(exactMatch)
-      return
-    }
-    if (exactPaths.length > 1) return
-    setPhase('create')
+  const intakeValid =
+    !pending ||
+    pending.intakeFields.every(
+      (field) => !field.required || Boolean((fieldValues[field.key] || '').trim()),
+    )
+
+  if (phase === 'pick') {
+    return (
+      <TagSetPicker
+        open={open}
+        onOpenChange={onOpenChange}
+        mode="thread"
+        title={t('tags.modalTitle')}
+        description={t('tags.modalHintMulti', {
+          defaultValue: t('tags.modalHint'),
+        })}
+        confirmLabel={t('tags.applySelected', { defaultValue: 'Add tags' })}
+        appliedNames={tags}
+        inheritedNames={thread.inheritedTags ?? []}
+        onConfirm={applyTags}
+        onPickAction={(tagId, name) => {
+          const category = categoryById.get(tagId)
+          beginFile(tagId, name, category?.intake_fields ?? [])
+        }}
+        onCreateChoice={(name) => {
+          setCreateName(name)
+          setPhase('create')
+        }}
+      />
+    )
   }
 
   return (
@@ -367,9 +258,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                 <label key={field.key} className="block space-y-1">
                   <span className="text-xs font-medium text-text-heading">
                     {field.name}
-                    {field.required ? (
-                      <span className="ml-1 text-status-error">*</span>
-                    ) : null}
+                    {field.required ? <span className="ml-1 text-status-error">*</span> : null}
                   </span>
                   <TicketFieldControl
                     field={field}
@@ -396,13 +285,13 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               </Button>
             </DialogFooter>
           </>
-        ) : phase === 'create' ? (
+        ) : (
           <>
             <DialogHeader>
               <DialogTitle>
                 <span className="inline-flex items-center gap-1">
                   <HashtagMark category />
-                  {normalized}
+                  {normalizeHashtag(createName)}
                 </span>
               </DialogTitle>
               <DialogDescription>{t('tags.modalHint')}</DialogDescription>
@@ -411,8 +300,10 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               <button
                 type="button"
                 disabled={busy || !onPatch}
-                onClick={() => void addFree(normalized)}
-                className="flex w-full flex-col items-start gap-0.5 rounded-md border border-border/60 px-3 py-2.5 text-left hover:bg-bg-hover/70 disabled:opacity-40"
+                onClick={() => {
+                  void applyTags([createName]).then(() => close())
+                }}
+                className="flex w-full flex-col items-start gap-0.5 rounded-lg border border-border/60 px-3 py-2.5 text-left hover:bg-bg-hover/70 disabled:opacity-40"
               >
                 <span className="text-sm font-medium text-text-heading">{t('tags.applyFree')}</span>
                 <span className="text-xs text-text-muted">{t('tags.applyFreeHint')}</span>
@@ -421,11 +312,11 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                 type="button"
                 disabled={busy}
                 onClick={() => void makeActionTag()}
-                className="flex w-full flex-col items-start gap-0.5 rounded-md border border-accent/40 bg-accent/5 px-3 py-2.5 text-left hover:bg-accent/10 disabled:opacity-40"
+                className="flex w-full flex-col items-start gap-0.5 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2.5 text-left hover:bg-accent/10 disabled:opacity-40"
               >
                 <span className="text-sm font-medium text-text-heading">{t('tags.makeActionTag')}</span>
                 <span className="text-xs text-text-muted">
-                  {t('tags.makeActionTagHint', { name: normalized })}
+                  {t('tags.makeActionTagHint', { name: normalizeHashtag(createName) })}
                 </span>
               </button>
             </div>
@@ -434,89 +325,6 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                 {t('tags.cancel')}
               </Button>
             </DialogFooter>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>{t('tags.modalTitle')}</DialogTitle>
-              <DialogDescription>{t('tags.modalHint')}</DialogDescription>
-            </DialogHeader>
-            <label className="flex h-9 items-center gap-1 rounded-md border border-border bg-bg-input px-2">
-              <HashtagMark className="text-sm" />
-              <input
-                autoFocus
-                value={query}
-                disabled={busy}
-                onChange={(e) => setQuery(stripHash(e.target.value))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    submitQuery()
-                  }
-                }}
-                placeholder={t('tags.searchPlaceholder')}
-                aria-label={t('tags.searchPlaceholder')}
-                className="h-full w-full bg-transparent text-sm text-text-primary outline-none"
-              />
-            </label>
-            <div className="max-h-64 overflow-y-auto">
-              {loading ? (
-                <p className="px-1 py-3 text-xs text-text-muted">{t('tags.busy')}</p>
-              ) : pathOptions.length === 0 && !isNewName ? (
-                <p className="px-1 py-3 text-xs text-text-muted">{t('tags.noMatches')}</p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {pathOptions.map((row) => {
-                    const applied =
-                      !row.isCategory &&
-                      row.tagNames.every((name) => tags.includes(name) || inherited.includes(name))
-                    const filed = row.isCategory && currentTicket?.tagId === row.tagId
-                    const on = applied || filed
-                    return (
-                      <button
-                        key={row.key}
-                        type="button"
-                        disabled={busy || on}
-                        onClick={() => pickPath(row)}
-                        title={
-                          row.viaContact
-                            ? t('tags.viaContact', { defaultValue: 'Via contact' })
-                            : row.isCategory
-                              ? t('tags.actionTag')
-                              : t('tags.freeHashtag')
-                        }
-                        className={cn(
-                          'inline-flex h-7 max-w-full items-center gap-1 rounded-lg border px-2.5 text-xs transition-colors disabled:cursor-default',
-                          row.isCategory
-                            ? 'border-accent/40 bg-accent/10 text-text-heading hover:border-accent/60 hover:bg-accent/15'
-                            : 'border-border/70 bg-bg-subtle/50 text-text-heading hover:border-border hover:bg-bg-hover/70',
-                          on && 'opacity-45',
-                        )}
-                      >
-                        <span className="truncate">{row.label}</span>
-                        {row.viaContact ? (
-                          <span className="text-2xs text-text-muted">
-                            {t('tags.viaContact', { defaultValue: 'via contact' })}
-                          </span>
-                        ) : null}
-                      </button>
-                    )
-                  })}
-                  {isNewName ? (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setPhase('create')}
-                      title={t('tags.applyFree')}
-                      className="inline-flex h-7 max-w-full items-center gap-1 rounded-lg border border-dashed border-border/80 bg-transparent px-2.5 text-xs text-text-heading transition-colors hover:border-accent/50 hover:bg-accent/5 disabled:opacity-40"
-                    >
-                      <HashtagMark />
-                      <span className="truncate">{normalized}</span>
-                    </button>
-                  ) : null}
-                </div>
-              )}
-            </div>
           </>
         )}
       </DialogContent>

@@ -21,7 +21,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 1. Open **Instellingen**, dan **# Tags**. De pagina toont één **Tags**-lijst (actietags eerst, met accent-`#`), dan **Wat we misten** en wie tickets mag bevestigen.
 2. Kies **Nieuwe tag** om een vrije tag toe te voegen, daarna **Flow aanmaken** op die rij. Dat maakt of koppelt een flow met titel `#naam`. De tag wordt een actietag in dezelfde lijst.
 3. Op een actietag kies je **Flow openen** om fasen en vastleggen op de flowpagina in te richten. Een nieuwe flow start met Open, Wachtend en Klaar. Kies **Map aanmaken** om dezelfde tag een plek in de mappenboom te geven.
-4. Gebruik de punaise op elke tag voor een rij in **Mappen en tags**. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen. Zet samenhangende tags in een groep (optioneel exclusief). Het aantal gesprekken op een rij opent die gesprekken in Communicatie.
+4. Gebruik de punaise op een vrije tag voor een rij onder **Mappen** in Communicatie. Actietags met een flow verschijnen onder **Flows**. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen. Zet samenhangende tags in een groep (optioneel exclusief). Het aantal gesprekken op een rij opent die gesprekken in Communicatie.
 
 ## Een ticket op een gesprek vastleggen
 
@@ -30,7 +30,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 
 1. Open een gesprek in **Communicatie**. Onder **Dit gesprek** kies je **Tags toevoegen**.
 2. Typ met een zachte `#` en kies een actietag (gemarkeerd **Actietag**), of een vrije tag. Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**.
-3. Vastleggen vraagt niet om een map. Het gesprek landt via zijn tags. Een gesprek kan bij meer dan één map passen; de kop toont elk passend pad. Canvas, docs en budget blijven op één thuis (het diepste pad).
+3. Vastleggen vraagt niet om een map. Het gesprek past bij elke bewaarde map waarvan het alle tags draagt; de kop toont die mappen. Canvas en docs staan op de maphub onder **Mappen**.
 4. Het ticket start in de eerste fase van de flow. De lijstrij toont de actietag met fase en gekleurde stip. Een andere actietag kiezen vraagt om **Vervangen** (of splits het gesprek voor een tweede verzoek).
 5. In de composer legt `/ticket #naam` hetzelfde ticket vast.
 

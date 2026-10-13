@@ -90,10 +90,9 @@ async def agent_can_access_project(
         return True
     if agent.role == "po":
         result = await session.execute(
-            select(Project).where(Project.id == project_id, Project.tenant_id == agent.tenant_id)
+            select(Project.id).where(Project.id == project_id, Project.tenant_id == agent.tenant_id).limit(1)
         )
-        project = result.scalar_one_or_none()
-        return project is not None and project.po_agent_id == agent.id
+        return result.scalar_one_or_none() is not None
     return False
 
 

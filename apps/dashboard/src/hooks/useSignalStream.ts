@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { onGatewayEvent } from '../lib/gateway'
-import { applyTurnEvent, EMPTY_TURN, mergeTurns, type LiveTurn } from '../lib/agentActivity'
+import { applyTurnEvent, EMPTY_TURN, eventTargetsSignal, mergeTurns, type LiveTurn } from '../lib/agentActivity'
 
 /** Flush batched events at most this often (avoids setState per token). */
 const FLUSH_MS = 64
@@ -47,9 +47,10 @@ export function useSignalStream(signalId: string | null, seed: LiveTurn | null =
   useEffect(() => {
     sealedRef.current = null
     clearTimers()
-    const initial = seedRef.current?.streamId ? seedRef.current : EMPTY_TURN
-    turnRef.current = initial
-    setTurn(initial)
+    // Never carry the previous conversation's overlay. A stale seed from the
+    // last thread used to paint that turn on the newly opened one.
+    turnRef.current = EMPTY_TURN
+    setTurn(EMPTY_TURN)
     if (!signalId) return
 
     const flush = () => {
@@ -60,6 +61,7 @@ export function useSignalStream(signalId: string | null, seed: LiveTurn | null =
     const unsub = onGatewayEvent(`signal:${signalId}`, (event) => {
       if (!TURN_EVENTS.has(event.event)) return
       const data = (event.data ?? {}) as Record<string, unknown>
+      if (!eventTargetsSignal(data, signalId)) return
       const streamId = data.stream_id != null ? String(data.stream_id) : null
       if (streamId && streamId === sealedRef.current) return
       const next = applyTurnEvent(turnRef.current, event.event, data)
@@ -92,12 +94,13 @@ export function useSignalStream(signalId: string | null, seed: LiveTurn | null =
   }, [signalId, clearTimers])
 
   useEffect(() => {
+    if (!signalId) return
     if (!seed?.streamId || !seed.active) return
     const current = turnRef.current
     if (current.streamId && current.streamId !== seed.streamId && current.active) return
     turnRef.current = mergeTurns(seed, current.streamId === seed.streamId ? current : EMPTY_TURN)
     setTurn(turnRef.current)
-  }, [seed])
+  }, [seed, signalId])
 
   return { turn, streaming: turn.active, reset }
 }

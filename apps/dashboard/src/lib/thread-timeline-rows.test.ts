@@ -180,6 +180,33 @@ describe('syntheticDecisionAnswers', () => {
     } as InboxMessage
     expect(syntheticDecisionAnswers([card, answer], 't1', t)).toHaveLength(0)
   })
+
+  it('skips when a bundle answer covers the decision id', () => {
+    const card = {
+      id: 'c1',
+      threadId: 't1',
+      kind: 'decision_request',
+      decisionId: 'd-sched',
+      createdAt: '2026-10-13T07:34:00.000Z',
+      payload: {
+        decision: {
+          status: 'rejected',
+          chosen_option_id: 'reject',
+          options: [{ id: 'reject', label: 'Afwijzen' }],
+        },
+      },
+    } as InboxMessage
+    const bundleAnswer = {
+      id: 'a1',
+      threadId: 't1',
+      kind: 'user_message',
+      createdAt: '2026-10-13T07:46:00.000Z',
+      bodyText: 'Afgewezen: Set thread schedule',
+      decisionResponse: true,
+      decisionResponseDecisionIds: ['d-sched'],
+    } as InboxMessage
+    expect(syntheticDecisionAnswers([card, bundleAnswer], 't1', t)).toHaveLength(0)
+  })
 })
 
 describe('isSessionCheckoutCard', () => {

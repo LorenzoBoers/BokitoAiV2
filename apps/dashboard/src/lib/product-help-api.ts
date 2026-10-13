@@ -109,6 +109,12 @@ export async function getProductHelpMarkdown(slug: string, lang?: string | null)
   return res.text()
 }
 
+/** Absolute-path URL for the raw Markdown of a product-help article. */
+export function productHelpMarkdownUrl(slug: string, lang?: string | null): string {
+  const q = new URLSearchParams({ lang: helpLang(lang) })
+  return `${DOCS_API_BASE}${docsRoutes.articleMarkdown(slug)}?${q.toString()}`
+}
+
 /** Absolute-path URL of the curated public OpenAPI schema. */
 export function publicOpenApiUrl(): string {
   return `${DOCS_API_BASE}${docsRoutes.openapi}`

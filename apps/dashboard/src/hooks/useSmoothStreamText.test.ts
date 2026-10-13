@@ -205,4 +205,39 @@ describe('useSmoothStreamText', () => {
     act(() => flushFrames(80, 16))
     expect(result.current).toBe(target)
   })
+
+  it('holds incomplete chip markup then pops the chip in one update', () => {
+    const prefix = 'Ask '
+    const chip = '@[Support](agent:abc)'
+    const suffix = ' for help'
+    const { result, rerender } = renderHook(
+      ({ target, active }: { target: string; active: boolean }) =>
+        useSmoothStreamText(target, active, false),
+      { initialProps: { target: '', active: true } },
+    )
+
+    act(() => rerender({ target: `${prefix}@[Sup`, active: true }))
+    act(() => flushFrames(40, 16))
+    expect(result.current).toBe(prefix)
+    expect(result.current.includes('@[')).toBe(false)
+
+    const snapshots: string[] = []
+    act(() => rerender({ target: `${prefix}${chip}${suffix}`, active: true }))
+    for (let i = 0; i < 60; i++) {
+      act(() => flushFrames(1, 16))
+      snapshots.push(result.current)
+      if (result.current.includes(chip) || result.current.length >= prefix.length + chip.length) break
+    }
+
+    const withChip = snapshots.find((s) => s.includes(chip))
+    expect(withChip).toBeTruthy()
+    expect(withChip!.startsWith(`${prefix}${chip}`)).toBe(true)
+    // No frame should have shown a partial @[…](…) token.
+    for (const snap of snapshots) {
+      if (snap.length <= prefix.length) continue
+      if (snap.length < prefix.length + chip.length) {
+        expect(snap.includes('@[')).toBe(false)
+      }
+    }
+  })
 })

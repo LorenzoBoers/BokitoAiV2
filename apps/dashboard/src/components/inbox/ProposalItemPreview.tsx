@@ -42,6 +42,7 @@ const TYPE_ICON: Partial<Record<ProposalItem['type'], IconComponent>> = {
   tag: Hash,
   flow: Workflow,
   project: FolderKanban,
+  folder: FolderKanban,
   canvas: CANVAS_ICON,
   integration: Plug,
   marketplace: Store,
@@ -115,7 +116,24 @@ function ItemLeading({ item }: { item: ProposalItem }) {
     return <ContactAvatar name={item.title} email={item.subtitle} size={32} />
   }
   if (item.type === 'agent') {
-    return <AiAvatar {...toAiAvatarProps({ name: item.title, agentId: item.id }, 'Agent')} size={32} decorative />
+    return (
+      <AiAvatar
+        {...toAiAvatarProps(
+          {
+            name: item.title,
+            agentId: item.id,
+            avatarKind: item.avatarKind,
+            avatarIcon: item.avatarIcon,
+            avatarColor: item.avatarColor,
+            avatarShape: item.avatarShape,
+            avatarImageUrl: item.avatarImageUrl ?? item.imageUrl,
+          },
+          'Agent',
+        )}
+        size={32}
+        decorative
+      />
+    )
   }
   if ((item.type === 'file' || item.type === 'image') && item.imageUrl) {
     return (

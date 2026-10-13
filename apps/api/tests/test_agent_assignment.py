@@ -93,6 +93,7 @@ async def test_lead_transfer_requires_admin(client: AsyncClient, session_overrid
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skip(reason="Folder agent roster removed with filterset folders")
 @pytest.mark.asyncio
 async def test_project_agents_crud_and_default(client: AsyncClient):
     owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
@@ -155,6 +156,7 @@ async def test_project_agents_crud_and_default(client: AsyncClient):
     assert r.json() == []
 
 
+@pytest.mark.skip(reason="Folder default agent roster removed with filterset folders")
 @pytest.mark.asyncio
 async def test_project_default_agent_routes_thread(
     client: AsyncClient, session_override: AsyncSession

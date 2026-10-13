@@ -1,24 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, Users } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus } from 'lucide-react'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
 import { Tip } from '../ui/Tip'
+import { UserAvatar } from '../ui/UserAvatar'
+import { AiAvatar } from '../ui/AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { formatAppDate } from '../../lib/app-locale'
 import { connectionsPathWithKind } from '../../lib/integration-kind-url'
-import { addDays, dayKey, startOfWeek, type AgendaLayer, type AgendaWho } from '../../lib/agenda-layout'
+import { addDays, dayKey, startOfWeek, type AgendaLayer } from '../../lib/agenda-layout'
+import { ownerVisibilityKey } from '../../lib/agenda-hidden-owners'
 import type { CalendarConnection } from '../../lib/calendars-api'
 import { calendarBrandSlug, syncAllCalendars, listCalendarConnections, utcIso } from '../../lib/calendars-api'
-import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
 import { FolderTagTree } from '../inbox/FolderTagTree'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { LAYER_DOT } from './agenda-style'
 import { CalendarSwatch } from './CalendarSwatch'
-import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
 const CALENDAR_BRANDS = ['google-calendar', 'outlook-calendar'] as const
 
@@ -50,6 +50,7 @@ export type RailOption = {
   avatar_kind?: string | null
   avatar_icon?: string | null
   avatar_color?: string | null
+  avatar_shape?: string | null
   avatar_image_url?: string | null
 }
 
@@ -58,10 +59,11 @@ type Props = {
   nowMs: number
   busyDays: Set<string>
   onPickDay: (day: Date) => void
-  who: AgendaWho
-  onWho: (who: AgendaWho) => void
   people: RailOption[]
   agents: RailOption[]
+  /** `user:id` / `agent:id` keys hidden like calendar checkboxes. */
+  hiddenOwners: Set<string>
+  onToggleOwner: (kind: 'user' | 'agent', id: string) => void
   projectId: string
   onProject: (id: string) => void
   projects: RailOption[]
@@ -88,39 +90,10 @@ type Props = {
 
 export default function AgendaRail(props: Props) {
   const { t } = useTranslation('nav')
-  const { user } = useAuth()
-  const [syncBusy, setSyncBusy] = useState(false)
-  const [syncError, setSyncError] = useState<string | null>(null)
   const [enablingId, setEnablingId] = useState<string | null>(null)
   const autoSynced = useRef(false)
 
-  const sync = async () => {
-    setSyncBusy(true)
-    setSyncError(null)
-    try {
-      const payload = await syncAllCalendars()
-      const results = payload.results ?? []
-      const failed = results.filter((row) => row.status === 'error' || row.status === 'reconnect')
-      const synced = results.reduce((sum, row) => sum + (row.synced || 0), 0)
-      props.onCalendars(await listCalendarConnections())
-      props.onSynced()
-      if (failed.length > 0) {
-        const message = failed[0]?.error || ''
-        if (!/not enabled|refused access/i.test(message)) {
-          setSyncError(syncProblemText(message, t) || t('agendaPage.calendar.syncPartial'))
-        }
-      } else if (synced > 0) {
-        toast.success(t('agendaPage.calendar.syncDone', { count: synced }))
-      } else if (results.length > 0) {
-        toast.success(t('agendaPage.calendar.syncNone'))
-      }
-    } catch (err) {
-      setSyncError(formatApiErrorMessage(err, t('agendaPage.calendar.syncError')))
-    } finally {
-      setSyncBusy(false)
-    }
-  }
-
+  // Silent background refresh when an account looks stale; worker also syncs every 15 min.
   useEffect(() => {
     if (props.calendarsLoading || autoSynced.current || props.calendars.length === 0) return
     const stale = props.calendars.some((connection) => {
@@ -132,8 +105,14 @@ export default function AgendaRail(props: Props) {
     })
     if (!stale) return
     autoSynced.current = true
-    void sync()
-    // Sync once when the page opens on a stale account.
+    void syncAllCalendars()
+      .then(async () => {
+        props.onCalendars(await listCalendarConnections())
+        props.onSynced()
+      })
+      .catch(() => {
+        // Background only — errors surface via reconnect / sync_status on the row.
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.calendarsLoading, props.calendars])
 
@@ -157,48 +136,63 @@ export default function AgendaRail(props: Props) {
         />
       </section>
 
-      <section className="space-y-2">
-        <RailHeading>{t('agendaPage.rail.who')}</RailHeading>
-        <ChoiceSelect
-          aria-label={t('agendaPage.rail.who')}
-          triggerClassName="h-8 text-xs"
-          value={props.who}
-          onValueChange={(value) => props.onWho(value as AgendaWho)}
-          groups={[
-            {
-              items: [
-                { value: 'all', label: t('agendaPage.who.all'), kind: 'icon', icon: Users },
-                {
-                  value: 'me',
-                  label: t('agendaPage.who.me'),
-                  kind: 'person',
-                  person: user
-                    ? { name: user.name || user.email || t('agendaPage.who.me'), email: user.email, avatarUrl: user.avatarUrl }
-                    : { name: t('agendaPage.who.me') },
-                },
-              ],
-            },
-            {
-              label: t('agendaPage.who.people'),
-              items: props.people.map((person) => ({
-                value: `user:${person.id}`,
-                label: person.name,
-                kind: 'person' as const,
-                person: { name: person.name, email: person.email, avatarUrl: person.avatarUrl },
-              })),
-            },
-            {
-              label: t('agendaPage.who.agents'),
-              items: props.agents.map((agent) => ({
-                value: `agent:${agent.id}`,
-                label: agent.name,
-                kind: 'agent' as const,
-                agent,
-              })),
-            },
-          ]}
-        />
-      </section>
+      {props.people.length > 0 ? (
+        <section className="space-y-1" data-testid="agenda-people-toggles">
+          <RailHeading>{t('agendaPage.who.people')}</RailHeading>
+          {props.people.map((person) => {
+            const on = !props.hiddenOwners.has(ownerVisibilityKey('user', person.id))
+            return (
+              <button
+                key={person.id}
+                type="button"
+                role="switch"
+                aria-checked={on}
+                onClick={() => props.onToggleOwner('user', person.id)}
+                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                data-testid="agenda-owner-toggle"
+              >
+                <ToggleBox on={on} className="bg-accent" />
+                <UserAvatar
+                  name={person.name}
+                  email={person.email || person.name}
+                  avatarUrl={person.avatarUrl}
+                  size={16}
+                  decorative
+                />
+                <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted line-through')}>
+                  {person.name}
+                </span>
+              </button>
+            )
+          })}
+        </section>
+      ) : null}
+
+      {props.agents.length > 0 ? (
+        <section className="space-y-1" data-testid="agenda-agents-toggles">
+          <RailHeading>{t('agendaPage.who.agents')}</RailHeading>
+          {props.agents.map((agent) => {
+            const on = !props.hiddenOwners.has(ownerVisibilityKey('agent', agent.id))
+            return (
+              <button
+                key={agent.id}
+                type="button"
+                role="switch"
+                aria-checked={on}
+                onClick={() => props.onToggleOwner('agent', agent.id)}
+                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                data-testid="agenda-owner-toggle"
+              >
+                <ToggleBox on={on} className="bg-ai" />
+                <AiAvatar {...toAiAvatarProps(agent, agent.name)} size={16} decorative />
+                <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted line-through')}>
+                  {agent.name}
+                </span>
+              </button>
+            )
+          })}
+        </section>
+      ) : null}
 
       <section className="space-y-1">
         <div className="flex items-center justify-between gap-2 pr-1">
@@ -215,7 +209,6 @@ export default function AgendaRail(props: Props) {
         {props.calendars.map((connection) => {
           const on = props.calendarIds.has(connection.id)
           const subCalendars = connection.calendars ?? []
-          const syncedAt = utcIso(connection.last_synced_at)
           return (
             <div key={connection.id}>
               <button
@@ -228,18 +221,13 @@ export default function AgendaRail(props: Props) {
               >
                 <ToggleBox on={on} className={LAYER_DOT.calendar} />
                 <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
-                <span className="min-w-0 flex-1">
-                  <span className={cn('block truncate', on ? 'text-text-heading' : 'text-text-muted')}>
-                    {connection.account || connection.display_name}
-                  </span>
-                  <span className="block truncate text-2xs text-text-muted">
-                    {syncedAt
-                      ? t('agendaPage.calendar.lastSynced', { when: timeAgo(syncedAt, t) })
-                      : t('agendaPage.calendar.notSynced')}
-                  </span>
-                </span>
-                <span className="text-2xs tabular-nums text-text-muted">
-                  {props.calendarCounts[connection.id] ?? 0}
+                <span
+                  className={cn(
+                    'min-w-0 flex-1 truncate',
+                    on ? 'text-text-heading' : 'text-text-muted line-through',
+                  )}
+                >
+                  {connection.account || connection.display_name}
                 </span>
               </button>
               {connection.sync_status === 'error' && connection.sync_error ? (
@@ -291,34 +279,25 @@ export default function AgendaRail(props: Props) {
                       }
                       props.onToggleSubCalendar(connection.id, cal.id)
                     }}
-                    className="ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left text-xs hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-60"
+                    className="ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-60"
                     data-testid="agenda-subcalendar-toggle"
                   >
+                    <ToggleBox on={shown} className={LAYER_DOT.calendar} />
                     <CalendarSwatch color={cal.color} className={cn(!shown && 'opacity-30')} />
-                    <span className={cn('min-w-0 flex-1 truncate', shown ? 'text-text-secondary' : 'text-text-muted line-through')}>
+                    <span
+                      className={cn(
+                        'min-w-0 flex-1 truncate',
+                        shown ? 'text-text-heading' : 'text-text-muted line-through',
+                      )}
+                    >
                       {cal.name}
                     </span>
-                    {!cal.enabled ? (
-                      <span className="shrink-0 text-2xs text-text-muted">{t('agendaPage.calendar.off')}</span>
-                    ) : null}
                   </button>
                 )
               })}
             </div>
           )
         })}
-        {props.calendars.length > 0 ? (
-          <button
-            type="button"
-            disabled={syncBusy}
-            onClick={() => void sync()}
-            className="inline-flex items-center gap-1.5 px-1.5 pt-1 text-xs text-text-muted hover:text-accent disabled:opacity-60"
-          >
-            <RefreshCw className={cn('h-3 w-3', syncBusy && 'animate-spin')} aria-hidden />
-            {syncBusy ? t('agendaPage.calendar.syncing') : t('agendaPage.calendar.syncNow')}
-          </button>
-        ) : null}
-        {syncError ? <p className="px-1.5 text-2xs text-status-error">{syncError}</p> : null}
         {!props.calendarsLoading && props.calendars.length === 0 ? (
           <div
             className="mt-1 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2.5"

@@ -23,62 +23,30 @@ router = APIRouter(prefix="/folders", tags=["folders"])
 
 
 class ProjectCreateBody(BaseModel):
-    name: str
-    slug: str
+    name: str = ""
+    slug: str = ""
     autonomous_scope: str = ""
     description: str = ""
-    parent_id: UUID | None = None
-    # The folder's tag: an existing tag id, a tag name (created when new), or
-    # neither for a tag named after the slug.
-    tag_id: UUID | None = None
-    tag: str | None = None
-    # A tag group: the folder shows one virtual subfolder per tag in it.
-    child_group_id: UUID | None = None
+    tag_ids: list[UUID] = []
+    tags: list[str] = []
+    sort_order: int = 0
 
 
 class ProjectPatchBody(BaseModel):
     name: str | None = None
     description: str | None = None
     autonomous_scope: str | None = None
-    token_budget_daily: int | None = None
-    token_budget_hourly: int | None = None
-    parent_id: UUID | None = None
-    tag_id: UUID | None = None
-    child_group_id: UUID | None = None
+    tag_ids: list[UUID] | None = None
+    tags: list[str] | None = None
+    sort_order: int | None = None
 
 
-class PinChildBody(BaseModel):
-    tag_id: UUID
+class NestFolderBody(BaseModel):
+    onto_folder_id: UUID
 
 
 class ProjectDeleteBody(BaseModel):
     confirm_name: str
-
-
-class RepoConnectBody(BaseModel):
-    repo_full_name: str | None = None
-    github_repo_full_name: str | None = None
-    default_branch: str | None = None
-    github_default_branch: str | None = None
-    connection_id: str | None = None
-    github_connection_id: str | None = None
-
-
-class PoAgentCreateBody(BaseModel):
-    name: str | None = None
-
-
-class PoAgentLinkBody(BaseModel):
-    po_agent_id: str
-
-
-class ProjectAgentAddBody(BaseModel):
-    agent_id: str
-    is_default: bool = False
-
-
-class ProjectAgentPatchBody(BaseModel):
-    is_default: bool
 
 
 @router.get("")
@@ -104,24 +72,27 @@ async def create_project(
         slug=body.slug,
         autonomous_scope=body.autonomous_scope,
         description=body.description,
-        parent_id=body.parent_id,
-        tag_id=body.tag_id,
-        tag=body.tag,
-        child_group_id=body.child_group_id,
+        tag_ids=body.tag_ids or None,
+        tags=body.tags or None,
+        sort_order=body.sort_order,
         user_id=auth.user.id if auth.user else None,
     )
 
 
-@router.post("/{project_id}/children")
-async def pin_virtual_child(
+@router.post("/{project_id}/nest")
+async def nest_folder(
     project_id: UUID,
-    body: PinChildBody,
+    body: NestFolderBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Pin a virtual subfolder (a tag of the folder's group) as a real folder."""
-    return await svc.pin_virtual_child(
-        session, auth.tenant.id, project_id, body.tag_id, user_id=auth.user.id if auth.user else None
+    """Widen this folder's tag set to nest under another folder (union of tags)."""
+    return await svc.nest_folder(
+        session,
+        auth.tenant.id,
+        project_id,
+        body.onto_folder_id,
+        user_id=auth.user.id if auth.user else None,
     )
 
 
@@ -148,25 +119,24 @@ async def folder_files(
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = Query(100, ge=1, le=300),
 ):
-    """Attachments on conversations in this folder (subtree)."""
+    """Attachments on conversations that match this folder filterset."""
     from sqlalchemy import select
 
     from app.models.signal import Signal, SignalMessage
-    from app.services.folders import load_tree
+    from app.services.communication_nav import list_predicates
 
-    tree = await load_tree(session, auth.tenant.id)
-    if project_id not in tree.nodes:
+    predicates = await list_predicates(session, auth.tenant.id, {"project_id": project_id})
+    if predicates is None:
         raise HTTPException(status_code=404, detail="Folder not found")
-    subtree = tree.subtree_ids(project_id)
     rows = (
         await session.execute(
             select(SignalMessage, Signal)
             .join(Signal, Signal.id == SignalMessage.signal_id)
             .where(
                 Signal.tenant_id == auth.tenant.id,
-                Signal.project_id.in_(subtree),
                 Signal.deleted_at.is_(None),
                 SignalMessage.attachments_json != "[]",
+                *predicates,
             )
             .order_by(SignalMessage.created_at.desc())
             .limit(limit)
@@ -220,11 +190,9 @@ async def patch_project(
         name=body.name,
         description=body.description,
         autonomous_scope=body.autonomous_scope,
-        token_budget_daily=extras["token_budget_daily"] if "token_budget_daily" in extras else ...,
-        token_budget_hourly=extras["token_budget_hourly"] if "token_budget_hourly" in extras else ...,
-        parent_id=extras["parent_id"] if "parent_id" in extras else ...,
-        tag_id=extras["tag_id"] if "tag_id" in extras else ...,
-        child_group_id=extras["child_group_id"] if "child_group_id" in extras else ...,
+        tag_ids=extras["tag_ids"] if "tag_ids" in extras else ...,
+        tags=extras["tags"] if "tags" in extras else ...,
+        sort_order=body.sort_order,
         user_id=auth.user.id if auth.user else None,
     )
 
@@ -243,154 +211,6 @@ async def delete_project(
         body.confirm_name,
         user_id=auth.user.id if auth.user else None,
     )
-
-
-@router.patch("/{project_id}/repo")
-async def connect_repo(
-    project_id: UUID,
-    body: RepoConnectBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    repo = body.github_repo_full_name or body.repo_full_name
-    branch = body.github_default_branch or body.default_branch or "main"
-    conn = body.github_connection_id or body.connection_id
-    return await svc.connect_repo(
-        session,
-        auth.tenant.id,
-        project_id,
-        repo_full_name=repo or "",
-        default_branch=branch,
-        connection_id=conn,
-    )
-
-
-@router.delete("/{project_id}/repo")
-async def disconnect_repo(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.disconnect_repo(session, auth.tenant.id, project_id)
-
-
-@router.post("/{project_id}/repo/reindex")
-async def reindex_repo(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.reindex_repo(session, auth.tenant.id, project_id)
-
-
-@router.get("/{project_id}/repo/status")
-async def repo_status(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.repo_status(session, auth.tenant.id, project_id)
-
-
-@router.get("/{project_id}/usage/budget")
-async def usage_budget(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.usage_budget(session, auth.tenant.id, project_id)
-
-
-@router.get("/{project_id}/usage/summary")
-async def usage_summary(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-    period: str = Query(default="30d"),
-):
-    return await svc.usage_summary(session, auth.tenant.id, project_id, period)
-
-
-@router.get("/{project_id}/po-agent")
-async def get_po_agent(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.po_agent_summary(session, auth.tenant.id, project_id)
-
-
-@router.post("/{project_id}/po-agent")
-async def create_po_agent(
-    project_id: UUID,
-    body: PoAgentCreateBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.create_po_agent(session, auth.tenant.id, project_id, body.name)
-
-
-@router.patch("/{project_id}/po-agent")
-async def link_po_agent(
-    project_id: UUID,
-    body: PoAgentLinkBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.link_po_agent(session, auth.tenant.id, project_id, UUID(body.po_agent_id))
-
-
-@router.delete("/{project_id}/po-agent")
-async def unlink_po_agent(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.unlink_po_agent(session, auth.tenant.id, project_id)
-
-
-@router.get("/{project_id}/agents")
-async def list_project_agents(
-    project_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.list_project_agents(session, auth.tenant.id, project_id)
-
-
-@router.post("/{project_id}/agents")
-async def add_project_agent(
-    project_id: UUID,
-    body: ProjectAgentAddBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.add_project_agent(
-        session, auth.tenant.id, project_id, UUID(body.agent_id), is_default=body.is_default
-    )
-
-
-@router.patch("/{project_id}/agents/{agent_id}")
-async def set_project_agent_default(
-    project_id: UUID,
-    agent_id: UUID,
-    body: ProjectAgentPatchBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.set_project_agent_default(
-        session, auth.tenant.id, project_id, agent_id, is_default=body.is_default
-    )
-
-
-@router.delete("/{project_id}/agents/{agent_id}")
-async def remove_project_agent(
-    project_id: UUID,
-    agent_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    return await svc.remove_project_agent(session, auth.tenant.id, project_id, agent_id)
 
 
 # ── implementation queue ─────────────────────────────────────────────

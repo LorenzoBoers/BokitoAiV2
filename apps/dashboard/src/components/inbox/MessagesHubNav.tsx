@@ -21,7 +21,7 @@ import { isChannelParked } from '../../lib/channel-surface'
 import { bokitoListChatTargets, type ChatTarget, type NavRow } from '../../lib/signals-api'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { NavFlashProvider } from '../../hooks/useNavReveal'
-import { FolderTagTree } from './FolderTagTree'
+import { CommunicationFlowsTree, FolderTagTree } from './FolderTagTree'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { countForInboxQueue, countForTeam } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
@@ -53,7 +53,8 @@ const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> 
 ]
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
-  folders: { labelKey: 'support.section.folders', defaultLabel: 'Folders and tags' },
+  folders: { labelKey: 'support.section.folders', defaultLabel: 'Folders' },
+  flows: { labelKey: 'support.section.flows', defaultLabel: 'Flows' },
   channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   agents: { labelKey: 'support.section.agents', defaultLabel: 'Chat with agents' },
   teams: { labelKey: 'support.section.teams', defaultLabel: 'Teams' },
@@ -92,9 +93,14 @@ const SECTION_GEAR: Partial<
   Record<SidebarSection, { to: string; labelKey: string; defaultLabel: string }>
 > = {
   folders: {
-    to: '/settings/action-tags',
+    to: '/folders',
     labelKey: 'support.folders.settingsAria',
-    defaultLabel: 'Manage folders and tags',
+    defaultLabel: 'Manage folders',
+  },
+  flows: {
+    to: '/workstreams',
+    labelKey: 'support.flows.settingsAria',
+    defaultLabel: 'Manage flows',
   },
   channels: {
     to: '/settings/channels',
@@ -160,7 +166,7 @@ function CollapsibleSection({ section, title, count, headerAction, children }: C
         ) : null}
       </div>
       <div className="nav-fold" data-open={open && mounted ? 'true' : undefined} aria-hidden={!open}>
-        <div className="nav-fold-inner space-y-0.5">{mounted ? children : null}</div>
+        <div className="nav-fold-inner space-y-px">{mounted ? children : null}</div>
       </div>
     </section>
   )
@@ -281,7 +287,7 @@ function ChannelsSection({
   t: TFn
 }) {
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-px">
       {loading ? <NavSectionSkeleton rows={3} /> : null}
       {!loading && folders.length === 0 ? (
         <Tip label={t('support.channels.connectChannel')} side="right">
@@ -337,8 +343,7 @@ function AgentFolderRow({
   const workHref =
     activity === 'working' ? openEntityPath({ type: 'agent', id: agent.id, live }) : null
   const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
-  const activityActive =
-    activeLeaf?.type === 'agent' && activeLeaf.agentId === agent.id && activeLeaf.queue === 'activity'
+  const activityHref = activityTerminalPath(agent.id)
   return (
     <SidebarFolder
       baseLeaf={baseLeaf}
@@ -365,18 +370,12 @@ function AgentFolderRow({
             <Tip label={t('support.agents.currentWork')} side="right">
               <NavLink to={workHref} className="nav-row nav-sub-row h-[26px] text-xs">
                 <Activity size={12} className="shrink-0 text-ai-ink" aria-hidden />
-                <span className="min-w-0 flex-1 truncate-fade">
-                  {live?.summary || t('support.agents.currentWork')}
-                </span>
+                <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.workingNow')}</span>
               </NavLink>
             </Tip>
           ) : null}
           <Tip label={t('support.agents.activity')} side="right">
-            <NavLink
-              to={activityTerminalPath(agent.id)}
-              data-active={activityActive ? 'true' : undefined}
-              className="nav-row nav-sub-row h-[26px] text-xs"
-            >
+            <NavLink to={activityHref} className="nav-row nav-sub-row h-[26px] text-xs">
               <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
               <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
             </NavLink>
@@ -443,7 +442,7 @@ function AgentsSection({
   }, [agents])
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-px">
       {loading ? <NavSectionSkeleton rows={2} /> : null}
       {!loading && agents.length === 0 ? (
         <div className="space-y-1 px-2 py-1">
@@ -564,7 +563,8 @@ export default function MessagesHubNav() {
   }
 
   const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
-    folders: nav.projects.length + nav.ticketTags.length + nav.tags.length || null,
+    folders: nav.projects.length > 0 ? nav.projects.length : null,
+    flows: nav.ticketTags.length > 0 ? nav.ticketTags.length : null,
     channels: channelsLoading ? null : channelFolders.length > 0 ? channelFolders.length : null,
     agents: targetsLoading ? null : companyAgents.length > 0 ? companyAgents.length : null,
     teams: teamsLoading ? null : teams.length > 0 ? teams.length : null,
@@ -575,6 +575,15 @@ export default function MessagesHubNav() {
       <FolderTagTree
         folders={nav.projects}
         tags={nav.tags}
+        ticketTags={[]}
+        loading={!navLoaded}
+        activeLeaf={activeLeaf}
+        defaultQueueFor={defaultQueueFor}
+        t={t}
+      />
+    ),
+    flows: (
+      <CommunicationFlowsTree
         ticketTags={nav.ticketTags}
         loading={!navLoaded}
         activeLeaf={activeLeaf}

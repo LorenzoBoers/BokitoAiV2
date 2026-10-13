@@ -1,11 +1,15 @@
 import { useTranslation } from 'react-i18next'
-import type { ProjectBudgetResponse } from '../../lib/projects-api'
 import { formatAppNumber } from '../../lib/app-number'
 import { CapBar } from '../ui/cap-bar'
 
+export type ProjectBudgetResponse = {
+  token_budget_daily: number
+  token_used_today: number
+  blocked: boolean
+}
+
 /**
- * Compact daily token indicator against the effective project cap
- * (project setting, else workspace daily cap).
+ * @deprecated Folder budgets were removed; kept for legacy imports only.
  */
 export function ProjectBudgetBar({
   budget,

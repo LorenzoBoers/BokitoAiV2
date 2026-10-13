@@ -33,6 +33,8 @@ import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
 import { workspaceBrandName } from '../lib/tenant-branding'
 import { forYouPath, inboxPath } from '../lib/messages-paths'
 import { ModelIcon } from '../components/ui/ModelIcon'
+import { AiAvatar } from '../components/ui/AiAvatar'
+import { toAiAvatarProps } from '../lib/agent-avatar'
 import { humanizeModelId } from '../lib/model-label'
 import { RegionBadge } from '../components/models/RegionBadge'
 import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
@@ -614,7 +616,25 @@ export default function UsagePage() {
                   breakdown.by_agent.map((row) => {
                     const body = (
                       <>
-                        <p className="min-w-0 truncate-fade font-medium text-text-primary">{row.agent_name}</p>
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <AiAvatar
+                            {...toAiAvatarProps(
+                              {
+                                id: row.agent_id,
+                                name: row.agent_name,
+                                avatar_kind: row.avatar_kind,
+                                avatar_icon: row.avatar_icon,
+                                avatar_color: row.avatar_color,
+                                avatar_shape: row.avatar_shape,
+                                avatar_image_url: row.avatar_image_url,
+                              },
+                              row.agent_name,
+                            )}
+                            size={28}
+                            decorative
+                          />
+                          <p className="min-w-0 truncate-fade font-medium text-text-primary">{row.agent_name}</p>
+                        </div>
                         <p className="shrink-0 text-xs text-text-muted">
                           {t('usagePage.tokensShort', { count: num(row.tokens) })} · {usd(row.customer_cost_micros)}
                         </p>

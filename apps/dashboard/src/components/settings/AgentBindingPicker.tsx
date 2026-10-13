@@ -76,6 +76,7 @@ export default function AgentBindingPicker({
           avatar_kind: a.avatar_kind,
           avatar_icon: a.avatar_icon,
           avatar_color: a.avatar_color,
+          avatar_shape: a.avatar_shape,
           avatar_image_url: a.avatar_image_url,
         })),
       )

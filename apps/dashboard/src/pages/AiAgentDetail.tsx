@@ -29,7 +29,7 @@ import { useIsAdmin } from '../hooks/useIsAdmin'
 import { listAgents } from '../lib/agents-api'
 import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
-import { activityTerminalPath, agentChatPath } from '../lib/messages-paths'
+import { agentChatPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
 import { openEntityPath, runThreadPath } from '../lib/open-entity'
 import { agendaKindOf, listTimeItems, parseTimelineMs, timeItemHref, type TimeItem } from '../lib/time-items'
@@ -42,7 +42,7 @@ import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 const AGENTS_DEFAULT_PATH = '/agents'
-import { AiAvatar } from '../components/ui/AiAvatar'
+import { AgentMark } from '../components/ui/AgentMark'
 import { cn } from '../lib/utils'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
@@ -260,14 +260,10 @@ export default function AiAgentDetail() {
           <Card className="px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <AiAvatar
-                  name={agent.name}
-                  seed={agent.id}
+                <AgentMark
+                  agent={agent}
                   size={34}
                   className="mt-0.5"
-                  kind={agent.avatar_kind}
-                  icon={agent.avatar_icon}
-                  imageUrl={agent.avatar_image_url}
                   activity={
                     work === 'working' ? 'working' : work === 'error' ? 'error' : 'standby'
                   }
@@ -376,7 +372,7 @@ export default function AiAgentDetail() {
                 {t('workforce.agents.openAgenda')}
               </Link>
               <Link
-                to={activityTerminalPath(agent.id)}
+                to={withNavReveal(agentChatPath(agent.id, { queue: 'open' }))}
                 className="text-xs font-medium text-text-muted hover:text-accent hover:underline"
               >
                 {t('workforce.agents.openThreads')}
@@ -480,6 +476,8 @@ export default function AiAgentDetail() {
               agentDescription={agent.description}
               avatarKind={agent.avatar_kind}
               avatarIcon={agent.avatar_icon}
+              avatarColor={agent.avatar_color}
+              avatarShape={agent.avatar_shape}
               onChanged={() => void load()}
             />
           ) : null}

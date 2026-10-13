@@ -4,16 +4,17 @@
  * Fixed at the top (never customizable): New chat + All communication.
  * Pinned at the bottom: Contacts and a single Settings link
  * (the 'settings' section flag only controls the link's visibility).
- * Middle sections (folders, channels, agents, teams) can be reordered, hidden, collapsed.
+ * Middle sections (folders, flows, channels, agents, teams) can be reordered, hidden, collapsed.
  *
  * Stored in `/me/preferences.sidebar` and `rail_pins`; localStorage is a cache.
  */
 
-export type SidebarSection = 'folders' | 'channels' | 'agents' | 'teams' | 'settings'
+export type SidebarSection = 'folders' | 'flows' | 'channels' | 'agents' | 'teams' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
 export const MOVABLE_SECTIONS: readonly Exclude<SidebarSection, 'settings'>[] = [
   'folders',
+  'flows',
   'channels',
   'agents',
   'teams',
@@ -63,11 +64,10 @@ function migrateSection(value: unknown): SidebarSection | null {
   return null
 }
 
-function isSection(value: unknown): value is SidebarSection {
-  return migrateSection(value) != null
-}
-
-/** Keep Settings anchored last; drop unknowns; fold old hashtags+projects into folders. */
+/**
+ * Keep Settings last; drop unknowns; fold old hashtags+projects into folders;
+ * insert newly added movable sections in default relative order.
+ */
 function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
   const middle: SidebarSection[] = []
   for (const section of order) {
@@ -76,7 +76,17 @@ function withSettingsLast(order: SidebarSection[]): SidebarSection[] {
   }
   for (const section of MOVABLE_SECTIONS) {
     if (middle.includes(section)) continue
-    middle.push(section)
+    const defaultIdx = MOVABLE_SECTIONS.indexOf(section)
+    let insertAt = middle.length
+    for (let i = defaultIdx - 1; i >= 0; i -= 1) {
+      const prior = MOVABLE_SECTIONS[i]
+      const at = middle.indexOf(prior)
+      if (at >= 0) {
+        insertAt = at + 1
+        break
+      }
+    }
+    middle.splice(insertAt, 0, section)
   }
   return [...middle, 'settings']
 }

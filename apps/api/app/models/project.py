@@ -7,14 +7,13 @@ from sqlmodel import Field, SQLModel
 
 
 class Project(SQLModel, table=True):
-    """A folder (operators see "Folder" / "Map"; the table keeps its historical name).
+    """A folder: a saved tag filterset (operators see Folder / Map).
 
-    A folder is a tag with a place: ``tag_id`` is the tag it contributes to the
-    path of every conversation inside it. A folder with ``child_group_id`` is a
-    *group folder*: it shows one virtual child per tag in that group and its
-    static children apply under each of them. A conversation's folder is
-    derived from its tags (`services.folders`); ``Signal.project_id`` caches
-    the deepest materialised folder on that path.
+    Membership is AND of ``project_tag_links``: a conversation matches when its
+    effective tags (own links, action tag, contact/company) contain every tag
+    in the set. The Communication/Agenda tree is derived from overlapping sets;
+    there is no stored parent. ``Signal.project_id`` may cache the longest
+    matching filterset for attribution. Canvas, docs and files stay on this hub.
     """
 
     __tablename__ = "projects"
@@ -23,22 +22,11 @@ class Project(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     name: str
     slug: str = Field(index=True)
-    tag_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signal_tags.id", index=True)
-    child_group_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tag_groups.id", index=True)
     description: str = ""
     autonomous_scope: str = ""
     active_domains_json: str = Field(default="[]")
-    # Default coding workbench used when dispatch does not name a connection.
-    workbench_connection_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="integration_connections.id", index=True
-    )
-    # External surfaces (repo, drive, notion, vibecode) live in ProjectResource.
-    po_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
-    # A folder inside another project. Empty means a root project.
-    parent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
-    # None inherits the workspace daily/hourly token cap (Usage).
-    token_budget_daily: Optional[int] = Field(default=None)
-    token_budget_hourly: Optional[int] = Field(default=None)
+    # Sibling order in the derived tree / flat list.
+    sort_order: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
@@ -46,19 +34,14 @@ class Project(SQLModel, table=True):
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
 
-class ProjectAgent(SQLModel, table=True):
-    """Roster: which agents work on a project (many per project).
+class ProjectTagLink(SQLModel, table=True):
+    """One tag in a folder's AND filterset. Order is display-only."""
 
-    `is_default` marks the agent that handles project threads without a more
-    specific assignment; `po_agent_id` on the project stays the orchestrator.
-    """
+    __tablename__ = "project_tag_links"
+    __table_args__ = (UniqueConstraint("project_id", "tag_id", name="uq_project_tag"),)
 
-    __tablename__ = "project_agents"
-    __table_args__ = (UniqueConstraint("project_id", "agent_id", name="uq_project_agent"),)
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
+    tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    project_id: uuid.UUID = Field(foreign_key="projects.id", index=True)
-    agent_id: uuid.UUID = Field(foreign_key="agents.id", index=True)
-    is_default: bool = Field(default=False)
+    sort_order: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)

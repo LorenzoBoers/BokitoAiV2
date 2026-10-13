@@ -54,6 +54,10 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/ai/assistant/external/installation", "widget-embed", "snippet"),
     ("/agents", "agents", "library"),
     ("/agenda?view=week", "agenda", "week"),
+    ("/folders", "folders", "project"),
+    ("/folders", "folders", "create"),
+    ("/folders", "folders", "nest"),
+    ("/folders", "folders", "boards"),
     ("/projects", "projects", "project"),
     ("/projects", "projects", "boards"),
     ("/workstreams", "workstreams", "board"),
@@ -155,6 +159,17 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ("projects", "boards"): [
         ("click", 'main [role="link"]:has-text("Bokito Platform")'),
         ("scroll", '[data-testid="project-playbook-boards"]'),
+    ],
+    ("folders", "boards"): [
+        ("click", 'main [role="link"]:has-text("Bokito Platform"), main a[href^="/folders/"]'),
+        ("scroll", '[data-testid="project-playbook-boards"]'),
+    ],
+    ("folders", "create"): [
+        ("click", 'button:has-text("New folder"), button:has-text("Nieuwe map")'),
+        ("wait", '[data-testid="tag-set-picker"]'),
+    ],
+    ("folders", "nest"): [
+        ("wait", 'nav [class*="space-y"] a.nav-row'),
     ],
     ("workstreams", "board"): [
         ("click", 'main a[href^="/workstreams/"]:has-text("klacht")'),

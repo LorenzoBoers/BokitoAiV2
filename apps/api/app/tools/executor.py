@@ -103,6 +103,10 @@ _TOOL_ALIASES: dict[str, tuple[str, dict[str, Any]]] = {
     "list_open_internal_threads": ("list_threads", {"status": "open", "channel": "internal"}),
     "list_internal_threads": ("list_threads", {"status": "open", "channel": "internal"}),
     "list_open_threads": ("list_threads", {"status": "open"}),
+    # Agents invent these; open decision titles live on get_tenant_overview.
+    "list_open_decisions": ("get_tenant_overview", {}),
+    "list_pending_decisions": ("get_tenant_overview", {}),
+    "list_awaiting_decisions": ("get_tenant_overview", {}),
 }
 
 

@@ -36,6 +36,26 @@ const TEXT_CLASS: Record<PresenceKind, string> = {
   deactivated: 'text-text-muted',
 }
 
+/** Account menu: this tab is open, so the operator is not offline. */
+export function selfVisiblePresence(
+  status: 'available' | 'away' | 'offline' | undefined,
+): 'available' | 'away' {
+  return status === 'away' ? 'away' : 'available'
+}
+
+/** Live socket for this user beats a stale REST offline seed. */
+export function overlaySelfPresence(
+  userId: string | undefined,
+  status: 'available' | 'away' | 'offline',
+  selfId: string | null,
+  selfLive: boolean,
+): 'available' | 'away' | 'offline' {
+  if (status === 'offline' && selfLive && userId && selfId && userId === selfId) {
+    return 'available'
+  }
+  return status
+}
+
 export function asPresenceKind(value: string | null | undefined): PresenceKind {
   const raw = String(value ?? '')
     .trim()

@@ -104,6 +104,42 @@ export function turnPreparesProposal(turn: LiveTurn): boolean {
   return turn.active && turn.entries.some((e) => e.type === 'activity' && e.item.proposes === true)
 }
 
+function decisionIdFromUnknown(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  for (const key of ['decision_request_id', 'decision_id', 'decisionRequestId', 'decisionId']) {
+    const raw = row[key]
+    if (typeof raw === 'string' && raw.trim()) return raw.trim()
+  }
+  return null
+}
+
+/** Decision ids raised by gated tools in this live turn. */
+export function liveProposalDecisionIds(turn: LiveTurn): string[] {
+  const ids: string[] = []
+  const seen = new Set<string>()
+  for (const entry of turn.entries) {
+    if (entry.type !== 'activity') continue
+    const id = decisionIdFromUnknown(entry.item.result)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    ids.push(id)
+  }
+  return ids
+}
+
+/**
+ * Formerly held decision cards until live speech finished. Server turns now
+ * reveal cards only after speech is persisted, so the client no longer hides
+ * them. Kept as a no-op for call-site compatibility.
+ */
+export function liveProposalHold(_turn: LiveTurn | null | undefined): {
+  decisionIds: Set<string>
+  holdNewSince: string | null
+} {
+  return { decisionIds: new Set(), holdNewSince: null }
+}
+
 /**
  * Idle gap while the model decides: show Thinking, but never on top of
  * "Preparing proposal…" (that flash looked like a stray brain/cloud).
@@ -116,6 +152,25 @@ export function shouldShowWaitingTurn(
   if (opts.hasSpeech) return false
   if (turnPreparesProposal(turn)) return false
   return true
+}
+
+/** Face motion for the bot orb during a live turn. */
+export type BotOrbMotion = 'idle' | 'thinking' | 'typing' | 'working'
+
+/** Derive orb face motion from the live turn (thinking / typing / working). */
+export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMotion {
+  if (!turn?.active) return 'idle'
+  const blocks = liveBlocks(turn)
+  const last = blocks[blocks.length - 1]
+  if (last?.type === 'speech') return 'typing'
+  if (last?.type === 'activity') {
+    const running = last.items.filter((item) => item.status === 'running')
+    if (running.some((item) => item.label === 'typing')) return 'typing'
+    if (running.some((item) => item.kind === 'think')) return 'thinking'
+    if (running.length > 0) return 'working'
+  }
+  if (Object.values(turn.thinking).some((text) => text.trim().length > 0)) return 'thinking'
+  return 'thinking'
 }
 
 /**
@@ -369,6 +424,17 @@ function upsertItem(entries: LiveEntry[], item: ActivityItem): LiveEntry[] {
   return next
 }
 
+/** True when a gateway payload is for this thread (or has no signal id yet). */
+export function eventTargetsSignal(
+  data: Record<string, unknown>,
+  signalId: string | null,
+): boolean {
+  if (!signalId) return false
+  const raw = data.signal_id
+  if (raw == null || raw === '') return true
+  return String(raw) === String(signalId)
+}
+
 /** Pure reducer for gateway turn events on one thread. */
 export function applyTurnEvent(
   turn: LiveTurn,
@@ -488,13 +554,19 @@ export function liveBlocks(turn: LiveTurn): LiveBlock[] {
   return blocks
 }
 
-/** attach_items results from the live turn, ready for showcase cards. */
+/** Showcase `items` from live tool results (attach_items, list_folders, …). */
 export function liveAttachResults(turn: LiveTurn): unknown[] {
   const out: unknown[] = []
   for (const entry of turn.entries) {
     if (entry.type !== 'activity') continue
-    if (entry.item.tool !== 'attach_items') continue
-    if (entry.item.result !== undefined) out.push(entry.item.result)
+    const result = entry.item.result
+    if (result === undefined || result === null) continue
+    // Prefer rows that already carry an items array (list_* auto-showcase).
+    if (typeof result === 'object' && result !== null && Array.isArray((result as { items?: unknown }).items)) {
+      out.push(result)
+      continue
+    }
+    if (entry.item.tool === 'attach_items') out.push(result)
   }
   return out
 }
@@ -551,6 +623,11 @@ export function liveTurnFromLatestInProgress(
   return null
 }
 
+function speechOverlaps(a: string, b: string): boolean {
+  if (!a || !b) return false
+  return a === b || a.startsWith(b) || b.startsWith(a)
+}
+
 /** Keep checkpoint history when a later live event lands on the same turn. */
 export function mergeTurns(base: LiveTurn, overlay: LiveTurn): LiveTurn {
   if (!overlay.streamId) return base
@@ -559,10 +636,22 @@ export function mergeTurns(base: LiveTurn, overlay: LiveTurn): LiveTurn {
   for (const entry of overlay.entries) {
     if (entry.type === 'activity') entries = upsertItem(entries, entry.item)
     else {
-      const last = entries[entries.length - 1]
-      if (last && last.type === 'speech' && last.segmentId === entry.segmentId) {
-        entries[entries.length - 1] =
-          entry.text.length >= last.text.length ? entry : last
+      // Drop checkpoint / stale speech that duplicates this live segment so the
+      // timeline does not show a finished bubble beside the still-streaming one.
+      entries = entries.filter((row) => {
+        if (row.type !== 'speech') return true
+        if (row.segmentId === entry.segmentId) return true
+        if (row.segmentId === 'checkpoint' || entry.segmentId === 'checkpoint') {
+          return !speechOverlaps(row.text, entry.text)
+        }
+        return true
+      })
+      const matchAt = entries.findIndex(
+        (row) => row.type === 'speech' && row.segmentId === entry.segmentId,
+      )
+      if (matchAt >= 0) {
+        const last = entries[matchAt] as { type: 'speech'; segmentId: string; text: string }
+        entries[matchAt] = entry.text.length >= last.text.length ? entry : last
       } else {
         entries.push(entry)
       }

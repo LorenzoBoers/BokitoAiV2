@@ -75,6 +75,13 @@ class ConnectionManager:
     def connections(self) -> list[GatewayConnection]:
         return list(self._connections.values())
 
+    def user_ids(self, tenant_id: str) -> set[str]:
+        return {
+            connection.user_id
+            for connection in self._connections.values()
+            if connection.kind == "user" and connection.tenant_id == tenant_id and connection.user_id
+        }
+
     def register(self, connection: GatewayConnection) -> None:
         self._connections[connection.id] = connection
         if not self._registered:

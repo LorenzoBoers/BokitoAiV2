@@ -85,10 +85,12 @@ import {
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
 import AgentTurnLive from './AgentTurnLive'
+import { answeredDecisionIds } from './ThreadTimeline'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import {
   liveTurnFromLatestInProgress,
+  liveTurnOrbMotion,
   mergeTurns,
   textOnlyTurn,
   turnHasContent,
@@ -201,7 +203,9 @@ type Props = {
   unreadHighlightIds?: string[]
 }
 
-export default function ThreadDetail({ detail, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onPlan, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
+export default function ThreadDetail({ detail: detailProp, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onPlan, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
+  const detail =
+    detailProp && threadId && String(detailProp.thread.id) === String(threadId) ? detailProp : null
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { token, user } = useAuth()
@@ -267,7 +271,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     agentStreaming,
     send: sendAgentSessionMessage,
     stop: stopAgentSessionStream,
-  } = useAiChatStream(token)
+  } = useAiChatStream(token, threadId ? String(threadId) : null)
   const agentStreamingRef = useRef(false)
   agentStreamingRef.current = agentStreaming
   const applyComposerDraft = useCallback(
@@ -458,6 +462,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           avatarKind: a.avatarKind,
           avatarIcon: a.avatarIcon,
           avatarColor: a.avatarColor,
+          avatarShape: a.avatarShape,
           avatarImageUrl: a.avatarImageUrl,
         }),
       ),
@@ -553,11 +558,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
 
   useEffect(() => {
     if (!detail || pendingDecisionAnswers.length === 0) return
-    const answered = new Set(
-      detail.messages
-        .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
-        .map((m) => String(m.decisionResponseDecisionId)),
-    )
+    const answered = answeredDecisionIds(detail.messages)
     const bodies = new Set(detail.messages.map((m) => (m.bodyText || '').trim()).filter(Boolean))
     setPendingDecisionAnswers((prev) =>
       prev.filter((row) => !answered.has(row.decisionId) && !bodies.has(row.text.trim())),
@@ -592,11 +593,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
         .flatMap((m) => [(m.bodyText || '').trim(), (m.bodyPreview || '').trim()])
         .filter(Boolean),
     )
-    const answered = new Set(
-      detail.messages
-        .filter((m) => m.decisionResponse && m.decisionResponseDecisionId)
-        .map((m) => String(m.decisionResponseDecisionId)),
-    )
+    const answered = answeredDecisionIds(detail.messages)
     const decisionExtras = pendingDecisionAnswers
       .filter((row) => row.text.trim() && !answered.has(row.decisionId) && !existingBodies.has(row.text.trim()))
       .map(
@@ -693,8 +690,11 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     return ids
   }, [checkpointTurn, sessionCheckpointTurn, gatewayStream.turn, sessionLive.turn])
 
+  // Cards arrive from the server after speech is persisted (reveal). Only hide
+  // saved rows that the live overlay still owns for this turn.
   const visibleTimelineDetail = useMemo(() => {
-    if (!timelineDetail || liveOverlayTurnIds.size === 0) return timelineDetail
+    if (!timelineDetail) return timelineDetail
+    if (liveOverlayTurnIds.size === 0) return timelineDetail
     const messages = timelineDetail.messages.filter(
       (message) => !(message.turnId && liveOverlayTurnIds.has(message.turnId)),
     )
@@ -1574,8 +1574,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
     askAgentId ?? activeSession?.agentId ?? detail?.thread.agentId ?? null
   const agentLive = useLiveEntity<AgentLiveSnapshot>('agent_live', liveAgentId)
   const agentWorkingHere =
-    agentLive?.status === 'working' &&
-    (!agentLive.threadId || agentLive.threadId === threadIdString)
+    agentLive?.status === 'working' && agentLive.threadId === threadIdString
 
   // One live view for every agent turn on this screen: the thread's own
   // agent (inbound handling), the inline session agent, or the plain SSE
@@ -1926,6 +1925,7 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
           agentAvatarKind={thread.agentAvatarKind}
           agentAvatarIcon={thread.agentAvatarIcon}
           agentAvatarColor={thread.agentAvatarColor}
+          agentAvatarShape={thread.agentAvatarShape}
           agentAvatarImageUrl={thread.agentAvatarImageUrl}
           chatTags={chatTags}
           events={detail.events}
@@ -1984,15 +1984,25 @@ export default function ThreadDetail({ detail, loading, error, threadId, saving,
                           agentId: activeSession?.agentId ?? askAgentId ?? thread.agentId,
                           agentAvatarKind: thread.agentAvatarKind,
                           agentAvatarIcon: thread.agentAvatarIcon,
+                          agentAvatarColor: thread.agentAvatarColor,
+                          agentAvatarShape: thread.agentAvatarShape,
                           agentAvatarImageUrl: thread.agentAvatarImageUrl,
                         },
                         t('agentSession.title'),
                       )}
                       size={28}
                       decorative
+                      activity="working"
+                      motion={liveTurnOrbMotion(threadLiveTurn)}
                     />
                   ) : thread.agentId ? (
-                    <AiAvatar {...toAiAvatarProps(thread)} size={28} decorative />
+                    <AiAvatar
+                      {...toAiAvatarProps(thread)}
+                      size={28}
+                      decorative
+                      activity="working"
+                      motion={liveTurnOrbMotion(threadLiveTurn)}
+                    />
                   ) : undefined
                 }
               />

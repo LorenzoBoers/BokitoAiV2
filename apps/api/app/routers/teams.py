@@ -401,6 +401,7 @@ async def team_overview(
     )
 
     now = datetime.utcnow()
+    connected = presence.connected_user_ids_for(tenant_id)
     people_rows = (
         await session.execute(
             select(User, Membership)
@@ -415,7 +416,9 @@ async def team_overview(
             "email": user.email,
             "avatar_url": user.avatar_url,
             "role": member.role,
-            "presence": presence.serialize_presence(user, now=now),
+            "presence": presence.serialize_presence(
+                user, now=now, connected=str(user.id) in connected
+            ),
             "team_ids": membership.get(f"user:{user.id}", []),
             "open_owned": int(open_owned_user.get(user.id, 0)),
             "open_turn": int(open_turn_user.get(user.id, 0)),

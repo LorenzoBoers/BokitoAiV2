@@ -56,13 +56,7 @@ type Args = {
   onAnswer?: (answer: { text: string; decisionId: string } | null) => void
 }
 
-/** Strip the "Review: " / "Approve: " prefix the server puts on action titles. */
-export function actionTitle(title: string): string {
-  for (const prefix of ['Review: ', 'Approve: ']) {
-    if (title.startsWith(prefix)) return title.slice(prefix.length)
-  }
-  return title
-}
+export { actionTitle } from '../../lib/bundleActionLabel'
 
 /**
  * Resolve a DecisionRequest from any surface: the standalone card and the
@@ -310,6 +304,19 @@ export function useDecisionResolve({
         toast.success(t('actionBundle.toastRejected', { count: rejected }))
       } else {
         toast.success(t('actionBundle.summary', { approved, rejected }))
+      }
+      // One optimistic answer for the bundle so synthetics do not double-bubble.
+      const answerIds = result.results
+        .filter((row) => row.status === 'approved' || row.status === 'rejected')
+        .map((row) => row.decisionId)
+      if (answerIds.length && decisionId) {
+        const text =
+          rejected && !approved
+            ? t('decisionCard.options.reject')
+            : approved && !rejected
+              ? t('actionBundle.approve')
+              : t('actionBundle.summary', { approved, rejected })
+        onAnswer?.({ text, decisionId })
       }
       onResolved?.(undefined)
       return result.results

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { headingId } from '../../lib/docs-toc'
 import { isDocsAssetSrc, parseImageLine, parseItalicCaption } from '../../lib/docs-images'
+import { cn } from '../../lib/utils'
 
 /**
  * Document-scale markdown renderer shared by the Knowledge page and the
@@ -47,12 +48,14 @@ function renderInline(text: string): ReactNode[] {
       const href = token.slice(close + 2, -1)
       const safe = /^(https?:\/\/|mailto:|\/)/i.test(href)
       if (safe) {
+        const sameTab = href.startsWith('/docs') || href.startsWith('/learn')
         nodes.push(
           <a
             key={key++}
             href={href}
-            target="_blank"
-            rel="noreferrer noopener"
+            {...(sameTab
+              ? {}
+              : { target: '_blank', rel: 'noreferrer noopener' })}
             className="text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
           >
             {label}
@@ -89,13 +92,19 @@ function splitTableRow(line: string): string[] {
 }
 
 const HEADING_CLASS: Record<number, string> = {
-  1: 'mt-2 text-xl font-semibold tracking-tight text-text-heading',
-  2: 'mt-4 text-lg font-semibold tracking-tight text-text-heading',
-  3: 'mt-3 text-base font-semibold text-text-heading',
-  4: 'mt-2 text-sm font-semibold text-text-heading',
+  1: 'mt-2 text-3xl font-semibold tracking-tight text-text-heading',
+  2: 'mt-12 text-[1.65rem] font-semibold tracking-tight text-text-heading',
+  3: 'mt-8 text-xl font-semibold text-text-heading',
+  4: 'mt-6 text-base font-semibold text-text-heading',
 }
 
-export default function MarkdownView({ content }: { content: string }) {
+export default function MarkdownView({
+  content,
+  className,
+}: {
+  content: string
+  className?: string
+}) {
   const blocks: ReactNode[] = []
   const lines = content.split('\n')
   let i = 0
@@ -145,7 +154,7 @@ export default function MarkdownView({ content }: { content: string }) {
               className="max-h-[min(56vh,520px)] w-full rounded-lg border border-border/40 bg-bg-elevated object-contain object-top"
             />
             {caption ? (
-              <figcaption className="text-xs leading-5 text-muted-foreground">{caption}</figcaption>
+              <figcaption className="text-xs leading-5 text-text-muted">{caption}</figcaption>
             ) : null}
           </figure>,
         )
@@ -223,7 +232,7 @@ export default function MarkdownView({ content }: { content: string }) {
         i += 1
       }
       blocks.push(
-        <blockquote key={key++} className="border-l-2 border-accent/40 pl-3 text-sm leading-6 text-text-secondary">
+        <blockquote key={key++} className="border-l-[3px] border-[var(--docs-accent,rgb(var(--color-accent)))] pl-4 text-[1.0625rem] leading-7 text-text-secondary italic">
           {renderInline(quote.join(' '))}
         </blockquote>,
       )
@@ -238,7 +247,7 @@ export default function MarkdownView({ content }: { content: string }) {
         i += 1
       }
       blocks.push(
-        <ul key={key++} className="list-disc space-y-1 pl-5 text-sm leading-6 text-text-primary">
+        <ul key={key++} className="list-disc space-y-2.5 pl-5 text-[1.0625rem] leading-7 text-text-primary">
           {items.map((item, idx) => (
             <li key={idx}>{renderInline(item)}</li>
           ))}
@@ -255,7 +264,7 @@ export default function MarkdownView({ content }: { content: string }) {
         i += 1
       }
       blocks.push(
-        <ol key={key++} className="list-decimal space-y-1 pl-5 text-sm leading-6 text-text-primary">
+        <ol key={key++} className="list-decimal space-y-2.5 pl-5 text-[1.0625rem] leading-7 text-text-primary">
           {items.map((item, idx) => (
             <li key={idx}>{renderInline(item)}</li>
           ))}
@@ -283,11 +292,11 @@ export default function MarkdownView({ content }: { content: string }) {
       i += 1
     }
     blocks.push(
-      <p key={key++} className="text-sm leading-6 text-text-primary/90">
+      <p key={key++} className="text-[1.0625rem] leading-7 text-text-primary/90">
         {renderInline(para.join(' '))}
       </p>,
     )
   }
 
-  return <div className="space-y-3">{blocks}</div>
+  return <div className={cn('space-y-5', className)}>{blocks}</div>
 }

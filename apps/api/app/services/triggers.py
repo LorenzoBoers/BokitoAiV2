@@ -460,6 +460,31 @@ async def fire_trigger(
 
         return await fire_checkup(session, trigger)
 
+    # Soft-deleted canvases used to leave refresh cron enabled.
+    from app.services.project_canvas import is_canvas_refresh_trigger
+    from app.models.project_canvas import ProjectCanvas
+
+    if is_canvas_refresh_trigger(trigger.name, trigger.instructions or ""):
+        canvas = (
+            await session.execute(
+                select(ProjectCanvas).where(
+                    ProjectCanvas.tenant_id == trigger.tenant_id,
+                    ProjectCanvas.refresh_trigger_id == trigger.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if canvas is None or canvas.deleted_at is not None:
+            trigger.enabled = False
+            trigger.next_run_at = None
+            trigger.last_status = "canvas_binned"
+            trigger.updated_at = now
+            session.add(trigger)
+            signal = await ensure_trigger_thread(session, trigger)
+            mirror_next_at(signal, trigger)
+            session.add(signal)
+            await session.commit()
+            return {"status": "canvas_binned", "signal_id": str(signal.id)}
+
     def _advance() -> None:
         if manual:
             return
@@ -599,8 +624,6 @@ async def fire_trigger(
         from app.services.task_ledger import promote_run_to_task
 
         await promote_run_to_task(session, run, title=trigger.name)
-
-    from app.services.project_canvas import is_canvas_refresh_trigger
 
     loop = AgentLoop(
         session,

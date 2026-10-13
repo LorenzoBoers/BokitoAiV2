@@ -20,7 +20,7 @@ export type ChannelKey = (typeof CHANNEL_KEYS)[number]
 export const SUB_QUEUES = ['for_you', 'open', 'unassigned', 'closed'] as const
 export type SubQueue = (typeof SUB_QUEUES)[number]
 
-/** Agent folders also expose Activity (work log → `/activity?agent=`). */
+/** Legacy agent-folder Activity queue; redirects to `/agents/:id#activity`. */
 export type AgentQueue = SubQueue | 'activity'
 
 /** Sub-queue → list `view` filter. */
@@ -113,11 +113,13 @@ export function agentChatPath(
 }
 
 /**
- * Terminal-style live activity history (all agents, filterable per agent).
- * Agent folder Activity sub-rows deep-link here.
+ * Agent activity swimlane on the Agents library (or one agent detail).
+ * Replaces the retired `/activity` terminal page.
  */
 export function activityTerminalPath(agentId?: string | null): string {
-  return agentId ? `/activity?agent=${encodeURIComponent(agentId)}` : '/activity'
+  return agentId
+    ? `/agents/${encodeURIComponent(agentId)}#activity`
+    : '/agents#activity'
 }
 
 export function channelPath(
@@ -298,7 +300,7 @@ export function legacyHubRedirect(pathname: string, search = ''): string | null 
     case 'decisions':
       return forYouPath(threadId, params)
     case 'runs':
-      return threadId ? inboxPath('all', threadId) : activityTerminalPath()
+      return threadId ? inboxPath('all', threadId) : '/agents#activity'
     case 'agent':
     case 'channel':
       // Restored as first-class folders; do not chip-redirect.

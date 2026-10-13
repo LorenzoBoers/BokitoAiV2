@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { nextChipRevealLength } from '../lib/chatText'
 
 /**
  * Frontend playback that follows the backend stream.
@@ -153,9 +154,16 @@ export function useSmoothStreamText(
       const chars = Math.floor(step)
       carry = step - chars
       if (chars > 0) {
-        const next = goal.slice(0, prev.length + Math.min(chars, backlog))
-        visibleRef.current = next
-        setVisible(next)
+        const hardCap = prev.length + backlog
+        const cruiseEnd = prev.length + Math.min(chars, backlog)
+        // While live, hold incomplete chip markup; when the turn ended, drain
+        // abandoned half-tokens as plain text. Complete chips always pop once.
+        const capped = nextChipRevealLength(goal, prev.length, cruiseEnd, hardCap, live)
+        if (capped > prev.length) {
+          const next = goal.slice(0, capped)
+          visibleRef.current = next
+          setVisible(next)
+        }
       }
       raf = requestAnimationFrame(tick)
     }

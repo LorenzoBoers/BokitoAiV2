@@ -3,9 +3,11 @@ import {
   agentStatusOf,
   asAgentStatus,
   asPresenceKind,
+  overlaySelfPresence,
   presenceBadgeVariant,
   presenceDotClass,
   presenceTextClass,
+  selfVisiblePresence,
 } from './presence'
 
 describe('presence visual map', () => {
@@ -20,6 +22,16 @@ describe('presence visual map', () => {
 
   it('shows deactivated agents in a muted badge', () => {
     expect(presenceBadgeVariant('deactivated')).toBe('secondary')
+  })
+
+  it('never shows the open account tab as offline', () => {
+    expect(selfVisiblePresence('offline')).toBe('available')
+    expect(selfVisiblePresence('available')).toBe('available')
+    expect(selfVisiblePresence('away')).toBe('away')
+    expect(overlaySelfPresence('u1', 'offline', 'u1', true)).toBe('available')
+    expect(overlaySelfPresence('u1', 'offline', 'u1', false)).toBe('offline')
+    expect(overlaySelfPresence('u2', 'offline', 'u1', true)).toBe('offline')
+    expect(overlaySelfPresence('u1', 'away', 'u1', true)).toBe('away')
   })
 
   it('reads the standby | working | error vocabulary only', () => {

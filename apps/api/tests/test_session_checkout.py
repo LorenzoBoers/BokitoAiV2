@@ -162,6 +162,52 @@ async def test_starting_a_session_closes_another_operators_session(
 
 
 @pytest.mark.asyncio
+async def test_idle_summary_skips_error_agent_bubbles(session_override: AsyncSession):
+    from app.models.auth import Tenant
+    from app.services.agent_sessions import _idle_summary
+
+    tenant = (await session_override.execute(select(Tenant))).scalars().first()
+    conversation = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        source="agent_session",
+        subject="Session",
+        session_state="active",
+    )
+    session_override.add(conversation)
+    await session_override.flush()
+    session_override.add(
+        SignalMessage(
+            signal_id=conversation.id,
+            tenant_id=tenant.id,
+            kind="agent_message",
+            role="assistant",
+            direction="outbound",
+            body_text="Factuur is gecorrigeerd.",
+        )
+    )
+    session_override.add(
+        SignalMessage(
+            signal_id=conversation.id,
+            tenant_id=tenant.id,
+            kind="agent_message",
+            role="assistant",
+            direction="outbound",
+            body_text=(
+                "The assistant encountered an error while generating a reply. "
+                "Please try again in a moment."
+            ),
+            metadata_json='{"error": true}',
+        )
+    )
+    await session_override.commit()
+
+    summary = await _idle_summary(session_override, conversation)
+    assert "encountered an error" not in summary.lower()
+    assert "Factuur is gecorrigeerd" in summary
+
+
+@pytest.mark.asyncio
 async def test_idle_session_closes_without_a_card(
     client: AsyncClient, session_override: AsyncSession
 ):

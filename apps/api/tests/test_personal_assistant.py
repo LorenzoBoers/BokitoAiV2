@@ -96,6 +96,21 @@ async def test_tenant_has_exactly_one_platform_helper(client: AsyncClient, sessi
 
 
 @pytest.mark.asyncio
+async def test_list_agents_tool_excludes_bokito_helper(client: AsyncClient, session_override):
+    """list_agents matches the Agents page: no acts_for_user helper in the roster."""
+    from app.tools import execute_tool
+
+    tenant, _user = await _tenant_and_user(session_override)
+    helper = await ensure_personal_assistant(session_override, tenant.id, commit=True)
+    result = await execute_tool(session_override, tenant.id, None, "list_agents", {})
+    assert "error" not in result, result
+    ids = {a["id"] for a in result.get("agents") or []}
+    assert str(helper.id) not in ids
+    showcase_ids = {i["id"] for i in result.get("items") or [] if i.get("type") == "agent"}
+    assert str(helper.id) not in showcase_ids
+
+
+@pytest.mark.asyncio
 async def test_helper_passport_is_platform_owned(client: AsyncClient, session_override):
     """A tenant edit to the prompt is overwritten on the next boot."""
     tenant, _user = await _tenant_and_user(session_override)

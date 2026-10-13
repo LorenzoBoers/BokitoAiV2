@@ -1,106 +1,69 @@
 ---
 title: How Folders works
-intro: A folder holds a goal — its home, snapshot canvas, documentation, who leads it, and how much it may spend.
-description: Land on the project Home for the flow boards and links, ask an agent to write the snapshot canvas, keep documentation, and cap spend.
-keywords: projects, folders, canvas, dashboard, snapshot, tickets, flows, boards, documentation, sections, resources, repository, budget, orchestration
+intro: A folder is a saved tag filter — conversations that carry every tag in the set land here, with canvas, docs and boards on the same hub.
+description: Create maps as AND tag filtersets, nest by adding tags, open matching conversations, and keep canvas and docs on the folder hub.
+keywords: folders, maps, tags, filterset, canvas, tickets, flows, boards, documentation, communication, nest
 sort: 40
 related: workstreams,categories,agenda,knowledge,communication
 ---
 
 # How Folders works
 
-A folder is a tag with a place. The folder name is that tag (`#facturen`). Conversations appear in every folder whose path tags they carry, including tags on the contact. Canvas, docs and budget stay on one home: the deepest matching path. Open **Folders** when a goal should have a home instead of living only in chat. A folder detail shows **Overview**, **Conversations**, and **Settings**; **Tickets**, **Documentation** and **Files** appear when that folder has them. The URL keeps the tab (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) so you can share that surface.
+A folder is a saved set of tags. A conversation matches when it has **every** tag in that set (including tags inherited from the contact). The same conversation can appear in several folders; narrower sets nest under broader ones in the rail. Open **Folders** for the hub: conversations, tickets, canvas, docs and files. There is no per-folder agent, budget or repository.
 
 ## Create or open a folder
 
 ![Projects list](/api/docs/assets/folders/project.png)
-*Each card shows the project agent, open tickets, and budget.*
+*Each card is a tag set (for example `#2026 · #facturen`) with open work.*
 
-1. Open **Folders**. A folder menu sits on the left. Subfolders stay closed until you open that project. The in-page heading is **{workspace} projects**; the help icon next to **Projects** in the top bar opens this guide. Choose **New folder** (or search **New folder** in the command palette) and name the goal, then press Enter. The URL slug is generated for you; open **Advanced: URL slug** only if you need to change it.
-2. Read the card: project agent, open tickets (the same boards as Project Home), documentation health, repo status, remaining budget. The project agent and the agent chips open the agent page; when a search result sits inside another project, the parent path above the name opens that parent folder. Search by name or agent when the list grows. If nothing matches, **Clear search** shows every project again.
-3. Open it. You land on the **Overview** tab. Click the project agent to open it. Admins choose the pencil in the card header to pick another company agent as the project default, or create one. Members can read a project; they cannot delete it or edit the name.
+1. Open **Folders**. The left menu shows the derived tree (narrower maps under broader ones). Choose **New folder**, then pick or create the tags that define the filter — there is no separate name.
+2. While you pick tags, the dialog shows the full filterset and whether the new map **comes under** an existing broader map.
+3. Open a card. You land on **Overview**. Admins change the tag set in place (broader tags stay locked when the map already sits under another). Members can read; they cannot delete.
+
+## Create a narrower map under this one
+
+1. Open a folder, then choose **New folder**.
+2. Tags from the open map stay required (locked). Add one or more **extra tags** — those extras are what the tree row shows under the parent.
+3. Confirm. Conversations match only when they carry every tag of the new set. The map appears under the broader one in Folders and in Communication **What**.
+
+## Nest a map under a broader one
+
+1. On **Folders**, drag a map onto the **Nest** zone of another row (or use **Nest** in the folder menu).
+2. Read the preview: the result filterset and which broader map it will sit under. If the maps shared no tags, confirm the warning — matching conversations must then also carry the broader tags.
+3. Confirm **Nest**. Use **Undo** on the toast, or Ctrl/Cmd+Z, to reverse the last nest or reorder.
 
 ## Read the Overview
 
-The **Overview** tab is the landing. The header card shows the folder icon, the name and the description for agents (admins edit both in place; changes autosave), and one line of facts: open and closed conversations, how many folders sit inside, the project agent, and the linked repository. On the right sit **Open in Communication**, **New folder** (admins) and a more-actions menu with **Copy project ID**, **Copy slug**, **Move** and **Delete**.
+1. The header shows the full filter tags (`#2026 · #facturen`). Tree rows show only the tags that are new versus the parent. **Open in Communication** jumps to the same filter in the Communication rail.
+2. Hover a tree row for the full set and **Under:** the broader map.
+3. **Recent conversations** lists matches; **All conversations** opens the Conversations tab. Canvas, docs and files stay on this hub when you use them.
 
-1. **Folders** come first, as cards: name, open and closed conversations in that folder and deeper, and how many folders it holds. Click a card to open the folder. Admins also see a dashed **New folder** card.
-2. The next row shows the project agent (click opens it; admins change it with the pencil), the project **Agenda** (check-ups that are due and planned look-ats for this project's tickets; **Open in Agenda** in the card header shows them all, and **Plan something** on an empty card opens Agenda with this project preselected), and the remaining budget.
-3. **Recent conversations** lists the latest open conversations in this folder; **All conversations** switches to the Conversations tab.
-4. **Recent activity** lists the latest agent runs on this project. **Settings** holds the agents, repository and resources.
+## See conversations in a folder
 
-## See the conversations in a folder
-
-Every conversation that carries this folder's path tags lives in the Communication sidebar under **Folders and tags**, and can also appear in another matching folder. The **Conversations** tab shows the same list next to the folders and boards.
-
-1. Open the **Conversations** tab. The count in the tab is the number of open conversations. Switch between **Open** and **Closed**.
-2. Each row shows the status dot, the channel, the subject, the contact, the folder it sits in when that is deeper than this project, and its action tag. Click a row to open that conversation in this project's folder in Communication.
-3. **Open in Communication** next to the filter opens the whole folder in the Communication sidebar (it unhides the Projects section if you hid it, scrolls the folder into view, and highlights it briefly). The same button sits in the project header.
-4. Choose **Load more** at the bottom when the folder holds more than thirty conversations.
+1. Open the **Conversations** tab, or use **Folders** in Communication. Empty maps stay hidden in the rail until they have open work or you pin them.
+2. Each row is a conversation that carries every tag of this map. Filing a conversation into a map adds those tags.
+3. Contact tags apply automatically (shown as inherited); they are not copied onto the thread.
 
 ## Move a ticket on a board
 
 ![Flow boards on a project](/api/docs/assets/folders/boards.png)
-*One board per flow on the project, with that flow's stages as columns.*
+*One board per flow on the folder, with that flow's stages as columns.*
 
-1. Open the **Tickets** tab. Every flow on this project is one board, stacked, titled with its action tag. Its columns are the flow's stages, for example Open, Waiting and Done.
-2. Drag a card to another column to move the ticket to that stage. The move shows in the conversation's timeline.
-3. Click a card to open that conversation in [Communication](/docs/inbox/communication).
-4. No board yet? Admins choose **Add flow** above the boards and pick a flow; **Unlink** on a board removes it again. See [Flows](/docs/ai/workstreams).
+1. Open the **Tickets** tab when flows are linked to this folder.
+2. Drag a card to another column to change the stage. Click a card to open it in [Communication](/docs/inbox/communication).
+3. Flows stay the action-tag axis; a folder only filters which tickets you see. See [Flows](/docs/ai/workstreams) and [Action tags](/docs/ai/categories).
 
 ## Ask an agent to write a canvas
 
-A project can have several snapshot canvases (not live tiles). An agent creates, fills and refreshes a canvas; you can do the same from this tab. The agent who creates it owns it, unless you name another. Every canvas lives on one conversation: the current chat, or a new thread when that chat is about something else. Refresh is that conversation's repeat in [Agenda](/docs/ai/agenda): once (**Manual**), daily at 07:00 UTC, weekly, monthly, hourly, or **Custom** (a five-field cron). On Assisted or Autonomous the write applies immediately. On Manual it waits as a decision under [Govern](/docs/govern/govern).
+1. Open the **Canvas** tab. Add a canvas with a title, brief and refresh cadence. The managing agent is chosen on the canvas, not on the folder.
+2. Ask in the linked conversation for a status or dashboard; the agent updates the snapshot. Workspace canvases also live on Overview **Canvas**.
 
-1. Open the **Canvas** tab. Canvas names sit left to right. The **+** after the last name adds a canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**, **Custom**). **Custom** asks for a cron such as `0 8 * * 1-5`. Daily is the default. Save. The owner starts writing from the brief.
-2. Canvases appear as tabs from left to right. While the document is empty, the tab shows that the agent is writing. After the write you see cards, stats, tables or charts from the last snapshot.
-3. Ask the agent in the conversation for figures, a status, or a dashboard and it builds or updates the canvas in that turn. A later change updates that same canvas. The reply names the canvas as a link and shows a small preview of the snapshot. Open the preview to land on that canvas. The canvas tab shows the owner agent and the conversation; open that conversation to ask for a change. That conversation's side panel shows the canvas (name, preview, link) under **This conversation**. Refresh is the repeat on that same thread, also visible in Agenda. Admins can **Show source**. Workspace canvases live on Overview **Canvas**.
+## Track documentation
 
-## Get tickets onto a project
+1. Open the **Documentation** tab for docs scoped to this folder. Create or edit like Knowledge; agents only change project docs inside a [flow](/docs/ai/workstreams) run.
+2. Choose **Open in Knowledge hub** to edit the same document under Knowledge.
 
-1. On the **Tickets** tab, choose **Add flow** and pick the flow. Flows are attached from the project; the flow page only shows where it is used.
-2. File a conversation with that flow's action tag. The folder follows from the conversation tags; add the folder tag if it is not there yet. Agents make the same choice. See [Action tags and tickets](/docs/ai/categories).
-3. The ticket appears on that flow's board in its first stage, and under **Folders and tags** in the Communication sidebar.
-4. How much an agent may do without asking is one workspace-wide dial: see [Autonomy](/docs/govern/autonomy).
+## Agenda and the rail
 
-## Track project documentation
-
-1. Open the **Documentation** tab (a contextual view of the same docs as Knowledge filtered to this project). Choose **New document**, give it a name, and write in **Write** or **Markdown**. Content always saves as markdown.
-2. Active linked queue requests show as chips on the document. Request status stays on the queue item.
-3. Expand **Sections** to work per `##` section, each with a status: **Draft**, **Review**, or **Final**. A section an agent writes during a flow run moves to **Review**; gate approval promotes it to **Final**.
-4. You edit directly; agents may only edit project documentation inside a [flow](/docs/ai/workstreams) run, so every agent change has a worklog behind it.
-5. Choose **Open in Knowledge hub** to edit the same document under Knowledge → Projects.
-
-## Link resources
-
-1. Open the **Settings** tab. The repository card connects a GitHub repo as before; status moves from **Indexing repo** to **Repo ready**.
-2. Under **Resources**, choose **Link a resource** to attach other surfaces the project works on: a drive folder, a Notion page, a spreadsheet, a coding tool, or a website.
-3. Pick a type, add a label and a reference (URL or ID), then choose **Link**. Resources are linked by reference for now; connectors that sync and act on them attach later.
-
-## Give a project its own connection
-
-Link an integration connection when a project stands for a client or department with its own account, such as a separate Moneybird administration.
-
-1. Open the **Settings** tab and, under **Resources**, choose **Link a resource**.
-2. Pick the type **Connection**, choose the connection, then choose **Link**.
-3. The connection is now exclusive to the projects it is linked to. Agents working on this project use it before the module default; work elsewhere cannot use it.
-4. Remove the resource to make the connection workspace-wide again. Deleting a project warns when a connection is linked only to that project, because it then becomes usable everywhere. Manage the same links from the provider card; see [Integrations](/docs/integrations/integrations).
-
-## Cap spend
-
-1. Open the project's **Overview** tab. The budget card shows usage against today's cap.
-2. Choose the pencil in the budget header. Set **Daily token cap** and **Hourly token cap** so one goal cannot consume the whole workspace cap. Leave a field empty to inherit Cockpit **Usage**. Choose **Save budget**.
-3. When a project hits its cap, the card shows **Cap reached** and agents pause on that project. Workspace caps still live on Cockpit **Usage**.
-
-## Put a folder inside a project
-
-A folder is a project with a parent. The Projects list shows the top level. Search still finds a nested name and shows the path above it.
-
-1. Open the project and choose **New folder** in the header, or the dashed **New folder** card under **Folders**. Name it and create it. You land in that folder, and it can hold folders of its own.
-2. The **Overview** tab shows each folder as a card: the name, how many conversations are open and closed in it and deeper, and how many folders it holds. Click the card to open that folder; the breadcrumb above the header and the folder menu on the left show where you are.
-3. In a conversation, open the more-actions menu and choose **File in folder**, or **Close and file** to close it and file it in one step. In the list, select conversations, open **More actions**, and choose **File in folder**.
-4. Open the more-actions menu in the project header and choose **Move** to place the folder under another project, or back at the top level. **Delete** sends the folders inside it to the Bin with it. A parent canvas refresh includes each folder's open and closed counts in the snapshot the agent writes.
-
-## What to do next
-
-Define the recurring processes behind the project under [Flows](/docs/ai/workstreams), with an owner and check-up per stage. Everything planned for the project shows on the [Agenda](/docs/ai/agenda) when you pick the project there. Browse the same project docs under [Knowledge](/docs/ai/knowledge) by clicking that project name; organization-wide knowledge stays on the workspace chip.
+1. In Communication and Agenda **What**, maps share one derived `#` tree with the same local labels and full-set tooltips as Folders.
+2. Pin a row to keep it visible; hide empty ones with the row menu. Agenda filters by the selected map's tags. Clear the chip in the header to see everything again.

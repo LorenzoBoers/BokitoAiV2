@@ -11,7 +11,7 @@ import {
   Webhook,
   Workflow,
 } from 'lucide-react'
-import { AiAvatar } from '../ui/AiAvatar'
+import { AgentMark } from '../ui/AgentMark'
 import { Card } from '../ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { cn } from '../../lib/utils'
@@ -37,6 +37,8 @@ type TimelineAgent = {
   name: string
   avatar_kind?: string | null
   avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_shape?: string | null
   avatar_image_url?: string | null
 }
 
@@ -291,6 +293,8 @@ export function AgentActivityTimeline({
         agentName: agent.name,
         avatar_kind: agent.avatar_kind,
         avatar_icon: agent.avatar_icon,
+        avatar_color: agent.avatar_color,
+        avatar_shape: agent.avatar_shape,
         avatar_image_url: agent.avatar_image_url,
         items: [],
       })
@@ -306,7 +310,11 @@ export function AgentActivityTimeline({
   const language = i18n.language
 
   return (
-    <Card className={cn('overflow-hidden', className)} data-testid="agent-activity-timeline">
+    <Card
+      id="activity"
+      className={cn('scroll-mt-4 overflow-hidden', className)}
+      data-testid="agent-activity-timeline"
+    >
       <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-text-heading">
@@ -334,15 +342,7 @@ export function AgentActivityTimeline({
                   className="group flex h-9 items-center gap-2 truncate rounded-md px-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/50 hover:text-text-heading"
                   title={lane.agentName}
                 >
-                  <AiAvatar
-                    name={lane.agentName}
-                    seed={lane.agentId}
-                    size={20}
-                    kind={lane.avatar_kind}
-                    icon={lane.avatar_icon}
-                    imageUrl={lane.avatar_image_url}
-                    decorative
-                  />
+                  <AgentMark agent={lane} size={20} />
                   <span className="min-w-0 truncate group-hover:underline">{lane.agentName}</span>
                 </Link>
               ))}

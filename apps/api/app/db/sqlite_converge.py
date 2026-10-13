@@ -181,11 +181,27 @@ def _merge_tag(connection: Connection, source_id: str, target_id: str) -> None:
         {"source": source_id, "target": target_id},
     )
     inspector = inspect(connection)
-    if inspector.has_table("projects"):
+    if inspector.has_table("project_tag_links"):
         connection.execute(
-            text("UPDATE projects SET tag_id = :target WHERE tag_id = :source"),
+            text(
+                "INSERT OR IGNORE INTO project_tag_links "
+                "(project_id, tag_id, tenant_id, sort_order, created_at) "
+                "SELECT project_id, :target, tenant_id, sort_order, created_at "
+                "FROM project_tag_links WHERE tag_id = :source"
+            ),
             {"source": source_id, "target": target_id},
         )
+        connection.execute(
+            text("DELETE FROM project_tag_links WHERE tag_id = :source"),
+            {"source": source_id},
+        )
+    elif inspector.has_table("projects"):
+        cols = {c["name"] for c in inspector.get_columns("projects")}
+        if "tag_id" in cols:
+            connection.execute(
+                text("UPDATE projects SET tag_id = :target WHERE tag_id = :source"),
+                {"source": source_id, "target": target_id},
+            )
     for table, owner in (("contact_tag_links", "contact_id"), ("company_tag_links", "company_id")):
         if not inspector.has_table(table):
             continue
@@ -217,16 +233,7 @@ def _normalize_tag_names(connection: Connection) -> None:
                 text("UPDATE signal_tags SET name = :name WHERE id = :id"),
                 {"name": clean, "id": row["id"]},
             )
-    if inspect(connection).has_table("projects"):
-        connection.execute(
-            text(
-                "UPDATE projects SET name = ("
-                "SELECT name FROM signal_tags WHERE signal_tags.id = projects.tag_id"
-                "), slug = ("
-                "SELECT name FROM signal_tags WHERE signal_tags.id = projects.tag_id"
-                ") WHERE tag_id IS NOT NULL AND deleted_at IS NULL"
-            )
-        )
+    # Folder names are independent of a single tag once filtersets are in use.
 
 
 def _workstream_projects(connection: Connection) -> None:

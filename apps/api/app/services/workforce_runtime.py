@@ -1,10 +1,13 @@
 """Workforce runtime service (agents, work logs, messages, graph controls)."""
 
 import json
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -599,6 +602,7 @@ async def update_agent(
     avatar_kind: str | None = None,
     avatar_icon: str | None = None,
     avatar_color: str | None = None,
+    avatar_shape: str | None = None,
     avatar_image_url: str | None = None,
     ask_target: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -633,6 +637,7 @@ async def update_agent(
         or avatar_kind is not None
         or avatar_icon is not None
         or avatar_color is not None
+        or avatar_shape is not None
         or avatar_image_url is not None
     )
     if settings_touch:
@@ -668,7 +673,7 @@ async def update_agent(
             stored["reply_send_as"] = value
         if any(
             value is not None
-            for value in (avatar_kind, avatar_icon, avatar_color, avatar_image_url)
+            for value in (avatar_kind, avatar_icon, avatar_color, avatar_shape, avatar_image_url)
         ):
             from app.services.agent_avatar import apply_avatar_settings
 
@@ -678,6 +683,7 @@ async def update_agent(
                     avatar_kind=avatar_kind,
                     avatar_icon=avatar_icon,
                     avatar_color=avatar_color,
+                    avatar_shape=avatar_shape,
                     avatar_image_url=avatar_image_url,
                 )
             except ValueError as exc:
@@ -980,13 +986,6 @@ async def trigger_agent(
     agent = agent_result.scalar_one_or_none()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    if not project_id:
-        proj = await session.execute(
-            select(Project).where(Project.tenant_id == tenant_id, Project.po_agent_id == agent.id).limit(1)
-        )
-        p = proj.scalar_one_or_none()
-        project_id = p.id if p else None
-
     from app.services.orchestration.dispatcher import create_agent_task
     from app.services.orchestration.queue import enqueue_agent_task_segment
     from app.services.orchestration.runner import run_agent_task_segment
@@ -1059,27 +1058,41 @@ async def clear_stale_runtime(
 ) -> dict[str, int]:
     """Reset agents/runs stuck in a working state past the staleness window.
 
-    DB-only maintenance: an agent whose `runtime_status` is working but
-    has not been updated within `max_stale_minutes` is returned to standby, and
-    any long-running `AgentRun` is marked failed.
+    An agent whose `runtime_status` is working but has not been updated within
+    `max_stale_minutes`, or that has no open `AgentRun` for 2+ minutes, returns
+    to standby. Long-running `AgentRun` rows are marked failed. Broadcasts so
+    Communication avatars drop the Bezig pulse without a hard refresh.
     """
+    from sqlalchemy import and_, exists, or_
+
     cutoff = datetime.utcnow() - timedelta(minutes=max(1, max_stale_minutes))
+    orphan_cutoff = datetime.utcnow() - timedelta(minutes=2)
     now = datetime.utcnow()
 
+    open_run = exists().where(
+        and_(
+            AgentRun.agent_id == Agent.id,
+            AgentRun.tenant_id == tenant_id,
+            AgentRun.status.in_(("running", "pending", "queued")),
+        )
+    )
+
     agents_cleared = 0
+    cleared: list[Agent] = []
     agent_result = await session.execute(
         select(Agent).where(
             Agent.tenant_id == tenant_id,
             Agent.runtime_status == "working",
-            Agent.updated_at < cutoff,
+            or_(
+                Agent.updated_at < cutoff,
+                and_(Agent.updated_at < orphan_cutoff, ~open_run),
+            ),
         )
     )
     for agent in agent_result.scalars().all():
-        agent.runtime_status = "standby"
-        agent.current_activity_summary = ""
-        agent.current_signal_id = None
-        agent.updated_at = now
+        apply_agent_runtime(agent, status="standby")
         session.add(agent)
+        cleared.append(agent)
         agents_cleared += 1
 
     runs_cleared = 0
@@ -1098,11 +1111,35 @@ async def clear_stale_runtime(
         runs_cleared += 1
 
     await session.commit()
+    for agent in cleared:
+        try:
+            await broadcast_agent_live(agent)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to broadcast standby after stale clear for %s", agent.id)
     return {
         "agents_cleared": agents_cleared,
         "runs_cleared": runs_cleared,
         "stale_cleared": agents_cleared + runs_cleared,
     }
+
+
+async def clear_stale_runtime_all_tenants(
+    session: AsyncSession, *, max_stale_minutes: int = 15
+) -> dict[str, int]:
+    """Scheduler tick: clear stale Bezig presence across every tenant."""
+    from app.models.auth import Tenant
+
+    totals = {"agents_cleared": 0, "runs_cleared": 0, "stale_cleared": 0, "tenants": 0}
+    tenants = (await session.execute(select(Tenant.id))).scalars().all()
+    for tenant_id in tenants:
+        result = await clear_stale_runtime(
+            session, tenant_id, max_stale_minutes=max_stale_minutes
+        )
+        totals["agents_cleared"] += result["agents_cleared"]
+        totals["runs_cleared"] += result["runs_cleared"]
+        totals["stale_cleared"] += result["stale_cleared"]
+        totals["tenants"] += 1
+    return totals
 
 
 async def create_demo_run(

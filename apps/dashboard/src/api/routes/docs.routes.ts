@@ -3,7 +3,8 @@
  * keyword search, raw markdown and the curated public OpenAPI schema.
  */
 export const docsRoutes = {
-  index: '/',
+  /** Empty on purpose: `/api/docs/` (trailing slash) fails behind the public proxy. */
+  index: '',
   search: '/search',
   article: (slug: string) => `/${encodeURIComponent(slug)}`,
   articleMarkdown: (slug: string) => `/${encodeURIComponent(slug)}.md`,

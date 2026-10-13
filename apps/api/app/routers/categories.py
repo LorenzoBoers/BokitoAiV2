@@ -77,19 +77,15 @@ async def _workstream_names(session: AsyncSession, tenant_id: UUID) -> dict[UUID
 
 
 async def _serialize_categories(session: AsyncSession, tenant_id: UUID, rows: list[SignalTag]) -> list[dict[str, Any]]:
-    from app.services.folders import load_tree
+    from app.services.folders import load_catalog, serialize_folders_for_tag
 
     streams = await _workstream_names(session, tenant_id)
     counts = await svc.category_counts(session, tenant_id)
-    tree = await load_tree(session, tenant_id)
+    catalog = await load_catalog(session, tenant_id)
     out = []
     for row in rows:
         item = svc.serialize_category(row, workstream=streams.get(row.workstream_id))
-        item["folders"] = [
-            {"id": str(node.id), "name": node.name, "path": tree.static_path(node.id).label}
-            for node in tree.nodes.values()
-            if node.tag_id == row.id
-        ]
+        item["folders"] = serialize_folders_for_tag(catalog, row.id)
         item.update(counts.get(row.id, svc.EMPTY_CATEGORY_COUNTS))
         out.append(item)
     return out

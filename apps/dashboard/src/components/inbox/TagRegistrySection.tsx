@@ -20,7 +20,7 @@ import {
   type SignalTag,
   type TagGroup,
 } from '../../lib/signals-api'
-import { createProject, listProjects, type ProjectRow } from '../../lib/projects-api'
+import { createProject } from '../../lib/projects-api'
 import { patchCategory, promoteTag } from '../../lib/tickets-api'
 import { listWorkstreams, type WorkstreamRow } from '../../lib/workstreams-api'
 import { workstreamPath } from '../../lib/workstream-ui'
@@ -67,10 +67,8 @@ export function TagRegistrySection({
   const { token } = useAuth()
   const [allTags, setTags] = useState<SignalTag[]>([])
   const [groups, setGroups] = useState<TagGroup[]>([])
-  const [folders, setFolders] = useState<ProjectRow[]>([])
   const [groupName, setGroupName] = useState('')
   const [folderFor, setFolderFor] = useState<SignalTag | null>(null)
-  const [folderParent, setFolderParent] = useState('')
   const tags = useMemo(() => {
     const rows = freeOnly ? allTags.filter((tag) => !tag.isCategory) : allTags
     return [...rows].sort((a, b) => {
@@ -88,14 +86,9 @@ export function TagRegistrySection({
   const load = useCallback(async () => {
     if (!token) return
     try {
-      const [tagRows, groupRows, folderRows] = await Promise.all([
-        listSignalTags(token),
-        listTagGroups(token),
-        listProjects().catch(() => []),
-      ])
+      const [tagRows, groupRows] = await Promise.all([listSignalTags(token), listTagGroups(token)])
       setTags(tagRows)
       setGroups(groupRows)
-      setFolders(folderRows)
     } catch {
       setError(t('tagRegistry.loadFailed'))
     }
@@ -387,13 +380,10 @@ export function TagRegistrySection({
                 variant="outline"
                 className={FLOW_BTN}
                 disabled={busy || tag.folders.length > 0}
-                onClick={() => {
-                  setFolderFor(tag)
-                  setFolderParent('')
-                }}
+                onClick={() => setFolderFor(tag)}
               >
                 <FolderIcon size={12} />
-                {t('tagRegistry.createFolder', { defaultValue: 'Create folder' })}
+                {t('tagRegistry.saveAsMap', { defaultValue: 'Save as map' })}
               </Button>
               {tag.isCategory && tag.workstreamId ? (
                 <Button size="sm" variant="outline" className={FLOW_BTN} asChild>
@@ -445,31 +435,18 @@ export function TagRegistrySection({
       <Dialog open={folderFor != null} onOpenChange={(open) => (!open ? setFolderFor(null) : undefined)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('tagRegistry.createFolderTitle', { defaultValue: 'Create folder' })}</DialogTitle>
+            <DialogTitle>{t('tagRegistry.saveAsMapTitle', { defaultValue: 'Save as map' })}</DialogTitle>
             <DialogDescription>
-              {t('tagRegistry.createFolderHint', {
-                defaultValue: 'Places this tag as a folder. Conversations with the tag land there.',
+              {t('tagRegistry.saveAsMapHint', {
+                defaultValue: 'Creates a saved map with these tags. Filing a conversation applies every tag in the set.',
               })}
             </DialogDescription>
           </DialogHeader>
-          <ChoiceSelect
-            aria-label={t('tagRegistry.folderParent', { defaultValue: 'Parent folder' })}
-            triggerClassName="h-9 text-sm"
-            value={folderParent || '__root__'}
-            onValueChange={(value) => setFolderParent(value === '__root__' ? '' : value)}
-            groups={[
-              {
-                items: [
-                  { value: '__root__', label: t('tagRegistry.folderRoot', { defaultValue: 'Top level' }), kind: 'project' },
-                  ...folders.map((folder) => ({
-                    value: folder.id,
-                    label: folder.name,
-                    kind: 'project' as const,
-                  })),
-                ],
-              },
-            ]}
-          />
+          {folderFor ? (
+            <p className="text-sm text-text-secondary">
+              <Hashtag name={folderFor.name} />
+            </p>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setFolderFor(null)}>
               {t('tagRegistry.cancel')}
@@ -480,19 +457,15 @@ export function TagRegistrySection({
               onClick={() =>
                 void run(async () => {
                   if (!folderFor) return
-                  await createProject({
-                    name: folderFor.name,
-                    slug: folderFor.name,
-                    autonomous_scope: 'project',
-                    tag_id: folderFor.id,
-                    parent_id: folderParent || null,
-                  })
+                  await createProject({ tag_ids: [folderFor.id], tags: [folderFor.name] })
                   setFolderFor(null)
-                  toast.success(t('tagRegistry.folderCreated', { name: folderFor.name, defaultValue: 'Folder created' }))
+                  toast.success(
+                    t('tagRegistry.mapSaved', { name: folderFor.name, defaultValue: 'Map saved for #{{name}}' }),
+                  )
                 })
               }
             >
-              {t('tagRegistry.createFolder', { defaultValue: 'Create folder' })}
+              {t('tagRegistry.saveAsMap', { defaultValue: 'Save as map' })}
             </Button>
           </DialogFooter>
         </DialogContent>

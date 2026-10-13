@@ -47,6 +47,8 @@ export function useSignalStream(signalId: string | null) {
     }
     const unsub = onGatewayEvent(`signal:${signalId}`, (event) => {
       const data = (event.data ?? {}) as Record<string, unknown>
+      const rawSignal = data.signal_id
+      if (rawSignal != null && rawSignal !== '' && String(rawSignal) !== String(signalId)) return
       if (event.event === 'agent.turn') {
         if (data.phase === 'end') setState(EMPTY)
         else setState((prev) => (prev.streaming ? prev : { ...EMPTY, streaming: true }))

@@ -99,6 +99,62 @@ async def test_delete_tag_removes_row(client: AsyncClient, session_override):
 
 
 @pytest.mark.asyncio
+async def test_delete_tag_refuses_folder_tag_with_folders_list(
+    client: AsyncClient, session_override
+):
+    """A tag that defines a folder must not be deleted; return folder ids instead."""
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    slug = f"fold-{uuid4().hex[:6]}"
+    created = await client.post(
+        "/api/folders",
+        headers=headers,
+        json={"name": "Tmp Fold", "slug": slug, "tags": [slug]},
+    )
+    assert created.status_code == 200, created.text
+    folder = created.json()
+    tag_id = folder["tag_ids"][0]
+
+    from app.tools.builtin import _delete_tag
+
+    ctx = ToolContext(session=session_override, tenant_id=tenant.id, user_id=None)
+    out = await _delete_tag(ctx, {"id": tag_id})
+    assert out.get("error") == "tag_defines_folder"
+    assert any(f["id"] == folder["id"] for f in out.get("folders") or [])
+    assert "delete_folder" in (out.get("hint") or "")
+    still = await session_override.get(SignalTag, UUID(tag_id))
+    assert still is not None
+
+
+@pytest.mark.asyncio
+async def test_delete_folder_trashes_project(client: AsyncClient, session_override):
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    slug = f"bin-{uuid4().hex[:6]}"
+    created = await client.post(
+        "/api/folders",
+        headers=headers,
+        json={"name": "Bin Me", "slug": slug, "tags": [slug]},
+    )
+    assert created.status_code == 200, created.text
+    folder = created.json()
+
+    from app.tools.builtin import _delete_folder
+    from app.tools.registry import get_tool_spec
+
+    assert get_tool_spec("delete_folder") is not None
+    ctx = ToolContext(session=session_override, tenant_id=tenant.id, user_id=None, mode="apply")
+    out = await _delete_folder(ctx, {"id": folder["id"]})
+    assert out.get("error") is None, out
+    assert out.get("deleted") is True or out.get("status") in ("applied", None) or out.get("ok")
+    from app.models.project import Project
+
+    row = await session_override.get(Project, UUID(folder["id"]))
+    assert row is not None
+    assert row.deleted_at is not None
+
+
+@pytest.mark.asyncio
 async def test_approve_delete_tag_removes_and_wakes_agent(
     client: AsyncClient, session_override, monkeypatch
 ):

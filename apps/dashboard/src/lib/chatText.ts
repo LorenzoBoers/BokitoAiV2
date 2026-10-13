@@ -59,6 +59,102 @@ const BARE_TAG_RE = /^#([\p{L}\p{N}_-]{1,64})$/u
 /** Opening markers that, while streaming, style the unfinished tail. */
 const OPEN_TAIL_RE = /(\*\*|~~|\x60|(?<![\w*])\*|(?<![\w_])_|(?<![\w~])~)(?=\S)([^\n]*)$/
 
+/** Complete chip tokens that should appear in one reveal step while streaming. */
+const COMPLETE_CHIP_RE = /^(?:\[@\[[^\]]+\]\((?:user|agent|team):[^)\s]+\)\]|@\[[^\]]+\]\((?:user|agent|team):[^)\s]+\)|#\[\[[^\]]+\]\]\((?:tag|action_tag):[^)\s]+\)|\[[^\]]+\]\([^)\s]+\))/
+
+type ChipSpan = { start: number; end: number; complete: boolean }
+
+function matchCompleteChipEnd(source: string, start: number): number | null {
+  const m = source.slice(start).match(COMPLETE_CHIP_RE)
+  return m ? start + m[0].length : null
+}
+
+function isIncompleteLinkOpen(line: string): boolean {
+  if (!line.startsWith('[')) return false
+  if (COMPLETE_CHIP_RE.test(line)) return false
+  const closed = line.match(/^\[([^\]]*)\](.*)$/)
+  if (!closed) return true
+  const after = closed[2]
+  if (after === '') return true
+  if (after.startsWith('(')) return !/^\([^)\s]+\)/.test(after)
+  return false
+}
+
+function looksLikeOpenChip(source: string, start: number): boolean {
+  if (matchCompleteChipEnd(source, start) != null) return false
+  const s = source.slice(start)
+  if (s.startsWith('@[') || s.startsWith('#[[') || s.startsWith('[@[')) {
+    return !s.includes('\n')
+  }
+  if (!s.startsWith('[')) return false
+  const nl = s.indexOf('\n')
+  const line = nl === -1 ? s : s.slice(0, nl)
+  return isIncompleteLinkOpen(line)
+}
+
+function findNextChipSpan(source: string, from: number): ChipSpan | null {
+  for (let i = from; i < source.length; i++) {
+    const atMention = source.startsWith('@[', i)
+    const structTag = source.startsWith('#[[', i)
+    const bracket = source[i] === '['
+    if (!atMention && !structTag && !bracket) continue
+
+    const end = matchCompleteChipEnd(source, i)
+    if (end != null) return { start: i, end, complete: true }
+    if (looksLikeOpenChip(source, i)) return { start: i, end: source.length, complete: false }
+  }
+  return null
+}
+
+/**
+ * Atomic chip reveal for smooth streaming.
+ *
+ * Incomplete `@[…]` / `[…](…)` markup is held at the chip start. When the
+ * chip is complete and fully within `hardCap`, the playhead jumps to the
+ * chip end in one step so the chip pops in instead of streaming as code.
+ * Pass `holdIncomplete: false` when the stream has ended so an abandoned
+ * half-token (e.g. `array[0]`) can drain as plain text.
+ */
+export function nextChipRevealLength(
+  source: string,
+  from: number,
+  want: number,
+  hardCap = want,
+  holdIncomplete = true,
+): number {
+  const maxWant = Math.min(Math.max(want, from), source.length)
+  const maxHard = Math.min(Math.max(hardCap, from), source.length)
+  if (maxWant <= from) return from
+
+  const chip = findNextChipSpan(source, from)
+  if (!chip) return maxWant
+
+  if (!chip.complete && !holdIncomplete) return maxWant
+
+  if (chip.start >= maxWant) return maxWant
+
+  if (from < chip.start) {
+    if (!chip.complete || chip.end > maxHard) return Math.min(maxWant, chip.start)
+    return chip.end
+  }
+
+  // Paused at the chip start.
+  if (!chip.complete || chip.end > maxHard) return from
+  return chip.end
+}
+
+/** Index of an incomplete chip at the tail, or null. */
+export function incompleteChipTailStart(text: string): number | null {
+  let from = 0
+  while (from < text.length) {
+    const chip = findNextChipSpan(text, from)
+    if (!chip) return null
+    if (!chip.complete) return chip.start
+    from = chip.end
+  }
+  return null
+}
+
 function tokenToInline(token: string, streaming: boolean, tags?: ChatTagMap): ChatInline {
   const mention = token.match(MENTION_RE)
   if (mention) return { type: 'mention', name: mention[1], kind: mention[2], id: mention[3] }
@@ -74,7 +170,14 @@ function tokenToInline(token: string, streaming: boolean, tags?: ChatTagMap): Ch
   const status = token.match(STATUS_RE)
   if (status) return { type: 'status', label: status[1], key: status[2].toLowerCase() }
   const link = token.match(LINK_RE)
-  if (link) return { type: 'link', label: link[1], href: link[2] }
+  if (link) {
+    let href = link[2]
+    // Agents sometimes omit the leading slash (`folders/{id}`); chips need /folders/.
+    if (/^(?:folders|projects|agents|contacts|workstreams|flows)\//.test(href)) {
+      href = `/${href}`
+    }
+    return { type: 'link', label: link[1], href }
+  }
   if (/^https?:\/\//.test(token)) return { type: 'link', label: token, href: token }
   const bareTag = token.match(BARE_TAG_RE)
   if (bareTag) {
@@ -93,6 +196,12 @@ function tokenToInline(token: string, streaming: boolean, tags?: ChatTagMap): Ch
 
 function tailInline(text: string, streaming: boolean): ChatInline[] {
   if (!streaming) return [{ type: 'text', text }]
+  // Incomplete chip markup: omit the raw syntax so it never flashes as code.
+  const chipAt = incompleteChipTailStart(text)
+  if (chipAt != null) {
+    const before = text.slice(0, chipAt)
+    return before ? [{ type: 'text', text: before }] : []
+  }
   const open = text.match(OPEN_TAIL_RE)
   if (!open || open.index === undefined) return [{ type: 'text', text }]
   const before = text.slice(0, open.index)

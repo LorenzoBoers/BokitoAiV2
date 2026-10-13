@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import type { GatewayEvent } from '../lib/gateway'
 import { applyLive, isLiveSeeded, seedLive, useLiveList } from '../lib/live-store'
+import { overlaySelfPresence } from '../lib/presence'
 import { listSignalMembers } from '../lib/signals-api'
 import type { InboxMember } from '../lib/inbox-api'
 
@@ -10,15 +11,33 @@ const TABLE = 'member'
 let inflight: Promise<InboxMember[]> | null = null
 /** Latest status by user id, including events that arrived before the member list. */
 const livePresence = new Map<string, NonNullable<InboxMember['presence']>>()
+let selfUserId: string | null = null
+let selfLive = false
+
+export function setSelfPresenceContext(userId: string | null) {
+  selfUserId = userId
+}
+
+export function setSelfPresenceLive(live: boolean) {
+  selfLive = live
+}
 
 function asPresence(status: string | undefined): NonNullable<InboxMember['presence']> {
   return status === 'available' || status === 'away' ? status : 'offline'
 }
 
+function resolvePresence(
+  userId: string | undefined,
+  status: string | undefined,
+): NonNullable<InboxMember['presence']> {
+  return overlaySelfPresence(userId, asPresence(status), selfUserId, selfLive)
+}
+
 function withLivePresence(rows: InboxMember[]): InboxMember[] {
   return rows.map((row) => {
     const live = livePresence.get(row.uuid)
-    return live && live !== row.presence ? { ...row, presence: live } : row
+    const next = resolvePresence(row.uuid, live ?? row.presence)
+    return next !== row.presence ? { ...row, presence: next } : row
   })
 }
 
@@ -27,11 +46,18 @@ export function ingestMemberPresence(event: GatewayEvent) {
   if (event.event !== 'presence') return
   const data = (event.data ?? {}) as { user_id?: string | null; status?: string }
   if (!data.user_id) return
-  const status = asPresence(data.status)
+  const status = resolvePresence(data.user_id, data.status)
   livePresence.set(data.user_id, status)
   applyLive<InboxMember>(TABLE, data.user_id, (prev) =>
     prev && prev.presence !== status ? { ...prev, presence: status } : prev,
   )
+}
+
+export function __resetMemberPresenceForTests() {
+  livePresence.clear()
+  inflight = null
+  selfUserId = null
+  selfLive = false
 }
 
 /** Workspace members for assignment, mentions and avatars, with live availability. */

@@ -6,11 +6,15 @@ import { useAuth } from '../../context/AuthContext'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import { AI_HANDLING_SETTINGS_PATH } from '../ai/AiHandlingPicker'
 import { getAiHandlingMetrics, type AiHandlingMetrics } from '../../lib/ai-handling-api'
-import { bokitoGetCockpitSummary, type ActionMixDay, type CockpitSummary } from '../../lib/bokito-api'
-import { Chart, InsetPanel } from '../ui'
+import {
+  bokitoGetActionMix,
+  type ActionMixDay,
+  type ActionMixPeriod,
+} from '../../lib/bokito-api'
+import { parseUsageDays } from '../../lib/usage-csv'
+import { Chart, InsetPanel, SegmentedControl } from '../ui'
 import type { AiHandlingMode } from '../../lib/ai-handling'
 
-const CHART_DAYS = 14
 const METRICS_DAYS = 30
 const CHART_HEIGHT = 188
 const PIE_HEIGHT = 168
@@ -68,11 +72,16 @@ export function relativeChangePct(current: number, previous: number): number | n
   return ((current - previous) / previous) * 100
 }
 
-function splitWeekPeriods(points: ActionMixDay[]): { current: PeriodMix; previous: PeriodMix | null } {
-  if (points.length >= 14) {
-    return { previous: sumPeriod(points.slice(0, 7)), current: sumPeriod(points.slice(-7)) }
+/** Split series into the selected window and the prior window of equal length when available. */
+export function splitComparablePeriods(
+  points: ActionMixDay[],
+  days: number,
+): { current: PeriodMix; previous: PeriodMix | null } {
+  const currentPoints = points.slice(-days)
+  if (points.length >= days * 2) {
+    return { previous: sumPeriod(points.slice(0, days)), current: sumPeriod(currentPoints) }
   }
-  return { previous: null, current: sumPeriod(points.slice(-7)) }
+  return { previous: null, current: sumPeriod(currentPoints) }
 }
 
 function PeriodTrend({ delta, label }: { delta: number | null; label: string }) {
@@ -102,21 +111,21 @@ function PeriodTrend({ delta, label }: { delta: number | null; label: string }) 
   )
 }
 
-/** Overview AI activity: AI vs manual area over time, plus the weekly mix pie. */
+/** Overview AI activity: AI vs manual area over time, plus the period mix pie. */
 export default function AiHandlingMetricsBlock() {
   const { t, i18n } = useTranslation('common')
+  const { t: tNav } = useTranslation('nav')
   const { token } = useAuth()
+  const [days, setDays] = useState<7 | 30 | 90>(30)
   const [metrics, setMetrics] = useState<AiHandlingMetrics | null>(null)
-  const [summary, setSummary] = useState<CockpitSummary | null>(null)
+  const [mix, setMix] = useState<ActionMixPeriod | null>(null)
 
   useEffect(() => {
     if (!token) return
     let cancelled = false
-    void Promise.all([getAiHandlingMetrics(token, METRICS_DAYS), bokitoGetCockpitSummary(token)])
-      .then(([nextMetrics, cockpit]) => {
-        if (cancelled) return
-        setMetrics(nextMetrics)
-        setSummary(cockpit)
+    void getAiHandlingMetrics(token, METRICS_DAYS)
+      .then((next) => {
+        if (!cancelled) setMetrics(next)
       })
       .catch(() => undefined)
     return () => {
@@ -124,10 +133,26 @@ export default function AiHandlingMetricsBlock() {
     }
   }, [token])
 
-  const points = summary?.action_mix_series ?? []
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void bokitoGetActionMix(token, days)
+      .then((next) => {
+        if (!cancelled) setMix(next)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [token, days])
+
+  const series = mix?.action_mix_series ?? []
+  const chartPoints = useMemo(() => series.slice(-days), [days, series])
+  const periods = useMemo(() => splitComparablePeriods(series, days), [days, series])
+
   const mixByMode = useMemo(() => {
     const map = new Map<string, { count: number; minutes: number }>()
-    for (const row of summary?.action_mix ?? []) {
+    for (const row of mix?.action_mix ?? []) {
       map.set(row.mode, { count: row.count, minutes: row.minutes })
     }
     return MODE_ORDER.map((mode) => ({
@@ -135,7 +160,7 @@ export default function AiHandlingMetricsBlock() {
       count: map.get(mode)?.count ?? 0,
       minutes: map.get(mode)?.minutes ?? 0,
     }))
-  }, [summary?.action_mix])
+  }, [mix?.action_mix])
 
   const pieSlices = useMemo(
     () =>
@@ -149,17 +174,16 @@ export default function AiHandlingMetricsBlock() {
     [mixByMode, t],
   )
 
-  const chartPoints = useMemo(
+  const plotPoints = useMemo(
     () =>
-      points.map((point) => ({
+      chartPoints.map((point) => ({
         x: formatDay(point.date, i18n.language),
         ai: point.ai_minutes,
         manual: point.manual_minutes,
       })),
-    [i18n.language, points],
+    [chartPoints, i18n.language],
   )
 
-  const weeks = useMemo(() => splitWeekPeriods(points), [points])
   const mixShare = useMemo(() => {
     const period = {
       aiMinutes: mixByMode.filter((row) => row.mode !== 'manual').reduce((sum, row) => sum + row.minutes, 0),
@@ -170,53 +194,68 @@ export default function AiHandlingMetricsBlock() {
     return aiSharePercent(period)
   }, [mixByMode])
 
-  if (!metrics || !summary) return null
+  if (!metrics || !mix) return null
 
-  const first = points[0]?.date
-  const last = points[points.length - 1]?.date
-  const mid = points[Math.floor(points.length / 2)]?.date
+  const first = chartPoints[0]?.date
+  const last = chartPoints[chartPoints.length - 1]?.date
+  const mid = chartPoints[Math.floor(chartPoints.length / 2)]?.date
   const aiLabel = t('aiHandling.metrics.seriesAi')
   const manualLabel = t('aiHandling.metrics.seriesManual')
-  const trendLabel = t('aiHandling.metrics.trendVsPrevious')
-  const timeSavedTrend = weeks.previous
-    ? relativeChangePct(summary.time_saved_minutes_week, weeks.previous.aiMinutes)
-    : relativeChangePct(summary.time_saved_minutes_week, 0)
+  const trendLabel = t('aiHandling.metrics.trendVsPrevious', { days })
+  const timeSavedTrend = periods.previous
+    ? relativeChangePct(mix.time_saved_minutes, periods.previous.aiMinutes)
+    : relativeChangePct(mix.time_saved_minutes, 0)
   const aiShareTrend =
     mixShare == null
       ? null
-      : mixShare - (weeks.previous ? (aiSharePercent(weeks.previous) ?? 0) : 0)
-  const shownShare = mixShare ?? aiSharePercent(weeks.current)
+      : mixShare - (periods.previous ? (aiSharePercent(periods.previous) ?? 0) : 0)
+  const shownShare = mixShare ?? aiSharePercent(periods.current)
+
+  const periodControl = (
+    <SegmentedControl
+      size="sm"
+      value={String(days)}
+      onChange={(value) => setDays(parseUsageDays(value))}
+      options={([7, 30, 90] as const).map((value) => ({
+        value: String(value),
+        label: tNav(`usagePage.period${value}` as 'usagePage.period7'),
+      }))}
+    />
+  )
 
   return (
     <section className="panel overflow-hidden" data-testid="overview-ai-activity">
-      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-text-heading">{t('aiHandling.metrics.activityTitle')}</h2>
           <p className="mt-0.5 text-xs text-text-muted">
-            {t('aiHandling.metrics.activityHint', { days: CHART_DAYS })}
+            {t('aiHandling.metrics.activityHint', { days })}
           </p>
         </div>
-        <Link to={AI_HANDLING_SETTINGS_PATH} className="link-draw shrink-0 pt-0.5 text-xs font-medium text-accent">
-          {t('aiHandling.openSettings')}
-        </Link>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {periodControl}
+          <Link to={AI_HANDLING_SETTINGS_PATH} className="link-draw text-xs font-medium text-accent">
+            {t('aiHandling.openSettings')}
+          </Link>
+        </div>
       </div>
       <div className="p-4">
         <div className="grid items-start gap-4 lg:grid-cols-3">
           <div className="min-w-0 space-y-3 lg:col-span-2">
             <div className="grid grid-cols-2 gap-2">
               <InsetPanel padding="sm" className="px-3 py-3">
-                <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.timeSavedHint')}>
+                <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.timeSavedHint', { days })}>
                   {t('aiHandling.metrics.timeSaved')}
                 </span>
                 <span className="mt-1 flex items-baseline gap-2">
                   <span className="tabular-nums text-2xl font-semibold text-text-heading">
-                    {summary.time_saved_minutes_week} min
+                    {mix.time_saved_minutes} min
                   </span>
                   <PeriodTrend delta={timeSavedTrend} label={trendLabel} />
                 </span>
               </InsetPanel>
               <InsetPanel padding="sm" className="px-3 py-3">
-                <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.aiShareHint')}>
+                <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.aiShareHint', { days })}>
                   {t('aiHandling.metrics.aiShare')}
                 </span>
                 <span className="mt-1 flex items-baseline gap-2">
@@ -233,26 +272,26 @@ export default function AiHandlingMetricsBlock() {
               showAxes={false}
               tone="ai"
               height={CHART_HEIGHT}
-              ariaLabel={t('aiHandling.metrics.chartAria', { days: points.length || CHART_DAYS })}
+              ariaLabel={t('aiHandling.metrics.chartAria', { days })}
               emptyLabel={t('aiHandling.metrics.emptyChart')}
               series={
-                hasSeriesWork(points)
+                hasSeriesWork(chartPoints)
                   ? [
                       {
                         name: manualLabel,
                         color: MANUAL_COLOR,
-                        points: chartPoints.map((point) => ({ x: point.x, y: point.manual })),
+                        points: plotPoints.map((point) => ({ x: point.x, y: point.manual })),
                       },
                       {
                         name: aiLabel,
                         color: AI_COLOR,
-                        points: chartPoints.map((point) => ({ x: point.x, y: point.ai })),
+                        points: plotPoints.map((point) => ({ x: point.x, y: point.ai })),
                       },
                     ]
                   : []
               }
             />
-            {points.length > 0 ? (
+            {chartPoints.length > 0 ? (
               <div className="flex justify-between text-2xs tabular-nums text-text-muted">
                 <span>{formatDay(first, i18n.language)}</span>
                 <span>{formatDay(mid, i18n.language)}</span>
@@ -266,7 +305,7 @@ export default function AiHandlingMetricsBlock() {
               height={PIE_HEIGHT}
               tone="ai"
               slices={pieSlices}
-              ariaLabel={t('aiHandling.metrics.mixAria')}
+              ariaLabel={t('aiHandling.metrics.mixAria', { days })}
               emptyLabel={t('aiHandling.metrics.emptyMix')}
             />
             <ul className="space-y-1">

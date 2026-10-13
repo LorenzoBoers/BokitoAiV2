@@ -47,7 +47,7 @@ Models live under **Settings**, then **Models**. The page shows **Bokito AI mode
 
 ## Spend does not bypass approval
 
-Token budgets sit on Cockpit **Usage** (daily token cap and monthly spend cap) and on projects. When the workspace budget is exhausted, platform-key calls pause; your own keys keep working. [Govern](/docs/govern/govern) still decides whether an agent may act.
+Token budgets sit on Cockpit **Usage** (daily token cap and monthly spend cap). When the workspace budget is exhausted, platform-key calls pause; your own keys keep working. [Govern](/docs/govern/govern) still decides whether an agent may act.
 
 ## When the provider refuses
 

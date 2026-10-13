@@ -110,8 +110,9 @@ def _activity_result(tool: str, result: Any) -> Any:
             if result.get("message"):
                 slim["message"] = str(result.get("message"))[:200]
         return slim
-    if tool == "attach_items" and isinstance(result, dict):
-        # Keep enough to rebuild showcase cards if the in-memory stash is lost.
+    if isinstance(result, dict) and isinstance(result.get("items"), list):
+        # Keep enough to rebuild showcase cards if the in-memory stash is lost
+        # (attach_items, list_folders, list_agents, list_contacts, …).
         rows: list[dict[str, Any]] = []
         for row in result.get("items") or []:
             if not isinstance(row, dict):
@@ -122,17 +123,35 @@ def _activity_result(tool: str, result: Any) -> Any:
                     "id": str(row.get("id") or "")[:400],
                     "title": str(row.get("title") or "")[:80],
                     "subtitle": str(row.get("subtitle") or "")[:80],
+                    "path": str(row.get("path") or "")[:240],
                     "url": str(row.get("url") or "")[:400],
                     "image_url": str(row.get("image_url") or row.get("url") or "")[:400],
                 }
             )
-            if len(rows) >= 6:
+            if len(rows) >= 12:
                 break
-        return {
-            "ok": bool(result.get("ok", True)),
-            "attached": result.get("attached") if isinstance(result.get("attached"), int) else len(rows),
-            "items": rows,
-        }
+        slim: dict[str, Any] = {"items": rows}
+        if tool == "attach_items":
+            slim["ok"] = bool(result.get("ok", True))
+            slim["attached"] = (
+                result.get("attached") if isinstance(result.get("attached"), int) else len(rows)
+            )
+        elif tool == "list_folders" and isinstance(result.get("folders"), list):
+            slim["count"] = len(result["folders"])
+        elif tool == "list_agents" and isinstance(result.get("count"), int):
+            slim["count"] = result["count"]
+        # Keep decision ids so the UI can hold the card until speech finishes.
+        for key in ("decision_request_id", "decision_id"):
+            if result.get(key):
+                slim[key] = str(result[key])[:80]
+        return slim
+    if isinstance(result, dict):
+        compact = _compact(result)
+        if isinstance(compact, dict):
+            for key in ("decision_request_id", "decision_id"):
+                if result.get(key):
+                    compact[key] = str(result[key])[:80]
+        return compact
     return _compact(result)
 
 

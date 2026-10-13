@@ -9,17 +9,17 @@ related: agents,folders,workstreams,communication,agent-runs,integrations
 
 # Zo werkt Agenda
 
-Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en agents. Je gekoppelde agenda's staan in hetzelfde rooster, zodat afspraken en werk niet om aandacht strijden. De lijst links is **Wanneer** (de minikalender), **Wat** (dezelfde `#`-boom als Communicatie) en **Wie** plus je Google- of Outlook-agenda's. **Sync** haalt de afgelopen 90 dagen en de komende 180 dagen op. Agenda's die uit staan tonen **Uit**; aanzetten start de synchronisatie. **Vandaag** springt terug naar de huidige dag, en het zoekveld filtert de periode die je bekijkt.
+Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en agents. Je gekoppelde agenda's staan in hetzelfde rooster, zodat afspraken en werk niet om aandacht strijden. De lijst links is **Wanneer** (de minikalender), **Wat** (dezelfde `#`-boom als Communicatie), vinkjes per persoon en agent, plus je Google- of Outlook-agenda's. **Sync** haalt de afgelopen 90 dagen en de komende 180 dagen op. Agenda's die uit staan tonen **Uit**; aanzetten start de synchronisatie. **Vandaag** springt terug naar de huidige dag, en het zoekveld filtert de periode die je bekijkt.
 
 ## Zie wat er wanneer gebeurt
 
 ![Agenda-weekweergave](/api/docs/assets/agenda/week.png)
 *Week toont afspraken uit gekoppelde agenda's, taken en activiteit per dag.*
 
-1. Open **Agenda**. Het hulp-icoon naast de titel in de bovenbalk opent deze gids. **Week** is de standaard; wissel op dezelfde rij als **Nieuw** naar **Dag**, **Maand** of **Lijst**, of druk op D, W, M of L.
+1. Open **Agenda**. Het hulp-icoon naast de titel in de bovenbalk opent deze gids. **Dag** is de standaard; wissel op dezelfde rij als **Nieuw** naar **Week**, **Maand** of **Lijst**, of druk op D, W, M of L.
 2. Gebruik **Vandaag** en de pijlen (of de pijltjestoetsen) om door de tijd te bewegen. In **Lijst** begint de huidige dag bovenaan; scroll omhoog voor eerdere dagen, kies een datum op de minikalender onder **Wanneer**, of gebruik **Terug naar boven** na omlaag scrollen. De rail blijft zichtbaar terwijl de lijst scrollt.
-3. Links is **Wanneer** de minikalender. **Wat** is dezelfde `#`-boom als Communicatie: één actieve tak filtert taken en activiteit die aan een gesprek hangen. Gekoppelde agenda's negeren die filter. Onder **Wie** kies je **Iedereen**, **Alleen ik**, een persoon of een agent, en zet je elke Google- of Outlook-agenda aan of uit. Het plusje naast **Agenda's** opent Koppelingen gefilterd op agenda's.
-4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, project of de agent.
+3. Links is **Wanneer** de minikalender. **Wat** is dezelfde `#`-boom als Communicatie: één actieve tak filtert taken en activiteit die aan een gesprek hangen. Gekoppelde agenda's negeren die filter. Vink mensen en agents aan of uit zoals bij agenda's. Zet elke Google- of Outlook-agenda aan of uit onder **Agenda's**. Het plusje naast **Agenda's** opent Koppelingen gefilterd op agenda's.
+4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, map of de agent.
 
 ## Handel wat aandacht vraagt
 
@@ -59,4 +59,4 @@ Je ziet je eigen agenda-accounts en de accounts die met jou gedeeld zijn. Zie [I
 
 ## Wat nu
 
-Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Elk [project](/docs/ai/folders) toont zijn eigen agenda op de projectpagina.
+Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Elke [map](/docs/ai/folders) (een bewaarde tag-filterset) filtert Agenda op dezelfde manier als Communicatie.

@@ -1,6 +1,6 @@
 """Teams, the company team overview and availability."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from httpx import AsyncClient
@@ -186,6 +186,11 @@ async def test_presence_status_rules(session_override):
     user.last_seen_at = None
     assert presence.visible_user_status(user, connected=True, now=now) == "available"
     assert presence.visible_user_status(user, connected=False, now=now) == "offline"
+    assert presence.serialize_presence(user, now=now, connected=True)["status"] == "available"
+    aware = now.replace(tzinfo=timezone.utc)
+    user.last_seen_at = aware
+    user.away = False
+    assert presence.user_status(user, now=now) == "available"
 
 
 async def test_mark_offline_keeps_a_fresh_connection(session_override):
@@ -243,6 +248,33 @@ async def test_presence_snapshot_includes_connected_people_and_agents(session_ov
     ]
     assert agents[0]["agent_id"] == str(agent.id)
     assert agents[0]["status"] == "working"
+
+
+async def test_list_members_counts_a_live_socket(session_override):
+    from app.gateway.manager import GatewayConnection, manager
+    from app.services.signal_threads import list_members
+
+    tenant = Tenant(slug="live-presence-list", name="Live")
+    user = User(email="live-list@example.com")
+    session_override.add(tenant)
+    session_override.add(user)
+    await session_override.commit()
+    session_override.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
+    await session_override.commit()
+
+    conn = GatewayConnection(
+        object(),
+        tenant_id=str(tenant.id),
+        kind="user",
+        user_id=str(user.id),
+    )
+    manager.register(conn)
+    try:
+        rows = await list_members(session_override, tenant.id)
+        me = next(row for row in rows if row["uuid"] == str(user.id))
+        assert me["presence"] == "available"
+    finally:
+        manager.unregister(conn)
 
 
 async def test_user_team_ids_includes_people_team(client: AsyncClient, session_override):

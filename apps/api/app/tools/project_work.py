@@ -22,19 +22,13 @@ from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 
 async def _resolve_project(ctx: ToolContext, tool_input: dict[str, Any]) -> Project | None:
-    """Project from explicit id/slug, then the thread's project, then the run's."""
+    """Project from explicit id/slug/name, then the thread's project, then the run's."""
+    from app.services.projects import resolve_folder_ref
+
     raw = str(tool_input.get("folder_id") or tool_input.get("project_id") or "").strip()
     if raw:
-        try:
-            project_id = UUID(raw)
-            result = await ctx.session.execute(
-                select(Project).where(Project.id == project_id, Project.tenant_id == ctx.tenant_id)
-            )
-        except ValueError:
-            result = await ctx.session.execute(
-                select(Project).where(Project.slug == raw, Project.tenant_id == ctx.tenant_id)
-            )
-        return result.scalar_one_or_none()
+        project, _err = await resolve_folder_ref(ctx.session, ctx.tenant_id, raw)
+        return project
     if ctx.signal_id:
         signal = (
             await ctx.session.execute(
@@ -59,19 +53,29 @@ async def _resolve_project(ctx: ToolContext, tool_input: dict[str, Any]) -> Proj
 
 
 async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.folders import folder_path_label, load_catalog
     from app.services.proposal_items import resolve_items, stash_attach_items
 
-    result = await ctx.session.execute(
-        select(Project).where(Project.tenant_id == ctx.tenant_id).order_by(Project.updated_at.desc())
-    )
+    catalog = await load_catalog(ctx.session, ctx.tenant_id)
+    rows = {
+        p.id: p
+        for p in (
+            await ctx.session.execute(select(Project).where(Project.tenant_id == ctx.tenant_id))
+        ).scalars()
+    }
     projects = [
         {
-            "id": str(p.id),
-            "name": p.name,
-            "slug": p.slug,
-            "description": (p.description or "")[:200],
+            "id": str(fs.id),
+            "name": fs.name,
+            "slug": fs.slug,
+            "tag_ids": [str(t) for t in fs.tag_ids],
+            "tag_names": list(fs.tag_names),
+            "description": ((rows.get(fs.id).description or "")[:200] if rows.get(fs.id) else ""),
+            "label": folder_path_label(fs),
+            # Leading slash required so chat chips resolve as in-app folder links.
+            "path": f"/folders/{fs.id}",
         }
-        for p in result.scalars().all()
+        for fs in catalog.folders
     ]
     # Cards under the reply — do not rely on the model calling attach_items.
     showcase = await resolve_items(
@@ -419,9 +423,12 @@ register_tool(
     ToolSpec(
         name="list_folders",
         description=(
-            "List the tenant's folders (id, slug, description) to pick the "
-            "right one. Results are showcased as folder cards under your "
-            "reply — keep the text short; do not list every name again."
+            "List the tenant's folders (id, slug, tag_ids, tag_names, label, path). "
+            "Prefer the folder id as parent_id for create_folder. Results are "
+            "showcased as folder cards under your reply — write one short "
+            "sentence and chip names inline with [Name](path) using the returned "
+            "path (always starts with /folders/…). Do not restate them as a "
+            "bullet list after the cards."
         ),
         category="projects",
         input_schema={"type": "object", "properties": {}},

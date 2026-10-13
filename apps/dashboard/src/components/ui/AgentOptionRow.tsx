@@ -9,6 +9,7 @@ export type AgentVisualFields = {
   avatar_kind?: string | null
   avatar_icon?: string | null
   avatar_color?: string | null
+  avatar_shape?: string | null
   avatar_image_url?: string | null
 }
 

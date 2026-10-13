@@ -65,6 +65,16 @@ async def trigger_scheduler_loop() -> None:
                 if sent:
                     logger.info("Delivered %s scheduled message(s)", sent)
 
+                from app.services.workforce_runtime import clear_stale_runtime_all_tenants
+
+                stale = await clear_stale_runtime_all_tenants(session)
+                if stale.get("stale_cleared"):
+                    logger.info(
+                        "Cleared stale agent runtime: %s agent(s), %s run(s)",
+                        stale.get("agents_cleared", 0),
+                        stale.get("runs_cleared", 0),
+                    )
+
                 if time.monotonic() - last_learning_run >= _LEARNING_INTERVAL_SECONDS:
                     last_learning_run = time.monotonic()
                     from app.services.learning import run_learning_for_enabled_tenants

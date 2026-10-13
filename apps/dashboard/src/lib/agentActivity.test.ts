@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import {
   applyTurnEvent,
   EMPTY_TURN,
+  eventTargetsSignal,
   formatDuration,
   groupActivity,
   groupProvider,
@@ -11,7 +12,9 @@ import {
   itemLabel,
   liveAttachResults,
   liveBlocks,
+  liveProposalHold,
   liveTurnFromMessage,
+  liveTurnOrbMotion,
   mergeTurns,
   normalizeActivity,
   normalizeMessageActivity,
@@ -65,6 +68,35 @@ describe('turnPreparesProposal', () => {
         { lastRunning: false, lastIsSpeech: false, hasSpeech: true },
       ),
     ).toBe(false)
+  })
+})
+
+describe('liveProposalHold', () => {
+  it('is a no-op: server reveals cards after speech, so the client does not hide them', () => {
+    const turn = {
+      ...EMPTY_TURN,
+      active: true,
+      entries: [
+        {
+          type: 'activity' as const,
+          item: normalizeActivity([
+            {
+              id: 'g1',
+              kind: 'work',
+              tool: 'set_thread_schedule',
+              proposes: true,
+              started_at: '2026-10-13T07:34:00.000Z',
+              result: { decision_request_id: 'dec-1', status: 'awaiting_human' },
+            },
+          ])[0],
+        },
+        { type: 'speech' as const, segmentId: 's1', text: 'Akkoord?' },
+      ],
+    }
+    const hold = liveProposalHold(turn)
+    expect(hold.decisionIds.size).toBe(0)
+    expect(hold.holdNewSince).toBeNull()
+    expect(liveProposalHold(null).decisionIds.size).toBe(0)
   })
 })
 
@@ -193,6 +225,15 @@ describe('labels', () => {
   })
 })
 
+describe('eventTargetsSignal', () => {
+  it('rejects a payload that names another conversation', () => {
+    expect(eventTargetsSignal({ signal_id: 'b' }, 'a')).toBe(false)
+    expect(eventTargetsSignal({ signal_id: 'a' }, 'a')).toBe(true)
+    expect(eventTargetsSignal({}, 'a')).toBe(true)
+    expect(eventTargetsSignal({ signal_id: 'a' }, null)).toBe(false)
+  })
+})
+
 describe('applyTurnEvent', () => {
   it('builds activity and speech blocks in order and ends on agent.turn end', () => {
     let turn = applyTurnEvent(EMPTY_TURN, 'agent.turn', { stream_id: 's1', phase: 'start' })
@@ -307,6 +348,27 @@ describe('saved messages', () => {
     expect(merged.entries[1]).toMatchObject({ type: 'activity', item: { id: 'w1', status: 'ok' } })
   })
 
+  it('drops checkpoint speech that duplicates a live speech segment', () => {
+    const checkpoint = liveTurnFromMessage({
+      turnId: 'turn-dup',
+      inProgress: true,
+      bodyText: 'In deze workspace zijn er 3 agents: klaar.',
+    })
+    expect(checkpoint?.entries.some((e) => e.type === 'speech')).toBe(true)
+    let live = applyTurnEvent(EMPTY_TURN, 'agent.turn', { stream_id: 'turn-dup', phase: 'start' })
+    live = applyTurnEvent(live, 'message.delta', {
+      stream_id: 'turn-dup',
+      segment_id: 'seg-1',
+      delta: 'In deze workspace zijn er 3 agents: kla',
+    })
+    const merged = mergeTurns(checkpoint!, live)
+    const speech = liveBlocks(merged).filter((b) => b.type === 'speech')
+    expect(speech).toHaveLength(1)
+    expect(speech[0].type === 'speech' && speech[0].text).toBe(
+      'In deze workspace zijn er 3 agents: kla',
+    )
+  })
+
   it('keeps appending to the same segment after a think row', () => {
     let turn = applyTurnEvent(EMPTY_TURN, 'message.delta', {
       stream_id: 's1',
@@ -367,6 +429,37 @@ describe('saved messages', () => {
   })
 })
 
+describe('liveTurnOrbMotion', () => {
+  it('returns idle when the turn is inactive', () => {
+    expect(liveTurnOrbMotion(EMPTY_TURN)).toBe('idle')
+    expect(liveTurnOrbMotion(null)).toBe('idle')
+  })
+
+  it('returns typing while speech streams', () => {
+    const turn = applyTurnEvent(EMPTY_TURN, 'message.delta', {
+      stream_id: 's1',
+      delta: 'Hallo',
+    })
+    expect(liveTurnOrbMotion(turn)).toBe('typing')
+  })
+
+  it('returns thinking while waiting and working while tools run', () => {
+    const thinking = { ...EMPTY_TURN, active: true, thinking: { t1: 'hmm' } }
+    expect(liveTurnOrbMotion(thinking)).toBe('thinking')
+    const working = applyTurnEvent(EMPTY_TURN, 'agent.activity', {
+      stream_id: 's2',
+      item: {
+        id: 'w1',
+        kind: 'work',
+        label: 'search',
+        tool: 'search_index',
+        status: 'running',
+      },
+    })
+    expect(liveTurnOrbMotion(working)).toBe('working')
+  })
+})
+
 describe('liveAttachResults', () => {
   it('collects attach_items snapshots from the live turn', () => {
     const turn = {
@@ -387,6 +480,34 @@ describe('liveAttachResults', () => {
     }
     expect(liveAttachResults(turn)).toEqual([
       { items: [{ type: 'marketplace', id: 'moneybird', title: 'Moneybird' }] },
+    ])
+  })
+
+  it('collects folder cards from list_folders without an attach_items call', () => {
+    const turn = {
+      ...EMPTY_TURN,
+      entries: [
+        {
+          type: 'activity' as const,
+          item: normalizeActivity([
+            {
+              id: 'lf',
+              kind: 'work',
+              tool: 'list_folders',
+              result: {
+                folders: [{ id: 'f1', name: '2025' }],
+                items: [{ type: 'folder', id: 'f1', title: '2025', subtitle: '' }],
+              },
+            },
+          ])[0],
+        },
+      ],
+    }
+    expect(liveAttachResults(turn)).toEqual([
+      {
+        folders: [{ id: 'f1', name: '2025' }],
+        items: [{ type: 'folder', id: 'f1', title: '2025', subtitle: '' }],
+      },
     ])
   })
 })

@@ -46,6 +46,19 @@ def test_avatar_payload_icon_always_platform_color():
         "avatar_kind": "icon",
         "avatar_icon": "headset",
         "avatar_color": PLATFORM_AVATAR_COLOR,
+        "avatar_shape": None,
+        "avatar_image_url": None,
+    }
+
+
+def test_avatar_payload_orb_keeps_curated_color():
+    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="star")
+    payload = avatar_payload(agent)
+    assert payload == {
+        "avatar_kind": "orb",
+        "avatar_icon": None,
+        "avatar_color": "#00c972",
+        "avatar_shape": "star",
         "avatar_image_url": None,
     }
 
@@ -77,6 +90,19 @@ def test_apply_avatar_pins_platform_color():
     )
     assert out["avatar_color"] == PLATFORM_AVATAR_COLOR
     assert out["avatar_icon"] == "bot"
+
+
+def test_apply_avatar_orb_stores_color_and_shape():
+    out = apply_avatar_settings(
+        {},
+        avatar_kind="orb",
+        avatar_color="#00c972",
+        avatar_shape="hex",
+    )
+    assert out["avatar_kind"] == "orb"
+    assert out["avatar_color"] == "#00c972"
+    assert out["avatar_shape"] == "hex"
+    assert "avatar_icon" not in out
 
 
 def test_theme_prefers_agent_image(monkeypatch):

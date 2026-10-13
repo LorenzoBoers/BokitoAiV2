@@ -33,7 +33,7 @@ def _actor(ctx: ToolContext) -> tuple[str, str]:
 
 async def _list_categories(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.models.orchestra import Workstream
-    from app.services.folders import load_tree
+    from app.services.folders import load_catalog, serialize_folders_for_tag
     from app.services.tickets import (
         intake_fields,
         list_categories,
@@ -41,14 +41,13 @@ async def _list_categories(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
         workstream_stages,
     )
 
-    tree = await load_tree(ctx.session, ctx.tenant_id)
+    catalog = await load_catalog(ctx.session, ctx.tenant_id)
     items = []
     for row in await list_categories(ctx.session, ctx.tenant_id):
         item = serialize_category(row)
         item["folders"] = [
-            {"id": str(node.id), "path": tree.static_path(node.id).label}
-            for node in tree.nodes.values()
-            if node.tag_id == row.id
+            {"id": entry["id"], "path": entry["path"]}
+            for entry in serialize_folders_for_tag(catalog, row.id)
         ]
         ws = await ctx.session.get(Workstream, row.workstream_id) if row.workstream_id else None
         item["intake_fields"] = intake_fields(workstream_stages(ws))

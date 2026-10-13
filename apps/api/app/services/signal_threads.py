@@ -363,6 +363,7 @@ def serialize_thread(
         payload["agent_avatar_kind"] = av["avatar_kind"]
         payload["agent_avatar_icon"] = av["avatar_icon"]
         payload["agent_avatar_color"] = av["avatar_color"]
+        payload["agent_avatar_shape"] = av.get("avatar_shape")
         payload["agent_avatar_image_url"] = av["avatar_image_url"]
     return payload
 
@@ -592,6 +593,12 @@ def serialize_message(
         payload["decision_response"] = True
         if meta.get("decision_id"):
             payload["decision_response_decision_id"] = str(meta["decision_id"])
+        # Bundle resolves stamp many ids; the timeline needs them so it does
+        # not also synthesize a second "Afwijzen" bubble.
+        if isinstance(meta.get("decision_ids"), list):
+            payload["decision_response_decision_ids"] = [
+                str(x) for x in meta["decision_ids"] if x
+            ]
         if isinstance(meta.get("items"), list):
             payload["decision_response_items"] = meta["items"]
         # Lets the timeline hide checkout button-echoes ("End session") that
@@ -768,17 +775,6 @@ async def _resolve_thread_agent(
         default_agent = await project_default_agent(session, tenant_id, signal.project_id)
         if default_agent:
             return default_agent
-        project_result = await session.execute(
-            select(Project).where(Project.id == signal.project_id, Project.tenant_id == tenant_id)
-        )
-        project = project_result.scalar_one_or_none()
-        if project and project.po_agent_id:
-            result = await session.execute(
-                select(Agent).where(Agent.id == project.po_agent_id, Agent.tenant_id == tenant_id)
-            )
-            agent = result.scalar_one_or_none()
-            if agent:
-                return agent
     if not fallback_to_lead:
         return None
     from app.services.lead_agent import get_lead_agent
@@ -1429,31 +1425,6 @@ async def list_threads(
         )
         agents_by_id = {a.id: a for a in agent_rows.scalars().all()}
 
-    project_po_agents: dict[UUID, Agent] = {}
-    unresolved_project_ids = {
-        t.project_id for t in threads if t.project_id and not t.agent_id
-    }
-    if unresolved_project_ids:
-        from app.models.project import Project
-
-        project_result = await session.execute(
-            select(Project).where(
-                Project.tenant_id == tenant_id,
-                Project.id.in_(unresolved_project_ids),
-                Project.po_agent_id.is_not(None),
-            )
-        )
-        projects = list(project_result.scalars().all())
-        po_ids = {p.po_agent_id for p in projects if p.po_agent_id}
-        if po_ids:
-            po_rows = await session.execute(
-                select(Agent).where(Agent.tenant_id == tenant_id, Agent.id.in_(po_ids))
-            )
-            po_by_id = {a.id: a for a in po_rows.scalars().all()}
-            for project in projects:
-                if project.po_agent_id and project.po_agent_id in po_by_id:
-                    project_po_agents[project.id] = po_by_id[project.po_agent_id]
-
     previews = await _latest_message_previews(session, tenant_id, [t.id for t in threads])
     open_dec = (
         await _signals_with_open_decisions(
@@ -1496,10 +1467,9 @@ async def list_threads(
 
     tags_map = await tags_by_signal(session, [t.id for t in threads])
     inherited_map = await inherited_tags_by_signal(session, tenant_id, threads)
-    from app.services.folders import load_tree, serialize_folder_paths
+    from app.services.folders import effective_tag_ids, load_catalog, serialize_folder_paths
 
-    folder_tree = await load_tree(session, tenant_id)
-    name_to_tag = {tag.name: tag.id for tag in folder_tree.tags.values()}
+    folder_catalog = await load_catalog(session, tenant_id)
     from app.services.thread_schedule import rules_by_signal, schedule_payload
 
     rules = await rules_by_signal(session, tenant_id, [t.id for t in threads])
@@ -1507,18 +1477,12 @@ async def list_threads(
     items = []
     for t in threads:
         agent = agents_by_id.get(t.agent_id) if t.agent_id else None
-        if not agent and t.project_id:
-            agent = project_po_agents.get(t.project_id)
         preview, direction, by_agent = previews.get(t.id, ("", "", False))
         account = accounts_by_id.get(t.channel_account_id) if t.channel_account_id else None
         if account is None and t.channel == "widget":
             account = widget_fallback
         contact = contacts_by_id.get(t.contact_id) if t.contact_id else None
         handling = resolve_ai_handling(tenant, account, contact, t, agent=agent).to_payload()
-        path_tag_ids = {name_to_tag[n] for n in tags_map.get(t.id, []) if n in name_to_tag}
-        path_tag_ids |= {name_to_tag[n] for n in inherited_map.get(t.id, []) if n in name_to_tag}
-        if t.ticket_tag_id:
-            path_tag_ids.add(t.ticket_tag_id)
         items.append(
             serialize_thread(
                 t,
@@ -1533,7 +1497,9 @@ async def list_threads(
                 ticket=tickets.get(t.id),
                 tags=tags_map.get(t.id, []),
                 inherited_tags=inherited_map.get(t.id, []),
-                folder_paths=serialize_folder_paths(folder_tree, path_tag_ids),
+                folder_paths=serialize_folder_paths(
+                    folder_catalog, await effective_tag_ids(session, t)
+                ),
                 schedule=schedule_payload(rules.get(t.id)),
             )
         )
@@ -1750,11 +1716,11 @@ async def get_thread(
     thread_tags = await signal_tag_names(session, signal.id)
     inherited_tags = (await inherited_tags_by_signal(session, tenant_id, [signal])).get(signal.id, [])
     routing_policy = (await handling_svc.routing_for_signal(session, tenant, signal)).effective
-    from app.services.folders import effective_tag_ids, load_tree, serialize_folder_paths
+    from app.services.folders import effective_tag_ids, load_catalog, serialize_folder_paths
     from app.services.ownership import human_owner_payload
     from app.services.thread_schedule import rules_by_signal, schedule_payload
 
-    folder_tree = await load_tree(session, tenant_id)
+    folder_catalog = await load_catalog(session, tenant_id)
     return {
         "thread": serialize_thread(
             signal,
@@ -1765,7 +1731,7 @@ async def get_thread(
             ticket=await ticket_payload(session, signal),
             tags=thread_tags,
             inherited_tags=inherited_tags,
-            folder_paths=serialize_folder_paths(folder_tree, await effective_tag_ids(session, signal)),
+            folder_paths=serialize_folder_paths(folder_catalog, await effective_tag_ids(session, signal)),
             schedule=schedule_payload(
                 (await rules_by_signal(session, tenant_id, [signal.id])).get(signal.id)
             ),
@@ -3296,7 +3262,8 @@ async def _generate_agent_reply(
             session,
             agent,
             status="working",
-            summary=(signal.subject or "Replying")[:200],
+            # Fixed label: subject on agent chats is often the last user line.
+            summary="Replying",
             signal_id=signal.id,
         )
         history = await signal_chat_history(session, signal_id)
@@ -3374,9 +3341,10 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
         .join(Membership, Membership.user_id == User.id)
         .where(Membership.tenant_id == tenant_id, User.is_active.is_(True), Membership.is_active.is_(True))
     )
-    from app.services.presence import user_status
+    from app.services.presence import connected_user_ids_for, visible_user_status
 
     now = datetime.utcnow()
+    connected = connected_user_ids_for(tenant_id)
     members = []
     for user, membership in result.all():
         members.append(
@@ -3387,7 +3355,9 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
                 "email": user.email,
                 "avatar_url": user.avatar_url,
                 "role": membership.role,
-                "presence": user_status(user, now=now),
+                "presence": visible_user_status(
+                    user, connected=str(user.id) in connected, now=now
+                ),
             }
         )
     return members
@@ -3977,6 +3947,12 @@ def _decision_confirm_text(
         if name:
             return f"Oké, #{name} blijft staan."
         return "Oké."
+    # Leftover wrap-up cards: never echo English button labels like "Keep going".
+    if action_type == "session_checkout" or payload.get("session_checkout"):
+        kind = str(payload.get("kind") or "").strip()
+        if kind == "continue":
+            return "Oké, we gaan door."
+        return "Sessie afgerond."
     if action_type == "delete_tag" and name:
         return f"#{name} is verwijderd."
     if option_labels:

@@ -49,9 +49,11 @@ export default function MentionPopover({ items, activeIndex, onSelect, onHover }
                   {...toAiAvatarProps({
                     id: item.id,
                     name: item.name,
-                    avatar_kind: item.avatarKind,
-                    avatar_icon: item.avatarIcon,
-                    avatar_image_url: item.avatarImageUrl,
+                    avatarKind: item.avatarKind,
+                    avatarIcon: item.avatarIcon,
+                    avatarColor: item.avatarColor,
+                    avatarShape: item.avatarShape,
+                    avatarImageUrl: item.avatarImageUrl,
                   })}
                   size={24}
                   decorative

@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme, type ThemeMode } from '../../context/ThemeContext'
 import { useMembers } from '../../hooks/useMembers'
+import { selfVisiblePresence } from '../../lib/presence'
 import { getTeamOverview, setMyAway, type PresenceStatus } from '../../lib/teams-api'
 import { UserAvatar } from '../ui/UserAvatar'
 import { PresenceDot } from '../ui/PresenceDot'
@@ -26,6 +27,10 @@ import { useGoToWorkspacesHub } from './SidebarWorkspaceSwitcher'
 
 const PRESENCE_OPTIONS: Array<'available' | 'away'> = ['available', 'away']
 type MenuPresence = 'available' | 'away' | 'offline'
+
+function emailsMatch(left: string, right: string) {
+  return left.trim().toLowerCase() === right.trim().toLowerCase()
+}
 
 const THEME_MODES: { value: ThemeMode; icon: typeof Moon }[] = [
   { value: 'dark', icon: Moon },
@@ -57,21 +62,27 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
 
   const loadPresence = useCallback(async () => {
     if (!token || !email) return
-    if (members.some((person) => person.email === email && person.presence)) return
+    if (members.some((person) => emailsMatch(person.email, email) && (person.presence === 'available' || person.presence === 'away'))) {
+      return
+    }
     try {
       const overview = await getTeamOverview(token)
-      const me = overview.people.find((p) => p.email === email)
+      const me = overview.people.find((p) => emailsMatch(p.email, email))
       const next = me?.presence.status
-      if (next === 'available' || next === 'away' || next === 'offline') setPresence(next)
+      if (next === 'available' || next === 'away' || next === 'offline') {
+        setPresence(selfVisiblePresence(next))
+      }
     } catch {
       // Keep last known value; menu still usable.
     }
   }, [token, email, members])
 
   useEffect(() => {
-    const me = members.find((person) => person.email === email)
+    const me = members.find((person) => emailsMatch(person.email, email))
     const next = me?.presence
-    if (next === 'available' || next === 'away' || next === 'offline') setPresence(next)
+    if (next === 'available' || next === 'away' || next === 'offline') {
+      setPresence(selfVisiblePresence(next))
+    }
   }, [members, email])
 
   useEffect(() => {

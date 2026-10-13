@@ -9,7 +9,6 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.auth import Tenant
-from app.models.project import Project
 from app.models.signal import Signal
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
@@ -44,12 +43,13 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     created = await client.post(
-        "/api/folders", headers=headers, json={"name": "Repairs", "slug": "repairs"}
+        "/api/folders",
+        headers=headers,
+        json={"name": "Repairs", "slug": "repairs", "tags": ["repairs"]},
     )
     assert created.status_code == 200, created.text
     project_id = created.json()["id"]
-    assert created.json()["tag_name"] == "repairs"
-    project = await session_override.get(Project, UUID(project_id))
+    assert created.json()["tag_names"] == ["repairs"]
 
     category = (await client.post("/api/categories", headers=headers, json={"name": "storing"})).json()
     await client.patch(
@@ -96,9 +96,9 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     assert [row["name"] for row in body["tags"]] == ["vip"]
     assert body["tags"][0]["count"] == 1
     folder_rows = {row["id"]: row for row in body["projects"]}
-    assert folder_rows[project_id]["name"] == "repairs"
+    assert folder_rows[project_id]["name"].lower() == "repairs"
     assert folder_rows[project_id]["count"] == 1
-    assert folder_rows[project_id]["tag_id"] == str(project.tag_id)
+    assert folder_rows[project_id]["tag_ids"] == created.json()["tag_ids"]
     assert folder_rows[project_id]["children"] == []
 
     hidden = await client.patch(f"/api/categories/{category['id']}", headers=headers, json={"show_in_nav": False})

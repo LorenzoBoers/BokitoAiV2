@@ -80,6 +80,14 @@ def test_open_internal_threads_alias_runs_list_threads():
     assert explicit["channel"] == "email"
 
 
+def test_list_open_decisions_alias_runs_tenant_overview():
+    name, payload = resolve_tool_alias("list_open_decisions", {})
+    assert name == "get_tenant_overview"
+    assert payload == {}
+    pending, _ = resolve_tool_alias("list_pending_decisions", {"limit": 5})
+    assert pending == "get_tenant_overview"
+
+
 def test_mcp_discovery_detection():
     assert is_mcp_discovery_tool({"tool_name": "list_tools"})
     assert is_mcp_discovery_tool({"tool_name": "List-Tools"})

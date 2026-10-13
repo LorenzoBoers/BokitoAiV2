@@ -324,6 +324,9 @@ async def append_decision_to_signal(
         signal.agent_id = agent_id
         if agent_name != "Agent" and signal.channel == "internal":
             signal.contact_name = agent_name
+    from app.tools.calendar import humanize_iso_in_text
+
+    body = humanize_iso_in_text(decision.summary or decision.title or "")
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=tenant_id,
@@ -332,9 +335,8 @@ async def append_decision_to_signal(
         role="assistant",
         author_agent_id=agent_id,
         subject=decision.title,
-        body_text=decision.summary or decision.title,
-        body_preview=clip_with_ellipsis(decision.summary or decision.title, 200)
-        or (decision.title or "")[:200],
+        body_text=body,
+        body_preview=clip_with_ellipsis(body, 200) or (decision.title or "")[:200],
         decision_id=decision.id,
         received_at=datetime.utcnow(),
         metadata_json=json.dumps(card_meta, default=str) if card_meta else "{}",
@@ -422,6 +424,9 @@ async def append_workforce_message(
     return message
 
 
+_PENDING_REVEAL_KEY = "_pending_reveal"
+
+
 async def create_decision(
     session: AsyncSession,
     tenant_id: UUID,
@@ -445,20 +450,19 @@ async def create_decision(
     question: str | None = None,
     selection: str | None = None,
     bundle_id: str = "",
-) -> tuple[DecisionRequest, SignalMessage]:
+    reveal: bool = True,
+) -> tuple[DecisionRequest, SignalMessage | None]:
     """The single write path for human decisions.
 
     Creates the DecisionRequest addressed to one person or team
-    (``services/addressee.py``; ``to`` is an explicit target), projects it into
-    the notification bell of the addressee (respecting mute preferences), lands
-    the card as a message in a Signal thread, and publishes the gateway events.
-    Callers never write Notification rows for decisions themselves.
+    (``services/addressee.py``; ``to`` is an explicit target).
 
-    The notification payload always ends up carrying `decision_id`,
-    `signal_id` and `message_id`, so the bell and a push both deep-link to the
-    exact card instead of the inbox root.
+    When ``reveal=True`` (default), projects into the notification surface,
+    lands the card as a message in a Signal thread, and publishes gateway
+    events. When ``reveal=False`` (agent turn mid-tool), only persists the
+    DecisionRequest + a pending notification row — ``reveal_decision`` publishes
+    after speech bubbles are saved so the client sees text then the card.
     """
-    from app.gateway.publish import publish_notification
     from app.services.addressee import resolve_addressee
     from app.services.notification_mail import decision_bell_status
 
@@ -475,6 +479,17 @@ async def create_decision(
     )
     bell_user_id = addressee.user_id if addressee.kind == "user" else None
     bell_status = await decision_bell_status(session, tenant_id, bell_user_id)
+    pending_reveal = {
+        "items": items or [],
+        "question": question,
+        "selection": selection,
+        "user_id": str(user_id) if user_id else None,
+        "agent_id": str(agent_id) if agent_id else None,
+        "project_id": str(project_id) if project_id else None,
+        "bell_status": bell_status,
+        "notification_payload": notification_payload or {},
+    }
+    # Pending rows stay out of unread / push until reveal_decision flips them.
     notification = Notification(
         tenant_id=tenant_id,
         user_id=bell_user_id,
@@ -483,13 +498,17 @@ async def create_decision(
         kind="decision_request",
         title=notification_title or title,
         body=(summary or title)[:500],
-        status=bell_status,
-        payload_json=json.dumps(notification_payload or {}, default=str),
+        status="pending" if not reveal else bell_status,
+        payload_json=json.dumps(
+            {
+                **(notification_payload or {}),
+                _PENDING_REVEAL_KEY: pending_reveal,
+            },
+            default=str,
+        ),
     )
     session.add(notification)
     await session.flush()
-    if bell_status == "unread":
-        await publish_notification(notification)
     decision = DecisionRequest(
         tenant_id=tenant_id,
         notification_id=notification.id,
@@ -509,6 +528,18 @@ async def create_decision(
     addressee.apply(decision)
     session.add(decision)
     await session.flush()
+    if not reveal:
+        payload = {
+            **(notification_payload or {}),
+            "decision_id": str(decision.id),
+            "signal_id": str(decision.signal_id) if decision.signal_id else None,
+            _PENDING_REVEAL_KEY: pending_reveal,
+        }
+        notification.payload_json = json.dumps(payload, default=str)
+        session.add(notification)
+        await session.flush()
+        return decision, None
+
     message = await append_decision_to_signal(
         session,
         tenant_id,
@@ -521,20 +552,46 @@ async def create_decision(
         question=question,
         selection=selection,
     )
-    # The thread and the card only exist after the append, so the bell payload
-    # is completed here rather than trusting each caller to guess the ids.
+    await _finalize_decision_notification(
+        session,
+        tenant_id,
+        decision,
+        notification,
+        message=message,
+        notification_payload=notification_payload or {},
+        bell_user_id=bell_user_id,
+        bell_status=bell_status,
+    )
+    return decision, message
+
+
+async def _finalize_decision_notification(
+    session: AsyncSession,
+    tenant_id: UUID,
+    decision: DecisionRequest,
+    notification: Notification,
+    *,
+    message: SignalMessage,
+    notification_payload: dict[str, Any],
+    bell_user_id: UUID | None,
+    bell_status: str,
+) -> None:
+    from app.gateway.publish import publish_notification
+
     payload = {
-        **(notification_payload or {}),
+        **notification_payload,
         "decision_id": str(decision.id),
         "signal_id": str(decision.signal_id) if decision.signal_id else None,
         "message_id": str(message.id),
     }
+    payload.pop(_PENDING_REVEAL_KEY, None)
     notification.payload_json = json.dumps(payload, default=str)
     notification.signal_id = decision.signal_id
+    notification.status = bell_status
     session.add(notification)
     await session.flush()
-    # In-app row is owned by DecisionRequest.notification_id; push/email still
-    # go through notify's tier/category/presence rules without a second row.
+    if bell_status == "unread":
+        await publish_notification(notification)
     if bell_user_id and bell_status == "unread":
         from app.services.notify import TIER_NOW, deliver_external
 
@@ -551,4 +608,72 @@ async def create_decision(
             payload=payload,
             critical=True,
         )
-    return decision, message
+
+
+async def reveal_decision(
+    session: AsyncSession,
+    tenant_id: UUID,
+    decision: DecisionRequest,
+) -> SignalMessage | None:
+    """Publish a deferred DecisionRequest into the thread after speech is saved.
+
+    Idempotent when ``message_id`` is already set. Used by ``place_turn_decisions``.
+    """
+    if decision.message_id is not None:
+        existing = await session.get(SignalMessage, decision.message_id)
+        return existing
+
+    notification: Notification | None = None
+    if decision.notification_id:
+        notification = await session.get(Notification, decision.notification_id)
+
+    pending: dict[str, Any] = {}
+    if notification:
+        try:
+            raw = json.loads(notification.payload_json or "{}")
+        except json.JSONDecodeError:
+            raw = {}
+        if isinstance(raw, dict):
+            blob = raw.get(_PENDING_REVEAL_KEY)
+            if isinstance(blob, dict):
+                pending = blob
+
+    def _uuid(value: Any) -> UUID | None:
+        if not value:
+            return None
+        try:
+            return UUID(str(value))
+        except ValueError:
+            return None
+
+    items = pending.get("items") if isinstance(pending.get("items"), list) else None
+    message = await append_decision_to_signal(
+        session,
+        tenant_id,
+        decision,
+        user_id=_uuid(pending.get("user_id")),
+        agent_id=_uuid(pending.get("agent_id")) or None,
+        project_id=_uuid(pending.get("project_id")) or decision.project_id,
+        signal_id=decision.signal_id,
+        items=items,
+        question=str(pending["question"]) if pending.get("question") else None,
+        selection=str(pending["selection"]) if pending.get("selection") else None,
+    )
+    if notification is None:
+        return message
+
+    bell_status = str(pending.get("bell_status") or "unread")
+    notif_payload = pending.get("notification_payload")
+    if not isinstance(notif_payload, dict):
+        notif_payload = {}
+    await _finalize_decision_notification(
+        session,
+        tenant_id,
+        decision,
+        notification,
+        message=message,
+        notification_payload=notif_payload,
+        bell_user_id=notification.user_id,
+        bell_status=bell_status,
+    )
+    return message

@@ -698,6 +698,200 @@
      solid fill: an opaque violet tint of the surface, a crisp 1.5px violet
      ring and a violet glyph, with a faint breath of glow outside the ring.
      The tint is mixed (not alpha) so it looks the same on every background. */
+  /* Bot orb: flat silhouette + white eyes; face acts via data-act (JS). */
+  .bot-orb {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    user-select: none;
+    filter: drop-shadow(0 0 calc(var(--ai-halo, 3px) * 1.2) color-mix(in oklab, var(--bot-orb-color) 32%, transparent));
+  }
+  .bot-orb > svg,
+  .bot-orb__svg {
+    display: block;
+    overflow: hidden;
+  }
+  /* Keep CSS-transformed eyes inside the silhouette (mask is on the SVG group). */
+  .bot-orb__face-clip {
+    overflow: hidden;
+  }
+  .bot-orb__gaze {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    transition: transform 0.32s ease;
+    transform: translate(0, 0);
+  }
+  /* Hover / proximity: eyes track the pointer; snappier than idle acts. */
+  .bot-orb[data-tracking='true'] .bot-orb__gaze {
+    transition: transform 0.08s ease-out;
+    animation: none !important;
+  }
+  .bot-orb[data-tracking='true'] .bot-orb__eye {
+    animation: none !important;
+  }
+  /* Per-eye scale so blink/squint collapse from the eye center, not the bottom. */
+  .bot-orb__eye {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    transition: transform 0.22s ease;
+    transform: scaleY(1);
+  }
+  .bot-orb__body {
+    transform-box: fill-box;
+    transform-origin: 32px 32px;
+  }
+
+  /* Idle looks: slow ease; choreography held by JS data-act steps. */
+  .bot-orb[data-act^='look-'] .bot-orb__gaze {
+    transition: transform 0.58s ease;
+  }
+  .bot-orb[data-act='look-left'] .bot-orb__gaze {
+    transform: translate(-5.4px, 0);
+  }
+  .bot-orb[data-act='look-right'] .bot-orb__gaze {
+    transform: translate(5.4px, 0);
+  }
+  .bot-orb[data-act='look-up'] .bot-orb__gaze {
+    transform: translate(0, -4.6px);
+  }
+  .bot-orb[data-act='look-down'] .bot-orb__gaze {
+    transform: translate(0, 3.8px);
+  }
+  .bot-orb[data-act='look-up-left'] .bot-orb__gaze {
+    transform: translate(-5.2px, -3.2px);
+  }
+  .bot-orb[data-act='look-up-right'] .bot-orb__gaze {
+    transform: translate(5.2px, -3.2px);
+  }
+  .bot-orb[data-act='look-down-left'] .bot-orb__gaze {
+    transform: translate(-5.2px, 3.2px);
+  }
+  .bot-orb[data-act='look-down-right'] .bot-orb__gaze {
+    transform: translate(5.2px, 3.2px);
+  }
+
+  /* Thinking: view-box units so Y travel reaches the top rim of the mark. */
+  .bot-orb[data-motion='thinking']:not([data-tracking='true']) .bot-orb__gaze {
+    transform-box: view-box;
+    transform-origin: 32px 31px;
+    animation: bot-orb-gaze-think 8s ease-in-out infinite;
+  }
+  .bot-orb[data-motion='thinking']:not([data-tracking='true']) .bot-orb__eye:first-of-type {
+    animation: bot-orb-think-eye-left 8s ease-in-out infinite;
+  }
+  .bot-orb[data-motion='thinking']:not([data-tracking='true']) .bot-orb__eye:last-of-type {
+    animation: bot-orb-think-eye-right 8s ease-in-out infinite;
+  }
+
+  /* Blink (~220–300ms held by JS). */
+  .bot-orb[data-act='blink'] .bot-orb__eye {
+    transform: scaleY(0.08);
+    transition: transform 0.1s ease;
+  }
+
+  /* Long squint (~1.5s held by JS). */
+  .bot-orb[data-act='squint'] .bot-orb__eye {
+    transform: scaleY(0.12);
+    transition: transform 0.35s ease;
+  }
+
+  /* Soft pulse while tools run; face still uses the random act loop. */
+  .bot-orb[data-motion='working'] .bot-orb__body {
+    animation: bot-orb-pulse-work 1.8s ease-in-out infinite;
+  }
+  .bot-orb[data-motion='paused'] .bot-orb__body,
+  .bot-orb--paused .bot-orb__body {
+    animation: none;
+  }
+
+  /* Center-up against the rim (~eye top y=25.5 → ~3), then left / right. */
+  @keyframes bot-orb-gaze-think {
+    0%,
+    14% {
+      transform: translate(0, -22.5px);
+    }
+    22%,
+    38% {
+      transform: translate(-5px, -22.5px);
+    }
+    46%,
+    62% {
+      transform: translate(5.2px, -22.5px);
+    }
+    70%,
+    84% {
+      transform: translate(-5px, -22.5px);
+    }
+    90%,
+    100% {
+      transform: translate(5.2px, -22.5px);
+    }
+  }
+  /* Center: both open; looking left → left squints; looking right → right. */
+  @keyframes bot-orb-think-eye-left {
+    0%,
+    14% {
+      transform: scaleY(1);
+    }
+    22%,
+    38% {
+      transform: scaleY(0.72);
+    }
+    46%,
+    62% {
+      transform: scaleY(1);
+    }
+    70%,
+    84% {
+      transform: scaleY(0.72);
+    }
+    90%,
+    100% {
+      transform: scaleY(1);
+    }
+  }
+  @keyframes bot-orb-think-eye-right {
+    0%,
+    14% {
+      transform: scaleY(1);
+    }
+    22%,
+    38% {
+      transform: scaleY(1);
+    }
+    46%,
+    62% {
+      transform: scaleY(0.72);
+    }
+    70%,
+    84% {
+      transform: scaleY(1);
+    }
+    90%,
+    100% {
+      transform: scaleY(0.72);
+    }
+  }
+  @keyframes bot-orb-pulse-work {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.04);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bot-orb__gaze,
+    .bot-orb__eye {
+      transition: none !important;
+      animation: none !important;
+    }
+    .bot-orb__body {
+      animation: none !important;
+    }
+  }
+
   .ai-avatar {
     position: relative;
     display: inline-flex;
@@ -848,25 +1042,25 @@
     opacity: 0.9;
   }
 
-  /* #tags — free muted; action tags share accent with people mentions. */
+  /* #tags — same family as TagPill (soft glass; action = accent). */
   .chat-tag-chip {
-    color: rgb(var(--color-text-secondary));
-    background: rgb(var(--color-bg-elevated));
-    box-shadow: inset 0 0 0 1px rgb(var(--color-border) / 0.75);
+    color: rgb(var(--color-text-heading));
+    background: rgb(var(--color-bg-elevated) / 0.85);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-border) / 0.7);
+    letter-spacing: -0.01em;
   }
   .chat-tag-chip:hover {
-    color: rgb(var(--color-text-heading));
-    background: rgb(var(--color-bg-hover));
+    background: rgb(var(--color-bg-hover) / 0.9);
     box-shadow: inset 0 0 0 1px rgb(var(--color-border-light));
   }
   .chat-tag-chip[data-tag-kind='action_tag'] {
-    color: rgb(var(--color-accent));
-    background: rgb(var(--color-accent) / 0.12);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.28);
+    color: rgb(var(--color-text-heading));
+    background: rgb(var(--color-accent) / 0.11);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.35);
   }
   .chat-tag-chip[data-tag-kind='action_tag']:hover {
-    background: rgb(var(--color-accent) / 0.18);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.4);
+    background: rgb(var(--color-accent) / 0.16);
+    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.5);
   }
 
   /* Chips inside the operator's own (accent-filled) bubble: white glass. */
@@ -1700,4 +1894,220 @@
     background-color: transparent;
     box-shadow: 0 0 0 0 transparent;
   }
+}
+
+/* Public /docs — Grok-like developer docs skin, Bokito green accent. */
+.docs-site {
+  --docs-bg: #000000;
+  --docs-fg: #ffffff;
+  --docs-muted: #8a8a8a;
+  --docs-subtle: #b3b3b3;
+  --docs-border: rgb(255 255 255 / 0.1);
+  --docs-hover: rgb(255 255 255 / 0.06);
+  --docs-active-ring: rgb(255 255 255 / 0.22);
+  --docs-accent: rgb(var(--color-accent-ink));
+  --docs-kbd: rgb(255 255 255 / 0.12);
+  background: var(--docs-bg);
+  color: var(--docs-fg);
+}
+:root[data-theme='light'] .docs-site:not(.docs-api-forced-dark) {
+  --docs-bg: #ffffff;
+  --docs-fg: #0a0a0a;
+  --docs-muted: #6b6b6b;
+  --docs-subtle: #3d3d3d;
+  --docs-border: rgb(0 0 0 / 0.1);
+  --docs-hover: rgb(0 0 0 / 0.04);
+  --docs-active-ring: rgb(0 0 0 / 0.18);
+  --docs-accent: rgb(var(--color-accent-ink));
+  --docs-kbd: rgb(0 0 0 / 0.08);
+}
+/* /docs/api stays black — Scalar is dark-only; avoid a split light chrome. */
+.docs-site.docs-api-forced-dark {
+  --docs-bg: #000000;
+  --docs-fg: #ffffff;
+  --docs-muted: #8a8a8a;
+  --docs-subtle: #b3b3b3;
+  --docs-border: rgb(255 255 255 / 0.1);
+  --docs-hover: rgb(255 255 255 / 0.06);
+  --docs-active-ring: rgb(255 255 255 / 0.22);
+  --docs-accent: rgb(110 220 180);
+  --docs-kbd: rgb(255 255 255 / 0.12);
+  /* Remap app tokens so ThemeToggle / SegmentedControl stay readable. */
+  --color-bg: 0 0 0;
+  --color-bg-elevated: 10 10 10;
+  --color-bg-muted: 20 20 20;
+  --color-bg-hover: 255 255 255;
+  --color-bg-surface: 14 14 14;
+  --color-text-primary: 255 255 255;
+  --color-text-secondary: 179 179 179;
+  --color-text-muted: 138 138 138;
+  --color-text-heading: 255 255 255;
+  --color-border: 255 255 255;
+  color-scheme: dark;
+  background: #000000;
+  color: #ffffff;
+}
+.docs-site a {
+  color: inherit;
+}
+.docs-site .docs-header-sticky {
+  background: transparent;
+  pointer-events: none;
+}
+.docs-site .docs-header-sticky > * {
+  pointer-events: auto;
+}
+.docs-site .docs-header {
+  border-bottom: none;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .docs-site .docs-header {
+    background: rgb(0 0 0 / 0.94);
+  }
+}
+:root[data-theme='light'] .docs-site:not(.docs-api-forced-dark) .docs-header {
+  background: rgb(255 255 255 / 0.5);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+}
+:root[data-theme='light'] .docs-site.docs-api-forced-dark .docs-header {
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+}
+.docs-site .docs-api-host {
+  background: #000000;
+}
+.docs-site .docs-api-host .scalar-app,
+.docs-site .docs-api-host .scalar-api-reference,
+.docs-site .docs-api-host [class*='scalar'] {
+  --scalar-font: inherit;
+}
+/* Kill Scalar's outer card chrome so it reads as part of the page. */
+.docs-site .docs-api-host > * {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.docs-site .docs-rail,
+.docs-site .docs-rail-right {
+  border: none;
+}
+.docs-site .docs-nav-section {
+  color: var(--docs-fg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.docs-site .docs-nav-link {
+  color: var(--docs-muted);
+  border: none;
+  border-radius: 0.5rem;
+}
+.docs-site .docs-nav-link:hover {
+  color: var(--docs-fg);
+  background: var(--docs-hover);
+}
+.docs-site .docs-nav-link[data-active='true'] {
+  color: var(--docs-fg);
+  background: rgb(255 255 255 / 0.1);
+  font-weight: 500;
+}
+:root[data-theme='light'] .docs-site:not(.docs-api-forced-dark) .docs-nav-link[data-active='true'] {
+  background: rgb(0 0 0 / 0.07);
+}
+.docs-site .docs-search-trigger {
+  border: 1px solid var(--docs-border);
+  background: transparent;
+  color: var(--docs-muted);
+  border-radius: 9999px;
+}
+.docs-site .docs-search-trigger:hover {
+  color: var(--docs-fg);
+  border-color: var(--docs-active-ring);
+}
+.docs-site .docs-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.9rem;
+  border-radius: 9999px;
+  background: var(--docs-fg);
+  color: var(--docs-bg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.docs-site .docs-cta:hover {
+  opacity: 0.9;
+}
+.docs-site .docs-cta-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.9rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--color-accent));
+  color: rgb(var(--color-accent-ink));
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.docs-site .docs-cta-outline:hover {
+  background: rgb(var(--color-accent) / 0.1);
+}
+.docs-site .docs-util {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--docs-muted);
+  font-size: 0.875rem;
+}
+.docs-site .docs-util:hover {
+  color: var(--docs-fg);
+}
+.docs-site .docs-prose {
+  color: var(--docs-subtle);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.docs-site .docs-prose .text-text-heading,
+.docs-site .docs-prose [class*='text-text-heading'] {
+  color: var(--docs-fg) !important;
+}
+.docs-site .docs-prose p {
+  color: var(--docs-subtle);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.docs-site .docs-prose strong {
+  color: var(--docs-fg);
+}
+.docs-site .docs-prose a {
+  color: var(--docs-accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--docs-accent) 45%, transparent);
+  text-underline-offset: 3px;
+}
+.docs-site .docs-prose a:hover {
+  text-decoration-color: var(--docs-accent);
+}
+.docs-site .docs-prose blockquote {
+  border-left: 3px solid var(--docs-accent);
+  padding-left: 1rem;
+  margin: 1.25rem 0;
+  color: var(--docs-muted);
+  font-style: italic;
+}
+.docs-site .docs-prose pre,
+.docs-site .docs-prose code {
+  border-color: var(--docs-border) !important;
+}
+.docs-site .docs-prose img,
+.docs-site .docs-prose figure img {
+  border-color: var(--docs-border) !important;
+  border-radius: 0.75rem;
 }

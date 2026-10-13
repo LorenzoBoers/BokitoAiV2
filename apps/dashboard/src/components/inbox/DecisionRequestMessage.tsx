@@ -41,6 +41,7 @@ import {
   listEmailConnections,
   type SignatureSource,
 } from '../../lib/email-api'
+import { humanizeIsoDatetimes } from '../../lib/bundleActionLabel'
 import { formatToolDecisionSummary } from '../../lib/tool-decision-copy'
 import { isModuleSetupAction } from '../../lib/integration-setup-url'
 import {
@@ -77,6 +78,7 @@ import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ChatMessageBubble } from './ChatBubble'
 import ActivityTrail from './ActivityTrail'
+import { THREAD_INDENT } from './ThreadMeta'
 
 type Props = {
   message: InboxMessage
@@ -99,6 +101,7 @@ type Props = {
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
+  agentAvatarShape?: string | null
   agentAvatarImageUrl?: string | null
   /**
    * Show the compact agent-cloud pill (expand to read + take over) instead of
@@ -317,6 +320,7 @@ export default function DecisionRequestMessage({
   agentAvatarKind,
   agentAvatarIcon,
   agentAvatarColor,
+  agentAvatarShape,
   agentAvatarImageUrl,
   compactReplyProposal = false,
   outdated = false,
@@ -411,13 +415,16 @@ export default function DecisionRequestMessage({
       ),
     [message.bodyText, message.bodyPreview, message.subject],
   )
-  const summary = translateDecisionText(
-    toolCopy?.summary ||
-      message.bodyText?.trim() ||
-      message.bodyPreview ||
-      message.subject ||
-      t('decisionCard.decisionNeeded'),
-    t,
+  const summary = humanizeIsoDatetimes(
+    translateDecisionText(
+      toolCopy?.summary ||
+        message.bodyText?.trim() ||
+        message.bodyPreview ||
+        message.subject ||
+        t('decisionCard.decisionNeeded'),
+      t,
+    ),
+    i18n.language,
   )
   const excerpt = formatDecisionExcerpt(summary)
   // Where the question came from (queue item, run, project, platform change).
@@ -666,6 +673,7 @@ export default function DecisionRequestMessage({
           agentAvatarKind,
           agentAvatarIcon,
           agentAvatarColor,
+  agentAvatarShape,
           agentAvatarImageUrl,
         },
         'Agent',
@@ -677,7 +685,7 @@ export default function DecisionRequestMessage({
   const activityBefore = message.activity ?? []
   const activityTrail =
     activityBefore.length > 0 ? (
-      <ActivityTrail items={activityBefore} className="ml-9" />
+      <ActivityTrail items={activityBefore} className={THREAD_INDENT} />
     ) : null
 
   if (asCompactProposal && !ruleSuggestion) {
@@ -699,7 +707,7 @@ export default function DecisionRequestMessage({
         <ChatMessageBubble
           side="left"
           avatar={agentAvatar}
-          variant="external"
+          variant="agent"
           body={
             <div className="flex min-w-0 flex-col gap-1.5">
               <div className="flex min-w-0 items-center gap-2">
@@ -709,8 +717,8 @@ export default function DecisionRequestMessage({
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent/40"
                   aria-expanded={compactOpen}
                 >
-                  <AiMark size={12} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
+                  <AiMark size={14} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate-fade text-[13px] font-medium leading-5 text-text-heading">
                     {t('decision.compactProposal')}
                   </span>
                   <ChevronDown
@@ -726,7 +734,7 @@ export default function DecisionRequestMessage({
                     type="button"
                     size="sm"
                     variant={activeInComposer ? 'ghost' : 'secondary'}
-                    className="h-7 shrink-0 px-2 text-xs"
+                    className="h-7 shrink-0 px-2.5 text-[13px]"
                     onClick={takeOver}
                   >
                     {activeInComposer
@@ -737,7 +745,7 @@ export default function DecisionRequestMessage({
               </div>
               {compactOpen ? (
                 <div className="rounded-md border border-border/60 bg-bg-surface/80 px-2.5 py-2">
-                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-text-secondary">
+                  <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary">
                     {draftBody}
                   </p>
                 </div>
@@ -847,7 +855,7 @@ export default function DecisionRequestMessage({
             )}
             <span
               className={cn(
-                'text-xs font-semibold ',
+                'text-[13px] font-semibold leading-5',
                 resolved ? 'text-text-muted' : AI_TEXT_CLASS,
               )}
             >

@@ -38,11 +38,11 @@ const idleStream = (): SessionStreamState => ({
 })
 
 /** @deprecated Prefer useAiChatStream — kept as alias for existing imports. */
-export function useAgentSessionChat(token: string | null) {
-  return useAiChatStream(token)
+export function useAgentSessionChat(token: string | null, conversationId: string | null = null) {
+  return useAiChatStream(token, conversationId)
 }
 
-export function useAiChatStream(token: string | null) {
+export function useAiChatStream(token: string | null, conversationId: string | null = null) {
   const [stream, setStream] = useState<SessionStreamState>(idleStream)
   const streamingRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -214,8 +214,18 @@ export function useAiChatStream(token: string | null) {
   )
   runStreamRef.current = runStream
 
-  // Abort in-flight SSE and settle timers when the host thread unmounts.
+  // Drop the previous conversation's SSE when the open thread changes.
+  // The server turn on that other thread keeps running; this view must not.
   useEffect(() => {
+    clearFlushTimer()
+    clearDeltaFlush()
+    pendingPartsRef.current = []
+    abortRef.current?.abort()
+    abortRef.current = null
+    streamingRef.current = false
+    sessionIdRef.current = null
+    committedStreamRef.current = { text: '', thinking: '' }
+    setStream(idleStream())
     return () => {
       clearFlushTimer()
       clearDeltaFlush()
@@ -224,7 +234,7 @@ export function useAiChatStream(token: string | null) {
       abortRef.current = null
       streamingRef.current = false
     }
-  }, [])
+  }, [conversationId])
 
   const send = useCallback(
     async (

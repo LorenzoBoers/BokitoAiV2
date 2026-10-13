@@ -62,6 +62,7 @@ class AgentUpdateBody(BaseModel):
     avatar_kind: str | None = None
     avatar_icon: str | None = None
     avatar_color: str | None = None
+    avatar_shape: str | None = None
     avatar_image_url: str | None = None
     # Who the agent asks: {"kind": "auto"} or {"kind": "user" | "team", "id": ...}.
     ask_target: dict[str, Any] | None = None
@@ -284,6 +285,7 @@ async def update_agent(
         avatar_kind=body.avatar_kind,
         avatar_icon=body.avatar_icon,
         avatar_color=body.avatar_color,
+        avatar_shape=body.avatar_shape,
         avatar_image_url=body.avatar_image_url,
         ask_target=body.ask_target,
     )

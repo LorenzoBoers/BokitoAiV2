@@ -8,12 +8,14 @@ const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'ProjectD
 describe('ProjectDetail tabs', () => {
   it('keeps the active tab in the URL and maps legacy queue to Home', () => {
     expect(src).toContain('value={tab}')
-    expect(src).toContain("if (raw === 'queue') return 'home'")
+    expect(src).toContain("raw === 'queue'")
+    expect(src).toContain("raw === 'settings'")
     expect(src).toContain('value="canvas"')
     expect(src).toContain('value="docs"')
     expect(src).toContain('value="files"')
-    expect(src).toContain('value="settings"')
+    expect(src).not.toContain('value="settings"')
     expect(src).not.toContain('value="queue"')
     expect(src).not.toContain('tabQueue')
+    expect(src).not.toContain('tabSettings')
   })
 })

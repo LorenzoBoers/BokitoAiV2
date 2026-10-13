@@ -284,15 +284,10 @@ async def thread_agent_candidates(
                 )
             )
         ).scalar_one_or_none()
-        if project and project.po_agent_id:
-            lead = (
-                await session.execute(
-                    select(Agent).where(
-                        Agent.id == project.po_agent_id, Agent.tenant_id == tenant_id
-                    )
-                )
-            ).scalar_one_or_none()
-            add(lead, "project")
+        if project:
+            from app.services.lead_agent import get_lead_agent
+
+            add(await get_lead_agent(session, tenant_id), "project")
 
     for agent in await allowed_company_agents(session, tenant_id, user.id, is_admin=is_admin):
         add(agent, "company")
@@ -767,20 +762,49 @@ async def resume_session_after_message(
     return True
 
 
+_ERROR_TAIL_MARKERS = (
+    "encountered an error while generating a reply",
+    "cannot reply because no llm api key",
+    "took too long to start a reply",
+    "ai provider is busy right now",
+    "daily llm token budget exhausted",
+)
+
+
+def _is_error_agent_tail(body: str | None, metadata_json: str | None) -> bool:
+    """True when the last bubble is a system failure, not a real agent reply."""
+    try:
+        meta = json.loads(metadata_json or "{}")
+    except json.JSONDecodeError:
+        meta = {}
+    if isinstance(meta, dict) and meta.get("error"):
+        return True
+    text = (body or "").strip().lower()
+    return any(marker in text for marker in _ERROR_TAIL_MARKERS)
+
+
 async def _idle_summary(session: AsyncSession, conversation: Signal) -> str:
     copy = _checkout_copy(await _workspace_lang(session, conversation.tenant_id))
-    last_agent_text = (
-        await session.execute(
-            select(SignalMessage.body_text)
-            .where(
-                SignalMessage.signal_id == conversation.id,
-                SignalMessage.kind == "agent_message",
+    rows = list(
+        (
+            await session.execute(
+                select(SignalMessage.body_text, SignalMessage.metadata_json)
+                .where(
+                    SignalMessage.signal_id == conversation.id,
+                    SignalMessage.kind == "agent_message",
+                )
+                .order_by(SignalMessage.created_at.desc())
+                .limit(8)
             )
-            .order_by(SignalMessage.created_at.desc())
-            .limit(1)
-        )
-    ).scalar()
-    tail = (last_agent_text or "").strip()[:SUMMARY_MAX_CHARS]
+        ).all()
+    )
+    tail = ""
+    for body, metadata_json in rows:
+        if _is_error_agent_tail(body, metadata_json):
+            continue
+        tail = (body or "").strip()[:SUMMARY_MAX_CHARS]
+        if tail:
+            break
     opening = copy["idle_opening"]
     return f"{opening} {copy['idle_last'].format(tail=tail)}" if tail else opening
 

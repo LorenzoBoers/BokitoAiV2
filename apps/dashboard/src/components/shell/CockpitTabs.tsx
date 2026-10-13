@@ -3,7 +3,7 @@ import { CANVAS_ICON } from '../../lib/entity-icons'
 import RouteTabs from './RouteTabs'
 
 /** Inner tab strip for Overview (scan / usage / canvas). The live
- * activity log lives at `/activity`. */
+ * agent activity lives on `/agents#activity`. */
 export default function CockpitTabs() {
   const { t } = useTranslation('nav')
   return (

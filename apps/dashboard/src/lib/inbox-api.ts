@@ -235,6 +235,7 @@ export type InboxThread = {
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
+  agentAvatarShape?: string | null
   agentAvatarImageUrl?: string | null
 }
 
@@ -292,6 +293,8 @@ export type InboxMessage = {
   /** Operator answer bubble posted after resolving a decision. */
   decisionResponse?: boolean
   decisionResponseDecisionId?: string | null
+  /** Bundle answers cover several cards in one bubble. */
+  decisionResponseDecisionIds?: string[]
   /** On a decision card: the agent bubble that shows it inline. */
   attachedToMessageId?: string | null
   receivedAt: string | null
@@ -309,6 +312,7 @@ export type ProposalItemType =
   | 'tag'
   | 'flow'
   | 'project'
+  | 'folder'
   | 'canvas'
   | 'contact'
   | 'integration'
@@ -326,6 +330,12 @@ export type ProposalItem = {
   kind?: string | null
   name?: string | null
   imageUrl?: string | null
+  /** Agent mark — same fields as serialize_agent / AiAvatar. */
+  avatarKind?: string | null
+  avatarIcon?: string | null
+  avatarColor?: string | null
+  avatarShape?: string | null
+  avatarImageUrl?: string | null
   url?: string | null
   path?: string | null
   provider?: string | null
@@ -430,6 +440,7 @@ const PROPOSAL_ITEM_TYPES = new Set<ProposalItemType>([
   'tag',
   'flow',
   'project',
+  'folder',
   'canvas',
   'contact',
   'integration',
@@ -452,6 +463,12 @@ export function normalizeProposalItem(row: unknown): ProposalItem | null {
     kind: asNullableString(raw.kind),
     name: asNullableString(raw.name),
     imageUrl: asNullableString(raw.image_url),
+    avatarKind: asNullableString(raw.avatar_kind),
+    avatarIcon: asNullableString(raw.avatar_icon),
+    avatarColor: asNullableString(raw.avatar_color),
+    avatarShape: asNullableString(raw.avatar_shape),
+    avatarImageUrl:
+      asNullableString(raw.avatar_image_url) ?? asNullableString(raw.image_url),
     url: asNullableString(raw.url),
     path: asNullableString(raw.path),
     provider: asNullableString(raw.provider),
@@ -482,16 +499,27 @@ export function messageProposalFields(
   payload: unknown,
 ): Pick<
   InboxMessage,
-  'proposal' | 'attachedToMessageId' | 'items' | 'decisionResponse' | 'decisionResponseDecisionId'
+  | 'proposal'
+  | 'attachedToMessageId'
+  | 'items'
+  | 'decisionResponse'
+  | 'decisionResponseDecisionId'
+  | 'decisionResponseDecisionIds'
 > {
   const raw = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
   const items = normalizeItemList(raw.items ?? raw.decision_response_items)
+  const decisionIds = Array.isArray(raw.decision_response_decision_ids)
+    ? raw.decision_response_decision_ids.map((x) => String(x)).filter(Boolean)
+    : []
+  const decisionId = asNullableString(raw.decision_response_decision_id ?? raw.decision_id)
+  if (decisionId && !decisionIds.includes(decisionId)) decisionIds.unshift(decisionId)
   return {
     proposal: normalizeProposal(raw.proposal),
     attachedToMessageId: asNullableString(raw.attached_to_message_id),
     items: items.length ? items : undefined,
     decisionResponse: raw.decision_response === true,
-    decisionResponseDecisionId: asNullableString(raw.decision_response_decision_id ?? raw.decision_id),
+    decisionResponseDecisionId: decisionId ?? decisionIds[0] ?? null,
+    decisionResponseDecisionIds: decisionIds.length ? decisionIds : undefined,
   }
 }
 
@@ -853,6 +881,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     agentAvatarKind: asNullableString(raw.agent_avatar_kind) ?? asNullableString(raw.avatar_kind),
     agentAvatarIcon: asNullableString(raw.agent_avatar_icon) ?? asNullableString(raw.avatar_icon),
     agentAvatarColor: asNullableString(raw.agent_avatar_color) ?? asNullableString(raw.avatar_color),
+    agentAvatarShape: asNullableString(raw.agent_avatar_shape) ?? asNullableString(raw.avatar_shape),
     agentAvatarImageUrl:
       asNullableString(raw.agent_avatar_image_url) ?? asNullableString(raw.avatar_image_url),
     contactEmail: asString(raw.contact_email),

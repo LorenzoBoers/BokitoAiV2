@@ -1,83 +1,59 @@
-/** A project shown in a folder tree. Depth 0 is a root. */
+import {
+  deriveFolderTree,
+  folderFilterRows,
+  folderFilterSubtreeIds,
+  type FolderFilterNode,
+  type FolderFilterSource,
+} from './folder-filter-tree'
+
+export type { FolderFilterNode, FolderFilterSource }
+
+/** @deprecated Use `FolderFilterNode` */
+export type FolderNode = FolderFilterNode
+
+/** @deprecated Use `FolderFilterRow` from folder-filter-tree */
 export type FolderRow = {
   id: string
   name: string
   parentId: string | null
   depth: number
+  tag_ids: string[]
+  tag_names: string[]
 }
 
-type FolderSource = {
-  id: string
-  name: string
+type FolderSource = FolderFilterSource & {
   parent_id?: string | null
 }
 
-/** Roots first, then each folder's children, indented by depth. */
+function sources(projects: FolderSource[]): FolderFilterSource[] {
+  return projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    tag_ids: project.tag_ids ?? [],
+    tag_names: project.tag_names,
+    sort_order: project.sort_order,
+  }))
+}
+
+/** Roots first, then nested by tag-set inclusion (not SQL parent_id). */
 export function folderRows(projects: FolderSource[]): FolderRow[] {
-  const byParent = new Map<string | null, FolderSource[]>()
-  const ids = new Set(projects.map((project) => project.id))
-  for (const project of projects) {
-    const parentId = project.parent_id && ids.has(project.parent_id) ? project.parent_id : null
-    const group = byParent.get(parentId) ?? []
-    group.push(project)
-    byParent.set(parentId, group)
-  }
-  const out: FolderRow[] = []
-  const walk = (parentId: string | null, depth: number) => {
-    const children = (byParent.get(parentId) ?? []).slice().sort((a, b) => a.name.localeCompare(b.name))
-    for (const child of children) {
-      out.push({ id: child.id, name: child.name, parentId, depth })
-      walk(child.id, depth + 1)
-    }
-  }
-  walk(null, 0)
-  return out
+  const tree = deriveFolderTree(sources(projects))
+  return folderFilterRows(tree).map((row) => ({
+    id: row.id,
+    name: row.name,
+    parentId: row.parentId,
+    depth: row.depth,
+    tag_ids: row.tag_ids,
+    tag_names: row.tag_names,
+  }))
 }
 
-export type FolderNode = {
-  id: string
-  name: string
-  children: FolderNode[]
+/** Roots with nested children from tag filtersets. */
+export function folderTree(projects: FolderSource[]): FolderFilterNode[] {
+  return deriveFolderTree(sources(projects))
 }
 
-/** Roots, with each folder's children nested. */
-export function folderTree(projects: FolderSource[]): FolderNode[] {
-  const byParent = new Map<string | null, FolderSource[]>()
-  const ids = new Set(projects.map((project) => project.id))
-  for (const project of projects) {
-    const parentId = project.parent_id && ids.has(project.parent_id) ? project.parent_id : null
-    const group = byParent.get(parentId) ?? []
-    group.push(project)
-    byParent.set(parentId, group)
-  }
-  const build = (parentId: string | null): FolderNode[] =>
-    (byParent.get(parentId) ?? [])
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((project) => ({
-        id: project.id,
-        name: project.name,
-        children: build(project.id),
-      }))
-  return build(null)
-}
-
-/** This folder and every folder inside it. */
+/** This folder and every folder nested under it in the derived tree. */
 export function folderSubtreeIds(projects: FolderSource[], rootId: string): Set<string> {
-  const children = new Map<string, string[]>()
-  for (const project of projects) {
-    if (!project.parent_id) continue
-    const group = children.get(project.parent_id) ?? []
-    group.push(project.id)
-    children.set(project.parent_id, group)
-  }
-  const out = new Set<string>()
-  const stack = [rootId]
-  while (stack.length > 0) {
-    const current = stack.pop()
-    if (!current || out.has(current)) continue
-    out.add(current)
-    stack.push(...(children.get(current) ?? []))
-  }
-  return out
+  return folderFilterSubtreeIds(folderTree(projects), rootId)
 }

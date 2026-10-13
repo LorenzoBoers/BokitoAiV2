@@ -1060,6 +1060,8 @@ export type NavRow = {
   count: number
   parentId?: string | null
   children?: NavRow[]
+  tag_ids?: string[]
+  tag_names?: string[]
   /** The tag the row stands for (a tag row, or a folder's tag). */
   tagId?: string | null
   /** Group folder: one virtual child per tag in this group. */
@@ -1117,6 +1119,12 @@ function normalizeNavRows(raw: unknown): NavRow[] {
         count: typeof row.count === 'number' ? row.count : 0,
         parentId: typeof row.parent_id === 'string' ? row.parent_id : null,
         children: normalizeNavRows(row.children),
+        tag_ids: Array.isArray(row.tag_ids)
+          ? row.tag_ids.filter((id): id is string => typeof id === 'string')
+          : undefined,
+        tag_names: Array.isArray(row.tag_names)
+          ? row.tag_names.filter((name): name is string => typeof name === 'string')
+          : undefined,
         tagId: typeof row.tag_id === 'string' ? row.tag_id : null,
         groupId: typeof row.group_id === 'string' ? row.group_id : null,
         virtual: row.virtual === true,
@@ -1276,6 +1284,7 @@ export type AssigneeAvatarFields = {
   avatarKind?: string | null
   avatarIcon?: string | null
   avatarColor?: string | null
+  avatarShape?: string | null
   avatarImageUrl?: string | null
 }
 
@@ -1343,6 +1352,7 @@ export async function listSignalAssignees(token: string, threadId: string): Prom
         avatarKind: typeof raw.avatar_kind === 'string' ? raw.avatar_kind : null,
         avatarIcon: typeof raw.avatar_icon === 'string' ? raw.avatar_icon : null,
         avatarColor: typeof raw.avatar_color === 'string' ? raw.avatar_color : null,
+        avatarShape: typeof raw.avatar_shape === 'string' ? raw.avatar_shape : null,
         avatarImageUrl: typeof raw.avatar_image_url === 'string' ? raw.avatar_image_url : null,
       }
     }),
@@ -1665,7 +1675,17 @@ export async function bokitoStreamMessage(
   if (res.status === 409) {
     throw new Error('agent_busy')
   }
-  if (!res.ok || !res.body) throw new Error(await res.text())
+  if (!res.ok || !res.body) {
+    const raw = await res.text()
+    let detail = raw
+    try {
+      const parsed = JSON.parse(raw) as { detail?: unknown }
+      if (typeof parsed.detail === 'string' && parsed.detail.trim()) detail = parsed.detail
+    } catch {
+      /* keep raw body */
+    }
+    throw new Error(detail || `HTTP ${res.status}`)
+  }
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()

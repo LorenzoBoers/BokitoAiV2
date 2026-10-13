@@ -1,97 +1,73 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { GitBranch, Loader2, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
 import { ENTITY_ICONS } from '../lib/entity-icons'
-import { openEntityPath } from '../lib/open-entity'
+import { filtersetLocalNames, filtersetPlainLabel } from '../lib/folder-filter-tree'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
-import { Label } from '../components/ui/label'
 import { Card } from '../components/ui/card'
-import { Badge, type BadgeTone } from '../components/ui/badge'
-import { AgentOptionRow } from '../components/ui/AgentOptionRow'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog'
+import { Badge } from '../components/ui/badge'
+import { HashtagMark } from '../components/ui/HashtagMark'
+import { TagSetPicker } from '../components/ui/TagSetPicker'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
 import { CardGridSkeleton } from '../components/ui/skeleton'
-import { ProjectBudgetBar } from '../components/projects/ProjectBudgetBar'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { projectHubPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
-import {
-  createProject,
-  deleteProject,
-  getProjectBudget,
-  listProjects,
-  type ProjectBudgetResponse,
-  type ProjectRow,
-} from '../lib/projects-api'
+import { notifyFoldersChanged } from '../lib/folders-bus'
+import { createProject, deleteProject, listProjects, type ProjectRow } from '../lib/projects-api'
 import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
-import { indexStatusLabel } from '../lib/status-labels'
 import { workspaceBrandName } from '../lib/tenant-branding'
 
-function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-const Bot = ENTITY_ICONS.agent
 const FolderKanban = ENTITY_ICONS.project
 const MessageSquare = ENTITY_ICONS.conversation
 
-/** Inner links on a card that is itself a link: do not open the project too. */
 function stopCard(event: { stopPropagation: () => void }) {
   event.stopPropagation()
 }
 
-const REPO_STATUS_VARIANT: Record<string, BadgeTone> = {
-  ready: 'success',
-  indexing: 'info',
-  pending: 'warning',
-  error: 'error',
+function displayName(project: ProjectRow): string {
+  if (project.tag_names?.length) {
+    const parentNames = project.ancestors?.length
+      ? project.ancestors[project.ancestors.length - 1]?.tag_names
+      : null
+    return filtersetPlainLabel(filtersetLocalNames(project.tag_names, parentNames))
+  }
+  return project.name.replace(/^#/, '')
 }
 
 function ProjectCard({
   project,
-  budget,
   onDelete,
   canManage,
 }: {
   project: ProjectRow
-  budget: ProjectBudgetResponse | undefined
   onDelete: () => void
   canManage: boolean
 }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const threadsHref = withNavReveal(projectHubPath(project.id, 'open'))
+  const openCount = project.open_count ?? 0
+  const title = displayName(project)
 
   return (
     <Card
       role="link"
       tabIndex={0}
       aria-label={t('projects.page.openProject', {
-        defaultValue: 'Open project {{name}}',
-        name: project.name,
+        defaultValue: 'Open folder {{name}}',
+        name: title,
       })}
       onClick={() => navigate(`/folders/${project.id}`)}
       onKeyDown={(e) => {
@@ -104,30 +80,28 @@ function ProjectCard({
       className="group flex flex-col gap-3 p-4"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <FolderKanban size={16} className="shrink-0 text-text-muted" aria-hidden />
-          <div className="min-w-0">
-            {project.ancestors && project.ancestors.length > 0 ? (
-              <p className="truncate text-2xs text-text-muted" data-testid="project-card-ancestors">
-                {project.ancestors.map((ancestor, index) => (
-                  <span key={ancestor.id}>
-                    {index > 0 ? ' / ' : null}
-                    <Link
-                      to={openEntityPath({ type: 'project', id: ancestor.id })}
-                      className="hover:text-accent hover:underline"
-                      onClick={stopCard}
-                      onKeyDown={stopCard}
-                    >
-                      {ancestor.name}
-                    </Link>
-                  </span>
-                ))}
-              </p>
-            ) : null}
-            <p className="truncate-fade font-medium text-text-heading group-hover:text-accent">
-              {project.name}
+        <div className="min-w-0">
+          {project.ancestors && project.ancestors.length > 0 ? (
+            <p className="truncate text-2xs text-text-muted" data-testid="project-card-ancestors">
+              {project.ancestors.map((ancestor, index) => (
+                <span key={ancestor.id}>
+                  {index > 0 ? ' / ' : null}
+                  <Link
+                    to={`/folders/${ancestor.id}`}
+                    className="hover:text-accent hover:underline"
+                    onClick={stopCard}
+                    onKeyDown={stopCard}
+                  >
+                    {ancestor.name.replace(/^#/, '')}
+                  </Link>
+                </span>
+              ))}
             </p>
-          </div>
+          ) : null}
+          <p className="flex min-w-0 items-center gap-1.5 truncate-fade font-medium text-text-heading group-hover:text-accent">
+            <HashtagMark className="shrink-0 text-sm" />
+            <span className="min-w-0 truncate">{title}</span>
+          </p>
         </div>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
@@ -135,7 +109,7 @@ function ProjectCard({
               type="button"
               size="sm"
               variant="ghost"
-              aria-label={t('projects.page.actionsFor', { name: project.name })}
+              aria-label={t('projects.page.actionsFor', { name: title })}
               onClick={(e) => e.stopPropagation()}
             >
               <MoreHorizontal size={15} />
@@ -148,23 +122,6 @@ function ProjectCard({
               className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
               onClick={(e) => e.stopPropagation()}
             >
-              {project.po_agent ? (
-                <DropdownMenu.Item
-                  className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                  onSelect={() => navigate(`/agents/${project.po_agent!.id}`)}
-                >
-                  <Bot size={14} />
-                  {t('projects.page.openLead')}
-                </DropdownMenu.Item>
-              ) : canManage ? (
-                <DropdownMenu.Item
-                  className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                  onSelect={() => navigate(`/folders/${project.id}`)}
-                >
-                  <Bot size={14} />
-                  {t('projects.page.assignLead')}
-                </DropdownMenu.Item>
-              ) : null}
               <DropdownMenu.Item
                 className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-secondary outline-none data-[highlighted]:bg-bg-hover"
                 onSelect={() => navigate(threadsHref)}
@@ -189,123 +146,27 @@ function ProjectCard({
         </DropdownMenu.Root>
       </div>
 
-      {project.description ? (
-        <p className="line-clamp-2 text-sm text-text-secondary">{project.description}</p>
-      ) : null}
-
       <div className="mt-auto space-y-2 border-t border-border/50 pt-3">
-        <div className="flex items-center gap-2 text-xs text-text-secondary">
-          {project.po_agent ? (
-            <Link
-              to={openEntityPath({ type: 'agent', id: project.po_agent.id })}
-              className="min-w-0 rounded-md hover:text-accent"
-              title={t('projects.page.openLead')}
-              onClick={stopCard}
-              onKeyDown={stopCard}
-              data-testid="project-card-lead"
-            >
-              <AgentOptionRow
-                agent={{
-                  id: project.po_agent.id,
-                  name: project.po_agent.name,
-                  avatar_kind: project.po_agent.avatar_kind,
-                  avatar_icon: project.po_agent.avatar_icon,
-                  avatar_color: project.po_agent.avatar_color,
-                  avatar_image_url: project.po_agent.avatar_image_url,
-                }}
-                size={18}
-              />
-            </Link>
-          ) : (
-            <>
-              <Bot size={13} className="shrink-0 text-text-muted" />
-              <span className="text-text-muted">{t('projects.page.noLead')}</span>
-            </>
-          )}
-        </div>
-        {project.agents && project.agents.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1">
-            {project.agents.slice(0, 4).map((agent) => (
-              <Link
-                key={agent.agent_id}
-                to={openEntityPath({ type: 'agent', id: agent.agent_id })}
-                className="inline-flex max-w-[10rem] items-center truncate-fade rounded-md border border-border/60 px-2 py-0.5 text-2xs text-text-secondary transition hover:border-accent/50 hover:text-accent"
-                title={agent.is_default ? t('projects.page.defaultAgent', { name: agent.name }) : agent.name}
-                onClick={stopCard}
-                onKeyDown={stopCard}
-              >
-                {agent.name}
-              </Link>
-            ))}
-            {project.agents.length > 4 ? (
-              <span className="text-2xs text-text-muted">
-                +{project.agents.length - 4}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-        {(project.open_tickets_count ?? 0) > 0 ||
-        (project.doc_sections_total ?? 0) > 0 ||
-        (project.child_count ?? 0) > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-text-secondary">
-            {(project.child_count ?? 0) > 0 ? (
-              <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
-                {t('projects.page.folders', { count: project.child_count })}
-              </Badge>
-            ) : null}
-            {(project.open_tickets_count ?? 0) > 0 ? (
-              <Badge variant="info" className="px-1.5 py-0 text-2xs">
-                {t('projects.page.openTickets', { count: project.open_tickets_count })}
-              </Badge>
-            ) : null}
-            {(project.doc_sections_total ?? 0) > 0 ? (
-              <Badge
-                variant={
-                  project.doc_sections_done === project.doc_sections_total ? 'success' : 'neutral'
-                }
-                className="px-1.5 py-0 text-2xs"
-              >
-                {t('projects.page.docHealth', {
-                  done: project.doc_sections_done ?? 0,
-                  total: project.doc_sections_total ?? 0,
-                })}
-              </Badge>
-            ) : null}
-          </div>
-        ) : null}
-        {project.github_repo_full_name ? (
-          <div className="flex items-center gap-2 text-xs text-text-secondary">
-            <GitBranch size={13} className="shrink-0 text-text-muted" />
-            <span className="truncate-fade">{project.github_repo_full_name}</span>
-            {project.repo_index_status && project.repo_index_status !== 'none' ? (
-              <Badge
-                variant={REPO_STATUS_VARIANT[project.repo_index_status] ?? 'neutral'}
-                size="sm"
-              >
-                {indexStatusLabel(project.repo_index_status, t)}
-              </Badge>
-            ) : null}
-          </div>
-        ) : null}
-        {budget ? <ProjectBudgetBar budget={budget} /> : null}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
-          {canManage && !project.po_agent ? (
-            <Link
-              to={`/folders/${project.id}`}
-              onClick={(event) => event.stopPropagation()}
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              {t('projects.page.assignLead')}
-            </Link>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+          <span className="tabular-nums">
+            {t('projects.detail.folderCounts', {
+              open: openCount,
+              closed: project.closed_count ?? 0,
+            })}
+          </span>
+          {(project.open_tickets_count ?? 0) > 0 ? (
+            <Badge variant="info" className="px-1.5 py-0 text-2xs">
+              {t('projects.page.openTickets', { count: project.open_tickets_count })}
+            </Badge>
           ) : null}
-          <Link
-            to={threadsHref}
-            onClick={(event) => event.stopPropagation()}
-            className="text-xs text-text-muted hover:text-text-primary hover:underline"
-          >
-            {t('projects.page.openInCommunication')}
-          </Link>
         </div>
+        <Link
+          to={threadsHref}
+          onClick={(event) => event.stopPropagation()}
+          className="text-xs text-text-muted hover:text-text-primary hover:underline"
+        >
+          {t('projects.page.openInCommunication')}
+        </Link>
       </div>
     </Card>
   )
@@ -318,17 +179,11 @@ export default function ProjectsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = useIsAdmin()
   const [projects, setProjects] = useState<ProjectRow[]>([])
-  const [budgets, setBudgets] = useState<Record<string, ProjectBudgetResponse>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
-  const [creating, setCreating] = useState(false)
-  const [name, setName] = useState('')
-  const [slug, setSlug] = useState('')
-  const [description, setDescription] = useState('')
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
-  const [showSlug, setShowSlug] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -338,18 +193,7 @@ export default function ProjectsPage() {
     setLoading(true)
     setError(null)
     try {
-      const projectRows = await listProjects()
-      setProjects(projectRows)
-      const budgetEntries = await Promise.all(
-        projectRows.map(async (p): Promise<[string, ProjectBudgetResponse] | null> => {
-          try {
-            return [p.id, await getProjectBudget(p.id)]
-          } catch {
-            return null
-          }
-        }),
-      )
-      setBudgets(Object.fromEntries(budgetEntries.filter((e): e is [string, ProjectBudgetResponse] => e !== null)))
+      setProjects(await listProjects())
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.page.loadError')))
     } finally {
@@ -390,36 +234,12 @@ export default function ProjectsPage() {
     setSearchParams(next, { replace: true })
   }, [isAdmin, searchParams, setSearchParams])
 
-  const create = async () => {
-    const nextSlug = slug.trim() || slugify(name)
-    if (!name.trim() || !nextSlug) return
-    setCreating(true)
-    try {
-      const created = await createProject({
-        name: name.trim(),
-        slug: nextSlug,
-        autonomous_scope: 'ops',
-        description: description.trim() || undefined,
-      })
-      setName('')
-      setSlug('')
-      setDescription('')
-      setShowSlug(false)
-      setCreateOpen(false)
-      toast.success(t('projects.page.created'))
-      navigate(`/folders/${created.id}`)
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('projects.page.createError')))
-    } finally {
-      setCreating(false)
-    }
-  }
-
   const confirmDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
     try {
       await deleteProject(deleteTarget.id, deleteTarget.name)
+      notifyFoldersChanged({ folderId: deleteTarget.id })
       toastMovedToBin(t('projects.page.deleted'), navigate)
       setDeleteTarget(null)
       await load()
@@ -430,15 +250,18 @@ export default function ProjectsPage() {
     }
   }
 
-  const visibleProjects = projects.filter((project) => {
+  const visibleProjects = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle) return !project.parent_id
-    const hay = [project.name, project.po_agent?.name, project.description]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return hay.includes(needle)
-  })
+    const roots = projects.filter((project) => !project.parent_id)
+    if (!needle) return roots
+    return projects.filter((project) => {
+      const hay = [project.name, ...(project.tag_names ?? []), project.description]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return hay.includes(needle)
+    })
+  }, [projects, query])
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
@@ -512,94 +335,33 @@ export default function ProjectsPage() {
               className="stagger-in"
               style={{ '--stagger': Math.min(index, 11) } as CSSProperties}
             >
-              <ProjectCard
-                project={project}
-                budget={budgets[project.id]}
-                canManage={isAdmin}
-                onDelete={() => setDeleteTarget(project)}
-              />
+              <ProjectCard project={project} canManage={isAdmin} onDelete={() => setDeleteTarget(project)} />
             </div>
           ))}
         </div>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('projects.page.dialogTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('projects.page.dialogBody')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="project-name">{t('projects.page.name')}</Label>
-              <Input
-                id="project-name"
-                value={name}
-                autoFocus
-                onChange={(e) => {
-                  setName(e.target.value)
-                  if (!slug || slug === slugify(name)) setSlug(slugify(e.target.value))
-                }}
-                placeholder={t('projects.page.namePlaceholder')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && name.trim()) {
-                    e.preventDefault()
-                    void create()
-                  }
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              className="text-xs font-medium text-accent hover:underline"
-              onClick={() => setShowSlug((open) => !open)}
-            >
-              {showSlug ? t('projects.page.hideAdvanced') : t('projects.page.advancedSlug')}
-            </button>
-            {showSlug ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="project-slug">{t('projects.page.slug')}</Label>
-                <Input
-                  id="project-slug"
-                  value={slug}
-                  onChange={(e) => setSlug(slugify(e.target.value))}
-                  placeholder={t('projects.page.slugPlaceholder')}
-                />
-              </div>
-            ) : null}
-            <div className="space-y-1.5">
-              <Label htmlFor="project-description">{t('projects.page.description')}</Label>
-              <Input
-                id="project-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t('projects.page.descriptionPlaceholder')}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
-              {t('projects.page.cancel')}
-            </Button>
-            <Button
-              type="button"
-              disabled={creating || !name.trim() || !(slug.trim() || slugify(name))}
-              onClick={() => void create()}
-            >
-              {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus size={14} className="mr-1.5" />}
-              {t('projects.page.create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TagSetPicker
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        mode="folder"
+        title={t('projects.page.dialogTitle')}
+        description={t('projects.page.dialogBody')}
+        confirmLabel={t('projects.page.create')}
+        showParentPreview
+        onConfirm={async (tagNames) => {
+          const created = await createProject({ tags: tagNames })
+          notifyFoldersChanged({ folderId: created.id })
+          toast.success(t('projects.page.created'))
+          navigate(`/folders/${created.id}`)
+        }}
+      />
 
       {deleteTarget ? (
         <ConfirmDeleteDialog
           title={t('projects.page.deleteTitle')}
           itemLabel={t('projects.page.deleteItem')}
-          itemName={deleteTarget.name}
+          itemName={displayName(deleteTarget)}
           impactText={
             widenedConnections.length > 0
               ? `${t('projects.page.deleteImpact')} ${t('projects.work.deleteWidensConnections', {
@@ -615,10 +377,12 @@ export default function ProjectsPage() {
 
       <PageRelatedLinks
         links={[
-          { to: '/workstreams', label: t('pageGuides.related.workstreams') },
-          { to: '/settings/action-tags', label: t('pageGuides.related.categories') },
-          { to: '/agents', label: t('pageGuides.related.agents') },
-          { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
+          { to: '/workstreams', label: t('pageGuides.related.workstreams', { defaultValue: 'Flows' }) },
+          { to: '/settings/action-tags', label: t('pageGuides.related.categories', { defaultValue: 'Action tags' }) },
+          {
+            to: '/communication/inbox/open',
+            label: t('pageGuides.related.communication', { defaultValue: 'Communication' }),
+          },
         ]}
       />
     </PageContent>

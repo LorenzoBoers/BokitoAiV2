@@ -539,7 +539,15 @@ export function WorkstreamStagesCard({
   const { members } = useMembers()
   const { teams } = useTeams()
   const [agents, setAgents] = useState<
-    { id: string; name: string; avatar_kind?: string | null; avatar_icon?: string | null; avatar_color?: string | null; avatar_image_url?: string | null }[]
+    {
+      id: string
+      name: string
+      avatar_kind?: string | null
+      avatar_icon?: string | null
+      avatar_color?: string | null
+      avatar_shape?: string | null
+      avatar_image_url?: string | null
+    }[]
   >([])
 
   useEffect(() => {
@@ -554,6 +562,7 @@ export function WorkstreamStagesCard({
               avatar_kind: row.avatar_kind,
               avatar_icon: row.avatar_icon,
               avatar_color: row.avatar_color,
+              avatar_shape: row.avatar_shape,
               avatar_image_url: row.avatar_image_url,
             })),
           )

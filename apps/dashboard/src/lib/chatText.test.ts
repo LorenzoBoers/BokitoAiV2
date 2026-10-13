@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   appLinkKind,
+  incompleteChipTailStart,
+  nextChipRevealLength,
   parseChatInline,
   parseChatText,
   plainChatText,
@@ -56,6 +58,15 @@ describe('parseChatInline', () => {
     expect(nodes.find((n) => n.type === 'mention' && n.name === 'Ann')).toBeTruthy()
   })
 
+  it('normalizes folder links that omit the leading slash', () => {
+    const nodes = parseChatInline('Open [2025](folders/a55defc0-0864-41e5-b454-19ec7eaf12e5)')
+    expect(nodes.find((n) => n.type === 'link')).toEqual({
+      type: 'link',
+      label: '2025',
+      href: '/folders/a55defc0-0864-41e5-b454-19ec7eaf12e5',
+    })
+  })
+
   it('parses bare and structured tags plus status pills', () => {
     const nodes = parseChatInline('Tags #klacht and #storing, #[[klacht]](action_tag:1), [Open](status:open)', {
       tags: { klacht: 'action_tag', storing: 'tag' },
@@ -76,10 +87,61 @@ describe('parseChatInline', () => {
     expect(parseChatInline('Hi **bol')).toEqual([{ type: 'text', text: 'Hi **bol' }])
   })
 
+  it('hides incomplete chip markup at the tail while streaming', () => {
+    expect(parseChatInline('Ask @[Bo', { streaming: true })).toEqual([{ type: 'text', text: 'Ask ' }])
+    expect(parseChatInline('See [Moneybird](/con', { streaming: true })).toEqual([
+      { type: 'text', text: 'See ' },
+    ])
+    expect(parseChatInline('Hi @[Ann](user:7) and @[Bo', { streaming: true })).toEqual([
+      { type: 'text', text: 'Hi ' },
+      { type: 'mention', name: 'Ann', kind: 'user', id: '7' },
+      { type: 'text', text: ' and ' },
+    ])
+  })
+
   it('chips catalog connector names as in-app links', () => {
     const nodes = parseChatInline('Koppel Moneybird en Exact Online.')
     expect(nodes.find((n) => n.type === 'link' && n.href === '/connections?connect=moneybird')).toBeTruthy()
     expect(nodes.find((n) => n.type === 'link' && n.href === '/connections?connect=exact')).toBeTruthy()
+  })
+})
+
+describe('nextChipRevealLength', () => {
+  it('holds at an incomplete mention instead of streaming the syntax', () => {
+    const src = 'Ask @[Bo'
+    expect(nextChipRevealLength(src, 0, 8)).toBe(4)
+    expect(src.slice(0, 4)).toBe('Ask ')
+    expect(incompleteChipTailStart(src)).toBe(4)
+  })
+
+  it('holds at an incomplete markdown link', () => {
+    const src = 'See [Moneybird](/con'
+    expect(nextChipRevealLength(src, 0, 12)).toBe(4)
+    expect(nextChipRevealLength(src, 4, 18)).toBe(4)
+  })
+
+  it('pops a complete mention in one step once it fits the hard cap', () => {
+    const chip = '@[Ann](user:7)'
+    const src = `Hi ${chip}!`
+    const chipStart = 3
+    const chipEnd = chipStart + chip.length
+    // Cruise only a few chars into the chip — still jumps to the end.
+    expect(nextChipRevealLength(src, chipStart, chipStart + 3, chipEnd)).toBe(chipEnd)
+    // Not yet fully publishable (lead brake): stay before the chip.
+    expect(nextChipRevealLength(src, chipStart, chipStart + 3, chipStart + 5)).toBe(chipStart)
+  })
+
+  it('pops a complete in-app link atomically', () => {
+    const chip = '[Moneybird](/connections?connect=moneybird)'
+    const src = `Try ${chip} now`
+    const start = 4
+    expect(nextChipRevealLength(src, start, start + 2, start + chip.length)).toBe(start + chip.length)
+  })
+
+  it('releases incomplete bare brackets when holdIncomplete is false', () => {
+    const src = 'array[0]'
+    expect(nextChipRevealLength(src, 0, src.length, src.length, true)).toBe(5)
+    expect(nextChipRevealLength(src, 0, src.length, src.length, false)).toBe(src.length)
   })
 })
 

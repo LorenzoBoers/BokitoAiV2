@@ -27,6 +27,7 @@ class FolderNavRow(NavRow):
 
     parent_id: str | None = None
     project_id: str | None = None
+    tag_ids: list[str] = []
     virtual: bool = False
     children: list["FolderNavRow"] = []
 

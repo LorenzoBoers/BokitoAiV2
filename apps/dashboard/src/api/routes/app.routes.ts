@@ -210,7 +210,8 @@ export const appRoutes = {
   },
   cockpit: {
     summary: '/cockpit/summary',
-    activity: (params: URLSearchParams) => withQuery('/cockpit/activity', params),
+    actionMix: (days: number) =>
+      withQuery('/cockpit/action-mix', new URLSearchParams({ days: String(days) })),
     usage: (days: number) => withQuery('/cockpit/usage', new URLSearchParams({ days: String(days) })),
     usageSeries: (opts: { days: number } | { hours: number }) => {
       const params =

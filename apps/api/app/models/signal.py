@@ -260,10 +260,8 @@ class SavedReply(SQLModel, table=True):
 class TagGroup(SQLModel, table=True):
     """A dimension of tags the operator names (Relatie, Documenttype, Periode).
 
-    Groups order the catalog for people and agents, drive dynamic folders
-    (a `Project.child_group_id` folder shows one virtual child per tag in the
-    group) and, when ``exclusive``, allow at most one tag of the group per
-    conversation.
+    Groups order the catalog for people and agents and, when ``exclusive``,
+    allow at most one tag of the group per conversation.
     """
 
     __tablename__ = "tag_groups"
@@ -286,8 +284,8 @@ class SignalTag(SQLModel, table=True):
     - free label on conversations (`SignalTagLink`), contacts and companies;
     - *action tag* when ``workstream_id`` is set: filing it makes the
       conversation a ticket in that flow (`Signal.ticket_tag_id`);
-    - *folder* when a `Project` carries it as ``tag_id``: the conversation's
-      folder is derived from its tags (`services.folders`).
+    - *folder member* when a `Project` lists it in ``project_tag_links``:
+      the conversation matches every folder whose tag set it fully covers.
 
     The intake fields below only apply to action tags. Agents and inbox rules
     may only apply names the registry already has.

@@ -36,7 +36,7 @@ from app.models.oauth_as import (
 from app.models.webhook import WebhookDelivery, WebhookEndpoint
 from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
-from app.models.project import Project, ProjectAgent
+from app.models.project import Project, ProjectTagLink
 from app.models.project_canvas import ProjectCanvas
 from app.models.project_work import (
     ProjectResource,
@@ -106,7 +106,7 @@ __all__ = [
     "WorkstreamRun",
     "WorkstreamStep",
     "Project",
-    "ProjectAgent",
+    "ProjectTagLink",
     "ProjectCanvas",
     "TaskDocLink",
     "ProjectResource",

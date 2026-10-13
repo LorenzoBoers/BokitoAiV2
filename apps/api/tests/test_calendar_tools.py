@@ -186,6 +186,24 @@ async def test_propose_event_creates_decision_when_healthy(session_override: Asy
     ).scalars().all()
     assert len(decisions) == 1
     assert "Standup" in (decisions[0].title or "")
+    summary = decisions[0].summary or ""
+    assert "T10:00" not in summary
+    assert "Standup" in summary
+    assert "·" in summary
+
+
+def test_format_event_when_humanizes_naive_iso():
+    from app.tools.calendar import format_event_when, humanize_iso_in_text
+
+    when = format_event_when("2026-10-14T14:00:00", "2026-10-14T15:00:00")
+    assert "T14:00" not in when
+    assert "14:00" in when
+    assert "15:00" in when
+    legacy = humanize_iso_in_text(
+        "Testafspraak from 2026-10-14T14:00:00 to 2026-10-14T15:00:00 in lorenzo@bokito.ai"
+    )
+    assert "T14:00" not in legacy
+    assert "Testafspraak" in legacy
 
 
 @pytest.mark.asyncio

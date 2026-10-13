@@ -82,7 +82,7 @@ export function layerOf(item: TimeItem): AgendaLayer | 'calendar' {
 }
 
 export function parseView(raw: string | null): AgendaView {
-  return AGENDA_VIEWS.includes(raw as AgendaView) ? (raw as AgendaView) : 'week'
+  return AGENDA_VIEWS.includes(raw as AgendaView) ? (raw as AgendaView) : 'day'
 }
 
 export function parseLayers(raw: string | null): Set<AgendaLayer> {
@@ -137,6 +137,18 @@ export function matchesWho(item: TimeItem, who: AgendaWho, meId: string | null):
   }
   if (item.owner_kind === 'user' && item.owner_id === id) return true
   return item.actor_kind === 'person' && item.actor_id === id
+}
+
+/**
+ * Google-style owner toggles: hide tasks/activity for unchecked people and agents.
+ * Calendar blocks ignore this set (they have their own checkboxes).
+ */
+export function matchesOwnerVisibility(item: TimeItem, hiddenOwners: ReadonlySet<string>): boolean {
+  if (hiddenOwners.size === 0) return true
+  if (item.kind === 'calendar') return true
+  const owner = itemOwner(item)
+  if (!owner?.id || (owner.kind !== 'user' && owner.kind !== 'agent')) return true
+  return !hiddenOwners.has(`${owner.kind}:${owner.id}`)
 }
 
 export function startOfDay(d: Date): Date {

@@ -8,7 +8,7 @@ import {
   Brain,
   Building2,
   CalendarClock,
-  FolderKanban,
+  FolderOpen,
   LayoutTemplate,
   ListFilter,
   MessageSquare,
@@ -44,8 +44,8 @@ export type EntityIconKind =
 
 export const ENTITY_ICONS: Record<EntityIconKind, LucideIcon> = {
   conversation: MessageSquare,
-  folder: FolderKanban,
-  project: FolderKanban,
+  folder: FolderOpen,
+  project: FolderOpen,
   canvas: CANVAS_ICON,
   knowledge: Brain,
   contact: UserRound,

@@ -1,10 +1,10 @@
 ---
 title: Zo werkt Overview
 intro: Begin hier als je wilt weten of werk doorloopt en waar aandacht nodig is.
-description: Gebruik Overview voor de dagelijkse scan, Canvas voor workspace-dashboards, Activiteit voor het eventlog en Verbruik voor tokenbudget en kosten.
+description: Gebruik Overview voor de dagelijkse scan, Canvas voor workspace-dashboards en Verbruik voor tokenbudget en kosten. Agentactiviteit staat op Agents.
 keywords: overview, rapportages, cockpit, dashboard, overzicht, verbruik, budget, activiteit
 sort: 50
-related: communication,categories,agent-runs,decisions,agenda
+related: communication,categories,agent-runs,decisions,agenda,agents
 ---
 
 # Zo werkt Overview
@@ -18,7 +18,7 @@ Overview is de ochtendscan. Open die in de linkerrail om te zien waar jij nodig 
 
 1. Open **Overview** in de linkerrail. Je landt op de scan. De titel op de pagina is de workspacenaam; het hulp-icoon naast **Overview** in de bovenbalk opent deze gids. De ondertitel begroet je en toont de datum van vandaag. De grijze regel `environment · tenant-slug · Live · 1.2.01` is voor support (API-environment, deze tenant, websocket, releaseversie). Klik de slug om de hele regel te kopiëren. Dezelfde regel staat onderaan het accountmenu. De dev-host toont de volgende patch, één stap voor op productie.
 2. **Jij bent nodig** staat bovenaan over de volle breedte: open beslissingen en gesprekken die aan jou zijn toegewezen (dezelfde uitzonderingenlijst als **Voor jou** in Communicatie). Is die leeg, gebruik **Voor jou openen** of **Kanaal koppelen**.
-3. Daaronder toont **AI-activiteit** een gestapelde area-grafiek van gewogen **AI**-werk (paars) over **handmatig** werk (grijs) van de afgelopen 14 dagen, **Tijd bespaard** (geschatte minuten uit AI-resultaten deze week: autonome sends, geassisteerde concepten die verstuurd of door een persoon voortgezet zijn, stille no-reply-triage, bevestigde no-reply-sluitingen, door AI vastgelegde tickets, afgeronde flows) en **AI-aandeel** (het deel van de gewogen acties dat AI deze week afhandelt). Bij beide cijfers staat een groene pijl omhoog of een rode pijl omlaag met het procentuele verschil ten opzichte van de vorige 7 dagen. Rechts staat een cirkeldiagram van gewogen **Autonoom**-, **Geassisteerd**- en **Handmatig**-acties deze week (met open-gesprekstellers onder de legenda). **Instellingen AI-afhandeling** opent de workspace-draaiknop. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+3. Daaronder toont **AI-activiteit** een gestapelde area-grafiek van gewogen **AI**-werk (paars) over **handmatig** werk (grijs), **Tijd bespaard** (geschatte minuten uit AI-resultaten: autonome sends, geassisteerde concepten die verstuurd of door een persoon voortgezet zijn, stille no-reply-triage, bevestigde no-reply-sluitingen, door AI vastgelegde tickets, afgeronde flows) en **AI-aandeel** (het deel van de gewogen acties dat AI afhandelt). Met de switcher **7 dagen** / **30 dagen** / **90 dagen** (zelfde als bij Verbruik) kies je het venster; bij beide cijfers staat een groene pijl omhoog of een rode pijl omlaag met het procentuele verschil ten opzichte van de vorige even lange periode, als die data er is. Rechts staat een cirkeldiagram van gewogen **Autonoom**-, **Geassisteerd**- en **Handmatig**-acties voor de gekozen periode (met open-gesprekstellers onder de legenda). **Instellingen AI-afhandeling** opent de workspace-draaiknop. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
 4. Onder **Verder in de workspace** staan drie secundaire blokken: **Open tickets per categorie**, **Lopend en straks** en **Traject**. **Lopend en straks** waarschuwt voor openstaande check-ups en verlopen kijkmomenten, toont de eerstvolgende items uit [Agenda](/docs/ai/agenda), daarna de lopende runs, en eindigt met **Agenda openen**. Traject vergelijkt deze week met vorige week: **Tickets vastgelegd (7 dagen)** telt alleen bevestigde tickets, en het blok linkt naar afgeronde runs, Govern-voorstellen en Verbruik.
 5. Klik een rij om het gesprek, de run of een gefilterde lijst te openen. Een rij onder **Open tickets per categorie** opent de rij van die categorie in Communicatie. Heeft een open gesprek 14 dagen geen bericht, dan staat het onder **Al 14 dagen stil** met **Afsluiten**. Zonder terugkerende taak staat bovenaan eenmalig de banner **Laat een agent je verder helpen** met **Taak instellen**. Die opent **Plannen** al ingevuld: elke werkdag om 09:00, de hoofdagent, en een opdracht die noemt wat openstaat en volgende stappen voorstelt. Na **Opslaan** land je in dat gesprek, waar de agent elke keer schrijft. **Verbergen** haalt de banner weg voor deze workspace.
 
@@ -41,11 +41,11 @@ Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview sta
 2. Open het. Je landt op het bijbehorende gesprek in Communicatie.
 3. Handel de beslissing af in het gesprek en keer terug naar Overview.
 
-## Lees Activiteit
+## Lees agentactiviteit
 
-1. Open **Activiteit** vanuit Communicatie (of de rij **Activiteit** van een agent) als je de volledige stream nodig hebt. Overview zelf houdt **Jij bent nodig** vooraan, daarna de secundaire contextblokken.
+1. Open **Agents** (of de rij **Activiteit** van een agent in Communicatie) voor de Activiteit-swimlane. Overview zelf houdt **Jij bent nodig** vooraan, daarna de secundaire contextblokken.
 2. Scan resultaten, niet elke denkstap.
-3. Spring naar een gesprek of agent wanneer een rij follow-up vraagt.
+3. Spring naar een gesprek of agent wanneer een rij follow-up vraagt. Zie [Agentactiviteit volgen](/docs/inbox/agent-runs).
 
 ## Check Verbruik
 

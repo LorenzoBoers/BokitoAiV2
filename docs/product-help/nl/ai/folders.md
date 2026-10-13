@@ -1,106 +1,69 @@
 ---
 title: Zo werken Mappen
-intro: Een map houdt een doel vast — de landingspagina, het snapshot-canvas, documentatie, wie het leidt, en hoeveel het mag uitgeven.
-description: Land op Project voor de flowborden en koppelingen, vraag een agent het snapshot-canvas te schrijven, houd documentatie bij en begrens uitgaven.
-keywords: projecten, mappen, canvas, dashboard, snapshot, tickets, flows, borden, documentatie, secties, resources, repository, budget, orkestratie
+intro: Een map is een bewaard tagfilter — gesprekken die alle tags in de set dragen landen hier, met canvas, docs en borden op dezelfde hub.
+description: Maak mappen als AND-tagfiltersets, nest door tags toe te voegen, open passende gesprekken en houd canvas en docs op de maphub.
+keywords: mappen, tags, filterset, canvas, tickets, flows, borden, documentatie, communicatie, nesten
 sort: 40
 related: workstreams,categories,agenda,knowledge,communication
 ---
 
 # Zo werken Mappen
 
-Een map is een tag met een plek. De mapnaam is die tag (`#facturen`). Gesprekken staan in elke map waarvan ze de pad-tags dragen, inclusief tags op het contact. Canvas, docs en budget blijven op één thuis: het diepste passende pad. Open **Mappen** wanneer een doel een thuis moet hebben in plaats van alleen in chat te leven. Een mapdetail toont **Overzicht**, **Gesprekken** en **Instellingen**; **Tickets**, **Documentatie** en **Bestanden** verschijnen wanneer die map ze heeft. De URL houdt het tabblad bij (`?tab=conversations`, `?tab=tickets`, `?tab=canvas`, `?tab=docs`, `?tab=files`, `?tab=settings`) zodat je dat oppervlak kunt delen.
+Een map is een bewaarde set tags. Een gesprek past als het **elke** tag in die set heeft (inclusief tags van het contact). Hetzelfde gesprek kan in meerdere mappen staan; smallere sets nesten onder bredere in de rail. Open **Mappen** voor de hub: gesprekken, tickets, canvas, docs en bestanden. Er is geen agent, budget of repository per map.
 
 ## Maak of open een map
 
 ![Projectenlijst](/api/docs/assets/folders/project.png)
-*Elke kaart toont de projectagent, open tickets en het budget.*
+*Elke kaart is een tagset (bijvoorbeeld `#2026 · #facturen`) met open werk.*
 
-1. Open **Mappen**. Links staat een mappenmenu. Submappen blijven dicht tot je dat project opent. De titel op de pagina is **{workspace} projecten**; het hulp-icoon naast **Projecten** in de bovenbalk opent deze gids. Kies **Nieuwe map** (of zoek **Nieuwe map** in het commandopalet) en geef het doel een naam, daarna Enter. De URL-slug wordt automatisch gemaakt; open **Geavanceerd: URL-slug** alleen als je die wilt wijzigen.
-2. Lees de kaart: projectagent, open tickets (dezelfde borden als Project Home), documentatiegezondheid, repo-status, resterend budget. De projectagent en de agentchips openen de agentpagina; staat een zoekresultaat in een ander project, dan opent het pad boven de naam die bovenliggende map. Zoek op naam of agent als de lijst groeit. Als niets past, toont **Zoekopdracht wissen** alle projecten weer.
-3. Open die. Je landt op het tabblad **Overzicht**. Klik de projectagent om die te openen. Beheerders kiezen de pen in de kaartkop om een andere bedrijfsagent als projectstandaard te zetten, of maken er een. Leden kunnen een project lezen; ze kunnen het niet verwijderen of de naam wijzigen.
+1. Open **Mappen**. Links zie je de afgeleide boom (smallere mappen onder bredere). Kies **Nieuwe map** en kies of maak de tags van het filter — er is geen aparte naam.
+2. Terwijl je tags kiest, toont het dialoog de volledige filterset en of de nieuwe map **onder** een bestaande bredere map komt.
+3. Open een kaart. Je landt op **Overzicht**. Beheerders wijzigen de tagset ter plekke (bredere tags blijven vergrendeld als de map al onder een andere hangt). Leden kunnen lezen, niet verwijderen.
+
+## Maak een smallere map onder deze
+
+1. Open een map en kies **Nieuwe map**.
+2. Tags van de open map blijven verplicht (vergrendeld). Voeg één of meer **extra tags** toe — die extra's zie je als rij onder de ouder in de boom.
+3. Bevestig. Gesprekken matchen alleen als ze elke tag van de nieuwe set dragen. De map verschijnt onder de bredere in Mappen en in Communicatie **Wat**.
+
+## Nest een map onder een bredere
+
+1. Op **Mappen** sleep je een map op de zone **Nesten** van een andere rij (of gebruik **Nesten** in het mapmenu).
+2. Lees de preview: de resulterende filterset en onder welke bredere map die komt. Deelden de mappen geen tags, bevestig dan de waarschuwing — matchende gesprekken moeten daarna ook de bredere tags dragen.
+3. Bevestig **Nesten**. Gebruik **Ongedaan maken** in de melding, of Ctrl/Cmd+Z, om de laatste nest of herordening terug te draaien.
 
 ## Lees het Overzicht
 
-Het tabblad **Overzicht** is de landing. De kopkaart toont het mapicoon, de naam en de beschrijving voor agents (beheerders wijzigen beide ter plekke; wijzigingen slaan automatisch op), en één regel feiten: open en gesloten gesprekken, hoeveel mappen erin zitten, de projectagent en de gekoppelde repository. Rechts staan **Open in communicatie**, **Nieuwe map** (beheerders) en een menu met meer acties: **Project-ID kopiëren**, **Slug kopiëren**, **Verplaatsen** en **Verwijderen**.
+1. De kop toont de volledige filtertags (`#2026 · #facturen`). Boomrijen tonen alleen de tags die nieuw zijn ten opzichte van de ouder. **Open in communicatie** springt naar hetzelfde filter in de Communicatie-rail.
+2. Hover een boomrij voor de volledige set en **Onder:** de bredere map.
+3. **Recente gesprekken** toont matches; **Alle gesprekken** opent het tabblad Gesprekken. Canvas, docs en bestanden blijven op deze hub.
 
-1. **Mappen** staan bovenaan, als kaarten: de naam, open en gesloten gesprekken in die map en dieper, en hoeveel mappen hij bevat. Klik een kaart om de map te openen. Beheerders zien ook een gestippelde kaart **Nieuwe map**.
-2. De rij daaronder toont de projectagent (klikken opent die; beheerders wijzigen via de pen), de projectagenda onder **Agenda** (openstaande check-ups en geplande kijkmomenten voor de tickets van dit project; **Openen in Agenda** in de kaartkop toont ze allemaal en **Iets inplannen** op een lege kaart opent Agenda met dit project voorgeselecteerd) en het resterende budget.
-3. **Recente gesprekken** toont de laatste open gesprekken in deze map; **Alle gesprekken** schakelt naar het tabblad Gesprekken.
-4. **Recente activiteit** toont de laatste agent-runs op dit project. **Instellingen** houdt de agents, repository en resources.
+## Zie gesprekken in een map
 
-## Bekijk de gesprekken in een map
-
-Elk gesprek dat de pad-tags van deze map draagt, staat in de Communicatie-zijbalk onder **Mappen en tags**, en kan ook in een andere passende map staan. Het tabblad **Gesprekken** toont dezelfde lijst naast de mappen en borden.
-
-1. Open het tabblad **Gesprekken**. Het getal in de tab is het aantal open gesprekken. Schakel tussen **Open** en **Gesloten**.
-2. Elke rij toont de statusstip, het kanaal, het onderwerp, het contact, de map waarin het zit als die dieper ligt dan dit project, en de actietag. Klik een rij om dat gesprek te openen in de map van dit project in Communicatie.
-3. **Open in communicatie** naast het filter opent de hele map in de Communicatie-zijbalk (de sectie Projecten wordt weer zichtbaar als je die had verborgen, de map scrollt in beeld en licht kort op). Dezelfde knop staat in de projectkop.
-4. Kies onderaan **Meer laden** als de map meer dan dertig gesprekken bevat.
+1. Open het tabblad **Gesprekken**, of gebruik **Mappen** in Communicatie. Lege mappen blijven in de rail verborgen tot er open werk is of je ze vastzet.
+2. Elke rij is een gesprek dat alle tags van deze map draagt. Indelen in een map voegt die tags toe.
+3. Contacttags gelden automatisch (als overgenomen); ze worden niet op de thread gekopieerd.
 
 ## Verplaats een ticket op een bord
 
 ![Flowborden op een project](/api/docs/assets/folders/boards.png)
-*Eén bord per flow op het project, met de fasen van die flow als kolommen.*
+*Eén bord per flow op de map, met de stages van die flow als kolommen.*
 
-1. Open het tabblad **Tickets**. Elke flow op dit project is één bord, onder elkaar, met de actietag als titel. De kolommen zijn de fasen van de flow, bijvoorbeeld Open, Wachtend en Klaar.
-2. Sleep een kaart naar een andere kolom om het ticket naar die fase te zetten. De verplaatsing staat in de tijdlijn van het gesprek.
-3. Klik op een kaart om dat gesprek te openen in [Communicatie](/docs/inbox/communication).
-4. Nog geen bord? Beheerders kiezen boven de borden **Flow toevoegen** en kiezen een flow; **Ontkoppelen** op een bord haalt hem weer weg. Zie [Flows](/docs/ai/workstreams).
+1. Open het tabblad **Tickets** wanneer er flows aan deze map hangen.
+2. Sleep een kaart naar een andere kolom om de stage te wijzigen. Klik een kaart om die in [Communicatie](/docs/inbox/communication) te openen.
+3. Flows blijven de actietag-as; een map filtert alleen wat je ziet. Zie [Flows](/docs/ai/workstreams) en [Actietags](/docs/ai/categories).
 
 ## Vraag een agent een canvas te schrijven
 
-Een project kan meerdere snapshot-canvasses hebben (geen live tegels). Een agent maakt, vult en ververst een canvas; jij kunt dat ook vanaf dit tabblad. De agent die het aanmaakt is de eigenaar, tenzij je een andere noemt. Elk canvas leeft op één gesprek: het huidige chat, of een nieuwe thread als dat chat ergens anders over gaat. Verversen is de herhaling van dat gesprek in [Agenda](/docs/ai/agenda): eenmalig (**Handmatig**), dagelijks om 07:00 UTC, wekelijks, maandelijks, uurlijks, of **Aangepast** (een cron van vijf velden). Op Assisted of Autonomous past de schrijfactie meteen toe. Op Manual wacht die als beslissing onder [Govern](/docs/govern/govern).
+1. Open het tabblad **Canvas**. Voeg een canvas toe met titel, brief en vernieuwingsritme. De beherende agent kies je op het canvas, niet op de map.
+2. Vraag in het gekoppelde gesprek om status of dashboard; de agent werkt de snapshot bij. Workspace-canvassen staan ook op Overview **Canvas**.
 
-1. Open het tabblad **Canvas**. Canvasnamen staan van links naar rechts. De **+** ná de laatste naam voegt een canvas toe. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**, **Aangepast**). Bij **Aangepast** vul je een cron in, bijvoorbeeld `0 8 * * 1-5`. Dagelijks is de standaard. Sla op. De eigenaar begint vanuit de omschrijving.
-2. Canvasses staan als tabs van links naar rechts. Zolang het document leeg is, toont de tab dat de agent schrijft. Na de schrijfactie zie je kaarten, stats, tabellen of grafieken van de laatste snapshot.
-3. Vraag de agent in het gesprek om cijfers, een status of een dashboard; hij bouwt of werkt het canvas in die beurt bij. Een latere aanpassing werkt datzelfde canvas bij. Het antwoord noemt het canvas als link en toont een kleine preview van de snapshot. Open de preview om op dat canvas te landen. Het canvas-tabblad toont de eigenaar-agent en het gesprek; open dat gesprek om een aanpassing te vragen. Het zijpaneel van dat gesprek toont het canvas (naam, preview, link) onder **Dit gesprek**. Verversen is de herhaling op diezelfde thread, ook zichtbaar in Agenda. Admins kunnen **Bron tonen**. Workspace-canvasses staan op Overview **Canvas**.
+## Houd documentatie bij
 
-## Tickets op een project krijgen
+1. Open het tabblad **Documentatie** voor docs van deze map. Maak of bewerk zoals in Kennis; agents wijzigen projectdocs alleen in een [flow](/docs/ai/workstreams)-run.
+2. Kies **Openen in Kennishub** om hetzelfde document onder Kennis te bewerken.
 
-1. Kies op het tabblad **Tickets** **Flow toevoegen** en kies de flow. Flows koppel je vanuit het project; de flowpagina toont alleen waar hij gebruikt wordt.
-2. Leg een gesprek vast met de actietag van die flow. Vastleggen vraagt bij welk project het hoort; kies dit project. Agents maken dezelfde keuze. Zie [Actietags en tickets](/docs/ai/categories).
-3. Het ticket verschijnt in de eerste fase op het bord van die flow, en onder **Projecten** in de zijbalk van Communicatie.
-4. Hoeveel een agent zonder vragen mag doen, is één workspacebrede knop: zie [Autonomy](/docs/govern/autonomy).
+## Agenda en de rail
 
-## Houd projectdocumentatie bij
-
-1. Open het tabblad **Documentatie** (een contextuele weergave van dezelfde docs als Kennis, gefilterd op dit project). Kies **Nieuw document**, geef het een naam en schrijf in **Schrijven** of **Markdown**. Inhoud wordt altijd als markdown opgeslagen.
-2. Actieve gekoppelde queue-aanvragen tonen chips op het document. De status blijft op het queue-item.
-3. Klap **Secties** uit om per `##`-sectie te werken, elk met een status: **Concept**, **Review** of **Definitief**. Een sectie die een agent tijdens een flow-run schrijft, gaat naar **Review**; gate-goedkeuring promoveert haar naar **Definitief**.
-4. Jij bewerkt direct; agents mogen projectdocumentatie alleen bewerken binnen een [flow](/docs/ai/workstreams)-run, zodat achter elke agent-wijziging een werklog zit.
-5. Kies **Openen in Kennishub** om hetzelfde document onder Kennis → Projecten te bewerken.
-
-## Koppel resources
-
-1. Open het tabblad **Instellingen**. De repositorykaart koppelt een GitHub-repo zoals voorheen; de status gaat van **Repo indexeren** naar **Repo klaar**.
-2. Kies onder **Resources** voor **Resource koppelen** om andere omgevingen aan te haken waar het project op werkt: een drive-map, een Notion-pagina, een spreadsheet, een codeertool of een website.
-3. Kies een type, voeg een label en een referentie toe (URL of ID), en kies **Koppelen**. Resources zijn nu gekoppeld op referentie; connectors die synchroniseren en handelen haken hier later op aan.
-
-## Geef een project een eigen koppeling
-
-Koppel een integratiekoppeling wanneer een project staat voor een klant of afdeling met een eigen account, zoals een aparte Moneybird-administratie.
-
-1. Open het tabblad **Instellingen** en kies onder **Resources** voor **Resource koppelen**.
-2. Kies het type **Koppeling**, kies de koppeling en daarna **Koppelen**.
-3. De koppeling is nu exclusief voor de projecten waaraan hij gekoppeld is. Agents die aan dit project werken gebruiken hem vóór de modulestandaard; werk elders kan hem niet gebruiken.
-4. Verwijder de resource om de koppeling weer in de hele workspace bruikbaar te maken. Een project verwijderen waarschuwt wanneer een koppeling alleen aan dat project hangt, omdat hij daarna overal bruikbaar wordt. Beheer dezelfde koppelingen vanaf de providerkaart; zie [Integraties](/docs/integrations/integrations).
-
-## Beperk uitgaven
-
-1. Open het tabblad **Overzicht**. De budgetkaart toont verbruik tegen het plafond van vandaag.
-2. Kies de pen in de budgetkop. Zet **Dagelijks tokenplafond** en **Uurlijks tokenplafond** zodat één doel niet het hele workspaceplafond opmaakt. Laat een veld leeg om Cockpit **Verbruik** over te nemen. Kies **Budget opslaan**.
-3. Als een project het plafond raakt, toont de kaart **Plafond bereikt** en pauzeren agents op dat project. Workspaceplafonds blijven op Cockpit **Verbruik**.
-
-## Zet een map in een project
-
-Een map is een project met een bovenliggend project. De lijst Projecten toont het bovenste niveau. Zoeken vindt ook een geneste naam en toont het pad erboven.
-
-1. Open het project en kies **Nieuwe map** in de kop, of de gestippelde kaart **Nieuwe map** onder **Mappen**. Geef hem een naam en maak hem aan. Je komt in die map, en die kan zelf weer mappen bevatten.
-2. Het tabblad **Overzicht** toont elke map als kaart: de naam, hoeveel gesprekken open en gesloten zijn in die map en dieper, en hoeveel mappen hij bevat. Klik de kaart om die map te openen; het kruimelpad boven de kop en het mappenmenu links tonen waar je bent.
-3. Open in een gesprek het menu met meer acties en kies **Opbergen in map**, of **Sluiten en opbergen** om het in één stap te sluiten en op te bergen. Selecteer in de lijst gesprekken, open **Meer acties** en kies **Opbergen in map**.
-4. Open het menu met meer acties in de projectkop en kies **Verplaatsen** om de map onder een ander project te zetten, of terug op het bovenste niveau. **Verwijderen** stuurt de mappen erin mee naar de prullenbak. Een canvasverversing van de bovenliggende map neemt de open- en gesloten-tellingen van elke map mee in de momentopname die de agent schrijft.
-
-## Wat nu
-
-Definieer de terugkerende processen achter het project onder [Flows](/docs/ai/workstreams), met een eigenaar en check-up per fase. Alles wat voor het project gepland staat, zie je op de [Agenda](/docs/ai/agenda) als je daar het project kiest. Bekijk dezelfde projectdocs onder [Kennis](/docs/ai/knowledge) door op die projectnaam te klikken; workspacebrede kennis blijft op de workspace-chip.
+1. In Communicatie en Agenda **Wat** delen mappen één afgeleide `#`-boom met dezelfde lokale labels en volledige-set-tooltips als Mappen.
+2. Zet een rij vast om die zichtbaar te houden; verberg lege rijen via het menu. Agenda filtert op de tags van de gekozen map. Wis de chip in de kop om alles weer te zien.

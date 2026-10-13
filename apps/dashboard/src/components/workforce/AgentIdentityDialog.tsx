@@ -14,14 +14,17 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { AiAvatar } from '../ui/AiAvatar'
+import { BotOrbAvatar } from '../ui/BotOrbAvatar'
 import { Textarea } from '../ui/textarea'
 import { useAuth } from '../../context/AuthContext'
 import { bokitoUpdateAgent } from '../../lib/bokito-api'
 import {
-  AGENT_AVATAR_ICON_KEYS,
-  AGENT_AVATAR_ICONS,
+  DEFAULT_AGENT_AVATAR_COLOR,
+  resolveAgentAvatarColor,
+  resolveAgentAvatarShape,
   type AgentAvatarKind,
 } from '../../lib/agent-avatar'
+import { BOT_ORB_COLORS, BOT_ORB_SHAPE_KEYS } from '../../lib/bot-orb-shapes'
 import { cn } from '../../lib/utils'
 
 type Props = {
@@ -32,17 +35,19 @@ type Props = {
   agentDescription?: string | null
   avatarKind?: string | null
   avatarIcon?: string | null
+  avatarColor?: string | null
+  avatarShape?: string | null
   onChanged?: () => void
 }
 
 const MAX_DESCRIPTION = 280
 
-function editorKind(value: string | null | undefined): 'initials' | 'icon' {
+function editorKind(value: string | null | undefined): 'initials' | 'orb' {
   const kind = (value ?? '').trim().toLowerCase() as AgentAvatarKind | ''
-  return kind === 'icon' ? 'icon' : 'initials'
+  return kind === 'orb' ? 'orb' : 'initials'
 }
 
-/** Name, short description and optional icon for a company agent (platform AI violet). */
+/** Name, short description and bot mark (shape + color) or initials. */
 export function AgentIdentityDialog({
   open,
   onOpenChange,
@@ -50,7 +55,9 @@ export function AgentIdentityDialog({
   agentName,
   agentDescription,
   avatarKind,
-  avatarIcon,
+  avatarIcon: _avatarIcon,
+  avatarColor,
+  avatarShape,
   onChanged,
 }: Props) {
   const { t } = useTranslation('nav')
@@ -58,8 +65,9 @@ export function AgentIdentityDialog({
   const { token } = useAuth()
   const [name, setName] = useState(agentName)
   const [description, setDescription] = useState(agentDescription ?? '')
-  const [kind, setKind] = useState<'initials' | 'icon'>(editorKind(avatarKind))
-  const [icon, setIcon] = useState(avatarIcon ?? 'bot')
+  const [kind, setKind] = useState<'initials' | 'orb'>(editorKind(avatarKind))
+  const [color, setColor] = useState(resolveAgentAvatarColor(avatarColor))
+  const [shape, setShape] = useState(resolveAgentAvatarShape(avatarShape))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,19 +76,16 @@ export function AgentIdentityDialog({
     setName(agentName)
     setDescription(agentDescription ?? '')
     setKind(editorKind(avatarKind))
-    setIcon(avatarIcon ?? 'bot')
+    setColor(resolveAgentAvatarColor(avatarColor))
+    setShape(resolveAgentAvatarShape(avatarShape))
     setError(null)
-  }, [open, agentName, agentDescription, avatarKind, avatarIcon])
+  }, [open, agentName, agentDescription, avatarKind, avatarColor, avatarShape])
 
   const save = async () => {
     if (!token || busy) return
     const trimmed = name.trim()
     if (!trimmed) {
       setError(t('workforce.agents.nameRequired'))
-      return
-    }
-    if (kind === 'icon' && !icon) {
-      setError(t('workforce.agents.visualIconRequired'))
       return
     }
     setBusy(true)
@@ -90,7 +95,9 @@ export function AgentIdentityDialog({
         name: trimmed,
         description: description.trim(),
         avatar_kind: kind,
-        avatar_icon: kind === 'icon' ? icon : null,
+        avatar_icon: null,
+        avatar_color: kind === 'orb' ? color : DEFAULT_AGENT_AVATAR_COLOR,
+        avatar_shape: kind === 'orb' ? shape : null,
         avatar_image_url: null,
       })
       toast.success(t('workforce.agents.identitySaved'))
@@ -105,7 +112,7 @@ export function AgentIdentityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{t('workforce.agents.identityDialogTitle')}</DialogTitle>
           <DialogDescription>{t('workforce.agents.identityDialogBody')}</DialogDescription>
@@ -116,9 +123,11 @@ export function AgentIdentityDialog({
             <AiAvatar
               name={name.trim() || agentName}
               seed={agentId}
-              size={48}
+              size={52}
               kind={kind}
-              icon={kind === 'icon' ? icon : null}
+              icon={null}
+              color={kind === 'orb' ? color : null}
+              shape={kind === 'orb' ? shape : null}
               imageUrl={null}
             />
             <div className="min-w-0 flex-1 space-y-1.5">
@@ -153,13 +162,13 @@ export function AgentIdentityDialog({
             <p className="text-2xs text-text-muted">{t('workforce.agents.identityDescriptionHint')}</p>
           </div>
 
-          <Tabs value={kind} onValueChange={(v) => setKind(v === 'icon' ? 'icon' : 'initials')}>
+          <Tabs value={kind} onValueChange={(v) => setKind(v === 'orb' ? 'orb' : 'initials')}>
             <TabsList className="h-9 w-full sm:w-auto">
               <TabsTrigger value="initials" className="flex-1 text-xs sm:flex-none">
                 {t('workforce.agents.visualKind.initials')}
               </TabsTrigger>
-              <TabsTrigger value="icon" className="flex-1 text-xs sm:flex-none">
-                {t('workforce.agents.visualKind.icon')}
+              <TabsTrigger value="orb" className="flex-1 text-xs sm:flex-none">
+                {t('workforce.agents.visualKind.orb')}
               </TabsTrigger>
             </TabsList>
 
@@ -167,35 +176,75 @@ export function AgentIdentityDialog({
               <p className="text-sm text-text-muted">{t('workforce.agents.visualInitialsHint')}</p>
             </TabsContent>
 
-            <TabsContent value="icon" className="mt-3 space-y-2">
-              <p className="text-xs font-medium text-text-secondary">
-                {t('workforce.agents.visualPickIcon')}
-              </p>
-              <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8">
-                {AGENT_AVATAR_ICON_KEYS.map((key) => {
-                  const Icon = AGENT_AVATAR_ICONS[key]
-                  const selected = icon === key
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      title={key}
-                      aria-label={key}
-                      aria-pressed={selected}
-                      disabled={busy}
-                      onClick={() => setIcon(key)}
-                      className={cn(
-                        'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition-colors',
-                        selected
-                          ? 'border-ai/40 bg-ai/10 text-ai-ink'
-                          : 'border-border/60 bg-bg-input/40 text-text-secondary hover:border-ai/30 hover:text-text-heading',
-                      )}
-                    >
-                      <Icon size={16} aria-hidden />
-                    </button>
-                  )
-                })}
+            <TabsContent value="orb" className="mt-3 space-y-4">
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-text-secondary">
+                  {t('workforce.agents.visualPickShape')}
+                </p>
+                <div
+                  className="grid grid-cols-5 gap-1.5 sm:grid-cols-8"
+                  role="listbox"
+                  aria-label={t('workforce.agents.visualPickShape')}
+                >
+                  {BOT_ORB_SHAPE_KEYS.map((key) => {
+                    const selected = shape === key
+                    const label = t(`workforce.agents.visualShapes.${key}`, { defaultValue: key })
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        title={label}
+                        aria-label={label}
+                        aria-selected={selected}
+                        role="option"
+                        disabled={busy}
+                        onClick={() => setShape(key)}
+                        className={cn(
+                          'inline-flex h-11 w-full items-center justify-center rounded-lg border transition-colors',
+                          selected
+                            ? 'border-ai/50 bg-ai/10'
+                            : 'border-border/60 bg-bg-input/30 hover:border-ai/30',
+                        )}
+                      >
+                        <BotOrbAvatar color={color} shape={key} size={28} paused decorative />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-text-secondary">
+                  {t('workforce.agents.visualPickColor')}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {BOT_ORB_COLORS.map((swatch) => {
+                    const selected = color === swatch.value
+                    const label = t(`workforce.agents.visualColors.${swatch.id}`, {
+                      defaultValue: swatch.id,
+                    })
+                    return (
+                      <button
+                        key={swatch.id}
+                        type="button"
+                        title={label}
+                        aria-label={label}
+                        aria-pressed={selected}
+                        disabled={busy}
+                        onClick={() => setColor(swatch.value)}
+                        className={cn(
+                          'h-8 w-8 rounded-full border-2 transition-shadow',
+                          selected
+                            ? 'border-text-heading shadow-[0_0_0_2px_rgb(var(--color-bg-surface)),0_0_0_4px_rgb(var(--color-ai)/0.45)]'
+                            : 'border-border/50 hover:border-border',
+                        )}
+                        style={{ backgroundColor: swatch.value }}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+              <p className="text-2xs text-text-muted">{t('workforce.agents.visualOrbHint')}</p>
             </TabsContent>
           </Tabs>
 

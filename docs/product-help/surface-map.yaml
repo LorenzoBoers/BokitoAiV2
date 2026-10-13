@@ -91,13 +91,11 @@ cockpit:
   routes:
     - /cockpit
     - /cockpit/canvas
-    - /cockpit/activity
     - /cockpit/usage
     - /overview
   code_globs:
     - apps/dashboard/src/pages/CockpitPage.tsx
     - apps/dashboard/src/pages/CockpitCanvasPage.tsx
-    - apps/dashboard/src/pages/ActivityPage.tsx
     - apps/dashboard/src/pages/UsagePage.tsx
     - apps/dashboard/src/components/cockpit/**
     - apps/dashboard/src/lib/navigation.ts
@@ -163,15 +161,15 @@ communication:
 agent-runs:
   section: inbox
   routes:
-    - /activity
-    - /communication/activity
-    - /communication/runs
-    - /communication/runs/all
-    - /communication/agent/{agentId}/activity
+    - /agents
+    - /agents/{agentId}
+    - /agents#activity
+    - /agents/{agentId}#activity
   code_globs:
-    - apps/dashboard/src/pages/ActivityTerminalPage.tsx
-    - apps/dashboard/src/pages/Communication.tsx
-    - apps/dashboard/src/components/inbox/ThreadList.tsx
+    - apps/dashboard/src/pages/AiAgents.tsx
+    - apps/dashboard/src/pages/AiAgentDetail.tsx
+    - apps/dashboard/src/components/workforce/AgentActivityTimeline.tsx
+    - apps/dashboard/src/lib/messages-paths.ts
   screenshots:
     - runs-list
 
@@ -319,18 +317,29 @@ folders:
     - apps/dashboard/src/pages/ProjectsPage.tsx
     - apps/dashboard/src/pages/ProjectDetail.tsx
     - apps/dashboard/src/components/projects/**
-    - apps/dashboard/src/lib/use-project-delete-connection-impact.ts
+    - apps/dashboard/src/lib/folder-filter-tree.ts
+    - apps/dashboard/src/lib/project-folders.ts
+    - apps/dashboard/src/lib/projects-api.ts
     - apps/dashboard/src/lib/project-canvas-api.ts
     - apps/dashboard/src/lib/project-canvas/**
     - apps/dashboard/src/components/project-canvas/**
+    - apps/dashboard/src/components/folders/**
+    - apps/dashboard/src/components/inbox/FolderTagTree.tsx
+    - apps/api/app/services/folders.py
+    - apps/api/app/services/projects.py
+    - apps/api/app/services/communication_nav.py
     - apps/api/app/services/project_work.py
     - apps/api/app/services/project_canvas.py
     - apps/api/app/services/project_canvas_compile.py
     - apps/api/app/routers/projects.py
+    - apps/api/app/models/project.py
     - apps/api/app/models/project_canvas.py
   screenshots:
     - project
     - boards
+    # Recapture create/nest when Playwright can log in (BOKITO_DOCS_ONLY=folders):
+    # - create
+    # - nest
 
 workstreams:
   section: ai

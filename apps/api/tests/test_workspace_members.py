@@ -139,6 +139,25 @@ async def test_operator_context_marks_internal_user(session_override):
     assert TEST_EMAIL in text
     assert "workspace owner" in text
     assert "internal operator" in text
+    assert "not an AI agent" in text
+    assert f"user:{user.id}" in text
+
+    from app.models.agent import Agent
+
+    agent = Agent(
+        tenant_id=tenant.id,
+        name="Orchestrator",
+        slug="orchestrator-op-ctx",
+        kind="company",
+        is_active=True,
+    )
+    session_override.add(agent)
+    await session_override.commit()
+    await session_override.refresh(agent)
+    loop.agent = agent
+    with_agent = await loop._operator_context()
+    assert "never address this human as yourself" in with_agent
+    assert str(agent.id) in with_agent
 
 
 @pytest.mark.asyncio

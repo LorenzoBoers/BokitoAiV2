@@ -15,9 +15,9 @@ import {
   itemsFromAttachResult,
   mergeShowcaseItems,
 } from '../../lib/marketplace-mentions'
-import { ListChecks } from 'lucide-react'
 import { AiAvatar } from '../ui/AiAvatar'
 import ActivityTrail, { ActivityIcon } from './ActivityTrail'
+import { THREAD_GUTTER, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
 import { BubbleHeader, ChatBubbleShell, RoleChip } from './ChatBubble'
 import ChatText from './ChatText'
 import { ProposalItemList } from './ProposalItemPreview'
@@ -73,7 +73,7 @@ function LiveBubble({
   // so the timeline height stays still when the reveal finishes.
   return (
     <div className="msg-bubble-enter-live flex items-start gap-2">
-      <span className="flex w-7 shrink-0 justify-center">{lead ? avatar : null}</span>
+      <span className={THREAD_GUTTER}>{lead ? avatar : null}</span>
       <ChatBubbleShell
         side="left"
         variant="agent"
@@ -188,13 +188,15 @@ export default function AgentTurnLive({
   const last = blocks[blocks.length - 1]
   const lastRunning =
     last?.type === 'activity' && last.items.some((i) => i.status === 'running')
-  const preparing = turnPreparesProposal(turn)
   const firstSpeechIndex = blocks.findIndex((block) => block.type === 'speech')
   const waiting = shouldShowWaitingTurn(turn, {
     lastRunning,
     lastIsSpeech: last?.type === 'speech',
     hasSpeech: firstSpeechIndex >= 0,
   })
+  // After gated tools, before speech/card reveal — avoid a blank gap.
+  const preparingProposal =
+    turn.active && turnPreparesProposal(turn) && !lastRunning && firstSpeechIndex < 0
   const lastSpeechIndex = blocks.reduce(
     (found, block, index) => (block.type === 'speech' ? index : found),
     -1,
@@ -212,11 +214,11 @@ export default function AgentTurnLive({
   const avatarOnActivity = lead && firstSpeechIndex < 0
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1.5">
       {blocks.map((block, index) =>
         block.type === 'activity' ? (
-          <div key={block.key} className="flex items-start gap-2 py-0.5">
-            <span className="flex w-7 shrink-0 justify-center">
+          <div key={block.key} className="flex items-start gap-2">
+            <span className={THREAD_GUTTER}>
               {avatarOnActivity && index === 0 ? avatarNode : null}
             </span>
             <div className="min-w-0 flex-1">
@@ -237,28 +239,21 @@ export default function AgentTurnLive({
           />
         ),
       )}
-      {preparing ? (
-        <div
-          className="proposal-preparing-enter flex h-7 min-w-0 items-center gap-2 pl-9 text-xs text-text-muted"
-          role="status"
-          aria-live="polite"
-          data-testid="proposal-preparing"
-        >
-          <ListChecks size={14} className="text-ai-ink" aria-hidden />
-          <span className="activity-live-label">
-            <span className="thinking-shimmer-text">{t('proposal.preparing')}</span>
-          </span>
+      {preparingProposal ? (
+        <div role="status" aria-live="polite">
+          <ThreadMetaBlock avatar={lead && blocks.length === 0 ? avatarNode : null}>
+            <ThreadMetaRow live ai icon={<ActivityIcon kind="work" live />}>
+              {t('proposal.preparing')}
+            </ThreadMetaRow>
+          </ThreadMetaBlock>
         </div>
-      ) : null}
-      {waiting ? (
-        <div className="flex h-7 min-w-0 items-center gap-2 text-sm" role="status" aria-live="polite">
-          <span className="flex w-7 shrink-0 justify-center">
-            {lead && blocks.length === 0 ? avatarNode : null}
-          </span>
-          <ActivityIcon kind="think" size={14} live />
-          <span className="activity-live-label">
-            <span className="thinking-shimmer-text font-medium">{t('activity.thinking')}</span>
-          </span>
+      ) : waiting ? (
+        <div role="status" aria-live="polite">
+          <ThreadMetaBlock avatar={lead && blocks.length === 0 ? avatarNode : null}>
+            <ThreadMetaRow live ai icon={<ActivityIcon kind="think" live />}>
+              {t('activity.thinking')}
+            </ThreadMetaRow>
+          </ThreadMetaBlock>
         </div>
       ) : null}
     </div>

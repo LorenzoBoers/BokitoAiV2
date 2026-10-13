@@ -220,6 +220,8 @@ CANVAS_WAKE_DENY = frozenset(
         "update_tag",
         "set_thread_tags",
         "create_project",
+        "create_folder",
+        "delete_folder",
         "create_agent",
         "update_agent",
         "create_workstream",

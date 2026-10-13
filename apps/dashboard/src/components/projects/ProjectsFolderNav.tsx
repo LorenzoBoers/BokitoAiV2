@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight } from 'lucide-react'
-import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { FolderNavTree } from '../folders/FolderNavTree'
+import { FolderOpen } from 'lucide-react'
+import { SearchField } from '../ui/search-field'
+import { filtersetPlainLabel } from '../../lib/folder-filter-tree'
+import { onFoldersChanged } from '../../lib/folders-bus'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
-import { folderTree, type FolderNode } from '../../lib/project-folders'
 import { cn } from '../../lib/utils'
 import ScrollFade from '../ui/ScrollFade'
-
-const FolderKanban = ENTITY_ICONS.project
 
 const OPEN_KEY = 'bokito-project-folders-open'
 
@@ -29,29 +29,47 @@ function saveOpen(open: Set<string>) {
   }
 }
 
-/** Folder tree beside Projects. Subfolders stay closed until that project is opened. */
+function folderMatches(project: ProjectRow, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const tags = project.tag_names ?? []
+  const hay = [project.name, filtersetPlainLabel(tags), ...tags].join(' ').toLowerCase()
+  return hay.includes(q.replace(/^#/, ''))
+}
+
+/** Keep matches and their ancestors so the derived tree still nests correctly. */
+function filterProjects(projects: ProjectRow[], query: string): ProjectRow[] {
+  const q = query.trim()
+  if (!q) return projects
+  const matched = new Set<string>()
+  for (const project of projects) {
+    if (!folderMatches(project, q)) continue
+    matched.add(project.id)
+    for (const ancestor of project.ancestors ?? []) matched.add(ancestor.id)
+  }
+  return projects.filter((project) => matched.has(project.id))
+}
+
+/** Folder tree beside /folders — search + whole-row drag to nest or reorder. */
 export default function ProjectsFolderNav({ className }: { className?: string }) {
   const { t } = useTranslation('nav')
   const { pathname } = useLocation()
   const { projectId } = useParams<{ projectId: string }>()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [open, setOpen] = useState<Set<string>>(loadOpen)
+  const [query, setQuery] = useState('')
+
+  const reload = useCallback(() => {
+    void listProjects()
+      .then(setProjects)
+      .catch(() => setProjects([]))
+  }, [])
 
   useEffect(() => {
-    let cancelled = false
-    void listProjects()
-      .then((rows) => {
-        if (!cancelled) setProjects(rows)
-      })
-      .catch(() => {
-        if (!cancelled) setProjects([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [pathname])
+    reload()
+  }, [pathname, reload])
 
-  const tree = useMemo(() => folderTree(projects), [projects])
+  useEffect(() => onFoldersChanged(() => reload()), [reload])
 
   useEffect(() => {
     if (!projectId) return
@@ -72,7 +90,16 @@ export default function ProjectsFolderNav({ className }: { className?: string })
     })
   }, [projectId, projects])
 
+  const filtered = useMemo(() => filterProjects(projects, query), [projects, query])
+
+  // While searching, expand every visible node so matches under closed parents show.
+  const effectiveOpen = useMemo(() => {
+    if (!query.trim()) return open
+    return new Set(filtered.map((project) => project.id))
+  }, [filtered, open, query])
+
   const toggle = (id: string) => {
+    if (query.trim()) return
     setOpen((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -82,78 +109,51 @@ export default function ProjectsFolderNav({ className }: { className?: string })
     })
   }
 
+  const sources = filtered.map((project) => ({
+    id: project.id,
+    name: project.name,
+    tag_ids: project.tag_ids ?? [],
+    tag_names: project.tag_names,
+    sort_order: project.sort_order,
+  }))
+
   return (
     <nav className={cn('flex min-h-0 flex-col', className)} aria-label={t('projects.page.folderNav')}>
       <NavLink
         to="/folders"
         end
-        className="nav-row mb-1 h-7 shrink-0 text-sm font-medium text-text-heading"
+        className="nav-row mb-1 h-[26px] shrink-0 text-xs font-medium text-text-heading"
       >
-        <FolderKanban size={14} aria-hidden />
+        <FolderOpen size={16} className="shrink-0 text-text-muted" aria-hidden />
         <span className="min-w-0 flex-1 truncate-fade">{t('tabs.folders.title')}</span>
       </NavLink>
+      <SearchField
+        value={query}
+        onChange={setQuery}
+        size="sm"
+        placeholder={t('projects.page.searchPlaceholder')}
+        aria-label={t('projects.page.searchPlaceholder')}
+        className="mb-1 shrink-0"
+      />
       <ScrollFade className="min-h-0 flex-1">
-        {tree.length === 0 ? (
-          <p className="px-2 py-2 text-xs text-text-muted">{t('projects.page.emptyTitle')}</p>
-        ) : (
-          <div className="space-y-px">
-            {tree.map((node) => (
-              <FolderNavRow key={node.id} node={node} open={open} onToggle={toggle} />
-            ))}
-          </div>
-        )}
+        <FolderNavTree
+          sources={sources}
+          open={effectiveOpen}
+          onToggle={toggle}
+          activeId={projectId}
+          enableDrag={!query.trim()}
+          onChanged={reload}
+          empty={
+            <p className="px-2 py-2 text-xs text-text-muted">
+              {query.trim()
+                ? t('projects.page.emptyFiltered')
+                : t('projects.page.emptyBody', {
+                    defaultValue: 'Create a folder as a tag filterset, then nest narrower maps under it.',
+                  })}
+            </p>
+          }
+        />
       </ScrollFade>
     </nav>
-  )
-}
-
-function FolderNavRow({
-  node,
-  open,
-  onToggle,
-}: {
-  node: FolderNode
-  open: Set<string>
-  onToggle: (id: string) => void
-}) {
-  const { t } = useTranslation('nav')
-  const expanded = open.has(node.id)
-  const nested = node.children.length > 0
-  return (
-    <div className="space-y-px">
-      <div className="flex items-center">
-        {nested ? (
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-label={t(expanded ? 'projects.detail.collapseFolder' : 'projects.detail.expandFolder', {
-              name: node.name,
-            })}
-            onClick={() => onToggle(node.id)}
-            className="inline-flex h-7 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
-          >
-            <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} aria-hidden />
-          </button>
-        ) : (
-          <span className="inline-flex h-7 w-6 shrink-0 items-center justify-center text-text-muted" aria-hidden>
-            <FolderKanban size={13} />
-          </span>
-        )}
-        <NavLink to={`/folders/${node.id}`} className="nav-row h-7 min-w-0 flex-1 text-xs">
-          <span className="min-w-0 flex-1 truncate-fade">{node.name}</span>
-        </NavLink>
-      </div>
-      {nested ? (
-        <div className="nav-fold" data-open={expanded ? 'true' : 'false'}>
-          <div className="nav-fold-inner">
-            <div className="ml-[15px] space-y-px border-l border-border/70 pl-1">
-              {node.children.map((child) => (
-                <FolderNavRow key={child.id} node={child} open={open} onToggle={onToggle} />
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
   )
 }

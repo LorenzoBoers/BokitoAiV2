@@ -32,7 +32,7 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
     from sqlalchemy import select
 
     from app.models.orchestra import Workstream
-    from app.services.folders import load_tree
+    from app.services.folders import folder_path_label, load_catalog, matching_folders
     from app.services.tickets import list_categories
 
     categories = await list_categories(session, tenant_id)
@@ -46,11 +46,13 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
             )
         ).all()
     )
-    tree = await load_tree(session, tenant_id)
+    catalog = await load_catalog(session, tenant_id)
     lines: list[str] = []
     for tag in shown:
         folders = [
-            tree.static_path(node.id).label for node in tree.nodes.values() if node.tag_id == tag.id
+            folder_path_label(f)
+            for f in matching_folders(catalog, [tag.id])
+            if tag.id in f.tag_set
         ]
         where = f"; folders: {', '.join(folders)}" if folders else ""
         lines.append(f"#{tag.name} -> playbook {ws_names.get(tag.workstream_id, '?')}{where}")

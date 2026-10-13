@@ -16,6 +16,7 @@
   "status": {
     "ok": "Synced {{when}}",
     "idle": "Waiting for the first sync",
+    "connected": "Connected",
     "reconnect": "Sign in again to keep this calendar in sync",
     "error": "Sync failed: {{error}}"
   },
@@ -27,11 +28,11 @@
     "close": "Close",
     "disconnect": "Disconnect",
     "disconnectConfirm": "Disconnect this calendar account? Its events leave Agenda. Nothing changes in Google or Outlook.",
-    "syncError": "Sync failed."
+    "syncError": "Could not update this calendar account."
   },
   "calendars": {
     "title": "Calendars",
-    "hint": "Switched-on calendars sync every 15 minutes and show in Agenda.",
+    "hint": "Switched-on calendars update automatically and show in Agenda.",
     "loading": "Loading calendars...",
     "readOnly": "Read only",
     "primary": "Primary",

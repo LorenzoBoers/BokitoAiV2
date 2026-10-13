@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, Check, MoreHorizontal, X } from 'lucide-react'
 import type { LearnChoice } from '../../lib/agent-rules-api'
+import { bundleRowLabel, bundleRowSubtitle } from '../../lib/bundleActionLabel'
 import type { MessageProposal, ProposalBundleEntry, ThreadId } from '../../lib/inbox-api'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
@@ -13,39 +14,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { actionTitle, useDecisionResolve } from './useDecisionResolve'
+import { useDecisionResolve } from './useDecisionResolve'
 
 type RowState = 'awaiting_human' | 'approved' | 'rejected' | 'deferred' | 'failed' | 'missing'
 
-/** Which arg makes an action row name the object, not only the verb. */
-const NAMED_ARG: Record<string, string> = {
-  connect_integration: 'provider',
-  suggest_integration: 'provider',
-  propose_integration: 'provider',
-  recommend_module: 'slug',
-  enable_module: 'slug',
-  setup_integration: 'provider',
-}
-
-/** Operator label for one action row: `actions.{tool}` in the UI language, else the server title. */
+/** Operator label for one action row: decision title/summary first, i18n for named tools. */
 export function useActionLabel() {
   const { t, i18n } = useTranslation('communication')
-  return (entry: ProposalBundleEntry): string => {
-    const action = entry.action
-    if (action) {
-      const namedField = NAMED_ARG[action.key]
-      const namedValue = namedField ? action.args[namedField] || action.args.module || action.args.display_name : ''
-      const key = action.args.new_name && action.key === 'update_tag' ? 'actions.update_tag_rename' : `actions.${action.key}`
-      if (namedField && !namedValue) {
-        if (action.fallback) return action.fallback
-      } else if (i18n.exists(`communication:${key}`)) {
-        return t(key, { ...action.args, ...(namedField && namedValue ? { [namedField]: namedValue } : {}) })
-      } else if (action.fallback) {
-        return action.fallback
-      }
-    }
-    return actionTitle(entry.title)
-  }
+  return (entry: ProposalBundleEntry): string =>
+    bundleRowLabel(entry, {
+      exists: (key) => i18n.exists(key),
+      t: (key, args) => t(key, args),
+    })
 }
 
 function rowState(entry: ProposalBundleEntry, local: Record<string, RowState>): RowState {
@@ -66,13 +46,15 @@ export function ActionBundleCard({
   threadId,
   agentName,
   onResolved,
+  onAnswer,
 }: {
   proposal: MessageProposal
   threadId: ThreadId
   agentName?: string | null
   onResolved?: (info?: { closed?: boolean }) => void
+  onAnswer?: (answer: { text: string; decisionId: string } | null) => void
 }) {
-  const { t } = useTranslation('communication')
+  const { t, i18n } = useTranslation('communication')
   const label = useActionLabel()
   const entries = proposal.bundle
   const [local, setLocal] = useState<Record<string, RowState>>({})
@@ -84,6 +66,7 @@ export function ActionBundleCard({
     decisionId: proposal.decisionId,
     resolved: false,
     onResolved,
+    onAnswer,
   })
 
   const states = useMemo(
@@ -183,9 +166,21 @@ export function ActionBundleCard({
               )}
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className={cn('truncate', !isOpen && 'text-text-secondary')}>{label(entry)}</span>
-                {entry.action?.tool ? (
-                  <span className="truncate font-mono text-2xs text-text-muted">{entry.action.tool}</span>
-                ) : null}
+                {(() => {
+                  const sub = bundleRowSubtitle(entry, i18n.language)
+                  if (!sub) return null
+                  const mono = Boolean(entry.action?.tool && sub === entry.action.tool)
+                  return (
+                    <span
+                      className={cn(
+                        'truncate text-2xs text-text-muted',
+                        mono && 'font-mono',
+                      )}
+                    >
+                      {sub}
+                    </span>
+                  )
+                })()}
               </span>
               {!isOpen ? (
                 <span className="sr-only">{t(`actionBundle.status.${state}`)}</span>

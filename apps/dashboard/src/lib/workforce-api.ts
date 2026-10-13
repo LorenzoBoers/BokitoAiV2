@@ -48,7 +48,8 @@ export interface AgentSummary {
   /** Last run, reply or tool step (ms); null before the first run. */
   last_active_at?: number | null
   /** Visual identity: initials | icon | image (from settings_json). */
-  avatar_kind?: 'initials' | 'icon' | 'image' | string | null
+  avatar_kind?: 'initials' | 'icon' | 'orb' | 'image' | string | null
+  avatar_shape?: string | null
   avatar_icon?: string | null
   avatar_color?: string | null
   avatar_image_url?: string | null

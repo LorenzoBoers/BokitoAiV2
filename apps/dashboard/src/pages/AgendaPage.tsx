@@ -59,6 +59,7 @@ import {
   itemStart,
   layerOf,
   layersParam,
+  matchesOwnerVisibility,
   matchesWho,
   parseCalendarIds,
   parseDayKey,
@@ -70,9 +71,13 @@ import {
   viewRange,
   type AgendaLayer,
   type AgendaView,
-  type AgendaWho,
 } from '../lib/agenda-layout'
 import { hiddenCalendarKey, readHiddenCalendars, writeHiddenCalendars } from '../lib/agenda-hidden-calendars'
+import {
+  ownerVisibilityKey,
+  readHiddenOwners,
+  writeHiddenOwners,
+} from '../lib/agenda-hidden-owners'
 import { cn } from '../lib/utils'
 
 const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'task', 'calendar', 'activity']
@@ -164,7 +169,7 @@ export default function AgendaPage() {
 
   const setView = (next: AgendaView) =>
     setParams({
-      view: next === 'week' ? null : next,
+      view: next === 'day' ? null : next,
       ...(next === 'list' ? { date: null } : {}),
     })
   const setAnchor = (next: Date) =>
@@ -177,7 +182,19 @@ export default function AgendaPage() {
   }
   // Calendars inside an account (`connection|calendar`), remembered on this browser.
   const [hiddenCalendars, setHiddenCalendars] = useState<Set<string>>(() => readHiddenCalendars())
+  // People and agents, same checkbox model as calendars.
+  const [hiddenOwners, setHiddenOwners] = useState<Set<string>>(() => readHiddenOwners())
   const [agendaQuery, setAgendaQuery] = useState('')
+  const toggleOwner = (kind: 'user' | 'agent', id: string) => {
+    const key = ownerVisibilityKey(kind, id)
+    setHiddenOwners((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      writeHiddenOwners(next)
+      return next
+    })
+  }
   const toggleCalendar = (connectionId: string) => {
     const next = new Set(calendarIds)
     const connection = calendars.find((row) => row.id === connectionId)
@@ -326,6 +343,7 @@ export default function AgendaPage() {
           avatar_kind: a.avatar_kind,
           avatar_icon: a.avatar_icon,
           avatar_color: a.avatar_color,
+          avatar_shape: a.avatar_shape,
           avatar_image_url: a.avatar_image_url,
         })),
       )
@@ -360,7 +378,13 @@ export default function AgendaPage() {
   }, [triggerParam, loading, items, triggers, setParams])
 
   const meId = user?.uuid ?? null
-  const byWho = useMemo(() => items.filter((item) => matchesWho(item, who, meId)), [items, who, meId])
+  const byWho = useMemo(
+    () =>
+      items.filter(
+        (item) => matchesWho(item, who, meId) && matchesOwnerVisibility(item, hiddenOwners),
+      ),
+    [items, who, meId, hiddenOwners],
+  )
   const visible = useMemo(
     () =>
       byWho.filter((item) => {
@@ -559,8 +583,8 @@ export default function AgendaPage() {
 
       <div
         className={cn(
-          'grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden lg:grid-cols-[14.5rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]',
-          selection && 'xl:grid-cols-[14.5rem_minmax(0,1fr)_21rem]',
+          'grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]',
+          selection && 'xl:grid-cols-[16.5rem_minmax(0,1fr)_21rem]',
         )}
       >
         <AgendaRail
@@ -568,10 +592,10 @@ export default function AgendaPage() {
           nowMs={nowMs}
           busyDays={busyDays}
           onPickDay={(day) => setAnchor(day)}
-          who={who}
-          onWho={(next: AgendaWho) => setParams({ who: next === 'all' ? null : next })}
           people={people}
           agents={agents}
+          hiddenOwners={hiddenOwners}
+          onToggleOwner={toggleOwner}
           projectId={projectId}
           onProject={(id) => setParams({ project: id || null, tag: null, path: null })}
           projects={projects}

@@ -358,11 +358,6 @@ async def build_workspace_graph(session: AsyncSession, tenant_id: UUID) -> dict[
     project_nodes: list[dict[str, Any]] = []
     for project in projects:
         po_agent = None
-        if project.po_agent_id:
-            po_result = await session.execute(
-                select(Agent).where(Agent.id == project.po_agent_id, Agent.tenant_id == tenant_id)
-            )
-            po_agent = po_result.scalar_one_or_none()
         ws_count = await session.execute(
             select(func.count())
             .select_from(WorkstreamProject)

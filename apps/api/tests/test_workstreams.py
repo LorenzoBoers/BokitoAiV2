@@ -136,6 +136,60 @@ async def test_renaming_the_action_tag_renames_the_flow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_list_hides_internal_defaults_and_folders_share_one(
+    client: AsyncClient, session_override
+):
+    """Folder defaults are plumbing — not Flows. Creating folders must not mint copies."""
+    from uuid import UUID
+
+    from app.models.orchestra import WorkstreamProject
+    from app.services.workstreams import DEFAULT_WORKSTREAM_NAME, ensure_default_workstream
+
+    headers = await _login(client)
+
+    a = await client.post(
+        "/api/projects",
+        headers=headers,
+        json={"tags": ["ws-default-a"], "slug": "ws-default-a"},
+    )
+    b = await client.post(
+        "/api/projects",
+        headers=headers,
+        json={"tags": ["ws-default-b"], "slug": "ws-default-b"},
+    )
+    assert a.status_code == 200, a.text
+    assert b.status_code == 200, b.text
+
+    listed = await client.get(API, headers=headers)
+    assert listed.status_code == 200
+    assert all(row["name"] != DEFAULT_WORKSTREAM_NAME for row in listed.json()["items"])
+
+    flow = await client.post(API, headers=headers, json={"name": "zichtbare-flow"})
+    assert flow.status_code == 200
+    listed2 = await client.get(API, headers=headers)
+    assert any(row["id"] == flow.json()["id"] for row in listed2.json()["items"])
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    ws_a = await ensure_default_workstream(
+        session_override, tenant.id, UUID(a.json()["id"]), commit=False
+    )
+    ws_b = await ensure_default_workstream(
+        session_override, tenant.id, UUID(b.json()["id"]), commit=False
+    )
+    assert ws_a.id == ws_b.id
+    links = (
+        await session_override.execute(
+            select(WorkstreamProject.workstream_id).where(
+                WorkstreamProject.tenant_id == tenant.id,
+                WorkstreamProject.project_id.in_([UUID(a.json()["id"]), UUID(b.json()["id"])]),
+                WorkstreamProject.is_default.is_(True),
+            )
+        )
+    ).scalars().all()
+    assert set(links) == {ws_a.id}
+
+
+@pytest.mark.asyncio
 async def test_flow_board_groups_tickets_into_project_lanes(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import re
+from datetime import date, datetime, timedelta
 from typing import Any
+from re import Match
 
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
@@ -11,6 +13,71 @@ from app.tools.registry import ToolContext, ToolSpec, register_tool
 def _event_id_from_agenda(item: dict[str, Any]) -> str:
     raw = str(item.get("id") or "")
     return raw[4:] if raw.startswith("cal:") else raw
+
+
+def _parse_when(value: str) -> datetime | date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        if len(text) == 10 and text[4] == "-" and text[7] == "-":
+            return date.fromisoformat(text)
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _format_point(value: datetime | date) -> str:
+    """Compact operator-facing stamp (no ISO ``T``)."""
+    if isinstance(value, datetime):
+        local = value if value.tzinfo is None else value.astimezone()
+        return local.strftime("%d %b %Y, %H:%M")
+    return value.strftime("%d %b %Y")
+
+
+def format_event_when(start_at: str, end_at: str, *, all_day: bool = False) -> str:
+    """Human range for decision titles/summaries, e.g. ``14 Oct 2026, 10:30–11:30``."""
+    if all_day:
+        start = _parse_when(start_at)
+        end = _parse_when(end_at)
+        if start is None:
+            return "all day"
+        if end is None or end == start:
+            return f"all day {_format_point(start)}"
+        return f"all day {_format_point(start)} – {_format_point(end)}"
+    start = _parse_when(start_at)
+    end = _parse_when(end_at)
+    if start is None and end is None:
+        return humanize_iso_in_text(f"from {start_at} to {end_at}").strip()
+    if start is None:
+        return _format_point(end) if isinstance(end, (datetime, date)) else humanize_iso_in_text(str(end_at))
+    if end is None:
+        return _format_point(start)
+    if isinstance(start, datetime) and isinstance(end, datetime):
+        # Naive stamps are wall-clock as the agent meant them — do not shift via server TZ.
+        s = start.replace(tzinfo=None) if start.tzinfo is None else start.astimezone().replace(tzinfo=None)
+        e = end.replace(tzinfo=None) if end.tzinfo is None else end.astimezone().replace(tzinfo=None)
+        if s.date() == e.date():
+            return f"{s.strftime('%d %b %Y, %H:%M')}–{e.strftime('%H:%M')}"
+        return f"{_format_point(s)} – {_format_point(e)}"
+    return f"{_format_point(start)} – {_format_point(end)}"
+
+
+_ISO_IN_TEXT = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?"
+)
+
+
+def humanize_iso_in_text(text: str) -> str:
+    """Replace ISO datetimes in free text with compact operator-facing stamps."""
+
+    def _repl(match: Match[str]) -> str:
+        parsed = _parse_when(match.group(0))
+        if isinstance(parsed, (datetime, date)):
+            return _format_point(parsed)
+        return match.group(0)
+
+    return _ISO_IN_TEXT.sub(_repl, text or "")
 
 
 NO_CALENDAR = {
@@ -208,13 +275,13 @@ async def _calendar_propose_event(ctx: ToolContext, tool_input: dict[str, Any]) 
         "location": location,
         "all_day": all_day,
     }
-    when = "all day" if all_day else f"from {start_at} to {end_at}"
+    when = format_event_when(start_at, end_at, all_day=all_day)
     where = (calendar or {}).get("name") or connection["display_name"]
     result = await _create_decision_request(
         ctx,
         {
             "title": f"Create calendar event: {title}",
-            "summary": f"{title} {when} in {where}",
+            "summary": f"{title} · {when} · {where}",
             "signal_id": tool_input.get("signal_id")
             or (str(ctx.signal_id) if ctx.signal_id else None),
             "options": [
@@ -287,12 +354,12 @@ async def _calendar_propose_update(ctx: ToolContext, tool_input: dict[str, Any])
     if "all_day" in tool_input:
         payload["all_day"] = bool(tool_input.get("all_day"))
     label = title or "calendar event"
+    when = format_event_when(start_at, end_at) if start_at and end_at else ""
     result = await _create_decision_request(
         ctx,
         {
             "title": f"Update calendar event: {label}",
-            "summary": f"Reschedule or edit {label}"
-            + (f" ({start_at} to {end_at})" if start_at and end_at else ""),
+            "summary": f"Reschedule or edit {label}" + (f" · {when}" if when else ""),
             "signal_id": tool_input.get("signal_id")
             or (str(ctx.signal_id) if ctx.signal_id else None),
             "options": [
@@ -342,9 +409,15 @@ register_tool(
         name="calendar_propose_event",
         description=(
             "Propose creating an event on a connected calendar. Always creates a "
-            "decision for human approval before writing to Google or Outlook. "
-            "Fails with calendar_sync when the connection has a sync error — tell "
-            "the user to repair it under Connections (Agenda) instead of proposing."
+            "decision card for human approval before writing to Google or Outlook. "
+            "Required whenever the user asks to put something on their agenda — "
+            "never invent a chat line with ISO timestamps (e.g. "
+            "'Title from 2026-10-14T14:00:00 to …'); call this tool so Approve / "
+            "Reject buttons appear. After the tool returns, keep chat short "
+            "(e.g. ask if the card looks right) — the card already shows the "
+            "human-readable when/where. Fails with calendar_sync when the "
+            "connection has a sync error — tell the user to repair it under "
+            "Connections (Agenda) instead of proposing."
         ),
         category="integrations",
         input_schema={
@@ -394,7 +467,9 @@ register_tool(
         name="calendar_propose_update",
         description=(
             "Propose updating or rescheduling an existing calendar event. Always "
-            "creates a decision for human approval. Use event_id from calendar_list_events."
+            "creates a decision card for human approval. Use event_id from "
+            "calendar_list_events. Do not paste ISO timestamps into chat — the "
+            "card shows the readable summary."
         ),
         category="integrations",
         input_schema={

@@ -190,6 +190,7 @@ async def usage_breakdown(
 ) -> dict[str, Any]:
     """Token + cost breakdown by model and agent, splitting BYOK vs billable."""
     from app.models.agent import Agent
+    from app.services.agent_avatar import avatar_payload
 
     since = datetime.utcnow() - timedelta(days=days)
 
@@ -237,15 +238,27 @@ async def usage_breakdown(
         )
     ).all()
 
-    by_agent = [
-        {
-            "agent_id": str(row[0]) if row[0] else None,
-            "agent_name": row[1] or "System / untracked",
-            "tokens": int(row[2] or 0),
-            "customer_cost_micros": int(row[3] or 0),
-        }
-        for row in agent_rows
-    ]
+    agent_ids = [row[0] for row in agent_rows if row[0] is not None]
+    agents_by_id: dict[UUID, Agent] = {}
+    if agent_ids:
+        loaded = (
+            await session.execute(select(Agent).where(Agent.id.in_(agent_ids)))
+        ).scalars().all()
+        agents_by_id = {agent.id: agent for agent in loaded}
+
+    by_agent: list[dict[str, Any]] = []
+    for row in agent_rows:
+        agent = agents_by_id.get(row[0]) if row[0] is not None else None
+        av = avatar_payload(agent)
+        by_agent.append(
+            {
+                "agent_id": str(row[0]) if row[0] else None,
+                "agent_name": (agent.name if agent else None) or row[1] or "System / untracked",
+                "tokens": int(row[2] or 0),
+                "customer_cost_micros": int(row[3] or 0),
+                **av,
+            }
+        )
 
     # By user (user-initiated chats carry user_id; autonomous/system runs do not).
     from app.models.auth import User

@@ -1,10 +1,11 @@
 import { Mail, MessageSquare, SquarePen } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
 import {
+  activityTerminalPath,
   forYouPath,
   inboxPath,
   newConversationPath,
@@ -1212,7 +1213,8 @@ export default function Communication() {
           sendAfterSeconds: undoable ? UNDO_SEND_SECONDS : undefined,
         })
         void refreshThreads()
-        void refreshDetail()
+        // Quiet: keep the open thread mounted; hard refresh flashed a skeleton.
+        void refreshDetail(true)
         if (resolving && fromId != null) {
           if (!undoable) {
             toast.success(
@@ -1353,7 +1355,9 @@ export default function Communication() {
           advancingRef.current = false
         }
       }
-      void refreshDetail()
+      // Quiet: keep the open thread painted. A hard refresh blanks to skeleton
+      // and can stick if a concurrent fetch bumps the generation mid-flight.
+      void refreshDetail(true)
       void refreshThreads()
       void refreshNavBadges()
     },
@@ -1503,6 +1507,11 @@ export default function Communication() {
         </div>
       </div>
     )
+  }
+
+  // Retired agent-folder Activity queue → Agents swimlane.
+  if (leaf.type === 'agent' && leaf.queue === 'activity') {
+    return <Navigate to={activityTerminalPath(leaf.agentId)} replace />
   }
 
   return (
@@ -1749,7 +1758,12 @@ export default function Communication() {
         </SplitPane>
         <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
           <ThreadDetail
-            detail={detail}
+            key={selectedThreadId ?? 'empty'}
+            detail={
+              detail && selectedThreadId && String(detail.thread.id) === String(selectedThreadId)
+                ? detail
+                : null
+            }
             loading={detailLoading}
             error={detailError === 'THREAD_LOAD_FAILED' ? t('threadChrome.loadError') : detailError}
             saving={saving}

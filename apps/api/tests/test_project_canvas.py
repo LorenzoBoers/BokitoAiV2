@@ -551,3 +551,43 @@ async def test_create_canvas_uses_current_thread_or_opens_new(client, session_ov
     assert other["signal_id"]
     assert other["signal_id"] != str(chat.id)
     assert other["thread"]["id"] == other["signal_id"]
+
+
+@pytest.mark.asyncio
+async def test_soft_delete_canvas_disables_refresh_trigger(client: AsyncClient, session_override):
+    """Binning a canvas must stop its Agenda refresh wake (no ghost day blocks)."""
+    from uuid import UUID
+
+    from app.models.signal import Signal
+    from app.models.trigger import Trigger
+
+    headers = await _auth_headers(client)
+    project_id = await _make_project(client, headers, "canvas-bin-refresh")
+    created = await client.post(
+        f"/api/folders/{project_id}/canvases",
+        headers=headers,
+        json={"title": "Daily board", "refresh_cadence": "daily"},
+    )
+    assert created.status_code == 200, created.text
+    body = created.json()
+    trigger_id = UUID(body["refresh_trigger_id"])
+    signal_id = UUID(body["signal_id"])
+
+    trigger = await session_override.get(Trigger, trigger_id)
+    assert trigger is not None and trigger.enabled is True
+    assert trigger.next_run_at is not None
+    signal = await session_override.get(Signal, signal_id)
+    assert signal is not None and signal.next_at is not None
+
+    deleted = await client.delete(
+        f"/api/folders/{project_id}/canvases/{body['slug']}",
+        headers=headers,
+    )
+    assert deleted.status_code == 200, deleted.text
+
+    await session_override.refresh(trigger)
+    await session_override.refresh(signal)
+    assert trigger.enabled is False
+    assert trigger.next_run_at is None
+    assert trigger.last_status == "canvas_binned"
+    assert signal.next_at is None

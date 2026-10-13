@@ -103,7 +103,7 @@ Elk Google- of Microsoft-account is één koppeling; voeg er zoveel toe als nodi
 
 1. Open **Koppelingen** en kies het filter **Agenda**. Kies onder **Agenda-accounts** **Google Calendar koppelen** of **Outlook Calendar koppelen** en rond de aanmelding af. Is er al een account gekoppeld, dan heten de knoppen **Google-account toevoegen** en **Microsoft-account toevoegen**.
 2. Elke accountrij toont het adres, de synchronisatiestatus, het aantal afspraken en een gekleurde stip per aangezette agenda. **Met jou gedeeld** markeert een account dat iemand anders koppelde.
-3. Kies **Beheren**. Zet onder **Agenda's** de agenda's aan die moeten synchroniseren (eerst staat alleen de hoofdagenda aan) en kies de **Standaardagenda voor nieuwe afspraken**. Agenda's met alleen leesrechten synchroniseren wel, maar krijgen nooit nieuwe afspraken. Aangezette agenda's synchroniseren elke 15 minuten; **Nu synchroniseren** doet het direct.
+3. Kies **Beheren**. Zet onder **Agenda's** de agenda's aan die moeten synchroniseren (eerst staat alleen de hoofdagenda aan) en kies de **Standaardagenda voor nieuwe afspraken**. Agenda's met alleen leesrechten synchroniseren wel, maar krijgen nooit nieuwe afspraken. Aangezette agenda's worden automatisch bijgewerkt in Agenda.
 4. Kies onder **Toegang** wie het account mag zien en gebruiken. Een nieuw account beheer jij, en agents mogen het lezen. Geef een collega **Gebruiken** om het in diens Agenda te tonen, of **Beheren** om agenda's en toegang te laten wijzigen. Eigenaren en beheerders beheren altijd.
 5. Staat er **Log opnieuw in om deze agenda bij te houden**, kies dan **Opnieuw koppelen**. **Ontkoppelen** haalt het account en zijn afspraken uit Agenda; in Google of Outlook verandert niets.
 

@@ -1,4 +1,4 @@
-"""Agent visual identity: icon, color, or uploaded image.
+"""Agent visual identity: bot orb (shape+color), Lucide icon, or uploaded image.
 
 Stored in ``Agent.settings_json`` so we stay column-light during the build
 phase. Surfaces (library, Messages, signatures, widget header) share the
@@ -14,10 +14,16 @@ from app.models.agent import Agent
 
 AVATAR_KIND_INITIALS = "initials"
 AVATAR_KIND_ICON = "icon"
+AVATAR_KIND_ORB = "orb"
 AVATAR_KIND_IMAGE = "image"
-AVATAR_KINDS = (AVATAR_KIND_INITIALS, AVATAR_KIND_ICON, AVATAR_KIND_IMAGE)
+AVATAR_KINDS = (
+    AVATAR_KIND_INITIALS,
+    AVATAR_KIND_ICON,
+    AVATAR_KIND_ORB,
+    AVATAR_KIND_IMAGE,
+)
 
-# Curated Lucide keys mirrored in the dashboard picker.
+# Curated Lucide keys mirrored in the dashboard (legacy icon mode).
 ALLOWED_ICONS = frozenset(
     {
         "bot",
@@ -43,10 +49,56 @@ ALLOWED_ICONS = frozenset(
     }
 )
 
+# Bot-orb silhouettes (mirrored in dashboard bot-orb-shapes.ts).
+ALLOWED_SHAPES = frozenset(
+    {
+        "blob",
+        "pebble",
+        "bean",
+        "egg",
+        "squircle",
+        "tablet",
+        "capsule",
+        "cylinder",
+        "hex",
+        "gem",
+        "crystal",
+        "wedge",
+        "shield",
+        "dome",
+        "arch",
+        "cloud",
+        "teardrop",
+        "leaf",
+        "square",
+        "sparkle",
+        "clover",
+        "flower",
+        "heart",
+        "house",
+        "star",
+    }
+)
+
+DEFAULT_AVATAR_SHAPE = "blob"
+
+# Grok-like named palette (6-digit hex).
 ALLOWED_COLORS = frozenset(
     {
-        "#4652f2",
+        "#111827",
+        "#936439",
+        "#ff263c",
+        "#ff6700",
+        "#ff9800",
+        "#00c972",
+        "#00bca6",
+        "#1084fe",
+        "#9159fe",
+        "#ff309b",
+        "#777777",
+        # Legacy violet still accepted so older rows keep rendering.
         "#7c3aed",
+        "#4652f2",
         "#0891b2",
         "#0d9488",
         "#059669",
@@ -62,6 +114,11 @@ ALLOWED_COLORS = frozenset(
 
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _UPLOAD_PATH_RE = re.compile(r"^/api/uploads/files/[0-9a-fA-F-]{36}/[^/?#]+$")
+
+# Violet shell for initials / Lucide icon marks.
+PLATFORM_AVATAR_COLOR = "#7c3aed"
+# Default orb tint when none stored.
+DEFAULT_ORB_COLOR = "#9159fe"
 
 
 def _settings(raw: str | None) -> dict[str, Any]:
@@ -82,7 +139,15 @@ def normalize_color(value: str | None) -> str | None:
         hex_color = f"#{hex_color}"
     if not _HEX_RE.match(hex_color):
         return None
-    return hex_color.lower()
+    normalized = hex_color.lower()
+    return normalized if normalized in ALLOWED_COLORS else None
+
+
+def normalize_shape(value: str | None) -> str | None:
+    if not value:
+        return None
+    key = value.strip().lower()
+    return key if key in ALLOWED_SHAPES else None
 
 
 def normalize_icon(value: str | None) -> str | None:
@@ -106,13 +171,8 @@ def normalize_image_url(value: str | None) -> str | None:
     return None
 
 
-# One platform AI violet for every agent. Personality is icon + name only —
-# stored avatar_color values are ignored so the UI stays uncluttered.
-PLATFORM_AVATAR_COLOR = "#7c3aed"
-
-
 def _role_default_mark(agent: Agent) -> dict[str, Any]:
-    """Icon for agents that never picked a mark (or legacy rows). Always purple."""
+    """Icon for agents that never picked a mark (or legacy rows)."""
     slug = (agent.slug or "").strip().lower()
     role = (agent.role or "").strip().lower()
     if bool(getattr(agent, "acts_for_user", False)) or slug == "bokito":
@@ -131,6 +191,7 @@ def _role_default_mark(agent: Agent) -> dict[str, Any]:
         "avatar_kind": AVATAR_KIND_ICON,
         "avatar_icon": icon,
         "avatar_color": PLATFORM_AVATAR_COLOR,
+        "avatar_shape": None,
         "avatar_image_url": None,
     }
 
@@ -138,14 +199,15 @@ def _role_default_mark(agent: Agent) -> dict[str, Any]:
 def avatar_payload(agent: Agent | None) -> dict[str, Any]:
     """Public avatar fields for API / widget / thread payloads.
 
-    Always returns a concrete icon (or image) when possible so list rows,
-    timeline bubbles, and the Agents library share one silhouette per agent.
-    Color is always the platform AI violet.
+    Always returns a concrete mark when possible so list rows, timeline
+    bubbles, and the Agents library share one silhouette per agent.
+    Orb mode carries shape + curated tint; other modes stay violet.
     """
     empty = {
         "avatar_kind": AVATAR_KIND_ICON,
         "avatar_icon": "sparkles",
         "avatar_color": PLATFORM_AVATAR_COLOR,
+        "avatar_shape": None,
         "avatar_image_url": None,
     }
     if agent is None:
@@ -156,21 +218,29 @@ def avatar_payload(agent: Agent | None) -> dict[str, Any]:
         kind = AVATAR_KIND_INITIALS
     icon = normalize_icon(str(stored.get("avatar_icon") or "") or None)
     image = normalize_image_url(str(stored.get("avatar_image_url") or "") or None)
+    color = normalize_color(str(stored.get("avatar_color") or "") or None)
+    shape = normalize_shape(str(stored.get("avatar_shape") or "") or None) or DEFAULT_AVATAR_SHAPE
+
     if kind == AVATAR_KIND_IMAGE and not image:
         kind = AVATAR_KIND_ICON if icon else AVATAR_KIND_INITIALS
+    if kind == AVATAR_KIND_ORB:
+        return {
+            "avatar_kind": AVATAR_KIND_ORB,
+            "avatar_icon": None,
+            "avatar_color": color or DEFAULT_ORB_COLOR,
+            "avatar_shape": shape,
+            "avatar_image_url": None,
+        }
     if kind == AVATAR_KIND_ICON and not icon:
-        # Explicit icon mode without a stored icon falls back to the role mark.
         return _role_default_mark(agent)
-    # Initials-first list mark: only use Lucide when kind is icon (or image).
     if kind == AVATAR_KIND_INITIALS:
         return {
             "avatar_kind": AVATAR_KIND_INITIALS,
             "avatar_icon": None,
             "avatar_color": PLATFORM_AVATAR_COLOR,
+            "avatar_shape": None,
             "avatar_image_url": None,
         }
-    # Orchestrators that accidentally share the Front desk headset get the
-    # role mark so they stay visually distinct when using icon mode.
     if (
         icon == "headset"
         and (agent.role or "").strip().lower() in ("orchestrator", "po")
@@ -181,6 +251,7 @@ def avatar_payload(agent: Agent | None) -> dict[str, Any]:
         "avatar_kind": kind,
         "avatar_icon": icon,
         "avatar_color": PLATFORM_AVATAR_COLOR,
+        "avatar_shape": None,
         "avatar_image_url": image if kind == AVATAR_KIND_IMAGE else None,
     }
 
@@ -191,13 +262,10 @@ def apply_avatar_settings(
     avatar_kind: str | None = None,
     avatar_icon: str | None = None,
     avatar_color: str | None = None,
+    avatar_shape: str | None = None,
     avatar_image_url: str | None = None,
 ) -> dict[str, Any]:
-    """Merge avatar fields into settings_json; raises ValueError on bad input.
-
-    ``avatar_color`` is accepted for API compat but always stored as the
-    platform violet — agents do not get a custom tint.
-    """
+    """Merge avatar fields into settings_json; raises ValueError on bad input."""
     out = dict(stored)
     if avatar_kind is not None:
         kind = avatar_kind.strip().lower()
@@ -212,9 +280,22 @@ def apply_avatar_settings(
             out["avatar_icon"] = icon
         else:
             out.pop("avatar_icon", None)
-    # Drop legacy custom colors; always pin platform violet when touched.
-    if avatar_color is not None or avatar_kind is not None or avatar_icon is not None:
-        out["avatar_color"] = PLATFORM_AVATAR_COLOR
+    if avatar_color is not None:
+        color = normalize_color(avatar_color) if avatar_color.strip() else None
+        if avatar_color.strip() and color is None:
+            raise ValueError("Invalid avatar_color")
+        if color:
+            out["avatar_color"] = color
+        else:
+            out.pop("avatar_color", None)
+    if avatar_shape is not None:
+        shape = normalize_shape(avatar_shape) if avatar_shape.strip() else None
+        if avatar_shape.strip() and shape is None:
+            raise ValueError("Invalid avatar_shape")
+        if shape:
+            out["avatar_shape"] = shape
+        else:
+            out.pop("avatar_shape", None)
     if avatar_image_url is not None:
         image = normalize_image_url(avatar_image_url) if avatar_image_url.strip() else None
         if avatar_image_url.strip() and image is None:
@@ -223,14 +304,27 @@ def apply_avatar_settings(
             out["avatar_image_url"] = image
         else:
             out.pop("avatar_image_url", None)
-    # Keep kind coherent after partial updates.
+
     kind = str(out.get("avatar_kind") or AVATAR_KIND_INITIALS)
     if kind == AVATAR_KIND_IMAGE and not out.get("avatar_image_url"):
         out["avatar_kind"] = (
             AVATAR_KIND_ICON if out.get("avatar_icon") else AVATAR_KIND_INITIALS
         )
+        kind = str(out["avatar_kind"])
     if kind == AVATAR_KIND_ICON and not out.get("avatar_icon"):
         out["avatar_kind"] = AVATAR_KIND_INITIALS
+        kind = AVATAR_KIND_INITIALS
+    if kind == AVATAR_KIND_ORB:
+        out.pop("avatar_icon", None)
+        out.pop("avatar_image_url", None)
+        if not normalize_color(str(out.get("avatar_color") or "") or None):
+            out["avatar_color"] = DEFAULT_ORB_COLOR
+        if not normalize_shape(str(out.get("avatar_shape") or "") or None):
+            out["avatar_shape"] = DEFAULT_AVATAR_SHAPE
+    elif kind in (AVATAR_KIND_ICON, AVATAR_KIND_INITIALS, AVATAR_KIND_IMAGE):
+        out.pop("avatar_shape", None)
+        if avatar_color is not None or avatar_kind is not None or avatar_icon is not None:
+            out["avatar_color"] = PLATFORM_AVATAR_COLOR
     return out
 
 

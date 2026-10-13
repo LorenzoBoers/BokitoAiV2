@@ -19,7 +19,6 @@ import { lastInboxPath } from './lib/inbox-prefs'
 import { legacyModulesPath } from './lib/integration-kind-url'
 import { CockpitPanelsSkeleton, Skeleton } from './components/ui/skeleton'
 import {
-  activityTerminalPath,
   agentChatPath,
   channelPath,
   forYouPath,
@@ -49,7 +48,6 @@ const NewConversationPage = lazy(() => import('./pages/NewConversationPage'))
 const CockpitPage = lazy(() => import('./pages/CockpitPage'))
 const ContactsPage = lazy(() => import('./pages/ContactsPage'))
 const Communication = lazy(() => import('./pages/MessagesHub').then((m) => ({ default: m.MessagesHub })))
-const ActivityTerminalPage = lazy(() => import('./pages/ActivityTerminalPage'))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
 const CockpitCanvasPage = lazy(() => import('./pages/CockpitCanvasPage'))
@@ -219,10 +217,16 @@ function LegacyHubRedirect() {
   return <Navigate to={target} state={location.state} replace />
 }
 
-/** `/communication/activity` → `/activity` (preserve agent/q filters). */
-function LegacyCommunicationActivityRedirect() {
+/** Retired `/activity` terminal → Agents swimlane (`?agent=` → detail). */
+function LegacyActivityRedirect() {
   const location = useLocation()
-  return <Navigate to={`/activity${location.search}`} replace />
+  const agent = new URLSearchParams(location.search).get('agent')
+  return (
+    <Navigate
+      to={agent ? `/agents/${encodeURIComponent(agent)}#activity` : '/agents#activity'}
+      replace
+    />
+  )
 }
 
 const LEGACY_CUSTOMER_QUEUE_MAP: Record<string, InboxQueue> = {
@@ -404,7 +408,7 @@ export default function App() {
             <Route path="/communication/customers/:queue/t/:threadId" element={<LegacyCustomersRedirect />} />
             <Route path="/communication/customers/ch/:channelId/:queue" element={<LegacyCustomersRedirect />} />
             <Route path="/communication/customers/ch/:channelId/:queue/t/:threadId" element={<LegacyCustomersRedirect />} />
-            <Route path="/communication/agents" element={<Navigate to={activityTerminalPath()} replace />} />
+            <Route path="/communication/agents" element={<Navigate to="/agents#activity" replace />} />
             <Route path="/communication/agents/:queue" element={<LegacyAgentsRedirect />} />
             <Route path="/communication/agents/:queue/t/:threadId" element={<LegacyAgentsRedirect />} />
           </Route>
@@ -413,10 +417,10 @@ export default function App() {
           <Route path="/ops" element={<OpsPage />} />
           <Route path="/cockpit" element={<CockpitPage />} />
           <Route path="/cockpit/canvas" element={<CockpitCanvasPage />} />
-          <Route path="/cockpit/activity" element={<Navigate to="/activity" replace />} />
+          <Route path="/cockpit/activity" element={<LegacyActivityRedirect />} />
           <Route path="/cockpit/usage" element={<UsagePage />} />
-          <Route path="/activity" element={<ActivityTerminalPage />} />
-          <Route path="/communication/activity" element={<LegacyCommunicationActivityRedirect />} />
+          <Route path="/activity" element={<LegacyActivityRedirect />} />
+          <Route path="/communication/activity" element={<LegacyActivityRedirect />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />

@@ -769,13 +769,14 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
     from app.models.auth import Membership, User, user_numeric_id
     from app.models.channel import ChannelAccount
     from app.services.channel_access import agent_can_handle, can_handle_account
-    from app.services.presence import user_status
+    from app.services.presence import connected_user_ids_for, visible_user_status
     from app.services.teams import list_teams
 
     account = (
         await session.get(ChannelAccount, signal.channel_account_id) if signal.channel_account_id else None
     )
     now = datetime.utcnow()
+    connected = connected_user_ids_for(tenant_id)
     people = []
     rows = await session.execute(
         select(User, Membership)
@@ -797,7 +798,9 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
                 "name": user.display_name or user.email,
                 "email": user.email,
                 "avatar_url": user.avatar_url,
-                "presence": user_status(user, now=now),
+                "presence": visible_user_status(
+                    user, connected=str(user.id) in connected, now=now
+                ),
                 "can_handle": ok,
                 "reason": "" if ok else "no_channel_access",
             }

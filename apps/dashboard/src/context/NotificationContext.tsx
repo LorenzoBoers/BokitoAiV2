@@ -90,11 +90,22 @@ const AUDIBLE_KINDS = new Set([
   'decision_request',
 ]);
 
-function viewingSignal(signalId: string | null | undefined): boolean {
+/** True when the operator already has this conversation open (mute pling). */
+export function viewingSignal(signalId: string | null | undefined, pathname?: string): boolean {
   if (!signalId) return false;
   try {
-    return window.location.pathname.includes(`/t/${encodeURIComponent(signalId)}`)
-      || window.location.pathname.includes(`/t/${signalId}`);
+    const path = pathname ?? window.location.pathname;
+    const id = String(signalId).trim();
+    if (!id) return false;
+    const encoded = encodeURIComponent(id);
+    // Match /t/{id} as a path segment so query/hash noise cannot false-negative.
+    const needles = [`/t/${id}`, `/t/${encoded}`];
+    return needles.some((needle) => {
+      const idx = path.indexOf(needle);
+      if (idx < 0) return false;
+      const after = path[idx + needle.length];
+      return after == null || after === '/' || after === '?' || after === '#';
+    });
   } catch {
     return false;
   }

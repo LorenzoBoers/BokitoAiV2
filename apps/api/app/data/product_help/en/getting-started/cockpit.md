@@ -1,10 +1,10 @@
 ---
 title: How Overview works
 intro: Start here when you want to know whether work is flowing and where attention is needed.
-description: Use Overview for the daily scan, Canvas for workspace dashboards, Activity for the event log and Usage for token budget caps and spend.
+description: Use Overview for the daily scan, Canvas for workspace dashboards and Usage for token budget caps and spend. Agent activity lives on Agents.
 keywords: overview, reports, cockpit, dashboard, usage, budget, activity
 sort: 50
-related: communication,categories,agent-runs,decisions,agenda
+related: communication,categories,agent-runs,decisions,agenda,agents
 ---
 
 # How Overview works
@@ -18,7 +18,7 @@ Overview is the morning scan. Open it from the left rail to see what needs you, 
 
 1. Open **Overview** in the left rail. You land on the scan. The in-page heading is the workspace name; the help icon next to **Overview** in the top bar opens this guide. The subtitle greets you and shows today's date. The gray line `environment · tenant-slug · Live · 1.2.01` is for support (API environment, this tenant, websocket, release version). Click the slug to copy the whole line. The same line sits at the bottom of the account menu. The dev host shows the next patch, one step ahead of production.
 2. **Needs you** sits first and full width: open decisions and conversations assigned to you (the same exception list as **For you** in Communication). When it is empty, use **Open For you** or **Connect a channel**.
-3. Below that, **AI activity** shows a stacked area chart of weighted **AI** (purple) over **Manual** (gray) work for the last 14 days, **Time saved** (estimated minutes from AI outcomes this week: autonomous sends, assisted drafts sent or continued by a person, quiet no-reply triage, confirmed no-reply closes, AI-filed tickets, completed flows) and **AI share** (the share of credited actions AI handled this week). Both figures show a green up or red down arrow with the percentage change versus the previous 7 days. A donut of weighted **Autonomous**, **Assisted** and **Manual** actions this week sits to the right (with open conversation counts under the legend). **AI handling settings** opens the workspace dial.
+3. Below that, **AI activity** shows a stacked area chart of weighted **AI** (purple) over **Manual** (gray) work, **Time saved** (estimated minutes from AI outcomes: autonomous sends, assisted drafts sent or continued by a person, quiet no-reply triage, confirmed no-reply closes, AI-filed tickets, completed flows) and **AI share** (the share of credited actions AI handled). Use the **7 days** / **30 days** / **90 days** switcher (same as Usage) to change the window; both figures show a green up or red down arrow with the percentage change versus the previous equal period when that data is available. A donut of weighted **Autonomous**, **Assisted** and **Manual** actions for the selected period sits to the right (with open conversation counts under the legend). **AI handling settings** opens the workspace dial.
 4. Under **More workspace context**, scan the three secondary blocks: **Open tickets by category**, **Running and next up**, and **Trajectory**. **Running and next up** warns about due check-ups and overdue look-ats, lists the next few [Agenda](/docs/ai/agenda) items, then the runs in progress, and ends with **Open Agenda**. Trajectory compares this week with last week: **Tickets filed (7 days)** counts confirmed tickets only, and the block links to completed runs, Govern proposals, and Usage.
 5. Click any row to open its conversation, run, or filtered list. A row under **Open tickets by category** opens that category's row in Communication. When an open conversation has had no message for 14 days, **Quiet for 14 days** lists it with **Close**. With no recurring task yet, a one-time banner **Let an agent help you move forward** offers **Set up task**. That opens **Plan** already filled: every weekday at 09:00, the lead agent, and a task that names what is open and suggests next steps. After **Save** you land in that conversation, where the agent writes each time. **Hide** dismisses the banner for this workspace.
 
@@ -41,11 +41,11 @@ Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-
 2. Open it. You land on the matching thread in Communication.
 3. Handle the decision in the thread, then return to Overview.
 
-## Read Activity
+## Read agent activity
 
-1. Open **Activity** from Communication (or an agent's **Activity** row) when you need the full stream. Overview itself keeps **Needs you** first, then the secondary context blocks.
+1. Open **Agents** (or an agent's **Activity** row in Communication) for the Activity swimlane. Overview itself keeps **Needs you** first, then the secondary context blocks.
 2. Scan outcomes, not every thinking step.
-3. Jump into a thread or agent when a row needs follow-up.
+3. Jump into a thread or agent when a row needs follow-up. See [Follow agent activity](/docs/inbox/agent-runs).
 
 ## Check Usage
 

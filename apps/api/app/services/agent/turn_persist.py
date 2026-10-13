@@ -259,6 +259,14 @@ async def touch_agent_activity(session: AsyncSession, agent_id: UUID | None) -> 
         session.add(agent)
 
 
+def _is_uuid(value: str) -> bool:
+    try:
+        UUID(str(value))
+        return True
+    except ValueError:
+        return False
+
+
 def decision_ids_from_result(result: Any) -> set[str]:
     found: set[str] = set()
     if isinstance(result, dict):
@@ -298,16 +306,59 @@ async def place_turn_decisions(
     signal: Signal,
     turn_messages: list[SignalMessage],
 ) -> None:
-    """Put wait-for-OK cards after the bubble whose activity created them.
+    """Reveal deferred decisions and stamp cards after the bubble that created them.
 
-    ``create_decision`` writes the card at tool time; bubbles persist later, so
-    without this the card sorts between the user message and the agent work.
+    Agent turns persist DecisionRequests at tool time with ``reveal=False``.
+    After speech bubbles are saved we reveal (thread message + notification)
+    so the operator sees the question before the approval card.
 
     Only cards whose decision id appears in **this** turn's activity are moved.
     A previous fallback relocated every older card with ``received_at <= first
     bubble``, which dragged already-approved decisions into later turns and
     showed them as "Afgehandeld" between new bubbles.
     """
+    from app.services.signal_decisions import reveal_decision
+
+    anchors: dict[str, datetime] = {}
+    turn_ids: set[str] = set()
+    for bubble in turn_messages:
+        try:
+            meta = json.loads(bubble.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        tid = str(meta.get("turn_id") or "").strip()
+        if tid:
+            turn_ids.add(tid)
+        stamp = _message_time(bubble) or datetime.utcnow()
+        for did in decision_ids_in_activity(meta):
+            anchors[did] = stamp
+
+    pending_ids = [UUID(did) for did in anchors if _is_uuid(did)]
+    pending_q = select(DecisionRequest).where(
+        DecisionRequest.tenant_id == signal.tenant_id,
+        DecisionRequest.signal_id == signal.id,
+        DecisionRequest.message_id.is_(None),
+        DecisionRequest.status == "awaiting_human",
+    )
+    if pending_ids and turn_ids:
+        pending_q = pending_q.where(
+            (DecisionRequest.id.in_(pending_ids)) | (DecisionRequest.bundle_id.in_(list(turn_ids)))
+        )
+    elif pending_ids:
+        pending_q = pending_q.where(DecisionRequest.id.in_(pending_ids))
+    elif turn_ids:
+        pending_q = pending_q.where(DecisionRequest.bundle_id.in_(list(turn_ids)))
+    else:
+        pending_q = None
+    if pending_q is not None:
+        pending_rows = (await session.execute(pending_q)).scalars().all()
+        last_stamp = _message_time(turn_messages[-1]) if turn_messages else datetime.utcnow()
+        for decision in pending_rows:
+            await reveal_decision(session, signal.tenant_id, decision)
+            anchors.setdefault(str(decision.id), last_stamp or datetime.utcnow())
+
     if not turn_messages:
         return
     cards = (
@@ -323,23 +374,14 @@ async def place_turn_decisions(
     first_time = _message_time(turn_messages[0])
     last_time = _message_time(turn_messages[-1])
     later_times = [_message_time(row) for row in turn_messages[1:]]
-    anchors: dict[str, datetime] = {}
-    for bubble in turn_messages:
-        try:
-            meta = json.loads(bubble.metadata_json or "{}")
-        except json.JSONDecodeError:
-            meta = {}
-        stamp = _message_time(bubble)
-        for did in decision_ids_in_activity(meta if isinstance(meta, dict) else {}):
-            anchors[did] = stamp
-    turn_window_start = first_time - timedelta(seconds=2)
-    turn_window_end = last_time + timedelta(seconds=2)
+    turn_window_start = (first_time or datetime.utcnow()) - timedelta(seconds=2)
+    turn_window_end = (last_time or datetime.utcnow()) + timedelta(seconds=2)
     for card in cards:
         did = str(card.decision_id) if card.decision_id else str(card.id)
         current = _message_time(card)
         if did in anchors:
             anchor = anchors[did]
-            before = next((t for t in later_times if t > anchor), None)
+            before = next((t for t in later_times if t and t > anchor), None)
             card.received_at = _stamp_after(anchor, before=before)
             continue
         # Heal cards an older bug dragged into a later turn: snap back to
@@ -395,13 +437,17 @@ def _merge_items(*groups: list[Any] | None) -> list[dict[str, Any]]:
 
 
 def _items_from_attach_activity(messages: list[SignalMessage]) -> list[dict[str, Any]]:
-    """Rebuild showcase rows from attach_items activity when the in-memory stash is empty."""
+    """Rebuild showcase rows from tool activity when the in-memory stash is empty.
+
+    ``list_folders`` / ``list_agents`` / ``attach_items`` (and similar) stash
+    cards under ``result.items`` — harvest any of those, not only attach_items.
+    """
     out: list[dict[str, Any]] = []
     for msg in messages:
         meta = _json_meta(msg)
         for key in ("activity", "activity_after"):
             for entry in meta.get(key) or []:
-                if not isinstance(entry, dict) or entry.get("tool") != "attach_items":
+                if not isinstance(entry, dict):
                     continue
                 result = entry.get("result")
                 if isinstance(result, str):

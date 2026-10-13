@@ -44,9 +44,13 @@ async def test_collect_tenant_snapshot_includes_agents_projects(client: AsyncCli
 
     snapshot = await collect_tenant_snapshot(session_override, tenant.id)
     assert any(a["name"] for a in snapshot["agents"])
+    assert all(a.get("name") != "Bokito" for a in snapshot["agents"])
+    assert any(t.get("kind") in ("people", "agents") for t in snapshot.get("teams") or [])
     assert any(p["name"] == "MMXM Trading" for p in snapshot["projects"])
     assert any(t["name"] == "Pipeline scan" for t in snapshot["triggers"])
     assert "open_decisions" in snapshot
+    assert "decisions" in snapshot
+    assert isinstance(snapshot["decisions"], list)
     assert "running_tasks" in snapshot
 
     prompt = format_tenant_snapshot_prompt(snapshot)
@@ -55,7 +59,9 @@ async def test_collect_tenant_snapshot_includes_agents_projects(client: AsyncCli
     assert "Pipeline scan" in prompt
     assert "Modules:" in prompt
     assert "accounting — not installed" in prompt
-    assert len(prompt) < 1800
+    assert "Teams" in prompt
+    assert "@[Bokito](agent:" not in prompt
+    assert len(prompt) < 2200
 
     live_prompt = await build_tenant_snapshot_prompt(session_override, tenant.id)
     assert "## Tenant snapshot" in live_prompt

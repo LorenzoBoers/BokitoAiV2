@@ -24,6 +24,9 @@ from app.models.auth import Membership, User
 
 ONLINE_WINDOW = timedelta(minutes=3)
 TOUCH_INTERVAL = timedelta(seconds=60)
+# Reload / API restart drops the socket before the new one registers.
+# Wait before writing offline so a live tab is not stamped away.
+OFFLINE_GRACE = timedelta(seconds=15)
 
 AVAILABLE = "available"
 AWAY = "away"
@@ -36,11 +39,22 @@ TEAM_STATUSES = frozenset({AVAILABLE, AWAY, WORKING, STANDBY, OFFLINE})
 AGENT_CORNER_STATUSES = frozenset({WORKING, STANDBY, ERROR})
 
 
+def _naive_utc(value: datetime | None) -> datetime | None:
+    """Compare last_seen without mixing aware Postgres stamps and naive utcnow."""
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
 def user_status(user: User, *, now: datetime | None = None) -> str:
-    now = now or datetime.utcnow()
-    if user.away and (user.away_until is None or user.away_until > now):
+    now = _naive_utc(now) or datetime.utcnow()
+    away_until = _naive_utc(user.away_until)
+    if user.away and (away_until is None or away_until > now):
         return AWAY
-    if user.last_seen_at and now - user.last_seen_at <= ONLINE_WINDOW:
+    last_seen = _naive_utc(user.last_seen_at)
+    if last_seen and now - last_seen <= ONLINE_WINDOW:
         return AVAILABLE
     return OFFLINE
 
@@ -57,14 +71,26 @@ def visible_user_status(user: User, *, connected: bool, now: datetime | None = N
     return status
 
 
-def serialize_presence(user: User, *, now: datetime | None = None) -> dict:
-    now = now or datetime.utcnow()
-    away_active = bool(user.away and (user.away_until is None or user.away_until > now))
+def serialize_presence(
+    user: User, *, now: datetime | None = None, connected: bool = False
+) -> dict:
+    now = _naive_utc(now) or datetime.utcnow()
+    away_until = _naive_utc(user.away_until)
+    away_active = bool(user.away and (away_until is None or away_until > now))
     return {
-        "status": user_status(user, now=now),
+        "status": visible_user_status(user, connected=connected, now=now),
         "last_seen_at": user.last_seen_at.isoformat() if user.last_seen_at else None,
         "away_until": user.away_until.isoformat() if away_active and user.away_until else None,
     }
+
+
+def connected_user_ids_for(tenant_id: UUID | str) -> set[str]:
+    """Dashboard sockets currently registered on this API process."""
+    try:
+        from app.gateway.manager import manager
+    except Exception:
+        return set()
+    return manager.user_ids(str(tenant_id))
 
 
 async def touch(session: AsyncSession, user_id: UUID, *, force: bool = False) -> bool:
@@ -79,10 +105,12 @@ async def touch(session: AsyncSession, user_id: UUID, *, force: bool = False) ->
         return False
     await session.refresh(user)
     now = datetime.utcnow()
-    if not force and user.last_seen_at and now - user.last_seen_at < TOUCH_INTERVAL:
+    last_seen = _naive_utc(user.last_seen_at)
+    if not force and last_seen and now - last_seen < TOUCH_INTERVAL:
         return False
     user.last_seen_at = now
-    if user.away and user.away_until is not None and user.away_until <= now:
+    away_until = _naive_utc(user.away_until)
+    if user.away and away_until is not None and away_until <= now:
         user.away = False
         user.away_until = None
     session.add(user)
@@ -103,7 +131,8 @@ async def mark_offline(session: AsyncSession, user_id: UUID) -> bool:
     await session.refresh(user)
     now = datetime.utcnow()
     cutoff = now - timedelta(seconds=5)
-    if user.last_seen_at and user.last_seen_at > cutoff:
+    last_seen = _naive_utc(user.last_seen_at)
+    if last_seen and last_seen > cutoff:
         return False
     stamp = now - ONLINE_WINDOW - timedelta(seconds=1)
     result = await session.execute(

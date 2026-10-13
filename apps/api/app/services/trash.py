@@ -447,19 +447,13 @@ async def restore_entry(
             from app.models.project import Project
 
             restored_folders.append(row.id)
-            parent_scope = (
-                [Project.parent_id == row.parent_id]
-                if row.parent_id
-                else [Project.parent_id.is_(None)]
-            )
-            new_slug = await _unique_slug(
-                session, Project, tenant.id, "slug", row.slug, extra=parent_scope
-            )
+            new_slug = await _unique_slug(session, Project, tenant.id, "slug", row.slug)
             if new_slug != row.slug:
                 hint["slug"] = new_slug
                 row.slug = new_slug
         if item.resource_type == "canvas":
             from app.models.project_canvas import ProjectCanvas
+            from app.services.project_canvas import resume_refresh_trigger_for_canvas
 
             new_slug = await _unique_slug(
                 session,
@@ -478,6 +472,11 @@ async def restore_entry(
             # Lets the dashboard open the restored canvas on its project.
             if getattr(row, "owner_kind", None) == "project" and getattr(row, "owner_id", None):
                 hint["project_id"] = str(row.owner_id)
+            unstamp_row(row)
+            session.add(row)
+            await resume_refresh_trigger_for_canvas(session, tenant.id, row)
+            await session.delete(item)
+            continue
         if item.resource_type == "knowledge" and getattr(row, "path", None):
             from app.models.workspace import WorkspaceDoc
 

@@ -1381,6 +1381,8 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
     if selection not in ("single", "multiple"):
         selection = "single"
     asker_id = ctx.agent.id if ctx.agent else None
+    # Agent turns defer thread/notification publish until speech is persisted
+    # (place_turn_decisions → reveal_decision) so cards land under the question.
     decision, _ = await create_decision(
         ctx.session,
         ctx.tenant_id,
@@ -1400,6 +1402,7 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         question=question,
         selection=selection,
         bundle_id=ctx.bundle_id,
+        reveal=not bool(ctx.turn_id),
     )
     await ctx.session.commit()
     result: dict[str, Any] = {"decision_request_id": str(decision.id), "status": "awaiting_human"}
@@ -2764,6 +2767,17 @@ async def _propose_action(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
         if isinstance(extra, dict) and extra.get("id") and extra.get("label"):
             row = dict(extra)
             action_type = str(row.get("action_type") or "").strip()
+            # Invented verbs (e.g. open_thread) used to resolve as Unknown action
+            # and reopen the card. Soften to a label-only pick so Approve still
+            # continues the chat; real tools and resolver actions stay.
+            if (
+                action_type
+                and action_type not in NON_EXECUTABLE_ACTIONS
+                and action_type not in RESOLVER_ACTIONS
+                and get_tool_spec(action_type) is None
+            ):
+                row.pop("action_type", None)
+                action_type = ""
             if (
                 action_type
                 and action_type not in ("reject", "defer", "escalate")
@@ -2982,8 +2996,10 @@ async def _list_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
 async def _delete_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from sqlalchemy import func
 
+    from app.models.project import Project, ProjectTagLink
     from app.models.signal import SignalTag
     from app.services.signal_tags import delete_tag
+    from app.services.trash import alive
 
     raw_id = tool_input.get("id")
     name = str(tool_input.get("name") or "").strip().lstrip("#").lower()
@@ -3012,7 +3028,47 @@ async def _delete_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         return {"error": "not_found", "message": "Tag not found in this workspace."}
     tag_name = row.name
     tag_id = row.id
-    await delete_tag(ctx.session, ctx.tenant_id, tag_id, commit=False)
+    folder_rows = list(
+        (
+            await ctx.session.execute(
+                select(Project.id, Project.name, Project.slug)
+                .join(ProjectTagLink, ProjectTagLink.project_id == Project.id)
+                .where(
+                    Project.tenant_id == ctx.tenant_id,
+                    ProjectTagLink.tag_id == tag_id,
+                    alive(Project),
+                )
+                .distinct()
+            )
+        ).all()
+    )
+    if folder_rows:
+        folders = [
+            {"id": str(fid), "name": fname, "slug": slug or ""}
+            for fid, fname, slug in folder_rows
+        ]
+        return {
+            "error": "tag_defines_folder",
+            "message": (
+                f"#{tag_name} is part of {len(folders)} folder filterset"
+                f"{'s' if len(folders) != 1 else ''}. "
+                "Remove those folders with delete_folder first; do not delete_tag "
+                "to remove a folder."
+            ),
+            "folders": folders,
+            "hint": (
+                "Call delete_folder with each folder id from list_folders. "
+                "Only delete_tag when the tag is no longer in any folder."
+            ),
+        }
+    try:
+        await delete_tag(ctx.session, ctx.tenant_id, tag_id, commit=False)
+    except ValueError as exc:
+        return {
+            "error": "blocked",
+            "message": str(exc),
+            "hint": "Call delete_folder on the listed folders, then retry delete_tag.",
+        }
     return {"ok": True, "deleted": True, "id": str(tag_id), "name": tag_name}
 
 
@@ -3048,9 +3104,11 @@ register_tool(
         name="delete_tag",
         description=(
             "Permanently delete a workspace tag (free tag or action tag) and unlink "
-            "it from every conversation. Prefer propose_action with action=delete_tag "
-            "and payload {name} or {id} so the operator approves first. Do not invent "
-            "soft Yes/No options without this action."
+            "it from every conversation. Refuses when the tag is still part of a "
+            "folder filterset — call delete_folder on those folders first. Prefer "
+            "propose_action with action=delete_tag and payload {name} or {id} so "
+            "the operator approves first. Do not invent soft Yes/No options without "
+            "this action. Do not use this to remove a folder."
         ),
         category="messaging",
         input_schema={
@@ -3872,8 +3930,10 @@ register_tool(
         name="get_tenant_overview",
         description=(
             "Live tenant snapshot: agents, projects, enabled triggers (schedule + last run), "
-            "open decisions/tasks/internal threads, integrations/MCP servers, and usage totals. "
-            "Call this before claiming you lack information about the tenant or a project."
+            "open decisions (count + recent decisions[{id,title,path,signal_id}]), "
+            "tasks/internal threads, integrations/MCP servers, and usage totals. "
+            "Call this before claiming you lack information about the tenant or a project. "
+            "There is no list_open_decisions tool — use this."
         ),
         category="govern",
         input_schema={"type": "object", "properties": {}},
@@ -3943,6 +4003,7 @@ register_tool(
             "This is the only thread list — do not invent list_open_internal_threads. "
             "Open internal threads: channel=internal (status defaults to open). "
             "Results are showcased as conversation cards; do not repeat them as a numbered list. "
+            "Not for workspace users or teams — use list_teams (and membership tools) instead. "
             "Defaults to open/pending threads. Does not include Bin items — use list_trash "
             "for deleted conversations (type conversation, alias signal). "
             "In prose chip a thread with [Subject](/communication/inbox/open/t/{id}) from "
@@ -4358,10 +4419,34 @@ register_tool(
 
 
 async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.projects import resolve_folder_ref
+
     name = str(tool_input.get("name") or "").strip()
     if not name:
         return {"error": "name is required"}
     slug = str(tool_input.get("slug") or name).strip().lower().replace(" ", "-")
+    nest_raw = (
+        str(tool_input.get("nest_under") or tool_input.get("parent_id") or "").strip() or None
+    )
+    nest_under: str | None = None
+    if nest_raw:
+        parent, parent_err = await resolve_folder_ref(ctx.session, ctx.tenant_id, nest_raw)
+        if parent_err:
+            return {"error": "invalid_nest_under", "message": parent_err}
+        if parent is None:
+            return {
+                "error": "invalid_nest_under",
+                "message": "nest_under is not a folder id, slug, or name; call list_folders",
+            }
+        nest_under = str(parent.id)
+    tag_ids = [str(t).strip() for t in (tool_input.get("tag_ids") or []) if str(t).strip()]
+    if tool_input.get("tag_id") and not tag_ids:
+        tag_ids = [str(tool_input["tag_id"]).strip()]
+    tags = [str(t).strip() for t in (tool_input.get("tags") or []) if str(t).strip()]
+    if tool_input.get("tag") and not tags and not tag_ids:
+        tags = [str(tool_input["tag"]).strip()]
+    if not tags and not tag_ids:
+        tags = [name.lower().replace(" ", "-")]
     return await _platform_change(
         ctx,
         resource_type="project",
@@ -4372,12 +4457,9 @@ async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
             "slug": slug,
             "description": str(tool_input.get("description") or ""),
             "autonomous_scope": str(tool_input.get("autonomous_scope") or "project"),
-            "parent_id": str(tool_input["parent_id"]).strip() if tool_input.get("parent_id") else None,
-            "tag": str(tool_input["tag"]).strip() if tool_input.get("tag") else None,
-            "tag_id": str(tool_input["tag_id"]).strip() if tool_input.get("tag_id") else None,
-            "child_group_id": str(tool_input["child_group_id"]).strip()
-            if tool_input.get("child_group_id")
-            else None,
+            "nest_under": nest_under,
+            "tag_ids": tag_ids,
+            "tags": tags,
         },
         tool_name="create_folder",
     )
@@ -4413,8 +4495,10 @@ register_tool(
     ToolSpec(
         name="create_folder",
         description=(
-            "Propose creating a Folder (a tag with a place: conversations, boards and docs). "
-            "Goes through Govern like other structural changes."
+            "Propose creating a Folder (a saved AND tag filterset with conversations, "
+            "boards, canvas and docs). Goes through Govern. Pass tags or tag_ids for the "
+            "filterset. Optional nest_under (folder id from list_folders) unions that "
+            "folder's tags into this set so the rail nests it under the broader map."
         ),
         category="workspace",
         input_schema={
@@ -4424,19 +4508,110 @@ register_tool(
                 "slug": {"type": "string"},
                 "description": {"type": "string"},
                 "autonomous_scope": {"type": "string"},
-                "parent_id": {"type": "string", "description": "Folder this folder sits inside"},
-                "tag": {"type": "string", "description": "Tag name that defines this folder (created when new)"},
-                "tag_id": {"type": "string", "description": "Existing tag id that defines this folder"},
-                "child_group_id": {
+                "nest_under": {
                     "type": "string",
-                    "description": "Tag group: the folder shows one virtual child per tag in it",
+                    "description": (
+                        "Broader folder id from list_folders whose tags are unioned "
+                        "into this filterset. Slug or name work when unique. "
+                        "parent_id is accepted as an alias."
+                    ),
                 },
+                "parent_id": {
+                    "type": "string",
+                    "description": "Alias of nest_under (legacy).",
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Tag names in this folder's AND set (created when new)",
+                },
+                "tag_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Existing tag ids in this folder's AND set",
+                },
+                "tag": {"type": "string", "description": "Single tag name (alias for tags)"},
+                "tag_id": {"type": "string", "description": "Single tag id (alias for tag_ids)"},
             },
             "required": ["name"],
         },
         handler=_create_project,
         mutating=True,
         gated=True,
+        display_name="Create folder",
+    )
+)
+
+
+async def _delete_folder(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Trash a folder (soft-delete). Tags stay; use delete_tag only after no folder uses them."""
+    from app.services.projects import resolve_folder_ref
+
+    raw = (
+        str(tool_input.get("id") or tool_input.get("folder_id") or tool_input.get("project_id") or "")
+        .strip()
+        or str(tool_input.get("slug") or tool_input.get("name") or "").strip()
+    )
+    if not raw:
+        return {
+            "error": "missing_folder",
+            "message": "Pass id (preferred) or slug/name of the folder to delete.",
+            "hint": "Call list_folders and pass the folder id.",
+        }
+    folder, err = await resolve_folder_ref(ctx.session, ctx.tenant_id, raw)
+    if err:
+        return {"error": "invalid_folder", "message": err}
+    if folder is None:
+        return {
+            "error": "not_found",
+            "message": "Folder not found. Call list_folders and pass the folder id.",
+        }
+    return await _platform_change(
+        ctx,
+        resource_type="project",
+        change_kind="delete",
+        summary=f"Delete folder {folder.name}",
+        after={
+            "project_id": str(folder.id),
+            "confirm_name": folder.name,
+            "name": folder.name,
+            "slug": folder.slug or "",
+        },
+        before={
+            "project_id": str(folder.id),
+            "name": folder.name,
+            "slug": folder.slug or "",
+        },
+        tool_name="delete_folder",
+    )
+
+
+register_tool(
+    ToolSpec(
+        name="delete_folder",
+        description=(
+            "Move a Folder to the Bin (soft-delete). Conversations are refiled from "
+            "that map; tags stay in the registry. Use this to remove obsolete folders "
+            "after a restructure — not delete_tag. Pass the folder id from "
+            "list_folders. Goes through Govern when policy asks."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "Folder id from list_folders (preferred).",
+                },
+                "folder_id": {"type": "string", "description": "Alias of id."},
+                "slug": {"type": "string", "description": "Folder slug when unique."},
+                "name": {"type": "string", "description": "Folder name when unique."},
+            },
+        },
+        handler=_delete_folder,
+        mutating=True,
+        gated=True,
+        display_name="Delete folder",
     )
 )
 
@@ -4942,7 +5117,13 @@ register_tool(
 # ── workforce introspection (agents / playbooks / triggers) ──────
 
 
-_AVATAR_KEYS = ("avatar_kind", "avatar_icon", "avatar_color", "avatar_image_url")
+_AVATAR_KEYS = (
+    "avatar_kind",
+    "avatar_icon",
+    "avatar_color",
+    "avatar_shape",
+    "avatar_image_url",
+)
 
 
 def _serialize_agent_row(row: Any, *, detail: bool = False) -> dict[str, Any]:
@@ -4989,7 +5170,13 @@ async def _showcase_agents(ctx: ToolContext, agent_ids: list[str]) -> list[dict[
 async def _list_agents(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.models.agent import Agent
 
-    stmt = select(Agent).where(Agent.tenant_id == ctx.tenant_id)
+    # Same roster as GET /workforce/agents and the Agents page: company agents
+    # only. The Bokito helper (acts_for_user) is not a teammate agent.
+    stmt = select(Agent).where(
+        Agent.tenant_id == ctx.tenant_id,
+        Agent.acts_for_user.is_(False),
+        Agent.kind == "company",
+    )
     if tool_input.get("include_inactive") is not True:
         stmt = stmt.where(Agent.is_active.is_(True))
     rows = (
@@ -5167,11 +5354,14 @@ register_tool(
     ToolSpec(
         name="list_agents",
         description=(
-            "List the agents in this workspace (name, description, slug, role, "
-            "autonomy level, active flag, path, mention). Auto-showcases agent "
-            "cards on the reply. In prose chip one name with mention or "
-            "[Name](/agents/{id}) from path — never a plain bold name. Pass "
-            "include_inactive to also see paused agents."
+            "List company AI agents on the Agents page (name, description, slug, "
+            "role, autonomy, active flag, path, mention). This is the agent "
+            "roster — humans are not included. You may appear in the list; the "
+            "person chatting with you does not. Excludes the Bokito helper that "
+            "acts for the signed-in user. Auto-showcases agent cards on the "
+            "reply. In prose chip one name with mention or [Name](/agents/{id}) "
+            "from path — never a plain bold name. Pass include_inactive to also "
+            "see paused agents."
         ),
         category="agents",
         input_schema={
@@ -5179,6 +5369,46 @@ register_tool(
             "properties": {"include_inactive": {"type": "boolean"}},
         },
         handler=_list_agents,
+        mutating=False,
+        gated=False,
+    )
+)
+
+
+async def _list_teams(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.teams import list_teams as list_team_rows, serialize_team
+
+    rows = await list_team_rows(ctx.session, ctx.tenant_id)
+    teams: list[dict[str, Any]] = []
+    for row in rows:
+        data = await serialize_team(ctx.session, row)
+        name = str(data.get("name") or "Team")
+        team_id = str(data["id"])
+        data["mention"] = f"@[{name}](team:{team_id})"
+        data["path"] = f"/team?team={team_id}"
+        # Operators see Alle mensen / Alle agents; API name is All people / All agents.
+        if data.get("kind") == "people":
+            data["label_nl"] = "Alle mensen"
+        elif data.get("kind") == "agents":
+            data["label_nl"] = "Alle agents"
+        teams.append(data)
+    return {"teams": teams, "count": len(teams)}
+
+
+register_tool(
+    ToolSpec(
+        name="list_teams",
+        description=(
+            "List workspace teams. Always includes the two system teams "
+            "(kind=people / All people / Alle mensen, and kind=agents / "
+            "All agents / Alle agents) plus any custom teams. Returns mention "
+            "chips @[Name](team:{id}). Use this for 'which teams exist' — never "
+            "list_threads or list_contacts for that. System teams are real "
+            "roster groups; do not say there are no teams when only these two exist."
+        ),
+        category="agents",
+        input_schema={"type": "object", "properties": {}},
+        handler=_list_teams,
         mutating=False,
         gated=False,
     )

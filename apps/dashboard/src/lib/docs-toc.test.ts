@@ -14,7 +14,7 @@ describe('docs toc', () => {
     expect(headingId('The 429 response')).toBe('the-429-response')
   })
 
-  it('extracts level-2 headings and skips fenced code', () => {
+  it('extracts level-2 and level-3 headings and skips fenced code', () => {
     const content = [
       '# Title',
       '## First section',
@@ -26,8 +26,9 @@ describe('docs toc', () => {
       '### Deeper heading',
     ].join('\n')
     expect(extractToc(content)).toEqual([
-      { id: 'first-section', text: 'First section' },
-      { id: 'second-section', text: 'Second section' },
+      { id: 'first-section', text: 'First section', level: 2 },
+      { id: 'second-section', text: 'Second section', level: 2 },
+      { id: 'deeper-heading', text: 'Deeper heading', level: 3 },
     ])
   })
 })

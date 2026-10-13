@@ -37,21 +37,19 @@ export default function ArticleFeedback({ slug, lang }: { slug: string; lang?: s
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/60 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-2">
       {state === 'done' ? (
         <p className="text-sm text-text-muted">{t('pageGuides.feedback.thanks')}</p>
       ) : (
         <>
-          <p className="text-sm font-medium text-text-secondary">
-            {t('pageGuides.feedback.question')}
-          </p>
-          <div className="flex items-center gap-1.5">
+          <p className="text-sm text-text-secondary">{t('pageGuides.feedback.question')}</p>
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => void submit('up')}
               disabled={state === 'sending'}
               aria-label={t('pageGuides.feedback.yes')}
-              className="rounded-lg border border-border/60 p-1.5 text-text-secondary transition-colors hover:border-border-light hover:text-accent disabled:opacity-50"
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-bg-hover hover:text-accent disabled:opacity-50"
             >
               <ThumbsUp size={13} aria-hidden />
             </button>
@@ -60,7 +58,7 @@ export default function ArticleFeedback({ slug, lang }: { slug: string; lang?: s
               onClick={() => void submit('down')}
               disabled={state === 'sending'}
               aria-label={t('pageGuides.feedback.no')}
-              className="rounded-lg border border-border/60 p-1.5 text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-error disabled:opacity-50"
             >
               <ThumbsDown size={13} aria-hidden />
             </button>

@@ -49,7 +49,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
     { to: '/settings/communication', labelKey: 'pageGuides.related.inboxAi' },
     { to: '/settings/channels', labelKey: 'pageGuides.related.widget' },
     { to: '/contacts', labelKey: 'pageGuides.related.contacts' },
-    { to: '/activity', labelKey: 'pageGuides.related.activity' },
+    { to: '/agents#activity', labelKey: 'pageGuides.related.activity' },
   ],
   contacts: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
@@ -59,7 +59,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   agenda: [
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
     { to: '/folders', labelKey: 'pageGuides.related.projects' },
-    { to: '/activity', labelKey: 'pageGuides.related.activity' },
+    { to: '/agents#activity', labelKey: 'pageGuides.related.activity' },
   ],
   team: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
@@ -84,7 +84,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
   knowledge: [
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
-    { to: '/activity', labelKey: 'pageGuides.related.activity' },
+    { to: '/agents#activity', labelKey: 'pageGuides.related.activity' },
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/settings/setup', labelKey: 'pageGuides.related.setup' },
   ],

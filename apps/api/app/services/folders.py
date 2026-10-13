@@ -1,21 +1,12 @@
-"""Folders are tags with a place; a conversation's folder follows from its tags.
+"""Folders are saved tag filtersets (AND).
 
-A `Project` row is a folder. A *tag folder* carries ``tag_id`` and contributes
-that tag to the path of everything inside it. A *group folder* carries
-``child_group_id``: it shows one virtual child per tag in that group, and its
-static children apply under each of those virtual children (the template
-mechanism, without copying rows). A virtual child becomes a row when someone
-pins it ("Vastzetten").
-
-`resolve` walks the tree with a conversation's effective tags (its own links,
-its action tag, its contact's and company's tags) and returns the deepest
-matching path. ``Signal.project_id`` caches the home: the deepest materialised
-row, or on a tie the longest shared ancestor, else the current home when it
-still matches. Lists filter on path tags, so a conversation can appear in
-more than one folder. The home is never asked.
-
-Every write that can change a conversation's tags or the tree calls `refile`
-so the cache never drifts from the rule.
+A `Project` row is a folder hub. Its tags live in ``project_tag_links``. A
+conversation matches a folder when every tag in the set is present in the
+conversation's effective tags (own links, action tag, contact and company
+tags). The same conversation can match many folders; narrower sets nest under
+broader ones in the derived rail tree. ``Signal.project_id`` caches the
+longest matching filterset for attribution. Filing a conversation in a folder
+adds that folder's tags — there is no stored parent tree.
 """
 
 from __future__ import annotations
@@ -30,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.channel import Contact
-from app.models.project import Project
+from app.models.project import Project, ProjectTagLink
 from app.models.signal import (
     CompanyTagLink,
     ContactTagLink,
@@ -42,308 +33,354 @@ from app.models.signal import (
 )
 
 FOLDER_DECISION_SOURCE = "folder"
-MAX_DEPTH = 16
 
 
-# ---------------------------------------------------------------------------
-# Tree
+@dataclass(frozen=True)
+class FilterSet:
+    """One saved folder: name + AND tag set."""
 
-
-@dataclass
-class FolderNode:
     id: UUID
     name: str
     slug: str
-    parent_id: UUID | None
-    tag_id: UUID | None
-    child_group_id: UUID | None
-
-
-@dataclass
-class PathSegment:
-    """One step on a folder path: a row (``project_id``) or a virtual child (``tag_id`` only)."""
-
-    name: str
-    tag_id: UUID | None
-    project_id: UUID | None
+    sort_order: int
+    tag_ids: tuple[UUID, ...]
+    tag_names: tuple[str, ...] = ()
 
     @property
-    def virtual(self) -> bool:
-        return self.project_id is None
+    def tag_set(self) -> frozenset[UUID]:
+        return frozenset(self.tag_ids)
 
+    def matches(self, effective: Iterable[UUID]) -> bool:
+        present = set(effective)
+        return bool(self.tag_ids) and self.tag_set.issubset(present)
 
-@dataclass
-class FolderPath:
-    segments: list[PathSegment] = field(default_factory=list)
-
-    @property
-    def depth(self) -> int:
-        return len(self.segments)
-
-    @property
-    def project_id(self) -> UUID | None:
-        """Deepest materialised row on the path."""
-        for segment in reversed(self.segments):
-            if segment.project_id is not None:
-                return segment.project_id
-        return None
-
-    @property
-    def tag_ids(self) -> list[UUID]:
-        return [s.tag_id for s in self.segments if s.tag_id is not None]
-
-    @property
-    def virtual_tag_ids(self) -> list[UUID]:
-        """Tags of the virtual segments after the deepest row (the list filter)."""
-        out: list[UUID] = []
-        for segment in reversed(self.segments):
-            if segment.project_id is not None:
-                break
-            if segment.tag_id is not None:
-                out.append(segment.tag_id)
-        out.reverse()
-        return out
-
-    @property
     def label(self) -> str:
-        return " / ".join(s.name for s in self.segments)
-
-    def key(self) -> tuple:
-        return tuple((s.project_id, s.tag_id) for s in self.segments)
+        if self.tag_names:
+            return " · ".join(f"#{n}" for n in self.tag_names)
+        return self.name
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "id": str(self.id),
+            "project_id": str(self.id),
+            "name": self.name,
+            "slug": self.slug,
+            "sort_order": self.sort_order,
+            "tag_ids": [str(t) for t in self.tag_ids],
+            "tag_names": list(self.tag_names),
+            "label": self.label(),
+        }
+
+
+def _local_tag_names(
+    tag_names: tuple[str, ...] | list[str],
+    parent_tag_names: tuple[str, ...] | list[str] | None = None,
+) -> list[str]:
+    """Tags that distinguish this folder from its parent (layered nav / breadcrumbs)."""
+    mine = [n for n in tag_names if n]
+    if not parent_tag_names:
+        return list(mine)
+    parent = {n.lower() for n in parent_tag_names if n}
+    local = [n for n in mine if n.lower() not in parent]
+    return local or list(mine)
+
+
+@dataclass
+class DerivedNode:
+    """A row in the derived tree: a real folder or a virtual cluster."""
+
+    key: str
+    name: str
+    tag_ids: tuple[UUID, ...]
+    project_id: UUID | None
+    virtual: bool
+    sort_order: int
+    children: list[DerivedNode] = field(default_factory=list)
+    tag_names: tuple[str, ...] = ()
+
+    def to_nav_dict(self, *, count: int = 0) -> dict[str, Any]:
+        return {
+            "id": str(self.project_id) if self.project_id else self.key,
+            "name": self.name,
+            "parent_id": None,
             "project_id": str(self.project_id) if self.project_id else None,
-            "label": self.label,
-            "segments": [
-                {
-                    "name": s.name,
-                    "tag_id": str(s.tag_id) if s.tag_id else None,
-                    "project_id": str(s.project_id) if s.project_id else None,
-                }
-                for s in self.segments
-            ],
+            "tag_id": str(self.tag_ids[-1]) if self.tag_ids else None,
+            "tag_ids": [str(t) for t in self.tag_ids],
+            "tag_names": list(self.tag_names),
+            "virtual": self.virtual,
+            "count": count,
+            "children": [c.to_nav_dict() for c in self.children],
         }
 
 
 @dataclass
-class Placement:
-    path: FolderPath | None
-    candidates: list[FolderPath]
+class FolderCatalog:
+    """All filtersets for a tenant, with tag metadata for sorting."""
 
-    @property
-    def ambiguous(self) -> bool:
-        return len(self.candidates) > 1
-
-    @property
-    def project_id(self) -> UUID | None:
-        return self.path.project_id if self.path else None
-
-
-@dataclass
-class FolderTree:
     tenant_id: UUID
-    nodes: dict[UUID, FolderNode]
+    folders: list[FilterSet]
     tags: dict[UUID, SignalTag]
     groups: dict[UUID, TagGroup]
 
     def __post_init__(self) -> None:
-        self.children: dict[UUID | None, list[FolderNode]] = {}
-        for node in self.nodes.values():
-            parent = node.parent_id if node.parent_id in self.nodes else None
-            self.children.setdefault(parent, []).append(node)
-        for rows in self.children.values():
-            rows.sort(key=lambda n: n.name.lower())
-        self.tags_by_group: dict[UUID, set[UUID]] = {}
-        for tag in self.tags.values():
-            if tag.group_id is not None:
-                self.tags_by_group.setdefault(tag.group_id, set()).add(tag.id)
-
-    # -- lookups -----------------------------------------------------------
-
-    def roots(self) -> list[FolderNode]:
-        return self.children.get(None, [])
+        self.by_id: dict[UUID, FilterSet] = {f.id: f for f in self.folders}
 
     def tag_name(self, tag_id: UUID | None) -> str:
-        tag = self.tags.get(tag_id) if tag_id else None
+        if tag_id is None:
+            return ""
+        tag = self.tags.get(tag_id)
         return tag.name if tag else ""
 
-    def static_path(self, project_id: UUID) -> FolderPath:
-        """Path of rows from the root down to ``project_id`` (no virtual segments)."""
-        chain: list[FolderNode] = []
-        current = self.nodes.get(project_id)
-        seen: set[UUID] = set()
-        while current is not None and current.id not in seen and len(chain) <= MAX_DEPTH:
-            seen.add(current.id)
-            chain.append(current)
-            current = self.nodes.get(current.parent_id) if current.parent_id else None
-        chain.reverse()
-        return FolderPath([PathSegment(n.name, n.tag_id, n.id) for n in chain])
+    def sorted_tag_ids(self, tag_ids: Iterable[UUID]) -> list[UUID]:
+        """Stable display order: exclusive group tags first (name desc for years), then alpha."""
 
-    def path_tag_ids(self, project_id: UUID, virtual_tag_ids: Iterable[UUID] = ()) -> list[UUID]:
-        """Tags a conversation needs to land on this row (plus a virtual remainder)."""
-        out = self.static_path(project_id).tag_ids
-        for tag_id in virtual_tag_ids:
-            if tag_id in self.tags and tag_id not in out:
-                out.append(tag_id)
-        return out
+        def key(tid: UUID) -> tuple:
+            tag = self.tags.get(tid)
+            name = (tag.name if tag else "").lower()
+            group = self.groups.get(tag.group_id) if tag and tag.group_id else None
+            exclusive = 0 if group and group.exclusive else 1
+            # Years / exclusive dimensions: reverse alpha so 2026 before 2025.
+            direction = -1 if exclusive == 0 else 1
+            return (exclusive, direction * hash(name) if False else name if exclusive else "".join(reversed(name)), name)
 
-    def subtree_ids(self, root_id: UUID) -> list[UUID]:
-        out: list[UUID] = []
-        stack = [root_id]
-        seen: set[UUID] = set()
-        while stack:
-            current = stack.pop()
-            if current in seen or current not in self.nodes:
+        # Simpler: exclusive groups first sorted by name descending, then rest ascending.
+        exclusive_ids: list[UUID] = []
+        other: list[UUID] = []
+        for tid in tag_ids:
+            tag = self.tags.get(tid)
+            group = self.groups.get(tag.group_id) if tag and tag.group_id else None
+            if group and group.exclusive:
+                exclusive_ids.append(tid)
+            else:
+                other.append(tid)
+        exclusive_ids.sort(key=lambda t: self.tag_name(t).lower(), reverse=True)
+        other.sort(key=lambda t: self.tag_name(t).lower())
+        return exclusive_ids + other
+
+
+def matches(folder: FilterSet, effective: Iterable[UUID]) -> bool:
+    return folder.matches(effective)
+
+
+def matching_folders(catalog: FolderCatalog, effective: Iterable[UUID]) -> list[FilterSet]:
+    present = set(effective)
+    return [f for f in catalog.folders if f.matches(present)]
+
+
+def longest_match(catalog: FolderCatalog, effective: Iterable[UUID]) -> FilterSet | None:
+    hits = matching_folders(catalog, effective)
+    if not hits:
+        return None
+    hits.sort(key=lambda f: (-len(f.tag_ids), f.sort_order, f.name.lower()))
+    return hits[0]
+
+
+def derive_tree(catalog: FolderCatalog) -> list[DerivedNode]:
+    """Nest folders by strict tag-set inclusion; emit virtual clusters for shared prefixes."""
+    folders = [f for f in catalog.folders if f.tag_ids]
+    if not folders:
+        return []
+
+    # Parent of A is the folder with the largest proper subset of A's tags.
+    parent_of: dict[UUID, UUID | None] = {}
+    for folder in folders:
+        best: FilterSet | None = None
+        for other in folders:
+            if other.id == folder.id:
                 continue
-            seen.add(current)
-            out.append(current)
-            stack.extend(child.id for child in self.children.get(current, []))
-        return out
+            if other.tag_set < folder.tag_set:
+                if best is None or len(other.tag_ids) > len(best.tag_ids):
+                    best = other
+                elif best and len(other.tag_ids) == len(best.tag_ids):
+                    if other.sort_order < best.sort_order or (
+                        other.sort_order == best.sort_order and other.name.lower() < best.name.lower()
+                    ):
+                        best = other
+        parent_of[folder.id] = best.id if best else None
 
-    def group_of_parent(self, node: FolderNode) -> UUID | None:
-        """The group whose tags are virtual siblings of ``node`` (its parent's child group)."""
-        parent = self.nodes.get(node.parent_id) if node.parent_id else None
-        return parent.child_group_id if parent else None
+    children: dict[UUID | None, list[FilterSet]] = {}
+    for folder in folders:
+        children.setdefault(parent_of.get(folder.id), []).append(folder)
+    for rows in children.values():
+        rows.sort(key=lambda f: (f.sort_order, f.name.lower()))
 
-    # -- resolution --------------------------------------------------------
+    def build(folder: FilterSet, parent: FilterSet | None = None) -> DerivedNode:
+        kids = [build(c, folder) for c in children.get(folder.id, [])]
+        # Virtual cluster: when siblings share an overlap of ≥2 tags beyond the parent.
+        clustered = _cluster_siblings(kids, catalog)
+        local = _local_tag_names(folder.tag_names, parent.tag_names if parent else None)
+        display = " · ".join(f"#{n}" for n in local) if local else folder.name
+        return DerivedNode(
+            key=str(folder.id),
+            name=display,
+            tag_ids=folder.tag_ids,
+            project_id=folder.id,
+            virtual=False,
+            sort_order=folder.sort_order,
+            children=clustered,
+            tag_names=folder.tag_names,
+        )
 
-    def matching_paths(self, tag_ids: Iterable[UUID]) -> list[FolderPath]:
-        """Every path whose tags are all present (not only the deepest)."""
-        present = {t for t in tag_ids if t in self.tags}
-        found: list[FolderPath] = []
+    return [build(root) for root in children.get(None, [])]
 
-        def record(segments: list[PathSegment]) -> None:
-            path = FolderPath(list(segments))
-            if path.key() not in {p.key() for p in found}:
-                found.append(path)
 
-        def descend(node: FolderNode, segments: list[PathSegment], inherited: list[FolderNode]) -> None:
-            if len(segments) > MAX_DEPTH:
-                return
-            static = self.children.get(node.id, [])
-            if node.child_group_id is not None:
-                group_tags = self.tags_by_group.get(node.child_group_id, set())
-                by_tag = {c.tag_id: c for c in static if c.tag_id in group_tags}
-                template = [c for c in static if c.tag_id not in group_tags]
-                for tag_id in sorted(group_tags & present, key=lambda t: self.tag_name(t)):
-                    child = by_tag.get(tag_id)
-                    if child is not None:
-                        next_segments = [*segments, PathSegment(child.name, child.tag_id, child.id)]
-                        record(next_segments)
-                        descend(child, next_segments, template)
-                    else:
-                        next_segments = [*segments, PathSegment(self.tag_name(tag_id), tag_id, None)]
-                        record(next_segments)
-                        for leaf in template:
-                            if leaf.tag_id is not None and leaf.tag_id in present:
-                                leaf_segments = [*next_segments, PathSegment(leaf.name, leaf.tag_id, leaf.id)]
-                                record(leaf_segments)
-                                descend(leaf, leaf_segments, [])
-                return
-            for child in [*static, *inherited]:
-                if child.tag_id is not None and child.tag_id in present:
-                    next_segments = [*segments, PathSegment(child.name, child.tag_id, child.id)]
-                    record(next_segments)
-                    descend(child, next_segments, [])
-                elif child.tag_id is None and child.child_group_id is not None:
-                    descend(child, segments, [])
-
-        for root in self.roots():
-            if root.tag_id is not None:
-                if root.tag_id in present:
-                    segments = [PathSegment(root.name, root.tag_id, root.id)]
-                    record(segments)
-                    descend(root, segments, [])
-            elif root.child_group_id is not None:
-                descend(root, [], [])
-        return found
-
-    def resolve(self, tag_ids: Iterable[UUID]) -> Placement:
-        """Deepest path whose tags are all present; ties land on the common ancestor."""
-        paths = self.matching_paths(tag_ids)
-        if not paths:
-            return Placement(path=None, candidates=[])
-        deepest = max(p.depth for p in paths)
-        best = [p for p in paths if p.depth == deepest]
-        if len(best) == 1:
-            return Placement(path=best[0], candidates=best)
-        prefix: list[PathSegment] = []
-        for position in range(min(p.depth for p in best)):
-            first = best[0].segments[position]
-            same = all(
-                p.segments[position].project_id == first.project_id
-                and p.segments[position].tag_id == first.tag_id
-                for p in best
+def _cluster_siblings(nodes: list[DerivedNode], catalog: FolderCatalog) -> list[DerivedNode]:
+    if len(nodes) < 2:
+        return nodes
+    # Group by intersection of tag sets when |intersection| >= 2 and each has extras.
+    used: set[str] = set()
+    out: list[DerivedNode] = []
+    for i, a in enumerate(nodes):
+        if a.key in used:
+            continue
+        group = [a]
+        for b in nodes[i + 1 :]:
+            if b.key in used:
+                continue
+            overlap = set(a.tag_ids) & set(b.tag_ids)
+            if len(overlap) >= 2 and set(a.tag_ids) - overlap and set(b.tag_ids) - overlap:
+                # Same overlap as a's first partner? require equal overlap set for the group.
+                if set(group[0].tag_ids) & set(b.tag_ids) == overlap:
+                    group.append(b)
+        if len(group) >= 2:
+            overlap_ids = tuple(catalog.sorted_tag_ids(set(group[0].tag_ids) & set(group[1].tag_ids)))
+            names = [catalog.tag_name(t) for t in overlap_ids]
+            for n in group:
+                used.add(n.key)
+            rewritten: list[DerivedNode] = []
+            for member in group:
+                local = _local_tag_names(member.tag_names, names)
+                display = " · ".join(f"#{n}" for n in local) if local else member.name
+                rewritten.append(
+                    DerivedNode(
+                        key=member.key,
+                        name=display,
+                        tag_ids=member.tag_ids,
+                        project_id=member.project_id,
+                        virtual=member.virtual,
+                        sort_order=member.sort_order,
+                        children=member.children,
+                        tag_names=member.tag_names,
+                    )
+                )
+            out.append(
+                DerivedNode(
+                    key="cluster:" + ",".join(str(t) for t in overlap_ids),
+                    name=" · ".join(f"#{n}" for n in names if n),
+                    tag_ids=overlap_ids,
+                    project_id=None,
+                    virtual=True,
+                    sort_order=min(n.sort_order for n in group),
+                    children=rewritten,
+                    tag_names=tuple(n for n in names if n),
+                )
             )
-            if not same:
-                break
-            prefix.append(first)
-        return Placement(path=FolderPath(prefix), candidates=best)
-
-    def leaf_paths(self, tag_ids: Iterable[UUID]) -> list[FolderPath]:
-        """Matching paths that are not a prefix of a deeper match."""
-        paths = self.matching_paths(tag_ids)
-        return [
-            path
-            for path in paths
-            if not any(
-                other.depth > path.depth and other.key()[: path.depth] == path.key() for other in paths
-            )
-        ]
-
-
-def serialize_folder_paths(tree: FolderTree, tag_ids: Iterable[UUID]) -> list[dict[str, Any]]:
-    """Thread-header chips: every leaf path the conversation matches."""
-    out: list[dict[str, Any]] = []
-    for path in tree.leaf_paths(tag_ids):
-        payload = path.to_dict()
-        payload["tags"] = [tree.tag_name(tag_id) for tag_id in path.tag_ids]
-        out.append(payload)
+        else:
+            used.add(a.key)
+            out.append(a)
+    out.sort(key=lambda n: (n.sort_order, n.name.lower()))
     return out
 
 
-async def load_tree(session: AsyncSession, tenant_id: UUID) -> FolderTree:
-    projects = (
-        await session.execute(
-            select(Project).where(Project.tenant_id == tenant_id, Project.deleted_at.is_(None))
-        )
-    ).scalars().all()
-    tags = (await session.execute(select(SignalTag).where(SignalTag.tenant_id == tenant_id))).scalars().all()
-    groups = (await session.execute(select(TagGroup).where(TagGroup.tenant_id == tenant_id))).scalars().all()
-    return FolderTree(
-        tenant_id=tenant_id,
-        nodes={
-            p.id: FolderNode(
-                id=p.id,
-                name=p.name,
-                slug=p.slug,
-                parent_id=p.parent_id,
-                tag_id=p.tag_id,
-                child_group_id=p.child_group_id,
+async def load_catalog(session: AsyncSession, tenant_id: UUID) -> FolderCatalog:
+    projects = list(
+        (
+            await session.execute(
+                select(Project).where(Project.tenant_id == tenant_id, Project.deleted_at.is_(None))
             )
-            for p in projects
-        },
-        tags={t.id: t for t in tags},
-        groups={g.id: g for g in groups},
+        ).scalars()
     )
+    links = list(
+        (
+            await session.execute(
+                select(ProjectTagLink).where(ProjectTagLink.tenant_id == tenant_id)
+            )
+        ).scalars()
+    )
+    tags = {
+        t.id: t
+        for t in (
+            await session.execute(select(SignalTag).where(SignalTag.tenant_id == tenant_id))
+        ).scalars()
+    }
+    groups = {
+        g.id: g
+        for g in (
+            await session.execute(select(TagGroup).where(TagGroup.tenant_id == tenant_id))
+        ).scalars()
+    }
+    by_project: dict[UUID, list[ProjectTagLink]] = {}
+    for link in links:
+        by_project.setdefault(link.project_id, []).append(link)
+
+    folders: list[FilterSet] = []
+    catalog_proto = FolderCatalog(tenant_id=tenant_id, folders=[], tags=tags, groups=groups)
+    for project in projects:
+        rows = sorted(by_project.get(project.id, []), key=lambda r: (r.sort_order, str(r.tag_id)))
+        tag_ids = catalog_proto.sorted_tag_ids([r.tag_id for r in rows])
+        folders.append(
+            FilterSet(
+                id=project.id,
+                name=project.name,
+                slug=project.slug,
+                sort_order=project.sort_order,
+                tag_ids=tuple(tag_ids),
+                tag_names=tuple(catalog_proto.tag_name(t) for t in tag_ids),
+            )
+        )
+    folders.sort(key=lambda f: (f.sort_order, f.name.lower()))
+    return FolderCatalog(tenant_id=tenant_id, folders=folders, tags=tags, groups=groups)
 
 
-# ---------------------------------------------------------------------------
-# Effective tags
+# Back-compat alias used by older call sites during the transition.
+async def load_tree(session: AsyncSession, tenant_id: UUID) -> FolderCatalog:
+    return await load_catalog(session, tenant_id)
+
+
+def folder_path_label(folder: FilterSet) -> str:
+    if folder.tag_names:
+        return " / ".join(f"#{n}" for n in folder.tag_names)
+    return folder.name
+
+
+def folders_with_tag(catalog: FolderCatalog, tag_id: UUID) -> list[FilterSet]:
+    hits = [f for f in catalog.folders if tag_id in f.tag_set]
+    hits.sort(key=lambda f: (len(f.tag_ids), f.sort_order, f.name.lower()))
+    return hits
+
+
+def serialize_folders_for_tag(catalog: FolderCatalog, tag_id: UUID) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": str(f.id),
+            "name": f.name,
+            "path": folder_path_label(f),
+            "tag_names": list(f.tag_names),
+        }
+        for f in folders_with_tag(catalog, tag_id)
+    ]
+
+
+def serialize_folder_paths(catalog: FolderCatalog, tag_ids: Iterable[UUID]) -> list[dict[str, Any]]:
+    """Thread-header chips: every matching folder that is not a strict subset of another match."""
+    hits = matching_folders(catalog, tag_ids)
+    leaves = [
+        f
+        for f in hits
+        if not any(f.tag_set < other.tag_set for other in hits if other.id != f.id)
+    ]
+    leaves.sort(key=lambda f: (-len(f.tag_ids), f.sort_order, f.name.lower()))
+    return [f.to_dict() for f in leaves]
 
 
 async def contact_tag_ids(session: AsyncSession, contact_id: UUID | None) -> set[UUID]:
-    """The contact's own tags plus its company's."""
     if contact_id is None:
         return set()
     out = set(
-        (
-            await session.execute(select(ContactTagLink.tag_id).where(ContactTagLink.contact_id == contact_id))
-        ).scalars()
+        (await session.execute(select(ContactTagLink.tag_id).where(ContactTagLink.contact_id == contact_id))).scalars()
     )
     contact = await session.get(Contact, contact_id)
-    if contact is not None and contact.company_id is not None:
+    if contact and contact.company_id:
         out |= set(
             (
                 await session.execute(
@@ -355,7 +392,6 @@ async def contact_tag_ids(session: AsyncSession, contact_id: UUID | None) -> set
 
 
 async def effective_tag_ids(session: AsyncSession, signal: Signal) -> set[UUID]:
-    """Links, the action tag, and the primary contact's (and company's) tags."""
     out = set(
         (await session.execute(select(SignalTagLink.tag_id).where(SignalTagLink.signal_id == signal.id))).scalars()
     )
@@ -366,97 +402,108 @@ async def effective_tag_ids(session: AsyncSession, signal: Signal) -> set[UUID]:
 
 
 async def inherited_tag_names(session: AsyncSession, signal: Signal) -> list[str]:
-    """Names of the tags a conversation carries through its contact (shown as "via contact")."""
     ids = await contact_tag_ids(session, signal.contact_id)
     if not ids:
         return []
-    rows = (await session.execute(select(SignalTag.name).where(SignalTag.id.in_(list(ids))).order_by(SignalTag.name))).scalars()
+    rows = (
+        await session.execute(select(SignalTag.name).where(SignalTag.id.in_(list(ids))).order_by(SignalTag.name))
+    ).scalars()
     return list(rows)
 
 
-# ---------------------------------------------------------------------------
-# Refile
+async def folder_tag_ids(session: AsyncSession, project_id: UUID) -> list[UUID]:
+    rows = (
+        await session.execute(
+            select(ProjectTagLink)
+            .where(ProjectTagLink.project_id == project_id)
+            .order_by(ProjectTagLink.sort_order, ProjectTagLink.tag_id)
+        )
+    ).scalars()
+    return [r.tag_id for r in rows]
 
 
-async def resolve_signal(
-    session: AsyncSession, signal: Signal, *, tree: FolderTree | None = None
-) -> Placement:
-    tree = tree or await load_tree(session, signal.tenant_id)
-    return tree.resolve(await effective_tag_ids(session, signal))
+async def set_folder_tags(
+    session: AsyncSession,
+    tenant_id: UUID,
+    project_id: UUID,
+    tag_ids: Iterable[UUID],
+) -> list[UUID]:
+    """Replace the filterset. Returns the normalised tag id list."""
+    wanted = list(dict.fromkeys(t for t in tag_ids if t))
+    existing = list(
+        (
+            await session.execute(select(ProjectTagLink).where(ProjectTagLink.project_id == project_id))
+        ).scalars()
+    )
+    for row in existing:
+        await session.delete(row)
+    await session.flush()
+    for index, tag_id in enumerate(wanted):
+        session.add(
+            ProjectTagLink(
+                project_id=project_id,
+                tag_id=tag_id,
+                tenant_id=tenant_id,
+                sort_order=index,
+            )
+        )
+    await session.flush()
+    return wanted
 
 
-def _home_project_id(placement: Placement, current_id: UUID | None) -> UUID | None:
-    """Deepest path; a same-depth tie uses the shared ancestor, else the current home."""
-    if not placement.candidates:
-        return None
-    if not placement.ambiguous:
-        return placement.project_id
-    if placement.path and placement.path.project_id:
-        return placement.path.project_id
-    if current_id and any(c.project_id == current_id for c in placement.candidates):
-        return current_id
-    return None
+async def refresh_home(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    catalog: FolderCatalog | None = None,
+    actor_type: str = "system",
+    actor_id: str = "",
+) -> FilterSet | None:
+    """Cache the longest matching folder on the signal. Flushes, never commits."""
+    catalog = catalog or await load_catalog(session, signal.tenant_id)
+    hit = longest_match(catalog, await effective_tag_ids(session, signal))
+    new_id = hit.id if hit else None
+    if new_id != signal.project_id:
+        previous = signal.project_id
+        signal.project_id = new_id
+        signal.updated_at = datetime.utcnow()
+        session.add(signal)
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=signal.tenant_id,
+                event_type="folder_set",
+                actor_type=actor_type or "system",
+                actor_id=actor_id or "",
+                payload_json=json.dumps(
+                    {
+                        "project_id": str(new_id) if new_id else None,
+                        "previous": str(previous) if previous else None,
+                        "path": hit.label() if hit else "",
+                        "tags": list(hit.tag_names) if hit else [],
+                    }
+                ),
+            )
+        )
+    await _defer_folder_decisions(session, signal)
+    await session.flush()
+    return hit
 
 
+# Alias kept for call sites that still say refile.
 async def refile(
     session: AsyncSession,
     signal: Signal,
     *,
-    tree: FolderTree | None = None,
+    tree: FolderCatalog | None = None,
+    catalog: FolderCatalog | None = None,
     actor_type: str = "system",
     actor_id: str = "",
     ask_on_ambiguity: bool = False,
-) -> Placement:
-    """Recompute the conversation's home folder from its tags. Flushes, never commits.
-
-    A changed folder is logged in the thread timeline. A tie between folders
-    at the same depth parks the conversation on their common ancestor, or
-    keeps the current home when that ancestor is empty and the home still
-    matches. Leftover ``Which folder?`` cards are deferred.
-    """
-    tree = tree or await load_tree(session, signal.tenant_id)
-    placement = tree.resolve(await effective_tag_ids(session, signal))
-    new_id = _home_project_id(placement, signal.project_id)
-    current = tree.nodes.get(signal.project_id) if signal.project_id else None
-    if not placement.candidates and current is not None and current.tag_id is None:
-        new_id = signal.project_id
-    if new_id != signal.project_id:
-        _set_folder(session, signal, new_id, placement.path, tree, actor_type=actor_type, actor_id=actor_id)
-    await _defer_folder_decisions(session, signal)
-    await session.flush()
-    return placement
-
-
-def _set_folder(
-    session: AsyncSession,
-    signal: Signal,
-    new_id: UUID | None,
-    path: FolderPath | None,
-    tree: FolderTree,
-    *,
-    actor_type: str,
-    actor_id: str,
-) -> None:
-    previous = signal.project_id
-    signal.project_id = new_id
-    signal.updated_at = datetime.utcnow()
-    session.add(signal)
-    session.add(
-        SignalEvent(
-            signal_id=signal.id,
-            tenant_id=signal.tenant_id,
-            event_type="folder_set",
-            actor_type=actor_type or "system",
-            actor_id=actor_id or "",
-            payload_json=json.dumps(
-                {
-                    "project_id": str(new_id) if new_id else None,
-                    "previous": str(previous) if previous else None,
-                    "path": path.label if path else "",
-                    "tags": [tree.tag_name(t) for t in (path.tag_ids if path else [])],
-                }
-            ),
-        )
+) -> FilterSet | None:
+    del ask_on_ambiguity
+    return await refresh_home(
+        session, signal, catalog=catalog or tree, actor_type=actor_type, actor_id=actor_id
     )
 
 
@@ -468,27 +515,30 @@ async def refile_many(
     actor_type: str = "system",
     actor_id: str = "",
 ) -> int:
-    """Refile a set of conversations with one tree load. Returns how many moved."""
     ids = list(dict.fromkeys(signal_ids))
     if not ids:
         return 0
-    tree = await load_tree(session, tenant_id)
+    catalog = await load_catalog(session, tenant_id)
     moved = 0
     for signal_id in ids:
         signal = await session.get(Signal, signal_id)
         if signal is None or signal.tenant_id != tenant_id:
             continue
         before = signal.project_id
-        await refile(session, signal, tree=tree, actor_type=actor_type, actor_id=actor_id)
+        await refresh_home(session, signal, catalog=catalog, actor_type=actor_type, actor_id=actor_id)
         if signal.project_id != before:
             moved += 1
     return moved
 
 
 async def refile_tagged(
-    session: AsyncSession, tenant_id: UUID, tag_ids: Iterable[UUID], *, actor_type: str = "system", actor_id: str = ""
+    session: AsyncSession,
+    tenant_id: UUID,
+    tag_ids: Iterable[UUID],
+    *,
+    actor_type: str = "system",
+    actor_id: str = "",
 ) -> int:
-    """Refile every conversation that carries any of these tags (links, ticket, contact or company)."""
     ids = [t for t in dict.fromkeys(tag_ids)]
     if not ids:
         return 0
@@ -499,9 +549,9 @@ async def refile_tagged(
     via_contact = select(Signal.id).where(
         Signal.tenant_id == tenant_id,
         Signal.contact_id.in_(
-            select(Contact.id).where(Contact.tenant_id == tenant_id).where(
-                (Contact.id.in_(contacts)) | (Contact.company_id.in_(companies))
-            )
+            select(Contact.id)
+            .where(Contact.tenant_id == tenant_id)
+            .where((Contact.id.in_(contacts)) | (Contact.company_id.in_(companies)))
         ),
     )
     rows = await session.execute(
@@ -515,20 +565,27 @@ async def refile_tagged(
 
 
 async def refile_subtree(
-    session: AsyncSession, tenant_id: UUID, project_id: UUID, *, actor_type: str = "system", actor_id: str = ""
+    session: AsyncSession,
+    tenant_id: UUID,
+    project_id: UUID,
+    *,
+    actor_type: str = "system",
+    actor_id: str = "",
 ) -> int:
-    """After a folder moved, was pinned or went to the Bin: refile what sits in it
-    and what its path's tags could pull in."""
-    tree = await load_tree(session, tenant_id)
-    ids = tree.subtree_ids(project_id) if project_id in tree.nodes else [project_id]
+    """After a filterset changes: refresh homes for matching and previously-homed threads."""
+    tag_ids = await folder_tag_ids(session, project_id)
     inside = (
         await session.execute(
-            select(Signal.id).where(Signal.tenant_id == tenant_id, Signal.project_id.in_(ids), Signal.deleted_at.is_(None))
+            select(Signal.id).where(
+                Signal.tenant_id == tenant_id,
+                Signal.project_id == project_id,
+                Signal.deleted_at.is_(None),
+            )
         )
     ).scalars()
     moved = await refile_many(session, tenant_id, list(inside), actor_type=actor_type, actor_id=actor_id)
-    tag_ids = [tree.nodes[i].tag_id for i in ids if i in tree.nodes and tree.nodes[i].tag_id is not None]
-    moved += await refile_tagged(session, tenant_id, tag_ids, actor_type=actor_type, actor_id=actor_id)
+    if tag_ids:
+        moved += await refile_tagged(session, tenant_id, tag_ids, actor_type=actor_type, actor_id=actor_id)
     return moved
 
 
@@ -541,130 +598,45 @@ async def file_in_folder(
     user_id: UUID | None = None,
     actor_type: str = "user",
     actor_id: str = "",
-) -> Placement:
-    """"File in folder" is tagging: add the path's tags; ``None`` takes the
-    conversation out of its current folder by dropping that folder's own tag."""
+) -> FilterSet | None:
+    """Apply (or clear) a folder's tags on the conversation."""
     from app.services.signal_tags import add_signal_tag_ids, remove_signal_tag_ids
 
-    tree = await load_tree(session, signal.tenant_id)
+    del virtual_tag_ids
+    catalog = await load_catalog(session, signal.tenant_id)
     if project_id is None:
-        if signal.project_id and signal.project_id in tree.nodes:
-            own = tree.nodes[signal.project_id].tag_id
-            if own is None:
-                # Manual folder: leaving it is a direct move.
-                _set_folder(session, signal, None, None, tree, actor_type=actor_type, actor_id=actor_id)
-            placement = tree.resolve(await effective_tag_ids(session, signal))
-            drop = [own] if own else []
-            drop.extend(placement.path.virtual_tag_ids if placement.path else [])
-            await remove_signal_tag_ids(session, signal.tenant_id, signal.id, drop)
-        return await refile(session, signal, tree=tree, actor_type=actor_type, actor_id=actor_id)
-    if project_id not in tree.nodes:
+        if signal.project_id and signal.project_id in catalog.by_id:
+            await remove_signal_tag_ids(
+                session, signal.tenant_id, signal.id, list(catalog.by_id[signal.project_id].tag_ids)
+            )
+        return await refresh_home(session, signal, catalog=catalog, actor_type=actor_type, actor_id=actor_id)
+    folder = catalog.by_id.get(project_id)
+    if folder is None:
         raise LookupError("Folder not found")
-    wanted = tree.path_tag_ids(project_id, virtual_tag_ids)
-    await add_signal_tag_ids(session, signal.tenant_id, signal.id, wanted, user_id=user_id)
-    placement = await refile(session, signal, tree=tree, actor_type=actor_type, actor_id=actor_id)
-    if tree.nodes[project_id].tag_id is None and signal.project_id != project_id:
-        # Manual folder (no tag): place the conversation there directly.
-        path = tree.static_path(project_id)
-        _set_folder(session, signal, project_id, path, tree, actor_type=actor_type, actor_id=actor_id)
-        await session.flush()
-        return Placement(path=path, candidates=[path])
-    return placement
+    await add_signal_tag_ids(session, signal.tenant_id, signal.id, list(folder.tag_ids), user_id=user_id)
+    return await refresh_home(session, signal, catalog=catalog, actor_type=actor_type, actor_id=actor_id)
 
 
 async def _defer_folder_decisions(session: AsyncSession, signal: Signal) -> None:
     from app.models.notification import DecisionRequest
-    from app.services.signal_decisions import DISMISSED_OPTION_ID
 
-    rows = list(
-        (
-            await session.execute(
-                select(DecisionRequest).where(
-                    DecisionRequest.signal_id == signal.id,
-                    DecisionRequest.source_type == FOLDER_DECISION_SOURCE,
-                    DecisionRequest.status == "awaiting_human",
-                )
+    rows = (
+        await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.signal_id == signal.id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.source_type == FOLDER_DECISION_SOURCE,
             )
-        ).scalars()
-    )
-    if not rows:
-        return
+        )
+    ).scalars()
     now = datetime.utcnow()
     for row in rows:
         row.status = "deferred"
-        row.chosen_option_id = DISMISSED_OPTION_ID
         row.resolved_at = now
         session.add(row)
 
 
-async def _ask_which_folder(session: AsyncSession, signal: Signal, placement: Placement, tree: FolderTree) -> None:
-    from app.models.notification import DecisionRequest
-    from app.services.signal_decisions import create_decision
-
-    # One card per distinct tie: the same candidates never ask twice, and an
-    # open card is not duplicated by the next refile.
-    tie_key = "|".join(sorted("/".join(str(t) for t in c.tag_ids) for c in placement.candidates))
-    source_id = f"{signal.id}:{tie_key}"[:512]
-    asked = (
-        await session.execute(
-            select(DecisionRequest.id).where(
-                DecisionRequest.tenant_id == signal.tenant_id,
-                DecisionRequest.signal_id == signal.id,
-                DecisionRequest.source_type == FOLDER_DECISION_SOURCE,
-                DecisionRequest.source_id == source_id,
-            )
-        )
-    ).first()
-    if asked is not None:
-        return
-    options: list[dict[str, Any]] = []
-    for candidate in placement.candidates:
-        options.append(
-            {
-                "id": f"path:{'/'.join(str(t) for t in candidate.tag_ids)}",
-                "label": candidate.label,
-                "action_type": "file_in_folder",
-                "payload": {
-                    "signal_id": str(signal.id),
-                    "project_id": str(candidate.project_id) if candidate.project_id else None,
-                    "tag_ids": [str(t) for t in candidate.virtual_tag_ids],
-                    "keep_tag_ids": [str(t) for t in candidate.tag_ids],
-                },
-            }
-        )
-    options.append({"id": "reject", "label": "Leave it here", "action_type": "none", "payload": {}})
-    names = ", ".join(f"#{tree.tag_name(t)}" for t in sorted({t for c in placement.candidates for t in c.tag_ids}, key=lambda t: tree.tag_name(t)))
-    await create_decision(
-        session,
-        signal.tenant_id,
-        title="Which folder?",
-        summary=f"The tags {names} match more than one folder. Pick one; the other tag comes off.",
-        options=options,
-        signal_id=signal.id,
-        source_type=FOLDER_DECISION_SOURCE,
-        source_id=source_id,
-    )
-
-
-async def settle_folder_choice(
-    session: AsyncSession, tenant_id: UUID, payload: dict[str, Any], *, user_id: UUID | None
-) -> None:
-    """Decision outcome: keep the chosen path's tags, drop the competing ones, refile."""
-    from app.services.signal_tags import remove_signal_tag_ids
-
-    signal = await session.get(Signal, UUID(str(payload.get("signal_id"))))
-    if signal is None or signal.tenant_id != tenant_id:
-        return
-    tree = await load_tree(session, tenant_id)
-    keep = {UUID(t) for t in payload.get("keep_tag_ids") or [] if t}
-    placement = tree.resolve(await effective_tag_ids(session, signal))
-    competing = {t for c in placement.candidates for t in c.tag_ids} - keep
-    if competing:
-        await remove_signal_tag_ids(session, tenant_id, signal.id, competing)
-    await refile(
-        session,
-        signal,
-        tree=tree,
-        actor_type="user",
-        actor_id=str(user_id or ""),
-    )
+# Legacy type aliases so imports of FolderTree / FolderPath keep working briefly.
+FolderTree = FolderCatalog
+FolderPath = FilterSet
+FolderNode = FilterSet

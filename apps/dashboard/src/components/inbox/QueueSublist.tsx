@@ -147,9 +147,11 @@ export function SidebarFolder({
           data-nav-folder={scopeKey}
           data-active={headerActive || (scopeActive && !expanded) ? 'true' : undefined}
           data-nav-reveal={revealed ? 'true' : undefined}
-          className={cn('nav-row group text-left')}
+          className={cn('nav-row group h-[26px] text-left text-xs')}
         >
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center text-text-muted">{icon}</span>
+          <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted">
+            {icon}
+          </span>
           <span className="min-w-0 flex-1 truncate-fade">{label}</span>
           {headerAction ? (
             <span

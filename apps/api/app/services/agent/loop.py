@@ -528,12 +528,21 @@ class AgentLoop:
             return ""
         role = await self._session_user_role() or "member"
         name = (user.display_name or "").strip() or user.email
+        agent_line = ""
+        if self.agent is not None:
+            agent_line = (
+                f" You (@[{self.agent.name}](agent:{self.agent.id})) are a different "
+                "entity — never address this human as yourself, never chip them with "
+                "an agent: id, and never list them among agents."
+            )
         return (
             "## Current operator\n"
-            f"You are assisting {name} <{user.email}>, a workspace {role} on this "
-            "Bokito tenant. They are an internal operator (teammate), not an external "
-            "customer. Address them as a colleague. Prefer tools and workspace context "
-            "over asking them for information that is already in the tenant snapshot."
+            f"You are assisting **{name}** <{user.email}> (user:{self.user_id}), a "
+            f"human workspace {role} on this Bokito tenant. They are an internal "
+            "operator (teammate), not an external customer and not an AI agent."
+            f"{agent_line} Address them by their human name when needed. Prefer "
+            "tools and workspace context over asking them for information that is "
+            "already in the tenant snapshot."
         )
 
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
@@ -593,9 +602,12 @@ class AgentLoop:
             else:
                 parts.append(
                     "## You\n"
-                    f"You are @[{self.agent.name}](agent:{self.agent.id}), not any other agent "
-                    "in the workspace. Refer to yourself or a colleague with the chip from the "
-                    "Tenant snapshot or a tool result, copied exactly; never make up an id."
+                    f"You are the AI agent @[{self.agent.name}](agent:{self.agent.id}). "
+                    "The person messaging you is a human colleague (see Current operator) — "
+                    "not you and not another agent. When listing agents, say \"me\" / "
+                    "\"I\" for yourself and never call the human \"you (@[YourName])\". "
+                    "Chip other agents only from the Tenant snapshot or a tool result, "
+                    "copied exactly; never invent an id."
                 )
         if workspace:
             parts.append(workspace)

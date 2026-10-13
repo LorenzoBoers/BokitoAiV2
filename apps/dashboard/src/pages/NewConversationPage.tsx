@@ -46,7 +46,7 @@ import { stashChatContinue } from '../lib/chat-auto-continue'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
-import { AiAvatar } from '../components/ui/AiAvatar'
+import { AgentMark } from '../components/ui/AgentMark'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -833,14 +833,7 @@ export default function NewConversationPage() {
                         </span>
                       ) : selectedAgent ? (
                         <>
-                          <AiAvatar
-                            name={selectedAgent.name}
-                            seed={selectedAgent.id}
-                            size={20}
-                            kind={selectedAgent.avatar_kind}
-                            icon={selectedAgent.avatar_icon}
-                            imageUrl={selectedAgent.avatar_image_url}
-                          />
+                          <AgentMark agent={selectedAgent} size={20} decorative={false} />
                           <span className="truncate-fade text-sm text-text-primary">{selectedAgent.name}</span>
                         </>
                       ) : (
@@ -861,14 +854,7 @@ export default function NewConversationPage() {
                         onClick={() => chooseAgent(target)}
                         className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
                       >
-                        <AiAvatar
-                          name={target.name}
-                          seed={target.id}
-                          size={24}
-                          kind={target.avatar_kind}
-                          icon={target.avatar_icon}
-                          imageUrl={target.avatar_image_url}
-                        />
+                        <AgentMark agent={target} size={24} decorative={false} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate-fade text-sm text-text-primary">{target.name}</span>
                           <span className="block text-2xs text-text-muted">

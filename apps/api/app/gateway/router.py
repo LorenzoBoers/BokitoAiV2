@@ -42,6 +42,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["gateway"])
 
 CONNECT_TIMEOUT_SECONDS = 10
+OFFLINE_GRACE_SECONDS = 15
+
+_pending_offline: dict[str, asyncio.Task] = {}
 
 
 def _decode_principal(token: str) -> dict | None:
@@ -145,11 +148,52 @@ async def _authorize_topics(
 
 
 def _connected_user_ids(tenant_id: str) -> set[str]:
-    return {
-        other.user_id
-        for other in manager.connections
-        if other.kind == "user" and other.tenant_id == tenant_id and other.user_id
-    }
+    return manager.user_ids(tenant_id)
+
+
+def _cancel_pending_offline(user_id: str | None) -> None:
+    if not user_id:
+        return
+    task = _pending_offline.pop(user_id, None)
+    if task and not task.done():
+        task.cancel()
+
+
+def _schedule_offline(user_id: str, tenant_id: str, device: str) -> None:
+    _cancel_pending_offline(user_id)
+
+    async def _run() -> None:
+        try:
+            await asyncio.sleep(OFFLINE_GRACE_SECONDS)
+            if user_id in _connected_user_ids(tenant_id):
+                return
+            from app.db.session import async_session_factory
+            from app.services.presence import mark_offline, visible_user_status
+            from app.models.auth import User
+
+            async with async_session_factory() as session:
+                await mark_offline(session, UUID(user_id))
+                if user_id in _connected_user_ids(tenant_id):
+                    return
+                user = await session.get(User, UUID(user_id))
+                status = visible_user_status(user, connected=False) if user else "offline"
+            await publish_presence(
+                tenant_id,
+                user_id=UUID(user_id),
+                device=device,
+                online=False,
+                status=status,
+            )
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logger.debug("delayed presence offline failed", exc_info=True)
+        finally:
+            current = _pending_offline.get(user_id)
+            if current is asyncio.current_task():
+                _pending_offline.pop(user_id, None)
+
+    _pending_offline[user_id] = asyncio.create_task(_run())
 
 
 async def _touch_presence(session: AsyncSession, connection: GatewayConnection, *, force: bool = False) -> bool:
@@ -273,6 +317,7 @@ async def gateway_websocket(
     )
     is_operator = connection.kind == "user" and bool(connection.user_id)
     if is_operator:
+        _cancel_pending_offline(connection.user_id)
         await _touch_presence(session, connection, force=True)
         await publish_presence(
             connection.tenant_id,
@@ -290,7 +335,8 @@ async def gateway_websocket(
             frame_type = frame.get("type")
             if frame_type == "ping":
                 await websocket.send_json({"type": "pong"})
-                if is_operator and await _touch_presence(session, connection):
+                if is_operator:
+                    await _touch_presence(session, connection)
                     await publish_presence(
                         connection.tenant_id,
                         user_id=UUID(connection.user_id),
@@ -331,19 +377,21 @@ async def gateway_websocket(
         if is_operator:
             try:
                 still_connected = connection.user_id in _connected_user_ids(connection.tenant_id)
-                if not still_connected:
-                    from app.services.presence import mark_offline
-
-                    await mark_offline(session, UUID(connection.user_id))
-                    still_connected = connection.user_id in _connected_user_ids(connection.tenant_id)
-                status = await _presence_status(session, connection)
-                await publish_presence(
-                    connection.tenant_id,
-                    user_id=UUID(connection.user_id),
-                    device=device or "dashboard",
-                    online=still_connected,
-                    status=status,
-                )
+                if still_connected:
+                    status = await _presence_status(session, connection)
+                    await publish_presence(
+                        connection.tenant_id,
+                        user_id=UUID(connection.user_id),
+                        device=device or "dashboard",
+                        online=True,
+                        status=status,
+                    )
+                elif connection.user_id:
+                    _schedule_offline(
+                        connection.user_id,
+                        connection.tenant_id,
+                        device or "dashboard",
+                    )
             except Exception:
                 pass
 

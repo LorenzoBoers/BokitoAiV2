@@ -633,12 +633,11 @@ async def category_catalog_lines(session: AsyncSession, tenant_id: UUID) -> list
 
 
 async def folder_path_payload(session: AsyncSession, signal: Signal) -> dict[str, Any] | None:
-    from app.services.folders import resolve_signal
+    from app.services.folders import effective_tag_ids, load_catalog, serialize_folder_paths
 
-    placement = await resolve_signal(session, signal)
-    if placement.path is None or placement.path.depth == 0:
-        return None
-    return placement.path.to_dict()
+    catalog = await load_catalog(session, signal.tenant_id)
+    paths = serialize_folder_paths(catalog, await effective_tag_ids(session, signal))
+    return paths[0] if paths else None
 
 
 # ---------------------------------------------------------------------------
@@ -1286,28 +1285,30 @@ async def project_board(
     every flow whose action tag is a folder in that subtree, and every flow
     attached to the folder. Boards roll up: a parent shows its children's tickets.
 
-    ``tag_ids`` narrows the subtree to conversations carrying those tags (the
-    virtual remainder of a path under a group folder).
+    ``tag_ids`` adds AND filters (virtual path segments under a group folder).
     """
-    from app.services.folders import load_tree
+    from app.services.communication_nav import list_predicates
+    from app.services.folders import load_catalog
     from app.services.trash import alive
 
-    tree = await load_tree(session, tenant_id)
-    subtree = tree.subtree_ids(project_id) if project_id in tree.nodes else [project_id]
-    folder_tag_ids = [tree.nodes[i].tag_id for i in subtree if i in tree.nodes and tree.nodes[i].tag_id is not None]
+    catalog = await load_catalog(session, tenant_id)
+    fs = catalog.by_id.get(project_id)
+    folder_tag_ids = list(fs.tag_ids) if fs else []
+
+    filters: dict[str, Any] = {"project_id": project_id}
+    if tag_ids:
+        filters["path"] = tag_ids
+    predicates = await list_predicates(session, tenant_id, filters, catalog)
+    if predicates is None:
+        return []
 
     ticket_scope = [
         Signal.tenant_id == tenant_id,
-        Signal.project_id.in_(subtree),
         Signal.ticket_tag_id.is_not(None),
         Signal.ticket_status != "proposed",
         Signal.deleted_at.is_(None),
+        *predicates,
     ]
-    if tag_ids:
-        from app.services.signal_tags import signals_with_tag_ids
-
-        for tag_id in tag_ids:
-            ticket_scope.append(Signal.id.in_(signals_with_tag_ids(tenant_id, [tag_id])))
     signals = list(
         (await session.execute(select(Signal).where(*ticket_scope).order_by(Signal.last_message_at.desc()))).scalars()
     )
@@ -1315,7 +1316,7 @@ async def project_board(
     linked_ws = (
         await session.execute(
             select(WorkstreamProject.workstream_id)
-            .where(WorkstreamProject.tenant_id == tenant_id, WorkstreamProject.project_id.in_(subtree))
+            .where(WorkstreamProject.tenant_id == tenant_id, WorkstreamProject.project_id == project_id)
             .order_by(WorkstreamProject.position)
         )
     ).scalars()

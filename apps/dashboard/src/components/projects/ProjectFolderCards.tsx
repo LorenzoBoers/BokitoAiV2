@@ -5,8 +5,8 @@ import { ChevronRight, Plus } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { Card } from '../ui/card'
 import type { ProjectChild } from '../../lib/projects-api'
-
-const FolderKanban = ENTITY_ICONS.project
+import { filtersetLocalNames, filtersetPlainLabel } from '../../lib/folder-filter-tree'
+const FolderIcon = ENTITY_ICONS.project
 
 /**
  * Folders inside a project as cards — the same card vocabulary as the
@@ -15,9 +15,12 @@ const FolderKanban = ENTITY_ICONS.project
  */
 export function ProjectFolderGrid({
   folders,
+  parentTagNames,
   onCreate,
 }: {
   folders: ProjectChild[]
+  /** When these cards are nested under a map, strip parent tags from the title. */
+  parentTagNames?: string[] | null
   /** Admins get a dashed "New folder" card at the end. */
   onCreate?: () => void
 }) {
@@ -27,7 +30,7 @@ export function ProjectFolderGrid({
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {folders.map((folder, index) => (
         <div key={folder.id} className="stagger-in" style={{ '--stagger': Math.min(index, 11) } as CSSProperties}>
-          <ProjectFolderCard folder={folder} />
+          <ProjectFolderCard folder={folder} parentTagNames={parentTagNames} />
         </div>
       ))}
       {onCreate ? (
@@ -44,16 +47,25 @@ export function ProjectFolderGrid({
   )
 }
 
-export function ProjectFolderCard({ folder }: { folder: ProjectChild }) {
+export function ProjectFolderCard({
+  folder,
+  parentTagNames,
+}: {
+  folder: ProjectChild
+  parentTagNames?: string[] | null
+}) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const open = () => navigate(`/folders/${folder.id}`)
+  const title = folder.tag_names?.length
+    ? filtersetPlainLabel(filtersetLocalNames(folder.tag_names, parentTagNames))
+    : folder.name.replace(/^#/, '')
   return (
     <Card
       role="link"
       tabIndex={0}
       interactive
-      aria-label={t('projects.detail.openFolder', { name: folder.name })}
+      aria-label={t('projects.detail.openFolder', { name: title })}
       onClick={open}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -67,13 +79,13 @@ export function ProjectFolderCard({ folder }: { folder: ProjectChild }) {
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"
         aria-hidden
       >
-        <FolderKanban size={16} />
+        <FolderIcon size={16} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate-fade text-sm font-medium text-text-heading group-hover:text-accent">
-          {folder.name}
+        <span className="truncate-fade text-sm font-medium text-text-heading group-hover:text-accent">
+          {title}
         </span>
-        <span className="block truncate text-xs text-text-muted">
+        <span className="mt-0.5 block truncate text-xs text-text-muted">
           {t('projects.detail.folderCounts', { open: folder.open_count, closed: folder.closed_count })}
           {folder.child_count > 0 ? ` · ${t('projects.page.folders', { count: folder.child_count })}` : ''}
         </span>

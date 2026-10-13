@@ -47,10 +47,16 @@ async def collect_tenant_snapshot(
     from app.models.signal import Signal, SignalTag
     from app.models.trigger import Trigger
 
+    # Same roster as list_agents / the Agents page: company teammates only.
+    # The Bokito helper (acts_for_user) must not appear as a chipable agent.
     agents_rows = (
         await session.execute(
             select(Agent)
-            .where(Agent.tenant_id == tenant_id)
+            .where(
+                Agent.tenant_id == tenant_id,
+                Agent.acts_for_user.is_(False),
+                Agent.kind == "company",
+            )
             .order_by(Agent.name)
             .limit(40)
         )
@@ -65,6 +71,20 @@ async def collect_tenant_snapshot(
             "slug": getattr(a, "slug", None) or "",
         }
         for a in agents_rows
+    ]
+
+    from app.services.teams import list_teams as list_team_rows
+
+    team_rows = await list_team_rows(session, tenant_id)
+    teams = [
+        {
+            "id": str(t.id),
+            "name": t.name,
+            "kind": t.kind,
+            "system": t.kind in ("people", "agents"),
+            "mention": f"@[{t.name}](team:{t.id})",
+        }
+        for t in team_rows[:20]
     ]
 
     projects_rows = (
@@ -106,6 +126,19 @@ async def collect_tenant_snapshot(
         for t in triggers_rows
     ]
 
+    open_decision_rows = list(
+        (
+            await session.execute(
+                select(DecisionRequest)
+                .where(
+                    DecisionRequest.tenant_id == tenant_id,
+                    DecisionRequest.status == "awaiting_human",
+                )
+                .order_by(DecisionRequest.created_at.desc())
+                .limit(12)
+            )
+        ).scalars().all()
+    )
     open_decisions = (
         await session.execute(
             select(func.count())
@@ -116,6 +149,19 @@ async def collect_tenant_snapshot(
             )
         )
     ).scalar_one()
+    decisions = [
+        {
+            "id": str(row.id),
+            "title": (row.title or "").strip()[:160],
+            "summary": (row.summary or "").strip()[:200],
+            "signal_id": str(row.signal_id) if row.signal_id else None,
+            "path": (
+                f"/communication/inbox/open/t/{row.signal_id}" if row.signal_id else None
+            ),
+            "created_at": _iso(row.created_at),
+        }
+        for row in open_decision_rows
+    ]
 
     running_tasks = (
         await session.execute(
@@ -247,10 +293,12 @@ async def collect_tenant_snapshot(
 
     return {
         "agents": agents,
+        "teams": teams,
         "projects": projects,
         "triggers": triggers,
         "tags": tags,
         "open_decisions": int(open_decisions or 0),
+        "decisions": decisions,
         "running_tasks": int(running_tasks or 0),
         "open_internal_threads": int(open_internal_threads or 0),
         "integrations": integrations,
@@ -300,9 +348,26 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
         for a in agents[:12]:
             flag = "active" if a.get("is_active") else "paused"
             bits.append(f"@[{a.get('name')}](agent:{a.get('id')}) ({a.get('role')}/{a.get('kind')}, {flag})")
-        lines.append("Agents (copy the @[Name](agent:id) chip exactly): " + "; ".join(bits))
+        lines.append(
+            "AI agents (not humans; copy the @[Name](agent:id) chip exactly): "
+            + "; ".join(bits)
+        )
     else:
         lines.append("Agents: none")
+
+    teams = snapshot.get("teams") or []
+    if teams:
+        bits = []
+        for t in teams[:8]:
+            label = t.get("mention") or f"@[{t.get('name')}](team:{t.get('id')})"
+            kind = t.get("kind") or "custom"
+            bits.append(f"{label} ({kind})")
+        lines.append(
+            "Teams (system All people / All agents always exist; copy the "
+            "@[Name](team:id) chip exactly): " + "; ".join(bits)
+        )
+    else:
+        lines.append("Teams: none")
 
     projects = snapshot.get("projects") or []
     if projects:
@@ -353,6 +418,13 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
         f"{snapshot.get('running_tasks', 0)} tasks, "
         f"{snapshot.get('open_internal_threads', 0)} internal threads"
     )
+    decision_titles = [
+        str(row.get("title") or "").strip()
+        for row in (snapshot.get("decisions") or [])[:5]
+        if str(row.get("title") or "").strip()
+    ]
+    if decision_titles:
+        lines.append("Open decisions: " + "; ".join(decision_titles))
 
     integ = [i.get("display_name") or i.get("provider") for i in (snapshot.get("integrations") or [])]
     mcp = [m.get("name") for m in (snapshot.get("mcp_servers") or [])]

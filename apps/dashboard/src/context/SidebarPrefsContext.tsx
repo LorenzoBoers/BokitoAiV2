@@ -211,5 +211,10 @@ export function useSidebarPrefs(): SidebarPrefsContextValue {
   return ctx
 }
 
+/** For surfaces that share folder trees outside Communication (e.g. Agenda). */
+export function useOptionalSidebarPrefs(): SidebarPrefsContextValue | null {
+  return useContext(SidebarPrefsContext)
+}
+
 export { folderPinRef, pathPinRef, tagPinRef }
 export type { RailPin }

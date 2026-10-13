@@ -11,7 +11,7 @@ import {
   Bot,
   Brain,
   CalendarDays,
-  FolderKanban,
+  FolderOpen,
   LayoutDashboard,
   MessageSquare,
   Plug,
@@ -71,7 +71,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   agents: Bot,
   workstreams: Workflow,
   knowledge: Brain,
-  folders: FolderKanban,
+  folders: FolderOpen,
   modules: Plug,
   settings: Settings,
 }
@@ -176,7 +176,6 @@ export function tabFromPath(pathname: string): Tab | null {
   // Installed module workspaces live under the Modules group, not Settings.
   if (pathname.startsWith('/ai/modules')) return null
   // Activity terminal is shared; highlight Communication when opened from hub.
-  if (pathname.startsWith('/activity')) return 'communication'
   if (pathname.startsWith('/settings') || pathname.startsWith('/ai/') || pathname.startsWith('/govern'))
     return 'settings'
   return null

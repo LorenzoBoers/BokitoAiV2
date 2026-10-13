@@ -1,34 +1,34 @@
 ---
 title: Follow agent activity
-intro: Scheduled scans and finished results live under Activity — open approvals sit in the thread that raised them.
-description: Open Activity to review agent work without mixing it into customer Open. Pending approvals stay on their conversation.
-keywords: activity, agent runs, scheduled, results, queue, inbox, timeline
+intro: Agent work lives on the Agents page timeline — open approvals sit in the conversation that raised them.
+description: Open Agents to review the activity swimlane. Pending approvals stay on their conversation.
+keywords: activity, agent runs, scheduled, results, queue, agents, timeline
 sort: 15
-related: communication,decisions,agenda,cockpit
+related: communication,decisions,agenda,agents
 ---
 
 # Follow agent activity
 
-Activity is the live work timeline of your AI: everything agents did and are doing, streamed as it happens. It is its own page — not nested next to the inbox thread list — so customer mail does not compete with background jobs. Open approvals live on their own conversation — see [Decisions](/docs/ai/decisions).
+The **Activity** swimlane on [Agents](/docs/ai/agents) is the live work timeline of your AI: everything agents did and are doing. It sits on the Agents library (all agents) and again on each agent page (that agent alone). Open approvals live on their own conversation — see [Decisions](/docs/ai/decisions).
 
 ## Open the Activity timeline
 
 ![Agent activity list](/api/docs/assets/agent-runs/runs-list.png)
-*One live timeline for the whole AI workforce.*
+*One now-centered swimlane for the AI workforce.*
 
-1. In Communication, open **Activity**, pinned at the bottom of the sidebar next to Contacts. That opens the Activity page (same chrome as Contacts), not a view inside the thread list.
-2. Read the timeline: each row shows the time, who acted, the step and its result — green for finished work, red for failures, blue for work in progress. New rows stream in live; leave **Jump to newest** on to keep following the end.
-3. Filter with the agent chips at the top or the search field; choose **Load older** to page further back in history.
-4. Click a row to open the run conversation behind it. For items waiting on a yes or no, open **Filters** → **Needs decision** on the Communication list — the same list Overview **Awaiting decision** uses. Archived agents no longer appear under [Agents](/docs/ai/agents); reassign Agenda wakes that still point at them.
+1. Open **Agents**. Above the cards, **Activity** shows a now-centered timeline of even-sized points.
+2. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time.
+3. Choose a point to open the run, conversation or Agenda item.
+4. For items waiting on a yes or no, open **Filters** → **Needs decision** on the Communication list — the same list Overview **Awaiting decision** uses.
 
 ## Check one agent's work log
 
-1. In the **Agents** section of the sidebar, expand an agent's folder.
-2. Open its **Activity** sub-view. It opens the same timeline filtered to that agent — your chats with the agent stay in its folder, the work log stays in Activity, never mixed into one list.
+1. Open the agent from the library, or choose **Activity** under that agent in the Communication rail.
+2. On the agent page, the same swimlane shows only that agent's work. Your chats with the agent stay in Communication under its folder.
 
 ## Open a run and decide
 
-1. Select a run to read what the agent did and why it stopped.
+1. Select a point to read what the agent did and why it stopped.
 2. If a decision card is waiting, use **Approve**, **Reject**, **Edit** or **Escalate** in the thread. See [Decisions](/docs/ai/decisions).
 3. Return to **Filters** → **Needs decision** if you need the next open approval.
 

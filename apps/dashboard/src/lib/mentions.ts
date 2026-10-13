@@ -15,6 +15,7 @@ export type MentionItem = {
   avatarKind?: string | null
   avatarIcon?: string | null
   avatarColor?: string | null
+  avatarShape?: string | null
   avatarImageUrl?: string | null
   /** Listed but not selectable (for example: no access to this channel). */
   disabled?: boolean

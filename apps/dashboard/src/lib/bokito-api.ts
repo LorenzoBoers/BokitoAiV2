@@ -117,37 +117,16 @@ export async function bokitoGetCockpitSummary(token: string) {
   return bokitoFetch<CockpitSummary>(`${APP_API_BASE}${appRoutes.cockpit.summary}`, token)
 }
 
-export type CockpitActivityEvent = {
-  id?: string
-  /** 'agent_run' for run events, 'audit' for human actions. */
-  kind: string
-  event_type: string
-  message: string
-  /** Acting user (audit events) or agent name (run events). */
-  actor_name?: string | null
-  created_at: string
-  /** Deep-link targets resolved by the backend. */
-  run_id?: string | null
-  agent_id?: string | null
-  signal_id?: string | null
-  resource_type?: string | null
-  resource_id?: string | null
+export type ActionMixPeriod = {
+  days: number
+  time_saved_minutes: number
+  time_saved_breakdown?: TimeSavedAction[]
+  action_mix: { mode: string; count: number; minutes: number }[]
+  action_mix_series: ActionMixDay[]
 }
 
-export async function bokitoGetCockpitActivity(
-  token: string,
-  limit = 50,
-  before?: string,
-  query?: { q?: string; agentId?: string },
-) {
-  const params = new URLSearchParams({ limit: String(limit) })
-  if (before) params.set('before', before)
-  if (query?.q) params.set('q', query.q)
-  if (query?.agentId) params.set('agent_id', query.agentId)
-  return bokitoFetch<CockpitActivityEvent[]>(
-    `${APP_API_BASE}${appRoutes.cockpit.activity(params)}`,
-    token,
-  )
+export async function bokitoGetActionMix(token: string, days: 7 | 30 | 90) {
+  return bokitoFetch<ActionMixPeriod>(`${APP_API_BASE}${appRoutes.cockpit.actionMix(days)}`, token)
 }
 
 // Assistant conversation helpers live in lib/signals-api.ts (Signals API).
@@ -200,6 +179,11 @@ export type UsageAgentRow = {
   agent_name: string
   tokens: number
   customer_cost_micros: number
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_shape?: string | null
+  avatar_image_url?: string | null
 }
 
 export type UsageUserRow = {
@@ -316,6 +300,7 @@ export async function bokitoUpdateAgent(
     avatar_kind?: string | null
     avatar_icon?: string | null
     avatar_color?: string | null
+    avatar_shape?: string | null
     avatar_image_url?: string | null
   },
 ) {

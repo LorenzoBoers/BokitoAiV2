@@ -230,6 +230,31 @@ async def test_compute_time_saved_sums_action_credits(client: AsyncClient, sessi
     assert series_today["manual_count"] >= 1
     assert series_today["ai_count"] >= 1
 
+    mix = await client.get(
+        "/api/cockpit/action-mix",
+        params={"days": 7},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert mix.status_code == 200, mix.text
+    mix_body = mix.json()
+    assert mix_body["days"] == 7
+    assert mix_body["time_saved_minutes"] >= expected
+    assert len(mix_body["action_mix_series"]) == 14
+    assert {row["mode"] for row in mix_body["action_mix"]} == {
+        "autonomous",
+        "assisted",
+        "manual",
+    }
+
+    mix30 = await client.get(
+        "/api/cockpit/action-mix",
+        params={"days": 30},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert mix30.status_code == 200, mix30.text
+    assert mix30.json()["days"] == 30
+    assert len(mix30.json()["action_mix_series"]) == 60
+
 
 def test_bucket_action_mix_series_splits_days():
     now = datetime.utcnow()

@@ -456,15 +456,35 @@ async def _seed_demo_project(session, tenant):
         )
         session.add(po)
         await session.flush()
+    from app.models.project import ProjectTagLink
+    from app.models.signal import SignalTag
+    from app.services.signal_tags import normalize_tag
+
+    tag_name = normalize_tag("bokito-platform") or "bokito-platform"
+    tag_row = (
+        await session.execute(select(SignalTag).where(SignalTag.tenant_id == tenant.id, SignalTag.name == tag_name))
+    ).scalar_one_or_none()
+    if tag_row is None:
+        tag_row = SignalTag(tenant_id=tenant.id, name=tag_name)
+        session.add(tag_row)
+        await session.flush()
     project = Project(
         tenant_id=tenant.id,
         name="Bokito Platform",
         slug="bokito-platform",
         description="Demoproject voor lokale ontwikkeling.",
         autonomous_scope="Maintain and improve the Bokito AI OS platform for multichannel support and agent workflows.",
-        po_agent_id=po.id,
     )
     session.add(project)
+    await session.flush()
+    session.add(
+        ProjectTagLink(
+            project_id=project.id,
+            tag_id=tag_row.id,
+            tenant_id=tenant.id,
+            sort_order=0,
+        )
+    )
     await session.flush()
     from app.models.project_work import ProjectResource
 

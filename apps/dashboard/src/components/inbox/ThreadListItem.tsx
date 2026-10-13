@@ -569,7 +569,7 @@ function ThreadListItem({
                     {freeTags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex max-w-[7rem] items-center gap-0.5 text-2xs text-text-muted"
+                        className="inline-flex max-w-[7rem] items-center gap-1 text-2xs text-text-muted"
                         title={`#${tag}`}
                       >
                         <HashtagMark />

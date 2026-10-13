@@ -200,6 +200,57 @@ async def test_chat_stream_sse(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_wake_thread_stream_same_as_assistant(client: AsyncClient, session_override):
+    """Ask on a scheduled wake (channel=internal) uses the same stream path."""
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+    from app.models.auth import Tenant
+    from app.models.signal import Signal
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(
+            select(Agent).where(Agent.tenant_id == tenant.id, Agent.kind == "company").limit(1)
+        )
+    ).scalars().first()
+    assert agent is not None
+
+    wake = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="schedule",
+        subject="Refresh canvas · test wake",
+        agent_id=agent.id,
+        status="open",
+    )
+    session_override.add(wake)
+    await session_override.commit()
+    await session_override.refresh(wake)
+
+    async def fake_stream(self, messages, extra_context="", attachments=None, **kwargs):
+        yield {"type": "delta", "text": "Wake ok"}
+        yield {"type": "done", "text": "Wake ok", "usage": {}}
+
+    with patch("app.services.agent.loop.AgentLoop.stream_chat", new=fake_stream):
+        async with client.stream(
+            "POST",
+            f"/api/signals/conversations/{wake.id}/stream",
+            json={"content": "Welke andere agents zijn er?"},
+            headers=headers,
+        ) as resp:
+            assert resp.status_code == 200, await resp.aread()
+            chunks = []
+            async for line in resp.aiter_lines():
+                if line.startswith("data:"):
+                    chunks.append(json.loads(line[5:].strip()))
+            assert any("Wake ok" in (c.get("text") or "") for c in chunks)
+
+
+@pytest.mark.asyncio
 async def test_chat_stream_broadcasts_agent_working_then_standby(client: AsyncClient):
     """Avatars pulse while Ask/chat runs: agent.status working, then standby."""
     from unittest.mock import AsyncMock
