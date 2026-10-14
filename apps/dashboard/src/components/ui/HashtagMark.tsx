@@ -31,7 +31,7 @@ export function Hashtag({
 }) {
   const bare = name.replace(/^#/, '')
   return (
-    <span className={cn('inline-flex min-w-0 max-w-full items-baseline gap-1.5', className)}>
+    <span className={cn('inline-flex min-w-0 max-w-full items-baseline gap-px', className)}>
       <HashtagMark category={category} className="shrink-0" />
       <span className="min-w-0 truncate">{bare}</span>
     </span>
@@ -62,7 +62,7 @@ export function HashtagSet({
       )}
     >
       {list.map((name, index) => (
-        <span key={`${name}-${index}`} className="inline-flex min-w-0 shrink items-baseline gap-1.5">
+        <span key={`${name}-${index}`} className="inline-flex min-w-0 shrink items-baseline gap-px">
           {index > 0 ? (
             <span aria-hidden className="shrink-0 text-text-muted/55">
               ·

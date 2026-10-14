@@ -366,6 +366,8 @@ export type ProposalBundleEntry = {
   status: string
   chosenOptionId: string | null
   resolvedAt: string | null
+  resolvedBy: string | null
+  resolvedByUserId: string | null
   approveOptionId: string
   rejectOptionId: string
   actionType: string
@@ -387,6 +389,8 @@ export type MessageProposal = {
   chosenOptionIds: string[]
   resolvedAt: string | null
   resolvedBy: string | null
+  /** UUID of the teammate who resolved; match InboxMember.uuid for avatar. */
+  resolvedByUserId: string | null
   /** Every action card of the agent turn, oldest first. Empty for plain proposals. */
   bundle: ProposalBundleEntry[]
   bundleId: string | null
@@ -420,6 +424,8 @@ export function normalizeBundleEntry(value: unknown): ProposalBundleEntry | null
     status: asString(raw.status) || 'missing',
     chosenOptionId: asNullableString(raw.chosen_option_id),
     resolvedAt: asNullableString(raw.resolved_at),
+    resolvedBy: asNullableString(raw.resolved_by),
+    resolvedByUserId: asNullableString(raw.resolved_by_user_id),
     approveOptionId: asString(raw.approve_option_id) || 'approve',
     rejectOptionId: asString(raw.reject_option_id) || 'reject',
     actionType: asString(raw.action_type),
@@ -548,6 +554,7 @@ export function normalizeProposal(value: unknown): MessageProposal | null {
     chosenOptionIds: chosenIds,
     resolvedAt: asNullableString(raw.resolved_at),
     resolvedBy: asNullableString(raw.resolved_by),
+    resolvedByUserId: asNullableString(raw.resolved_by_user_id),
     bundle: Array.isArray(raw.bundle)
       ? raw.bundle.map(normalizeBundleEntry).filter((x): x is ProposalBundleEntry => x !== null)
       : [],
@@ -658,6 +665,8 @@ export type ThreadFilters = {
   assigneeId?: number
   /** Server-side priority so matches beyond the loaded page are included. */
   priority?: ThreadPriority
+  /** Last-activity window (`today` / `7d` / `30d` / `90d`) on last_message_at. */
+  activity?: 'today' | '7d' | '30d' | '90d'
   search?: string
   page?: number
   perPage?: number

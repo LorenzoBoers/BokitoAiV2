@@ -417,7 +417,8 @@ async def test_approving_close_option_closes_thread(client: AsyncClient, session
     assert decision.status == "approved"
     assert decision.chosen_option_id == "close"
 
-    # Close lands as the operator's own answer bubble.
+    # Close is recorded on the decision; no Approve/Reject echo bubble.
+    assert decision.resolved_by_user_id is not None
     echoes = (
         await session_override.execute(
             select(SignalMessage).where(
@@ -426,9 +427,7 @@ async def test_approving_close_option_closes_thread(client: AsyncClient, session
             )
         )
     ).scalars().all()
-    assert any(
-        "decision_response" in (m.metadata_json or "") for m in echoes
-    )
+    assert not any("decision_response" in (m.metadata_json or "") for m in echoes)
 
 
 @pytest.mark.asyncio
@@ -479,7 +478,10 @@ async def test_keep_open_option_leaves_thread_open(client: AsyncClient, session_
     await session_override.refresh(signal)
     assert signal.status == "open"
 
-    # Keep open lands as the operator's own answer bubble.
+    decision = await session_override.get(DecisionRequest, UUID(result["decision_id"]))
+    assert decision is not None
+    await session_override.refresh(decision)
+    assert decision.status == "deferred"
     echoes = (
         await session_override.execute(
             select(SignalMessage).where(
@@ -488,9 +490,7 @@ async def test_keep_open_option_leaves_thread_open(client: AsyncClient, session_
             )
         )
     ).scalars().all()
-    assert any(
-        "decision_response" in (m.metadata_json or "") for m in echoes
-    )
+    assert not any("decision_response" in (m.metadata_json or "") for m in echoes)
 
 
 # ── close_thread tool ────────────────────────────────────────────

@@ -18,7 +18,7 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 
 1. Open **Agenda**. The help icon next to the title in the top bar opens this guide. **Day** is the default; switch to **Week**, **Month** or **List** on the same row as **New**, or press D, W, M or L.
 2. Use **Today** and the arrows (or the arrow keys) to move through time. In **List**, the current day starts at the top; scroll up for earlier days, pick a date on the mini calendar under **When**, or use **Back to top** after you scroll down. The rail stays on screen while the list scrolls.
-3. On the left, **When** is the mini month. **What** is the same `#` tree as Communication: one active branch filters tasks and activity that hang on a conversation. Connected calendars ignore that filter. Tick people and agents on or off like calendars. Turn each Google or Outlook calendar on or off under **Calendars**. The plus next to **Calendars** opens Connections filtered to calendars.
+3. On the left, the mini month stays fixed. Below it, drag section headers (**What**, people, agents, **Calendars**) to reorder them. **What** is the same `#` tree as Communication: one active branch filters tasks and activity that hang on a conversation. Connected calendars ignore that filter. Tick people and agents on or off like calendars. Turn each Google or Outlook calendar on or off under **Calendars**. The plus next to **Calendars** opens Connections filtered to calendars.
 4. Choose an item to open its details on the right, with who is responsible (a person, a team or an agent), and links to the conversation, folder or agent.
 
 ## Act on what needs attention
@@ -49,13 +49,13 @@ You plan the same way from a conversation: choose **Plan** in the thread menu. S
 
 ## Show your Google or Outlook calendars
 
-1. Choose the plus next to **Show**. It opens **Connections** filtered to calendars, whether or not an account is already connected. Choose **Connect Google Calendar** or **Connect Outlook Calendar** under **Calendar accounts**.
-2. Finish sign-in. Each account appears as its own checkbox under **Show**, with the account address below it. Only your primary calendar is on at first; choose **Manage** on the account under **Connections** to switch on other calendars, such as a shared team calendar.
-3. When an account shows more than one calendar, each one gets its own color and toggle under the account, so you can hide a single calendar without hiding the rest.
-4. Choose a meeting to see its calendar, account and details. **Edit** and **Delete** appear only when you may manage that account and the calendar accepts changes.
+1. Choose the plus next to **Calendars**. It opens **Connections** filtered to calendars. Choose **Connect Google Calendar** or **Connect Outlook Calendar** under **Calendar accounts**.
+2. Finish sign-in. Under **Manage** on the account, switch on which provider calendars to sync. Each switched-on calendar becomes a **workspace calendar**: you can turn sync off, add hashtags for Agenda filters, and set who may **use** (see events) or **manage** (change sync, tags and access).
+3. In Agenda, each account lists its calendars with color and toggle. Hashtag chips on a calendar filter the grid to calendars that carry that tag. Hiding a calendar on this device does not change shared sync or access.
+4. Choose a meeting to see its calendar, account and details. **Edit** and **Delete** appear only when you may use a writable calendar.
 5. If an account shows **Sign in again**, its sign-in expired. Choose it and finish the sign-in; meetings stay visible until then.
 
-You see your own calendar accounts and the ones shared with you. See [Connect integrations](/docs/integrations/integrations) for adding accounts and choosing who sees them.
+The Google or Outlook connection holds the sign-in; each workspace calendar has its own access list. See [Connect integrations](/docs/integrations/integrations).
 
 ## What to do next
 

@@ -45,6 +45,20 @@
     "title": "Toegang",
     "hint": "Nieuwe agenda's zijn van jou: jij beheert ze en agents mogen ze lezen. Eigenaren en beheerders beheren altijd."
   },
+  "tenant": {
+    "title": "Workspace-agenda's",
+    "hint": "Elke aangezette agenda is een workspace-agenda: sync, tags voor filters in Agenda, en wie die mag gebruiken of beheren.",
+    "loading": "Workspace-agenda's laden...",
+    "empty": "Zet hierboven een agenda aan om die in deze workspace aan te maken.",
+    "configure": "Tags en toegang",
+    "tags": "Tags",
+    "tagsHint": "Hashtags om in Agenda te filteren (zelfde tags als op gesprekken).",
+    "tagsPlaceholder": "team, feestdagen",
+    "saveTags": "Tags opslaan",
+    "tagsError": "Tags konden niet worden opgeslagen.",
+    "access": "Wie deze agenda mag gebruiken",
+    "accessHint": "Gebruiken ziet afspraken in Agenda. Beheren wijzigt sync, tags en deze lijst."
+  },
   "agenda": {
     "reconnect": "Opnieuw inloggen",
     "target": "Agenda",

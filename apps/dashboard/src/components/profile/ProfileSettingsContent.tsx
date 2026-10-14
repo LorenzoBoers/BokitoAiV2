@@ -40,6 +40,7 @@ import {
   readCachedDefaultLanding,
   type DefaultLanding,
 } from '../../lib/landing-preference'
+import { prepareProfilePhoto, PrepareProfilePhotoError } from '../../lib/prepare-profile-photo'
 
 // ── inline editable field ────────────────────────────────────────────────────
 
@@ -301,6 +302,7 @@ export function ProfileSettingsContent() {
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarRemoving, setAvatarRemoving] = useState(false)
   const [verifySending, setVerifySending] = useState(false)
 
   const handleAvatarChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
@@ -308,8 +310,25 @@ export function ProfileSettingsContent() {
     if (!file || !token) return
     setAvatarUploading(true)
     try {
+      let prepared: File
+      try {
+        prepared = await prepareProfilePhoto(file)
+      } catch (prepErr) {
+        if (prepErr instanceof PrepareProfilePhotoError) {
+          const key =
+            prepErr.code === 'too_large'
+              ? 'profile:errors.uploadAvatarTooLarge'
+              : prepErr.code === 'unsupported' || prepErr.code === 'decode'
+                ? 'profile:errors.uploadAvatarUnsupported'
+                : 'profile:errors.uploadAvatar'
+          toast.error(t(key))
+          return
+        }
+        throw prepErr
+      }
+
       const form = new FormData()
-      form.append('avatar', file)
+      form.append('avatar', prepared)
       const headers = buildAuthHeaders(token, false) // no Content-Type — browser sets multipart boundary
       const sendAvatar = async (path: string) => fetch(`${AUTH_API_BASE}${path}`, {
         method: 'POST',
@@ -322,10 +341,22 @@ export function ProfileSettingsContent() {
         // Backward compatibility while some environments still use legacy path.
         res = await sendAvatar(authRoutes.users.avatarLegacy)
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`
+        try {
+          const body = (await res.json()) as { detail?: unknown }
+          if (typeof body.detail === 'string' && body.detail.trim()) detail = body.detail.trim()
+        } catch {
+          /* ignore */
+        }
+        throw new Error(detail)
+      }
       const data = await res.json() as { avatar?: { url?: string; path?: string } }
       const url = data.avatar?.url ?? data.avatar?.path ?? null
-      if (url) patchLocalUser({ avatarUrl: url })
+      if (url) {
+        patchLocalUser({ avatarUrl: url })
+        toast.success(t('profile:personalInformation.photoUpdated'))
+      }
     } catch (err) {
       toast.error(
         err instanceof Error
@@ -337,7 +368,27 @@ export function ProfileSettingsContent() {
       // Reset so the same file can be re-selected
       e.target.value = ''
     }
-  }, [token, patchLocalUser])
+  }, [token, patchLocalUser, t])
+
+  const handleAvatarRemove = useCallback(async () => {
+    if (!token || avatarRemoving || !user?.avatarUrl) return
+    setAvatarRemoving(true)
+    try {
+      const headers = buildAuthHeaders(token, true)
+      const res = await fetch(`${AUTH_API_BASE}${authRoutes.users.meAvatar}`, {
+        method: 'DELETE',
+        headers,
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      patchLocalUser({ avatarUrl: null })
+      toast.success(t('profile:personalInformation.photoRemoved'))
+    } catch {
+      toast.error(t('profile:errors.removeAvatar'))
+    } finally {
+      setAvatarRemoving(false)
+    }
+  }, [token, avatarRemoving, user?.avatarUrl, patchLocalUser, t])
 
   // Account deletion
   const [deleting, setDeleting] = useState(false)
@@ -664,28 +715,43 @@ export function ProfileSettingsContent() {
                 {t('profile:personalInformation.photoHint')}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => !avatarUploading && avatarInputRef.current?.click()}
-              disabled={avatarUploading}
-              className="group relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full transition-opacity hover:opacity-80 disabled:cursor-wait"
-              title={t('profile:personalInformation.uploadPhoto')}
-              aria-label={t('profile:personalInformation.uploadPhoto')}
-            >
-              <UserAvatar name={user?.name ?? '?'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={40} />
-              <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                {avatarUploading
-                  ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  : <Pencil size={12} className="text-white" />}
-              </span>
-            </button>
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
-              className="hidden"
-              onChange={(e) => void handleAvatarChange(e)}
-            />
+            <div className="flex shrink-0 items-center gap-2">
+              {user?.avatarUrl ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={avatarUploading || avatarRemoving}
+                  onClick={() => void handleAvatarRemove()}
+                >
+                  {avatarRemoving
+                    ? t('profile:personalInformation.removingPhoto')
+                    : t('profile:personalInformation.removePhoto')}
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => !avatarUploading && !avatarRemoving && avatarInputRef.current?.click()}
+                disabled={avatarUploading || avatarRemoving}
+                className="group relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full transition-opacity hover:opacity-80 disabled:cursor-wait"
+                title={t('profile:personalInformation.uploadPhoto')}
+                aria-label={t('profile:personalInformation.uploadPhoto')}
+              >
+                <UserAvatar name={user?.name ?? '?'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={48} />
+                <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  {avatarUploading
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    : <Pencil size={14} className="text-white" />}
+                </span>
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
+                className="hidden"
+                onChange={(e) => void handleAvatarChange(e)}
+              />
+            </div>
           </div>
 
           {/* Email */}

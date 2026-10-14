@@ -28,9 +28,21 @@ A folder is a saved set of tags. A conversation matches when it has **every** ta
 
 ## Nest a map under a broader one
 
-1. On **Folders**, drag a map onto the **Nest** zone of another row (or use **Nest** in the folder menu).
+1. On **Folders**, drag a map over the **right half** of another row (or use **Nest** in the folder menu). The **left half** of the tree only changes order among siblings.
 2. Read the preview: the result filterset and which broader map it will sit under. If the maps shared no tags, confirm the warning — matching conversations must then also carry the broader tags.
-3. Confirm **Nest**. Use **Undo** on the toast, or Ctrl/Cmd+Z, to reverse the last nest or reorder.
+3. Confirm **Nest**. Use **Undo** on the toast, or Ctrl/Cmd+Z, to reverse the last nest, reorder, unnest, or tag move.
+
+## Move a map or tag to the top level
+
+1. On **Folders**, drag a nested map (or a single tag chip) onto the **Top level** zone that appears above the tree.
+2. A nested map drops its broader tags and sits next to the other root maps. A tag leaves the source filterset; if no top-level map exists for that tag alone, Bokito creates one.
+3. Use **Undo** on the toast, or Ctrl/Cmd+Z, if you need to reverse it.
+
+## Move a single tag between maps
+
+1. On **Folders**, hover a tag in a tree row — it gets a pill so you see it is separate from the others on that row.
+2. Drag that tag onto another folder (or its **Nest** zone), or onto **Top level**. The tag leaves the source filterset and joins the target. A folder always keeps at least one tag.
+3. Use **Undo** on the toast, or Ctrl/Cmd+Z, if you need to reverse it.
 
 ## Read the Overview
 
@@ -55,8 +67,8 @@ A folder is a saved set of tags. A conversation matches when it has **every** ta
 
 ## Ask an agent to write a canvas
 
-1. Open the **Canvas** tab. Add a canvas with a title, brief and refresh cadence. The managing agent is chosen on the canvas, not on the folder.
-2. Ask in the linked conversation for a status or dashboard; the agent updates the snapshot. Workspace canvases also live on Overview **Canvas**.
+1. Open the **Canvas** tab and choose **Add canvas**. Pick the agent who will own it.
+2. That opens a conversation: the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Keep talking in that thread to change it. Workspace canvases also live on Overview **Canvas**.
 
 ## Track documentation
 

@@ -52,33 +52,29 @@ ALLOWED_ICONS = frozenset(
 # Bot-orb silhouettes (mirrored in dashboard bot-orb-shapes.ts).
 ALLOWED_SHAPES = frozenset(
     {
+        "monkey",
         "blob",
         "pebble",
-        "bean",
         "egg",
         "squircle",
-        "tablet",
         "capsule",
-        "cylinder",
         "hex",
-        "gem",
         "crystal",
         "wedge",
         "shield",
         "dome",
         "arch",
-        "cloud",
         "teardrop",
-        "leaf",
-        "square",
-        "sparkle",
-        "clover",
-        "flower",
         "heart",
-        "house",
-        "star",
     }
 )
+
+# Retired silhouettes still stored on agents → live key.
+_RETIRED_SHAPES = {
+    "chimp": "monkey",
+    "ape": "monkey",
+    "bean": "blob",
+}
 
 DEFAULT_AVATAR_SHAPE = "blob"
 
@@ -147,6 +143,7 @@ def normalize_shape(value: str | None) -> str | None:
     if not value:
         return None
     key = value.strip().lower()
+    key = _RETIRED_SHAPES.get(key, key)
     return key if key in ALLOWED_SHAPES else None
 
 

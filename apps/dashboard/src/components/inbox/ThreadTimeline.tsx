@@ -32,7 +32,6 @@ import type { ChatTagMap } from '../../lib/chatText'
 import type { MailDraftMode } from '../../lib/mail-reply'
 import { assignBubbleStacks, CHAT_COLUMN_CLASS, CHAT_STACK_GAP_MS } from '../../lib/chat-layout'
 import { parseDecisionOptions } from '../../lib/decision-options'
-import { labelsForChosenOptions } from './ProposalChoiceRest'
 import { sessionIdOf } from '../../lib/session-timeline'
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { cn } from '../../lib/utils'
@@ -139,45 +138,6 @@ export function isSessionCheckoutCard(message: InboxMessage): boolean {
   )
 }
 
-function isReplySendDecision(options: unknown): boolean {
-  return parseDecisionOptions(options).some(
-    (option) =>
-      option.action_type === 'send_reply' ||
-      option.action_type === 'send_email' ||
-      option.id === 'send',
-  )
-}
-
-function syntheticAnswerMessage(
-  decisionId: string,
-  text: string,
-  createdAt: string,
-  threadId: string,
-): InboxMessage {
-  return {
-    id: `synthetic-decision-${decisionId}`,
-    threadId,
-    connectionId: null,
-    kind: 'user_message',
-    direction: 'outbound',
-    subject: '',
-    bodyPreview: text.slice(0, 200),
-    bodyText: text,
-    bodyHtml: null,
-    graphMessageId: '',
-    inReplyTo: null,
-    authorUserId: null,
-    isRead: true,
-    sendStatus: null,
-    attachments: null,
-    receivedAt: createdAt,
-    createdAt,
-    decisionResponse: true,
-    decisionResponseDecisionId: decisionId,
-    payload: { decision_id: decisionId, synthetic: true },
-  } as InboxMessage
-}
-
 /** Decision ids already covered by a real operator answer bubble. */
 export function answeredDecisionIds(messages: InboxMessage[]): Set<string> {
   const answered = new Set<string>()
@@ -193,70 +153,48 @@ export function answeredDecisionIds(messages: InboxMessage[]): Set<string> {
   return answered
 }
 
-/** Older silent resolves have no user bubble — rebuild one from the chosen labels. */
+/**
+ * Legacy helper: older builds synthesized operator answer bubbles for silent
+ * resolves. Attribution now lives on the decision cloud, so we never rebuild
+ * those bubbles.
+ */
 export function syntheticDecisionAnswers(
-  messages: InboxMessage[],
-  threadId: string,
-  t: (key: string) => string,
+  _messages: InboxMessage[],
+  _threadId: string,
+  _t: (key: string) => string,
 ): InboxMessage[] {
-  const answered = answeredDecisionIds(messages)
-  const extras: InboxMessage[] = []
+  return []
+}
+
+/** Decision ids that already have a cloud (proposal host or decision card). */
+function questionDecisionIdsFrom(messages: InboxMessage[]): Set<string> {
+  const ids = new Set<string>()
   for (const message of messages) {
-    if (message.proposal) {
-      const proposal = message.proposal
-      if (proposal.status === 'awaiting_human' || proposal.status === 'pending') continue
-      if (answered.has(proposal.decisionId)) continue
-      // Bundle rows share one operator answer; skip if any sibling is covered.
-      if (proposal.bundle.some((entry) => answered.has(entry.decisionId))) {
-        answered.add(proposal.decisionId)
-        for (const entry of proposal.bundle) answered.add(entry.decisionId)
-        continue
-      }
-      if (isReplySendDecision(proposal.options)) continue
-      const ids = proposal.chosenOptionIds.length
-        ? proposal.chosenOptionIds
-        : proposal.chosenOptionId
-          ? [proposal.chosenOptionId]
-          : []
-      const labels = labelsForChosenOptions(parseDecisionOptions(proposal.options), ids, t)
-      if (!labels.length) continue
-      extras.push(
-        syntheticAnswerMessage(
-          proposal.decisionId,
-          labels.join(', '),
-          proposal.resolvedAt ?? message.createdAt,
-          threadId,
-        ),
-      )
-      answered.add(proposal.decisionId)
-      for (const entry of proposal.bundle) answered.add(entry.decisionId)
+    if (message.proposal?.decisionId) ids.add(message.proposal.decisionId)
+    for (const entry of message.proposal?.bundle ?? []) {
+      if (entry.decisionId) ids.add(entry.decisionId)
     }
-    if (message.kind !== 'decision_request' || !message.decisionId) continue
-    const decisionId = String(message.decisionId)
-    if (answered.has(decisionId)) continue
-    const decision = message.payload?.decision as Record<string, unknown> | undefined
-    const status = typeof decision?.status === 'string' ? decision.status : ''
-    if (!status || status === 'awaiting_human' || status === 'pending') continue
-    const optionsRaw = decision?.options ?? message.payload?.options
-    if (isReplySendDecision(optionsRaw)) continue
-    const rawIds = Array.isArray(decision?.chosen_option_ids)
-      ? decision.chosen_option_ids.map(String)
-      : typeof decision?.chosen_option_id === 'string'
-        ? String(decision.chosen_option_id).split(',').filter(Boolean)
-        : []
-    const labels = labelsForChosenOptions(parseDecisionOptions(optionsRaw), rawIds, t)
-    if (!labels.length) continue
-    extras.push(
-      syntheticAnswerMessage(
-        decisionId,
-        labels.join(', '),
-        typeof decision?.resolved_at === 'string' ? decision.resolved_at : message.createdAt,
-        threadId,
-      ),
-    )
-    answered.add(decisionId)
+    if (message.kind === 'decision_request' && message.decisionId) {
+      ids.add(String(message.decisionId))
+    }
   }
-  return extras
+  return ids
+}
+
+/** Hide legacy Goedgekeurd/Afgewezen operator echoes when the cloud covers them. */
+export function isHiddenDecisionResponse(
+  message: InboxMessage,
+  questionDecisionIds: Set<string>,
+): boolean {
+  if (!message.decisionResponse) return false
+  const ids = [
+    ...(message.decisionResponseDecisionIds ?? []),
+    ...(message.decisionResponseDecisionId ? [message.decisionResponseDecisionId] : []),
+  ]
+    .map(String)
+    .filter(Boolean)
+  if (!ids.length) return false
+  return ids.some((id) => questionDecisionIds.has(id))
 }
 
 export function buildTimelineRows(
@@ -275,16 +213,14 @@ export function buildTimelineRows(
     healed.filter((m) => m.proposal).map((m) => String(m.id)),
   )
   const answeredIds = answeredDecisionIds(healed)
-  const questionDecisionIds = new Set<string>()
-  for (const message of healed) {
-    if (message.proposal?.decisionId) questionDecisionIds.add(message.proposal.decisionId)
-    if (message.kind === 'decision_request' && message.decisionId) {
-      questionDecisionIds.add(String(message.decisionId))
-    }
-  }
+  const questionDecisionIds = questionDecisionIdsFrom(healed)
   const entries: TimelineEntry[] = [
     ...healed
-      .filter((m) => !(m.attachedToMessageId && inlineHosts.has(m.attachedToMessageId)))
+      .filter(
+        (m) =>
+          !(m.attachedToMessageId && inlineHosts.has(m.attachedToMessageId)) &&
+          !isHiddenDecisionResponse(m, questionDecisionIds),
+      )
       .map((m) => ({
       kind: 'message' as const,
       time: m.receivedAt ?? m.createdAt,
@@ -1102,6 +1038,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             message={message}
             threadId={threadId}
             events={events}
+            membersById={membersById}
             agentName={agentName}
             agentId={agentId}
             channelAccountId={channelAccountId}

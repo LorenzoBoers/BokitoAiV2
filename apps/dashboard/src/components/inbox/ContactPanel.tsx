@@ -22,6 +22,7 @@ import { ContactAvatar } from '../ui/ContactAvatar'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { Badge } from '../ui/badge'
 import { SettingRow } from '../ui/entity-row'
+import { SectionLabel } from '../ui/section-label'
 import { useAuth } from '../../context/AuthContext'
 import {
   findThreadsForContact,
@@ -684,7 +685,7 @@ export default function ContactPanel({
 
       {!anonymous ? (
         <div className="border-b border-border/40 px-4 py-2" data-testid="contact-panel-tags">
-          <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactPanel.tags')}</p>
+          <SectionLabel title={t('contactPanel.tags')} headerClassName="-mx-1 mb-1" />
           <OwnerTagsField
             tags={contact.tags ?? []}
             inherited={contact.companyTags ?? []}
@@ -710,7 +711,7 @@ export default function ContactPanel({
 
       {/* Notes */}
       <div className="border-b border-border/40 px-4 py-3">
-        <h3 className="mb-2 text-xs font-semibold text-text-muted">{t('contactPanel.notes')}</h3>
+        <SectionLabel title={t('contactPanel.notes')} headerClassName="-mx-1 mb-1" />
         <textarea
           value={notesDraft}
           onChange={(e) => {
@@ -741,9 +742,7 @@ export default function ContactPanel({
 
       {/* Previous conversations (Who — history with this person) */}
       <div className="border-b border-border/40 px-4 py-3">
-        <h3 className="mb-2 text-xs font-semibold text-text-muted">
-          {t('contactPanel.previous')}
-        </h3>
+        <SectionLabel title={t('contactPanel.previous')} headerClassName="-mx-1 mb-1" />
         {previousThreads.length === 0 ? (
           <p className="text-xs text-text-muted">{t('contactPanel.noPrevious')}</p>
         ) : (

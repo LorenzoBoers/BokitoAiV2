@@ -44,7 +44,14 @@ import { useAuth } from '../context/AuthContext'
 import { useMembers } from '../hooks/useMembers'
 import { isTypingTarget } from '../hooks/useInboxListShortcuts'
 import { listAgents } from '../lib/agents-api'
-import { listCalendarConnections, saveAccountCalendars, type CalendarConnection } from '../lib/calendars-api'
+import {
+  listCalendarConnections,
+  listTenantCalendars,
+  patchTenantCalendar,
+  saveAccountCalendars,
+  type CalendarConnection,
+  type TenantCalendar,
+} from '../lib/calendars-api'
 import { listTriggers, type Trigger, type TriggerKind } from '../lib/orchestration-api'
 import { listProjects } from '../lib/projects-api'
 import { listTimeItems, type TimeItem, type TimeItemKind } from '../lib/time-items'
@@ -108,12 +115,32 @@ export default function AgendaPage() {
   const [workstreams, setWorkstreams] = useState<TargetOption[]>([])
   const [projects, setProjects] = useState<TargetOption[]>([])
   const [calendars, setCalendars] = useState<CalendarConnection[]>([])
+  const [tenantCalendars, setTenantCalendars] = useState<TenantCalendar[]>([])
   const [calendarsLoading, setCalendarsLoading] = useState(true)
-  const availableCalendarIds = useMemo(() => calendars.map((c) => c.id), [calendars])
-  const calendarIds = useMemo(
-    () => parseCalendarIds(searchParams.get('cals'), availableCalendarIds),
-    [searchParams, availableCalendarIds],
+  const availableCalendarIds = useMemo(
+    () => tenantCalendars.filter((c) => c.sync_enabled).map((c) => c.id),
+    [tenantCalendars],
   )
+  const calendarTagFilter = useMemo(() => {
+    const raw = searchParams.get('calTag')
+    if (!raw?.trim()) return [] as string[]
+    return raw.split(',').map((s) => s.trim().replace(/^#/, '')).filter(Boolean)
+  }, [searchParams])
+  const calendarIds = useMemo(() => {
+    const fromCal = searchParams.get('cal')
+    if (fromCal != null || searchParams.get('cals') == null) {
+      return parseCalendarIds(fromCal, availableCalendarIds)
+    }
+    // Legacy `cals` = connection ids → expand to tenant calendars.
+    const connIds = parseCalendarIds(
+      searchParams.get('cals'),
+      calendars.map((c) => c.id),
+    )
+    const expanded = tenantCalendars
+      .filter((c) => c.sync_enabled && connIds.has(c.connection_id))
+      .map((c) => c.id)
+    return new Set(expanded)
+  }, [searchParams, availableCalendarIds, calendars, tenantCalendars])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -196,64 +223,85 @@ export default function AgendaPage() {
     })
   }
   const toggleCalendar = (connectionId: string) => {
+    const subs = tenantCalendars.filter((c) => c.connection_id === connectionId && c.sync_enabled)
+    const allOn = subs.every((c) => calendarIds.has(c.id))
     const next = new Set(calendarIds)
-    const connection = calendars.find((row) => row.id === connectionId)
-    const subs = connection?.calendars ?? []
     setHiddenCalendars((prev) => {
       const hidden = new Set(prev)
-      if (next.has(connectionId)) {
-        for (const cal of subs) hidden.add(hiddenCalendarKey(connectionId, cal.id))
-      } else {
-        for (const cal of subs) {
-          if (cal.enabled) hidden.delete(hiddenCalendarKey(connectionId, cal.id))
+      for (const cal of subs) {
+        if (allOn) {
+          hidden.add(cal.id)
+          hidden.add(hiddenCalendarKey(connectionId, cal.external_id))
+          next.delete(cal.id)
+        } else {
+          hidden.delete(cal.id)
+          hidden.delete(hiddenCalendarKey(connectionId, cal.external_id))
+          next.add(cal.id)
         }
       }
       writeHiddenCalendars(hidden)
       return hidden
     })
-    if (next.has(connectionId)) next.delete(connectionId)
-    else next.add(connectionId)
-    setParams({ cals: calendarIdsParam(next, availableCalendarIds) })
+    setParams({ cal: calendarIdsParam(next, availableCalendarIds), cals: null })
   }
   const toggleSubCalendar = (connectionId: string, calendarId: string) => {
-    const key = hiddenCalendarKey(connectionId, calendarId)
-    const wasHidden = hiddenCalendars.has(key)
+    const tenant = tenantCalendars.find(
+      (c) => c.connection_id === connectionId && (c.id === calendarId || c.external_id === calendarId),
+    )
+    const key = tenant?.id ?? hiddenCalendarKey(connectionId, calendarId)
+    const legacy = hiddenCalendarKey(connectionId, tenant?.external_id ?? calendarId)
+    const wasHidden = hiddenCalendars.has(key) || hiddenCalendars.has(legacy)
     const nextHidden = new Set(hiddenCalendars)
-    if (wasHidden) nextHidden.delete(key)
-    else nextHidden.add(key)
+    if (wasHidden) {
+      nextHidden.delete(key)
+      nextHidden.delete(legacy)
+    } else {
+      nextHidden.add(key)
+      nextHidden.add(legacy)
+    }
     writeHiddenCalendars(nextHidden)
     setHiddenCalendars(nextHidden)
     const nextIds = new Set(calendarIds)
-    if (wasHidden) nextIds.add(connectionId)
-    else {
-      const connection = calendars.find((row) => row.id === connectionId)
-      const stillShown = (connection?.calendars ?? []).some(
-        (cal) => cal.enabled && cal.id !== calendarId && !nextHidden.has(hiddenCalendarKey(connectionId, cal.id)),
-      )
-      if (!stillShown) nextIds.delete(connectionId)
+    if (tenant) {
+      if (wasHidden) nextIds.add(tenant.id)
+      else nextIds.delete(tenant.id)
     }
-    setParams({ cals: calendarIdsParam(nextIds, availableCalendarIds) })
+    setParams({ cal: calendarIdsParam(nextIds, availableCalendarIds), cals: null })
   }
   const enableCalendar = async (connectionId: string, calendarId: string) => {
     const connection = calendars.find((row) => row.id === connectionId)
-    if (!connection?.can_manage) return
-    const payload = (connection.calendars ?? []).map((cal) => ({
-      id: cal.id,
-      enabled: cal.enabled || cal.id === calendarId,
-    }))
+    const tenant = tenantCalendars.find(
+      (c) => c.connection_id === connectionId && (c.id === calendarId || c.external_id === calendarId),
+    )
     try {
-      await saveAccountCalendars(connectionId, { calendars: payload })
-      const rows = await listCalendarConnections()
+      if (tenant?.can_manage) {
+        await patchTenantCalendar(tenant.id, { sync_enabled: true })
+      } else if (connection?.can_manage) {
+        const payload = (connection.calendars ?? []).map((cal) => ({
+          id: cal.id,
+          enabled: cal.enabled || cal.id === calendarId,
+        }))
+        await saveAccountCalendars(connectionId, { calendars: payload })
+      } else {
+        return
+      }
+      const [rows, tenantRows] = await Promise.all([listCalendarConnections(), listTenantCalendars()])
       setCalendars(rows)
+      setTenantCalendars(tenantRows)
+      const enabled = tenantRows.find(
+        (c) => c.connection_id === connectionId && (c.id === calendarId || c.external_id === calendarId),
+      )
       setHiddenCalendars((prev) => {
         const next = new Set(prev)
+        if (enabled) next.delete(enabled.id)
         next.delete(hiddenCalendarKey(connectionId, calendarId))
         writeHiddenCalendars(next)
         return next
       })
-      const nextIds = new Set(parseCalendarIds(searchParams.get('cals'), rows.map((row) => row.id)))
-      nextIds.add(connectionId)
-      setParams({ cals: calendarIdsParam(nextIds, rows.map((row) => row.id)) })
+      const available = tenantRows.filter((c) => c.sync_enabled).map((c) => c.id)
+      const nextIds = new Set(parseCalendarIds(searchParams.get('cal'), available))
+      if (enabled) nextIds.add(enabled.id)
+      setParams({ cal: calendarIdsParam(nextIds, available), cals: null })
       setReloadKey((key) => key + 1)
       toast.success(t('agendaPage.calendar.syncStarted'))
     } catch (err) {
@@ -281,6 +329,8 @@ export default function AgendaPage() {
           : who.startsWith('user:')
             ? who.slice('user:'.length)
             : undefined
+      const calFilter =
+        calendarIds.size === availableCalendarIds.length ? undefined : [...calendarIds]
       const [window_, attention, triggerRows] = await Promise.all([
         listTimeItems({
           from: range.from.toISOString(),
@@ -291,6 +341,8 @@ export default function AgendaPage() {
           path: pathFilter || undefined,
           agentId: whoAgentId,
           userId: whoUserId,
+          calendarIds: calFilter,
+          calendarTags: calendarTagFilter.length ? calendarTagFilter : undefined,
         }),
         listTimeItems({
           from: new Date(now - 30 * 86_400_000).toISOString(),
@@ -314,7 +366,19 @@ export default function AgendaPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, range, projectId, tagFilter, pathFilter, who, user?.uuid, t])
+  }, [
+    token,
+    range,
+    projectId,
+    tagFilter,
+    pathFilter,
+    who,
+    user?.uuid,
+    t,
+    calendarIds,
+    availableCalendarIds.length,
+    calendarTagFilter,
+  ])
 
   useEffect(() => {
     void load()
@@ -323,9 +387,15 @@ export default function AgendaPage() {
   useEffect(() => {
     if (!token) return
     setCalendarsLoading(true)
-    listCalendarConnections()
-      .then(setCalendars)
-      .catch(() => setCalendars([]))
+    Promise.all([listCalendarConnections(), listTenantCalendars()])
+      .then(([rows, tenantRows]) => {
+        setCalendars(rows)
+        setTenantCalendars(tenantRows)
+      })
+      .catch(() => {
+        setCalendars([])
+        setTenantCalendars([])
+      })
       .finally(() => setCalendarsLoading(false))
   }, [token, reloadKey])
 
@@ -390,13 +460,21 @@ export default function AgendaPage() {
       byWho.filter((item) => {
         const layer = layerOf(item)
         if (layer === 'calendar') {
+          const tcId = item.tenant_calendar_id
+          if (tcId) {
+            if (hiddenCalendars.has(tcId)) return false
+            return calendarIds.has(tcId)
+          }
           if (!item.connection_id) return calendarIds.size > 0
           if (hiddenCalendars.has(hiddenCalendarKey(item.connection_id, item.calendar_id ?? ''))) return false
-          return calendarIds.has(item.connection_id)
+          const match = tenantCalendars.find(
+            (c) => c.connection_id === item.connection_id && c.external_id === item.calendar_id,
+          )
+          return match ? calendarIds.has(match.id) : false
         }
         return layers.has(layer)
       }),
-    [byWho, layers, calendarIds, hiddenCalendars],
+    [byWho, layers, calendarIds, hiddenCalendars, tenantCalendars],
   )
   const needle = agendaQuery.trim().toLowerCase()
   const shown = useMemo(() => {
@@ -418,12 +496,20 @@ export default function AgendaPage() {
   const calendarCounts = useMemo(() => {
     const out: Record<string, number> = {}
     for (const item of byWho) {
-      if (item.kind !== 'calendar' || !item.connection_id) continue
+      if (item.kind !== 'calendar') continue
+      const tcId = item.tenant_calendar_id
+      if (tcId) {
+        if (hiddenCalendars.has(tcId) || !calendarIds.has(tcId)) continue
+        const conn = tenantCalendars.find((c) => c.id === tcId)?.connection_id
+        if (conn) out[conn] = (out[conn] || 0) + 1
+        continue
+      }
+      if (!item.connection_id) continue
       if (hiddenCalendars.has(hiddenCalendarKey(item.connection_id, item.calendar_id ?? ''))) continue
       out[item.connection_id] = (out[item.connection_id] || 0) + 1
     }
     return out
-  }, [byWho, hiddenCalendars])
+  }, [byWho, hiddenCalendars, calendarIds, tenantCalendars])
   const attention = useMemo(
     () => attentionOf(attentionItems.filter((item) => matchesWho(item, who, meId)), nowMs),
     [attentionItems, who, meId, nowMs],
@@ -612,6 +698,7 @@ export default function AgendaPage() {
           counts={counts}
           onToggleLayer={toggleLayer}
           calendars={calendars}
+          tenantCalendars={tenantCalendars}
           calendarIds={calendarIds}
           calendarCounts={calendarCounts}
           onToggleCalendar={toggleCalendar}
@@ -620,6 +707,14 @@ export default function AgendaPage() {
           onEnableCalendar={(connectionId, calendarId) => void enableCalendar(connectionId, calendarId)}
           calendarsLoading={calendarsLoading}
           onCalendars={setCalendars}
+          onTenantCalendars={setTenantCalendars}
+          calendarTagFilter={calendarTagFilter}
+          onToggleCalendarTag={(tag) => {
+            const next = new Set(calendarTagFilter)
+            if (next.has(tag)) next.delete(tag)
+            else next.add(tag)
+            setParams({ calTag: next.size ? [...next].join(',') : null })
+          }}
           onSynced={reload}
           routineCount={triggers.filter((row) => row.kind !== 'once' && row.kind !== 'event').length}
           onOpenRoutines={() => setRoutinesOpen(true)}

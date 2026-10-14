@@ -5,32 +5,38 @@ import { nextChipRevealLength } from '../lib/chatText'
  * Frontend playback that follows the backend stream.
  *
  * Incoming chunks only fill a buffer. The view starts as soon as the first
- * characters arrive, grows at a constant cruise (slightly slower than a
- * typical model), and pauses when it catches the unpublished lead. When the
- * model stops, the leftover drains at the same cruise — never a dump.
+ * characters arrive, grows at a cruise (slightly slower than a typical model),
+ * breathes with a deterministic jitter so it feels typed rather than metered,
+ * and pauses when it catches the unpublished lead. When the model stops, the
+ * leftover drains on a short horizon — never a dump.
  *
  * Token ≈ 4 characters (EN/NL mix).
  */
 export const SMOOTH_STREAM = {
   charsPerToken: 4,
-  /** Steady playback. Below a typical model so the view stays behind. */
-  cruiseTps: 22,
+  /** Mean live playback. Below a typical model so the view stays behind. */
+  cruiseTps: 30,
   /** Floor for the post-stream drain of a short tail. */
-  finishMinTps: 22,
+  finishMinTps: 28,
   /** Ceiling when a large leftover remains after the model stops. */
-  finishMaxTps: 40,
+  finishMaxTps: 52,
   /** Aim to empty a large leftover within this horizon once the turn ended. */
-  finishHorizonMs: 2000,
+  finishHorizonMs: 1600,
   /** Stay at most this far behind a large live buffer. */
-  leadChars: 18,
+  leadChars: 16,
   /** Always keep at least this many live chars unpublished (the brake). */
   minBrakeChars: 2,
   /** Live lead is this fraction of the buffer, until `leadChars`. */
-  leadRatio: 0.18,
+  leadRatio: 0.16,
   /** Brief wait so the first glyph is not a single-letter flash. */
-  startDelayMs: 40,
+  startDelayMs: 28,
   /** Frame gap cap: a background tab must not dump the buffer. */
   maxFrameMs: 50,
+  /**
+   * Peak relative swing around the mean cruise (±). Two sines keep it
+   * irregular without RNG (tests stay stable).
+   */
+  jitterAmp: 0.32,
 } as const
 
 function tpsToCps(tps: number): number {
@@ -41,9 +47,11 @@ export const SMOOTH_STREAM_CPS = {
   cruiseCps: tpsToCps(SMOOTH_STREAM.cruiseTps),
   finishMinCps: tpsToCps(SMOOTH_STREAM.finishMinTps),
   finishMaxCps: tpsToCps(SMOOTH_STREAM.finishMaxTps),
+  /** Live per-frame ceiling including jitter (tests). */
+  cruiseMaxCps: tpsToCps(SMOOTH_STREAM.cruiseTps) * (1 + SMOOTH_STREAM.jitterAmp),
   /** Alias used by older tests that called the live ceiling `maxCps`. */
-  maxCps: tpsToCps(SMOOTH_STREAM.cruiseTps),
-  minCps: tpsToCps(SMOOTH_STREAM.cruiseTps),
+  maxCps: tpsToCps(SMOOTH_STREAM.cruiseTps) * (1 + SMOOTH_STREAM.jitterAmp),
+  minCps: tpsToCps(SMOOTH_STREAM.cruiseTps) * (1 - SMOOTH_STREAM.jitterAmp),
   finishCps: tpsToCps(SMOOTH_STREAM.finishMinTps),
 } as const
 
@@ -68,8 +76,22 @@ export function revealLimit(bufferLength: number, holdLead: boolean): number {
 }
 
 /**
- * Character rate for this frame. Live: constant cruise. Ended: drain the
- * leftover on a short horizon, still bounded so it never dumps.
+ * Relative speed multiplier for this frame. Overlapping sines breathe the
+ * rate so bursts and dips feel typed, not metronomic.
+ */
+export function streamRateJitter(nowMs: number): number {
+  const amp = SMOOTH_STREAM.jitterAmp
+  if (amp <= 0) return 1
+  const wave =
+    1 +
+    amp * Math.sin(nowMs * 0.0053) +
+    amp * 0.55 * Math.sin(nowMs * 0.0121 + 1.37)
+  return clamp(wave, 1 - amp, 1 + amp)
+}
+
+/**
+ * Character rate for this frame. Live: mean cruise (caller applies jitter).
+ * Ended: drain the leftover on a short horizon, still bounded so it never dumps.
  */
 export function smoothStreamRate(backlog: number, active: boolean): number {
   const p = SMOOTH_STREAM
@@ -150,7 +172,16 @@ export function useSmoothStreamText(
         raf = requestAnimationFrame(tick)
         return
       }
-      const step = (smoothStreamRate(backlog, live) * dt) / 1000 + carry
+      const baseRate = smoothStreamRate(backlog, live) * streamRateJitter(now)
+      // Soft pause after sentence / clause breaks — typed, not sprayed.
+      const trail = prev[prev.length - 1]
+      const pause =
+        trail === '.' || trail === '!' || trail === '?' || trail === '\n'
+          ? 0.42
+          : trail === ',' || trail === ';' || trail === ':'
+            ? 0.72
+            : 1
+      const step = (baseRate * pause * dt) / 1000 + carry
       const chars = Math.floor(step)
       carry = step - chars
       if (chars > 0) {

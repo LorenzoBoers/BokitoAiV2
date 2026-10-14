@@ -1,4 +1,3 @@
-import base64
 import logging
 from datetime import datetime, timedelta
 from typing import Annotated
@@ -1389,11 +1388,13 @@ async def change_password(
 
 
 async def _store_avatar(user: User, upload: UploadFile, session: AsyncSession) -> dict:
+    from app.services.profile_avatar import pack_avatar_data_uri
+
     raw = await upload.read()
-    if len(raw) > 512_000:
-        raise HTTPException(status_code=400, detail="Avatar file too large")
-    mime = upload.content_type or "image/png"
-    user.avatar_url = f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
+    try:
+        user.avatar_url = pack_avatar_data_uri(raw, content_type=upload.content_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     session.add(user)
     await session.commit()
     return {"avatar": {"url": user.avatar_url, "path": user.avatar_url}}
@@ -1405,12 +1406,12 @@ async def public_user_avatar(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Profile photo for email signatures. Mail clients fetch this with no session."""
-    from app.services.signatures import raster_avatar_bytes
+    from app.services.profile_avatar import decode_raster_avatar
 
     user = (
         await session.execute(select(User).where(User.id == user_id))
     ).scalar_one_or_none()
-    parsed = raster_avatar_bytes(user.avatar_url) if user else None
+    parsed = decode_raster_avatar(user.avatar_url) if user else None
     if parsed is None:
         raise HTTPException(status_code=404, detail="No avatar")
     mime, data = parsed
@@ -1428,6 +1429,17 @@ async def upload_me_avatar(
     avatar: UploadFile = File(...),
 ):
     return await _store_avatar(auth.user, avatar, session)
+
+
+@router.delete("/users/me/avatar")
+async def delete_me_avatar(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.user.avatar_url = None
+    session.add(auth.user)
+    await session.commit()
+    return {"avatar": None}
 
 
 @router.post("/avatar")

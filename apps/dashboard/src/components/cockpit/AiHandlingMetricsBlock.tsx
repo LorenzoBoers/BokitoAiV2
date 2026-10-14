@@ -20,7 +20,8 @@ const CHART_HEIGHT = 188
 const PIE_HEIGHT = 168
 
 const AI_COLOR = 'rgb(var(--color-ai))'
-const MANUAL_COLOR = 'rgb(var(--color-text-muted))'
+/** Manual series: border ink (reads with surfaces), not muted grey text. */
+const MANUAL_COLOR = 'rgb(var(--color-border-light))'
 
 const MODE_ORDER: AiHandlingMode[] = ['autonomous', 'assisted', 'manual']
 

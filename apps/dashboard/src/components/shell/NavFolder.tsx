@@ -1,5 +1,5 @@
-import { useId, type ReactNode } from 'react'
-import { ChevronDown } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { SectionLabel } from '../ui/section-label'
 import { cn } from '../../lib/utils'
 
 type NavFolderProps = {
@@ -16,8 +16,7 @@ type NavFolderProps = {
 }
 
 /**
- * Folder-style nav group: a quiet sentence-case header with a left chevron,
- * followed by rows. The fold animates via the `.nav-fold` grid recipe.
+ * Shell rail group — thin wrapper over the shared {@link SectionLabel}.
  */
 export default function NavFolder({
   label,
@@ -29,7 +28,6 @@ export default function NavFolder({
   className,
   ...rest
 }: NavFolderProps) {
-  const id = useId()
   if (flat) {
     return (
       <section className={cn('space-y-px', className)} {...rest}>
@@ -38,26 +36,16 @@ export default function NavFolder({
     )
   }
   return (
-    <section className={className} {...rest}>
-      <div className="flex items-center">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="nav-folder min-w-0 flex-1"
-          aria-expanded={open}
-          aria-controls={id}
-          data-open={open ? 'true' : 'false'}
-        >
-          <ChevronDown aria-hidden />
-          <span className="min-w-0 truncate-fade">{label}</span>
-        </button>
-        {trailing ? <span className="ml-1 flex shrink-0 items-center">{trailing}</span> : null}
-      </div>
-      <div className="nav-fold" data-open={open ? 'true' : 'false'} id={id}>
-        <div className={cn('nav-fold-inner', open && 'pt-px')}>
-          <div className="space-y-px">{children}</div>
-        </div>
-      </div>
-    </section>
+    <SectionLabel
+      title={label}
+      open={open}
+      onOpenChange={() => onToggle()}
+      actions={trailing}
+      className={className}
+      contentClassName={open ? 'space-y-px pt-px' : 'space-y-px'}
+      {...rest}
+    >
+      {children}
+    </SectionLabel>
   )
 }

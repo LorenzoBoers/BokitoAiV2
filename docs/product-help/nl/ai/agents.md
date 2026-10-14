@@ -78,7 +78,7 @@ Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading). Die
 ## Stel naam, omschrijving of uiterlijk in
 
 1. Open een bedrijfsagent.
-2. Kies **Bewerken** rechtsboven in de header.
+2. Hover of focus het grote agentmark bovenaan en kies het potlood (of open **Bewerken** via het ···-menu).
 3. Pas de **naam** aan, vul de **Omschrijving** in (de korte rol op de bibliotheekkaart), kies **Initialen** of **Bot**. Bij **Bot** kies je een **vorm** en een **kleur** voor het geanimeerde gezicht, en sla op. Instructies blijven op de agentpagina; dat is niet deze omschrijving.
 
 Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Communicatie en de webchat-headerbubble van de antwoordingende agent.

@@ -40,13 +40,24 @@ def decision_provenance(decision: DecisionRequest) -> dict[str, Any] | None:
 
 def primary_action(options: list[dict[str, Any]] | None) -> str:
     """The first option that does something (not defer/reject); '' when none."""
+    action, _payload = primary_option_key(options)
+    return action
+
+
+def primary_option_key(options: list[dict[str, Any]] | None) -> tuple[str, str]:
+    """(action_type, stable payload) of the first executable option; ('','') when none."""
     for option in options or []:
         if not isinstance(option, dict):
             continue
         action = str(option.get("action_type") or "").strip().lower()
         if action and action not in ("defer", "reject", "dismiss", "later"):
-            return action
-    return ""
+            payload = option.get("payload")
+            if payload is None:
+                payload_key = ""
+            else:
+                payload_key = json.dumps(payload, sort_keys=True, default=str)
+            return action, payload_key
+    return "", ""
 
 
 def _options_of(decision: DecisionRequest) -> list[dict[str, Any]]:
@@ -84,6 +95,44 @@ async def find_open_duplicate_decision(
     ).scalars().all()
     for row in rows:
         if primary_action(_options_of(row)) == wanted:
+            return row
+    return None
+
+
+async def find_open_identical_decision(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    title: str,
+    options: list[dict[str, Any]] | None,
+    signal_id: UUID | None,
+) -> DecisionRequest | None:
+    """Awaiting card on this thread with the same title and primary option payload.
+
+    Catches the model calling the same gated tool twice in one turn (same
+    ``bundle_id``). Same-bundle cards are not superseded by title alone, so
+    without this the thread stacks two identical Approve cards.
+    """
+    if signal_id is None:
+        return None
+    wanted = primary_option_key(options)
+    if not wanted[0]:
+        return None
+    rows = (
+        await session.execute(
+            select(DecisionRequest)
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.signal_id == signal_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.platform_change_id.is_(None),
+                DecisionRequest.title == (title or "").strip(),
+            )
+            .order_by(DecisionRequest.created_at.desc())
+        )
+    ).scalars().all()
+    for row in rows:
+        if primary_option_key(_options_of(row)) == wanted:
             return row
     return None
 

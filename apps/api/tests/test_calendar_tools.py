@@ -192,6 +192,58 @@ async def test_propose_event_creates_decision_when_healthy(session_override: Asy
     assert "·" in summary
 
 
+@pytest.mark.asyncio
+async def test_propose_event_dedupes_identical_call_same_turn(session_override: AsyncSession):
+    """Double calendar_propose_event in one turn must not stack two Approve cards."""
+    from uuid import uuid4
+
+    from app.models.signal import Signal
+
+    tenant = await _tenant(session_override)
+    await _calendar_conn(session_override, tenant, meta=HEALTHY_META)
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        subject="Front desk",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await session_override.refresh(signal)
+
+    turn_id = str(uuid4())
+    ctx = ToolContext(
+        session=session_override,
+        tenant_id=tenant.id,
+        user_id=None,
+        signal_id=signal.id,
+        turn_id=turn_id,
+    )
+    payload = {
+        "title": "Pasta eten",
+        "start_at": "2026-10-15T16:00:00",
+        "end_at": "2026-10-15T17:00:00",
+        "signal_id": str(signal.id),
+    }
+    first = await _calendar_propose_event(ctx, payload)
+    second = await _calendar_propose_event(ctx, payload)
+    assert first["ok"] is True
+    assert first.get("decision_id")
+    assert second["ok"] is True
+    assert second.get("status") == "already_open"
+    assert second.get("decision_id") == first.get("decision_id")
+
+    awaiting = (
+        await session_override.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.signal_id == signal.id,
+                DecisionRequest.status == "awaiting_human",
+            )
+        )
+    ).scalars().all()
+    assert len(awaiting) == 1
+
+
 def test_format_event_when_humanizes_naive_iso():
     from app.tools.calendar import format_event_when, humanize_iso_in_text
 

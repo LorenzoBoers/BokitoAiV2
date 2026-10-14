@@ -444,27 +444,11 @@ def render_signature_template(
     return _cleanup_after_render(rendered)
 
 
-_RASTER_DATA_RE = re.compile(
-    r"^data:image/(png|jpeg|jpg|gif|webp);base64,([A-Za-z0-9+/=\s]+)$",
-    re.IGNORECASE,
-)
-
-
 def raster_avatar_bytes(url: str | None) -> tuple[str, bytes] | None:
     """Decode a profile photo stored as a raster data URI. SVG is refused."""
-    match = _RASTER_DATA_RE.match((url or "").strip())
-    if not match:
-        return None
-    mime = match.group(1).lower()
-    if mime == "jpg":
-        mime = "jpeg"
-    try:
-        data = base64.b64decode(re.sub(r"\s+", "", match.group(2)))
-    except Exception:
-        return None
-    if not data or len(data) > 512_000:
-        return None
-    return f"image/{mime}", data
+    from app.services.profile_avatar import decode_raster_avatar
+
+    return decode_raster_avatar(url)
 
 
 def email_avatar_src(url: str | None, *, user_id: UUID | None = None) -> str | None:

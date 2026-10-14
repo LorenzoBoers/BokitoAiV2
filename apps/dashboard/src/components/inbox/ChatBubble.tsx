@@ -6,13 +6,13 @@ import { AI_PILL_CLASS } from '../ai/AiMark'
 
 /**
  * Chat bubble primitives for every conversation surface (customer threads,
- * suggested replies, agent sessions). One shell, five tones, WhatsApp-style
+ * suggested replies, agent sessions). One shell, six tones, WhatsApp-style
  * grouping: the first bubble of a run carries avatar, name and the pointed
  * corner; follow-ups hug it with flattened inner corners. Feedback / copy
  * sit bottom-right next to the time.
  */
 
-export type BubbleVariant = 'external' | 'team' | 'agent' | 'self' | 'note'
+export type BubbleVariant = 'external' | 'team' | 'agent' | 'self' | 'note' | 'ai_note'
 
 /** Position in a run of consecutive same-author messages; shared with the widget. */
 export type { BubbleStack }
@@ -25,7 +25,9 @@ const TONE: Record<BubbleVariant, string> = {
   // Solid fill like iMessage / WhatsApp.
   self:
     'chat-bubble-self bg-accent text-accent-fg shadow-[0_1px_2px_rgb(0_0_0/0.10)] [&_.text-text-muted]:text-accent-fg/70 [&_.text-text-heading]:text-accent-fg [&_.text-accent]:text-accent-fg [&_a]:text-accent-fg [&_code]:bg-accent-fg/15',
+  // Human team note (amber) vs agent team note (AI violet, dashed).
   note: 'bg-status-warning/[0.07] ring-1 ring-inset ring-status-warning/25',
+  ai_note: 'chat-bubble-ai-note',
 }
 
 /** Outer corners stay round; the corner facing the avatar (or the neighbour) tightens. */
@@ -233,7 +235,7 @@ export function ChatMessageBubble({
   )
 
   const row = cn(
-    enter && 'msg-bubble-enter',
+    enter && (variant === 'agent' ? 'bubble-pop-enter' : 'msg-bubble-enter'),
     'group/bubble flex items-start gap-2',
     isRight ? 'flex-row-reverse' : 'flex-row',
     className,

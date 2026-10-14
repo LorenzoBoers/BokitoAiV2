@@ -28,9 +28,21 @@ Een map is een bewaarde set tags. Een gesprek past als het **elke** tag in die s
 
 ## Nest een map onder een bredere
 
-1. Op **Mappen** sleep je een map op de zone **Nesten** van een andere rij (of gebruik **Nesten** in het mapmenu).
+1. Op **Mappen** sleep je een map over de **rechterhelft** van een andere rij (of gebruik **Nesten** in het mapmenu). De **linkerhelft** van de boom wijzigt alleen de volgorde tussen siblings.
 2. Lees de preview: de resulterende filterset en onder welke bredere map die komt. Deelden de mappen geen tags, bevestig dan de waarschuwing — matchende gesprekken moeten daarna ook de bredere tags dragen.
-3. Bevestig **Nesten**. Gebruik **Ongedaan maken** in de melding, of Ctrl/Cmd+Z, om de laatste nest of herordening terug te draaien.
+3. Bevestig **Nesten**. Gebruik **Ongedaan maken** in de melding, of Ctrl/Cmd+Z, om de laatste nest, herordening, unnest of tagverplaatsing terug te draaien.
+
+## Verplaats een map of tag naar de bovenste laag
+
+1. Op **Mappen** sleep je een geneste map (of een losse tag-chip) op de zone **Bovenste laag** die boven de boom verschijnt.
+2. Een geneste map laat de bredere tags los en komt naast de andere root-mappen. Een tag verlaat de bron-filterset; bestaat er nog geen topmap voor die tag alleen, dan maakt Bokito die aan.
+3. Gebruik **Ongedaan maken** in de melding, of Ctrl/Cmd+Z, om dit terug te draaien.
+
+## Verplaats een losse tag tussen mappen
+
+1. Op **Mappen** hover je een tag in een boomrij — die krijgt een pil zodat je ziet dat die los staat van de andere tags op die rij.
+2. Sleep die tag op een andere map (of de zone **Nesten**), of op **Bovenste laag**. De tag verlaat de bron-filterset en komt bij het doel. Een map houdt altijd minstens één tag.
+3. Gebruik **Ongedaan maken** in de melding, of Ctrl/Cmd+Z, om dit terug te draaien.
 
 ## Lees het Overzicht
 
@@ -55,8 +67,8 @@ Een map is een bewaarde set tags. Een gesprek past als het **elke** tag in die s
 
 ## Vraag een agent een canvas te schrijven
 
-1. Open het tabblad **Canvas**. Voeg een canvas toe met titel, brief en vernieuwingsritme. De beherende agent kies je op het canvas, niet op de map.
-2. Vraag in het gekoppelde gesprek om status of dashboard; de agent werkt de snapshot bij. Workspace-canvassen staan ook op Overview **Canvas**.
+1. Open het tabblad **Canvas** en kies **Canvas toevoegen**. Kies de agent die het beheert.
+2. Dat opent een gesprek: de agent vraagt wat je wilt zien, stelt een kort plan voor (titel, widgets, verversen), bouwt daarna de snapshot en zet de verversperiode. Blijf in dat gesprek om het te wijzigen. Workspace-canvassen staan ook op Overview **Canvas**.
 
 ## Houd documentatie bij
 

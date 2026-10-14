@@ -52,15 +52,27 @@ def test_avatar_payload_icon_always_platform_color():
 
 
 def test_avatar_payload_orb_keeps_curated_color():
-    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="star")
+    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="monkey")
     payload = avatar_payload(agent)
     assert payload == {
         "avatar_kind": "orb",
         "avatar_icon": None,
         "avatar_color": "#00c972",
-        "avatar_shape": "star",
+        "avatar_shape": "monkey",
         "avatar_image_url": None,
     }
+
+
+def test_avatar_payload_retired_shape_falls_back_to_blob():
+    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="star")
+    payload = avatar_payload(agent)
+    assert payload["avatar_shape"] == "blob"
+
+
+def test_avatar_payload_retired_chimp_maps_to_monkey():
+    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="chimp")
+    payload = avatar_payload(agent)
+    assert payload["avatar_shape"] == "monkey"
 
 
 def test_avatar_payload_image_requires_upload_path():

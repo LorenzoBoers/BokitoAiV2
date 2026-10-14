@@ -277,9 +277,9 @@ function CreateFlowDialog({
                   disabled={creating}
                   onClick={() => void createWithName(tag.name)}
                   className={cn(
-                    'inline-flex max-w-full items-center gap-0.5 rounded-full border border-border/70 bg-bg-input/40 px-2.5 py-1',
-                    'text-xs font-medium text-text-primary transition',
-                    'hover:border-accent/50 hover:bg-accent/10 hover:text-accent',
+                    'inline-flex max-w-full items-center gap-0.5 rounded-md bg-bg-surface px-2.5 py-1',
+                    'text-xs font-medium text-text-primary ring-1 ring-inset ring-border/50 transition-colors',
+                    'hover:bg-accent/12 hover:text-accent hover:ring-accent/25',
                     'disabled:pointer-events-none disabled:opacity-60',
                   )}
                   title={tag.description || undefined}

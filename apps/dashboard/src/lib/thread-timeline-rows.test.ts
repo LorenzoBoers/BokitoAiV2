@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTimelineRows,
   eventsShareCluster,
+  isHiddenDecisionResponse,
   isSessionCheckoutCard,
   syntheticDecisionAnswers,
 } from '../components/inbox/ThreadTimeline'
@@ -81,41 +82,56 @@ describe('buildTimelineRows event clusters', () => {
     expect(first?.kind === 'events' && first.events[0]?.id).toBe('start')
   })
 
-  it('keeps a keep-open answer as a user bubble and hides the decision pill', () => {
+  it('hides a legacy decision_response bubble when the cloud covers it', () => {
+    const card = {
+      id: 'c1',
+      threadId: 't1',
+      kind: 'agent_message',
+      createdAt: '2026-10-10T14:14:00.000Z',
+      proposal: {
+        decisionId: 'd1',
+        cardMessageId: 'c1',
+        status: 'rejected',
+        question: null,
+        selection: 'single' as const,
+        options: [],
+        items: [],
+        chosenOptionId: 'reject',
+        chosenOptionIds: ['reject'],
+        resolvedAt: '2026-10-10T14:15:00.000Z',
+        resolvedBy: 'Lorenzo',
+        resolvedByUserId: null,
+        bundle: [],
+        bundleId: null,
+      },
+    } as InboxMessage
     const answer = {
       id: 'm-answer',
       threadId: 't1',
-      connectionId: null,
       kind: 'user_message',
-      direction: 'outbound',
-      bodyText: 'Keep open',
-      bodyHtml: null,
-      subject: null,
-      authorUserId: 1,
-      authorAgentId: null,
-      authorName: null,
-      attachments: null,
-      receivedAt: null,
+      bodyText: 'Afgewezen: Approve',
       createdAt: '2026-10-10T14:15:00.000Z',
       decisionResponse: true,
       decisionResponseDecisionId: 'd1',
-      payload: { option_id: 'keep_open' },
+      payload: {},
     } as InboxMessage
     const rows = buildTimelineRows(
       detail(
         [
           {
-            ...event('dec', '2026-10-10T14:15:01.000Z', 'decision_deferred'),
+            ...event('dec', '2026-10-10T14:15:01.000Z', 'decision_rejected'),
             payload: { decision_id: 'd1' },
           },
         ],
-        [answer],
+        [card, answer],
       ),
       t,
       'en',
     )
     const messages = rows.filter((row) => row.kind === 'message')
-    expect(messages.some((row) => row.kind === 'message' && row.data.id === 'm-answer')).toBe(true)
+    expect(messages.some((row) => row.kind === 'message' && row.data.id === 'm-answer')).toBe(
+      false,
+    )
     expect(rows.some((row) => row.kind === 'events')).toBe(false)
   })
 })
@@ -123,23 +139,13 @@ describe('buildTimelineRows event clusters', () => {
 describe('syntheticDecisionAnswers', () => {
   const t = (key: string) => key
 
-  it('rebuilds a user bubble for an old silent resolve', () => {
+  it('never rebuilds operator answer bubbles', () => {
     const card = {
       id: 'c1',
       threadId: 't1',
-      connectionId: null,
       kind: 'decision_request',
-      direction: 'internal',
-      bodyText: 'Deze sessie staat al een tijd stil.',
-      bodyHtml: null,
-      subject: null,
-      authorUserId: null,
-      authorAgentId: null,
-      authorName: null,
-      attachments: null,
-      receivedAt: null,
-      createdAt: '2026-10-12T16:00:00.000Z',
       decisionId: 'd-idle',
+      createdAt: '2026-10-12T16:00:00.000Z',
       payload: {
         decision: {
           status: 'approved',
@@ -148,64 +154,18 @@ describe('syntheticDecisionAnswers', () => {
         },
       },
     } as InboxMessage
-    const extras = syntheticDecisionAnswers([card], 't1', t)
-    expect(extras).toHaveLength(1)
-    expect(extras[0].decisionResponse).toBe(true)
-    expect(extras[0].bodyText).toBe('Sessie afronden')
+    expect(syntheticDecisionAnswers([card], 't1', t)).toHaveLength(0)
   })
+})
 
-  it('skips when a real decision answer already exists', () => {
-    const card = {
-      id: 'c1',
-      threadId: 't1',
-      kind: 'decision_request',
-      decisionId: 'd-idle',
-      createdAt: '2026-10-12T16:00:00.000Z',
-      payload: {
-        decision: {
-          status: 'approved',
-          chosen_option_id: 'end_only',
-          options: [{ id: 'end_only', label: 'Sessie afronden' }],
-        },
-      },
-    } as InboxMessage
+describe('isHiddenDecisionResponse', () => {
+  it('hides when the decision id is on a proposal cloud', () => {
     const answer = {
-      id: 'a1',
-      threadId: 't1',
-      kind: 'user_message',
-      createdAt: '2026-10-12T16:00:01.000Z',
-      bodyText: 'Sessie afronden',
       decisionResponse: true,
-      decisionResponseDecisionId: 'd-idle',
+      decisionResponseDecisionId: 'd1',
     } as InboxMessage
-    expect(syntheticDecisionAnswers([card, answer], 't1', t)).toHaveLength(0)
-  })
-
-  it('skips when a bundle answer covers the decision id', () => {
-    const card = {
-      id: 'c1',
-      threadId: 't1',
-      kind: 'decision_request',
-      decisionId: 'd-sched',
-      createdAt: '2026-10-13T07:34:00.000Z',
-      payload: {
-        decision: {
-          status: 'rejected',
-          chosen_option_id: 'reject',
-          options: [{ id: 'reject', label: 'Afwijzen' }],
-        },
-      },
-    } as InboxMessage
-    const bundleAnswer = {
-      id: 'a1',
-      threadId: 't1',
-      kind: 'user_message',
-      createdAt: '2026-10-13T07:46:00.000Z',
-      bodyText: 'Afgewezen: Set thread schedule',
-      decisionResponse: true,
-      decisionResponseDecisionIds: ['d-sched'],
-    } as InboxMessage
-    expect(syntheticDecisionAnswers([card, bundleAnswer], 't1', t)).toHaveLength(0)
+    expect(isHiddenDecisionResponse(answer, new Set(['d1']))).toBe(true)
+    expect(isHiddenDecisionResponse(answer, new Set(['other']))).toBe(false)
   })
 })
 

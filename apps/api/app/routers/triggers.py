@@ -83,7 +83,15 @@ async def agenda(
     ),
     connection_ids: str | None = Query(
         None,
-        description="Comma list of calendar connection ids (default: all connected)",
+        description="Legacy: comma list of calendar connection ids",
+    ),
+    calendar_ids: str | None = Query(
+        None,
+        description="Comma list of tenant calendar ids (default: all visible)",
+    ),
+    calendar_tags: str | None = Query(
+        None,
+        description="Comma list of hashtag names; keep calendars that carry any",
     ),
 ):
     """Time items in a window: agent sessions, planned wakes/stage follow-ups
@@ -100,8 +108,14 @@ async def agenda(
     from app.services.time_items import list_time_items
 
     wanted = [s.strip() for s in sources.split(",") if s.strip()] if sources else None
-    cal_ids = (
+    conn_ids = (
         [s.strip() for s in connection_ids.split(",") if s.strip()] if connection_ids is not None else None
+    )
+    tc_ids = (
+        [s.strip() for s in calendar_ids.split(",") if s.strip()] if calendar_ids is not None else None
+    )
+    cal_tags = (
+        [s.strip() for s in calendar_tags.split(",") if s.strip()] if calendar_tags is not None else None
     )
     items = await list_time_items(
         session,
@@ -115,7 +129,9 @@ async def agenda(
         project_id=project_id,
         tag=tag,
         path=path,
-        connection_ids=cal_ids,
+        connection_ids=conn_ids,
+        calendar_ids=tc_ids,
+        calendar_tags=cal_tags,
         viewer=CalendarViewer(user_id=auth.user.id, role=auth.role),
     )
     return {

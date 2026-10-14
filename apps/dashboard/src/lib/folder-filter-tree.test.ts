@@ -7,8 +7,10 @@ import {
   filtersetLabel,
   filtersetLocalNames,
   filtersetPlainLabel,
+  optimisticUnnestToRoot,
   predictFiltersetParent,
   previewNestMerge,
+  resolveSiblingReorderTarget,
 } from './folder-filter-tree'
 
 describe('deriveFolderTree', () => {
@@ -138,5 +140,57 @@ describe('folderAncestorChain', () => {
       { id: 'abc', name: 'ABC', tag_ids: ['1', '2', '3'], tag_names: ['a', 'b', 'c'] },
     ])
     expect(folderAncestorChain(tree, 'abc').map((n) => n.id)).toEqual(['a', 'ab'])
+  })
+})
+
+describe('resolveSiblingReorderTarget', () => {
+  const sources = [
+    { id: 'reclame', name: 'reclame', tag_ids: ['r'], tag_names: ['reclame'], sort_order: 0 },
+    { id: 'plat', name: 'plat', tag_ids: ['p'], tag_names: ['bokito_platform'], sort_order: 1 },
+    {
+      id: 'nested',
+      name: 'nested',
+      tag_ids: ['p', 'a'],
+      tag_names: ['bokito_platform', 'administratie'],
+      sort_order: 0,
+    },
+    { id: 'admin', name: 'admin', tag_ids: ['a'], tag_names: ['administratie'], sort_order: 2 },
+  ]
+
+  it('maps a hit on a nested child to the sibling root being reordered past', () => {
+    const tree = deriveFolderTree(sources)
+    expect(resolveSiblingReorderTarget(tree, 'reclame', 'nested')).toBe('plat')
+    expect(resolveSiblingReorderTarget(tree, 'reclame', 'plat')).toBe('plat')
+    expect(resolveSiblingReorderTarget(tree, 'reclame', 'admin')).toBe('admin')
+  })
+
+  it('returns null when the hit is under the active folder itself', () => {
+    const tree = deriveFolderTree(sources)
+    expect(resolveSiblingReorderTarget(tree, 'plat', 'nested')).toBeNull()
+  })
+})
+
+describe('optimisticUnnestToRoot', () => {
+  it('strips ancestor tags so the map becomes a root', () => {
+    const sources = [
+      { id: 'plat', name: 'plat', tag_ids: ['p'], tag_names: ['bokito_platform'] },
+      {
+        id: 'nested',
+        name: 'nested',
+        tag_ids: ['p', 'r'],
+        tag_names: ['bokito_platform', 'reclame'],
+      },
+    ]
+    const next = optimisticUnnestToRoot(sources, 'nested')
+    expect(next?.find((row) => row.id === 'nested')).toMatchObject({
+      tag_ids: ['r'],
+      tag_names: ['reclame'],
+    })
+    expect(deriveFolderTree(next!).map((node) => node.id).sort()).toEqual(['nested', 'plat'])
+  })
+
+  it('returns null for an already-root map', () => {
+    const sources = [{ id: 'a', name: 'A', tag_ids: ['1'], tag_names: ['a'] }]
+    expect(optimisticUnnestToRoot(sources, 'a')).toBeNull()
   })
 })

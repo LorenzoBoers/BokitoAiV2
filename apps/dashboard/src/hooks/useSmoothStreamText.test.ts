@@ -6,6 +6,7 @@ import {
   SMOOTH_STREAM_CPS,
   revealLimit,
   smoothStreamRate,
+  streamRateJitter,
   useSmoothStreamText,
 } from './useSmoothStreamText'
 
@@ -22,6 +23,16 @@ describe('smoothStreamRate', () => {
     expect(smoothStreamRate(800, false)).toBeCloseTo(
       Math.min(SMOOTH_STREAM_CPS.finishMaxCps, Math.max(SMOOTH_STREAM_CPS.finishMinCps, mid)),
     )
+  })
+})
+
+describe('streamRateJitter', () => {
+  it('stays within the configured amplitude', () => {
+    for (let t = 0; t < 5000; t += 37) {
+      const j = streamRateJitter(t)
+      expect(j).toBeGreaterThanOrEqual(1 - SMOOTH_STREAM.jitterAmp)
+      expect(j).toBeLessThanOrEqual(1 + SMOOTH_STREAM.jitterAmp)
+    }
   })
 })
 
@@ -98,10 +109,11 @@ describe('useSmoothStreamText', () => {
     act(() => flushFrames(1, 32))
     const afterOneLong = result.current.length - afterWarmup2
     expect(afterTwoShort).toBeGreaterThan(0)
-    expect(Math.abs(afterTwoShort - afterOneLong)).toBeLessThanOrEqual(2)
+    // Jitter breathes the rate; wall-clock still dominates over chunk size.
+    expect(Math.abs(afterTwoShort - afterOneLong)).toBeLessThanOrEqual(6)
   })
 
-  it('never exceeds the cruise in one live frame, even after a huge chunk', () => {
+  it('never exceeds the jittered cruise in one live frame, even after a huge chunk', () => {
     const target = 'a'.repeat(2000)
     const { result, rerender } = renderHook(
       ({ target, active }: { target: string; active: boolean }) =>
@@ -112,7 +124,7 @@ describe('useSmoothStreamText', () => {
     act(() => flushFrames(8, 16))
     const before = result.current.length
     act(() => flushFrames(1, 16))
-    const perFrameCap = Math.ceil((SMOOTH_STREAM_CPS.cruiseCps * 16) / 1000) + 1
+    const perFrameCap = Math.ceil((SMOOTH_STREAM_CPS.cruiseMaxCps * 16) / 1000) + 1
     expect(result.current.length - before).toBeLessThanOrEqual(perFrameCap)
   })
 

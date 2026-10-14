@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Code2, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { CANVAS_ICON, ENTITY_ICONS } from '../../lib/entity-icons'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import { Textarea } from '../ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
   Dialog,
@@ -20,8 +19,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ProjectCanvasSkeleton } from '../ui/skeleton'
+import { AgentSelect } from '../ui/AgentSelect'
 import {
-  createCanvas,
   deleteCanvas,
   listCanvases,
   patchCanvasMeta,
@@ -32,6 +31,11 @@ import { renderCanvasTree } from '../../lib/project-canvas/render'
 import { isEmptyCanvasTree } from '../../lib/project-canvas/types'
 import { agentChatPath, inboxPath } from '../../lib/messages-paths'
 import { formatAppDateTime } from '../../lib/app-locale'
+import { listAgents } from '../../lib/agents-api'
+import { bokitoCreateConversation } from '../../lib/signals-api'
+import { stashChatContinue } from '../../lib/chat-auto-continue'
+import { useAuth } from '../../context/AuthContext'
+import type { RuntimeAgent } from '../../lib/workforce-api'
 
 const REFRESH_CADENCES: RefreshCadence[] = ['manual', 'daily', 'weekly', 'hourly', 'monthly', 'custom']
 
@@ -42,12 +46,22 @@ function cronLooksValid(value: string): boolean {
 type Props = {
   ownerKind: 'project' | 'tenant'
   ownerId: string
+  /** Shown in the setup chat opener (folder or workspace name). */
+  ownerLabel?: string | null
   fallbackAgentId?: string | null
   canEdit?: boolean
 }
 
-export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = false }: Props) {
+export function CanvasHost({
+  ownerKind,
+  ownerId,
+  ownerLabel,
+  fallbackAgentId,
+  canEdit = false,
+}: Props) {
   const { t, i18n } = useTranslation('nav')
+  const { token } = useAuth()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const requestedCanvasId = searchParams.get('canvas')
   const confirm = useConfirm()
@@ -57,10 +71,9 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
   const [error, setError] = useState<string | null>(null)
   const [showSource, setShowSource] = useState(false)
   const [adding, setAdding] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newBrief, setNewBrief] = useState('')
-  const [newCadence, setNewCadence] = useState<RefreshCadence>('daily')
-  const [newCron, setNewCron] = useState('0 8 * * 1-5')
+  const [agents, setAgents] = useState<RuntimeAgent[]>([])
+  const [pickedAgentId, setPickedAgentId] = useState('')
+  const [agentsLoading, setAgentsLoading] = useState(false)
   const [cronDraft, setCronDraft] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
 
@@ -90,6 +103,11 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
   const canvas = items.find((row) => row.id === activeId) ?? null
   const agentId = canvas?.managing_agent_id || fallbackAgentId
 
+  const leadAgentId = useMemo(
+    () => agents.find((row) => row.is_lead)?.id ?? agents[0]?.id ?? '',
+    [agents],
+  )
+
   function threadHref(row: ProjectCanvas): string {
     if (row.thread?.path) return row.thread.path
     if (row.signal_id && (row.managing_agent_id || agentId)) {
@@ -99,12 +117,26 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
     return agentId ? agentChatPath(agentId) : inboxPath()
   }
 
-  function openAdd() {
-    setNewTitle('')
-    setNewBrief('')
-    setNewCadence('daily')
-    setNewCron('0 8 * * 1-5')
+  async function openAdd() {
     setAdding(true)
+    setAgentsLoading(true)
+    setError(null)
+    try {
+      const rows = await listAgents()
+      setAgents(rows)
+      const preferred =
+        (fallbackAgentId && rows.some((row) => row.id === fallbackAgentId) && fallbackAgentId) ||
+        rows.find((row) => row.is_lead)?.id ||
+        rows[0]?.id ||
+        ''
+      setPickedAgentId(preferred)
+    } catch (err) {
+      setError(formatApiErrorMessage(err, t('projects.canvas.addError')))
+      setAgents([])
+      setPickedAgentId('')
+    } finally {
+      setAgentsLoading(false)
+    }
   }
 
   function shownCadence(row: ProjectCanvas): RefreshCadence {
@@ -112,28 +144,41 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
     return row.refresh_cadence || 'manual'
   }
 
-  async function onAdd() {
-    const title = newTitle.trim()
-    const notes = newBrief.trim()
-    if (!title || !notes) return
+  function setupOpener(): string {
+    const place =
+      ownerLabel?.trim() ||
+      (ownerKind === 'project' ? t('projects.canvas.ownerFolderFallback') : t('projects.canvas.ownerWorkspaceFallback'))
+    const ownerLine =
+      ownerKind === 'project'
+        ? `owner_kind=project project_id=${ownerId}`
+        : 'owner_kind=tenant'
+    return t('projects.canvas.setupOpener', { place, ownerLine })
+  }
+
+  async function onStartSetup() {
+    const agent = pickedAgentId || leadAgentId
+    if (!token || !agent || busy) return
     setBusy(true)
+    setError(null)
     try {
-      if (newCadence === 'custom' && !cronLooksValid(newCron)) {
-        setError(t('projects.canvas.cronInvalid'))
-        setBusy(false)
-        return
-      }
-      const created = await createCanvas({
-        owner_kind: ownerKind,
-        owner_id: ownerId,
-        title,
-        notes,
-        refresh_cadence: newCadence,
-        refresh_cron: newCadence === 'custom' ? newCron.trim() : null,
+      const content = setupOpener()
+      const title = t('projects.canvas.setupThreadTitle', {
+        place:
+          ownerLabel?.trim() ||
+          (ownerKind === 'project'
+            ? t('projects.canvas.ownerFolderFallback')
+            : t('projects.canvas.ownerWorkspaceFallback')),
       })
+      const created = await bokitoCreateConversation(token, title, agent, { message: content })
+      const path = agentChatPath(agent, created.id)
       setAdding(false)
-      setItems((rows) => [...rows, created])
-      setActiveId(created.id)
+      if (created.has_opener) {
+        stashChatContinue(created.id, { mode: 'continue' })
+        navigate(path, { state: { continuePending: true } })
+      } else {
+        stashChatContinue(created.id, { mode: 'send', text: content })
+        navigate(path, { state: { autoSend: content } })
+      }
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.canvas.addError')))
     } finally {
@@ -227,7 +272,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
               <button
                 type="button"
                 className="-mb-px inline-flex h-9 w-9 shrink-0 items-center justify-center border-b-2 border-transparent text-text-secondary hover:text-text-primary disabled:opacity-40"
-                onClick={openAdd}
+                onClick={() => void openAdd()}
                 disabled={busy}
                 title={t('projects.canvas.add')}
                 aria-label={t('projects.canvas.add')}
@@ -244,7 +289,7 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
               <CANVAS_ICON size={28} className="text-text-muted opacity-70" aria-hidden />
               <p className="text-sm text-text-muted">{t('projects.canvas.emptyHint')}</p>
               {canEdit ? (
-                <Button type="button" size="sm" variant="outline" onClick={openAdd} disabled={busy}>
+                <Button type="button" size="sm" variant="outline" onClick={() => void openAdd()} disabled={busy}>
                   <Plus size={14} className="mr-1.5 shrink-0" aria-hidden />
                   {t('projects.canvas.add')}
                 </Button>
@@ -358,51 +403,22 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="canvas-title">{t('projects.canvas.titleLabel')}</Label>
-              <Input
-                id="canvas-title"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder={t('projects.canvas.titlePlaceholder')}
-              />
-            </div>
-            <div>
-              <Label htmlFor="canvas-brief">{t('projects.canvas.briefLabel')}</Label>
-              <Textarea
-                id="canvas-brief"
-                value={newBrief}
-                onChange={(e) => setNewBrief(e.target.value)}
-                placeholder={t('projects.canvas.briefPlaceholder')}
-                rows={4}
-              />
-            </div>
-            <div>
-              <Label htmlFor="canvas-refresh">{t('projects.canvas.refreshLabel')}</Label>
-              <Select value={newCadence} onValueChange={(value) => setNewCadence(value as RefreshCadence)}>
-                <SelectTrigger id="canvas-refresh" className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {REFRESH_CADENCES.map((cadence) => (
-                    <SelectItem key={cadence} value={cadence}>
-                      {t(`projects.canvas.cadence.${cadence}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {newCadence === 'custom' ? (
-                <div className="mt-2">
-                  <Label htmlFor="canvas-cron">{t('projects.canvas.cronLabel')}</Label>
-                  <Input
-                    id="canvas-cron"
-                    value={newCron}
-                    onChange={(e) => setNewCron(e.target.value)}
-                    placeholder={t('projects.canvas.cronPlaceholder')}
-                    className="mt-1 font-mono"
-                  />
-                  <p className="mt-1 text-xs text-text-muted">{t('projects.canvas.cronHint')}</p>
-                </div>
-              ) : null}
+              <Label htmlFor="canvas-owner-agent">{t('projects.canvas.agentLabel')}</Label>
+              <div className="mt-1">
+                <AgentSelect
+                  agents={agents}
+                  value={pickedAgentId}
+                  onValueChange={setPickedAgentId}
+                  placeholder={
+                    agentsLoading
+                      ? t('projects.canvas.agentLoading')
+                      : t('projects.canvas.agentPlaceholder')
+                  }
+                  disabled={busy || agentsLoading || agents.length === 0}
+                  aria-label={t('projects.canvas.agentLabel')}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-text-muted">{t('projects.canvas.agentHint')}</p>
             </div>
           </div>
           <DialogFooter>
@@ -411,10 +427,10 @@ export function CanvasHost({ ownerKind, ownerId, fallbackAgentId, canEdit = fals
             </Button>
             <Button
               type="button"
-              onClick={() => void onAdd()}
-              disabled={busy || !newTitle.trim() || !newBrief.trim() || (newCadence === 'custom' && !cronLooksValid(newCron))}
+              onClick={() => void onStartSetup()}
+              disabled={busy || agentsLoading || !pickedAgentId}
             >
-              {t('projects.canvas.add')}
+              {t('projects.canvas.startChat')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -48,6 +48,11 @@ sizes (`text-[13px]`) are not allowed.
 
 <InsetPanel>Sublist or preview inside a card</InsetPanel>
 <SectionHeading title="Members" description="People with access" actions={...} />
+
+{/* Rail / side-panel group labels — one chrome for closable and static */}
+<SectionLabel title="Folders" count={2} open={open} onOpenChange={setOpen}>{/* rows */}</SectionLabel>
+<SectionLabel title="This conversation" /> {/* static: omit onOpenChange */}
+{/* Rail reorder: pass dnd-kit listeners via titleButtonProps (distance ≥ 6 so click still toggles) */}
 ```
 
 `className="panel"` is the CSS form of `Card` for elements that must stay a

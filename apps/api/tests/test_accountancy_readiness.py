@@ -154,9 +154,10 @@ async def test_decision_free_text_answer_recorded(client: AsyncClient, session_o
 
 
 @pytest.mark.asyncio
-async def test_decision_resolution_posts_operator_bubble_with_option_label(
+async def test_decision_resolution_skips_option_label_bubble(
     client: AsyncClient, session_override
 ):
+    """Approve/Reject labels stay on the cloud — no operator echo bubble."""
     headers = await _auth_headers(client)
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
@@ -187,11 +188,12 @@ async def test_decision_resolution_posts_operator_bubble_with_option_label(
         },
         signal_id=signal.id,
     )
+    decision_id = UUID(result["decision_request_id"])
     msg = (
         await session_override.execute(
             select(SignalMessage).where(
                 SignalMessage.signal_id == signal.id,
-                SignalMessage.decision_id == UUID(result["decision_request_id"]),
+                SignalMessage.decision_id == decision_id,
             )
         )
     ).scalar_one()
@@ -214,12 +216,11 @@ async def test_decision_resolution_posts_operator_bubble_with_option_label(
             select(SignalMessage).where(SignalMessage.signal_id == signal.id)
         )
     ).scalars().all()
-    assert len(after) == len(before) + 1
-    reply = next(m for m in after if m.id not in {b.id for b in before})
-    assert reply.body_text == "Yes"
-    meta = json.loads(reply.metadata_json or "{}")
-    assert meta.get("decision_response") is True
-    assert meta.get("option_id") == "yes"
+    assert len(after) == len(before)
+    decision = await session_override.get(DecisionRequest, decision_id)
+    assert decision is not None
+    assert decision.status == "approved"
+    assert decision.resolved_by_user_id is not None
 
 
 # ── Phase 3: MCP install, discovery, snapshot, mock accounting ───

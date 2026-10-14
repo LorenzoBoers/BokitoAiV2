@@ -1,6 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus } from 'lucide-react'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
@@ -12,15 +22,112 @@ import { formatAppDate } from '../../lib/app-locale'
 import { connectionsPathWithKind } from '../../lib/integration-kind-url'
 import { addDays, dayKey, startOfWeek, type AgendaLayer } from '../../lib/agenda-layout'
 import { ownerVisibilityKey } from '../../lib/agenda-hidden-owners'
-import type { CalendarConnection } from '../../lib/calendars-api'
-import { calendarBrandSlug, syncAllCalendars, listCalendarConnections, utcIso } from '../../lib/calendars-api'
+import type { CalendarConnection, TenantCalendar } from '../../lib/calendars-api'
+import {
+  calendarBrandSlug,
+  syncAllCalendars,
+  listCalendarConnections,
+  listTenantCalendars,
+  utcIso,
+} from '../../lib/calendars-api'
 import { cn } from '../../lib/utils'
 import { FolderTagTree } from '../inbox/FolderTagTree'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { LAYER_DOT } from './agenda-style'
 import { CalendarSwatch } from './CalendarSwatch'
+import { SectionLabel } from '../ui/section-label'
 
 const CALENDAR_BRANDS = ['google-calendar', 'outlook-calendar'] as const
+const AGENDA_RAIL_COLLAPSE_KEY = 'bokito.agenda.rail.collapsed'
+const AGENDA_RAIL_ORDER_KEY = 'bokito.agenda.rail.order'
+
+type AgendaRailSection = 'what' | 'people' | 'agents' | 'calendars'
+
+const DEFAULT_AGENDA_ORDER: readonly AgendaRailSection[] = ['what', 'people', 'agents', 'calendars']
+
+function isAgendaRailSection(value: unknown): value is AgendaRailSection {
+  return value === 'what' || value === 'people' || value === 'agents' || value === 'calendars'
+}
+
+function readAgendaRailCollapsed(): Set<AgendaRailSection> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = window.localStorage.getItem(AGENDA_RAIL_COLLAPSE_KEY)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set(parsed.filter(isAgendaRailSection))
+  } catch {
+    return new Set()
+  }
+}
+
+function readAgendaRailOrder(): AgendaRailSection[] {
+  if (typeof window === 'undefined') return [...DEFAULT_AGENDA_ORDER]
+  try {
+    const raw = window.localStorage.getItem(AGENDA_RAIL_ORDER_KEY)
+    if (!raw) return [...DEFAULT_AGENDA_ORDER]
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return [...DEFAULT_AGENDA_ORDER]
+    const order = parsed.filter(isAgendaRailSection)
+    for (const section of DEFAULT_AGENDA_ORDER) {
+      if (!order.includes(section)) order.push(section)
+    }
+    return order.length ? order : [...DEFAULT_AGENDA_ORDER]
+  } catch {
+    return [...DEFAULT_AGENDA_ORDER]
+  }
+}
+
+function SortableAgendaSection({
+  id,
+  title,
+  open,
+  onOpenChange,
+  actions,
+  contentClassName,
+  'data-testid': testId,
+  children,
+}: {
+  id: AgendaRailSection
+  title: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  actions?: ReactNode
+  contentClassName?: string
+  'data-testid'?: string
+  children: ReactNode
+}) {
+  const { t } = useTranslation('nav')
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+  return (
+    <div ref={setNodeRef} style={style} className={cn(isDragging && 'relative z-10 opacity-60')}>
+      <SectionLabel
+        title={title}
+        open={open}
+        onOpenChange={onOpenChange}
+        actions={actions}
+        contentClassName={contentClassName}
+        data-testid={testId}
+        titleButtonProps={{
+          ...attributes,
+          ...listeners,
+          className: 'cursor-grab active:cursor-grabbing',
+          'aria-roledescription': t('support.customize.reorderAria', {
+            defaultValue: 'Reorder {{label}}',
+            label: title,
+          }),
+        }}
+      >
+        {children}
+      </SectionLabel>
+    </div>
+  )
+}
 
 function CalendarBrandStack({ size = 14 }: { size?: number }) {
   const ring = Math.round(size * 1.55)
@@ -74,24 +181,76 @@ type Props = {
   counts: Record<AgendaLayer, number>
   onToggleLayer: (layer: AgendaLayer) => void
   calendars: CalendarConnection[]
+  tenantCalendars: TenantCalendar[]
+  /** Selected tenant calendar UUIDs. */
   calendarIds: Set<string>
   calendarCounts: Record<string, number>
   onToggleCalendar: (connectionId: string) => void
-  /** `connection|calendar` keys hidden in this view. */
+  /** Tenant calendar UUIDs (and legacy connection|external keys). */
   hiddenCalendars: Set<string>
   onToggleSubCalendar: (connectionId: string, calendarId: string) => void
   onEnableCalendar: (connectionId: string, calendarId: string) => void
   calendarsLoading: boolean
   onCalendars: (rows: CalendarConnection[]) => void
+  onTenantCalendars?: (rows: TenantCalendar[]) => void
   onSynced: () => void
   routineCount: number
   onOpenRoutines: () => void
+  calendarTagFilter?: string[]
+  onToggleCalendarTag?: (tag: string) => void
 }
 
 export default function AgendaRail(props: Props) {
   const { t } = useTranslation('nav')
   const [enablingId, setEnablingId] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState<Set<AgendaRailSection>>(readAgendaRailCollapsed)
+  const [sectionOrder, setSectionOrder] = useState<AgendaRailSection[]>(readAgendaRailOrder)
   const autoSynced = useRef(false)
+  const sectionSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+
+  const setSectionOpen = (section: AgendaRailSection, open: boolean) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (open) next.delete(section)
+      else next.add(section)
+      try {
+        window.localStorage.setItem(AGENDA_RAIL_COLLAPSE_KEY, JSON.stringify([...next]))
+      } catch {
+        /* ignore quota */
+      }
+      return next
+    })
+  }
+
+  const visibleSectionIds = useMemo(() => {
+    return sectionOrder.filter((section) => {
+      if (section === 'people') return props.people.length > 0
+      if (section === 'agents') return props.agents.length > 0
+      return true
+    })
+  }, [sectionOrder, props.people.length, props.agents.length])
+
+  const onSectionDragEnd = useCallback((event: DragEndEvent) => {
+    const activeId = String(event.active.id)
+    const overId = event.over ? String(event.over.id) : null
+    if (!overId || activeId === overId || !isAgendaRailSection(activeId) || !isAgendaRailSection(overId)) {
+      return
+    }
+    setSectionOrder((prev) => {
+      const oldIndex = prev.indexOf(activeId)
+      const newIndex = prev.indexOf(overId)
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return prev
+      const next = arrayMove(prev, oldIndex, newIndex)
+      try {
+        window.localStorage.setItem(AGENDA_RAIL_ORDER_KEY, JSON.stringify(next))
+      } catch {
+        /* ignore quota */
+      }
+      return next
+    })
+  }, [])
 
   // Silent background refresh when an account looks stale; worker also syncs every 15 min.
   useEffect(() => {
@@ -107,7 +266,12 @@ export default function AgendaRail(props: Props) {
     autoSynced.current = true
     void syncAllCalendars()
       .then(async () => {
-        props.onCalendars(await listCalendarConnections())
+        const [rows, tenantRows] = await Promise.all([
+          listCalendarConnections(),
+          listTenantCalendars(),
+        ])
+        props.onCalendars(rows)
+        props.onTenantCalendars?.(tenantRows)
         props.onSynced()
       })
       .catch(() => {
@@ -117,218 +281,328 @@ export default function AgendaRail(props: Props) {
   }, [props.calendarsLoading, props.calendars])
 
   return (
-    <aside className="flex min-h-0 max-h-full flex-col gap-5 overflow-y-auto lg:self-start" data-testid="agenda-rail">
-      <section className="space-y-2">
-        <RailHeading>{t('agendaPage.rail.when')}</RailHeading>
-        <MiniMonth anchor={props.anchor} nowMs={props.nowMs} busyDays={props.busyDays} onPickDay={props.onPickDay} />
-      </section>
+    <aside className="flex min-h-0 max-h-full flex-col gap-4 overflow-y-auto lg:self-start" data-testid="agenda-rail">
+      <MiniMonth anchor={props.anchor} nowMs={props.nowMs} busyDays={props.busyDays} onPickDay={props.onPickDay} />
 
-      <div className="flex min-h-0 flex-col gap-5 lg:sticky lg:top-3">
-      <section className="space-y-2">
-        <RailHeading>{t('agendaPage.rail.what')}</RailHeading>
-        <AgendaFolderFilter
-          projectId={props.projectId}
-          tag={props.tag}
-          path={props.path}
-          onPath={props.onPath}
-          onProject={props.onProject}
-          projects={props.projects}
-        />
-      </section>
-
-      {props.people.length > 0 ? (
-        <section className="space-y-1" data-testid="agenda-people-toggles">
-          <RailHeading>{t('agendaPage.who.people')}</RailHeading>
-          {props.people.map((person) => {
-            const on = !props.hiddenOwners.has(ownerVisibilityKey('user', person.id))
-            return (
-              <button
-                key={person.id}
-                type="button"
-                role="switch"
-                aria-checked={on}
-                onClick={() => props.onToggleOwner('user', person.id)}
-                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                data-testid="agenda-owner-toggle"
-              >
-                <ToggleBox on={on} className="bg-accent" />
-                <UserAvatar
-                  name={person.name}
-                  email={person.email || person.name}
-                  avatarUrl={person.avatarUrl}
-                  size={16}
-                  decorative
-                />
-                <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted line-through')}>
-                  {person.name}
-                </span>
-              </button>
-            )
-          })}
-        </section>
-      ) : null}
-
-      {props.agents.length > 0 ? (
-        <section className="space-y-1" data-testid="agenda-agents-toggles">
-          <RailHeading>{t('agendaPage.who.agents')}</RailHeading>
-          {props.agents.map((agent) => {
-            const on = !props.hiddenOwners.has(ownerVisibilityKey('agent', agent.id))
-            return (
-              <button
-                key={agent.id}
-                type="button"
-                role="switch"
-                aria-checked={on}
-                onClick={() => props.onToggleOwner('agent', agent.id)}
-                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                data-testid="agenda-owner-toggle"
-              >
-                <ToggleBox on={on} className="bg-ai" />
-                <AiAvatar {...toAiAvatarProps(agent, agent.name)} size={16} decorative />
-                <span className={cn('min-w-0 flex-1 truncate', on ? 'text-text-heading' : 'text-text-muted line-through')}>
-                  {agent.name}
-                </span>
-              </button>
-            )
-          })}
-        </section>
-      ) : null}
-
-      <section className="space-y-1">
-        <div className="flex items-center justify-between gap-2 pr-1">
-          <RailHeading>{t('agendaPage.rail.calendars')}</RailHeading>
-          <Link
-            to={connectionsPathWithKind('calendar')}
-            className="inline-flex h-5 w-5 items-center justify-center rounded text-text-muted hover:bg-bg-elevated hover:text-accent"
-            aria-label={t('agendaPage.rail.addCalendar')}
-            title={t('agendaPage.rail.addCalendar')}
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        </div>
-        {props.calendars.map((connection) => {
-          const on = props.calendarIds.has(connection.id)
-          const subCalendars = connection.calendars ?? []
-          return (
-            <div key={connection.id}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={on}
-                onClick={() => props.onToggleCalendar(connection.id)}
-                className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                data-testid="agenda-calendar-toggle"
-              >
-                <ToggleBox on={on} className={LAYER_DOT.calendar} />
-                <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
-                <span
-                  className={cn(
-                    'min-w-0 flex-1 truncate',
-                    on ? 'text-text-heading' : 'text-text-muted line-through',
-                  )}
-                >
-                  {connection.account || connection.display_name}
-                </span>
-              </button>
-              {connection.sync_status === 'error' && connection.sync_error ? (
-                <p className="ml-7 text-2xs text-status-error">
-                  {syncProblemText(connection.sync_error, t)}
-                  {/not enabled/i.test(connection.sync_error) ? (
-                    <>
-                      {' '}
-                      <a
-                        href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-accent hover:underline"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {t('agendaPage.calendar.enableApi')}
-                      </a>
-                    </>
-                  ) : null}
-                </p>
-              ) : null}
-              {connection.sync_status === 'reconnect' ? (
-                <Link
-                  to={connectionsPathWithKind('calendar')}
-                  className="ml-7 inline-flex items-center gap-1 text-2xs text-status-warning hover:underline"
-                >
-                  <AlertTriangle className="h-3 w-3" aria-hidden />
-                  {t('agenda.reconnect', { ns: 'calendar' })}
-                </Link>
-              ) : null}
-              {subCalendars.map((cal) => {
-                const shown = cal.enabled && on && !props.hiddenCalendars.has(`${connection.id}|${cal.id}`)
-                const busy = enablingId === `${connection.id}|${cal.id}`
+      <div className="flex min-h-0 flex-col gap-4 lg:sticky lg:top-3">
+        <DndContext
+          sensors={sectionSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onSectionDragEnd}
+        >
+          <SortableContext items={visibleSectionIds} strategy={verticalListSortingStrategy}>
+            {visibleSectionIds.map((section) => {
+              if (section === 'what') {
                 return (
-                  <button
-                    key={cal.id}
-                    type="button"
-                    role="switch"
-                    aria-checked={shown}
-                    disabled={busy}
-                    title={cal.enabled ? t('agendaPage.calendar.hideCalendar') : t('agendaPage.calendar.enableSync')}
-                    onClick={() => {
-                      if (!cal.enabled) {
-                        if (!connection.can_manage) return
-                        setEnablingId(`${connection.id}|${cal.id}`)
-                        props.onEnableCalendar(connection.id, cal.id)
-                        window.setTimeout(() => setEnablingId(null), 8000)
-                        return
-                      }
-                      props.onToggleSubCalendar(connection.id, cal.id)
-                    }}
-                    className="ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-60"
-                    data-testid="agenda-subcalendar-toggle"
+                  <SortableAgendaSection
+                    key={section}
+                    id={section}
+                    title={t('agendaPage.rail.what')}
+                    open={!collapsed.has('what')}
+                    onOpenChange={(open) => setSectionOpen('what', open)}
+                    contentClassName="space-y-2 pt-1"
                   >
-                    <ToggleBox on={shown} className={LAYER_DOT.calendar} />
-                    <CalendarSwatch color={cal.color} className={cn(!shown && 'opacity-30')} />
-                    <span
-                      className={cn(
-                        'min-w-0 flex-1 truncate',
-                        shown ? 'text-text-heading' : 'text-text-muted line-through',
-                      )}
-                    >
-                      {cal.name}
-                    </span>
-                  </button>
+                    <AgendaFolderFilter
+                      projectId={props.projectId}
+                      tag={props.tag}
+                      path={props.path}
+                      onPath={props.onPath}
+                      onProject={props.onProject}
+                      projects={props.projects}
+                    />
+                  </SortableAgendaSection>
                 )
-              })}
-            </div>
-          )
-        })}
-        {!props.calendarsLoading && props.calendars.length === 0 ? (
-          <div
-            className="mt-1 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2.5"
-            data-testid="agenda-connect-calendars-banner"
-          >
-            <div className="flex items-start gap-2.5">
-              <CalendarBrandStack size={14} />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1 text-xs font-medium text-text-heading">
-                  <span className="min-w-0">{t('agendaPage.rail.connectCalendarsTitle')}</span>
-                  <Tip label={t('agendaPage.rail.connectCalendarsHint')} side="right" className="max-w-56 text-left font-normal">
-                    <button
-                      type="button"
-                      className="inline-flex shrink-0 rounded-full p-0.5 text-text-muted hover:text-text-heading focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                      aria-label={t('agendaPage.rail.connectCalendarsHint')}
+              }
+              if (section === 'people') {
+                return (
+                  <SortableAgendaSection
+                    key={section}
+                    id={section}
+                    title={t('agendaPage.who.people')}
+                    open={!collapsed.has('people')}
+                    onOpenChange={(open) => setSectionOpen('people', open)}
+                    data-testid="agenda-people-toggles"
+                    contentClassName="space-y-1 pt-0.5"
+                  >
+                    {props.people.map((person) => {
+                      const on = !props.hiddenOwners.has(ownerVisibilityKey('user', person.id))
+                      return (
+                        <button
+                          key={person.id}
+                          type="button"
+                          role="switch"
+                          aria-checked={on}
+                          onClick={() => props.onToggleOwner('user', person.id)}
+                          className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                          data-testid="agenda-owner-toggle"
+                        >
+                          <ToggleBox on={on} className="bg-accent" />
+                          <UserAvatar
+                            name={person.name}
+                            email={person.email || person.name}
+                            avatarUrl={person.avatarUrl}
+                            size={16}
+                            decorative
+                          />
+                          <span
+                            className={cn(
+                              'min-w-0 flex-1 truncate',
+                              on ? 'text-text-heading' : 'text-text-muted line-through',
+                            )}
+                          >
+                            {person.name}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </SortableAgendaSection>
+                )
+              }
+              if (section === 'agents') {
+                return (
+                  <SortableAgendaSection
+                    key={section}
+                    id={section}
+                    title={t('agendaPage.who.agents')}
+                    open={!collapsed.has('agents')}
+                    onOpenChange={(open) => setSectionOpen('agents', open)}
+                    data-testid="agenda-agents-toggles"
+                    contentClassName="space-y-1 pt-0.5"
+                  >
+                    {props.agents.map((agent) => {
+                      const on = !props.hiddenOwners.has(ownerVisibilityKey('agent', agent.id))
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          role="switch"
+                          aria-checked={on}
+                          onClick={() => props.onToggleOwner('agent', agent.id)}
+                          className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                          data-testid="agenda-owner-toggle"
+                        >
+                          <ToggleBox on={on} className="bg-ai" />
+                          <AiAvatar {...toAiAvatarProps(agent, agent.name)} size={16} decorative />
+                          <span
+                            className={cn(
+                              'min-w-0 flex-1 truncate',
+                              on ? 'text-text-heading' : 'text-text-muted line-through',
+                            )}
+                          >
+                            {agent.name}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </SortableAgendaSection>
+                )
+              }
+              return (
+                <SortableAgendaSection
+                  key={section}
+                  id={section}
+                  title={t('agendaPage.rail.calendars')}
+                  open={!collapsed.has('calendars')}
+                  onOpenChange={(open) => setSectionOpen('calendars', open)}
+                  contentClassName="space-y-1 pt-0.5"
+                  actions={
+                    <Link
+                      to={connectionsPathWithKind('calendar')}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-accent"
+                      aria-label={t('agendaPage.rail.addCalendar')}
+                      title={t('agendaPage.rail.addCalendar')}
                     >
-                      <Info className="h-3 w-3" aria-hidden />
-                    </button>
-                  </Tip>
-                </p>
-                <Link
-                  to={connectionsPathWithKind('calendar')}
-                  className="mt-1 inline-block text-xs font-medium text-accent hover:underline"
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                    </Link>
+                  }
                 >
-                  {t('agendaPage.rail.openConnections')}
-                </Link>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </section>
+                  {props.calendars.map((connection) => {
+                    const tenantSubs = props.tenantCalendars.filter(
+                      (c) => c.connection_id === connection.id,
+                    )
+                    const syncedSubs = tenantSubs.filter((c) => c.sync_enabled)
+                    const on =
+                      syncedSubs.length > 0 &&
+                      syncedSubs.every((c) => props.calendarIds.has(c.id))
+                    const subCalendars =
+                      tenantSubs.length > 0
+                        ? tenantSubs.map((c) => ({
+                            id: c.id,
+                            external_id: c.external_id,
+                            name: c.name,
+                            color: c.color,
+                            enabled: c.sync_enabled,
+                            tags: c.tags,
+                            can_manage: c.can_manage,
+                          }))
+                        : (connection.calendars ?? []).map((c) => ({
+                            id: c.tenant_calendar_id || c.id,
+                            external_id: c.id,
+                            name: c.name,
+                            color: c.color,
+                            enabled: c.enabled,
+                            tags: [] as Array<{ id: string; name: string }>,
+                            can_manage: connection.can_manage,
+                          }))
+                    return (
+                      <div key={connection.id}>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={on}
+                          onClick={() => props.onToggleCalendar(connection.id)}
+                          className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                          data-testid="agenda-calendar-toggle"
+                        >
+                          <ToggleBox on={on} className={LAYER_DOT.calendar} />
+                          <BrandMark slug={calendarBrandSlug(connection.provider)} size={14} />
+                          <span
+                            className={cn(
+                              'min-w-0 flex-1 truncate',
+                              on ? 'text-text-heading' : 'text-text-muted line-through',
+                            )}
+                          >
+                            {connection.account || connection.display_name}
+                          </span>
+                        </button>
+                        {connection.sync_status === 'error' && connection.sync_error ? (
+                          <p className="ml-7 text-2xs text-status-error">
+                            {syncProblemText(connection.sync_error, t)}
+                            {/not enabled/i.test(connection.sync_error) ? (
+                              <>
+                                {' '}
+                                <a
+                                  href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-medium text-accent hover:underline"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  {t('agendaPage.calendar.enableApi')}
+                                </a>
+                              </>
+                            ) : null}
+                          </p>
+                        ) : null}
+                        {connection.sync_status === 'reconnect' ? (
+                          <Link
+                            to={connectionsPathWithKind('calendar')}
+                            className="ml-7 inline-flex items-center gap-1 text-2xs text-status-warning hover:underline"
+                          >
+                            <AlertTriangle className="h-3 w-3" aria-hidden />
+                            {t('agenda.reconnect', { ns: 'calendar' })}
+                          </Link>
+                        ) : null}
+                        {subCalendars.map((cal) => {
+                          const hidden =
+                            props.hiddenCalendars.has(cal.id) ||
+                            props.hiddenCalendars.has(`${connection.id}|${cal.external_id}`)
+                          const shown =
+                            cal.enabled && props.calendarIds.has(cal.id) && !hidden
+                          const busy = enablingId === `${connection.id}|${cal.external_id}`
+                          return (
+                            <div key={cal.id}>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={shown}
+                                disabled={busy}
+                                title={
+                                  cal.enabled
+                                    ? t('agendaPage.calendar.hideCalendar')
+                                    : t('agendaPage.calendar.enableSync')
+                                }
+                                onClick={() => {
+                                  if (!cal.enabled) {
+                                    if (!cal.can_manage && !connection.can_manage) return
+                                    setEnablingId(`${connection.id}|${cal.external_id}`)
+                                    props.onEnableCalendar(connection.id, cal.external_id)
+                                    window.setTimeout(() => setEnablingId(null), 8000)
+                                    return
+                                  }
+                                  props.onToggleSubCalendar(connection.id, cal.id)
+                                }}
+                                className="ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2.5 rounded-md px-1.5 py-1 text-left text-sm hover:bg-bg-elevated focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-60"
+                                data-testid="agenda-subcalendar-toggle"
+                              >
+                                <ToggleBox on={shown} className={LAYER_DOT.calendar} />
+                                <CalendarSwatch color={cal.color} className={cn(!shown && 'opacity-30')} />
+                                <span
+                                  className={cn(
+                                    'min-w-0 flex-1 truncate',
+                                    shown ? 'text-text-heading' : 'text-text-muted line-through',
+                                  )}
+                                >
+                                  {cal.name}
+                                </span>
+                              </button>
+                              {cal.tags.length > 0 ? (
+                                <div className="ml-12 flex flex-wrap gap-1 pb-1">
+                                  {cal.tags.map((tag) => {
+                                    const active = props.calendarTagFilter?.includes(tag.name)
+                                    return (
+                                      <button
+                                        key={tag.id}
+                                        type="button"
+                                        className={cn(
+                                          'rounded-md px-1.5 py-0.5 text-2xs',
+                                          active
+                                            ? 'bg-accent/15 text-accent'
+                                            : 'text-text-muted hover:bg-bg-elevated',
+                                        )}
+                                        onClick={() => props.onToggleCalendarTag?.(tag.name)}
+                                      >
+                                        #{tag.name}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              ) : null}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                  {!props.calendarsLoading && props.calendars.length === 0 ? (
+                    <div
+                      className="mt-1 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2.5"
+                      data-testid="agenda-connect-calendars-banner"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <CalendarBrandStack size={14} />
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-1 text-xs font-medium text-text-heading">
+                            <span className="min-w-0">{t('agendaPage.rail.connectCalendarsTitle')}</span>
+                            <Tip
+                              label={t('agendaPage.rail.connectCalendarsHint')}
+                              side="right"
+                              className="max-w-56 text-left font-normal"
+                            >
+                              <button
+                                type="button"
+                                className="inline-flex shrink-0 rounded-full p-0.5 text-text-muted hover:text-text-heading focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                                aria-label={t('agendaPage.rail.connectCalendarsHint')}
+                              >
+                                <Info className="h-3 w-3" aria-hidden />
+                              </button>
+                            </Tip>
+                          </p>
+                          <Link
+                            to={connectionsPathWithKind('calendar')}
+                            className="mt-1 inline-block text-xs font-medium text-accent hover:underline"
+                          >
+                            {t('agendaPage.rail.openConnections')}
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </SortableAgendaSection>
+              )
+            })}
+          </SortableContext>
+        </DndContext>
       </div>
     </aside>
   )
@@ -353,10 +627,6 @@ function ToggleBox({ on, className }: { on: boolean; className: string }) {
       {on ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : null}
     </span>
   )
-}
-
-function RailHeading({ children }: { children: React.ReactNode }) {
-  return <h3 className="px-1.5 text-2xs font-semibold uppercase tracking-wide text-text-muted">{children}</h3>
 }
 
 function shiftMonth(anchor: Date, delta: number): Date {
@@ -475,51 +745,38 @@ function AgendaFolderFilter({
     if (projects.length === 0) return null
     return (
       <ChoiceSelect
-        aria-label={t('agendaPage.rail.allProjects')}
+        aria-label={t('agendaPage.rail.what')}
         triggerClassName="h-8 text-xs"
-        value={projectId || 'all'}
-        onValueChange={(value) => onProject(value === 'all' ? '' : value)}
+        value={projectId || projects[0]?.id || ''}
+        onValueChange={(value) => onProject(value)}
         groups={[
           {
-            items: [
-              { value: 'all', label: t('agendaPage.rail.allFolders', { defaultValue: t('agendaPage.rail.allProjects') }), kind: 'project' },
-              ...projects.map((project) => ({
-                value: project.id,
-                label: project.name,
-                kind: 'project' as const,
-              })),
-            ],
+            items: projects.map((project) => ({
+              value: project.id,
+              label: project.name,
+              kind: 'project' as const,
+            })),
           },
         ]}
       />
     )
   }
   return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={() => onPath({ projectId: '', tag: '', path: '' })}
-        className="nav-row h-7 w-full text-left text-xs"
-        data-active={!selectedId ? 'true' : undefined}
-      >
-        <span className="min-w-0 flex-1 truncate-fade">{t('agendaPage.rail.allFolders', { defaultValue: 'All folders' })}</span>
-      </button>
-      <FolderTagTree
-        folders={nav.projects}
-        tags={nav.tags}
-        ticketTags={nav.ticketTags}
-        loading={!loaded}
-        mode="agenda"
-        selectedId={selectedId}
-        onSelect={(kind, id, name) => {
-          if (kind === 'tag') onPath({ projectId: '', tag: name, path: '' })
-          else if (id.includes(':')) {
-            const [folderId, tagId] = id.split(':')
-            onPath({ projectId: folderId, tag: '', path: tagId || '' })
-          } else onPath({ projectId: id, tag: '', path: '' })
-        }}
-        t={t}
-      />
-    </div>
+    <FolderTagTree
+      folders={nav.projects}
+      tags={nav.tags}
+      ticketTags={nav.ticketTags}
+      loading={!loaded}
+      mode="agenda"
+      selectedId={selectedId}
+      onSelect={(kind, id, name) => {
+        if (kind === 'tag') onPath({ projectId: '', tag: name, path: '' })
+        else if (id.includes(':')) {
+          const [folderId, tagId] = id.split(':')
+          onPath({ projectId: folderId, tag: '', path: tagId || '' })
+        } else onPath({ projectId: id, tag: '', path: '' })
+      }}
+      t={t}
+    />
   )
 }

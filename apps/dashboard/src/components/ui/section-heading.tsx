@@ -11,7 +11,10 @@ type SectionHeadingProps = {
   className?: string
 }
 
-/** Heading for a group of content inside a page or card. */
+/**
+ * Heading for a group of content inside a page or card.
+ * For rail / side-panel group labels (closable or static), use {@link SectionLabel}.
+ */
 export function SectionHeading({
   title,
   description,

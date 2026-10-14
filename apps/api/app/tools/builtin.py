@@ -14,6 +14,7 @@ from app.services.addressee import parse_target
 from app.services.os_graph import OS_GRAPH_RETIRED
 from app.services.signal_decisions import (
     find_open_duplicate_decision,
+    find_open_identical_decision,
     recently_declined_decision,
 )
 from app.tools.registry import ToolContext, ToolSpec, register_tool
@@ -499,6 +500,116 @@ def _target_signal_id(ctx: ToolContext, tool_input: dict[str, Any]) -> UUID | No
     return ctx.signal_id
 
 
+async def _resolve_messaging_signal(
+    ctx: ToolContext, tool_input: dict[str, Any]
+):
+    """Resolve the conversation a messaging tool should mutate.
+
+    Ask sessions already pass the host as ``ctx.signal_id``, but models still
+    sometimes pass the session id or a stale uuid. Remap assistant sessions to
+    their host, and fall back to ``ctx.signal_id`` when an explicit id is gone.
+    """
+    from app.models.signal import Signal
+
+    candidates: list[UUID] = []
+    raw = tool_input.get("signal_id")
+    if raw not in (None, ""):
+        try:
+            candidates.append(UUID(str(raw)))
+        except ValueError:
+            pass
+    if ctx.signal_id is not None and ctx.signal_id not in candidates:
+        candidates.append(ctx.signal_id)
+    if not candidates:
+        return None, "signal_id required"
+
+    for cand in candidates:
+        signal = (
+            await ctx.session.execute(
+                select(Signal).where(Signal.id == cand, Signal.tenant_id == ctx.tenant_id)
+            )
+        ).scalar_one_or_none()
+        if signal is None:
+            continue
+        if signal.channel == "assistant" and signal.context_signal_id:
+            host = (
+                await ctx.session.execute(
+                    select(Signal).where(
+                        Signal.id == signal.context_signal_id,
+                        Signal.tenant_id == ctx.tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if host is not None:
+                return host, None
+            # Orphan session — still prefer something real over failing.
+        return signal, None
+    return None, "Signal not found"
+
+
+async def _post_internal_note(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Leave a durable team-only note on a conversation (never a customer draft)."""
+    import json as _json
+    from datetime import datetime
+    from html import escape
+
+    from app.gateway.publish import publish_signal_message, publish_thread_update
+    from app.models.signal import SignalMessage
+    from app.services.agent.style import strip_emoji
+
+    if not ctx.agent:
+        return {"error": "Only an agent can post an internal note"}
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
+    body_text = strip_emoji(str(tool_input.get("body_text") or tool_input.get("body") or "")).strip()
+    if not body_text:
+        return {"error": "body_text required"}
+    if len(body_text) > 4000:
+        body_text = body_text[:4000].rstrip()
+
+    now = datetime.utcnow()
+    note = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=ctx.tenant_id,
+        kind="internal_note",
+        direction="internal",
+        role="assistant",
+        author_agent_id=ctx.agent.id,
+        from_address="",
+        to_addresses="",
+        subject=signal.subject or "",
+        body_text=body_text,
+        body_preview=body_text[:200],
+        body_html=f"<p>{escape(body_text)}</p>",
+        metadata_json=_json.dumps(
+            {
+                "agent_name": ctx.agent.name,
+                "agent_note": True,
+                "run_id": str(ctx.run_id) if ctx.run_id else None,
+            }
+        ),
+        received_at=now,
+    )
+    ctx.session.add(note)
+    signal.last_message_at = now
+    ctx.session.add(signal)
+    await ctx.session.commit()
+    await ctx.session.refresh(note)
+    await publish_thread_update(signal)
+    await publish_signal_message(signal, note)
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "message_id": str(note.id),
+        "kind": "internal_note",
+        "note": (
+            "Posted as a team-only internal note. The customer cannot see it. "
+            "It is not a draft and needs no approval."
+        ),
+    }
+
+
 async def _suggest_thread_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Propose a customer-facing reply on a thread; the operator approves it.
 
@@ -506,31 +617,62 @@ async def _suggest_thread_reply(ctx: ToolContext, tool_input: dict[str, Any]) ->
     agent offers while sparring with an operator goes through the same
     approve / edit / decline path as an inbound AI suggestion.
     """
-    from app.models.signal import Signal
     from app.services.inbound_agent import create_reply_suggestion
 
-    signal_id = _target_signal_id(ctx, tool_input)
-    if not signal_id:
-        return {"error": "signal_id required"}
     if not ctx.agent:
         return {"error": "Only an agent can suggest a reply"}
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
 
     body_text = str(tool_input.get("body_text") or tool_input.get("body") or "").strip()
     if not body_text:
         return {"error": "body_text required"}
 
-    result = await ctx.session.execute(
-        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
-    )
-    signal = result.scalar_one_or_none()
-    if not signal:
-        return {"error": "Signal not found"}
     if signal.channel in ("internal", "assistant"):
-        return {"error": f"Channel {signal.channel} has no external party to reply to"}
+        return {
+            "error": (
+                f"Channel {signal.channel} has no external party to reply to. "
+                "Use post_internal_note for a team note, or chat normally."
+            )
+        }
 
     outcome = await create_reply_suggestion(
         ctx.session, ctx.tenant_id, signal, ctx.agent, reply_text=body_text
     )
+    if outcome.get("skipped"):
+        reason = str(outcome.get("reason") or "skipped")
+        if reason == "note_only" or outcome.get("internal_note"):
+            # create_reply_suggestion already persisted the note; never open a draft.
+            return {
+                "ok": True,
+                "awaiting_approval": False,
+                "converted_to_note": True,
+                "signal_id": str(signal.id),
+                "message": (
+                    "Saved as a team-only internal note — not a customer draft. "
+                    "Next time call post_internal_note directly for team notes; "
+                    "never use suggest_thread_reply for that."
+                ),
+                **{k: v for k, v in outcome.items() if k != "skipped"},
+            }
+        if reason == "meta_draft":
+            return {
+                "ok": False,
+                "error": "meta_draft",
+                "message": (
+                    "That text talks about the platform, not the customer. "
+                    "Write a real customer-facing reply, or use post_internal_note "
+                    "for a team observation."
+                ),
+                **outcome,
+            }
+        return {
+            "ok": False,
+            "error": reason,
+            "message": "No customer draft was created.",
+            **outcome,
+        }
     return {
         "ok": True,
         "signal_id": str(signal.id),
@@ -549,24 +691,16 @@ async def _note_no_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     Assisted inbound uses this instead of a magic final line. The operator
     still gets the no-reply card on the thread.
     """
-    from app.models.signal import Signal
     from app.services.inbound_agent import create_action_suggestion
 
-    signal_id = _target_signal_id(ctx, tool_input)
-    if not signal_id:
-        return {"error": "signal_id required"}
     if not ctx.agent:
         return {"error": "Only an agent can note that no reply is needed"}
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
     summary = str(tool_input.get("summary") or "").strip()
     if not summary:
         return {"error": "summary required"}
-
-    result = await ctx.session.execute(
-        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
-    )
-    signal = result.scalar_one_or_none()
-    if not signal:
-        return {"error": "Signal not found"}
 
     outcome = await create_action_suggestion(
         ctx.session,
@@ -873,11 +1007,12 @@ async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     from app.services.signals import get_triage_context, message_plain_text
     from app.models.signal import SignalMessage
 
-    # Same rule as other messaging tools: an invalid/non-UUID signal_id
-    # (models often pass the contact email) falls back to this turn's thread.
-    signal_id = _target_signal_id(ctx, tool_input)
-    if not signal_id:
-        return {"error": "signal_id required"}
+    # Same rule as other messaging tools: remap Ask-session ids to the host,
+    # and fall back when the model passes a stale or non-UUID signal_id.
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "signal_id required"}
+    signal_id = signal.id
 
     summary = str(tool_input.get("summary") or "").strip()
     if not summary:
@@ -948,29 +1083,16 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     from datetime import datetime
 
     from app.gateway.publish import publish_thread_update
-    from app.models.signal import Signal, SignalEvent
+    from app.models.signal import SignalEvent
     from app.services.signal_tags import allowed_tag_names, normalize_tag
 
-    signal_id = ctx.signal_id
-    raw_signal = tool_input.get("signal_id")
-    if raw_signal:
-        try:
-            signal_id = UUID(str(raw_signal))
-        except ValueError:
-            pass
-    if not signal_id:
-        return {"error": "signal_id required"}
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
 
     requested = tool_input.get("tags")
     if not isinstance(requested, list) or not requested:
         return {"error": "tags must be a non-empty list of strings"}
-
-    result = await ctx.session.execute(
-        select(Signal).where(Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id)
-    )
-    signal = result.scalar_one_or_none()
-    if not signal:
-        return {"error": "Signal not found"}
 
     create_missing = bool(tool_input.get("create_missing"))
     catalog = set(await allowed_tag_names(ctx.session, ctx.tenant_id))
@@ -1330,6 +1452,24 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
                 if stale_notif and stale_notif.status == "unread":
                     stale_notif.status = "read"
                     ctx.session.add(stale_notif)
+        # Same turn / same bundle: title supersede skips siblings, so an identical
+        # second call (e.g. double calendar_propose_event) would otherwise stack.
+        identical = await find_open_identical_decision(
+            ctx.session,
+            ctx.tenant_id,
+            title=tool_input["title"],
+            options=tool_input.get("options") or [],
+            signal_id=target_signal_id,
+        )
+        if identical is not None:
+            return {
+                "decision_request_id": str(identical.id),
+                "status": "already_open",
+                "message": (
+                    "This exact proposal is already waiting. Do not raise it again; "
+                    "one Approve card is enough."
+                ),
+            }
     else:
         # Cards without a thread (heartbeat wakes, scheduled runs) used to pile
         # up: one tenant collected 34 identical "Turn on Banking?" cards, each
@@ -2135,12 +2275,53 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="post_internal_note",
+        description=(
+            "Post a durable team-only note on the host conversation (same place "
+            "as a person's Note). The customer never sees it; no approval. Use "
+            "this for observations, context for colleagues, or why you are not "
+            "drafting a reply — never use suggest_thread_reply for team notes. "
+            "Omit signal_id in an Ask session — the host thread is used "
+            "automatically; never pass a session id. For back-and-forth with "
+            "the operator, write chat. For a customer reply that needs "
+            "approval, use suggest_thread_reply. For 'no customer reply "
+            "needed', use note_no_reply. If a tool errors, retry correctly in "
+            "the same turn — do not narrate the failure to the operator."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {
+                    "type": "string",
+                    "description": "Host conversation id. Omit in Ask sessions.",
+                },
+                "body_text": {
+                    "type": "string",
+                    "description": "The team-facing note body. Plain language, no customer letter.",
+                },
+            },
+            "required": ["body_text"],
+        },
+        handler=_post_internal_note,
+        gated=False,
+        audience="both",
+        display_name="Post internal note",
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="suggest_thread_reply",
         description=(
-            "Propose a reply to the customer on a conversation without sending it. "
-            "The draft appears as a suggested reply the teammate can approve, edit "
-            "or decline. Use this while helping on a conversation instead of "
-            "pasting a draft into chat."
+            "Propose a reply to the external customer only — never for team "
+            "notes or operator chat. The draft appears as a suggested reply the "
+            "teammate can approve, edit or decline. body_text must be only the "
+            "customer-facing text: for email, a proper letter (greeting, short "
+            "paragraphs); for WhatsApp/widget/chat channels, a short chat "
+            "reply. Your own operator chat stays separate and brief. For a "
+            "team-only observation use post_internal_note. For 'no reply "
+            "needed' use note_no_reply."
         ),
         category="messaging",
         input_schema={
@@ -2149,7 +2330,10 @@ register_tool(
                 "signal_id": {"type": "string"},
                 "body_text": {
                     "type": "string",
-                    "description": "The customer-facing reply body, nothing else.",
+                    "description": (
+                        "Customer-facing body only. Email = structured letter; "
+                        "chat channels = short WhatsApp-style reply."
+                    ),
                 },
             },
             "required": ["body_text"],
@@ -2167,7 +2351,8 @@ register_tool(
         description=(
             "The inbound message needs no customer reply (newsletter, receipt, "
             "no-reply sender, system alert). Records that judgement on the "
-            "conversation for a teammate to confirm. Do not also draft a reply."
+            "conversation for a teammate to confirm — this is not a free-form "
+            "team note (use post_internal_note for that). Do not also draft a reply."
         ),
         category="messaging",
         input_schema={
@@ -2441,17 +2626,23 @@ register_tool(
     ToolSpec(
         name="set_thread_tags",
         description=(
-            "Add free hashtags to a conversation. Names that already exist in the "
-            "workspace hashtag catalog are applied; pass create_missing=true to register "
-            "new free tags on the fly. Existing hashtags are never removed. "
-            "To start a ticket flow, use file_ticket with an action tag instead — do not "
-            "treat action tags as ordinary labels here."
+            "Add free hashtags to a conversation. Omit signal_id to tag the "
+            "current thread (preferred) — never invent or copy a random uuid. "
+            "Names that already exist in the workspace hashtag catalog are "
+            "applied; pass create_missing=true to register new free tags on "
+            "the fly. Existing hashtags are never removed. To start a ticket "
+            "flow, use file_ticket with an action tag instead — do not treat "
+            "action tags as ordinary labels here. If the tool returns an "
+            "error, fix the call; do not claim the tag was applied."
         ),
         category="messaging",
         input_schema={
             "type": "object",
             "properties": {
-                "signal_id": {"type": "string"},
+                "signal_id": {
+                    "type": "string",
+                    "description": "Conversation id. Omit to use the current thread.",
+                },
                 "tags": {"type": "array", "items": {"type": "string"}},
                 "create_missing": {
                     "type": "boolean",

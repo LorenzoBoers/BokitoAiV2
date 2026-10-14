@@ -4,6 +4,7 @@ import {
   nextUnreadId,
   parseComposerDraft,
   parseAssigneeParam,
+  parseDateFilterParam,
   parsePriorityParam,
   parseQuickFilterParam,
   serializeComposerDraft,
@@ -66,6 +67,17 @@ describe('parsePriorityParam', () => {
     expect(parsePriorityParam('urgent')).toBe('urgent')
     expect(parsePriorityParam('low')).toBeNull()
     expect(parsePriorityParam(null)).toBeNull()
+  })
+})
+
+describe('parseDateFilterParam', () => {
+  it('keeps known activity windows', () => {
+    expect(parseDateFilterParam('today')).toBe('today')
+    expect(parseDateFilterParam('7d')).toBe('7d')
+    expect(parseDateFilterParam('30d')).toBe('30d')
+    expect(parseDateFilterParam('90d')).toBe('90d')
+    expect(parseDateFilterParam('week')).toBeNull()
+    expect(parseDateFilterParam(null)).toBeNull()
   })
 })
 

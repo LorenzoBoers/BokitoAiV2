@@ -79,7 +79,7 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 ## Set name, description or look
 
 1. Open a company agent.
-2. Choose **Edit** at the top right of the header.
+2. Hover or focus the large agent mark at the top, then choose the pencil (or open **Edit** from the ··· menu).
 3. Change the **name**, fill in the **Description** (the short role on the library card), then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face, then save. Instructions stay on the agent page; they are not this description.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.

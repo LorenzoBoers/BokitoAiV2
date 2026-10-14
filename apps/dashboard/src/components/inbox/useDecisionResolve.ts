@@ -95,9 +95,6 @@ export function useDecisionResolve({
       at: new Date().toISOString(),
     }
     setOutcome(local)
-    if (opts.answerText && decisionId) {
-      onAnswer?.({ text: opts.answerText, decisionId })
-    }
     try {
       const result = await resolveThreadDecision(token, threadId, cardMessageId, action, {
         optionId: opts.optionId,
@@ -139,7 +136,6 @@ export function useDecisionResolve({
       onResolved?.(closed ? { closed: true } : undefined)
     } catch (err) {
       setOutcome(null)
-      if (decisionId) onAnswer?.(null)
       setError(err instanceof Error ? err.message : t('decisionCard.resolveError'))
     } finally {
       setBusy(false)
@@ -304,19 +300,6 @@ export function useDecisionResolve({
         toast.success(t('actionBundle.toastRejected', { count: rejected }))
       } else {
         toast.success(t('actionBundle.summary', { approved, rejected }))
-      }
-      // One optimistic answer for the bundle so synthetics do not double-bubble.
-      const answerIds = result.results
-        .filter((row) => row.status === 'approved' || row.status === 'rejected')
-        .map((row) => row.decisionId)
-      if (answerIds.length && decisionId) {
-        const text =
-          rejected && !approved
-            ? t('decisionCard.options.reject')
-            : approved && !rejected
-              ? t('actionBundle.approve')
-              : t('actionBundle.summary', { approved, rejected })
-        onAnswer?.({ text, decisionId })
       }
       onResolved?.(undefined)
       return result.results

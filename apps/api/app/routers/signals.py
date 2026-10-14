@@ -700,6 +700,10 @@ async def list_signal_threads(
     search: str | None = Query(None),
     assignee_id: int | None = Query(None),
     priority: str | None = Query(None),
+    activity: str | None = Query(
+        None,
+        description="Last-activity window: today, 7d, 30d, or 90d (filters on last_message_at).",
+    ),
     tag: str | None = Query(None),
     connection_id: str | None = Query(None),
     email_connection_id: int | None = Query(None),
@@ -723,8 +727,9 @@ async def list_signal_threads(
     ``view``: ``for_you`` (yours: owned, your turn, your team's turn, mentions),
     ``all_open``, ``unassigned`` (team-owned, not picked up), ``closed``,
     ``scheduled`` (threads with a date, soonest first), ``spam``, ``all``.
-    ``team_id`` narrows to one team's work. ``scheduled_from`` / ``scheduled_to``
-    narrow to threads whose next date falls in the window.
+    ``team_id`` narrows to one team's work. ``activity`` keeps threads whose last
+    message falls in ``today`` / ``7d`` / ``30d`` / ``90d``. ``scheduled_from`` /
+    ``scheduled_to`` narrow to threads whose next date falls in the window.
     Folder filters: ``project_id`` (the folder and everything inside it),
     ``path`` (comma-separated tag ids of a virtual child the conversation must
     also carry), ``category_id``, ``tag`` and ``stage`` (a stage key or kind).
@@ -742,6 +747,7 @@ async def list_signal_threads(
         search=search,
         assignee_id=assignee_id,
         priority=priority,
+        activity=activity,
         tag=tag,
         connection_id=connection_id,
         email_connection_id=email_connection_id,

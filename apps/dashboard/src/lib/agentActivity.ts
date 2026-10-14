@@ -179,7 +179,13 @@ export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMoti
  */
 export function isVisibleActivity(item: ActivityItem): boolean {
   // Showcase cards render under the bubble — the tool row is noise.
-  if (item.tool === 'attach_items' || item.tool === 'update_progress') return false
+  if (
+    item.tool === 'attach_items' ||
+    item.tool === 'update_progress' ||
+    item.tool === 'post_internal_note'
+  ) {
+    return false
+  }
   if (item.kind !== 'think' || item.status === 'running') return true
   if (item.text !== undefined) return Boolean(item.text.trim())
   return item.hasText !== false

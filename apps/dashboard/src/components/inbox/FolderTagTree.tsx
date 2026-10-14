@@ -432,10 +432,14 @@ export function FolderTagTree({
           type="button"
           className="nav-row h-7 w-full text-left text-xs text-text-muted"
           onClick={() => setShowAllMaps(true)}
+          aria-label={t('support.folders.showEmpty', {
+            defaultValue: 'Show {{count}} empty maps',
+            count: hiddenCount,
+          })}
         >
           <ChevronRight size={14} className={cn('shrink-0 transition-transform', showAllMaps && 'rotate-90')} aria-hidden />
           <span className="min-w-0 flex-1 truncate-fade">
-            {t('projects.links.all', { defaultValue: 'All folders' })}
+            {t('support.folders.showEmptyLabel', { defaultValue: 'Empty maps' })}
           </span>
           <span className="tabular-nums text-2xs">{hiddenCount}</span>
         </button>

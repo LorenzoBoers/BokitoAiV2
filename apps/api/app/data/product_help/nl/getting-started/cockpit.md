@@ -26,11 +26,11 @@ In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via d
 
 ## Lees workspace-canvasses
 
-Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview staan de tabs **Overzicht**, **Verbruik**, daarna **Canvas** (layout-template-icoon). Een agent maakt, vult en ververst ze; jij kunt ze ook toevoegen, verwijderen en verversen. De lead-agent is eigenaar van een workspace-canvas, tenzij een andere agent genoemd is.
+Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview staan de tabs **Overzicht**, **Verbruik**, daarna **Canvas** (layout-template-icoon). Een agent maakt, vult en ververst ze; bij toevoegen kies jij de beheeragent. Je kunt een canvas later nog verwijderen of de verversperiode op het tabblad wijzigen.
 
-1. Open **Overview**, daarna het tabblad **Canvas** (derde tab). Canvasnamen staan van links naar rechts; de **+** ná de laatste naam voegt een canvas toe. Dat opent een dialoog: **Titel**, **Wat het moet bevatten** en **Verversen** (**Handmatig**, **Dagelijks**, **Wekelijks**, **Uurlijks**, **Maandelijks**, **Aangepast**). Dagelijks is de standaard. Bij **Aangepast** vul je een cron van vijf velden in.
-2. Sla op. Dat start een gesprek met de eigenaar. Verversen is de herhaling van dat gesprek in [Agenda](/docs/ai/agenda).
-3. Vraag een agent om cijfers, een status of een dashboard; hij bouwt de snapshot in die beurt. Het antwoord linkt het canvas en toont een kleine preview; de preview opent dat canvas. Een latere aanpassing werkt datzelfde canvas bij. Het canvas-tabblad toont de eigenaar-agent en het gesprek; open dat gesprek om een aanpassing te vragen. Projectcanvasses staan op het [Canvas](/docs/ai/folders)-tabblad van het project.
+1. Open **Overview**, daarna het tabblad **Canvas** (derde tab). Canvasnamen staan van links naar rechts; de **+** ná de laatste naam voegt een canvas toe. Kies een **Agent** en **Start gesprek**.
+2. In die chat vraagt de agent wat je wilt zien, stelt een kort plan voor (titel, widgets, verversen), bouwt daarna de snapshot en zet de verversperiode. Verversen is de herhaling van dat gesprek in [Agenda](/docs/ai/agenda).
+3. Latere aanpassingen gebeuren in hetzelfde gesprek. Het canvas-tabblad toont de eigenaar-agent en het gesprek; open dat gesprek om een aanpassing te vragen. Projectcanvasses staan op het [Canvas](/docs/ai/folders)-tabblad van het project.
 
 ## Open werk dat op jou wacht
 

@@ -135,6 +135,14 @@ describe('isVisibleActivity', () => {
     ).toBe(false)
   })
 
+  it('hides post_internal_note tool rows (the note is the message)', () => {
+    expect(
+      isVisibleActivity(
+        item('n1', 'other', 0, 1, { tool: 'post_internal_note', label: 'Post internal note' }),
+      ),
+    ).toBe(false)
+  })
+
   it('hides finished think items without reasoning text', () => {
     expect(isVisibleActivity(item('t', 'think', 0, 500, { text: '' }))).toBe(false)
     expect(isVisibleActivity(item('t', 'think', 0, 500, { hasText: false }))).toBe(false)

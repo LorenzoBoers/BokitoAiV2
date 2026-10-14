@@ -75,26 +75,26 @@
   :root[data-theme='light'] {
     color-scheme: light;
     /*
-     * Light theme mirrors the dark ladder: a grey chrome everything sits in,
-     * white sheets that float on it with a whisper of shadow, near-black ink.
+     * Light theme: near-white chrome so grey vs paper is a whisper, not a
+     * slab. Sheets stay pure white; hairlines carry most of the structure.
      *
-     *   bg / sidebar / canvas   #F3F3F1  chrome, thread canvas
+     *   bg / sidebar / canvas   #F7F7F6  chrome, thread canvas
      *   bg-surface              #FFFFFF  cards, lists, composer, bubbles
-     *   bg-elevated             #F6F6F4  insets inside a white sheet
-     *   bg-hover                #E9E9E6  hover / selected rows
+     *   bg-elevated             #F3F3F2  insets inside a white sheet
+     *   bg-hover                #EEEEEC  hover / selected rows
      *
      * Accent is a deeper emerald than dark so white text on it stays legible.
      */
-    --color-bg: 243 243 241;
-    --color-bg-root: 243 243 241;
-    --color-bg-sidebar: 243 243 241;
-    --color-bg-canvas: 243 243 241;
+    --color-bg: 247 247 246;
+    --color-bg-root: 247 247 246;
+    --color-bg-sidebar: 247 247 246;
+    --color-bg-canvas: 247 247 246;
     --color-bg-surface: 255 255 255;
-    --color-bg-elevated: 246 246 244;
-    --color-bg-hover: 233 233 230;
+    --color-bg-elevated: 243 243 242;
+    --color-bg-hover: 238 238 236;
     --color-bg-input: 255 255 255;
-    --color-border: 225 225 221;
-    --color-border-light: 207 207 202;
+    --color-border: 232 232 229;
+    --color-border-light: 220 220 216;
     --color-border-focus: 20 166 116;
     --color-text-primary: 30 30 28;
     --color-text-secondary: 86 86 82;
@@ -110,25 +110,25 @@
     --color-ai-fg: 255 255 255;
     --shadow-btn:
       0 1px 0 rgba(255, 255, 255, 0.18) inset,
-      0 1px 2px rgba(20, 20, 18, 0.14);
+      0 1px 2px rgba(20, 20, 18, 0.12);
     --color-status-success: 22 163 113;
     --color-status-warning: 217 119 6;
     --color-status-error: 220 38 38;
     --color-status-info: 37 99 235;
-    --body-bg: #f3f3f1;
+    --body-bg: #f7f7f6;
     --body-glow-top: transparent;
     --body-glow-bottom: transparent;
     --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
     --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
     --shadow-card:
-      0 1px 2px rgba(20, 20, 18, 0.04),
-      0 1px 3px -1px rgba(20, 20, 18, 0.05);
+      0 1px 2px rgba(20, 20, 18, 0.03),
+      0 1px 2px -1px rgba(20, 20, 18, 0.04);
     --shadow-card-hover:
-      0 0 0 1px rgb(var(--color-border-light) / 0.9),
-      0 6px 16px -8px rgba(20, 20, 18, 0.12);
+      0 0 0 1px rgb(var(--color-border-light) / 0.85),
+      0 6px 14px -8px rgba(20, 20, 18, 0.1);
     --shadow-overlay:
-      0 0 0 1px rgba(24, 24, 22, 0.04),
-      0 12px 32px -12px rgba(24, 24, 22, 0.18);
+      0 0 0 1px rgba(24, 24, 22, 0.035),
+      0 12px 32px -12px rgba(24, 24, 22, 0.14);
   }
 
   * {
@@ -684,6 +684,36 @@
       rgb(var(--color-border) / 0.95) 100%
     );
   }
+  /* Agent internal note: same AI violet cue as chat, dashed ring so it reads
+     as a team note (not a customer-facing bubble or a human amber note). */
+  .chat-bubble-ai-note {
+    position: relative;
+    isolation: isolate;
+    color: rgb(var(--color-text-primary));
+    background:
+      radial-gradient(
+        140% 120% at 0% 0%,
+        rgb(var(--color-ai) / 0.12) 0%,
+        rgb(var(--color-ai) / 0.04) 40%,
+        transparent 65%
+      ),
+      rgb(var(--color-bg-surface));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    outline: 1px dashed rgb(var(--color-ai) / 0.45);
+    outline-offset: -1px;
+  }
+  :root[data-theme='light'] .chat-bubble-ai-note {
+    background:
+      radial-gradient(
+        140% 120% at 0% 0%,
+        rgb(var(--color-ai) / 0.09) 0%,
+        rgb(var(--color-ai) / 0.03) 40%,
+        transparent 65%
+      ),
+      rgb(var(--color-bg-surface));
+    outline-color: rgb(var(--color-ai) / 0.4);
+  }
+
   :root[data-theme='light'] .chat-bubble-agent[data-stack='end']::before {
     background: linear-gradient(
       165deg,
@@ -709,31 +739,38 @@
   .bot-orb > svg,
   .bot-orb__svg {
     display: block;
-    overflow: hidden;
+    /* Visible so non-round silhouettes (monkey ears) are never clipped. */
+    overflow: visible;
   }
   /* Keep CSS-transformed eyes inside the silhouette (mask is on the SVG group). */
   .bot-orb__face-clip {
     overflow: hidden;
   }
+  /* Gaze is always JS-driven (inline transform + duration). No CSS keyframes —
+     tearing those down was what made thinking → idle snap. */
   .bot-orb__gaze {
-    transform-box: fill-box;
-    transform-origin: 50% 50%;
-    transition: transform 0.32s ease;
-    transform: translate(0, 0);
+    transform-box: view-box;
+    transform-origin: 32px 31px;
+    transition-property: transform;
+    transition-duration: var(--bot-orb-gaze-ms, 580ms);
+    transition-timing-function: ease;
   }
-  /* Hover / proximity: eyes track the pointer; snappier than idle acts. */
   .bot-orb[data-tracking='true'] .bot-orb__gaze {
-    transition: transform 0.08s ease-out;
-    animation: none !important;
+    transition-timing-function: ease-out;
   }
-  .bot-orb[data-tracking='true'] .bot-orb__eye {
-    animation: none !important;
+  /* Pair tilt + foreshorten (JS) — blink/squint stay on each eye. */
+  .bot-orb__eyes {
+    transform-box: view-box;
+    transform-origin: 32px 31px;
+    transition-property: transform;
+    transition-duration: var(--bot-orb-gaze-ms, 580ms);
+    transition-timing-function: ease;
   }
   /* Per-eye scale so blink/squint collapse from the eye center, not the bottom. */
   .bot-orb__eye {
     transform-box: fill-box;
     transform-origin: 50% 50%;
-    transition: transform 0.22s ease;
+    transition: transform 0.28s ease;
     transform: scaleY(1);
   }
   .bot-orb__body {
@@ -741,46 +778,10 @@
     transform-origin: 32px 32px;
   }
 
-  /* Idle looks: slow ease; choreography held by JS data-act steps. */
-  .bot-orb[data-act^='look-'] .bot-orb__gaze {
-    transition: transform 0.58s ease;
-  }
-  .bot-orb[data-act='look-left'] .bot-orb__gaze {
-    transform: translate(-5.4px, 0);
-  }
-  .bot-orb[data-act='look-right'] .bot-orb__gaze {
-    transform: translate(5.4px, 0);
-  }
-  .bot-orb[data-act='look-up'] .bot-orb__gaze {
-    transform: translate(0, -4.6px);
-  }
-  .bot-orb[data-act='look-down'] .bot-orb__gaze {
-    transform: translate(0, 3.8px);
-  }
-  .bot-orb[data-act='look-up-left'] .bot-orb__gaze {
-    transform: translate(-5.2px, -3.2px);
-  }
-  .bot-orb[data-act='look-up-right'] .bot-orb__gaze {
-    transform: translate(5.2px, -3.2px);
-  }
-  .bot-orb[data-act='look-down-left'] .bot-orb__gaze {
-    transform: translate(-5.2px, 3.2px);
-  }
-  .bot-orb[data-act='look-down-right'] .bot-orb__gaze {
-    transform: translate(5.2px, 3.2px);
-  }
-
-  /* Thinking: view-box units so Y travel reaches the top rim of the mark. */
-  .bot-orb[data-motion='thinking']:not([data-tracking='true']) .bot-orb__gaze {
-    transform-box: view-box;
-    transform-origin: 32px 31px;
-    animation: bot-orb-gaze-think 8s ease-in-out infinite;
-  }
-  .bot-orb[data-motion='thinking']:not([data-tracking='true']) .bot-orb__eye:first-of-type {
-    animation: bot-orb-think-eye-left 8s ease-in-out infinite;
-  }
-  .bot-orb[data-motion='thinking']:not([data-tracking='true']) .bot-orb__eye:last-of-type {
-    animation: bot-orb-think-eye-right 8s ease-in-out infinite;
+  /* Thinking: looking-side eye soft-squints (gaze itself is JS). */
+  .bot-orb[data-think-side='left'] .bot-orb__eye:first-of-type,
+  .bot-orb[data-think-side='right'] .bot-orb__eye:last-of-type {
+    transform: scaleY(0.72);
   }
 
   /* Blink (~220–300ms held by JS). */
@@ -803,75 +804,6 @@
   .bot-orb--paused .bot-orb__body {
     animation: none;
   }
-
-  /* Center-up against the rim (~eye top y=25.5 → ~3), then left / right. */
-  @keyframes bot-orb-gaze-think {
-    0%,
-    14% {
-      transform: translate(0, -22.5px);
-    }
-    22%,
-    38% {
-      transform: translate(-5px, -22.5px);
-    }
-    46%,
-    62% {
-      transform: translate(5.2px, -22.5px);
-    }
-    70%,
-    84% {
-      transform: translate(-5px, -22.5px);
-    }
-    90%,
-    100% {
-      transform: translate(5.2px, -22.5px);
-    }
-  }
-  /* Center: both open; looking left → left squints; looking right → right. */
-  @keyframes bot-orb-think-eye-left {
-    0%,
-    14% {
-      transform: scaleY(1);
-    }
-    22%,
-    38% {
-      transform: scaleY(0.72);
-    }
-    46%,
-    62% {
-      transform: scaleY(1);
-    }
-    70%,
-    84% {
-      transform: scaleY(0.72);
-    }
-    90%,
-    100% {
-      transform: scaleY(1);
-    }
-  }
-  @keyframes bot-orb-think-eye-right {
-    0%,
-    14% {
-      transform: scaleY(1);
-    }
-    22%,
-    38% {
-      transform: scaleY(1);
-    }
-    46%,
-    62% {
-      transform: scaleY(0.72);
-    }
-    70%,
-    84% {
-      transform: scaleY(1);
-    }
-    90%,
-    100% {
-      transform: scaleY(0.72);
-    }
-  }
   @keyframes bot-orb-pulse-work {
     0%,
     100% {
@@ -883,6 +815,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .bot-orb__gaze,
+    .bot-orb__eyes,
     .bot-orb__eye {
       transition: none !important;
       animation: none !important;
@@ -987,8 +920,8 @@
     }
   }
 
-  /* Inline entity chips in chat (@mentions, app links, #tags): one family.
-     Horizontal pad only — no vertical pad/flex so line-height stays calm. */
+  /* Inline entity chips in chat (@mentions, app links, #tags): soft fill,
+     no inset border — same family as Badge / TagPill / FilterChip. */
   .mention-chip,
   .md-app-link,
   .chat-tag-chip {
@@ -997,7 +930,6 @@
     -webkit-box-decoration-break: clone;
     transition:
       background-color 120ms ease,
-      box-shadow 120ms ease,
       color 120ms ease;
   }
 
@@ -1005,32 +937,26 @@
   .mention-chip {
     color: rgb(var(--color-accent));
     background: rgb(var(--color-accent) / 0.12);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.28);
   }
   .mention-chip:hover {
     background: rgb(var(--color-accent) / 0.18);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.4);
   }
   /* Agents — AI violet. */
   .mention-chip[data-mention-type='agent'] {
     color: rgb(var(--color-ai-ink));
     background: rgb(var(--color-ai) / 0.12);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-ai) / 0.3);
   }
   .mention-chip[data-mention-type='agent']:hover {
     background: rgb(var(--color-ai) / 0.18);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-ai) / 0.42);
   }
 
-  /* Projects / docs / threads / contacts — quiet surface + muted icon. */
+  /* In-app / marketplace chips — soft elevated fill, no stroke. */
   .md-app-link {
     color: rgb(var(--color-text-heading));
     background: rgb(var(--color-bg-elevated));
-    box-shadow: inset 0 0 0 1px rgb(var(--color-border-light) / 0.9);
   }
   .md-app-link:hover {
     background: rgb(var(--color-bg-hover));
-    box-shadow: inset 0 0 0 1px rgb(var(--color-border-light));
   }
   .md-app-link .md-app-link-icon {
     display: inline-block;
@@ -1042,34 +968,30 @@
     opacity: 0.9;
   }
 
-  /* #tags — same family as TagPill (soft glass; action = accent). */
+  /* #tags — paper surface (white in light), same family as TagPill. */
   .chat-tag-chip {
     color: rgb(var(--color-text-heading));
-    background: rgb(var(--color-bg-elevated) / 0.85);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-border) / 0.7);
+    background: rgb(var(--color-bg-surface));
+    box-shadow: inset 0 0 0 1px rgb(var(--color-border) / 0.5);
     letter-spacing: -0.01em;
   }
   .chat-tag-chip:hover {
-    background: rgb(var(--color-bg-hover) / 0.9);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-border-light));
+    background: rgb(var(--color-bg-elevated));
   }
   .chat-tag-chip[data-tag-kind='action_tag'] {
     color: rgb(var(--color-text-heading));
-    background: rgb(var(--color-accent) / 0.11);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.35);
+    background: rgb(var(--color-accent) / 0.12);
   }
   .chat-tag-chip[data-tag-kind='action_tag']:hover {
-    background: rgb(var(--color-accent) / 0.16);
-    box-shadow: inset 0 0 0 1px rgb(var(--color-accent) / 0.5);
+    background: rgb(var(--color-accent) / 0.18);
   }
 
-  /* Chips inside the operator's own (accent-filled) bubble: white glass. */
+  /* Chips inside the operator's own (accent-filled) bubble. */
   .chat-bubble-self :is(.chat-tag-chip, .mention-chip, .md-app-link),
   .chat-bubble-self .chat-tag-chip[data-tag-kind='action_tag'],
   .chat-bubble-self .mention-chip[data-mention-type='agent'] {
     color: rgb(var(--color-accent-fg));
     background: rgb(255 255 255 / 0.18);
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.32);
   }
   .chat-bubble-self :is(.chat-tag-chip, .mention-chip, .md-app-link):hover {
     background: rgb(255 255 255 / 0.26);
@@ -1083,28 +1005,29 @@
       0 10px 24px -14px rgb(var(--color-accent) / 0.55);
   }
 
-  /* Chat bubble lists — aligned columns, no double bullet+chip clutter. */
+  /* Chat bubble lists — compact, WhatsApp-calm (not a report). */
   .chat-text {
     display: flex;
     flex-direction: column;
-    gap: 0.35em;
+    gap: 0.28em;
   }
   .chat-text-gap {
-    height: 0.55em;
+    height: 0.4em;
   }
   .chat-list {
-    margin: 0.15em 0 0.25em;
+    margin: 0.1em 0 0.15em;
     padding: 0;
     list-style: none;
     display: grid;
-    gap: 0.4em 0.7em;
+    gap: 0.22em 0.55em;
   }
   .chat-list--bullet,
   .chat-list--ordered {
-    grid-template-columns: 1.1em minmax(0, 1fr);
+    grid-template-columns: 0.9em minmax(0, 1fr);
   }
   .chat-list--tagged {
     grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.18em 0.45em;
   }
   .chat-list-row {
     display: contents;
@@ -1112,21 +1035,30 @@
   .chat-list-mark {
     justify-self: start;
     align-self: start;
-    line-height: 1.5;
+    line-height: 1.4;
     color: rgb(var(--color-text-muted));
     font-variant-numeric: tabular-nums;
   }
   .chat-list--bullet .chat-list-mark {
     text-align: center;
-    opacity: 0.7;
+    opacity: 0.55;
+    font-size: 0.85em;
   }
   .chat-list-body {
     min-width: 0;
-    line-height: 1.5;
+    line-height: 1.4;
+    font-size: 0.95em;
     color: rgb(var(--color-text-secondary));
   }
   .chat-list--tagged .chat-list-mark {
-    padding-top: 0.05em;
+    padding-top: 0.1em;
+  }
+  .chat-list--tagged .chat-list-mark .chat-tag-chip {
+    gap: 1px;
+  }
+  .chat-list--tagged .chat-list-body {
+    font-size: 0.9em;
+    color: rgb(var(--color-text-muted));
   }
 
   /* Composer mention pill: same paint as chat mentions, but no padding so the
@@ -1410,7 +1342,27 @@
 @keyframes msg-bubble-enter {
   from {
     opacity: 0;
-    transform: translate3d(0, 10px, 0);
+    transform: translate3d(0, 12px, 0) scale(0.96);
+  }
+  55% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.msg-bubble-enter {
+  transform-origin: 0 100%;
+  animation: msg-bubble-enter 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* First live bubble: short lift + fade. Finished before the row grows much. */
+@keyframes msg-bubble-enter-live {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
   }
   to {
     opacity: 1;
@@ -1418,22 +1370,8 @@
   }
 }
 
-.msg-bubble-enter {
-  animation: msg-bubble-enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* Live bubble: fade only. A translate on the growing row yanks the thread. */
-@keyframes msg-bubble-enter-live {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 .msg-bubble-enter-live {
-  animation: msg-bubble-enter-live 0.22s ease-out both;
+  animation: msg-bubble-enter-live 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Settle when a live agent bubble is fully written. Shadow only — no scale,
@@ -1465,9 +1403,9 @@
 @keyframes bubble-pop-enter {
   from {
     opacity: 0;
-    transform: translate3d(0, 8px, 0) scale(0.965);
+    transform: translate3d(0, 14px, 0) scale(0.94);
   }
-  60% {
+  58% {
     opacity: 1;
   }
   to {
@@ -1477,8 +1415,8 @@
 }
 
 .bubble-pop-enter {
-  transform-origin: 0 0;
-  animation: bubble-pop-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: 0 100%;
+  animation: bubble-pop-enter 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes proposal-preparing-in {

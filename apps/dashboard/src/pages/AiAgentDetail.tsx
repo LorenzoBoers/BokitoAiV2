@@ -257,174 +257,207 @@ export default function AiAgentDetail() {
         </Card>
       ) : (
         <>
-          <Card className="px-4 py-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <AgentMark
-                  agent={agent}
-                  size={34}
-                  className="mt-0.5"
-                  activity={
-                    work === 'working' ? 'working' : work === 'error' ? 'error' : 'standby'
-                  }
-                />
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-semibold text-text-heading">{agent.name}</h2>
-                    {agent.managed ? (
-                      <span
-                        className="rounded border border-border/70 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
-                        title={
-                          agent.origin_label
-                            ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
-                            : t('workforce.agents.managedBadge')
-                        }
+          <Card className="px-5 py-5">
+            <div className="flex flex-wrap items-start gap-5">
+              {isAdmin && agent.kind !== 'personal' ? (
+                <button
+                  type="button"
+                  onClick={() => setIdentityOpen(true)}
+                  className="group relative shrink-0 overflow-visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                  style={{ width: 96, height: 96 }}
+                  aria-label={t('workforce.agents.editIdentity')}
+                >
+                  {/* No presence corner here — status is the text under the name. */}
+                  <AgentMark agent={agent} size={96} className="overflow-visible" decorative />
+                  <span
+                    className="pointer-events-none absolute right-0 top-0 inline-flex h-8 w-8 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full border border-border/70 bg-bg-surface text-text-heading opacity-0 shadow-md ring-2 ring-bg-surface transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                    aria-hidden
+                  >
+                    <Pencil size={14} />
+                  </span>
+                </button>
+              ) : (
+                <AgentMark agent={agent} size={96} className="shrink-0" decorative />
+              )}
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-semibold tracking-tight text-text-heading">
+                        {agent.name}
+                      </h2>
+                      {agent.managed ? (
+                        <span
+                          className="rounded-md border border-border/70 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
+                          title={
+                            agent.origin_label
+                              ? t('workforce.agents.managedBadgeHint', {
+                                  origin: agent.origin_label,
+                                })
+                              : t('workforce.agents.managedBadge')
+                          }
+                        >
+                          {t('workforce.agents.managedBadge')}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p
+                      className={cn(
+                        'mt-1 text-sm font-medium',
+                        agent.is_active === false
+                          ? presenceTextClass('deactivated')
+                          : presenceTextClass(work),
+                      )}
+                    >
+                      {agent.is_active === false
+                        ? presenceLabel('deactivated', t)
+                        : presenceLabel(work, t)}
+                    </p>
+                    {agent.description ? (
+                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
+                        {agent.description}
+                      </p>
+                    ) : null}
+                    {work === 'working' && (view?.current_activity_summary || live?.summary) ? (
+                      workHref ? (
+                        <Link
+                          to={workHref}
+                          className="mt-1.5 block text-sm text-text-secondary hover:text-text-heading"
+                        >
+                          {view?.current_activity_summary || live?.summary}
+                        </Link>
+                      ) : (
+                        <p className="mt-1.5 text-sm text-text-secondary">
+                          {view?.current_activity_summary || live?.summary}
+                        </p>
+                      )
+                    ) : null}
+                    {workHref ? (
+                      <Link
+                        to={workHref}
+                        className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
                       >
-                        {t('workforce.agents.managedBadge')}
-                      </span>
+                        {t('workforce.agents.openCurrentWork')}
+                      </Link>
                     ) : null}
                   </div>
-                  <p
-                    className={cn(
-                      'mt-0.5 text-sm font-medium',
-                      agent.is_active === false
-                        ? presenceTextClass('deactivated')
-                        : presenceTextClass(work),
-                    )}
-                  >
-                    {agent.is_active === false
-                      ? presenceLabel('deactivated', t)
-                      : presenceLabel(work, t)}
-                  </p>
-                  {agent.description ? (
-                    <p className="mt-1.5 max-w-xl text-sm text-text-secondary">{agent.description}</p>
-                  ) : null}
-                  {work === 'working' && (view?.current_activity_summary || live?.summary) ? (
-                    workHref ? (
-                      <Link to={workHref} className="mt-1 block text-sm text-text-secondary hover:text-text-heading">
-                        {view?.current_activity_summary || live?.summary}
-                      </Link>
-                    ) : (
-                      <p className="mt-1 text-sm text-text-secondary">
-                        {view?.current_activity_summary || live?.summary}
-                      </p>
-                    )
-                  ) : null}
-                  {workHref ? (
-                    <Link to={workHref} className="mt-1 inline-block text-xs font-medium text-accent hover:underline">
-                      {t('workforce.agents.openCurrentWork')}
-                    </Link>
+                  {isAdmin ? (
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger asChild>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 text-text-muted"
+                          aria-label={t('workforce.agents.moreActions')}
+                        >
+                          <MoreHorizontal size={16} aria-hidden />
+                        </Button>
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content
+                          align="end"
+                          sideOffset={4}
+                          className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
+                        >
+                          {agent.kind !== 'personal' ? (
+                            <DropdownMenu.Item
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                              onSelect={() => setIdentityOpen(true)}
+                            >
+                              <Pencil size={14} />
+                              {t('workforce.agents.editIdentity')}
+                            </DropdownMenu.Item>
+                          ) : null}
+                          <DropdownMenu.Item
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                            onSelect={() => setDuplicateOpen(true)}
+                          >
+                            <Copy size={14} />
+                            {t('workforce.agents.duplicate')}
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                          {agent.is_active === false ? (
+                            <DropdownMenu.Item
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                              onSelect={() => void handleRestore()}
+                            >
+                              <RotateCcw size={14} />
+                              {t('workforce.agents.restore')}
+                            </DropdownMenu.Item>
+                          ) : (
+                            <DropdownMenu.Item
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                              onSelect={() => setArchiveConfirmOpen(true)}
+                            >
+                              <Archive size={14} />
+                              {t('workforce.agents.archive')}
+                            </DropdownMenu.Item>
+                          )}
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
                   ) : null}
                 </div>
-              </div>
-              {isAdmin && agent.kind !== 'personal' ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7"
-                  onClick={() => setIdentityOpen(true)}
-                >
-                  <Pencil size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.editIdentity')}
-                </Button>
-              ) : null}
-            </div>
-            {agent.is_active === false ? (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-bg-elevated px-3 py-2">
-                <p className="text-sm text-text-secondary">{t('workforce.agents.deactivatedBanner')}</p>
-                {isAdmin ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={archiveBusy}
-                    onClick={() => void handleRestore()}
-                  >
-                    <RotateCcw size={14} className="mr-1.5" />
-                    {t('workforce.agents.restore')}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {isOrchestratorAgent(agent) && linkedProject ? (
-              <p className="mt-2 text-sm text-text-muted">
-                <Link to={`/folders/${linkedProject.id}`} className="font-medium text-accent hover:underline">
-                  {t('workforce.agents.projectLink', { name: linkedProject.name })}
-                </Link>
-              </p>
-            ) : null}
-            {!isAdmin ? (
-              <p className="mt-3 text-xs text-text-muted">{t('workforce.agents.readonlyBanner')}</p>
-            ) : null}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {agent.kind !== 'personal' && agent.is_active !== false ? (
-                <Button type="button" size="sm" variant="outline" asChild>
-                  <Link to={withNavReveal(agentChatPath(agent.id))}>
-                    <MessageSquare size={14} className="mr-1.5" aria-hidden />
-                    {t('workforce.agents.chatWith')}
-                  </Link>
-                </Button>
-              ) : null}
-              <Link
-                to={`/agenda?agent=${agent.id}`}
-                className="text-xs font-medium text-text-muted hover:text-accent hover:underline"
-              >
-                {t('workforce.agents.openAgenda')}
-              </Link>
-              <Link
-                to={withNavReveal(agentChatPath(agent.id, { queue: 'open' }))}
-                className="text-xs font-medium text-text-muted hover:text-accent hover:underline"
-              >
-                {t('workforce.agents.openThreads')}
-              </Link>
-              {isAdmin ? (
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger asChild>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="ml-auto h-8 px-2 text-text-muted"
-                      aria-label={t('workforce.agents.moreActions')}
-                    >
-                      <MoreHorizontal size={16} aria-hidden />
-                    </Button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content
-                      align="end"
-                      sideOffset={4}
-                      className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
-                    >
-                      <DropdownMenu.Item
-                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                        onSelect={() => setDuplicateOpen(true)}
+
+                {agent.is_active === false ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-bg-elevated px-3 py-2">
+                    <p className="text-sm text-text-secondary">
+                      {t('workforce.agents.deactivatedBanner')}
+                    </p>
+                    {isAdmin ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={archiveBusy}
+                        onClick={() => void handleRestore()}
                       >
-                        <Copy size={14} />
-                        {t('workforce.agents.duplicate')}
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                      {agent.is_active === false ? (
-                        <DropdownMenu.Item
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                          onSelect={() => void handleRestore()}
-                        >
-                          <RotateCcw size={14} />
-                          {t('workforce.agents.restore')}
-                        </DropdownMenu.Item>
-                      ) : (
-                        <DropdownMenu.Item
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                          onSelect={() => setArchiveConfirmOpen(true)}
-                        >
-                          <Archive size={14} />
-                          {t('workforce.agents.archive')}
-                        </DropdownMenu.Item>
-                      )}
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
-              ) : null}
+                        <RotateCcw size={14} className="mr-1.5" />
+                        {t('workforce.agents.restore')}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+                {isOrchestratorAgent(agent) && linkedProject ? (
+                  <p className="mt-3 text-sm text-text-muted">
+                    <Link
+                      to={`/folders/${linkedProject.id}`}
+                      className="font-medium text-accent hover:underline"
+                    >
+                      {t('workforce.agents.projectLink', { name: linkedProject.name })}
+                    </Link>
+                  </p>
+                ) : null}
+                {!isAdmin ? (
+                  <p className="mt-3 text-xs text-text-muted">
+                    {t('workforce.agents.readonlyBanner')}
+                  </p>
+                ) : null}
+
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/50 pt-4">
+                  {agent.kind !== 'personal' && agent.is_active !== false ? (
+                    <Button type="button" size="sm" variant="outline" asChild>
+                      <Link to={withNavReveal(agentChatPath(agent.id))}>
+                        <MessageSquare size={14} className="mr-1.5" aria-hidden />
+                        {t('workforce.agents.chatWith')}
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Link
+                    to={`/agenda?agent=${agent.id}`}
+                    className="inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading"
+                  >
+                    {t('workforce.agents.openAgenda')}
+                  </Link>
+                  <Link
+                    to={withNavReveal(agentChatPath(agent.id, { queue: 'open' }))}
+                    className="inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading"
+                  >
+                    {t('workforce.agents.openThreads')}
+                  </Link>
+                </div>
+              </div>
             </div>
             {archiveConfirmOpen && agent.is_active !== false ? (
               <div className="mt-3 rounded-lg border border-status-error/30 bg-status-error/5 px-3 py-2">

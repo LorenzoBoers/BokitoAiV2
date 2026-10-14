@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { NavLink, useLocation, useParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { FolderNavTree } from '../folders/FolderNavTree'
-import { FolderOpen } from 'lucide-react'
 import { SearchField } from '../ui/search-field'
 import { filtersetPlainLabel } from '../../lib/folder-filter-tree'
 import { onFoldersChanged } from '../../lib/folders-bus'
@@ -50,7 +49,7 @@ function filterProjects(projects: ProjectRow[], query: string): ProjectRow[] {
   return projects.filter((project) => matched.has(project.id))
 }
 
-/** Folder tree beside /folders — search + whole-row drag to nest or reorder. */
+/** Folder tree beside /folders — search + whole-row drag (no section chrome). */
 export default function ProjectsFolderNav({ className }: { className?: string }) {
   const { t } = useTranslation('nav')
   const { pathname } = useLocation()
@@ -118,22 +117,14 @@ export default function ProjectsFolderNav({ className }: { className?: string })
   }))
 
   return (
-    <nav className={cn('flex min-h-0 flex-col', className)} aria-label={t('projects.page.folderNav')}>
-      <NavLink
-        to="/folders"
-        end
-        className="nav-row mb-1 h-[26px] shrink-0 text-xs font-medium text-text-heading"
-      >
-        <FolderOpen size={16} className="shrink-0 text-text-muted" aria-hidden />
-        <span className="min-w-0 flex-1 truncate-fade">{t('tabs.folders.title')}</span>
-      </NavLink>
+    <nav className={cn('flex min-h-0 flex-col gap-1', className)} aria-label={t('projects.page.folderNav')}>
       <SearchField
         value={query}
         onChange={setQuery}
         size="sm"
         placeholder={t('projects.page.searchPlaceholder')}
         aria-label={t('projects.page.searchPlaceholder')}
-        className="mb-1 shrink-0"
+        className="shrink-0"
       />
       <ScrollFade className="min-h-0 flex-1">
         <FolderNavTree

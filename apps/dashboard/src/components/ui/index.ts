@@ -8,6 +8,7 @@
 export { Card, CardHeader, CardHeaderActions, CardTitle, CardDescription, CardContent } from './card'
 export { InsetPanel } from './inset-panel'
 export { SectionHeading } from './section-heading'
+export { SectionLabel } from './section-label'
 export { SettingsSection } from '../layout/SettingsSection'
 
 // Controls

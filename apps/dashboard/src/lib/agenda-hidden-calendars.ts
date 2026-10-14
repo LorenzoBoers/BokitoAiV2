@@ -1,4 +1,7 @@
-/** Sub-calendars hidden on Agenda, kept across reloads (`connectionId|calendarId`). */
+/** Calendars hidden on Agenda, kept across reloads.
+
+Keys are tenant calendar UUIDs, or legacy ``connectionId|externalId``.
+*/
 
 const STORAGE_KEY = 'bokito.agenda.hiddenCalendars'
 
@@ -6,12 +9,16 @@ export function hiddenCalendarKey(connectionId: string, calendarId: string): str
   return `${connectionId}|${calendarId}`
 }
 
+export function isHiddenCalendarKey(value: string): boolean {
+  return value.includes('|') || /^[0-9a-f-]{36}$/i.test(value)
+}
+
 export function readHiddenCalendars(): Set<string> {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY)
     const parsed: unknown = raw ? JSON.parse(raw) : []
     if (!Array.isArray(parsed)) return new Set()
-    return new Set(parsed.filter((value): value is string => typeof value === 'string' && value.includes('|')))
+    return new Set(parsed.filter((value): value is string => typeof value === 'string' && isHiddenCalendarKey(value)))
   } catch {
     return new Set()
   }

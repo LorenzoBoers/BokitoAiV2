@@ -331,6 +331,10 @@ async def signal_chat_history(
             meta = json.loads(m.metadata_json or "{}")
         except json.JSONDecodeError:
             meta = {}
+        if isinstance(meta, dict) and meta.get("decision_outcome_hint"):
+            # Already a full [System] hint written at resolve time.
+            history.append({"role": "user", "content": body})
+            continue
         if isinstance(meta, dict) and meta.get("decision_response"):
             act = str(meta.get("decision_action") or "approve").lower()
             if act in ("reject", "rejected"):
@@ -389,11 +393,12 @@ async def signal_chat_history(
             intro = (
                 "[Context] The teammate brought you into this customer "
                 "conversation. Use it to ground your answers, and act on it "
-                "when that helps: look things up, propose the next reply with "
-                "suggest_thread_reply (the teammate approves it), or continue "
-                "with the contact yourself via take_over_conversation. Offer "
-                "a draft when a reply is clearly what they need. Your own "
-                "messages here stay internal.\n"
+                "when that helps: look things up; propose the next customer "
+                "reply with suggest_thread_reply (teammate approves); leave a "
+                "team-only observation with post_internal_note (never as a "
+                "draft); or continue with the contact yourself via "
+                "take_over_conversation. Your chat here stays internal — do "
+                "not use suggest_thread_reply for notes meant only for the team.\n"
             )
             if signal.session_state == "active":
                 intro += (
@@ -404,10 +409,16 @@ async def signal_chat_history(
                     "Answer directly and briefly (one or two short messages); "
                     "when a reply to the contact is the obvious next step, "
                     "draft it with suggest_thread_reply right away instead of "
-                    "asking whether you should. When the work is done, call "
-                    "propose_session_checkout with a short summary of what you "
-                    "did and what you recommend — that closes the session. Do "
-                    "not ask the teammate to close it.\n"
+                    "asking whether you should. When you only need to leave "
+                    "context for colleagues, call post_internal_note with no "
+                    "signal_id (never pass this session's id). If the teammate "
+                    "only asked for a team note — especially on noreply or "
+                    "system mail — post the note and confirm briefly; do not "
+                    "also offer a customer draft. Never narrate tool errors; "
+                    "retry correctly in the same turn. When the work is done, "
+                    "call propose_session_checkout with a short summary of "
+                    "what you did and what you recommend — that closes the "
+                    "session. Do not ask the teammate to close it.\n"
                 )
             remaining = [
                 {"role": "user", "content": intro + transcript},

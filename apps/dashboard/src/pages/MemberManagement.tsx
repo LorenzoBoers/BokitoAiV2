@@ -2,9 +2,8 @@ import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Trash2, UserMinus } from 'lucide-react'
-import { AiAvatar } from '../components/ui/AiAvatar'
+import { AgentMark } from '../components/ui/AgentMark'
 import { UserAvatar } from '../components/ui/UserAvatar'
-import { toAiAvatarProps } from '../lib/agent-avatar'
 import {
   type OverviewAgent,
   type PresenceStatus,
@@ -883,12 +882,15 @@ export default function MemberManagement({
                 return (
                   <TableRow key={`a-${agent.id}`}>
                     <TableCell>
-                      <Link to={`/agents/${agent.id}`} className="flex items-center gap-2 hover:underline">
-                        <AiAvatar
-                          {...toAiAvatarProps(agent)}
-                          size={26}
+                      <Link
+                        to={`/agents/${agent.id}`}
+                        className="flex items-center gap-2.5 overflow-visible hover:underline"
+                      >
+                        <AgentMark
+                          agent={agent}
+                          size={32}
+                          className="shrink-0 overflow-visible"
                           activity={deactivated ? undefined : agentStatus}
-                          decorative
                         />
                         <span className="font-medium text-text-primary">{agent.name}</span>
                       </Link>

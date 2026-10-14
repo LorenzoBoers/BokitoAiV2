@@ -9,12 +9,14 @@ import {
   type LiveTurn,
 } from '../../lib/agentActivity'
 import type { BubbleStack } from '../../lib/chat-layout'
+import { splitChatMessages } from '../../lib/chatMessages'
 import type { ProposalItem } from '../../lib/inbox-api'
 import {
   inferMarketplaceItems,
   itemsFromAttachResult,
   mergeShowcaseItems,
 } from '../../lib/marketplace-mentions'
+import { cn } from '../../lib/utils'
 import { AiAvatar } from '../ui/AiAvatar'
 import ActivityTrail, { ActivityIcon } from './ActivityTrail'
 import { THREAD_GUTTER, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
@@ -53,6 +55,7 @@ function LiveBubble({
   header,
   avatar,
   items,
+  enterClass,
 }: {
   text: string
   writing: boolean
@@ -60,6 +63,8 @@ function LiveBubble({
   header: ReactNode
   avatar: ReactNode
   items?: ProposalItem[]
+  /** First growing bubble fades in; later segments pop in as they open. */
+  enterClass: string
 }) {
   const { t } = useTranslation('communication')
   const lead = stack === 'single' || stack === 'start'
@@ -69,10 +74,10 @@ function LiveBubble({
     if (wasWriting.current && !writing && text) setConfirm(true)
     wasWriting.current = writing
   }, [text, writing])
-  // Enter once, like a sent user bubble. Confirm is a ring only — no scale,
-  // so the timeline height stays still when the reveal finishes.
+  // Confirm is a ring only — no scale, so the timeline height stays still
+  // when the reveal finishes.
   return (
-    <div className="msg-bubble-enter-live flex items-start gap-2">
+    <div className={cn(enterClass, 'flex items-start gap-2')}>
       <span className={THREAD_GUTTER}>{lead ? avatar : null}</span>
       <ChatBubbleShell
         side="left"
@@ -102,7 +107,11 @@ function LiveBubble({
   )
 }
 
-/** One speech segment. Live stays a single bubble so the timeline does not jump. */
+/**
+ * One speech segment. Reveal uses the same blank-line split as persist, so
+ * finished paragraphs become settled bubbles while the last one keeps typing —
+ * no sudden re-partition when the turn is saved.
+ */
 function LiveSpeech({
   text,
   holdReserve,
@@ -133,17 +142,33 @@ function LiveSpeech({
     onRevealed?.(caughtUp)
   }, [caughtUp, onRevealed])
   const writing = smooth.length < text.length
-  const items = mergeShowcaseItems(attached, writing ? [] : inferMarketplaceItems(smooth))
-  if (!smooth && !items.length && !(writing || holdReserve)) return null
+  const parts = splitChatMessages(smooth)
+  const items = mergeShowcaseItems(
+    attached,
+    writing || !caughtUp ? [] : inferMarketplaceItems(smooth),
+  )
+  const bubbles =
+    parts.length > 0 ? parts : writing || holdReserve || items.length ? [''] : []
+  if (!bubbles.length) return null
   return (
-    <LiveBubble
-      text={smooth}
-      writing={writing || (!smooth && holdReserve)}
-      stack={stackFor(leads, closes)}
-      header={header}
-      avatar={avatar}
-      items={items}
-    />
+    <>
+      {bubbles.map((part, index) => {
+        const isLast = index === bubbles.length - 1
+        const partWriting = isLast && (writing || (!smooth && holdReserve))
+        return (
+          <LiveBubble
+            key={index}
+            text={part}
+            writing={partWriting}
+            stack={stackFor(leads && index === 0, closes && isLast)}
+            header={leads && index === 0 ? header : null}
+            avatar={avatar}
+            items={isLast ? items : undefined}
+            enterClass={index === 0 ? 'msg-bubble-enter-live' : 'bubble-pop-enter'}
+          />
+        )
+      })}
+    </>
   )
 }
 

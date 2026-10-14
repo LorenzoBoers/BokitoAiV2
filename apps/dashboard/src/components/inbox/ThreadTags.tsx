@@ -87,7 +87,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             onClick={() => setOpen(true)}
             aria-label={t('tags.add')}
             title={t('tags.add')}
-            className="tag-pill inline-flex h-7 items-center justify-center rounded-lg border border-white/[0.07] bg-gradient-to-b from-white/[0.07] to-white/[0.02] px-1.5 text-text-secondary transition-colors hover:border-white/12 hover:from-white/[0.1] disabled:opacity-40"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-bg-surface text-text-secondary ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-elevated hover:text-text-heading disabled:opacity-40"
           >
             <Plus size={12} />
           </button>

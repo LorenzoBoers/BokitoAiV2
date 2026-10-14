@@ -35,6 +35,7 @@ import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ModelIcon } from '../ui/ModelIcon'
+import { SectionLabel } from '../ui/section-label'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { ConversationWorkSection } from './ConversationWorkSection'
 import { AgentActiveLine } from './IdentitySeenLine'
@@ -52,12 +53,6 @@ type Props = {
   agent: RuntimeAgent | null
   onThreadUpdated?: () => void
   closeAction?: ReactNode
-}
-
-function SectionHeading({ title }: { title: string }) {
-  return (
-    <h3 className="mb-2 text-xs font-semibold text-text-muted">{title}</h3>
-  )
 }
 
 function DisclosureRow({
@@ -321,7 +316,10 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
 
       {/* Recent conversations */}
       <div className="px-4 py-3">
-        <SectionHeading title={t('agentContext.recentConversations')} />
+        <SectionLabel
+          title={t('agentContext.recentConversations')}
+          headerClassName="-mx-1 mb-1"
+        />
         {recent.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 px-3 py-3">
             <p className="text-xs text-text-muted">{t('agentContext.noOtherConversations')}</p>

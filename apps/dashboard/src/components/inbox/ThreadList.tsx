@@ -51,6 +51,8 @@ type Props = {
   onAssigneeFilter?: (id: number | null) => void
   priorityFilter?: string | null
   onPriorityFilter?: (value: string | null) => void
+  dateFilter?: string | null
+  onDateFilter?: (value: string | null) => void
   /** Visible scope when the list is filtered by project. */
   scopeLabel?: string | null
   onClearScope?: () => void
@@ -107,6 +109,8 @@ export default function ThreadList({
   onAssigneeFilter,
   priorityFilter = null,
   onPriorityFilter,
+  dateFilter = null,
+  onDateFilter,
   scopeLabel = null,
   onClearScope,
   banner = null,
@@ -331,6 +335,8 @@ export default function ThreadList({
           members={members}
           priorityFilter={variant === 'customer' ? priorityFilter : undefined}
           onPriorityFilter={variant === 'customer' ? onPriorityFilter : undefined}
+          dateFilter={variant === 'customer' ? dateFilter : undefined}
+          onDateFilter={variant === 'customer' ? onDateFilter : undefined}
         />
       )}
 

@@ -14,6 +14,10 @@ type PillVisual = {
   className?: string
 }
 
+/**
+ * Soft fill, no border, rounded-md — same family as Badge / FilterChip.
+ * Never a glass capsule.
+ */
 function pillClassName({
   tone = 'free',
   selected = false,
@@ -25,24 +29,25 @@ function pillClassName({
   const isAction = tone === 'action'
   const isInherited = tone === 'inherited'
   return cn(
-    'tag-pill group/pill inline-flex max-w-full items-center font-medium leading-none tracking-tight transition-[border-color,background-color,box-shadow,transform,opacity] duration-150',
+    'tag-pill group/pill inline-flex max-w-full items-center font-medium leading-none transition-colors duration-150',
     size === 'sm' && 'h-6 gap-1 rounded-md px-1.5 text-2xs',
-    size === 'md' && 'h-7 gap-1.5 rounded-lg px-2 text-xs',
-    size === 'lg' && 'h-9 gap-2 rounded-xl px-3 text-sm',
-    isAction
-      ? 'border border-accent/30 bg-gradient-to-b from-accent/16 to-accent/[0.07] text-text-heading'
-      : isInherited
-        ? 'border border-dashed border-border/60 bg-transparent text-text-muted'
-        : 'border border-white/[0.07] bg-gradient-to-b from-white/[0.07] to-white/[0.02] text-text-heading shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-    selected &&
-      !applied &&
-      'border-accent/50 from-accent/20 to-accent/10 shadow-[0_0_0_1px_rgba(52,211,153,0.18)]',
+    size === 'md' && 'h-7 gap-1 rounded-md px-2 text-xs',
+    size === 'lg' && 'h-8 gap-1.5 rounded-md px-2.5 text-sm',
+    isInherited
+      ? 'bg-transparent text-text-muted'
+      : isAction
+        ? 'bg-accent/12 text-text-heading'
+        : // Surface (white in light) — not gray hover fill; hairline for edge on paper.
+          'bg-bg-surface text-text-heading ring-1 ring-inset ring-border/50',
+    selected && !applied && !isInherited && 'bg-accent/16 text-text-heading ring-accent/25',
     !applied &&
       !selected &&
       interactive &&
       (isAction
-        ? 'hover:border-accent/50 hover:from-accent/22 hover:to-accent/10'
-        : 'hover:border-white/12 hover:from-white/[0.1] hover:to-white/[0.04]'),
+        ? 'hover:bg-accent/18'
+        : isInherited
+          ? 'hover:bg-bg-surface/80 hover:text-text-secondary'
+          : 'hover:bg-bg-elevated hover:text-text-heading'),
     applied && 'opacity-40',
     className,
   )
@@ -83,8 +88,8 @@ function PillLabel({
 }
 
 /**
- * Platform tag chip. Soft glass + typographic inline `#name` (coloured `#`,
- * spaced from the label). Multi-tag sets: `#a · #b`.
+ * Platform tag chip. Soft fill like Badge/FilterChip; typographic `#name`.
+ * Multi-tag sets: `#a · #b`.
  */
 export function TagPill({
   names,
@@ -152,7 +157,7 @@ export function TagPill({
           onClick={onRemove}
           aria-label={removeLabel ?? 'Remove'}
           className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-md text-text-muted/80 transition-[opacity,background-color,color] hover:bg-white/10 hover:text-text-primary focus-visible:opacity-100 disabled:opacity-40',
+            'inline-flex shrink-0 items-center justify-center rounded-md text-text-muted/80 transition-[opacity,background-color,color] hover:bg-bg-hover hover:text-text-primary focus-visible:opacity-100 disabled:opacity-40',
             size === 'lg' ? 'h-7 w-7 -mr-1' : size === 'sm' ? 'h-5 w-5 -mr-0.5' : 'h-6 w-6 -mr-0.5',
             removeAlwaysVisible
               ? 'opacity-100'
@@ -182,10 +187,10 @@ export function TagPillInline({
   return (
     <a
       className={cn(
-        'tag-pill tag-pill--inline inline-flex items-center gap-1 rounded-md border px-1.5 py-px text-[0.92em] font-medium leading-none no-underline transition-colors',
+        'tag-pill tag-pill--inline inline-flex items-center gap-1 rounded-md px-1.5 py-px text-[0.92em] font-medium leading-none no-underline transition-colors',
         action
-          ? 'border-accent/30 bg-accent/10 text-text-heading hover:border-accent/50 hover:bg-accent/15'
-          : 'border-white/[0.08] bg-white/[0.05] text-text-heading hover:border-white/14 hover:bg-white/[0.08]',
+          ? 'bg-accent/12 text-text-heading hover:bg-accent/18'
+          : 'bg-bg-surface text-text-heading ring-1 ring-inset ring-border/50 hover:bg-bg-elevated',
         className,
       )}
       data-tag-tone={action ? 'action' : 'free'}

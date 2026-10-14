@@ -11,6 +11,30 @@ export type CalendarInfo = {
   primary: boolean
   writable: boolean
   enabled: boolean
+  /** Workspace calendar row when synced into the tenant. */
+  tenant_calendar_id?: string | null
+}
+
+export type CalendarTag = { id: string; name: string }
+
+/** First-class workspace calendar (sync, tags, access). */
+export type TenantCalendar = {
+  id: string
+  connection_id: string
+  external_id: string
+  name: string
+  color: string
+  primary: boolean
+  writable: boolean
+  sync_enabled: boolean
+  provider?: string | null
+  account?: string
+  display_name?: string
+  tags: CalendarTag[]
+  access?: Array<{ kind: string; id: string; level: string }>
+  access_is_default?: boolean
+  access_level?: 'use' | 'manage'
+  can_manage?: boolean
 }
 
 export type CalendarSyncStatus = 'ok' | 'idle' | 'error' | 'reconnect'
@@ -53,6 +77,49 @@ export async function listCalendarConnections(): Promise<CalendarConnection[]> {
     integrationsRoutes.platform.calendars.connections,
   )
   return data.connections ?? []
+}
+
+export async function listTenantCalendars(): Promise<TenantCalendar[]> {
+  const data = await apiGet<{ calendars: TenantCalendar[] }>(integrationsRoutes.platform.calendars.list)
+  return data.calendars ?? []
+}
+
+export async function patchTenantCalendar(
+  calendarId: string,
+  input: { sync_enabled?: boolean },
+): Promise<{ calendar: TenantCalendar | null }> {
+  return apiPatch(integrationsRoutes.platform.calendars.byId(calendarId), input)
+}
+
+export async function getCalendarAccess(calendarId: string): Promise<{
+  entries: Array<{ kind: string; id: string; level: string }>
+  is_default: boolean
+}> {
+  return apiGet(integrationsRoutes.platform.calendars.access(calendarId))
+}
+
+export async function setCalendarAccess(
+  calendarId: string,
+  entries: Array<{ kind: string; id: string; level: string }> | null,
+): Promise<{
+  entries: Array<{ kind: string; id: string; level: string }>
+  is_default: boolean
+}> {
+  if (entries == null) {
+    return apiPut(integrationsRoutes.platform.calendars.access(calendarId), { reset: true })
+  }
+  return apiPut(integrationsRoutes.platform.calendars.access(calendarId), { entries })
+}
+
+export async function setCalendarTags(
+  calendarId: string,
+  tags: string[],
+): Promise<CalendarTag[]> {
+  const data = await apiPut<{ tags: CalendarTag[] }>(
+    integrationsRoutes.platform.calendars.tags(calendarId),
+    { tags },
+  )
+  return data.tags ?? []
 }
 
 export type CalendarSyncResult = {

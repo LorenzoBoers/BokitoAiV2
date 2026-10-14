@@ -71,11 +71,12 @@ function optionLabel(option: DecisionOption, t: (key: string) => string): string
 
 /**
  * The buttons of an agent proposal, under the agent's bubble. Once answered
- * the options stay visible as static chips; the chosen label is a user bubble.
+ * the options stay visible as static chips with who resolved on the cloud.
  */
 export function ProposalActions({
   proposal,
   threadId,
+  membersById,
   onResolved,
   onAnswer,
   picked,
@@ -84,6 +85,7 @@ export function ProposalActions({
 }: {
   proposal: MessageProposal
   threadId: ThreadId
+  membersById?: Record<number, import('../../lib/inbox-api').InboxMember>
   onResolved?: (info?: DecisionResolvedInfo) => void
   onAnswer?: (answer: { text: string; decisionId: string } | null) => void
   picked?: string[]
@@ -156,12 +158,20 @@ export function ProposalActions({
             : proposal.chosenOptionId
               ? [proposal.chosenOptionId]
               : []
+    const resolveStatus =
+      status === 'approved' || status === 'rejected' ? status : 'mixed'
+    const resolverMember = membersById
+      ? Object.values(membersById).find((m) => m.uuid === proposal.resolvedByUserId) ?? null
+      : null
     return (
       <ProposalChoiceRest
         options={options}
         chosenIds={chosenIds}
         replaced={status === 'deferred' && (chosenIds[0] ?? '') === 'superseded'}
         missing={status === 'missing'}
+        resolvedStatus={resolveStatus}
+        resolvedByName={proposal.resolvedBy}
+        resolvedByMember={resolverMember}
       />
     )
   }

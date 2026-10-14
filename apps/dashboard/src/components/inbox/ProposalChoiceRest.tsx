@@ -4,6 +4,7 @@ import {
   type DecisionOption,
 } from '../../lib/decision-options'
 import { cn } from '../../lib/utils'
+import { DecisionResolvedBy } from './DecisionResolvedBy'
 
 export function displayDecisionOptionLabel(
   option: DecisionOption,
@@ -27,19 +28,25 @@ export function labelsForChosenOptions(
 
 /**
  * After a choice, the options stay in the agent cloud as static chips.
- * Buttons are gone; the chosen label(s) also land in a user bubble.
+ * Who resolved is shown on the cloud (not as a separate user bubble).
  */
 export function ProposalChoiceRest({
   options,
   chosenIds,
   replaced = false,
   missing = false,
+  resolvedStatus,
+  resolvedByName,
+  resolvedByMember,
   className,
 }: {
   options: DecisionOption[]
   chosenIds: string[]
   replaced?: boolean
   missing?: boolean
+  resolvedStatus?: 'approved' | 'rejected' | 'mixed' | string | null
+  resolvedByName?: string | null
+  resolvedByMember?: import('../../lib/inbox-api').InboxMember | null
   className?: string
 }) {
   const { t } = useTranslation('communication')
@@ -74,6 +81,13 @@ export function ProposalChoiceRest({
             )
           })}
         </div>
+      ) : null}
+      {resolvedByName || resolvedByMember ? (
+        <DecisionResolvedBy
+          status={resolvedStatus || 'mixed'}
+          name={resolvedByName}
+          member={resolvedByMember}
+        />
       ) : null}
     </div>
   )

@@ -89,6 +89,16 @@ describe('mergeHubThreadFilters', () => {
     expect(merged.agentId).toBe('a-9')
     expect(merged.needsDecision).toBe(true)
   })
+
+  it('passes priority and activity from the toolbar', () => {
+    const merged = mergeHubThreadFilters(
+      { folder: 'inbox', view: 'all_open' },
+      { priority: 'high', activity: '7d', assigneeId: 3 },
+    )
+    expect(merged.priority).toBe('high')
+    expect(merged.activity).toBe('7d')
+    expect(merged.assigneeId).toBe(3)
+  })
 })
 
 describe('threadFitsChannelLeaf', () => {

@@ -375,6 +375,8 @@ async def list_time_items(
     scheduled_only: bool = False,
     project_id: UUID | None = None,
     connection_ids: Iterable[str] | None = None,
+    calendar_ids: Iterable[str] | None = None,
+    calendar_tags: Iterable[str] | None = None,
     viewer: Any = None,
     tag: str | None = None,
     path: str | None = None,
@@ -386,10 +388,12 @@ async def list_time_items(
     on-demand work such as email replies stays on the activity timeline.
     ``project_id`` keeps items tied to that project's conversations or runs.
     ``tag`` and ``path`` keep items whose conversation carries that tag (own or inherited).
-    ``connection_ids`` limits calendar events to those connections (None = all).
+    ``calendar_ids`` limits calendar events to those tenant calendars (None = all visible).
+    ``connection_ids`` is a legacy filter on connection id (None = all).
+    ``calendar_tags`` keeps calendars that carry any of those hashtags.
     ``user_id`` keeps activity and decisions for that person before the cap,
     so Who = you does not lose their older events in the window.
-    ``viewer`` (a ``CalendarViewer``) limits calendar events to connections
+    ``viewer`` (a ``CalendarViewer``) limits calendar events to calendars
     that person or agent may use; None is system code and sees all.
     """
     from app.services.triggers import _planned_occurrences
@@ -399,7 +403,16 @@ async def list_time_items(
     if raw_sources and "follow_up" in raw_sources:
         raw_sources = (raw_sources - {"follow_up"}) | {"task"}
     wanted = TIME_KINDS & raw_sources if raw_sources else set(DEFAULT_KINDS)
-    calendar_filter = {str(x) for x in connection_ids} if connection_ids is not None else None
+    connection_filter = {str(x) for x in connection_ids} if connection_ids is not None else None
+    tc_filter: list[UUID] | None = None
+    if calendar_ids is not None:
+        tc_filter = []
+        for raw in calendar_ids:
+            try:
+                tc_filter.append(UUID(str(raw)))
+            except ValueError:
+                continue
+    tag_filter = [str(x) for x in calendar_tags] if calendar_tags is not None else None
     now = datetime.utcnow()
 
     agents = (await session.execute(select(Agent).where(Agent.tenant_id == tenant_id))).scalars().all()
@@ -565,10 +578,16 @@ async def list_time_items(
         from app.services.calendar_sync import calendar_events_in_window
 
         events = await calendar_events_in_window(
-            session, tenant_id, start=start, end=end, viewer=viewer
+            session,
+            tenant_id,
+            start=start,
+            end=end,
+            viewer=viewer,
+            calendar_ids=tc_filter,
+            tag_names=tag_filter,
         )
-        if calendar_filter is not None:
-            events = [e for e in events if str(e.get("connection_id") or "") in calendar_filter]
+        if connection_filter is not None:
+            events = [e for e in events if str(e.get("connection_id") or "") in connection_filter]
         for event in merge_calendar_events(events):
             row = _row(
                 id=event["id"],
@@ -586,6 +605,7 @@ async def list_time_items(
                 "provider",
                 "provider_label",
                 "calendar_id",
+                "tenant_calendar_id",
                 "calendar_name",
                 "calendar_color",
                 "calendars",

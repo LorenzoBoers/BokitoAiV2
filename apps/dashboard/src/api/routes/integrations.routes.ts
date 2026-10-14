@@ -41,6 +41,10 @@ export const integrationsRoutes = {
     moduleTagTemplateInstall: (slug: string, templateSlug: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/tag-templates/${encodeURIComponent(templateSlug)}/install`,
     calendars: {
+      list: '/calendars',
+      byId: (calendarId: string) => `/calendars/${encodeURIComponent(calendarId)}`,
+      access: (calendarId: string) => `/calendars/${encodeURIComponent(calendarId)}/access`,
+      tags: (calendarId: string) => `/calendars/${encodeURIComponent(calendarId)}/tags`,
       connections: '/calendars/connections',
       syncAll: '/calendars/sync',
       syncOne: (connectionId: string) =>

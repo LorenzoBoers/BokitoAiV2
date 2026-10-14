@@ -198,7 +198,8 @@ async def test_resolve_bundle_approve_all(client: AsyncClient, session_override)
         ).scalar_one_or_none()
         assert row is not None, name
 
-    bubbles = (
+    # Outcome lives on the decision cloud — no Goedgekeurd/Afgewezen user bubble.
+    user_bubbles = (
         await session_override.execute(
             select(SignalMessage).where(
                 SignalMessage.signal_id == signal.id,
@@ -206,10 +207,13 @@ async def test_resolve_bundle_approve_all(client: AsyncClient, session_override)
             )
         )
     ).scalars().all()
-    assert len(bubbles) == 1
-    text = bubbles[0].body_text or ""
-    assert "Create tag" in text or "Hashtag" in text
-    assert all(name in text for name in names)
+    assert not any(
+        "decision_response" in (m.metadata_json or "") for m in user_bubbles
+    )
+    for d in decisions:
+        await session_override.refresh(d)
+        assert d.status == "approved"
+        assert d.resolved_by_user_id is not None
 
 
 @pytest.mark.asyncio

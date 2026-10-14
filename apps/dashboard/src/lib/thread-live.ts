@@ -110,6 +110,22 @@ export function threadMatchesFilters(
   }
   if (filters.assigneeId != null && thread.assignedToUserId !== filters.assigneeId) return false
   if (filters.priority && thread.priority !== filters.priority) return false
+  if (filters.activity) {
+    if (!thread.lastMessageAt) return false
+    const at = new Date(thread.lastMessageAt).getTime()
+    if (!Number.isFinite(at)) return false
+    const now = Date.now()
+    let cutoff = now
+    if (filters.activity === 'today') {
+      const start = new Date()
+      start.setUTCHours(0, 0, 0, 0)
+      cutoff = start.getTime()
+    } else if (filters.activity === '7d') cutoff = now - 7 * 86_400_000
+    else if (filters.activity === '30d') cutoff = now - 30 * 86_400_000
+    else if (filters.activity === '90d') cutoff = now - 90 * 86_400_000
+    else return false
+    if (at < cutoff) return false
+  }
   if (
     filters.connectionId != null &&
     filters.connectionId > 0 &&

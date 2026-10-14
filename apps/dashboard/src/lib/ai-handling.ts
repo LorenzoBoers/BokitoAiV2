@@ -7,9 +7,10 @@ import { AssistedModeIcon, AutonomousModeIcon } from './ai-handling-icons'
  * (workspace, channel, contact, conversation). The most specific layer wins;
  * Govern, privacy and the channel breaker cap the result.
  *
- * Autonomous and assisted are AI work and render violet; manual renders gray.
+ * Autonomous and assisted are AI work and render violet; manual uses the
+ * paper surface (card fill), not a heavy grey slab.
  * Icons: Autonomous = A in circular arrows (violet); Assisted = grey+violet
- * handshake; Manual = grey Hand.
+ * handshake; Manual = Hand on surface.
  */
 export type AiHandlingMode = 'autonomous' | 'assisted' | 'manual'
 export type AiHandlingScope = 'workspace' | 'channel' | 'contact' | 'conversation'
@@ -42,8 +43,9 @@ export const AI_HANDLING_META: Record<AiHandlingMode, ModeMeta> = {
   manual: {
     icon: Hand,
     tone: 'muted',
-    iconClass: 'text-text-muted',
-    surfaceClass: 'border-border bg-bg-elevated text-text-secondary',
+    iconClass: 'text-text-secondary',
+    // Same paper as cards — hairline only, no grey elevated fill.
+    surfaceClass: 'border-border/50 bg-bg-surface text-text-secondary',
   },
 }
 

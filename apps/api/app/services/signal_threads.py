@@ -46,6 +46,22 @@ from app.models.signal import (
 logger = logging.getLogger(__name__)
 
 
+# Presets for the Communication list date filter (`activity=` / URL `date=`).
+_ACTIVITY_PRESETS = frozenset({"today", "7d", "30d", "90d"})
+
+
+def _activity_cutoff(preset: str) -> datetime | None:
+    """Lower bound for ``Signal.last_message_at`` from a date-filter preset."""
+    key = (preset or "").strip().lower()
+    if key not in _ACTIVITY_PRESETS:
+        return None
+    now = datetime.utcnow()
+    if key == "today":
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+    days = {"7d": 7, "30d": 30, "90d": 90}[key]
+    return now - timedelta(days=days)
+
+
 def _iso(value: datetime | None) -> str | None:
     """Naive datetimes are stored as UTC; mark them as such so browsers do not
     parse them as local time (which shifted every timestamp by the UTC offset)."""
@@ -437,6 +453,9 @@ def bundle_entry_payload(decision: DecisionRequest, *, card_message_id: str | No
         "status": decision.status,
         "chosen_option_id": decision.chosen_option_id,
         "resolved_at": _iso(decision.resolved_at),
+        "resolved_by_user_id": (
+            str(decision.resolved_by_user_id) if decision.resolved_by_user_id else None
+        ),
         "approve_option_id": approve.get("id") if approve else "approve",
         "reject_option_id": reject.get("id") if reject else "reject",
         "action_type": action_type,
@@ -461,6 +480,8 @@ def proposal_payload(
     decision: DecisionRequest | None,
     *,
     resolved_by_name: str | None = None,
+    resolved_by_user_id: UUID | None = None,
+    resolver_names: dict[UUID, str] | None = None,
     bundle_decisions: list[DecisionRequest] | None = None,
 ) -> dict[str, Any]:
     """The proposal an agent bubble carries: its decision's live state plus the
@@ -480,6 +501,7 @@ def proposal_payload(
     bundle_meta = proposal_meta.get("bundle") if isinstance(proposal_meta.get("bundle"), list) else []
     if bundle_meta:
         by_id = {str(d.id): d for d in bundle_decisions or []}
+        names = resolver_names or {}
         rows: list[dict[str, Any]] = []
         for row in bundle_meta:
             if not isinstance(row, dict) or not row.get("decision_id"):
@@ -488,7 +510,10 @@ def proposal_payload(
             if found is None:
                 rows.append({"decision_id": str(row["decision_id"]), "status": "missing"})
             else:
-                rows.append(bundle_entry_payload(found, card_message_id=row.get("card_message_id")))
+                entry = bundle_entry_payload(found, card_message_id=row.get("card_message_id"))
+                if found.resolved_by_user_id:
+                    entry["resolved_by"] = names.get(found.resolved_by_user_id)
+                rows.append(entry)
         out["bundle"] = rows
         if proposal_meta.get("bundle_id"):
             out["bundle_id"] = str(proposal_meta["bundle_id"])
@@ -501,6 +526,7 @@ def proposal_payload(
     # Multi-select stores ids as "a,b,c" in chosen_option_id.
     raw_chosen = str(decision.chosen_option_id or "")
     chosen_ids = [part for part in raw_chosen.split(",") if part] if raw_chosen else []
+    resolver_id = resolved_by_user_id or decision.resolved_by_user_id
     out.update(
         {
             "status": decision.status,
@@ -512,6 +538,7 @@ def proposal_payload(
             "chosen_option_ids": chosen_ids,
             "resolved_at": _iso(decision.resolved_at),
             "resolved_by": resolved_by_name,
+            "resolved_by_user_id": str(resolver_id) if resolver_id else None,
             "addressee": addressee_payload(decision),
         }
     )
@@ -527,6 +554,7 @@ def serialize_message(
     channel: str | None = None,
     proposal_decision: DecisionRequest | None = None,
     proposal_resolved_by: str | None = None,
+    proposal_resolver_names: dict[UUID, str] | None = None,
     bundle_decisions: list[DecisionRequest] | None = None,
 ) -> dict[str, Any]:
     """Serialize a message for the timeline.
@@ -556,6 +584,11 @@ def serialize_message(
             # Provenance so the card can name and link its source.
             "source": decision_provenance(decision),
             "addressee": addressee_payload(decision),
+            "resolved_by_user_id": (
+                str(decision.resolved_by_user_id) if decision.resolved_by_user_id else None
+            ),
+            "resolved_at": _iso(decision.resolved_at),
+            "chosen_option_id": decision.chosen_option_id,
         }
         if decision.status == "deferred" and decision.chosen_option_id:
             # Why the card was set aside (human_replied, superseded_by_inbound,
@@ -618,6 +651,10 @@ def serialize_message(
             proposal_meta,
             proposal_decision,
             resolved_by_name=proposal_resolved_by,
+            resolved_by_user_id=(
+                proposal_decision.resolved_by_user_id if proposal_decision else None
+            ),
+            resolver_names=proposal_resolver_names,
             bundle_decisions=bundle_decisions,
         )
     from app.services.agent.turn_persist import message_activity
@@ -1179,6 +1216,7 @@ async def list_threads(
     team_id: str | None = None,
     scheduled_from: datetime | None = None,
     scheduled_to: datetime | None = None,
+    activity: str | None = None,
 ) -> dict[str, Any]:
     pinned = await _pinned_ids(session, tenant_id, user_id)
     from app.services.trash import alive
@@ -1306,6 +1344,15 @@ async def list_threads(
         if priority not in ("low", "normal", "high", "urgent"):
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
         query = query.where(Signal.priority == priority)
+
+    if activity:
+        cutoff = _activity_cutoff(activity)
+        if cutoff is None:
+            return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
+        query = query.where(
+            Signal.last_message_at.is_not(None),
+            Signal.last_message_at >= cutoff,
+        )
 
     if connection_id:
         try:
@@ -1595,8 +1642,8 @@ async def get_thread(
         session,
         [
             d.resolved_by_user_id
-            for did in proposal_ids.values()
-            if (d := decisions_by_id.get(did)) and d.resolved_by_user_id
+            for d in decisions_by_id.values()
+            if d.resolved_by_user_id
         ],
     )
 
@@ -1650,6 +1697,15 @@ async def get_thread(
     include_html = (signal.channel or "").lower() == "email"
     serialized_messages = []
     for m in messages:
+        # Agent-only hints after resolve (not shown in the operator timeline).
+        try:
+            _meta = json.loads(m.metadata_json or "{}")
+        except json.JSONDecodeError:
+            _meta = {}
+        if isinstance(_meta, dict) and (
+            _meta.get("hidden_from_timeline") or _meta.get("decision_outcome_hint")
+        ):
+            continue
         proposal_decision = decisions_by_id.get(proposal_ids[m.id]) if m.id in proposal_ids else None
         row = serialize_message(
             m,
@@ -1663,6 +1719,7 @@ async def get_thread(
                 if proposal_decision and proposal_decision.resolved_by_user_id
                 else None
             ),
+            proposal_resolver_names=resolver_names,
             bundle_decisions=[
                 decisions_by_id[did] for did in bundle_ids.get(m.id, []) if did in decisions_by_id
             ],
@@ -1823,6 +1880,18 @@ async def get_message(
                 )
             ).scalars().all()
         )
+    if bundle_decisions:
+        resolver_names = await _user_display_names(
+            session,
+            [
+                *(
+                    [proposal_decision.resolved_by_user_id]
+                    if proposal_decision and proposal_decision.resolved_by_user_id
+                    else []
+                ),
+                *[d.resolved_by_user_id for d in bundle_decisions if d.resolved_by_user_id],
+            ],
+        )
     return serialize_message(
         message,
         decision=decision,
@@ -1835,6 +1904,7 @@ async def get_message(
             if proposal_decision and proposal_decision.resolved_by_user_id
             else None
         ),
+        proposal_resolver_names=resolver_names,
         bundle_decisions=bundle_decisions,
     )
 
@@ -3590,30 +3660,15 @@ async def resolve_message_decision(
                     "option_labels": option_labels,
                     "response_text": (response_text or "").strip() or None,
                     "via": source,
-                    "has_reply_message": bool(answer and user_id),
+                    # Option-label echoes stay off the timeline; free-text answers still post.
+                    "has_reply_message": bool((response_text or "").strip() and user_id),
                 }
             ),
         )
     )
-    # A choice always lands as the operator's own bubble, same as other chat
-    # tools. The only skip is a suggested reply that already sent (or is about
-    # to send) an outbound email — that mail is the answer.
-    decision_title = (decision_row.title if decision_row else "") or ""
-    chosen_action_types = {
-        str(o.get("action_type") or "")
-        for o in options_list
-        if isinstance(o, dict) and str(o.get("id")) in set(chosen_ids)
-    }
-    _REPLY_DECISION_CHAT_ACTIONS = {
-        "send_reply",
-        "send_email",
-        "draft",
-    }
-    skip_decision_chat = (
-        decision_title in REPLY_SUGGESTION_TITLES
-        or bool(chosen_action_types & _REPLY_DECISION_CHAT_ACTIONS)
-    )
-    if answer and user_id and not skip_decision_chat:
+    # Typed answers on a decision (e.g. "other" with a note) stay as chat content.
+    # Plain Approve/Reject labels do not — attribution lives on the cloud.
+    if user_id and (response_text or "").strip():
         sig_result = await session.execute(
             select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
         )
@@ -3625,7 +3680,7 @@ async def resolve_message_decision(
                 session,
                 signal,
                 role="user",
-                content=answer,
+                content=(response_text or "").strip(),
                 author_user_id=user_id,
                 metadata={
                     "decision_id": str(message.decision_id),
@@ -3725,10 +3780,7 @@ async def resolve_message_decision(
             and action_type not in ("reject", "defer", "acknowledge")
             and get_tool_spec(action_type) is not None
         )
-        # Tool already executed on Approve: a short confirm is clearer than an
-        # LLM wake that re-lists tags and proposes the same delete again.
-        # Soft Yes also stays quiet when other proposals are still open — waking
-        # then stacks new asks on top of unresolved cards.
+        # Soft Yes with other open cards: do not wake — that stacks new asks.
         other_open = 0
         if message.decision_id is not None:
             other_open = len(
@@ -3742,26 +3794,26 @@ async def resolve_message_decision(
                     )
                 ).scalars().all()
             )
-        if tool_ran or action in ("rejected", "reject") or other_open > 0:
-            confirm = _decision_confirm_text(
-                action=action,
-                action_type=action_type,
-                option=chosen_opt if isinstance(chosen_opt, dict) else None,
-                option_labels=option_labels,
-            )
-            asker = continue_signal.agent_id or message.author_agent_id
-            from app.services.assistant_threads import append_signal_chat_message
-
-            await append_signal_chat_message(
+        label = option_labels[0] if option_labels else (decision_row.title if decision_row else "proposal")
+        outcomes = [
+            {
+                "decision_id": str(message.decision_id),
+                "action": "approved" if action in ("approved", "approve") else "rejected",
+                "label": label,
+                "action_type": action_type,
+                "tool_ran": tool_ran,
+            }
+        ]
+        if tool_ran or action in ("rejected", "reject"):
+            await _follow_up_after_decision_outcomes(
                 session,
+                tenant_id,
+                user_id,
                 continue_signal,
-                role="assistant",
-                content=confirm,
-                author_agent_id=asker,
-                metadata={"decision_confirm": True, "decision_id": str(message.decision_id)},
+                outcomes=outcomes,
+                asker_agent_id=continue_signal.agent_id or message.author_agent_id,
             )
-            await session.commit()
-        else:
+        elif other_open == 0:
             # Soft Yes (no tool), sole open card: let the agent answer conversationally.
             from app.config import get_settings
 
@@ -3814,11 +3866,9 @@ async def resolve_decision_bundle(
     ``"rest"`` (every listed card not approved) or a list. Each card runs
     through the normal resolve path, so platform changes and tool calls
     execute exactly as a single Approve would; one failing action leaves the
-    others resolved and comes back as ``error`` on its row. One operator
-    bubble sums up the outcome."""
-    from app.models.auth import Tenant
+    others resolved and comes back as ``error`` on its row. The decision cloud
+    shows who resolved; chat threads get an agent follow-up, not a user bubble."""
     from app.services.decisions import resolve_decision_message
-    from app.services.language import resolve_workspace_language
 
     rows = list(
         (
@@ -3842,8 +3892,7 @@ async def resolve_decision_bundle(
         reject_ids = [str(x) for x in reject if str(x) in by_id and str(x) not in approve_ids]
 
     results: list[dict[str, Any]] = []
-    approved_labels: list[str] = []
-    rejected_labels: list[str] = []
+    outcomes: list[dict[str, Any]] = []
     failed_labels: list[str] = []
     for did in approve_ids + reject_ids:
         decision = by_id[did]
@@ -3854,6 +3903,7 @@ async def resolve_decision_bundle(
         entry = bundle_entry_payload(decision)
         approving = did in approve_ids
         option_id = entry["approve_option_id"] if approving else entry["reject_option_id"]
+        action_type = str(entry.get("action_type") or "")
         try:
             await resolve_decision_message(
                 session,
@@ -3867,11 +3917,29 @@ async def resolve_decision_bundle(
             # The resolver already reopened the card and committed.
             failed_labels.append(label)
             results.append({"decision_id": did, "status": "awaiting_human", "error": str(exc.detail)})
+            outcomes.append(
+                {
+                    "decision_id": did,
+                    "action": "failed",
+                    "label": label,
+                    "action_type": action_type,
+                    "tool_ran": False,
+                    "error": str(exc.detail),
+                }
+            )
             continue
         refreshed = await session.get(DecisionRequest, decision.id)
         status = refreshed.status if refreshed else ("approved" if approving else "rejected")
         results.append({"decision_id": did, "status": status})
-        (approved_labels if approving else rejected_labels).append(label)
+        outcomes.append(
+            {
+                "decision_id": did,
+                "action": "approved" if approving else "rejected",
+                "label": label,
+                "action_type": action_type,
+                "tool_ran": bool(approving and action_type and action_type not in ("reject", "defer")),
+            }
+        )
         session.add(
             SignalEvent(
                 signal_id=signal_id,
@@ -3895,32 +3963,26 @@ async def resolve_decision_bundle(
     signal = (
         await session.execute(select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id))
     ).scalar_one_or_none()
-    if signal and user_id and (approved_labels or rejected_labels):
-        tenant = await session.get(Tenant, tenant_id)
-        copy = _BUNDLE_COPY.get(resolve_workspace_language(tenant) if tenant else "en", _BUNDLE_COPY["en"])
-        parts: list[str] = []
-        if approved_labels:
-            parts.append(f"{copy['approved']}: {', '.join(approved_labels)}")
-        if rejected_labels:
-            parts.append(f"{copy['rejected']}: {', '.join(rejected_labels)}")
-        if failed_labels:
-            parts.append(f"{copy['failed']}: {', '.join(failed_labels)}")
-        from app.services.assistant_threads import append_signal_chat_message
-
-        await append_signal_chat_message(
+    settled = [o for o in outcomes if o.get("action") in ("approved", "rejected", "failed")]
+    if signal and user_id and settled and _should_continue_chat_after_decision(signal):
+        if not signal.agent_id and rows:
+            # Pin the asking agent when the thread has none.
+            asker = rows[0].source_id if rows[0].source_type == "agent" else None
+            if asker:
+                try:
+                    signal.agent_id = UUID(str(asker))
+                    session.add(signal)
+                    await session.commit()
+                except (TypeError, ValueError):
+                    pass
+        await _follow_up_after_decision_outcomes(
             session,
+            tenant_id,
+            user_id,
             signal,
-            role="user",
-            content=" · ".join(parts),
-            author_user_id=user_id,
-            metadata={
-                "decision_response": True,
-                "decision_bundle": True,
-                "decision_ids": approve_ids + reject_ids,
-                "decision_action": "approved" if approved_labels else "rejected",
-            },
+            outcomes=settled,
+            asker_agent_id=signal.agent_id,
         )
-        await session.commit()
     return {"ok": not failed_labels, "results": results}
 
 
@@ -3929,6 +3991,48 @@ def _should_continue_chat_after_decision(signal: Signal) -> bool:
     if signal.channel in ("assistant", "internal"):
         return True
     return signal.source in ("agent_session", "chat", "personal")
+
+
+def _decision_outcome_hint_text(outcomes: list[dict[str, Any]]) -> str:
+    """History-only note so the next agent turn confirms instead of re-proposing."""
+    lines: list[str] = [
+        "[System] The operator just resolved decision card(s) on this thread. "
+        "The decision cloud already shows who approved or declined — do not "
+        "echo Approve/Reject as a user message. Confirm briefly. If a tool "
+        "already ran successfully, do not call that gated tool again; "
+        "showcase with attach_items when something useful was created. "
+        "If something failed, say so and offer a next step."
+    ]
+    for row in outcomes:
+        action = str(row.get("action") or "")
+        label = str(row.get("label") or "action")
+        action_type = str(row.get("action_type") or "")
+        if action == "approved":
+            ran = " Tool already executed." if row.get("tool_ran") else ""
+            lines.append(f"- Approved: {label}" + (f" ({action_type})" if action_type else "") + ran)
+        elif action == "rejected":
+            lines.append(f"- Declined: {label}" + (f" ({action_type})" if action_type else ""))
+        elif action == "failed":
+            err = str(row.get("error") or "unknown error")
+            lines.append(f"- Failed to run: {label} — {err}")
+    return "\n".join(lines)
+
+
+def _decision_confirm_text_from_outcomes(outcomes: list[dict[str, Any]]) -> str:
+    """Canned confirm for mock / no-agent — no LLM round-trip."""
+    approved = [o for o in outcomes if o.get("action") == "approved"]
+    rejected = [o for o in outcomes if o.get("action") == "rejected"]
+    failed = [o for o in outcomes if o.get("action") == "failed"]
+    if failed and not approved and not rejected:
+        return "Dat lukte niet. Wil je het opnieuw proberen?"
+    if rejected and not approved:
+        return "Oké."
+    if approved and not rejected:
+        label = str(approved[0].get("label") or "").strip()
+        if label:
+            return f"Gedaan: {label}."
+        return "Gedaan."
+    return "Verwerkt."
 
 
 def _decision_confirm_text(
@@ -3958,6 +4062,57 @@ def _decision_confirm_text(
     if option_labels:
         return f"Gedaan: {option_labels[0]}."
     return "Gedaan."
+
+
+async def _follow_up_after_decision_outcomes(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    signal: Signal,
+    *,
+    outcomes: list[dict[str, Any]],
+    asker_agent_id: UUID | None,
+) -> None:
+    """Leave a hidden history hint and wake the agent (or post a canned confirm)."""
+    if not outcomes:
+        return
+    from app.config import get_settings
+    from app.services.assistant_threads import append_signal_chat_message
+
+    hint = _decision_outcome_hint_text(outcomes)
+    await append_signal_chat_message(
+        session,
+        signal,
+        role="user",
+        content=hint,
+        author_user_id=user_id,
+        metadata={
+            "decision_outcome_hint": True,
+            "hidden_from_timeline": True,
+            "decision_ids": [str(o.get("decision_id") or "") for o in outcomes if o.get("decision_id")],
+            "decision_action": outcomes[0].get("action"),
+        },
+    )
+    await session.commit()
+
+    settings = get_settings()
+    agent_id = signal.agent_id or asker_agent_id
+    if settings.bokito_mock_execution or agent_id is None:
+        confirm = _decision_confirm_text_from_outcomes(outcomes)
+        await append_signal_chat_message(
+            session,
+            signal,
+            role="assistant",
+            content=confirm,
+            author_agent_id=agent_id,
+            metadata={
+                "decision_confirm": True,
+                "decision_ids": [str(o.get("decision_id") or "") for o in outcomes if o.get("decision_id")],
+            },
+        )
+        await session.commit()
+        return
+    _schedule_agent_reply(tenant_id, user_id, signal.id)
 
 
 async def _record_no_reply_outcome(

@@ -44,6 +44,7 @@ export type TimeItem = {
   provider?: string | null
   provider_label?: string | null
   calendar_id?: string | null
+  tenant_calendar_id?: string | null
   calendar_name?: string | null
   /** Provider colour of that calendar (hex), when known. */
   calendar_color?: string | null
@@ -77,6 +78,10 @@ export async function listTimeItems(params: {
   projectId?: string
   tag?: string
   path?: string
+  /** Tenant calendar UUIDs (default: all visible). */
+  calendarIds?: string[]
+  /** Hashtag names; keep calendars that carry any. */
+  calendarTags?: string[]
 }): Promise<TimeWindow> {
   const query = new URLSearchParams()
   if (params.from) query.set('from', params.from)
@@ -88,6 +93,8 @@ export async function listTimeItems(params: {
   if (params.path) query.set('path', params.path)
   if (params.sources?.length) query.set('sources', params.sources.join(','))
   if (params.scheduledOnly) query.set('scheduled_only', 'true')
+  if (params.calendarIds?.length) query.set('calendar_ids', params.calendarIds.join(','))
+  if (params.calendarTags?.length) query.set('calendar_tags', params.calendarTags.join(','))
   const res = await apiGet<Partial<TimeWindow>>(appRoutes.agenda.occurrencesQuery(query))
   return {
     now: res.now ?? new Date().toISOString(),

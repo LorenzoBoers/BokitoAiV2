@@ -35,9 +35,11 @@ import { writeLastInboxQueue } from '../lib/inbox-prefs'
 import {
   nextUnreadId,
   parseAssigneeParam,
+  parseDateFilterParam,
   parsePriorityParam,
   parseQuickFilterParam,
   toggleOrRangeSelect,
+  type ThreadDateFilter,
 } from '../lib/inbox-ops'
 import {
   focusInboxReply,
@@ -198,6 +200,9 @@ export default function Communication() {
   const [priorityFilter, setPriorityFilterState] = useState<ThreadPriority | null>(() =>
     parsePriorityParam(searchParams.get('priority')),
   )
+  const [dateFilter, setDateFilterState] = useState<ThreadDateFilter | null>(() =>
+    parseDateFilterParam(searchParams.get('date')),
+  )
   const writtenSearch = useRef<string | null>(null)
 
   useEffect(() => {
@@ -205,6 +210,8 @@ export default function Communication() {
     setAssigneeFilterState((prev) => (prev === nextAssignee ? prev : nextAssignee))
     const nextPriority = parsePriorityParam(searchParams.get('priority'))
     setPriorityFilterState((prev) => (prev === nextPriority ? prev : nextPriority))
+    const nextDate = parseDateFilterParam(searchParams.get('date'))
+    setDateFilterState((prev) => (prev === nextDate ? prev : nextDate))
   }, [searchParams])
 
   useEffect(() => {
@@ -266,6 +273,23 @@ export default function Communication() {
     [setSearchParams],
   )
 
+  const setDateFilter = useCallback(
+    (value: string | null) => {
+      const nextDate = parseDateFilterParam(value)
+      setDateFilterState(nextDate)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (nextDate) next.set('date', nextDate)
+          else next.delete('date')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
   const inboxQuery = useMemo(() => {
     const params = new URLSearchParams(listFilterQuery(folderFilter))
     if (agentParam) params.set('agent', agentParam)
@@ -274,10 +298,20 @@ export default function Communication() {
     if (q) params.set('q', q)
     if (assigneeFilter) params.set('assignee', String(assigneeFilter))
     if (priorityFilter) params.set('priority', priorityFilter)
+    if (dateFilter) params.set('date', dateFilter)
     if (quickFilter === 'unread' || quickFilter === 'pinned') params.set('filter', quickFilter)
     const query = params.toString()
     return query ? `?${query}` : ''
-  }, [folderFilter, agentParam, needsDecisionParam, search, assigneeFilter, priorityFilter, quickFilter])
+  }, [
+    folderFilter,
+    agentParam,
+    needsDecisionParam,
+    search,
+    assigneeFilter,
+    priorityFilter,
+    dateFilter,
+    quickFilter,
+  ])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
   // current browser session (sessionStorage), so it returns on the next visit.
@@ -385,13 +419,14 @@ export default function Communication() {
       pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
       assigneeId: assigneeFilter,
       priority: priorityFilter ?? undefined,
+      activity: dateFilter ?? undefined,
       agentId: agentParam,
       needsDecision: needsDecisionParam,
     }),
     pinnedIds,
   )
 
-  const listContextKey = `${leafKey(leaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}:${assigneeFilter ?? ''}:${priorityFilter ?? ''}`
+  const listContextKey = `${leafKey(leaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}:${assigneeFilter ?? ''}:${priorityFilter ?? ''}:${dateFilter ?? ''}`
 
   // The quick filter is per folder: every folder opens on "all", unless the
   // URL that opened it carries a deep-linked filter (consumed above).
@@ -1571,6 +1606,8 @@ export default function Communication() {
             onAssigneeFilter={setAssigneeFilter}
             priorityFilter={priorityFilter}
             onPriorityFilter={setPriorityFilter}
+            dateFilter={dateFilter}
+            onDateFilter={setDateFilter}
             scopeLabel={scopeLabel}
             onClearScope={hasFolderFilter ? clearScope : undefined}
             banner={

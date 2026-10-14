@@ -1,6 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Activity, ChevronDown, Inbox, Plus, Settings } from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { Activity, Inbox, Plus, Settings } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
@@ -44,6 +54,8 @@ import NavCountBadge from '../layout/NavCountBadge'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import ScrollFade from '../ui/ScrollFade'
 import { Tip } from '../ui/Tip'
+import { SectionLabel } from '../ui/section-label'
+import { cn } from '../../lib/utils'
 
 const Users = ENTITY_ICONS.team
 
@@ -119,56 +131,45 @@ const SECTION_GEAR: Partial<
   },
 }
 
-/** Section header with persisted collapse state from sidebar prefs. */
+/** Section header with persisted collapse state; whole header drags to reorder. */
 function CollapsibleSection({ section, title, count, headerAction, children }: CollapsibleSectionProps) {
+  const { t } = useTranslation('nav')
   const { prefs, setSectionCollapsed } = useSidebarPrefs()
   const collapsed = prefs.collapsed.includes(section)
-  const open = !collapsed
-  const [mounted, setMounted] = useState(open)
-
-  useEffect(() => {
-    if (open) {
-      setMounted(true)
-      return
-    }
-    const reduce =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduce) {
-      setMounted(false)
-      return
-    }
-    const timer = window.setTimeout(() => setMounted(false), 200)
-    return () => window.clearTimeout(timer)
-  }, [open])
-
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section,
+  })
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
   return (
-    <section data-section={section} className="group/section space-y-px">
-      <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          onClick={() => {
-            if (collapsed) setMounted(true)
-            setSectionCollapsed(section, !collapsed)
-          }}
-          className="nav-folder min-w-0 flex-1"
-          aria-expanded={open}
-          data-open={open ? 'true' : 'false'}
-        >
-          <ChevronDown aria-hidden />
-          <span className="min-w-0 shrink truncate-fade text-left">{title}</span>
-          {count != null ? <span className="shrink-0 tabular-nums text-text-muted/70">{count}</span> : null}
-          <span className="min-w-0 flex-1" aria-hidden />
-        </button>
-        {headerAction ? (
-          <span className="inline-flex shrink-0 opacity-0 transition-opacity focus-within:opacity-100 group-hover/section:opacity-100 group-focus-within/section:opacity-100">
-            {headerAction}
-          </span>
-        ) : null}
-      </div>
-      <div className="nav-fold" data-open={open && mounted ? 'true' : undefined} aria-hidden={!open}>
-        <div className="nav-fold-inner space-y-px">{mounted ? children : null}</div>
-      </div>
-    </section>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(isDragging && 'relative z-10 opacity-60')}
+    >
+      <SectionLabel
+        data-section={section}
+        title={title}
+        count={count}
+        open={!collapsed}
+        onOpenChange={(next) => setSectionCollapsed(section, !next)}
+        actions={headerAction}
+        contentClassName="space-y-px"
+        titleButtonProps={{
+          ...attributes,
+          ...listeners,
+          className: 'cursor-grab active:cursor-grabbing',
+          'aria-roledescription': t('support.customize.reorderAria', {
+            defaultValue: 'Reorder {{label}}',
+            label: title,
+          }),
+        }}
+      >
+        {children}
+      </SectionLabel>
+    </div>
   )
 }
 
@@ -524,13 +525,29 @@ export default function MessagesHubNav() {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const { counts } = useNavBadges()
-  const { visibleSections, settingsVisible } = useSidebarPrefs()
+  const { prefs, visibleSections, settingsVisible, setOrder } = useSidebarPrefs()
   const { defaultQueueFor } = useInboxFolderPrefs()
   const location = useLocation()
   const activeLeaf = leafFromPath(location.pathname)
   const { teams, loading: teamsLoading } = usePinnedTeams()
   const { folders: channelFolders, loading: channelsLoading } = useConnectedChannelFolders(t)
   const { nav, loaded: navLoaded } = useCommunicationNav()
+  const sectionSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  )
+  const onSectionDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const activeId = String(event.active.id) as SidebarSection
+      const overId = event.over ? (String(event.over.id) as SidebarSection) : null
+      if (!overId || activeId === overId) return
+      const middle = prefs.order.filter((section) => section !== 'settings')
+      const oldIndex = middle.indexOf(activeId)
+      const newIndex = middle.indexOf(overId)
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
+      setOrder([...arrayMove(middle, oldIndex, newIndex), 'settings'])
+    },
+    [prefs.order, setOrder],
+  )
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [targetsLoading, setTargetsLoading] = useState(true)
@@ -681,27 +698,35 @@ export default function MessagesHubNav() {
           />
         </section>
 
-        {visibleSections.map((section) => {
-          const gear = SECTION_GEAR[section]
-          return (
-            <CollapsibleSection
-              key={section}
-              section={section}
-              title={t(SECTION_LABELS[section].labelKey)}
-              count={sectionCounts[section]}
-              headerAction={
-                gear ? (
-                  <SectionGearLink
-                    to={gear.to}
-                    label={t(gear.labelKey, { defaultValue: gear.defaultLabel })}
-                  />
-                ) : undefined
-              }
-            >
-              {sectionContent[section as Exclude<SidebarSection, 'settings'>]}
-            </CollapsibleSection>
-          )
-        })}
+        <DndContext
+          sensors={sectionSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onSectionDragEnd}
+        >
+          <SortableContext items={visibleSections} strategy={verticalListSortingStrategy}>
+            {visibleSections.map((section) => {
+              const gear = SECTION_GEAR[section]
+              return (
+                <CollapsibleSection
+                  key={section}
+                  section={section}
+                  title={t(SECTION_LABELS[section].labelKey)}
+                  count={sectionCounts[section]}
+                  headerAction={
+                    gear ? (
+                      <SectionGearLink
+                        to={gear.to}
+                        label={t(gear.labelKey, { defaultValue: gear.defaultLabel })}
+                      />
+                    ) : undefined
+                  }
+                >
+                  {sectionContent[section as Exclude<SidebarSection, 'settings'>]}
+                </CollapsibleSection>
+              )
+            })}
+          </SortableContext>
+        </DndContext>
       </ScrollFade>
 
       <div className="mt-1 shrink-0 space-y-px border-t border-border/60 pt-1.5">

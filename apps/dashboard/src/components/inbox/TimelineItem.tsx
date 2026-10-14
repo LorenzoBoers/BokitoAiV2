@@ -1969,9 +1969,11 @@ export function MessageTimelineItem({
 
   // Header per author type. Own customer replies skip the name; internal
   // notes always show who wrote them (avatar + name) because authorship is
-  // the main signal on a team-only message.
+  // the main signal on a team-only message. Agent notes get the AI chip so
+  // they read as AI team notes, not human amber notes.
+  const isAgentNote = isInternal && (isSystemNote || authorKind === 'agent')
   const header = (() => {
-    if (isSystemNote) {
+    if (isAgentNote) {
       return (
         <BubbleHeader
           name={agentName || t('timeline.aiAgent')}
@@ -2126,18 +2128,20 @@ export function MessageTimelineItem({
   const avatar =
     authorKind === 'external'
       ? contactAvatar
-      : authorKind === 'agent' || isSystemNote
+      : authorKind === 'agent' || isAgentNote
         ? agentAvatar
         : userAvatar
-  const variant: BubbleVariant = isInternal
-    ? 'note'
-    : authorKind === 'external'
-      ? 'external'
-      : authorKind === 'agent'
-        ? 'agent'
-        : authorKind === 'self'
-          ? 'self'
-          : 'team'
+  const variant: BubbleVariant = isAgentNote
+    ? 'ai_note'
+    : isInternal
+      ? 'note'
+      : authorKind === 'external'
+        ? 'external'
+        : authorKind === 'agent'
+          ? 'agent'
+          : authorKind === 'self'
+            ? 'self'
+            : 'team'
   const side: 'left' | 'right' = isOwn ? 'right' : 'left'
 
   const feedbackRow =
@@ -2515,6 +2519,7 @@ export function MessageTimelineItem({
             proposal={proposal}
             threadId={threadId}
             agentName={agentName}
+            membersById={membersById}
             onResolved={onProposalResolved}
             onAnswer={onAnswer}
           />
@@ -2522,6 +2527,7 @@ export function MessageTimelineItem({
           <ProposalActions
             proposal={proposal}
             threadId={threadId}
+            membersById={membersById}
             onResolved={onProposalResolved}
             onAnswer={onAnswer}
             picked={proposalPicked}

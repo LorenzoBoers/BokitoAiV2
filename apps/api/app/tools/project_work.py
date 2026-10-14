@@ -1028,11 +1028,15 @@ register_tool(
             "explicitly wants another canvas with the same title. You are the "
             "owner unless managing_agent_id names another agent. refresh_cadence "
             "is manual (once), hourly, daily (default), weekly, monthly, or custom "
-            "with refresh_cron (five-field cron, UTC). The canvas lives on this "
-            "conversation unless new_thread is true (this chat is about something "
-            "else — then a new thread owns the canvas and its Agenda repeat). A "
-            "person can also add a canvas in the UI. A preview card is attached "
-            "when it is created. Link its path inline in the same sentence."
+            "with refresh_cron (five-field cron, UTC) — choose it from the "
+            "conversation; the UI no longer collects cadence on create. The "
+            "canvas lives on this conversation unless new_thread is true (this "
+            "chat is about something else — then a new thread owns the canvas "
+            "and its Agenda repeat). When the UI starts a setup chat, interview "
+            "first, propose a plan, then call this after they agree. Pass "
+            "owner_kind and project_id from the opener when present. A preview "
+            "card is attached when it is created. Link its path inline in the "
+            "same sentence."
         ),
         category="projects",
         input_schema={

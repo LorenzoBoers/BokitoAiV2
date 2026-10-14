@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { SettingRow } from '../ui/entity-row'
+import { SectionLabel } from '../ui/section-label'
 import { controlChipClass } from '../ui/select'
 import { ScheduleSection } from './ScheduleSection'
 import { ThreadCategory } from './ThreadCategory'
@@ -98,25 +99,26 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
 
   return (
     <div className="space-y-3 border-t border-border/40 px-4 py-3">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold text-text-muted">
-          {t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
-        </h2>
-        {!internal && token ? (
-          <button
-            type="button"
-            onClick={() => void handleReread()}
-            disabled={rereading || saving}
-            className="inline-flex max-w-full items-center gap-1 text-xs font-medium text-ai-ink hover:underline disabled:opacity-40"
-            title={t('sidePanel.rereadHint', {
-              defaultValue: 'Ask the channel agent to review this conversation again',
-            })}
-          >
-            <Sparkles size={12} className={rereading ? 'animate-pulse' : undefined} aria-hidden />
-            <span className="truncate">{t('sidePanel.reread')}</span>
-          </button>
-        ) : null}
-      </div>
+      <SectionLabel
+        title={t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
+        headerClassName="-mx-1"
+        actions={
+          !internal && token ? (
+            <button
+              type="button"
+              onClick={() => void handleReread()}
+              disabled={rereading || saving}
+              className="inline-flex max-w-full items-center gap-1 px-1 text-xs font-medium text-ai-ink hover:underline disabled:opacity-40"
+              title={t('sidePanel.rereadHint', {
+                defaultValue: 'Ask the channel agent to review this conversation again',
+              })}
+            >
+              <Sparkles size={12} className={rereading ? 'animate-pulse' : undefined} aria-hidden />
+              <span className="truncate">{t('sidePanel.reread')}</span>
+            </button>
+          ) : null
+        }
+      />
 
       {!internal && thread.aiSummary ? (
         <p

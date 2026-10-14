@@ -214,6 +214,42 @@ async def test_set_thread_tags_tool_curated_only(client: AsyncClient, session_ov
 
 
 @pytest.mark.asyncio
+async def test_set_thread_tags_falls_back_when_signal_id_missing(
+    client: AsyncClient, session_override
+):
+    """Stale/wrong explicit signal_id must still tag the current thread."""
+    headers = await _auth_headers(client)
+    catalog_seed = await _ingest(client, headers, "Catalog for fallback")
+    await client.patch(f"/api/signals/{catalog_seed}", headers=headers, json={"tags": ["docs"]})
+    target = await _ingest(client, headers, "Needs a tag despite bad id")
+
+    from uuid import UUID
+
+    from app.models.auth import Tenant, User
+    from app.tools.registry import ToolContext, get_tool_spec
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    user = (await session_override.execute(select(User))).scalars().first()
+    spec = get_tool_spec("set_thread_tags")
+    assert spec is not None
+
+    ctx = ToolContext(
+        session=session_override,
+        tenant_id=tenant.id,
+        user_id=user.id,
+        signal_id=UUID(target),
+    )
+    missing = "00000000-0000-4000-8000-000000000099"
+    result = await spec.handler(
+        ctx, {"signal_id": missing, "tags": ["docs"]}
+    )
+    assert result.get("ok") is True
+    assert result.get("signal_id") == target
+    assert "docs" in (result.get("added") or result.get("tags") or [])
+    assert await signal_tag_names(session_override, UUID(target)) == ["docs"]
+
+
+@pytest.mark.asyncio
 async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
 

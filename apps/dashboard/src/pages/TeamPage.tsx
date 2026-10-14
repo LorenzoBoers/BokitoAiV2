@@ -16,10 +16,10 @@ import { Button } from '../components/ui/button'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { Switch } from '../components/ui/switch'
-import { AiAvatar } from '../components/ui/AiAvatar'
+import { AgentMark } from '../components/ui/AgentMark'
+import { AvatarStack, type AvatarStackMember } from '../components/ui/AvatarStack'
 import { TeamAvatar } from '../components/ui/TeamAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
-import { toAiAvatarProps } from '../lib/agent-avatar'
 import {
   TEAM_AVATAR_ICON_KEYS,
   resolveTeamAvatarIcon,
@@ -44,7 +44,6 @@ import {
   patchTeam,
   PICKUP_MODES,
   setTeamMembers,
-  type PresenceStatus,
   type Team,
   type TeamMemberRef,
   type TeamOverview,
@@ -53,30 +52,16 @@ import {
 import { useAgentLive, agentPresenceOf } from '../hooks/useAgentPresence'
 import { cn } from '../lib/utils'
 
-const AVATAR_STACK_MAX = 5
 const ConversationIcon = ENTITY_ICONS.conversation
 
 function memberKey(ref: TeamMemberRef): string {
   return `${ref.kind}:${ref.id}`
 }
 
-type StackMember =
-  | { key: string; kind: 'user'; name: string; email: string; avatarUrl: string | null; presence?: PresenceStatus }
-  | {
-      key: string
-      kind: 'agent'
-      name: string
-      id: string
-      activity?: 'standby' | 'working' | 'error'
-      avatar_kind?: string | null
-      avatar_icon?: string | null
-      avatar_image_url?: string | null
-    }
-
-function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
+function resolveTeamMembers(team: Team, overview: TeamOverview): AvatarStackMember[] {
   const peopleById = new Map(overview.people.map((p) => [p.uuid, p]))
   const agentsById = new Map(overview.agents.map((a) => [a.id, a]))
-  const out: StackMember[] = []
+  const out: AvatarStackMember[] = []
   for (const ref of team.members) {
     if (ref.kind === 'user') {
       const person = peopleById.get(ref.id)
@@ -87,7 +72,6 @@ function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
         name: person.name,
         email: person.email,
         avatarUrl: person.avatar_url,
-        presence: person.presence.status,
       })
     } else {
       const agent = agentsById.get(ref.id)
@@ -97,69 +81,11 @@ function resolveTeamMembers(team: Team, overview: TeamOverview): StackMember[] {
         kind: 'agent',
         name: agent.name,
         id: agent.id,
-        activity: agentPresenceOf(agent.id) !== 'standby'
-          ? agentPresenceOf(agent.id)
-          : asAgentStatus(agent.status),
-        avatar_kind: agent.avatar_kind,
-        avatar_icon: agent.avatar_icon,
-        avatar_image_url: agent.avatar_image_url,
+        agent,
       })
     }
   }
   return out
-}
-
-/** Overlapping facepile for team members (people + agents); agents open their page. */
-function TeamMemberStack({ members, className }: { members: StackMember[]; className?: string }) {
-  if (members.length === 0) return null
-  const shown = members.slice(0, AVATAR_STACK_MAX)
-  const overflow = members.length - shown.length
-  const size = 28
-  return (
-    <span className={cn('flex items-center', className)}>
-      {shown.map((member, index) => {
-        const avatarClass = cn(
-          'relative inline-flex overflow-hidden rounded-full bg-bg-surface ring-2 ring-bg-surface',
-          index > 0 && '-ml-2',
-        )
-        const style = { zIndex: shown.length - index }
-        if (member.kind === 'agent') {
-          return (
-            <Link
-              key={member.key}
-              to={openEntityPath({ type: 'agent', id: member.id })}
-              className={cn(avatarClass, 'transition hover:ring-accent/60')}
-              style={style}
-              title={member.name}
-              aria-label={member.name}
-              data-testid="team-member-agent"
-            >
-              <AiAvatar {...toAiAvatarProps(member)} size={size} decorative />
-            </Link>
-          )
-        }
-        return (
-          <span key={member.key} className={avatarClass} style={style} title={member.name} aria-hidden>
-            <UserAvatar
-              name={member.name}
-              email={member.email}
-              avatarUrl={member.avatarUrl}
-              size={size}
-              decorative
-            />
-          </span>
-        )
-      })}
-      {overflow > 0 ? (
-        <span
-          className="-ml-2 flex items-center justify-center rounded-full bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted ring-2 ring-bg-surface"
-          style={{ width: size, height: size, zIndex: 0 }}
-        >
-          +{overflow}
-        </span>
-      ) : null}
-    </span>
-  )
 }
 
 function scrollToId(id: string) {
@@ -275,13 +201,18 @@ export default function TeamPage() {
               <Card key={team.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                    <TeamAvatar
-                      {...toTeamAvatarProps(team)}
-                      size={28}
-                      decorative
-                      presence={team.presence?.status}
-                      className="mt-0.5"
-                    />
+                    {/* Team mark = member facepile (not a separate icon/illustration). */}
+                    {stack.length > 0 ? (
+                      <AvatarStack members={stack} size={32} className="mt-0.5 shrink-0" />
+                    ) : (
+                      <TeamAvatar
+                        {...toTeamAvatarProps(team)}
+                        size={32}
+                        decorative
+                        presence={team.presence?.status}
+                        className="mt-0.5"
+                      />
+                    )}
                     <div className="min-w-0 space-y-0.5">
                       <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-text-heading">
                         {team.system ? (
@@ -318,6 +249,12 @@ export default function TeamPage() {
                             pickedUp: team.metrics.picked_up,
                           })}
                         </span>
+                        {stack.length === 0 ? (
+                          <>
+                            <span className="text-text-muted">{' · '}</span>
+                            {t('teamPage.memberCount', { count: team.member_count })}
+                          </>
+                        ) : null}
                       </p>
                     </div>
                   </div>
@@ -333,12 +270,6 @@ export default function TeamPage() {
                     <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
                       {t('teamPage.edit')}
                     </Button>
-                  ) : null}
-                  <TeamMemberStack members={stack} className="shrink-0" />
-                  {stack.length === 0 ? (
-                    <span className="shrink-0 text-xs text-text-muted">
-                      {t('teamPage.memberCount', { count: team.member_count })}
-                    </span>
                   ) : null}
                 </div>
               </Card>
@@ -593,9 +524,10 @@ function TeamDialog({
                 return (
                   <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover/60">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
-                    <AiAvatar
-                      {...toAiAvatarProps(a)}
+                    <AgentMark
+                      agent={a}
                       size={20}
+                      decorative={false}
                       activity={
                         agentPresenceOf(a.id) !== 'standby'
                           ? agentPresenceOf(a.id)

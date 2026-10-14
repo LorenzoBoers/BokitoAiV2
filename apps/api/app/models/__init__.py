@@ -53,7 +53,7 @@ from app.models.provider import ProviderConnection, TenantModel
 from app.models.module_source import ModuleSource
 from app.models.module_agent import AgentScope, ModuleAgent
 from app.models.module_install import ModuleInstall
-from app.models.calendar import CalendarEvent
+from app.models.calendar import CalendarEvent, CalendarTagLink, TenantCalendar
 from app.models.user_memory import UserAssistantMemory
 from app.models.customer_verify import CustomerVerifyToken, HandoverCode
 from app.models.workbench import WorkJob
@@ -141,6 +141,8 @@ __all__ = [
     "ModuleAgent",
     "ModuleInstall",
     "CalendarEvent",
+    "TenantCalendar",
+    "CalendarTagLink",
     "UserAssistantMemory",
     "CustomerVerifyToken",
     "HandoverCode",

@@ -30,6 +30,8 @@ interface AiAvatarProps {
   activity?: AgentPresenceStatus | null
   /** Orb face mood (thinking / typing / working). Defaults from activity when omitted. */
   motion?: BotOrbMotion | null
+  /** Freeze orb idle motion (facepiles, static previews). */
+  paused?: boolean
 }
 
 function resolveKind(
@@ -73,6 +75,7 @@ export function AiAvatar({
   decorative = false,
   activity,
   motion,
+  paused = false,
 }: AiAvatarProps) {
   const displayName = name?.trim() || 'Agent'
   const initials = getInitials(displayName)
@@ -105,6 +108,7 @@ export function AiAvatar({
         shape={orbShape}
         size={size}
         motion={orbMotion}
+        paused={paused}
         className={cn(activity ? '' : className)}
         decorative={decorative}
         label={displayName}

@@ -200,6 +200,31 @@ export function folderFilterSiblings(
   return walk(tree, null)
 }
 
+/**
+ * When the pointer is over a nested row (or its nest zone’s folder), map that
+ * hit to the same-level sibling of `activeId` we should reorder against —
+ * usually an ancestor of `overId`. Returns null when no sibling reorder applies.
+ */
+export function resolveSiblingReorderTarget(
+  tree: FolderFilterNode[],
+  activeId: string,
+  overId: string,
+): string | null {
+  if (!activeId || !overId || activeId === overId) return null
+  const activeSibs = folderFilterSiblings(tree, activeId)
+  if (!activeSibs) return null
+  const isSibling = (id: string) => activeSibs.siblings.some((sibling) => sibling.id === id)
+  if (isSibling(overId)) return overId
+  // Pointer over a descendant of a sibling (expanded branch): reorder vs that sibling.
+  const ancestors = folderAncestorChain(tree, overId)
+  for (let i = ancestors.length - 1; i >= 0; i -= 1) {
+    const ancestorId = ancestors[i]!.id
+    if (ancestorId === activeId) return null
+    if (isSibling(ancestorId)) return ancestorId
+  }
+  return null
+}
+
 function bareName(name: string): string {
   return name.replace(/^#/, '').trim()
 }
@@ -229,6 +254,45 @@ export function folderAncestorChain(tree: FolderFilterNode[], folderId: string):
   }
   walk(tree, [])
   return chain
+}
+
+/**
+ * Strip ancestor tags so the folder becomes a root in `deriveFolderTree`.
+ * Returns null when already root or stripping would leave no tags.
+ */
+export function optimisticUnnestToRoot<T extends FolderFilterSource>(
+  sources: T[],
+  folderId: string,
+): T[] | null {
+  const tree = deriveFolderTree(sources)
+  const ancestors = folderAncestorChain(tree, folderId)
+  if (!ancestors.length) return null
+  const folder = sources.find((source) => source.id === folderId)
+  if (!folder) return null
+  const ancestorIds = new Set(ancestors.flatMap((node) => node.tag_ids))
+  const ancestorNames = new Set(
+    ancestors.flatMap((node) => (node.tag_names ?? []).map(bareName).map((name) => name.toLowerCase())),
+  )
+  const nextIds = folder.tag_ids.filter((id) => !ancestorIds.has(id))
+  if (!nextIds.length) return null
+  const mineNames = (folder.tag_names ?? []).map(bareName).filter(Boolean)
+  const nextNames = mineNames.filter((name) => !ancestorNames.has(name.toLowerCase()))
+  if (
+    nextIds.length === folder.tag_ids.length &&
+    nextNames.length === mineNames.length
+  ) {
+    return null
+  }
+  return sources.map((source) =>
+    source.id === folderId
+      ? {
+          ...source,
+          tag_ids: nextIds,
+          tag_names: nextNames.length ? nextNames : source.tag_names,
+          name: filtersetPlainLabel(nextNames.length ? nextNames : mineNames) || source.name,
+        }
+      : source,
+  )
 }
 
 export type NestMergePreview = {

@@ -9,6 +9,7 @@ import { useConfirm } from '../ui/confirm-dialog'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { CalendarSwatch } from '../agenda/CalendarSwatch'
 import { BrandMark } from './BrandMark'
+import { CalendarTenantSettings } from './CalendarTenantSettings'
 import { ConnectionScopeEditor } from './ConnectionScopeEditor'
 import {
   CALENDAR_PROVIDERS,
@@ -210,6 +211,7 @@ function CalendarAccountRow({
       {open && canManage ? (
         <div className="space-y-5 border-t border-border/60 px-3 py-3">
           <CalendarPicker connectionId={row.id} onSaved={onChanged} />
+          <CalendarTenantSettings connectionId={row.id} onChanged={onChanged} />
           <ConnectionScopeEditor
             connectionId={row.id}
             projects={[]}

@@ -26,8 +26,8 @@ describe('folder-move-undo', () => {
 
   it('detects editable keyboard targets without DOM', () => {
     expect(isEditableKeyboardTarget(null)).toBe(false)
-    expect(isEditableKeyboardTarget({ tagName: 'INPUT' } as EventTarget)).toBe(true)
-    expect(isEditableKeyboardTarget({ tagName: 'DIV' } as EventTarget)).toBe(false)
-    expect(isEditableKeyboardTarget({ isContentEditable: true } as EventTarget)).toBe(true)
+    expect(isEditableKeyboardTarget({ tagName: 'INPUT' } as unknown as EventTarget)).toBe(true)
+    expect(isEditableKeyboardTarget({ tagName: 'DIV' } as unknown as EventTarget)).toBe(false)
+    expect(isEditableKeyboardTarget({ isContentEditable: true } as unknown as EventTarget)).toBe(true)
   })
 })

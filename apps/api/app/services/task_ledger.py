@@ -30,6 +30,8 @@ _NON_WORK_TOOLS = frozenset(
         "list_tags",
         "handoff_to_human",
         "resolve_decision",
+        "post_internal_note",
+        "update_progress",
     }
 )
 

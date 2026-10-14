@@ -11,6 +11,8 @@ type Props = {
   decorative?: boolean
   activity?: AgentPresenceStatus | null
   motion?: BotOrbMotion | null
+  /** Freeze orb idle motion (facepiles, static previews). */
+  paused?: boolean
   fallbackName?: string
 }
 
@@ -25,6 +27,7 @@ export function AgentMark({
   decorative = true,
   activity,
   motion,
+  paused,
   fallbackName,
 }: Props) {
   return (
@@ -35,6 +38,7 @@ export function AgentMark({
       decorative={decorative}
       activity={activity}
       motion={motion}
+      paused={paused}
     />
   )
 }

@@ -66,6 +66,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
     _workstream_projects(connection)
     _cases_to_tickets(connection)
     _connection_instance_index(connection)
+    _tenant_calendars(connection)
     inspector = inspect(connection)
     for table in _DROPPED_TABLES:
         if inspector.has_table(table):
@@ -101,6 +102,90 @@ def _connection_instance_index(connection: Connection) -> None:
             "WHERE instance_key <> '' AND status = 'active'"
         )
     )
+
+
+def _tenant_calendars(connection: Connection) -> None:
+    """092: tenant_calendar_id on events + backfill from connection meta."""
+    inspector = inspect(connection)
+    if not inspector.has_table("calendar_events"):
+        return
+    cols = {c["name"] for c in inspector.get_columns("calendar_events")}
+    if "tenant_calendar_id" not in cols:
+        connection.execute(text("ALTER TABLE calendar_events ADD COLUMN tenant_calendar_id VARCHAR"))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_calendar_events_tenant_calendar_id "
+                "ON calendar_events (tenant_calendar_id)"
+            )
+        )
+    if not inspector.has_table("tenant_calendars"):
+        return
+    now = datetime.utcnow().isoformat(sep=" ")
+    rows = connection.execute(
+        text(
+            "SELECT id, tenant_id, provider, metadata_json FROM integration_connections "
+            "WHERE status = 'active'"
+        )
+    ).mappings().all()
+    for row in rows:
+        provider = str(row["provider"] or "")
+        if "calendar" not in provider and provider not in ("google", "outlook"):
+            continue
+        try:
+            meta = json.loads(row["metadata_json"] or "{}")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(meta, dict):
+            continue
+        calendars = meta.get("calendars")
+        if not isinstance(calendars, list):
+            continue
+        for item in calendars:
+            if not isinstance(item, dict) or not item.get("id"):
+                continue
+            external_id = str(item["id"])
+            existing = connection.execute(
+                text(
+                    "SELECT id FROM tenant_calendars "
+                    "WHERE connection_id = :cid AND external_id = :eid"
+                ),
+                {"cid": str(row["id"]), "eid": external_id},
+            ).first()
+            if existing:
+                cal_id = existing[0]
+            else:
+                cal_id = str(uuid.uuid4())
+                connection.execute(
+                    text(
+                        "INSERT INTO tenant_calendars ("
+                        "id, tenant_id, connection_id, external_id, name, color, "
+                        "is_primary, writable, sync_enabled, access_json, created_at, updated_at"
+                        ") VALUES ("
+                        ":id, :tenant_id, :connection_id, :external_id, :name, :color, "
+                        ":is_primary, :writable, :sync_enabled, '[]', :now, :now"
+                        ")"
+                    ),
+                    {
+                        "id": cal_id,
+                        "tenant_id": str(row["tenant_id"]),
+                        "connection_id": str(row["id"]),
+                        "external_id": external_id,
+                        "name": str(item.get("name") or external_id),
+                        "color": str(item.get("color") or ""),
+                        "is_primary": 1 if item.get("primary") else 0,
+                        "writable": 1 if item.get("writable") else 0,
+                        "sync_enabled": 1 if item.get("enabled") else 0,
+                        "now": now,
+                    },
+                )
+            connection.execute(
+                text(
+                    "UPDATE calendar_events SET tenant_calendar_id = :cal_id "
+                    "WHERE connection_id = :cid AND calendar_id = :eid "
+                    "AND (tenant_calendar_id IS NULL OR tenant_calendar_id = '')"
+                ),
+                {"cal_id": cal_id, "cid": str(row["id"]), "eid": external_id},
+            )
 
 
 def _tags_to_links(connection: Connection) -> None:

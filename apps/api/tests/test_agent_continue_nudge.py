@@ -29,8 +29,9 @@ def test_chat_style_requires_same_turn_tools():
     from app.services.agent.style import CHAT_STYLE
 
     assert "same turn" in CHAT_STYLE.lower() or "in the same turn" in CHAT_STYLE
-    assert "Never end after only announcing" in CHAT_STYLE
+    assert "WhatsApp" in CHAT_STYLE
     assert "Never stop after" in CHAT_STYLE
+    assert "bullet or numbered catalogs" in CHAT_STYLE
 
 
 def test_chat_style_requires_inline_platform_chips():

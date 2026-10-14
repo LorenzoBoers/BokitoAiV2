@@ -45,6 +45,20 @@
     "title": "Access",
     "hint": "New calendars are yours: you manage them and agents may read them. Owners and admins always manage."
   },
+  "tenant": {
+    "title": "Workspace calendars",
+    "hint": "Each switched-on calendar is a workspace calendar: sync, tags for Agenda filters, and who may use or manage it.",
+    "loading": "Loading workspace calendars...",
+    "empty": "Switch a calendar on above to create it in this workspace.",
+    "configure": "Tags and access",
+    "tags": "Tags",
+    "tagsHint": "Hashtags for filtering in Agenda (same tags as conversations).",
+    "tagsPlaceholder": "team, holidays",
+    "saveTags": "Save tags",
+    "tagsError": "Could not save tags.",
+    "access": "Who can use this calendar",
+    "accessHint": "Use sees events in Agenda. Manage changes sync, tags and this list."
+  },
   "agenda": {
     "reconnect": "Sign in again",
     "target": "Calendar",

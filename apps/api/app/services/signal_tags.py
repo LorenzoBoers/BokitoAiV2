@@ -810,9 +810,12 @@ async def delete_tag(session: AsyncSession, tenant_id: UUID, tag_id: UUID, *, co
         affected.extend(
             (await session.execute(select(Signal.id).where(Signal.tenant_id == tenant_id, Signal.contact_id.in_(contact_scope)))).scalars()
         )
+    from app.models.calendar import CalendarTagLink
+
     await session.execute(delete(SignalTagLink).where(SignalTagLink.tag_id == row.id))
     await session.execute(delete(ContactTagLink).where(ContactTagLink.tag_id == row.id))
     await session.execute(delete(CompanyTagLink).where(CompanyTagLink.tag_id == row.id))
+    await session.execute(delete(CalendarTagLink).where(CalendarTagLink.tag_id == row.id))
     await session.execute(
         update(Signal)
         .where(Signal.tenant_id == tenant_id, Signal.ticket_tag_id == row.id)

@@ -26,11 +26,11 @@ On a new workspace, Overview may still show setup progress. Finish those from th
 
 ## Read workspace canvases
 
-Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-page tabs are **Overview**, **Usage**, then **Canvas** (layout-template icon). An agent creates, fills and refreshes them; you can add, delete and set refresh too. The lead agent owns a workspace canvas unless another agent is named.
+Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-page tabs are **Overview**, **Usage**, then **Canvas** (layout-template icon). An agent creates, fills and refreshes them; you pick the owner agent when you add one. You can still delete a canvas or change its refresh later on the tab.
 
-1. Open **Overview**, then the **Canvas** tab (third tab). Canvas names sit left to right; the **+** after the last name adds a canvas. That opens a dialog: **Title**, **What it should contain**, and **Refresh** (**Manual**, **Daily**, **Weekly**, **Hourly**, **Monthly**, **Custom**). Daily is the default. **Custom** asks for a five-field cron.
-2. Save. That starts a conversation with the owner. Refresh is that conversation's repeat in [Agenda](/docs/ai/agenda).
-3. Ask an agent for figures, a status, or a dashboard and it builds the snapshot in that turn. The reply links the canvas and shows a small preview; opening the preview lands on that canvas. A later change updates that same canvas. The canvas tab shows the owner agent and the conversation; open that conversation to ask for a change. Project canvases live on the project [Canvas](/docs/ai/folders) tab.
+1. Open **Overview**, then the **Canvas** tab (third tab). Canvas names sit left to right; the **+** after the last name adds a canvas. Choose an **Agent** and **Start conversation**.
+2. In that chat the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Refresh is that conversation's repeat in [Agenda](/docs/ai/agenda).
+3. A later change happens in the same conversation. The canvas tab shows the owner agent and the conversation; open that conversation to ask for a change. Project canvases live on the project [Canvas](/docs/ai/folders) tab.
 
 ## Open work that is waiting on you
 

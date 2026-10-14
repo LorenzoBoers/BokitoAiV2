@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertCircle, Check, MoreHorizontal, X } from 'lucide-react'
 import type { LearnChoice } from '../../lib/agent-rules-api'
 import { bundleRowLabel, bundleRowSubtitle } from '../../lib/bundleActionLabel'
-import type { MessageProposal, ProposalBundleEntry, ThreadId } from '../../lib/inbox-api'
+import type { InboxMember, MessageProposal, ProposalBundleEntry, ThreadId } from '../../lib/inbox-api'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
 import {
@@ -14,6 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { useAuth } from '../../context/AuthContext'
+import { DecisionResolvedBy, memberForUuid } from './DecisionResolvedBy'
 import { useDecisionResolve } from './useDecisionResolve'
 
 type RowState = 'awaiting_human' | 'approved' | 'rejected' | 'deferred' | 'failed' | 'missing'
@@ -45,16 +47,19 @@ export function ActionBundleCard({
   proposal,
   threadId,
   agentName,
+  membersById,
   onResolved,
   onAnswer,
 }: {
   proposal: MessageProposal
   threadId: ThreadId
   agentName?: string | null
+  membersById?: Record<number, InboxMember>
   onResolved?: (info?: { closed?: boolean }) => void
   onAnswer?: (answer: { text: string; decisionId: string } | null) => void
 }) {
   const { t, i18n } = useTranslation('communication')
+  const { user } = useAuth()
   const label = useActionLabel()
   const entries = proposal.bundle
   const [local, setLocal] = useState<Record<string, RowState>>({})
@@ -79,6 +84,20 @@ export function ActionBundleCard({
   const approvedCount = entries.filter((e) => states[e.decisionId] === 'approved').length
   const rejectedCount = entries.filter((e) => states[e.decisionId] === 'rejected').length
   const selected = picked.filter((id) => open.some((e) => e.decisionId === id))
+  const resolverEntry = [...entries]
+    .reverse()
+    .find((e) => e.resolvedByUserId || e.resolvedBy)
+  const resolverMember =
+    memberForUuid(membersById, resolverEntry?.resolvedByUserId || proposal.resolvedByUserId) ||
+    (user?.email
+      ? Object.values(membersById || {}).find(
+          (m) => m.email?.toLowerCase() === user.email.toLowerCase(),
+        ) ?? null
+      : null)
+  const resolverName =
+    resolverEntry?.resolvedBy || proposal.resolvedBy || resolverMember?.name || user?.name || null
+  const resolveStatus =
+    approvedCount && rejectedCount ? 'mixed' : approvedCount ? 'approved' : 'rejected'
 
   function applyRows(rows: { decisionId: string; status: string; error: string | null; skipped: boolean }[]) {
     if (!rows.length) return
@@ -120,11 +139,20 @@ export function ActionBundleCard({
       className="rounded-xl border border-border bg-bg-surface/70 px-3 py-2 text-sm"
       data-testid="action-bundle"
     >
-      <p className="mb-1.5 text-xs text-text-muted" data-testid="action-bundle-header">
-        {allDone
-          ? t('actionBundle.summary', { approved: approvedCount, rejected: rejectedCount })
-          : t('actionBundle.header', { count: open.length })}
-      </p>
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1" data-testid="action-bundle-header">
+        <p className="text-xs text-text-muted">
+          {allDone
+            ? t('actionBundle.summary', { approved: approvedCount, rejected: rejectedCount })
+            : t('actionBundle.header', { count: open.length })}
+        </p>
+        {allDone ? (
+          <DecisionResolvedBy
+            status={resolveStatus}
+            name={resolverName}
+            member={resolverMember}
+          />
+        ) : null}
+      </div>
       <ul className="divide-y divide-border/60">
         {entries.map((entry) => {
           const state = states[entry.decisionId]

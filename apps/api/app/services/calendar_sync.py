@@ -1,14 +1,15 @@
 """Sync Google Calendar / Outlook Calendar into CalendarEvent rows.
 
 Connections live on IntegrationConnection (provider google_calendar |
-outlook_calendar). One connection is one account; ``meta["calendars"]`` lists
-that account's calendars with an ``enabled`` flag, and only enabled calendars
-sync. ``meta["default_write_calendar"]`` is where new events land unless the
-caller names another calendar.
+outlook_calendar). One connection is one OAuth account. Each synced calendar
+is a ``TenantCalendar`` (sync_enabled, access, tags); ``meta["calendars"]``
+keeps a provider snapshot for refresh merge. ``meta["default_write_calendar"]``
+is where new events land unless the caller names another calendar.
 
-Who sees and writes a connection follows ``connection_access`` (``use`` reads
-and writes events, ``manage`` changes calendars, access and sync). Pass a
-``CalendarViewer``; ``None`` means system code (worker, decision apply).
+Connection ``manage`` covers OAuth, disconnect and which calendars to sync.
+Per-calendar ``use`` / ``manage`` (``calendar_access``) gates who sees events
+and who may edit tags/access/sync. Pass a ``CalendarViewer``; ``None`` means
+system code (worker, decision apply).
 
 ``sync_status`` is ``ok``, ``error`` or ``reconnect`` (the account needs a new
 sign-in; cached events stay). Mock credentials seed demo events outside
@@ -465,6 +466,8 @@ async def refresh_calendar_list(
     session: AsyncSession, conn: IntegrationConnection
 ) -> list[dict[str, Any]]:
     """Pull the account's calendars from the provider and store them."""
+    from app.services.tenant_calendars import apply_enabled_flags, ensure_from_snapshot
+
     slug = _calendar_slug(conn)
     if slug is None:
         raise ValueError("Calendar connection not found")
@@ -475,6 +478,8 @@ async def refresh_calendar_list(
     else:
         remote = await _with_token(session, conn, lambda token: _fetch_calendars(slug, token))
         calendars = _merge_calendars(stored_calendars(conn), remote)
+    rows = await ensure_from_snapshot(session, conn, calendars)
+    calendars = apply_enabled_flags(calendars, rows)
     _save_calendars(conn, calendars)
     session.add(conn)
     await session.commit()
@@ -490,34 +495,11 @@ async def set_calendar_selection(
 ) -> list[dict[str, Any]]:
     """Choose which calendars sync and where new events land. Events of
     calendars that are switched off leave Agenda at once."""
-    calendars = stored_calendars(conn)
-    known = {c["id"] for c in calendars}
-    if enabled_ids is not None:
-        wanted = {str(x) for x in enabled_ids}
-        unknown = wanted - known
-        if unknown:
-            raise ValueError("Unknown calendar: " + ", ".join(sorted(unknown)))
-        for cal in calendars:
-            cal["enabled"] = cal["id"] in wanted
-        _save_calendars(conn, calendars)
-        disabled = [c["id"] for c in calendars if not c["enabled"]]
-        if disabled:
-            await session.execute(
-                delete(CalendarEvent).where(
-                    CalendarEvent.connection_id == conn.id,
-                    CalendarEvent.calendar_id.in_(disabled),
-                )
-            )
-    if default_write is not None:
-        target = next((c for c in calendars if c["id"] == default_write), None)
-        if target is None or not target["writable"] or not target["enabled"]:
-            raise ValueError("The default calendar must be switched on and writable.")
-        meta = _parse_json(conn.metadata_json)
-        meta["default_write_calendar"] = default_write
-        conn.metadata_json = json.dumps(meta)
-    session.add(conn)
-    await session.commit()
-    return calendars
+    from app.services.tenant_calendars import set_selection
+
+    return await set_selection(
+        session, conn, enabled_ids=enabled_ids, default_write=default_write
+    )
 
 
 # --- Sync ------------------------------------------------------------------
@@ -527,11 +509,18 @@ async def _seed_mock_events(
     session: AsyncSession, conn: IntegrationConnection
 ) -> dict[str, Any]:
     """Dev/demo events around today so Agenda has something to show."""
+    from app.services.tenant_calendars import bind_event_calendar, ensure_from_snapshot
+
     await session.execute(
         delete(CalendarEvent).where(CalendarEvent.connection_id == conn.id)
     )
     if not stored_calendars(conn):
         _save_calendars(conn, [dict(MOCK_CALENDAR)])
+    rows = await ensure_from_snapshot(session, conn)
+    target = next((r for r in rows if r.sync_enabled), rows[0] if rows else None)
+    cal_ext = target.external_id if target else "primary"
+    cal_name = target.name if target else "Primary"
+    tc_id = target.id if target else await bind_event_calendar(session, conn, cal_ext)
     now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
     samples = [
         ("Team standup", now + timedelta(hours=2), now + timedelta(hours=2, minutes=30)),
@@ -545,8 +534,9 @@ async def _seed_mock_events(
                 connection_id=conn.id,
                 provider=conn.provider,
                 external_id=f"mock-{uuid4().hex[:12]}",
-                calendar_id="primary",
-                calendar_name="Primary",
+                calendar_id=cal_ext,
+                tenant_calendar_id=tc_id,
+                calendar_name=cal_name,
                 title=title,
                 description="Demo calendar event",
                 start_at=start,
@@ -733,13 +723,19 @@ async def _store_account(
 ) -> int:
     """Upsert by (calendar, external id); drop rows the provider no longer
     lists and rows of calendars that are not synced."""
+    from app.services.tenant_calendars import bind_event_calendar, ensure_from_snapshot
+
+    await ensure_from_snapshot(session, conn, calendars)
     existing_rows = (
         await session.execute(select(CalendarEvent).where(CalendarEvent.connection_id == conn.id))
     ).scalars().all()
     existing = {(row.calendar_id, row.external_id): row for row in existing_rows}
     names = {c["id"]: c["name"] for c in calendars}
+    tc_ids: dict[str, UUID | None] = {}
     seen: set[tuple[str, str]] = set()
     for cal_id, items in events.items():
+        if cal_id not in tc_ids:
+            tc_ids[cal_id] = await bind_event_calendar(session, conn, cal_id)
         for data in items:
             key = (cal_id, data["external_id"])
             if key in seen:
@@ -752,10 +748,13 @@ async def _store_account(
                     provider=conn.provider,
                     external_id=data["external_id"],
                     calendar_id=cal_id,
+                    tenant_calendar_id=tc_ids.get(cal_id),
                     start_at=data["start_at"],
                     end_at=data["end_at"],
                 )
                 existing[key] = row
+            else:
+                row.tenant_calendar_id = tc_ids.get(cal_id) or row.tenant_calendar_id
             _apply_event(row, data, names.get(cal_id, ""))
             session.add(row)
             seen.add(key)
@@ -769,6 +768,8 @@ async def _store_account(
 async def sync_connection(
     session: AsyncSession, conn: IntegrationConnection
 ) -> dict[str, Any]:
+    from app.services.tenant_calendars import apply_enabled_flags, ensure_from_snapshot
+
     slug = _calendar_slug(conn)
     if slug is None:
         return {"connection_id": str(conn.id), "synced": 0, "status": "skipped"}
@@ -785,6 +786,8 @@ async def sync_connection(
         return {"connection_id": str(conn.id), "synced": 0, "status": "reconnect"}
 
     stored = stored_calendars(conn)
+    rows = await ensure_from_snapshot(session, conn, stored)
+    stored = apply_enabled_flags(stored, rows)
     try:
         calendars, events = await _with_token(
             session, conn, lambda token: _fetch_account(slug, token, stored)
@@ -797,6 +800,9 @@ async def sync_connection(
         await _mark(session, conn, "error", message)
         return {"connection_id": str(conn.id), "synced": 0, "status": "error", "error": message}
 
+    # Preserve sync_enabled from TenantCalendar after provider merge.
+    rows = await ensure_from_snapshot(session, conn, calendars)
+    calendars = apply_enabled_flags(calendars, rows)
     count = await _store_account(session, conn, calendars, events)
     await _mark(session, conn, "ok")
     return {"connection_id": str(conn.id), "synced": count, "status": "ok"}
@@ -861,6 +867,8 @@ async def list_calendar_connections(
 ) -> list[dict[str, Any]]:
     from sqlalchemy import func
 
+    from app.services.tenant_calendars import calendars_payload_for_connection
+
     visible = await visible_connections(session, tenant_id, viewer)
     counts: dict[UUID, int] = {}
     if visible:
@@ -874,6 +882,7 @@ async def list_calendar_connections(
     for conn, level in visible:
         slug = _calendar_slug(conn)
         meta = _parse_json(conn.metadata_json)
+        calendars = await calendars_payload_for_connection(session, conn)
         out.append(
             {
                 "id": str(conn.id),
@@ -885,7 +894,7 @@ async def list_calendar_connections(
                 "sync_status": meta.get("sync_status") or "idle",
                 "sync_error": meta.get("sync_error") or "",
                 "event_count": counts.get(conn.id, 0),
-                "calendars": stored_calendars(conn),
+                "calendars": calendars,
                 "default_write_calendar": default_write_calendar(conn),
                 "access_level": level,
                 "can_manage": level == "manage",
@@ -901,22 +910,65 @@ async def calendar_events_in_window(
     start: datetime,
     end: datetime,
     viewer: CalendarViewer | None = None,
+    calendar_ids: list[UUID] | None = None,
+    tag_names: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Calendar events overlapping [start, end] in the time-item vocabulary
-    (``title``, ``start``, ``end``) from connections this viewer may use;
+    (``title``, ``start``, ``end``) from calendars this viewer may use;
     ``list_time_items`` wraps them."""
-    visible = await visible_connections(session, tenant_id, viewer)
-    if not visible:
+    from app.services.tenant_calendars import (
+        ensure_from_snapshot,
+        rows_for_connection,
+        tags_by_calendar,
+        visible_calendars,
+    )
+
+    visible = await visible_calendars(session, tenant_id, viewer)
+    # Only sync_enabled calendars contribute events.
+    visible = [(c, level, conn) for c, level, conn in visible if c.sync_enabled]
+    if calendar_ids:
+        wanted = set(calendar_ids)
+        visible = [(c, level, conn) for c, level, conn in visible if c.id in wanted]
+    if tag_names:
+        from app.services.signal_tags import normalize_tag
+
+        wanted_tags = {normalize_tag(n) for n in tag_names if n}
+        tag_map = await tags_by_calendar(session, tenant_id, [c.id for c, _, _ in visible])
+        visible = [
+            (c, level, conn)
+            for c, level, conn in visible
+            if wanted_tags & {t["name"] for t in tag_map.get(c.id, [])}
+        ]
+    by_tc = {c.id: (c, level, conn) for c, level, conn in visible}
+    by_ext = {(c.connection_id, c.external_id): (c, level, conn) for c, level, conn in visible}
+    # Connections with no TenantCalendar rows yet: connection-level visibility.
+    conn_visible = await visible_connections(session, tenant_id, viewer)
+    legacy: dict[UUID, tuple[IntegrationConnection, str]] = {}
+    for conn, level in conn_visible:
+        if any(c.connection_id == conn.id for c, _, _ in visible):
+            continue
+        rows = await rows_for_connection(session, conn.id)
+        if not rows:
+            await ensure_from_snapshot(session, conn)
+            rows = await rows_for_connection(session, conn.id)
+        if not rows:
+            legacy[conn.id] = (conn, level)
+        else:
+            for row in rows:
+                if not row.sync_enabled:
+                    continue
+                if calendar_ids and row.id not in set(calendar_ids or []):
+                    continue
+                by_tc[row.id] = (row, level, conn)
+                by_ext[(conn.id, row.external_id)] = (row, level, conn)
+    conn_ids = {conn.id for _, _, conn in visible} | set(legacy) | {cid for cid, _ in by_ext}
+    if not conn_ids:
         return []
-    by_id = {conn.id: (conn, level) for conn, level in visible}
-    colors = {
-        (conn.id, cal["id"]): cal for conn, _ in visible for cal in stored_calendars(conn)
-    }
     result = await session.execute(
         select(CalendarEvent)
         .where(
             CalendarEvent.tenant_id == tenant_id,
-            CalendarEvent.connection_id.in_(list(by_id)),
+            CalendarEvent.connection_id.in_(conn_ids),
             CalendarEvent.start_at < end,
             CalendarEvent.end_at > start,
             CalendarEvent.status != "cancelled",
@@ -925,8 +977,42 @@ async def calendar_events_in_window(
     )
     items: list[dict[str, Any]] = []
     for ev in result.scalars().all():
-        conn, level = by_id[ev.connection_id]
-        cal = colors.get((ev.connection_id, ev.calendar_id)) or {}
+        matched = None
+        if ev.tenant_calendar_id and ev.tenant_calendar_id in by_tc:
+            matched = by_tc[ev.tenant_calendar_id]
+        else:
+            matched = by_ext.get((ev.connection_id, ev.calendar_id))
+        if matched is None and ev.connection_id in legacy:
+            conn, level = legacy[ev.connection_id]
+            items.append(
+                {
+                    "id": f"cal:{ev.id}",
+                    "title": ev.title or "(No title)",
+                    "instructions": ev.description or "",
+                    "start": ev.start_at.replace(microsecond=0).isoformat(),
+                    "end": ev.end_at.replace(microsecond=0).isoformat(),
+                    "provider": ev.provider,
+                    "provider_label": "Google" if ev.provider == "google_calendar" else "Outlook",
+                    "calendar_id": ev.calendar_id,
+                    "tenant_calendar_id": None,
+                    "calendar_name": ev.calendar_name,
+                    "calendar_color": "",
+                    "account": str(_parse_json(conn.metadata_json).get("email") or ""),
+                    "location": ev.location,
+                    "html_link": ev.html_link,
+                    "all_day": ev.all_day,
+                    "status": ev.status,
+                    "connection_id": str(ev.connection_id),
+                    "external_id": ev.external_id,
+                    "ical_uid": str(_parse_json(ev.metadata_json).get("ical_uid") or ""),
+                    "can_edit": bool(level),
+                    "signal_id": str(ev.signal_id) if ev.signal_id else None,
+                }
+            )
+            continue
+        if matched is None:
+            continue
+        cal, level, conn = matched
         items.append(
             {
                 "id": f"cal:{ev.id}",
@@ -937,8 +1023,9 @@ async def calendar_events_in_window(
                 "provider": ev.provider,
                 "provider_label": "Google" if ev.provider == "google_calendar" else "Outlook",
                 "calendar_id": ev.calendar_id,
-                "calendar_name": ev.calendar_name,
-                "calendar_color": cal.get("color") or "",
+                "tenant_calendar_id": str(cal.id),
+                "calendar_name": cal.name or ev.calendar_name,
+                "calendar_color": cal.color or "",
                 "account": str(_parse_json(conn.metadata_json).get("email") or ""),
                 "location": ev.location,
                 "html_link": ev.html_link,
@@ -947,7 +1034,7 @@ async def calendar_events_in_window(
                 "connection_id": str(ev.connection_id),
                 "external_id": ev.external_id,
                 "ical_uid": str(_parse_json(ev.metadata_json).get("ical_uid") or ""),
-                "can_edit": bool(level) and (not cal or bool(cal.get("writable", True))),
+                "can_edit": bool(level) and bool(cal.writable),
                 "signal_id": str(ev.signal_id) if ev.signal_id else None,
             }
         )
@@ -957,7 +1044,7 @@ async def calendar_events_in_window(
 # --- Writing ---------------------------------------------------------------
 
 
-async def _tenant_calendar(
+async def _calendar_connection(
     session: AsyncSession, tenant_id: UUID, connection_id: UUID
 ) -> tuple[IntegrationConnection, str]:
     conn = await session.get(IntegrationConnection, connection_id)
@@ -971,7 +1058,7 @@ def _write_target(conn: IntegrationConnection, calendar_id: str | None) -> tuple
     calendars = stored_calendars(conn)
     if calendar_id:
         match = next((c for c in calendars if c["id"] == calendar_id), None)
-        if calendars and (match is None or not match["writable"]):
+        if calendars and (match is None or not match["writable"] or not match.get("enabled", True)):
             raise ValueError("That calendar does not accept new events.")
         return calendar_id, (match or {}).get("name") or "Calendar"
     target = default_write_calendar(conn)
@@ -1043,9 +1130,14 @@ async def create_external_event(
 ) -> dict[str, Any]:
     """Create an event on the external calendar (``calendar_id`` or the
     connection's default) and cache it locally."""
-    conn, slug = await _tenant_calendar(session, tenant_id, connection_id)
+    conn, slug = await _calendar_connection(session, tenant_id, connection_id)
     from app.services.crypto import get_connection_credentials
+    from app.services.tenant_calendars import bind_event_calendar, ensure_from_snapshot
 
+    if not stored_calendars(conn):
+        _save_calendars(conn, [dict(MOCK_CALENDAR)])
+        session.add(conn)
+    await ensure_from_snapshot(session, conn)
     creds = get_connection_credentials(conn)
     start_n = _iso_naive(start_at)
     end_n = _iso_naive(end_at)
@@ -1055,6 +1147,7 @@ async def create_external_event(
         raise ValueError("end_at must be after start_at")
     target, target_name = _write_target(conn, calendar_id)
     clean_title = title.strip() or "Untitled"
+    tc_id = await bind_event_calendar(session, conn, target)
 
     if creds.get("mock"):
         if not _mock_allowed():
@@ -1065,6 +1158,7 @@ async def create_external_event(
             provider=conn.provider,
             external_id=f"local-{uuid4().hex}",
             calendar_id=target,
+            tenant_calendar_id=tc_id,
             calendar_name=target_name,
             title=clean_title,
             description=description,
@@ -1111,6 +1205,7 @@ async def create_external_event(
         provider=conn.provider,
         external_id=str(data.get("id") or "") or f"created-{uuid4().hex}",
         calendar_id=target,
+        tenant_calendar_id=tc_id,
         calendar_name=target_name,
         title=clean_title,
         description=description,

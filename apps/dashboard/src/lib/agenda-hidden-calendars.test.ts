@@ -21,13 +21,14 @@ describe('agenda hidden calendars', () => {
   })
 
   it('round-trips hidden sub-calendars and drops junk', () => {
-    writeHiddenCalendars(new Set(['conn-1|cal-a']))
-    expect(readHiddenCalendars()).toEqual(new Set(['conn-1|cal-a']))
+    const uuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    writeHiddenCalendars(new Set(['conn-1|cal-a', uuid]))
+    expect(readHiddenCalendars()).toEqual(new Set(['conn-1|cal-a', uuid]))
     globalThis.localStorage.setItem(
       'bokito.agenda.hiddenCalendars',
-      JSON.stringify(['conn-1|cal-a', 'nope', 3]),
+      JSON.stringify(['conn-1|cal-a', uuid, 'nope', 3]),
     )
-    expect(readHiddenCalendars()).toEqual(new Set(['conn-1|cal-a']))
+    expect(readHiddenCalendars()).toEqual(new Set(['conn-1|cal-a', uuid]))
     writeHiddenCalendars(new Set())
     expect(readHiddenCalendars()).toEqual(new Set())
   })

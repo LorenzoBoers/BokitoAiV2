@@ -63,10 +63,12 @@ import { appRoutes } from '../../api/routes'
 import {
   patchThread,
   type InboxEvent,
+  type InboxMember,
   type InboxMessage,
   type ReplySendAs,
   type ThreadId,
 } from '../../lib/inbox-api'
+import { DecisionResolvedBy, memberForUuid } from './DecisionResolvedBy'
 import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib/reply-send-as'
 import { useAuth } from '../../context/AuthContext'
 import { listAgents } from '../../lib/agents-api'
@@ -84,6 +86,7 @@ type Props = {
   message: InboxMessage
   threadId: ThreadId
   events: InboxEvent[]
+  membersById?: Record<number, InboxMember>
   onResolved?: (info?: DecisionResolvedInfo) => void
   onAnswer?: (answer: { text: string; decisionId: string } | null) => void
   onEditDraft?: (draft: {
@@ -310,6 +313,7 @@ export default function DecisionRequestMessage({
   message,
   threadId,
   events,
+  membersById,
   onResolved,
   onAnswer,
   onEditDraft,
@@ -805,6 +809,18 @@ export default function DecisionRequestMessage({
       typeof siblingId === 'string' && siblingId
         ? forYouPath(siblingId)
         : null
+    const decisionPayload = message.payload?.decision as
+      | { resolved_by_user_id?: string; status?: string }
+      | undefined
+    const resolverUuid =
+      message.proposal?.resolvedByUserId ||
+      (typeof decisionPayload?.resolved_by_user_id === 'string'
+        ? decisionPayload.resolved_by_user_id
+        : null)
+    const resolverMember = memberForUuid(membersById, resolverUuid)
+    const resolverName = message.proposal?.resolvedBy || resolverMember?.name
+    const draftStatus =
+      status === 'approved' || status === 'rejected' ? status : 'mixed'
     return (
       <div className="flex flex-col gap-1">
         {activityTrail}
@@ -813,23 +829,30 @@ export default function DecisionRequestMessage({
           avatar={agentAvatar}
           variant="external"
           body={
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
-                {resolvedLabel}
-                {excerpt ? ` — ${excerpt}` : ''}
-              </span>
-              {openSibling ? (
-                <Link
-                  to={openSibling}
-                  className="shrink-0 text-xs font-medium text-accent hover:underline"
-                  data-testid="draft-open-active-thread"
-                >
-                  {t('decisionCard.openActiveThread', { defaultValue: 'Open active' })}
-                </Link>
-              ) : null}
-              <span className="shrink-0 rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
-                {t('decisionCard.resolved')}
-              </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 flex-1 truncate-fade text-xs text-text-muted">
+                  {resolvedLabel}
+                  {excerpt ? ` — ${excerpt}` : ''}
+                </span>
+                {openSibling ? (
+                  <Link
+                    to={openSibling}
+                    className="shrink-0 text-xs font-medium text-accent hover:underline"
+                    data-testid="draft-open-active-thread"
+                  >
+                    {t('decisionCard.openActiveThread', { defaultValue: 'Open active' })}
+                  </Link>
+                ) : null}
+                <span className="shrink-0 rounded-lg bg-bg-hover px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                  {t('decisionCard.resolved')}
+                </span>
+              </div>
+              <DecisionResolvedBy
+                status={draftStatus}
+                name={resolverName}
+                member={resolverMember}
+              />
             </div>
           }
         />
@@ -1053,6 +1076,19 @@ export default function DecisionRequestMessage({
             className="mt-3"
             options={options}
             chosenIds={chosenOptionIds}
+            resolvedStatus={
+              (message.payload?.decision as { status?: string } | undefined)?.status ||
+              message.proposal?.status ||
+              'mixed'
+            }
+            resolvedByName={message.proposal?.resolvedBy}
+            resolvedByMember={memberForUuid(
+              membersById,
+              message.proposal?.resolvedByUserId ||
+                (
+                  message.payload?.decision as { resolved_by_user_id?: string } | undefined
+                )?.resolved_by_user_id,
+            )}
           />
         ) : null}
         {!visuallyResolved ? (

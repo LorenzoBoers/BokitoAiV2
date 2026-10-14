@@ -131,6 +131,8 @@ export function mergeHubThreadFilters(
     unread?: boolean
     pinnedOnly?: boolean
     assigneeId?: number | null
+    priority?: ThreadFilters['priority']
+    activity?: ThreadFilters['activity']
     needsDecision?: boolean
     /** @deprecated Prefer a channel leaf; still honored when set. */
     channel?: ChannelChip | null
@@ -148,6 +150,8 @@ export function mergeHubThreadFilters(
     unread: extras.unread || undefined,
     pinnedOnly: extras.pinnedOnly || undefined,
     assigneeId: extras.assigneeId ?? undefined,
+    priority: extras.priority ?? undefined,
+    activity: extras.activity ?? undefined,
     needsDecision: extras.needsDecision || undefined,
     view: extras.needsDecision ? 'awaiting_decision' : leafFilters.view,
     channel: chip.channel ?? leafFilters.channel,

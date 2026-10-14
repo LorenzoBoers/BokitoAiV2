@@ -24,7 +24,14 @@ export default function CockpitCanvasPage() {
         meta={<WorkspaceIdHint />}
       />
       <CockpitTabs />
-      {ownerId ? <CanvasHost ownerKind="tenant" ownerId={ownerId} canEdit={isAdmin} /> : null}
+      {ownerId ? (
+        <CanvasHost
+          ownerKind="tenant"
+          ownerId={ownerId}
+          ownerLabel={workspaceBrandName(currentWorkspace)}
+          canEdit={isAdmin}
+        />
+      ) : null}
     </PageContent>
   )
 }

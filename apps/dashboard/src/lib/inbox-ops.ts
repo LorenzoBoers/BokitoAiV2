@@ -66,6 +66,13 @@ export function parsePriorityParam(raw: string | null | undefined): 'normal' | '
   return raw === 'normal' || raw === 'high' || raw === 'urgent' ? raw : null
 }
 
+/** Last-activity window in the Communication URL (`?date=`). */
+export type ThreadDateFilter = 'today' | '7d' | '30d' | '90d'
+
+export function parseDateFilterParam(raw: string | null | undefined): ThreadDateFilter | null {
+  return raw === 'today' || raw === '7d' || raw === '30d' || raw === '90d' ? raw : null
+}
+
 export function parseQuickFilterParam(
   raw: string | null | undefined,
 ): InboxListQuickFilter | 'forYou' | null {

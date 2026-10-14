@@ -281,6 +281,14 @@
     "filterAssigneeAll": "Any assignee",
     "filterPriority": "Filter by priority",
     "filterPriorityAll": "Any priority",
+    "filterDate": "Filter by date",
+    "filterDateAll": "Any time",
+    "dateFilter": {
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days"
+    },
     "searchPlaceholder": "Search",
     "filters": "Filters",
     "quickFilters": "Quick filters",
@@ -1574,6 +1582,7 @@
     "header_one": "{{count}} action waits for your OK",
     "header_other": "{{count}} actions wait for your OK",
     "summary": "{{approved}} approved · {{rejected}} declined",
+    "resolvedBy": "by {{name}}",
     "approve": "Approve",
     "approveAll": "Approve all",
     "approveSelected": "Approve selected ({{count}})",
@@ -1689,7 +1698,9 @@
   },
   "support": {
     "folders": {
-      "under": "Under"
+      "under": "Under",
+      "showEmpty": "Show {{count}} empty maps",
+      "showEmptyLabel": "Empty maps"
     }
   }
 }

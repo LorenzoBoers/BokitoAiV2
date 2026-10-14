@@ -141,7 +141,7 @@ async def test_approve_delete_defers_duplicate_ask(client: AsyncClient, session_
 
 
 @pytest.mark.asyncio
-async def test_decision_response_annotates_chat_history(client: AsyncClient, session_override):
+async def test_decision_outcome_hint_in_chat_history(client: AsyncClient, session_override):
     """Continue-after-decision wake must see that the tool already ran."""
     await _login(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
@@ -158,16 +158,19 @@ async def test_decision_response_annotates_chat_history(client: AsyncClient, ses
         session_override,
         signal,
         role="user",
-        content="Ja, verwijder #demo",
+        content=(
+            "[System] The operator just resolved decision card(s) on this thread. "
+            "Approved: delete #demo (delete_tag). Tool already executed. "
+            "Confirm briefly. Do not call that gated tool again."
+        ),
         metadata={
-            "decision_response": True,
-            "decision_action": "approve",
-            "option_id": "approve",
+            "decision_outcome_hint": True,
+            "hidden_from_timeline": True,
+            "decision_action": "approved",
         },
     )
     await session_override.commit()
     history = await signal_chat_history(session_override, signal.id)
     last = history[-1]["content"]
-    assert "Ja, verwijder #demo" in last
-    assert "already ran" in last
-    assert "do not re-run" in last.lower() or "Do not re-run" in last
+    assert "Approved: delete #demo" in last
+    assert "already executed" in last.lower() or "Tool already" in last

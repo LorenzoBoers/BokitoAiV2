@@ -59,6 +59,8 @@ type Props = {
   members?: MemberOption[]
   priorityFilter?: string | null
   onPriorityFilter?: (value: string | null) => void
+  dateFilter?: string | null
+  onDateFilter?: (value: string | null) => void
 }
 
 const FILTERS: Array<{
@@ -91,6 +93,8 @@ export default function ThreadListQuickFilters({
   members = [],
   priorityFilter = null,
   onPriorityFilter,
+  dateFilter = null,
+  onDateFilter,
 }: Props) {
   const { t } = useTranslation('communication')
   const inbox = useOptionalInboxCommunication()
@@ -104,12 +108,16 @@ export default function ThreadListQuickFilters({
         ? mailboxSyncLabel(lastMailboxSyncAt, t)
         : t('threadList.lastSyncNever')
 
-  const hasAdvancedFilters = Boolean(onAssigneeFilter || onPriorityFilter)
-  const advancedActive = assigneeFilter != null || Boolean(priorityFilter)
+  const hasAdvancedFilters = Boolean(onAssigneeFilter || onPriorityFilter || onDateFilter)
+  const advancedActive =
+    assigneeFilter != null || Boolean(priorityFilter) || Boolean(dateFilter)
   const quickActive = value !== 'all'
   const filtersActive = quickActive || advancedActive
   const activeFilterCount =
-    (quickActive ? 1 : 0) + (assigneeFilter != null ? 1 : 0) + (priorityFilter ? 1 : 0)
+    (quickActive ? 1 : 0) +
+    (assigneeFilter != null ? 1 : 0) +
+    (priorityFilter ? 1 : 0) +
+    (dateFilter ? 1 : 0)
 
   const activeSummary = useMemo(() => {
     const parts: string[] = []
@@ -124,13 +132,17 @@ export default function ThreadListQuickFilters({
     if (priorityFilter) {
       parts.push(t(`priority.${priorityFilter}`, { defaultValue: priorityFilter }))
     }
+    if (dateFilter) {
+      parts.push(t(`threadList.dateFilter.${dateFilter}`, { defaultValue: dateFilter }))
+    }
     return parts
-  }, [quickActive, value, assigneeFilter, members, priorityFilter, t])
+  }, [quickActive, value, assigneeFilter, members, priorityFilter, dateFilter, t])
 
   const clearAllFilters = () => {
     onChange('all')
     onAssigneeFilter?.(null)
     onPriorityFilter?.(null)
+    onDateFilter?.(null)
   }
 
   return (
@@ -279,6 +291,26 @@ export default function ThreadListQuickFilters({
                           <SelectItem value="urgent">{t('priority.urgent')}</SelectItem>
                           <SelectItem value="high">{t('priority.high')}</SelectItem>
                           <SelectItem value="normal">{t('priority.normal')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </label>
+                  ) : null}
+                  {onDateFilter ? (
+                    <label className="block text-xs text-text-muted">
+                      {t('threadList.filterDate')}
+                      <Select
+                        value={dateFilter ?? 'all'}
+                        onValueChange={(next) => onDateFilter(next === 'all' ? null : next)}
+                      >
+                        <SelectTrigger className="mt-1 h-7 w-full text-xs" aria-label={t('threadList.filterDate')}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t('threadList.filterDateAll')}</SelectItem>
+                          <SelectItem value="today">{t('threadList.dateFilter.today')}</SelectItem>
+                          <SelectItem value="7d">{t('threadList.dateFilter.7d')}</SelectItem>
+                          <SelectItem value="30d">{t('threadList.dateFilter.30d')}</SelectItem>
+                          <SelectItem value="90d">{t('threadList.dateFilter.90d')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </label>

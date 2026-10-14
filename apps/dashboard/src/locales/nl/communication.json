@@ -281,6 +281,14 @@
     "filterAssigneeAll": "Iedereen",
     "filterPriority": "Filter op prioriteit",
     "filterPriorityAll": "Elke prioriteit",
+    "filterDate": "Filter op datum",
+    "filterDateAll": "Elke periode",
+    "dateFilter": {
+      "today": "Vandaag",
+      "7d": "Laatste 7 dagen",
+      "30d": "Laatste 30 dagen",
+      "90d": "Laatste 90 dagen"
+    },
     "searchPlaceholder": "Zoeken",
     "filters": "Filters",
     "quickFilters": "Snelfilters",
@@ -1574,6 +1582,7 @@
     "header_one": "{{count}} actie wacht op je akkoord",
     "header_other": "{{count}} acties wachten op je akkoord",
     "summary": "{{approved}} goedgekeurd · {{rejected}} afgewezen",
+    "resolvedBy": "door {{name}}",
     "approve": "Goedkeuren",
     "approveAll": "Alles goedkeuren",
     "approveSelected": "Geselecteerde goedkeuren ({{count}})",
@@ -1689,7 +1698,9 @@
   },
   "support": {
     "folders": {
-      "under": "Onder"
+      "under": "Onder",
+      "showEmpty": "{{count}} lege mappen tonen",
+      "showEmptyLabel": "Lege mappen"
     }
   }
 }

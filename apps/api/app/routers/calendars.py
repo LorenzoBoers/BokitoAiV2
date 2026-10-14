@@ -1,8 +1,8 @@
 """Calendar connections and events API (Google Calendar / Outlook Calendar).
 
-Each connection is one external account and follows the connection access
-list: ``use`` lists and writes its events, ``manage`` picks calendars, the
-default write calendar, access and Sync now.
+Each connection is one OAuth account (``manage``: pick calendars, reconnect,
+disconnect). Each synced calendar is a tenant calendar with its own
+``use``/``manage`` access, tags and sync toggle.
 """
 
 from __future__ import annotations
@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.integration import IntegrationConnection
-from app.services import calendar_sync
+from app.services import calendar_access, calendar_sync
+from app.services import tenant_calendars as tc_svc
 
 router = APIRouter(prefix="/calendars", tags=["calendars"])
 
@@ -55,8 +56,38 @@ class CalendarSelectionBody(BaseModel):
     default_write_calendar: str | None = None
 
 
+class TenantCalendarPatchBody(BaseModel):
+    sync_enabled: bool | None = None
+
+
+class CalendarAccessBody(BaseModel):
+    entries: list[dict[str, Any]] | None = None
+    reset: bool = False
+
+
+class CalendarTagsBody(BaseModel):
+    tags: list[str] = Field(default_factory=list)
+
+
 def _viewer(auth: AuthContext) -> calendar_sync.CalendarViewer:
     return calendar_sync.CalendarViewer(user_id=auth.user.id, role=auth.role)
+
+
+async def _tenant_cal(
+    session: AsyncSession, auth: AuthContext, calendar_id: UUID, *, need: str
+):
+    cal = await tc_svc.get_calendar(session, auth.tenant.id, calendar_id)
+    if cal is None:
+        raise HTTPException(status_code=404, detail="Calendar not found")
+    level = await tc_svc.calendar_level(session, cal, _viewer(auth))
+    if level is None:
+        raise HTTPException(status_code=404, detail="Calendar not found")
+    if need == "manage" and level != "manage":
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot manage this calendar. Ask an owner or admin.",
+        )
+    return cal, level
 
 
 async def _connection(
@@ -100,6 +131,92 @@ async def list_connections(
             session, auth.tenant.id, _viewer(auth)
         )
     }
+
+
+@router.get("/")
+async def list_calendars(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Tenant calendars the caller may use (sync, tags, access)."""
+    return {
+        "calendars": await tc_svc.list_tenant_calendars(
+            session, auth.tenant.id, _viewer(auth)
+        )
+    }
+
+
+@router.patch("/{calendar_id}")
+async def patch_calendar(
+    calendar_id: UUID,
+    body: TenantCalendarPatchBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    cal, _ = await _tenant_cal(session, auth, calendar_id, need="manage")
+    if body.sync_enabled is None:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    updated = await tc_svc.patch_calendar(session, cal, sync_enabled=body.sync_enabled)
+    sync: dict[str, Any] | None = None
+    if body.sync_enabled:
+        conn = await session.get(IntegrationConnection, updated.connection_id)
+        if conn is not None:
+            sync = await calendar_sync.sync_connection(session, conn)
+    rows = await tc_svc.list_tenant_calendars(session, auth.tenant.id, _viewer(auth))
+    row = next((r for r in rows if r["id"] == str(updated.id)), None)
+    return {"calendar": row, "sync": sync}
+
+
+@router.get("/{calendar_id}/access")
+async def get_calendar_access(
+    calendar_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    cal, _ = await _tenant_cal(session, auth, calendar_id, need="use")
+    return {
+        "entries": calendar_access.calendar_access(cal),
+        "is_default": calendar_access.is_default_access(cal),
+    }
+
+
+@router.put("/{calendar_id}/access")
+async def put_calendar_access(
+    calendar_id: UUID,
+    body: CalendarAccessBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    cal, _ = await _tenant_cal(session, auth, calendar_id, need="manage")
+    entries = None if body.reset else body.entries
+    saved = await calendar_access.set_calendar_access(session, cal, entries)
+    await session.commit()
+    return {"entries": saved, "is_default": calendar_access.is_default_access(cal)}
+
+
+@router.get("/{calendar_id}/tags")
+async def get_calendar_tags(
+    calendar_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await _tenant_cal(session, auth, calendar_id, need="use")
+    return {"tags": await tc_svc.list_calendar_tags(session, auth.tenant.id, calendar_id)}
+
+
+@router.put("/{calendar_id}/tags")
+async def put_calendar_tags(
+    calendar_id: UUID,
+    body: CalendarTagsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    await _tenant_cal(session, auth, calendar_id, need="manage")
+    tags = await tc_svc.set_calendar_tags(
+        session, auth.tenant.id, calendar_id, body.tags, user_id=auth.user.id
+    )
+    await session.commit()
+    return {"tags": tags}
 
 
 @router.post("/connections/{connection_id}/sync")
@@ -231,6 +348,8 @@ async def _event_access(session: AsyncSession, auth: AuthContext, event_id: UUID
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     await _connection(session, auth, row.connection_id, need="use")
+    if row.tenant_calendar_id:
+        await _tenant_cal(session, auth, row.tenant_calendar_id, need="use")
 
 
 @router.patch("/events/{event_id}")

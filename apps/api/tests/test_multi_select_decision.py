@@ -79,17 +79,11 @@ async def test_multi_select_resolve_joins_labels_and_ids(client: AsyncClient, se
     assert decision.status == "approved"
     assert decision.chosen_option_id == "klacht,storing"
 
-    replies = (
+    # Choice is recorded on the decision; no operator answer bubble.
+    assert decision.chosen_option_id == "klacht,storing"
+    echoes = (
         await session_override.execute(
-            select(SignalMessage).where(
-                SignalMessage.signal_id == signal.id,
-                SignalMessage.body_text == "#klacht, #storing",
-            )
+            select(SignalMessage).where(SignalMessage.signal_id == signal.id)
         )
     ).scalars().all()
-    assert len(replies) == 1
-    meta = json.loads(replies[0].metadata_json or "{}")
-    assert meta.get("decision_response") is True
-    assert meta.get("option_ids") == ["klacht", "storing"]
-    # No showcase snapshots when the card had none — body still carries labels.
-    assert meta.get("items") in (None, [],)
+    assert not any("decision_response" in (m.metadata_json or "") for m in echoes)

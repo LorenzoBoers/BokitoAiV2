@@ -452,7 +452,11 @@ export default function ProjectDetail() {
             </TabsContent>
 
             <TabsContent value="canvas">
-              <ProjectCanvasBoard projectId={project.id} canEdit={isAdmin} />
+              <ProjectCanvasBoard
+                projectId={project.id}
+                projectName={project.name}
+                canEdit={isAdmin}
+              />
             </TabsContent>
 
             <TabsContent value="docs">
