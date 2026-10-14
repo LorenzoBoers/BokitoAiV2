@@ -95,7 +95,7 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     assert [row["name"] for row in body["tags"]] == ["vip"]
     assert body["tags"][0]["count"] == 1
     folder_rows = {row["id"]: row for row in body["projects"]}
-    assert folder_rows[project_id]["name"].lower() == "repairs"
+    assert folder_rows[project_id]["name"].lower().lstrip("#") == "repairs"
     assert folder_rows[project_id]["count"] == 1
     assert folder_rows[project_id]["tag_ids"] == created.json()["tag_ids"]
     assert folder_rows[project_id]["children"] == []

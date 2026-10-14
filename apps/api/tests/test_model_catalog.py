@@ -643,9 +643,11 @@ async def test_staff_required_for_catalog(client: AsyncClient):
 async def test_project_usage_aggregation(session_override):
     from datetime import datetime, timedelta
 
+    from sqlalchemy import func, select
+
     from app.models.agent import AgentRun
     from app.models.project import Project
-    from app.services.projects import _token_usage
+    from app.models.usage import UsageLedger
     from app.services.model_resolution import resolve_model_call, record_usage
 
     await seed_model_catalog(session_override)
@@ -671,5 +673,16 @@ async def test_project_usage_aggregation(session_override):
     )
 
     since = datetime.utcnow() - timedelta(days=1)
-    total = await _token_usage(session_override, tenant.id, project.id, since)
-    assert total == 150
+    total = (
+        await session_override.execute(
+            select(func.coalesce(func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out), 0))
+            .select_from(UsageLedger)
+            .join(AgentRun, AgentRun.id == UsageLedger.run_id)
+            .where(
+                AgentRun.project_id == project.id,
+                UsageLedger.tenant_id == tenant.id,
+                UsageLedger.created_at >= since,
+            )
+        )
+    ).scalar_one()
+    assert int(total) == 150

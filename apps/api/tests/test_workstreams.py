@@ -7,7 +7,6 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.auth import Tenant
-from app.models.project import Project
 from app.models.signal import Signal
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
@@ -148,12 +147,12 @@ async def test_list_hides_internal_defaults_and_folders_share_one(
     headers = await _login(client)
 
     a = await client.post(
-        "/api/projects",
+        "/api/folders",
         headers=headers,
         json={"tags": ["ws-default-a"], "slug": "ws-default-a"},
     )
     b = await client.post(
-        "/api/projects",
+        "/api/folders",
         headers=headers,
         json={"tags": ["ws-default-b"], "slug": "ws-default-b"},
     )
@@ -193,13 +192,16 @@ async def test_list_hides_internal_defaults_and_folders_share_one(
 async def test_flow_board_groups_tickets_into_project_lanes(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    acme = Project(tenant_id=tenant.id, name="Acme", slug="acme", autonomous_scope="project")
-    session_override.add(acme)
-    await session_override.commit()
-    await session_override.refresh(acme)
+    acme_res = await client.post(
+        "/api/folders",
+        headers=headers,
+        json={"name": "Acme", "slug": "acme", "tags": ["acme"], "autonomous_scope": "project"},
+    )
+    assert acme_res.status_code == 200, acme_res.text
+    acme_id = acme_res.json()["id"]
 
     flow = (await client.post(API, headers=headers, json={"name": "reparatie"})).json()
-    linked = await client.patch(f"{API}/{flow['id']}", headers=headers, json={"project_ids": [str(acme.id)]})
+    linked = await client.patch(f"{API}/{flow['id']}", headers=headers, json={"project_ids": [acme_id]})
     assert linked.status_code == 200, linked.text
 
     on_project = Signal(tenant_id=tenant.id, channel="widget", source="widget", subject="Pump")
@@ -212,7 +214,7 @@ async def test_flow_board_groups_tickets_into_project_lanes(client: AsyncClient,
     filed = await client.put(
         f"/api/signals/{on_project.id}/ticket",
         headers=headers,
-        json={"tag": "reparatie", "project_id": str(acme.id)},
+        json={"tag": "reparatie", "project_id": acme_id},
     )
     assert filed.status_code == 200, filed.text
     filed = await client.put(
@@ -225,9 +227,9 @@ async def test_flow_board_groups_tickets_into_project_lanes(client: AsyncClient,
     board = await client.get(f"{API}/{flow['id']}/board", headers=headers)
     assert board.status_code == 200, board.text
     body = board.json()
-    assert [lane["id"] for lane in body["lanes"]] == [str(acme.id), None]
+    assert [lane["id"] for lane in body["lanes"]] == [acme_id, None]
     by_signal = {t["signal_id"]: t for t in body["tickets"]}
-    assert by_signal[str(on_project.id)]["project_id"] == str(acme.id)
+    assert by_signal[str(on_project.id)]["project_id"] == acme_id
     assert by_signal[str(loose.id)]["project_id"] is None
 
     rows = (await client.get(API, headers=headers)).json()["items"]

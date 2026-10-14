@@ -336,7 +336,9 @@ async def test_folder_filterset_must_be_unique(client: AsyncClient, session_over
         json={"tags": ["overig", "administratie"]},
     )
     assert dup.status_code == 409, dup.text
-    assert "already exists" in (dup.json().get("detail") or "").lower()
+    err = dup.json()
+    detail = err.get("detail") or (err.get("error") or {}).get("message") or ""
+    assert "already exists" in detail.lower()
 
     other = await _folder(client, headers, "OnlyOverig", tags=["overig"])
     assert other["tag_names"] == ["overig"]

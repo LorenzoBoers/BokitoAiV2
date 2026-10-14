@@ -50,8 +50,14 @@ async def _project(session, tenant_id, name="Acme") -> Project:
     """A folder with its own tag (named after the slug), like the API creates."""
     from app.services.projects import create_project
 
+    slug = name.lower().replace(" ", "-")
     created = await create_project(
-        session, tenant_id, name=name, slug=name.lower(), autonomous_scope="project"
+        session,
+        tenant_id,
+        name=name,
+        slug=slug,
+        autonomous_scope="project",
+        tags=[slug],
     )
     return await session.get(Project, UUID(created["id"]))
 
@@ -146,7 +152,7 @@ async def test_folder_follows_from_tags(client: AsyncClient, session_override):
     ticket = filed.json()["ticket"]
     assert ticket["status"] == "open"
     assert ticket["project_id"] == str(acme.id)
-    assert ticket["folder_path"]["label"] == "acme"
+    assert ticket["folder_path"]["label"].lstrip("#") == "acme"
     thread = (await client.get(f"/api/signals/{signal.id}", headers=headers)).json()["thread"]
     assert "acme" in thread["tags"]
 
@@ -523,12 +529,16 @@ async def test_action_tag_can_be_a_folder(client: AsyncClient, session_override)
     created = await client.post(
         "/api/folders",
         headers=headers,
-        json={"name": "Reparaties", "slug": "reparaties", "tag_id": repair["id"]},
+        json={
+            "name": "Reparaties",
+            "slug": "reparaties",
+            "tag_ids": [repair["id"]],
+        },
     )
     assert created.status_code == 200, created.text
     folder = created.json()
-    assert folder["tag_id"] == repair["id"]
-    assert folder["tag_name"] == "reparatie"
+    assert folder["tag_ids"] == [repair["id"]]
+    assert folder["tag_names"] == ["reparatie"]
 
     signal = await _signal(session_override, tenant.id, subject="Pump")
     filed = await client.put(f"/api/signals/{signal.id}/ticket", headers=headers, json={"tag_id": repair["id"]})

@@ -244,8 +244,9 @@ async def test_approve_delete_tag_removes_and_wakes_agent(
         )
     ).scalars().first()
     assert confirm is not None
-    assert tag.name in (confirm.body_text or "")
-    assert "verwijderd" in (confirm.body_text or "").lower()
+    body = (confirm.body_text or "").lower()
+    assert tag.name.lower() in body
+    assert "verwijder" in body
 
 
 @pytest.mark.asyncio

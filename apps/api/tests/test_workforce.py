@@ -44,6 +44,7 @@ async def test_work_logs_and_events(client: AsyncClient):
             "name": "Workforce Test",
             "slug": "workforce-test",
             "autonomous_scope": "Test project for workforce work log endpoints in pytest.",
+            "tags": ["workforce-test"],
         },
     )
     assert created.status_code == 200

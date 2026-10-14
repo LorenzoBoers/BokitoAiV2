@@ -78,6 +78,7 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
             "name": "Bin Project",
             "slug": "bin-project-restore",
             "autonomous_scope": "ops",
+            "tags": ["bin-project-restore"],
         },
     )
     assert proj.status_code == 200, proj.text
@@ -94,8 +95,9 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
         headers=headers,
         json={
             "name": "Bin Project 2",
-            "slug": "bin-project-restore",
+            "slug": "bin-project-restore-2",
             "autonomous_scope": "ops",
+            "tags": ["bin-project-restore-2"],
         },
     )
     assert again.status_code == 200, again.text
@@ -143,7 +145,12 @@ async def test_restored_project_canvas_carries_project_hint(client: AsyncClient)
     proj = await client.post(
         "/api/folders",
         headers=headers,
-        json={"name": "Canvas Home", "slug": "canvas-home", "autonomous_scope": "ops"},
+        json={
+            "name": "Canvas Home",
+            "slug": "canvas-home",
+            "autonomous_scope": "ops",
+            "tags": ["canvas-home"],
+        },
     )
     assert proj.status_code == 200, proj.text
     project_id = proj.json()["id"]

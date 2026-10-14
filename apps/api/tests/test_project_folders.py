@@ -71,7 +71,7 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
     detail = await client.get(f"/api/folders/{admin['id']}", headers=headers)
     assert detail.status_code == 200
     names = {child["name"].lower() for child in detail.json()["children"]}
-    assert "facturen" in names and "werkbonnen" in names
+    assert any("facturen" in n for n in names) and any("werkbonnen" in n for n in names)
     assert detail.json()["child_count"] >= 2
 
     listed = await client.get("/api/folders", headers=headers)

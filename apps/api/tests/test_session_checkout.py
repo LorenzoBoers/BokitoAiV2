@@ -162,11 +162,16 @@ async def test_starting_a_session_closes_another_operators_session(
 
 
 @pytest.mark.asyncio
-async def test_idle_summary_skips_error_agent_bubbles(session_override: AsyncSession):
+async def test_idle_summary_skips_error_agent_bubbles(
+    client: AsyncClient, session_override: AsyncSession
+):
     from app.models.auth import Tenant
     from app.services.agent_sessions import _idle_summary
 
-    tenant = (await session_override.execute(select(Tenant))).scalars().first()
+    del client  # seeds the test tenant via the client fixture
+    tenant = (
+        await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
+    ).scalar_one()
     conversation = Signal(
         tenant_id=tenant.id,
         channel="assistant",

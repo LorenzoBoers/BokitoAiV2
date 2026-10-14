@@ -218,6 +218,7 @@ async def _make_project(client: AsyncClient, headers: dict[str, str], slug: str)
             "slug": slug,
             "autonomous_scope": "Run the ops dashboard",
             "description": "Canvas test project",
+            "tags": [slug],
         },
     )
     assert created.status_code == 200, created.text

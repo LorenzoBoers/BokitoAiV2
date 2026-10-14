@@ -56,7 +56,12 @@ async def test_signal_thread_project_link(client: AsyncClient, session_override)
     project = await client.post(
         "/api/folders",
         headers=headers,
-        json={"name": "Ops Project", "slug": "ops-project", "autonomous_scope": "ops"},
+        json={
+            "name": "Ops Project",
+            "slug": "ops-project",
+            "autonomous_scope": "ops",
+            "tags": ["ops-project"],
+        },
     )
     assert project.status_code == 200
     project_id = project.json()["id"]

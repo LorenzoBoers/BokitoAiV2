@@ -3820,6 +3820,23 @@ async def resolve_message_decision(
                 await _generate_agent_reply(session, tenant_id, user_id, continue_signal)
             else:
                 _schedule_agent_reply(tenant_id, user_id, continue_signal.id)
+        else:
+            # Soft Yes with other open cards: short confirm, no LLM wake (avoids stacking asks).
+            from app.services.assistant_threads import append_signal_chat_message
+
+            confirm = _decision_confirm_text_from_outcomes(outcomes)
+            await append_signal_chat_message(
+                session,
+                continue_signal,
+                role="assistant",
+                content=confirm,
+                author_agent_id=continue_signal.agent_id or message.author_agent_id,
+                metadata={
+                    "decision_confirm": True,
+                    "decision_ids": [str(message.decision_id)] if message.decision_id else [],
+                },
+            )
+            await session.commit()
 
     return {
         "ok": True,

@@ -21,16 +21,17 @@ async def _tenant(session) -> Tenant:
 
 
 async def _project(session, tenant_id, slug="work") -> Project:
-    project = Project(
-        tenant_id=tenant_id,
+    from app.services.projects import create_project
+
+    created = await create_project(
+        session,
+        tenant_id,
         name=f"Work {slug}",
         slug=slug,
         autonomous_scope="test",
+        tags=[slug],
     )
-    session.add(project)
-    await session.commit()
-    await session.refresh(project)
-    return project
+    return await session.get(Project, __import__("uuid").UUID(created["id"]))
 
 
 async def _login(client: AsyncClient) -> dict[str, str]:
@@ -326,7 +327,12 @@ async def test_project_queue_api_and_resources(client: AsyncClient, session_over
     created = await client.post(
         API,
         headers=headers,
-        json={"name": "API Queue", "slug": "api-queue", "autonomous_scope": "ops"},
+        json={
+            "name": "API Queue",
+            "slug": "api-queue",
+            "autonomous_scope": "ops",
+            "tags": ["api-queue"],
+        },
     )
     assert created.status_code == 200
     project_id = created.json()["id"]

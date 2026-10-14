@@ -67,8 +67,7 @@ async def test_seed_trading_stack_idempotent(session_override):
             )
         )
     ).scalar_one()
-    assert project.po_agent_id is not None
-    assert str(project.po_agent_id) == first["orchestrator_id"]
+    assert str(project.id) == first["project_id"]
 
     ws_names = {
         w.name

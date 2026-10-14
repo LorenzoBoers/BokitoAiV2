@@ -426,6 +426,7 @@ async def get_or_create_mmxm_project(
     tenant_id: UUID,
     orchestrator_id: UUID,
 ) -> Project:
+    del orchestrator_id  # folders no longer store a project orchestrator
     result = await session.execute(
         select(Project).where(
             Project.tenant_id == tenant_id,
@@ -434,9 +435,6 @@ async def get_or_create_mmxm_project(
     )
     project = result.scalar_one_or_none()
     if project:
-        if project.po_agent_id != orchestrator_id:
-            project.po_agent_id = orchestrator_id
-            session.add(project)
         return project
 
     project = Project(
@@ -445,7 +443,6 @@ async def get_or_create_mmxm_project(
         slug=MMXM_PROJECT_SLUG,
         description="Live MMXM autotrading operations.",
         autonomous_scope="Trading pipeline, setups, and execution governance.",
-        po_agent_id=orchestrator_id,
     )
     session.add(project)
     await session.flush()
