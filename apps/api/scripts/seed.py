@@ -325,10 +325,8 @@ async def _seed_autotrading_tenant(session) -> None:
 
 
 async def _seed_tenant_data(session, tenant):
-    # The dev tenant gets the same customer-facing lead every real workspace
-    # gets from bootstrap: "Front desk". The platform helper is the separate
-    # "Bokito" agent (personal_assistant.py); never seed a second Bokito-named
-    # agent, or lists and the Agents page show two look-alikes.
+    # Dev tenant lead assistant. The platform helper is the separate "Bokito"
+    # agent (personal_assistant.py); never seed a second Bokito-named agent.
     agent_result = await session.execute(
         select(Agent).where(
             Agent.tenant_id == tenant.id,
@@ -340,18 +338,18 @@ async def _seed_tenant_data(session, tenant):
         session.add(
             Agent(
                 tenant_id=tenant.id,
-                name="Front desk",
+                name="Assistant",
                 role="assistant",
-                slug="front-desk",
+                slug="assistant",
                 chat_access="everyone",
                 runtime_status="standby",
                 system_prompt="You are the Bokito AI OS assistant.",
                 is_lead=True,
                 settings_json=json.dumps(
                     {
-                        "avatar_kind": "icon",
-                        "avatar_icon": "headset",
-                        "avatar_color": "#7c3aed",
+                        "avatar_kind": "orb",
+                        "avatar_shape": "blob",
+                        "avatar_color": "#9159fe",
                     }
                 ),
             )

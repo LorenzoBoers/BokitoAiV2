@@ -331,15 +331,11 @@ async def create_widget_channel(
 ) -> dict[str, Any]:
     """Create an extra website-chat channel with its own snippet and look."""
     auth.require_role("owner", "admin")
-    from app.services.tenant_bootstrap import ensure_front_desk
     from app.services.widget_channel import create_extra_widget_channel
 
     label = body.label if body else ""
     account = await create_extra_widget_channel(session, auth.tenant, label=label)
-    front_desk = await ensure_front_desk(session, auth.tenant.id, commit=False)
-    if account.default_agent_id is None:
-        account.default_agent_id = front_desk.id
-        session.add(account)
+    # Empty default_agent_id = Standaard (workspace lead).
     await session.commit()
     await session.refresh(account)
     return await _row(session, auth, account)

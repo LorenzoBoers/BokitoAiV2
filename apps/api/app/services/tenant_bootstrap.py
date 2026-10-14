@@ -110,107 +110,64 @@ DEFAULT_DOCS: list[tuple[str, str, str]] = [
 ]
 
 
-async def ensure_front_desk(
-    session: AsyncSession, tenant_id: UUID, *, commit: bool = False
-) -> Agent:
-    """Ensure the workspace has its Front desk default agent."""
-    from sqlalchemy import select
+async def purge_front_desk_agents(session: AsyncSession, *, commit: bool = False) -> int:
+    """Force-archive every Front desk agent (slug ``front-desk``) in all tenants.
 
-    existing = (
-        await session.execute(
-            select(Agent)
-            .where(
-                Agent.tenant_id == tenant_id,
-                Agent.kind == "company",
-                Agent.acts_for_user.is_(False),
-                Agent.slug == "front-desk",
-            )
-            .limit(1)
-        )
-    ).scalars().first()
-    if existing:
-        # Keep the customer-facing mark consistent when older tenants have none.
-        from app.services.agent_avatar import avatar_payload
+    Clears channel defaults that pointed at them and drops the lead flag.
+    History stays; they disappear from the working roster.
+    """
+    from datetime import datetime
 
-        changed = False
-        # The workspace's first agent must be reachable from Communication;
-        # one tenant's lead sat on chat_access=nobody and nobody could brief it.
-        if existing.is_lead and existing.chat_access == "nobody":
-            existing.chat_access = "everyone"
-            changed = True
-        av = avatar_payload(existing)
-        if av.get("avatar_kind") == "initials" and not av.get("avatar_icon"):
-            try:
-                stored = json.loads(existing.settings_json or "{}")
-            except json.JSONDecodeError:
-                stored = {}
-            if not isinstance(stored, dict):
-                stored = {}
-            stored.update(
-                {
-                    "avatar_kind": "icon",
-                    "avatar_icon": "headset",
-                    "avatar_color": stored.get("avatar_color") or "#7c3aed",
-                }
+    from sqlalchemy import select, update
+
+    rows = list(
+        (
+            await session.execute(
+                select(Agent).where(
+                    Agent.slug == "front-desk",
+                    Agent.acts_for_user.is_(False),
+                )
             )
-            existing.settings_json = json.dumps(stored)
-            changed = True
-        if changed:
-            session.add(existing)
-            if commit:
-                await session.commit()
-                await session.refresh(existing)
-            else:
-                await session.flush()
-        return existing
-    # Only claim the workspace lead when none exists yet. Older tenants may
-    # already have a lead (e.g. a project PO); customer routing uses
-    # ChannelAccount.default_agent_id → Front desk, not the lead flag.
-    has_lead = (
-        await session.execute(
-            select(Agent.id)
-            .where(
-                Agent.tenant_id == tenant_id,
-                Agent.kind == "company",
-                Agent.is_lead.is_(True),
-                Agent.is_active.is_(True),
-                Agent.acts_for_user.is_(False),
-            )
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    agent = Agent(
-        tenant_id=tenant_id,
-        name="Front desk",
-        role="assistant",
-        slug="front-desk",
-        description=(
-            "First reply on every channel: answers from the workspace docs, "
-            "drafts for the team, and hands over when a person is needed."
-        ),
-        chat_access="everyone",
-        system_prompt=ONBOARDING_SYSTEM_PROMPT,
-        is_active=True,
-        is_lead=has_lead is None,
-        settings_json=json.dumps(
-            {
-                "avatar_kind": "icon",
-                "avatar_icon": "headset",
-                "avatar_color": "#7c3aed",
-            }
-        ),
+        ).scalars().all()
     )
-    session.add(agent)
+    if not rows:
+        return 0
+    now = datetime.utcnow()
+    for agent in rows:
+        await session.execute(
+            update(ChannelAccount)
+            .where(
+                ChannelAccount.tenant_id == agent.tenant_id,
+                ChannelAccount.default_agent_id == agent.id,
+            )
+            .values(default_agent_id=None)
+        )
+        agent.kind = "archived"
+        agent.is_active = False
+        agent.runtime_status = "standby"
+        agent.is_lead = False
+        agent.updated_at = now
+        session.add(agent)
     if commit:
         await session.commit()
-        await session.refresh(agent)
     else:
         await session.flush()
-    return agent
+    return len(rows)
+
+
+async def ensure_front_desk(
+    session: AsyncSession, tenant_id: UUID, *, commit: bool = False
+) -> Agent | None:
+    """Deprecated: Front desk agents are no longer seeded.
+
+    Kept as a no-op so older call sites compile; returns None.
+    """
+    del session, tenant_id, commit
+    return None
 
 
 async def ensure_widget_default_agent(
-    session: AsyncSession, tenant_id: UUID, front_desk: Agent, *, commit: bool = False
+    session: AsyncSession, tenant_id: UUID, front_desk: Agent | None = None, *, commit: bool = False
 ) -> ChannelAccount | None:
     """Clear a website chat whose pinned agent can no longer handle it.
 
@@ -222,6 +179,7 @@ async def ensure_widget_default_agent(
 
     from app.services.widget_channel import get_widget_account
 
+    del front_desk
     widget = await get_widget_account(session, tenant_id, None)
     if widget is None:
         return None
@@ -238,7 +196,12 @@ async def ensure_widget_default_agent(
     # Null stays null so the channel keeps following the workspace lead.
     if current is None:
         return widget
-    if current.acts_for_user or not current.is_active:
+    if (
+        current.acts_for_user
+        or not current.is_active
+        or current.kind == "archived"
+        or (current.slug or "").strip().lower() == "front-desk"
+    ):
         widget.default_agent_id = None
         session.add(widget)
     if commit:
@@ -304,14 +267,14 @@ async def disable_unused_seeded_widgets(session: AsyncSession) -> int:
 
 
 async def ensure_front_desks(session: AsyncSession) -> int:
-    """Startup backfill: Front desk agent + bind existing website chats (no auto-create)."""
+    """Startup: purge Front desk agents, tidy widgets, keep leads reachable."""
     from sqlalchemy import select
 
+    purged = await purge_front_desk_agents(session, commit=False)
     await disable_unused_seeded_widgets(session)
     tenant_ids = list((await session.execute(select(Tenant.id))).scalars().all())
     for tenant_id in tenant_ids:
-        front_desk = await ensure_front_desk(session, tenant_id, commit=False)
-        await ensure_widget_default_agent(session, tenant_id, front_desk, commit=False)
+        await ensure_widget_default_agent(session, tenant_id, commit=False)
     # Whatever agent carries the lead flag must be reachable by the team.
     unreachable_leads = (
         await session.execute(
@@ -327,15 +290,15 @@ async def ensure_front_desks(session: AsyncSession) -> int:
     for lead in unreachable_leads:
         lead.chat_access = "everyone"
         session.add(lead)
-    if tenant_ids:
-        await session.commit()
-    return len(tenant_ids)
+    await session.commit()
+    return purged
 
 
 async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # Persona lives in the persona.md workspace doc (DEFAULT_DOCS below);
     # inbox policy lives in Tenant.settings_json (services/channel_ai.py).
-    await ensure_front_desk(session, tenant_id, commit=False)
+    # No Front desk seed — operators create company agents as needed; routing
+    # falls back to the lead agent (ensure_lead_agents on startup).
     # Platform furniture, not a tenant agent: every member's own Bokito helper.
     await ensure_personal_assistant(session, tenant_id, commit=False)
     for path, kind, content in DEFAULT_DOCS:

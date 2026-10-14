@@ -37,7 +37,7 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 2. Kies onder **Model en runtime** **Workspace-standaard** (volgt [Modellen](/docs/govern/models)), **Automatisch** (Bokito kiest een niveau per actie), of zet **Maki**, **Bokito** of **Kong** vast. Nieuwe agents starten op Workspace-standaard.
 3. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
 4. Kies op [Kanalen](/docs/inbox/channels) per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Deactiveren** verbergt de agent uit de bibliotheek en wist de kanaalstandaarden; run-geschiedenis blijft.
-5. De front desk-agent van een nieuwe workspace komt met een ingevulde omschrijving en briefing. In het eerste gesprek vraagt hij wat het bedrijf doet en stelt hij zijn eigen bijgewerkte omschrijving en instructies voor als Govern-concept; keur dat goed onder [Govern](/docs/govern/govern) **Openstaande concepten** of pas de briefing hier zelf aan.
+5. Nadat je een bedrijfsagent hebt aangemaakt, open je een chat en laat je hem zijn eigen briefing uit de bedrijfsdocs voorstellen. De wijziging landt als Govern-concept; keur dat goed onder [Govern](/docs/govern/govern) **Openstaande concepten** of pas de briefing hier zelf aan.
 
 ## Bepaal wanneer de agent zelf handelt
 

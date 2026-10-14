@@ -1,24 +1,68 @@
-"""Bootstrap backfill: the lead agent is always reachable by the team."""
+"""Bootstrap backfill: purge Front desk, keep the lead agent reachable."""
 
 from sqlalchemy import select
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.services.tenant_bootstrap import ONBOARDING_SYSTEM_PROMPT, ensure_front_desk, ensure_front_desks
+from app.services.tenant_bootstrap import (
+    ONBOARDING_SYSTEM_PROMPT,
+    ensure_front_desks,
+    purge_front_desk_agents,
+)
 
 
-async def test_front_desk_has_description_and_is_reachable(session_override):
+async def test_purge_front_desk_archives_and_clears_channels(session_override):
+    from app.models.channel import ChannelAccount
+
     tenant = Tenant(slug="fd", name="FD")
     session_override.add(tenant)
+    await session_override.flush()
+    front = Agent(
+        tenant_id=tenant.id,
+        name="Front desk",
+        role="assistant",
+        kind="company",
+        slug="front-desk",
+        system_prompt="x",
+        is_lead=True,
+        chat_access="everyone",
+        is_active=True,
+    )
+    keep = Agent(
+        tenant_id=tenant.id,
+        name="Kantoor AI",
+        role="assistant",
+        kind="company",
+        slug="kantoor-ai",
+        system_prompt="x",
+        is_lead=False,
+        chat_access="everyone",
+        is_active=True,
+    )
+    session_override.add_all([front, keep])
+    await session_override.flush()
+    channel = ChannelAccount(
+        tenant_id=tenant.id,
+        channel="widget",
+        address="fd",
+        display_name="Website",
+        is_enabled=True,
+        default_agent_id=front.id,
+    )
+    session_override.add(channel)
     await session_override.commit()
 
-    agent = await ensure_front_desk(session_override, tenant.id, commit=True)
-    assert agent.is_lead is True
-    assert agent.chat_access == "everyone"
-    assert "First reply" in agent.description
+    n = await purge_front_desk_agents(session_override, commit=True)
+    assert n == 1
+    await session_override.refresh(front)
+    await session_override.refresh(channel)
+    assert front.kind == "archived"
+    assert front.is_active is False
+    assert front.is_lead is False
+    assert channel.default_agent_id is None
 
 
-async def test_backfill_opens_unreachable_leads(session_override):
+async def test_backfill_opens_unreachable_leads_and_purges_front_desk(session_override):
     tenant = Tenant(slug="lead", name="Lead")
     session_override.add(tenant)
     await session_override.flush()
@@ -42,22 +86,28 @@ async def test_backfill_opens_unreachable_leads(session_override):
         is_lead=False,
         chat_access="nobody",
     )
-    session_override.add_all([lead, worker])
+    front = Agent(
+        tenant_id=tenant.id,
+        name="Front desk",
+        role="assistant",
+        kind="company",
+        slug="front-desk",
+        system_prompt="x",
+        is_lead=False,
+        chat_access="everyone",
+    )
+    session_override.add_all([lead, worker, front])
     await session_override.commit()
 
     await ensure_front_desks(session_override)
 
     await session_override.refresh(lead)
     await session_override.refresh(worker)
+    await session_override.refresh(front)
     assert lead.chat_access == "everyone"
     assert worker.chat_access == "nobody"
-    # Front desk was added next to the existing lead without taking the flag.
-    front_desk = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.slug == "front-desk")
-        )
-    ).scalar_one()
-    assert front_desk.is_lead is False
+    assert front.kind == "archived"
+    assert front.is_active is False
 
 
 def test_onboarding_prompt_asks_for_a_brief():

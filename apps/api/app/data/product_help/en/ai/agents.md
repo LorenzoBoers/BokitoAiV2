@@ -37,7 +37,7 @@ New chats in Communication require a **company agent**. If none are available fo
 2. Under **Model and runtime**, pick **Workspace default** (follows [Models](/docs/govern/models)), **Automatic** (Bokito picks a tier per action), or pin **Maki**, **Bokito** or **Kong**. New agents start on Workspace default.
 3. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
 4. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
-5. A new workspace's front desk agent ships with a description and brief already filled in. During the first chat it asks what the company does and proposes its own updated description and instructions as a Govern draft; approve it under [Govern](/docs/govern/govern) **Pending reviews** or edit the brief here yourself.
+5. After you create a company agent, open a chat with it and ask it to draft its own brief from the company docs. The change lands as a Govern draft; approve it under [Govern](/docs/govern/govern) **Pending reviews** or edit the brief here yourself.
 
 ## Set when the agent acts on its own
 
