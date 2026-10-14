@@ -155,7 +155,7 @@ async def test_turn_decisions_share_bundle_and_attach_to_bubble(client: AsyncCli
 
     meta = json.loads(bubble.metadata_json or "{}")
     bundle = meta["proposal"]["bundle"]
-    assert [row["decision_id"] for row in bundle] == [str(first.id), str(second.id)]
+    assert {row["decision_id"] for row in bundle} == {str(first.id), str(second.id)}
     assert meta["proposal"]["bundle_id"] == "turn-abc"
 
     from app.services.signal_threads import get_message
@@ -163,10 +163,11 @@ async def test_turn_decisions_share_bundle_and_attach_to_bubble(client: AsyncCli
     payload = await get_message(session_override, tenant.id, signal.id, bubble.id)
     rows = payload["payload"]["proposal"]["bundle"]
     assert len(rows) == 2
-    assert rows[0]["action"]["tool"] == "create_tag"
-    assert rows[0]["action"]["args"]["name"] == "een"
-    assert rows[0]["action"]["fallback"] == "Create tag #een"
-    assert rows[0]["learn"]["agent_id"] == str(agent.id)
+    by_name = {row["action"]["args"]["name"]: row for row in rows}
+    assert by_name["een"]["action"]["tool"] == "create_tag"
+    assert by_name["een"]["action"]["fallback"] == "Create tag #een"
+    assert by_name["een"]["learn"]["agent_id"] == str(agent.id)
+    assert by_name["twee"]["action"]["tool"] == "create_tag"
 
 
 @pytest.mark.asyncio

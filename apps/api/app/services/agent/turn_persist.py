@@ -543,7 +543,10 @@ def _attach_proposal(
     if not turn_cards:
         return
     decisions = decisions or {}
-    ordered = sorted(turn_cards, key=lambda c: c.created_at or datetime.min)
+    ordered = sorted(
+        turn_cards,
+        key=lambda c: (c.created_at or datetime.min, str(c.decision_id or c.id)),
+    )
     card = ordered[-1]
     card_meta = _json_meta(card)
     bubble_meta = _json_meta(last_bubble)
