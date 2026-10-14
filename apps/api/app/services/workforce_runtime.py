@@ -7,16 +7,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 from uuid import UUID
 
-logger = logging.getLogger(__name__)
-
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.notification import DecisionRequest
-from app.models.project import Project
 from app.models.signal import Signal
+
+logger = logging.getLogger(__name__)
 
 ROLE_SLUG_MAP = {
     "po": "orchestrator",

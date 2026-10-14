@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.models.notification import DecisionRequest, Notification
+from app.models.notification import Notification
 from app.models.signal import Signal, SignalMessage
 from app.services.agent.turn_persist import persist_agent_turn
 from app.services.signal_decisions import create_decision, reveal_decision

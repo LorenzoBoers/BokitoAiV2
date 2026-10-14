@@ -553,7 +553,6 @@ async def update_group(
 
 async def delete_group(session: AsyncSession, tenant_id: UUID, group_id: UUID, *, commit: bool = True) -> None:
     """Tags lose their group; group folders lose their dynamic children (and refile)."""
-    from app.models.project import Project
     from app.services.folders import refile_tagged
 
     row = await _group_row(session, tenant_id, group_id)

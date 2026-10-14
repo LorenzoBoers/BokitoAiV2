@@ -10,8 +10,8 @@ from sqlalchemy import select
 from app.models.auth import Tenant
 from app.models.channel import Company, Contact
 from app.models.notification import DecisionRequest
-from app.models.project import Project, ProjectTagLink
-from app.models.signal import CompanyTagLink, ContactTagLink, Signal, SignalTag
+from app.models.project import ProjectTagLink
+from app.models.signal import CompanyTagLink, ContactTagLink, Signal
 from app.services import folders as svc
 from app.services.folders import longest_match
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
@@ -319,7 +319,7 @@ async def test_one_thread_lists_in_two_folder_paths(client: AsyncClient, session
 
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
     roots = {row["name"].lower(): row for row in nav["projects"] if row.get("project_id")}
-    acme_root = next(v for k, v in roots.items() if "acme" in k or v.get("tag_ids"))
+    assert any("acme" in k or v.get("tag_ids") for k, v in roots.items())
     # Counts on derived tree rows
     assert any(row.get("count", 0) >= 1 for row in nav["projects"])
 

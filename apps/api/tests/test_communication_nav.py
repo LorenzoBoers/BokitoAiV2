@@ -2,7 +2,6 @@
 
 import os
 
-from uuid import UUID
 
 import pytest
 from httpx import AsyncClient

@@ -806,7 +806,6 @@ async def _resolve_thread_agent(
             if agent:
                 return agent
     if signal.project_id:
-        from app.models.project import Project
         from app.services.projects import project_default_agent
 
         default_agent = await project_default_agent(session, tenant_id, signal.project_id)
