@@ -777,6 +777,25 @@ class ProjectTemplate:
 
 
 @dataclass(frozen=True)
+class ModuleAgentTemplate:
+    """Managed specialist hired when a module is set up (not a new Set-C noun)."""
+
+    name: str
+    role_blurb: str
+    system_prompt: str = ""
+    # Extra passport tools beyond module verbs + minimal messaging.
+    extra_tools: tuple[str, ...] = ()
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "role_blurb": self.role_blurb,
+            "system_prompt": self.system_prompt,
+            "extra_tools": list(self.extra_tools),
+        }
+
+
+@dataclass(frozen=True)
 class ModulePackage:
     """Installable module contents: hashtags, playbooks, optional Project."""
 
@@ -784,6 +803,7 @@ class ModulePackage:
     tags: tuple[TagTemplate, ...]
     playbooks: tuple[WorkstreamTemplate, ...]
     project: ProjectTemplate | None = None
+    agent_template: ModuleAgentTemplate | None = None
 
     def serialize(self) -> dict[str, Any]:
         return {
@@ -791,7 +811,32 @@ class ModulePackage:
             "tags": [item.serialize() for item in self.tags],
             "playbooks": [item.serialize() for item in self.playbooks],
             "project": self.project.serialize() if self.project else None,
+            "agent_template": (
+                self.agent_template.serialize() if self.agent_template else None
+            ),
         }
+
+
+def _default_agent_template(module: ModuleSpec) -> ModuleAgentTemplate:
+    return ModuleAgentTemplate(
+        name=f"{module.name} specialist",
+        role_blurb=(
+            f"Specialist for the {module.name} module. Owns package setup, "
+            f"module tools, and related tags/flows. Keep work inside this module; "
+            f"hand other topics back to the lead with request_participant_turn or pass."
+        ),
+        system_prompt=(
+            f"You are the {module.name} specialist for this workspace. "
+            f"Use only this module's tools and minimal messaging "
+            f"(invite_to_thread, post_thread_message, create_decision_request). "
+            f"Do not send external customer replies unless asked. "
+            f"When setup is incomplete, guide the operator through connecting "
+            f"the package and finishing install."
+        ),
+        # Messaging passport comes from ROLE_TOOL_TEMPLATES["module_specialist"]
+        # at hire time; module verb tools are appended there.
+        extra_tools=(),
+    )
 
 
 MODULE_PACKAGES: dict[str, ModulePackage] = {
@@ -799,6 +844,7 @@ MODULE_PACKAGES: dict[str, ModulePackage] = {
         module_slug=module.slug,
         tags=TAG_TEMPLATES.get(module.slug, ()),
         playbooks=WORKSTREAM_TEMPLATES.get(module.slug, ()),
+        agent_template=_default_agent_template(module),
     )
     for module in MODULES
 }
@@ -821,8 +867,11 @@ for module in MODULES:
 HEARTBEAT_MODULE_LINE = (
     "- If company.md or open threads mention work a business module covers "
     "(see list_modules) and that module is off, use recommend_module once so "
-    "the operator can turn it on. Never repeat a recommendation that is still "
-    "open or was declined; otherwise HEARTBEAT_OK"
+    "the operator can turn it on. When the module is on and list_modules shows "
+    "specialist_agent_id, invite that agent with invite_to_thread (wake=true) "
+    "or request_participant_turn — do not do module specialist work yourself. "
+    "Never repeat a recommendation that is still open or was declined; "
+    "otherwise HEARTBEAT_OK"
 )
 
 
@@ -1088,6 +1137,15 @@ async def serialize_modules_for_tenant(
         summary = roster.get(row["slug"]) or {}
         row["assigned_agent_count"] = int(summary.get("assigned_agent_count") or 0)
         row["default_agent_id"] = summary.get("default_agent_id")
+        row["default_agent_name"] = summary.get("default_agent_name")
+        row["specialist_agent_id"] = summary.get("specialist_agent_id")
+        row["specialist_agent_name"] = summary.get("specialist_agent_name")
+        row["has_managed_specialist"] = bool(summary.get("has_managed_specialist"))
+        row["specialist_avatar_kind"] = summary.get("specialist_avatar_kind")
+        row["specialist_avatar_icon"] = summary.get("specialist_avatar_icon")
+        row["specialist_avatar_color"] = summary.get("specialist_avatar_color")
+        row["specialist_avatar_shape"] = summary.get("specialist_avatar_shape")
+        row["specialist_avatar_image_url"] = summary.get("specialist_avatar_image_url")
         row["attached_connection_count"] = attach_counts.get(row["slug"], 0)
         row["attached_mcp_tools"] = attached_tools.get(row["slug"], [])
     return rows
@@ -1168,8 +1226,12 @@ async def set_module_enabled(
             audit_action="module:enabled",
             summary=f"{MODULE_BY_SLUG[slug].name} installed",
         )
-    from app.services.module_agents import clear_module_agents
+    from app.services.module_agents import (
+        clear_module_agents,
+        soft_archive_module_specialists,
+    )
 
+    archived = await soft_archive_module_specialists(session, tenant_id, slug)
     row = await _write_module_row(
         session,
         tenant_id,
@@ -1182,6 +1244,7 @@ async def set_module_enabled(
     await clear_module_agents(session, tenant_id, slug)
     row["assigned_agent_count"] = 0
     row["default_agent_id"] = None
+    row["archived_specialist_ids"] = archived
     return row
 
 
@@ -1191,9 +1254,14 @@ async def install_module(
     slug: str,
     *,
     actor_id: Any = None,
+    hire_specialist: bool = True,
 ) -> dict[str, Any]:
-    """Start install: module enters setup until the operator finishes setup."""
-    return await _write_module_row(
+    """Start install: module enters setup until the operator finishes setup.
+
+    By default hires (or restores) the managed module specialist onto the roster
+    without opening a setup chat — the Connections UI / Hire CTA can still open one.
+    """
+    row = await _write_module_row(
         session,
         tenant_id,
         slug,
@@ -1202,6 +1270,197 @@ async def install_module(
         audit_action="module:install_started",
         summary=f"{MODULE_BY_SLUG[slug].name} install started",
     )
+    if hire_specialist:
+        try:
+            hire = await hire_module_agent(
+                session,
+                tenant_id,
+                slug,
+                actor_id=actor_id,
+                open_setup_chat=False,
+            )
+            row["specialist_agent_id"] = hire.get("agent_id")
+            row["specialist_agent_name"] = hire.get("agent_name")
+            row["hire_action"] = hire.get("action")
+        except Exception:  # noqa: BLE001
+            pass
+    # One packaged hashtag → install it so labels and the specialist share a path.
+    tags = module_tag_templates(slug)
+    if len(tags) == 1:
+        try:
+            from app.services.tickets import install_tag_template
+
+            tag_row = await install_tag_template(session, tenant_id, slug, tags[0].slug)
+            row["auto_tag"] = tag_row
+        except Exception:  # noqa: BLE001
+            pass
+    return row
+
+
+async def hire_module_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    slug: str,
+    *,
+    actor_id: Any = None,
+    open_setup_chat: bool = True,
+) -> dict[str, Any]:
+    """Hire (or reuse) the managed module specialist and put them on the roster.
+
+    Prefer this over assigning the lead. Soft-archives on uninstall stay managed.
+    """
+    from datetime import datetime
+
+    from app.models.auth import Tenant
+    from app.models.signal import Signal
+    from app.services.managed_resources import ensure_managed_agent
+    from app.services.module_agents import add_module_agent, list_module_agents
+    from app.services.ownership import apply_owner
+    from app.services.participants import ensure_participant
+
+    if slug not in MODULE_BY_SLUG:
+        raise ValueError(f"Unknown module: {slug}")
+    module = MODULE_BY_SLUG[slug]
+    package = get_module_package(slug)
+    template = package.agent_template if package else _default_agent_template(module)
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError("Tenant not found")
+
+    # Module verb tools are ACL'd by roster; passport from role + template extras.
+    from app.services.workforce_runtime import default_tools_for_role
+
+    tools = default_tools_for_role("module_specialist")
+    if template and template.extra_tools:
+        for name in template.extra_tools:
+            if name not in tools:
+                tools.append(name)
+    prefix = f"{slug}_"
+    for verb in module.verbs:
+        name = f"{prefix}{verb}"
+        if name not in tools:
+            tools.append(name)
+    for verb in module.propose_verbs:
+        name = f"{prefix}{verb}"
+        if name not in tools:
+            tools.append(name)
+
+    fields = {
+        "name": template.name,
+        "slug": f"module-{slug}",
+        "role": "assistant",
+        "description": template.role_blurb[:280],
+        "system_prompt": template.system_prompt,
+        "tools": tools,
+        "chat_access": "everyone",
+    }
+    result = await ensure_managed_agent(
+        session,
+        tenant,
+        managed_origin="module",
+        managed_ref=slug,
+        template_slug=f"module-{slug}",
+        display_label=module.name,
+        create_fields=fields,
+        patch_fields={
+            "description": fields["description"],
+            "system_prompt": fields["system_prompt"],
+            "tools": tools,
+        },
+        match_slugs=[f"module-{slug}"],
+    )
+    agent = result.agent
+    if "description" in fields:
+        agent.description = fields["description"]
+        session.add(agent)
+    await session.flush()
+
+    roster = await list_module_agents(session, tenant_id, slug)
+    on_roster = any(row.get("agent_id") == str(agent.id) for row in roster)
+    if not on_roster and result.action in ("created", "patched"):
+        try:
+            await add_module_agent(
+                session, tenant_id, slug, agent.id, is_default=True
+            )
+        except Exception:  # noqa: BLE001
+            # Already on roster or conflict — ignore.
+            pass
+
+    setup_signal_id: str | None = None
+    if open_setup_chat and result.action in ("created", "patched", "restore_pending"):
+        now = datetime.utcnow()
+        steps = "\n".join(f"- {s}" for s in module.setup_steps) or "- Finish module setup"
+        signal = Signal(
+            tenant_id=tenant_id,
+            channel="assistant",
+            source="module_hire",
+            subject=f"Set up {module.name}",
+            status="open",
+            agent_id=agent.id,
+            created_at=now,
+            updated_at=now,
+            last_message_at=now,
+        )
+        session.add(signal)
+        await session.flush()
+        if actor_id:
+            try:
+                uid = UUID(str(actor_id)) if not isinstance(actor_id, UUID) else actor_id
+                await apply_owner(session, signal, "user", uid, by_user_id=uid)
+                await ensure_participant(
+                    session,
+                    signal,
+                    kind="user",
+                    ref_id=uid,
+                    role="owner",
+                    joined_via="module_hire",
+                )
+            except (ValueError, TypeError):
+                await apply_owner(session, signal, "agent", agent.id)
+        else:
+            await apply_owner(session, signal, "agent", agent.id)
+        await ensure_participant(
+            session,
+            signal,
+            kind="agent",
+            ref_id=agent.id,
+            role="member",
+            joined_via="module_hire",
+        )
+        from app.services.chat_runtime import post_message
+
+        await post_message(
+            session,
+            signal,
+            content=(
+                f"Hired {agent.name} for {module.name}.\n\n"
+                f"Setup checklist:\n{steps}\n\n"
+                "Connect the package and finish install when ready."
+            ),
+            role="assistant",
+            trust="system",
+            author_agent_id=agent.id,
+            metadata={"module_hire": True, "module_slug": slug},
+        )
+        setup_signal_id = str(signal.id)
+
+    await session.commit()
+
+    return {
+        "ok": True,
+        "action": result.action,
+        "agent_id": str(agent.id),
+        "agent_name": agent.name,
+        "managed_origin": "module",
+        "managed_ref": slug,
+        "setup_signal_id": setup_signal_id,
+        "path": (
+            f"/communication/inbox/all/t/{setup_signal_id}"
+            if setup_signal_id
+            else f"/agents/{agent.id}"
+        ),
+        "change_id": str(result.change.id) if result.change else None,
+    }
 
 
 async def complete_module_setup(
@@ -1219,14 +1478,24 @@ async def complete_module_setup(
     if current == "not_installed":
         raise ValueError("Install the module before finishing setup")
     if await module_agent_count(session, tenant_id, slug) < 1:
-        from app.services.lead_agent import get_lead_agent
-
-        lead = await get_lead_agent(session, tenant_id)
-        if lead is None:
-            raise ValueError(
-                "Assign at least one AI agent to this module before finishing setup"
+        # Prefer hiring the managed specialist; fall back to lead.
+        try:
+            await hire_module_agent(
+                session,
+                tenant_id,
+                slug,
+                actor_id=actor_id,
+                open_setup_chat=False,
             )
-        await add_module_agent(session, tenant_id, slug, lead.id, is_default=True)
+        except Exception:  # noqa: BLE001
+            from app.services.lead_agent import get_lead_agent
+
+            lead = await get_lead_agent(session, tenant_id)
+            if lead is None:
+                raise ValueError(
+                    "Assign at least one AI agent to this module before finishing setup"
+                ) from None
+            await add_module_agent(session, tenant_id, slug, lead.id, is_default=True)
     return await _write_module_row(
         session,
         tenant_id,
@@ -1245,9 +1514,17 @@ async def uninstall_module(
     *,
     actor_id: Any = None,
 ) -> dict[str, Any]:
-    """Remove module from the tenant. Connections stay on the platform."""
-    from app.services.module_agents import clear_module_agents
+    """Remove module from the tenant. Connections stay on the platform.
 
+    Managed specialists are soft-archived (Govern can restore on re-hire).
+    Operator-assigned agents only leave the roster.
+    """
+    from app.services.module_agents import (
+        clear_module_agents,
+        soft_archive_module_specialists,
+    )
+
+    archived = await soft_archive_module_specialists(session, tenant_id, slug)
     row = await _write_module_row(
         session,
         tenant_id,
@@ -1260,6 +1537,7 @@ async def uninstall_module(
     await clear_module_agents(session, tenant_id, slug)
     row["assigned_agent_count"] = 0
     row["default_agent_id"] = None
+    row["archived_specialist_ids"] = archived
     return row
 
 
@@ -1376,7 +1654,10 @@ def module_setup_playbook(module: ModuleSpec) -> str:
         f"Tools: list_module_connections, set_module_default_connection, "
         f"set_connection_scope, list_module_sources, propose_module_source.\n"
         f"If this work comes up, call recommend_module with slug `{module.slug}` "
-        f"instead of guessing a vendor.\n"
+        f"instead of guessing a vendor. Prefer the managed specialist "
+        f"(list_modules → specialist_agent_id): invite_to_thread with wake=true "
+        f"or request_participant_turn — do not run {module.slug}_* tools yourself "
+        f"unless you are that specialist.\n"
         f"{steps}"
     )
 

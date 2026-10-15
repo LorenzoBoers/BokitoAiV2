@@ -393,10 +393,16 @@ async def _surface_result(
     if loop is not None and loop.turn is not None and loop.turn.segments:
         await loop.persist_turn(signal, metadata=meta, fallback_text=text)
     else:
-        from app.services.assistant_threads import append_signal_chat_message
+        from app.services.chat_runtime import post_message
 
-        await append_signal_chat_message(
-            session, signal, role="assistant", content=text, author_agent_id=agent.id, metadata=meta
+        await post_message(
+            session,
+            signal,
+            content=text,
+            role="assistant",
+            trust="system",
+            author_agent_id=agent.id,
+            metadata=meta,
         )
     reopen_for_moment(signal)
     session.add(signal)
@@ -443,7 +449,6 @@ async def fire_trigger(
     ``manual`` (Run now) keeps the schedule: the next moment stays where it was.
     """
     from app.gateway.publish import publish_thread_update
-    from app.services.agent.loop import AgentLoop
     from app.services.thread_schedule import convert_event_trigger, ensure_trigger_thread, mirror_next_at
 
     now = datetime.utcnow()
@@ -625,15 +630,19 @@ async def fire_trigger(
 
         await promote_run_to_task(session, run, title=trigger.name)
 
-    loop = AgentLoop(
+    from app.services.chat_runtime import build_agent_loop
+
+    loop = build_agent_loop(
         session,
-        trigger.tenant_id,
-        None,
+        tenant_id=trigger.tenant_id,
+        user_id=None,
         agent=agent,
-        run=run,
         signal_id=signal.id,
-        canvas_refresh=is_canvas_refresh_trigger(trigger.name, trigger.instructions),
+        trust="system",
+        run=run,
+        surface="trigger",
     )
+    loop.canvas_refresh = is_canvas_refresh_trigger(trigger.name, trigger.instructions)
     try:
         text, _tokens = await loop.run_chat([{"role": "user", "content": prompt}])
     except Exception as exc:

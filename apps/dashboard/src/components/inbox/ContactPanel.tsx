@@ -76,6 +76,21 @@ function roleLabel(
   return t('contactPanel.roleMember')
 }
 
+/** Prefill the link form with the address already on the thread / contact. */
+function suggestCaptureIdentifier(opts: {
+  address?: string | null
+  phone?: string | null
+  fallbackEmail?: string | null
+}): string {
+  const address = (opts.address || '').trim()
+  if (address && !isPlaceholderContactAddress(address)) return address
+  const email = (opts.fallbackEmail || '').trim()
+  if (email && !isPlaceholderContactAddress(email)) return email
+  const phone = (opts.phone || '').trim()
+  if (phone) return phone
+  return ''
+}
+
 type Props = {
   contactId: string | null
   /** Fallback identity straight from the thread when no contact row exists. */
@@ -233,12 +248,18 @@ export default function ContactPanel({
         }
         setNotesDraft(row.notes ?? '')
         setCaptureName(isGenericVisitorName(row.displayName) ? '' : row.displayName)
-        setCaptureIdentifier('')
+        setCaptureIdentifier(
+          suggestCaptureIdentifier({
+            address: row.address,
+            phone: row.phone,
+            fallbackEmail,
+          }),
+        )
       } else {
         setThreads([])
         setNotesDraft('')
         setCaptureName(fallbackName && !isGenericVisitorName(fallbackName) ? fallbackName : '')
-        setCaptureIdentifier('')
+        setCaptureIdentifier(suggestCaptureIdentifier({ fallbackEmail }))
       }
       setNotesDirty(false)
     } catch (err) {
@@ -337,10 +358,25 @@ export default function ContactPanel({
   }
 
   const canLink = Boolean(currentThreadId)
+  const openCaptureForm = () => {
+    setCaptureIdentifier((prev) =>
+      prev.trim() ||
+      suggestCaptureIdentifier({
+        address: contact?.address,
+        phone: contact?.phone,
+        fallbackEmail,
+      }),
+    )
+    if (!captureName.trim()) {
+      const nameHint = contact?.displayName || fallbackName
+      if (nameHint && !isGenericVisitorName(nameHint)) setCaptureName(nameHint)
+    }
+    setCaptureOpen(true)
+  }
   const linkButton = canLink ? (
     <button
       type="button"
-      onClick={() => setCaptureOpen(true)}
+      onClick={openCaptureForm}
       title={t('contactPanel.linkHint')}
       data-testid="contact-link-open"
       className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"

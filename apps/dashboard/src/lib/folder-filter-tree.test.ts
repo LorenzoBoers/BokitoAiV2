@@ -7,33 +7,32 @@ import {
   filtersetLabel,
   filtersetLocalNames,
   filtersetPlainLabel,
+  optimisticNestSources,
   optimisticUnnestToRoot,
-  predictFiltersetParent,
-  previewNestMerge,
+  optimisticUnnestToRootAt,
   resolveSiblingReorderTarget,
+  rootFolderIdFor,
 } from './folder-filter-tree'
 
 describe('deriveFolderTree', () => {
-  it('nests by strict tag-set inclusion', () => {
+  it('nests by stored parent_id', () => {
     const tree = deriveFolderTree([
-      { id: 'a', name: 'A', tag_ids: ['t1'], sort_order: 0 },
-      { id: 'ab', name: 'A+B', tag_ids: ['t1', 't2'], sort_order: 0 },
-      { id: 'b', name: 'B', tag_ids: ['t2'], sort_order: 1 },
+      { id: 'a', name: 'A', tag_ids: ['t1'], sort_order: 0, parent_id: null },
+      { id: 'ab', name: 'A+B', tag_ids: ['t2'], sort_order: 0, parent_id: 'a' },
+      { id: 'b', name: 'B', tag_ids: ['t3'], sort_order: 1, parent_id: null },
     ])
     expect(tree.map((node) => node.id)).toEqual(['a', 'b'])
     const aChild = tree.find((node) => node.id === 'a')
     expect(aChild?.children.map((c) => c.id)).toEqual(['ab'])
   })
 
-  it('picks the largest proper subset as parent', () => {
+  it('includes folders with no labels', () => {
     const tree = deriveFolderTree([
-      { id: 'x', name: 'X', tag_ids: ['1'] },
-      { id: 'y', name: 'Y', tag_ids: ['2'] },
-      { id: 'xy', name: 'XY', tag_ids: ['1', '2'] },
-      { id: 'xyz', name: 'XYZ', tag_ids: ['1', '2', '3'] },
+      { id: 'empty', name: 'Empty', tag_ids: [], parent_id: null },
+      { id: 'child', name: 'Child', tag_ids: [], parent_id: 'empty' },
     ])
-    const xy = tree.flatMap((n) => n.children).find((n) => n.id === 'xy')
-    expect(xy?.children.map((c) => c.id)).toEqual(['xyz'])
+    expect(tree.map((n) => n.id)).toEqual(['empty'])
+    expect(tree[0]?.children.map((c) => c.id)).toEqual(['child'])
   })
 
   it('sorts siblings by sort_order then name', () => {
@@ -48,8 +47,8 @@ describe('deriveFolderTree', () => {
 describe('folderFilterRows', () => {
   it('flattens with depth', () => {
     const tree = deriveFolderTree([
-      { id: 'root', name: 'Root', tag_ids: ['r'] },
-      { id: 'child', name: 'Child', tag_ids: ['r', 'c'] },
+      { id: 'root', name: 'Root', tag_ids: ['r'], parent_id: null },
+      { id: 'child', name: 'Child', tag_ids: ['c'], parent_id: 'root' },
     ])
     const rows = folderFilterRows(tree)
     expect(rows.map((r) => [r.id, r.depth])).toEqual([
@@ -62,9 +61,9 @@ describe('folderFilterRows', () => {
 describe('folderFilterSubtreeIds', () => {
   it('includes descendants', () => {
     const tree = deriveFolderTree([
-      { id: 'root', name: 'Root', tag_ids: ['r'] },
-      { id: 'child', name: 'Child', tag_ids: ['r', 'c'] },
-      { id: 'other', name: 'Other', tag_ids: ['o'] },
+      { id: 'root', name: 'Root', tag_ids: ['r'], parent_id: null },
+      { id: 'child', name: 'Child', tag_ids: ['c'], parent_id: 'root' },
+      { id: 'other', name: 'Other', tag_ids: ['o'], parent_id: null },
     ])
     expect([...folderFilterSubtreeIds(tree, 'root')].sort()).toEqual(['child', 'root'])
   })
@@ -77,120 +76,86 @@ describe('filtersetLabel', () => {
 })
 
 describe('filtersetPlainLabel', () => {
-  it('joins without hash marks', () => {
+  it('joins without hashes', () => {
     expect(filtersetPlainLabel(['sales', 'urgent'])).toBe('sales · urgent')
   })
 })
 
 describe('filtersetLocalNames', () => {
-  it('returns the full set at the root', () => {
-    expect(filtersetLocalNames(['administratie', 'betaal'])).toEqual(['administratie', 'betaal'])
-  })
-
-  it('strips parent tags for nested rows', () => {
-    expect(filtersetLocalNames(['administratie', 'betaal'], ['administratie'])).toEqual(['betaal'])
-  })
-
-  it('falls back to the full set when nothing remains', () => {
-    expect(filtersetLocalNames(['administratie'], ['administratie'])).toEqual(['administratie'])
+  it('strips parent names', () => {
+    expect(filtersetLocalNames(['a', 'b'], ['a'])).toEqual(['b'])
   })
 })
 
-describe('previewNestMerge', () => {
-  it('unions parent tags into the child and flags unrelated sets', () => {
-    const preview = previewNestMerge(['bokito_platform', 'reclame'], ['administratie'])
-    expect(preview.mergedNames).toEqual(['administratie', 'bokito_platform', 'reclame'])
-    expect(preview.addedNames).toEqual(['administratie'])
-    expect(preview.unrelated).toBe(true)
-    expect(preview.mergedLabel).toBe('#administratie · #bokito_platform · #reclame')
-  })
-
-  it('skips tags the child already has', () => {
-    const preview = previewNestMerge(['administratie', 'facturen'], ['administratie'])
-    expect(preview.addedNames).toEqual([])
-    expect(preview.unrelated).toBe(false)
-    expect(preview.mergedNames).toEqual(['administratie', 'facturen'])
-  })
-})
-
-describe('predictFiltersetParent', () => {
-  it('picks the largest proper subset map', () => {
-    const parent = predictFiltersetParent(
-      ['administratie', 'facturen'],
+describe('optimisticNestSources', () => {
+  it('sets parent_id without changing labels', () => {
+    const next = optimisticNestSources(
       [
-        { id: 'a', name: 'A', tag_names: ['administratie'] },
-        { id: 'b', name: 'B', tag_names: ['other'] },
+        { id: 'a', name: 'A', tag_ids: ['1'], tag_names: ['a'], parent_id: null },
+        { id: 'b', name: 'B', tag_ids: ['2'], tag_names: ['b'], parent_id: null },
       ],
+      'b',
+      'a',
     )
-    expect(parent?.id).toBe('a')
-  })
-
-  it('returns null for a root-level set', () => {
-    expect(
-      predictFiltersetParent(['solo'], [{ id: 'a', name: 'A', tag_names: ['administratie'] }]),
-    ).toBeNull()
-  })
-})
-
-describe('folderAncestorChain', () => {
-  it('returns root-to-parent ancestors', () => {
-    const tree = deriveFolderTree([
-      { id: 'a', name: 'A', tag_ids: ['1'], tag_names: ['a'] },
-      { id: 'ab', name: 'AB', tag_ids: ['1', '2'], tag_names: ['a', 'b'] },
-      { id: 'abc', name: 'ABC', tag_ids: ['1', '2', '3'], tag_names: ['a', 'b', 'c'] },
-    ])
-    expect(folderAncestorChain(tree, 'abc').map((n) => n.id)).toEqual(['a', 'ab'])
-  })
-})
-
-describe('resolveSiblingReorderTarget', () => {
-  const sources = [
-    { id: 'reclame', name: 'reclame', tag_ids: ['r'], tag_names: ['reclame'], sort_order: 0 },
-    { id: 'plat', name: 'plat', tag_ids: ['p'], tag_names: ['bokito_platform'], sort_order: 1 },
-    {
-      id: 'nested',
-      name: 'nested',
-      tag_ids: ['p', 'a'],
-      tag_names: ['bokito_platform', 'administratie'],
-      sort_order: 0,
-    },
-    { id: 'admin', name: 'admin', tag_ids: ['a'], tag_names: ['administratie'], sort_order: 2 },
-  ]
-
-  it('maps a hit on a nested child to the sibling root being reordered past', () => {
-    const tree = deriveFolderTree(sources)
-    expect(resolveSiblingReorderTarget(tree, 'reclame', 'nested')).toBe('plat')
-    expect(resolveSiblingReorderTarget(tree, 'reclame', 'plat')).toBe('plat')
-    expect(resolveSiblingReorderTarget(tree, 'reclame', 'admin')).toBe('admin')
-  })
-
-  it('returns null when the hit is under the active folder itself', () => {
-    const tree = deriveFolderTree(sources)
-    expect(resolveSiblingReorderTarget(tree, 'plat', 'nested')).toBeNull()
+    expect(next?.find((row) => row.id === 'b')?.parent_id).toBe('a')
+    expect(next?.find((row) => row.id === 'b')?.tag_names).toEqual(['b'])
   })
 })
 
 describe('optimisticUnnestToRoot', () => {
-  it('strips ancestor tags so the map becomes a root', () => {
-    const sources = [
-      { id: 'plat', name: 'plat', tag_ids: ['p'], tag_names: ['bokito_platform'] },
-      {
-        id: 'nested',
-        name: 'nested',
-        tag_ids: ['p', 'r'],
-        tag_names: ['bokito_platform', 'reclame'],
-      },
-    ]
-    const next = optimisticUnnestToRoot(sources, 'nested')
-    expect(next?.find((row) => row.id === 'nested')).toMatchObject({
-      tag_ids: ['r'],
-      tag_names: ['reclame'],
-    })
-    expect(deriveFolderTree(next!).map((node) => node.id).sort()).toEqual(['nested', 'plat'])
+  it('clears parent_id', () => {
+    const next = optimisticUnnestToRoot(
+      [
+        { id: 'a', name: 'A', tag_ids: ['1'], parent_id: null },
+        { id: 'b', name: 'B', tag_ids: ['2'], parent_id: 'a' },
+      ],
+      'b',
+    )
+    expect(next?.find((row) => row.id === 'b')?.parent_id).toBeNull()
   })
 
-  it('returns null for an already-root map', () => {
-    const sources = [{ id: 'a', name: 'A', tag_ids: ['1'], tag_names: ['a'] }]
-    expect(optimisticUnnestToRoot(sources, 'a')).toBeNull()
+  it('returns null when already root', () => {
+    expect(
+      optimisticUnnestToRoot([{ id: 'a', name: 'A', tag_ids: ['1'], parent_id: null }], 'a'),
+    ).toBeNull()
+  })
+})
+
+describe('optimisticUnnestToRootAt', () => {
+  it('places among roots', () => {
+    const next = optimisticUnnestToRootAt(
+      [
+        { id: 'a', name: 'A', tag_ids: ['1'], sort_order: 0, parent_id: null },
+        { id: 'b', name: 'B', tag_ids: ['2'], sort_order: 1, parent_id: null },
+        { id: 'c', name: 'C', tag_ids: ['3'], sort_order: 0, parent_id: 'a' },
+      ],
+      'c',
+      { at: 'start' },
+    )
+    const tree = deriveFolderTree(next!)
+    expect(tree.map((n) => n.id)).toEqual(['c', 'a', 'b'])
+  })
+})
+
+describe('resolveSiblingReorderTarget', () => {
+  it('maps descendant hit to sibling', () => {
+    const tree = deriveFolderTree([
+      { id: 'a', name: 'A', tag_ids: ['1'], parent_id: null },
+      { id: 'b', name: 'B', tag_ids: ['2'], parent_id: null },
+      { id: 'b1', name: 'B1', tag_ids: ['3'], parent_id: 'b' },
+    ])
+    expect(resolveSiblingReorderTarget(tree, 'a', 'b1')).toBe('b')
+  })
+})
+
+describe('folderAncestorChain / rootFolderIdFor', () => {
+  it('walks ancestors', () => {
+    const tree = deriveFolderTree([
+      { id: 'a', name: 'A', tag_ids: ['1'], parent_id: null },
+      { id: 'b', name: 'B', tag_ids: ['2'], parent_id: 'a' },
+      { id: 'c', name: 'C', tag_ids: ['3'], parent_id: 'b' },
+    ])
+    expect(folderAncestorChain(tree, 'c').map((n) => n.id)).toEqual(['a', 'b'])
+    expect(rootFolderIdFor(tree, 'c')).toBe('a')
   })
 })

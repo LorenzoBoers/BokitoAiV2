@@ -33,7 +33,7 @@ from app.models.agent import Agent, AgentRun
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
 from app.services.agent.loop import AgentLoop
-from app.services.ai_handling import is_held
+from app.services.ai_handling import is_held, release_conversation
 from app.services.assistant_context import page_context_block
 from app.services.assistant_threads import (
     append_signal_chat_message,
@@ -472,12 +472,9 @@ async def send_message(
         await _withdraw_session_checkout(session, auth.tenant.id, signal)
         await session.commit()
 
+        # Operator Ask is an explicit hand-back: clear conversation hold and continue.
         if is_held(signal):
-            return {
-                "message": {"role": "assistant", "content": ""},
-                "ai_paused": True,
-                "llm_configured": True,
-            }
+            await _hand_back_on_operator_ask(session, signal, auth)
 
         agent, run = await _agent_run(session, auth, signal, turn_content)
         req_task = asyncio.current_task()
@@ -487,10 +484,19 @@ async def send_message(
         session, agent, status="working", signal=signal, run=run, summary=turn_content
     )
     history = await signal_chat_history(session, conversation_id)
-    loop = AgentLoop(
-        session, auth.tenant.id, auth.user.id, agent=agent, run=run, signal_id=signal.id,
-        enable_chat_thinking=True,
+    from app.services.chat_runtime import build_agent_loop
+
+    loop = build_agent_loop(
+        session,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+        agent=agent,
+        signal_id=signal.id,
+        trust="operator",
         tool_signal_id=signal.context_signal_id,
+        run=run,
+        surface="operator_chat",
+        enable_chat_thinking=True,
         user_role=auth.role,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
@@ -649,15 +655,19 @@ async def _drive_operator_chat_turn(
             run = await session.get(AgentRun, run_id) if run_id else None
             if signal is None:
                 return
-            loop = AgentLoop(
+            from app.services.chat_runtime import build_agent_loop
+
+            loop = build_agent_loop(
                 session,
-                tenant_id,
-                user_id,
+                tenant_id=tenant_id,
+                user_id=user_id,
                 agent=agent,
-                run=run,
                 signal_id=signal.id,
-                enable_chat_thinking=True,
+                trust="operator",
                 tool_signal_id=context_signal_id,
+                run=run,
+                surface="operator_chat",
+                enable_chat_thinking=True,
                 user_role=user_role,
             )
             loaded_history = history
@@ -810,12 +820,9 @@ async def stream_message(
         await _withdraw_session_checkout(session, auth.tenant.id, signal)
         await session.commit()
 
+        # Operator Ask is an explicit hand-back: clear conversation hold and continue.
         if is_held(signal):
-
-            async def paused_generator():
-                yield {"event": "done", "data": json.dumps({"text": "", "ai_paused": True})}
-
-            return EventSourceResponse(paused_generator())
+            await _hand_back_on_operator_ask(session, signal, auth)
 
         from app.services.agent.run_cancel import clear_cancel
 
@@ -985,6 +992,34 @@ async def _running_chat_run(
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def _hand_back_on_operator_ask(
+    session: AsyncSession, signal: Signal, auth: AuthContext
+) -> None:
+    """Clear a conversation AI hold when the operator Asks again (S51 hand-back).
+
+    Inbound auto-reply stays paused via ``is_held``; operator Ask is the
+    explicit hand-back path (same intent as PUT /ai-handling). Publishes a
+    thread update so chrome drops the manual signal.
+    """
+    from app.gateway.publish import publish_thread_update
+
+    released = release_conversation(
+        session,
+        signal,
+        reason="operator_ask",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        via="operator_ask",
+    )
+    if not released:
+        return
+    await session.commit()
+    try:
+        await publish_thread_update(signal)
+    except Exception:
+        logger.debug("hand-back publish failed for %s", signal.id, exc_info=True)
 
 
 async def _withdraw_session_checkout(

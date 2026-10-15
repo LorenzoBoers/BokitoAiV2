@@ -1,0 +1,47 @@
+{
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.next/**": true,
+    "**/.turbo/**": true,
+    "**/.expo/**": true,
+    "**/coverage/**": true,
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.git/objects/**": true,
+    "**/apps/mobile/android/.gradle/**": true,
+    "**/apps/mobile/android/app/build/**": true,
+    "**/apps/mobile/android/build/**": true,
+    "**/apps/mobile/ios/Pods/**": true,
+    "**/data/uploads/**": true,
+    "**/tmp/**": true,
+    "**/test-results/**": true,
+    "**/playwright-report/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.next": true,
+    "**/.turbo": true,
+    "**/coverage": true,
+    "**/apps/mobile/android/.gradle": true,
+    "**/apps/mobile/android/app/build": true,
+    "**/apps/mobile/ios/Pods": true,
+    "**/tmp": true,
+    "**/test-results": true,
+    "**/playwright-report": true,
+    "**/_tmp*": true
+  },
+  "files.exclude": {
+    "**/.venv": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true
+  }
+}

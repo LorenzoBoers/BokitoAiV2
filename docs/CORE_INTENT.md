@@ -42,7 +42,7 @@ Apply these to every feature request.
 | Conversation | Gesprek | The chat | `signals` |
 | Action tag | Actietag | A hashtag that starts a ticket flow, shown with an accent `#`. A conversation carries at most one; filing it makes the conversation a **Ticket** that moves through the flow's stages. Free hashtags sit next to it | `signal_tags` (`workstream_id`) |
 | Flow | Flow | The stage pipeline for an action tag. The page title is always the hashtag (`#klacht`); there is no independent playbook display name | `workstreams` |
-| Folder | Map | A saved AND tag filterset with no separate name — the label is the tag composition. Conversations match when they carry every tag in the set (including contact tags). The rail tree is derived; there is no stored parent. The internal table stays `projects` | `projects` + `project_tag_links` |
+| Folder | Map | A named place in a free tree (`parent_id`) with optional AND label rules (`project_tag_links`). Conversations match when they carry every label in the set (including contact labels). Nesting moves the node; labels stay independent. The internal table stays `projects` | `projects` + `project_tag_links` |
 | Contact | Contact | Person you are talking to | `contacts` |
 | Agent | Agent | AI or company agent | `agents` |
 | Decision | Beslissing | Question in the thread | `decision_requests` |

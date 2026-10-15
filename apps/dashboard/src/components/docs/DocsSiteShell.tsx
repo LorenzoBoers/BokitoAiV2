@@ -6,6 +6,7 @@ import {
 import DocsScrollShell from './DocsScrollShell'
 import { DocsHeader, useDocsT } from './DocsChrome'
 import DocsSideNav from './DocsSideNav'
+import DocsPublicChatWidget from './DocsPublicChatWidget'
 import {
   Dialog,
   DialogContent,
@@ -126,6 +127,9 @@ export default function DocsSiteShell({
           </DialogContent>
         </Dialog>
       ) : null}
+
+      {/* Anonymous Bokito Website chat — same channel a public site would embed. */}
+      <DocsPublicChatWidget forcedDark={wide} />
     </DocsScrollShell>
   )
 }

@@ -43,7 +43,81 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     if provider:
         payload["provider"] = provider
     already_on = await module_is_on(ctx.session, ctx.tenant_id, spec.slug)
+
+    # When the module is live and a specialist exists, prefer inviting them
+    # into the current conversation over asking to re-enable.
     if already_on:
+        from app.services.module_agents import managed_module_specialist
+
+        specialist = await managed_module_specialist(
+            ctx.session, ctx.tenant_id, spec.slug
+        )
+        if specialist is not None and (ctx.signal_id or tool_input.get("signal_id")):
+            invite = bool(tool_input.get("invite", True))
+            if invite:
+                from uuid import UUID
+
+                from app.models.signal import Signal
+                from app.services.participant_turns import request_participant_turn
+                from app.services.participants import ensure_participant
+
+                raw_sid = tool_input.get("signal_id") or (
+                    str(ctx.signal_id) if ctx.signal_id else None
+                )
+                try:
+                    sid = UUID(str(raw_sid))
+                except (ValueError, TypeError):
+                    sid = None
+                signal = await ctx.session.get(Signal, sid) if sid else None
+                if signal is not None and signal.tenant_id == ctx.tenant_id:
+                    await ensure_participant(
+                        ctx.session,
+                        signal,
+                        kind="agent",
+                        ref_id=specialist.id,
+                        role="member",
+                        invited_by_kind="agent" if ctx.agent else "user",
+                        invited_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
+                        joined_via="module_route",
+                    )
+                    turn = await request_participant_turn(
+                        ctx.session,
+                        signal,
+                        member_kind="agent",
+                        member_ref_id=specialist.id,
+                        prompt=reason
+                        or f"Help with {spec.name} in this conversation.",
+                        requested_by_kind="agent" if ctx.agent else "user",
+                        requested_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
+                        run=True,
+                    )
+                    await ctx.session.commit()
+                    return {
+                        "ok": True,
+                        "code": "specialist_invited",
+                        "module": spec.slug,
+                        "specialist_agent_id": str(specialist.id),
+                        "specialist_agent_name": specialist.name,
+                        "signal_id": str(signal.id),
+                        "turn": turn,
+                        "note": (
+                            f"Invited {specialist.name} onto this conversation. "
+                            "They own the module tools; wait for their turn."
+                        ),
+                    }
+            return {
+                "ok": True,
+                "code": "specialist_ready",
+                "module": spec.slug,
+                "specialist_agent_id": str(specialist.id),
+                "specialist_agent_name": specialist.name,
+                "setup_path": spec.setup_path,
+                "hint": (
+                    "Call invite_to_thread with kind=agent, id=specialist_agent_id, "
+                    "wake=true — or recommend_module again with invite=true."
+                ),
+            }
+
         title = f"Connect a package for {spec.name}?"
         approve = {
             "id": "connect",
@@ -305,10 +379,11 @@ register_tool(
     ToolSpec(
         name="recommend_module",
         description=(
-            "Propose turning on a business module. Creates a decision card that "
-            "enables the module for this workspace. Use after list_modules when "
-            "invoices, VAT, ledgers, or similar work comes up and the module is "
-            "off. Do not recommend coming_soon modules as connectable."
+            "Route module work: if the module is off, open a decision to turn it on; "
+            "if it is on and has a managed specialist, invite that specialist into "
+            "this conversation (wake their turn). Use after list_modules when "
+            "invoices, VAT, ledgers, or similar work comes up. Leads should not run "
+            "module_* tools themselves. Do not recommend coming_soon modules as connectable."
         ),
         category="integrations",
         input_schema={
@@ -321,6 +396,13 @@ register_tool(
                     "description": "Optional package slug if the user already named one.",
                 },
                 "signal_id": {"type": "string"},
+                "invite": {
+                    "type": "boolean",
+                    "description": (
+                        "When the module is on and a specialist exists, invite them "
+                        "(default true)."
+                    ),
+                },
             },
             "required": ["slug", "reason"],
         },

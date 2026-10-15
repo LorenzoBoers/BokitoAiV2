@@ -95,7 +95,12 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
       onOpenChange(false)
       onCreated(res.agent.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('workforce.agents.create.createError'))
+      const message = err instanceof Error ? err.message : ''
+      if (/already exists/i.test(message)) {
+        setError(t('workforce.agents.create.nameTaken'))
+      } else {
+        setError(message || t('workforce.agents.create.createError'))
+      }
     } finally {
       setBusy(false)
     }

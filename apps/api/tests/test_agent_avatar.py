@@ -21,14 +21,19 @@ def _agent(**settings) -> Agent:
     )
 
 
-def test_avatar_payload_defaults_to_initials():
-    """List marks are initials-first; role Lucide icons apply only in icon mode."""
-    assert avatar_payload(None)["avatar_icon"] == "sparkles"
-    assert avatar_payload(None)["avatar_color"] == PLATFORM_AVATAR_COLOR
+def test_avatar_payload_defaults_to_orb():
+    """Unmarked agents get the round purple bot; initials stay opt-in."""
+    from app.services.agent_avatar import DEFAULT_AVATAR_SHAPE, DEFAULT_ORB_COLOR
+
+    empty = avatar_payload(None)
+    assert empty["avatar_kind"] == "orb"
+    assert empty["avatar_color"] == DEFAULT_ORB_COLOR
+    assert empty["avatar_shape"] == DEFAULT_AVATAR_SHAPE
     payload = avatar_payload(_agent())
-    assert payload["avatar_kind"] == "initials"
+    assert payload["avatar_kind"] == "orb"
     assert payload["avatar_icon"] is None
-    assert payload["avatar_color"] == PLATFORM_AVATAR_COLOR
+    assert payload["avatar_color"] == DEFAULT_ORB_COLOR
+    assert payload["avatar_shape"] == DEFAULT_AVATAR_SHAPE
 
 
 def test_avatar_payload_icon_mode_uses_role_default_when_missing():
@@ -52,27 +57,29 @@ def test_avatar_payload_icon_always_platform_color():
 
 
 def test_avatar_payload_orb_keeps_curated_color():
-    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="monkey")
+    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="bokito")
     payload = avatar_payload(agent)
     assert payload == {
         "avatar_kind": "orb",
         "avatar_icon": None,
         "avatar_color": "#00c972",
-        "avatar_shape": "monkey",
+        "avatar_shape": "bokito",
         "avatar_image_url": None,
     }
 
 
-def test_avatar_payload_retired_shape_falls_back_to_blob():
+def test_avatar_payload_retired_shape_falls_back_to_bokito():
     agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="star")
     payload = avatar_payload(agent)
-    assert payload["avatar_shape"] == "blob"
+    assert payload["avatar_shape"] == "bokito"
 
 
-def test_avatar_payload_retired_chimp_maps_to_monkey():
-    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="chimp")
+def test_avatar_payload_retired_monkey_maps_to_bokito():
+    agent = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="monkey")
     payload = avatar_payload(agent)
-    assert payload["avatar_shape"] == "monkey"
+    assert payload["avatar_shape"] == "bokito"
+    chimp = _agent(avatar_kind="orb", avatar_color="#00c972", avatar_shape="chimp")
+    assert avatar_payload(chimp)["avatar_shape"] == "bokito"
 
 
 def test_avatar_payload_image_requires_upload_path():
@@ -115,6 +122,24 @@ def test_apply_avatar_orb_stores_color_and_shape():
     assert out["avatar_color"] == "#00c972"
     assert out["avatar_shape"] == "hex"
     assert "avatar_icon" not in out
+
+
+def test_apply_avatar_orb_accepts_brand_hex_and_triangles():
+    out = apply_avatar_settings(
+        {},
+        avatar_kind="orb",
+        avatar_color="#32BF8E",
+        avatar_shape="triangle",
+    )
+    assert out["avatar_color"] == "#32bf8e"
+    assert out["avatar_shape"] == "triangle"
+    down = apply_avatar_settings(
+        {},
+        avatar_kind="orb",
+        avatar_color="#32bf8e",
+        avatar_shape="triangledown",
+    )
+    assert down["avatar_shape"] == "triangledown"
 
 
 def test_theme_prefers_agent_image(monkeypatch):

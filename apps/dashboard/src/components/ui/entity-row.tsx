@@ -68,16 +68,20 @@ export function SettingRow({
   className?: string
 }) {
   const text = density === 'field'
-  const labelClass = text ? 'text-sm font-medium text-text-heading' : 'text-xs font-medium text-text-secondary'
+  const labelClass = text
+    ? 'text-sm font-medium text-text-heading'
+    : 'text-[10px] font-normal leading-none text-text-muted'
   return (
     <div
       className={cn(
-        'flex min-w-0 justify-between gap-3',
-        text ? 'flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:gap-x-4' : 'items-center',
+        'flex min-w-0 justify-between gap-2',
+        text
+          ? 'flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:gap-x-4'
+          : 'items-start gap-x-3 py-0.5',
         className,
       )}
     >
-      <div className="min-w-0 flex-1">
+      <div className={cn('min-w-0', text ? 'flex-1' : 'shrink-0 pt-1')}>
         {typeof label === 'string' ? (
           htmlFor ? (
             <label htmlFor={htmlFor} className={labelClass}>
@@ -94,8 +98,8 @@ export function SettingRow({
       {children ? (
         <div
           className={cn(
-            'flex min-w-0 items-center justify-end gap-1.5',
-            text ? 'w-full sm:w-auto sm:max-w-[16rem]' : 'shrink-0',
+            'flex min-w-0 flex-wrap items-center justify-end gap-1.5',
+            text ? 'w-full sm:w-auto sm:max-w-[16rem]' : 'flex-1',
           )}
         >
           {children}

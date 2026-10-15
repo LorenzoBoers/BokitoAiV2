@@ -314,6 +314,13 @@ class TurnRecorder:
         if decision_ids_from_result(result):
             item["proposes"] = True
         item["result"] = _activity_result(str(item.get("tool") or ""), result)
+        # Concrete trail copy so collapsed activity is not just "1 action".
+        tool = str(item.get("tool") or "")
+        if tool == "set_thread_tags" and isinstance(result, dict) and not result.get("error"):
+            added = result.get("added") if isinstance(result.get("added"), list) else []
+            names = [str(n).lstrip("#") for n in added if n]
+            if names:
+                item["label"] = "Added #" + ", #".join(names)
         await self._emit("agent.activity", {"phase": "end", "item": self._public(item)})
 
     # -- finish -------------------------------------------------------------

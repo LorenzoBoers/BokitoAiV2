@@ -54,7 +54,7 @@ When an agent needs your OK for more than one change in the same turn (for examp
 1. Read the proposal in context of the conversation. Reply drafts on customer conversations, check-ins and scheduled wakes keep their own card in the thread.
 2. Cards use the action they need: **Approve**, **Reject**, **Edit**, **Escalate**, **Defer**, **Later**, **Close thread**, **Plan** or **Keep open**. Suggested-reply cards from [AI handling](/docs/inbox/inbox-ai) use **Send**, **Edit** or **Escalate**.
 3. A suggested chat reply can hold several short messages. The card lists them as **Message 1**, **Message 2** and so on. Choose **Remove message** on one you do not want, or **Edit** to rewrite them as one text; a blank line starts a new message. **Send** delivers them in order.
-4. Hover an agent message: icons next to the bubble mark **Looks right** or **Not helpful**, and the speech-bubble icon (**Correct this**) teaches the agent. Hover an icon to see its label. Escalate sets the conversation to Manual and assigns you.
+4. React on an agent message with Like, Not helpful, Agree, Frustrated or Thinking — those reactions feed learning. Escalate sets the conversation to Manual and assigns you.
 
 ## Dismiss the same question in bulk
 

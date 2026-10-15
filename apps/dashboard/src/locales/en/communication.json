@@ -412,7 +412,6 @@
       "addSource": "Add source",
       "addToQueue": "Add to queue"
     },
-    "correctInterpretation": "Correct this",
     "feedbackGood": "Looks right",
     "feedbackPoor": "Not helpful",
     "feedbackError": "Could not save feedback.",
@@ -582,14 +581,15 @@
     "draftInComposer": "In composer"
   },
   "agentSession": {
-    "launcher": "Bring in an agent",
-    "launcherNamed": "Bring in {{name}}",
-    "launcherHint": "Bring an agent into this conversation: think along, look things up, propose a reply, or continue with the contact.",
+    "launcher": "Ask an agent quietly",
+    "launcherNamed": "Ask {{name}} quietly",
+    "launcherHint": "Quiet Ask session beside the thread. To give them the floor in the conversation, mention them with @.",
     "pickAgent": "Choose which agent",
     "reason": {
       "channel": "handles this channel",
       "project": "project lead",
-      "company": "company agent"
+      "company": "company agent",
+      "module": "module specialist"
     },
     "title": "Agent session",
     "internalHint": "Internal - not visible to the customer",
@@ -799,7 +799,7 @@
     "filedIn": "Filed in",
     "closeAndFile": "Close and file",
     "fileConfirm": "Apply tags",
-    "fileApplyTags": "Applies every tag in that map to the conversation.",
+    "fileApplyTags": "Applies every label in that folder to the conversation.",
     "fileSearch": "Search folders",
     "fileLoading": "Loading folders...",
     "fileEmpty": "No folders match.",
@@ -883,6 +883,7 @@
     "assignAgents": "Agents",
     "assignTeams": "Teams",
     "noChannelAccess": "No access to this channel",
+    "waitingOnParticipant": "Waiting on {{name}}",
     "assigneesLoadError": "Could not load who can take this conversation.",
     "handoverTitle": "Assign to {{name}}",
     "handoverHintAgent": "Add what the agent should do. It starts right away and answers as an internal note.",
@@ -1256,7 +1257,15 @@
       "threadReopened": "Thread reopened",
       "threadAssigned": "Thread assigned",
       "labels": "Tags: {{tags}}",
+      "labelsAdded": "Added labels <tags />",
+      "labelsAddedYou": "You added labels <tags />",
+      "labelsAddedBy": "{{name}} added labels <tags />",
+      "labelsRemoved": "Removed labels <tags />",
+      "labelsRemovedYou": "You removed labels <tags />",
+      "labelsRemovedBy": "{{name}} removed labels <tags />",
       "labelsCleared": "Tags cleared",
+      "labelsClearedYou": "You cleared the labels",
+      "labelsClearedBy": "{{name}} cleared the labels",
       "threadUpdated": "Thread updated",
       "snoozeExpired": "Date passed",
       "widgetSeen": "Seen by the customer",
@@ -1281,9 +1290,15 @@
       "splitOut": "New request moved to its own conversation",
       "splitOutCategory": "New request moved to its own conversation: {{category}}",
       "categorySet": "Action tag set to {{category}}",
+      "categorySetYou": "You set the action tag to {{category}}",
+      "categorySetBy": "{{name}} set the action tag to {{category}}",
       "categoryProposed": "Action tag proposed: {{category}}",
       "categoryChanged": "Action tag changed from {{previous}} to {{category}}",
+      "categoryChangedYou": "You changed the action tag from {{previous}} to {{category}}",
+      "categoryChangedBy": "{{name}} changed the action tag from {{previous}} to {{category}}",
       "ticketStageChanged": "Ticket moved to {{stage}}",
+      "ticketStageChangedYou": "You moved the ticket to {{stage}}",
+      "ticketStageChangedBy": "{{name}} moved the ticket to {{stage}}",
       "escalated": "Escalated to the team",
       "aiPaused": "AI paused on this thread",
       "aiResumed": "AI resumed on this thread",
@@ -1354,7 +1369,18 @@
       "wakeStarted": "Agent started",
       "wakeStartedBy": "{{name}} started",
       "wakeQuiet": "Agent checked, nothing new",
-      "wakeQuietBy": "{{name}} checked, nothing new"
+      "wakeQuietBy": "{{name}} checked, nothing new",
+      "participantTurnRequested": "Asked {{name}} to reply",
+      "participantTurnRequestedGeneric": "Asked a participant to reply",
+      "participantTurnSent": "{{name}} replied",
+      "participantTurnSentGeneric": "Participant replied",
+      "participantTurnPass": "{{name}} passed",
+      "participantTurnPassGeneric": "Participant passed",
+      "participantTurnTimeout": "{{name}} did not answer in time",
+      "participantTurnTimeoutGeneric": "Participant did not answer in time",
+      "participantTurnMaxConsecutive": "Agents stopped: too many turns in a row — human help needed",
+      "folderSet": "Filed in {{path}}",
+      "folderSetGeneric": "Filed in a folder"
     }
   },
   "triage": {
@@ -1479,18 +1505,18 @@
     "team": "Team"
   },
   "tags": {
-    "title": "Tags",
-    "add": "Add tags",
+    "title": "Labels",
+    "add": "Add labels",
     "hint": "Action tags start a ticket flow",
     "placeholder": "Name",
     "remove": "Remove tag {{tag}}",
     "categoryLocked": "Action tag. Change it by replacing or splitting.",
     "openFolder": "Open all conversations with #{{tag}}",
     "viaContact": "Via contact",
-    "modalTitle": "Tags on this conversation",
-    "modalHint": "Free tags label the conversation. An action tag starts a ticket flow.",
-    "modalHintMulti": "Select several tags or maps, then confirm. An action tag starts a ticket flow right away.",
-    "applySelected": "Add tags",
+    "modalTitle": "Labels on this conversation",
+    "modalHint": "Free labels mark the conversation. An action tag starts a ticket flow.",
+    "modalHintMulti": "Select several labels or maps, then confirm. An action tag starts a ticket flow right away.",
+    "applySelected": "Add labels",
     "savedMap": "Saved map",
     "searchPlaceholder": "Search or type a name",
     "actionTag": "Action tag",
@@ -1701,6 +1727,18 @@
       "under": "Under",
       "showEmpty": "Show {{count}} empty maps",
       "showEmptyLabel": "Empty maps"
+    }
+  },
+  "reactions": {
+    "pickerLabel": "React to this message",
+    "error": "Could not save that reaction.",
+    "kinds": {
+      "up": "Like",
+      "down": "Not helpful",
+      "hundred": "Agree",
+      "angry": "Frustrated",
+      "thinking": "Thinking",
+      "investigating": "Looking into it"
     }
   }
 }

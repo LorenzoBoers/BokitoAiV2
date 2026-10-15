@@ -46,7 +46,7 @@ export function widgetBrandTokens(color: unknown, theme: BrandTheme): WidgetBran
     '--bk-primary-light': `rgba(${p.solid[0]},${p.solid[1]},${p.solid[2]},0.14)`,
     '--bk-on-primary': css(p.fg),
     '--bk-mark': css(p.ink),
-    // Light launcher is a solid fill; dark launcher is a tinted surface.
+    // Close / non-orb icons only. The bokito orb uses --bk-orb-fill (fixed).
     '--bk-launcher-icon': css(theme === 'light' ? p.fg : p.ink),
   }
 }

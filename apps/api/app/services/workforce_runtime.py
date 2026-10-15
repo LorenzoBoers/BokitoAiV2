@@ -49,6 +49,42 @@ def _slugify(name: str) -> str:
     return base or "agent"
 
 
+def normalize_agent_name(name: str) -> str:
+    """Trim display name; empty after trim is invalid."""
+    return (name or "").strip()
+
+
+async def assert_unique_agent_name(
+    session: AsyncSession,
+    tenant_id: UUID,
+    name: str,
+    *,
+    exclude_id: UUID | None = None,
+) -> str:
+    """Active agents in a tenant must have unique names (case-insensitive).
+
+    Archived rows may keep an old name; restoring or creating with that name
+    fails with 409 until the active holder is renamed or archived.
+    """
+    clean = normalize_agent_name(name)
+    if not clean:
+        raise HTTPException(status_code=400, detail="Agent name is required")
+    stmt = select(Agent.id).where(
+        Agent.tenant_id == tenant_id,
+        Agent.is_active.is_(True),
+        func.lower(Agent.name) == clean.lower(),
+    )
+    if exclude_id is not None:
+        stmt = stmt.where(Agent.id != exclude_id)
+    clash = (await session.execute(stmt.limit(1))).scalar_one_or_none()
+    if clash is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="An active agent with this name already exists in this workspace",
+        )
+    return clean
+
+
 def normalize_agent_description(raw: str | None) -> str:
     return (raw or "").strip()[:MAX_AGENT_DESCRIPTION]
 
@@ -221,6 +257,105 @@ async def _conversation_counts_by_agent(
 # Roles a workspace admin may pick when creating a worker agent. Orchestrators
 # are created via the project orchestrator flow, not here.
 CREATABLE_AGENT_ROLES = ("assistant", "communication", "builder", "orchestra")
+
+# Shared multi-agent floor tools (invite / speak / pass). Notes go through
+# post_thread_message → ChatRuntime; post_internal_note stays as a thin alias.
+_MULTI_AGENT_CORE: tuple[str, ...] = (
+    "invite_to_thread",
+    "leave_thread",
+    "post_thread_message",
+    "request_participant_turn",
+    "start_conversation",
+    "delegate_to_agent",
+    "create_decision_request",
+    "propose_action",
+    "list_threads",
+    "list_agents",
+    "list_tags",
+    "get_tenant_overview",
+    "assign_conversation",
+    "suggest_thread_reply",
+    "read_doc",
+    "search_index",
+)
+
+# Narrow default passports by role convention (orchestrator / channel / personal /
+# module specialist). Operators can widen tools in Govern; leads should invite.
+ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
+    "orchestrator": _MULTI_AGENT_CORE
+    + (
+        "set_thread_tags",
+        "note_no_reply",
+        "close_thread",
+        "schedule_wake",
+    ),
+    "orchestra": _MULTI_AGENT_CORE,
+    "module_specialist": (
+        "invite_to_thread",
+        "leave_thread",
+        "post_thread_message",
+        "request_participant_turn",
+        "create_decision_request",
+        "propose_action",
+        "list_threads",
+        "read_doc",
+        "list_tags",
+        "set_thread_tags",
+        "create_tag",
+        "suggest_thread_reply",
+        "note_no_reply",
+    ),
+    "communication": (
+        "post_thread_message",
+        "suggest_thread_reply",
+        "send_reply",
+        "note_no_reply",
+        "create_decision_request",
+        "handoff_to_human",
+        "request_callback",
+        "close_thread",
+        "list_threads",
+        "set_thread_tags",
+        "invite_to_thread",
+        "request_participant_turn",
+    ),
+    "assistant": (
+        "post_thread_message",
+        "create_decision_request",
+        "propose_action",
+        "delegate_to_agent",
+        "start_conversation",
+        "invite_to_thread",
+        "request_participant_turn",
+        "list_threads",
+        "list_agents",
+        "list_tags",
+        "get_tenant_overview",
+        "read_doc",
+        "search_index",
+        "schedule_wake",
+    ),
+    "builder": (
+        "post_thread_message",
+        "create_decision_request",
+        "propose_action",
+        "delegate_to_agent",
+        "list_threads",
+        "read_doc",
+        "search_repo",
+        "search_index",
+    ),
+}
+
+
+def default_tools_for_role(role: str) -> list[str]:
+    """Passport defaults for a creatable role (empty tools at create)."""
+    key = ROLE_SLUG_MAP.get(role, role)
+    if key in ROLE_TOOL_TEMPLATES:
+        return list(ROLE_TOOL_TEMPLATES[key])
+    if role in ROLE_TOOL_TEMPLATES:
+        return list(ROLE_TOOL_TEMPLATES[role])
+    return list(ROLE_TOOL_TEMPLATES["assistant"])
 
 
 async def list_runtime_agents(
@@ -414,6 +549,7 @@ async def restore_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
         )
     if agent.kind not in ("company", "archived"):
         raise HTTPException(status_code=404, detail="Agent not found")
+    await assert_unique_agent_name(session, tenant_id, agent.name, exclude_id=agent.id)
     agent.kind = "company"
     agent.is_active = True
     agent.runtime_status = "standby"
@@ -517,9 +653,7 @@ async def create_agent(
     from app.services.model_catalog import get_model
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
-    clean_name = (name or "").strip()
-    if not clean_name:
-        raise HTTPException(status_code=400, detail="Agent name is required")
+    clean_name = await assert_unique_agent_name(session, tenant_id, name)
     norm_role = role if role in CREATABLE_AGENT_ROLES else "assistant"
     if chat_access not in ("everyone", "selected", "nobody"):
         chat_access = "nobody"
@@ -559,6 +693,9 @@ async def create_agent(
         slug = model.slug
         provider_type = model.provider
 
+    from app.services.agent_avatar import default_orb_mark
+
+    # New agents start as the round purple bot; initials/icons stay a picker option.
     agent = Agent(
         tenant_id=tenant_id,
         name=clean_name,
@@ -568,7 +705,7 @@ async def create_agent(
         owner_user_id=owner_user_id,
         description=normalize_agent_description(description),
         system_prompt=(system_prompt or "").strip(),
-        tools_json=json.dumps(tools or []),
+        tools_json=json.dumps(tools if tools is not None else default_tools_for_role(norm_role)),
         default_channels_json=json.dumps(default_channels or []),
         default_signal_types_json=json.dumps(default_signal_types or []),
         slug=_slugify(clean_name),
@@ -576,6 +713,7 @@ async def create_agent(
         is_active=True,
         model=slug or model_policy.INHERIT,
         provider=provider_type or "bokito",
+        settings_json=json.dumps(default_orb_mark()),
     )
     session.add(agent)
     await session.commit()
@@ -613,10 +751,10 @@ async def update_agent(
     if not agent or agent.kind != "company":
         raise HTTPException(status_code=404, detail="Agent not found")
     if name is not None:
-        clean = name.strip()
-        if not clean:
-            raise HTTPException(status_code=400, detail="Agent name cannot be empty")
-        agent.name = clean
+        agent.name = await assert_unique_agent_name(
+            session, tenant_id, name, exclude_id=agent.id
+        )
+        agent.slug = _slugify(agent.name)
     if description is not None:
         agent.description = normalize_agent_description(description)
     if system_prompt is not None:

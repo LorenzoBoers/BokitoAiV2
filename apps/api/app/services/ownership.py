@@ -400,6 +400,9 @@ def set_owner(
 
     A person or team owner is also remembered as ``last_human_owner_*`` so the
     conversation can return there when an agent hands it back.
+
+    Prefer :func:`apply_owner` when an async session is available so the
+    participant roster stays in sync.
     """
     if kind not in OWNER_KINDS:
         raise ValueError("Invalid owner kind")
@@ -411,6 +414,21 @@ def set_owner(
     else:
         remember_human_owner(signal, kind, owner_id)
     signal.assigned_by_user_id = by_user_id
+
+
+async def apply_owner(
+    session: AsyncSession,
+    signal: Signal,
+    kind: str,
+    owner_id: UUID | None,
+    *,
+    by_user_id: UUID | None = None,
+) -> None:
+    """``set_owner`` plus participant roster sync."""
+    set_owner(signal, kind, owner_id, by_user_id=by_user_id)
+    from app.services.participants import sync_owner_participant
+
+    await sync_owner_participant(session, signal)
 
 
 def remember_human_owner(signal: Signal, kind: str, owner_id: UUID | None) -> None:

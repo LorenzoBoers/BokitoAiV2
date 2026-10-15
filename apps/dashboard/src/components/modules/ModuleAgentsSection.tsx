@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Loader2, Settings2, Star, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AgentOptionRow } from '../ui/AgentOptionRow'
 import { AgentSelect } from '../ui/AgentSelect'
-import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
@@ -14,6 +13,7 @@ import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import type { AgentVisualFields } from '../ui/AgentOptionRow'
 import {
   addModuleAgent,
+  hireModuleAgent,
   listModuleCompanies,
   listModuleAgents,
   removeModuleAgent,
@@ -21,6 +21,7 @@ import {
   updateModuleAgentAccess,
   type ModuleAgentRow,
 } from '../../lib/integrations-api'
+import { ModuleAgentBadges } from './ModuleAgentBadges'
 
 /**
  * Module agent roster: only these agents get the module tools.
@@ -36,10 +37,12 @@ export function ModuleAgentsSection({
   onChanged?: () => void
 }) {
   const { t } = useTranslation(['nav', 'common'])
+  const navigate = useNavigate()
   const [roster, setRoster] = useState<ModuleAgentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [hiring, setHiring] = useState(false)
   const [accessOpenId, setAccessOpenId] = useState<string | null>(null)
   const [companies, setCompanies] = useState<Array<{ id: string; name: string }>>([])
 
@@ -99,6 +102,52 @@ export function ModuleAgentsSection({
       )
     } finally {
       setAdding(false)
+    }
+  }
+
+  const managedSpecialist = useMemo(
+    () => roster.find((row) => row.managed && row.managed_origin === 'module') ?? null,
+    [roster],
+  )
+
+  const hire = async () => {
+    // Already hired: open setup chat with the specialist (less clutter than a second hire).
+    if (managedSpecialist) {
+      navigate(
+        talkToAssistantPath(
+          t('integrations.modules.agents.setupChatPrompt', {
+            defaultValue: 'Help me finish setup for this module.',
+          }),
+          managedSpecialist.agent_id,
+        ),
+      )
+      return
+    }
+    setHiring(true)
+    try {
+      const result = await hireModuleAgent(moduleSlug, true)
+      await load()
+      notify()
+      toast.success(
+        t('integrations.modules.agents.hireSuccess', {
+          defaultValue: 'Specialist ready{{name}}',
+          name: result.agent_name ? `: ${result.agent_name}` : '',
+        }),
+      )
+      if (result.path) {
+        navigate(result.path)
+      }
+    } catch (err) {
+      toast.error(
+        formatApiErrorMessage(
+          err,
+          t('integrations.modules.agents.hireError', {
+            defaultValue: 'Could not hire the module specialist.',
+          }),
+        ),
+      )
+    } finally {
+      setHiring(false)
     }
   }
 
@@ -181,14 +230,41 @@ export function ModuleAgentsSection({
     <div className="space-y-2">
       <div>
         <Label className="text-xs text-text-muted">
-          {t('integrations.modules.agents.label', { defaultValue: 'Assigned agents' })}
+          {t('integrations.modules.agents.label', { defaultValue: 'Agents for this module' })}
         </Label>
         <p className="mt-0.5 text-xs text-text-muted">
           {t('integrations.modules.agents.hint', {
             defaultValue:
-              'At least one agent is required. Only assigned agents can use this module’s tools.',
+              'One specialist owns the package tools and tags. Extra agents are optional.',
           })}
         </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={hiring || busyId !== null}
+          onClick={() => void hire()}
+        >
+          {hiring ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : managedSpecialist ? (
+            t('integrations.modules.agents.openSetup', {
+              defaultValue: 'Open setup chat',
+            })
+          ) : (
+            t('integrations.modules.agents.hire', {
+              defaultValue: 'Hire specialist',
+            })
+          )}
+        </Button>
+        {!managedSpecialist ? (
+          <span className="text-2xs text-text-muted">
+            {t('integrations.modules.agents.hireOrAssign', {
+              defaultValue: 'or assign an existing agent below',
+            })}
+          </span>
+        ) : null}
       </div>
       {loading ? (
         <p className="text-sm text-text-muted">
@@ -198,7 +274,7 @@ export function ModuleAgentsSection({
         <div className="space-y-1.5">
           <p className="text-sm text-text-muted">
             {t('integrations.modules.agents.empty', {
-              defaultValue: 'No agents assigned yet. Add one to continue setup.',
+              defaultValue: 'No agents assigned yet. Hire a specialist or assign one to continue setup.',
             })}
           </p>
           <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
@@ -228,28 +304,7 @@ export function ModuleAgentsSection({
                       size={20}
                     />
                   </Link>
-                  {row.is_default ? (
-                    <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
-                      {t('integrations.modules.agents.defaultBadge', { defaultValue: 'Default' })}
-                    </Badge>
-                  ) : null}
-                  {row.can_write ? (
-                    <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
-                      {t('integrations.modules.agents.writeBadge', { defaultValue: 'Write' })}
-                    </Badge>
-                  ) : (
-                    <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
-                      {t('integrations.modules.agents.readOnlyBadge', { defaultValue: 'Read-only' })}
-                    </Badge>
-                  )}
-                  {row.company_ids && row.company_ids.length > 0 ? (
-                    <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
-                      {t('integrations.modules.agents.scopeBadge', {
-                        defaultValue: '{{count}} administration(s)',
-                        count: row.company_ids.length,
-                      })}
-                    </Badge>
-                  ) : null}
+                  <ModuleAgentBadges row={row} />
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
                   {moduleSlug === 'accounting' ? (

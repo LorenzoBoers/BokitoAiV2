@@ -290,7 +290,7 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
 
     if signal.assignee_kind == "agent" and signal.agent_id:
         from app.models.agent import Agent, AgentRun
-        from app.services.agent.loop import AgentLoop
+        from app.services.chat_runtime import build_agent_loop
 
         agent = await session.get(Agent, signal.agent_id)
         if agent is not None and agent.is_active and agent.tenant_id == signal.tenant_id:
@@ -306,14 +306,16 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
             trigger.last_status = "started"
             session.add(trigger)
             await session.flush()
-            loop = AgentLoop(
+            loop = build_agent_loop(
                 session,
-                signal.tenant_id,
-                None,
+                tenant_id=signal.tenant_id,
+                user_id=None,
                 agent=agent,
-                run=run,
                 signal_id=signal.id,
+                trust="system",
+                run=run,
                 tool_signal_id=signal.id,
+                surface="stage_checkup",
             )
             text, _tokens = await loop.run_chat([{"role": "user", "content": _brief(signal, tag, stage)}])
             run.status = "completed"

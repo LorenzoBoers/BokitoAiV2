@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.orchestration import AgentTask
-from app.services.agent.loop import AgentLoop
+from app.services.chat_runtime import build_agent_loop
 from app.services.orchestration.dispatcher import add_task_artifact
 from app.services.orchestration.eval import run_eval_checkpoint
 from app.services.orchestration.profiles import apply_snapshot_to_agent, resolve_runtime_snapshot
@@ -191,13 +191,15 @@ async def _execute_agent_segment(
     )
 
     messages = [*checkpoint_messages, {"role": "user", "content": prompt}]
-    loop = AgentLoop(
+    loop = build_agent_loop(
         session,
-        tenant_id,
-        task.created_by,
-        runtime_agent,
-        run,
+        tenant_id=tenant_id,
+        user_id=task.created_by,
+        agent=runtime_agent,
         signal_id=task.signal_id,
+        trust="system",
+        run=run,
+        surface="orchestration",
     )
     loop.usage_scope = "orchestration"
     loop.usage_call_type = "orchestration"

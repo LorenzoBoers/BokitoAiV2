@@ -3,9 +3,9 @@
  * and list rows so channel types feel like one product.
  */
 
-/** Thread / agent chat top bar. */
+/** Thread / agent chat top bar. min-h so participant strip / long titles fit. */
 export const THREAD_HEADER_CLASS =
-  'flex h-11 shrink-0 items-center gap-2 border-b border-border/60 bg-bg px-3'
+  'flex min-h-11 shrink-0 items-start gap-2 border-b border-border/60 bg-bg px-3 py-2'
 
 /** Clustered icon actions in the thread header. */
 export const THREAD_ACTION_CLUSTER_CLASS =

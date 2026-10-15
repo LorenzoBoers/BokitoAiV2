@@ -76,6 +76,7 @@ function optionLabel(option: DecisionOption, t: (key: string) => string): string
 export function ProposalActions({
   proposal,
   threadId,
+  agentId,
   membersById,
   onResolved,
   onAnswer,
@@ -85,6 +86,7 @@ export function ProposalActions({
 }: {
   proposal: MessageProposal
   threadId: ThreadId
+  agentId?: string | null
   membersById?: Record<number, import('../../lib/inbox-api').InboxMember>
   onResolved?: (info?: DecisionResolvedInfo) => void
   onAnswer?: (answer: { text: string; decisionId: string } | null) => void
@@ -119,6 +121,7 @@ export function ProposalActions({
     cardMessageId: proposal.cardMessageId,
     decisionId: proposal.decisionId,
     resolved: serverResolved,
+    agentId: agentId ?? null,
     onResolved,
     onAnswer,
   })

@@ -45,6 +45,52 @@ describe('eventsShareCluster', () => {
 describe('buildTimelineRows event clusters', () => {
   const t = (key: string) => key
 
+  it('keeps human ticket actions separate from an earlier agent no-reply', () => {
+    const rows = buildTimelineRows(
+      detail([
+        {
+          id: 'nr',
+          threadId: 't1',
+          eventType: 'no_reply_noted',
+          actorType: 'agent',
+          actorUserId: null,
+          actorAgentId: 'a1',
+          payload: {},
+          createdAt: '2026-10-04T12:00:00.000Z',
+        },
+        {
+          id: 'cat',
+          threadId: 't1',
+          eventType: 'category_set',
+          actorType: 'user',
+          actorUserId: 7,
+          payload: { category: 'bug', proposed: false },
+          createdAt: '2026-10-04T12:01:00.000Z',
+        },
+        {
+          id: 'stage',
+          threadId: 't1',
+          eventType: 'ticket_stage_changed',
+          actorType: 'user',
+          actorUserId: 7,
+          payload: { to_stage: 'Open', to_key: 'open', to_kind: 'open' },
+          createdAt: '2026-10-04T12:01:01.000Z',
+        },
+      ]),
+      t,
+      'en',
+    )
+    const clusters = rows.filter((row) => row.kind === 'events')
+    expect(clusters).toHaveLength(2)
+    expect(clusters[0].kind === 'events' && clusters[0].events.map((item) => item.id)).toEqual([
+      'nr',
+    ])
+    expect(clusters[1].kind === 'events' && clusters[1].events.map((item) => item.id)).toEqual([
+      'cat',
+      'stage',
+    ])
+  })
+
   it('keeps a burst in one cluster and splits a later burst', () => {
     const rows = buildTimelineRows(
       detail([

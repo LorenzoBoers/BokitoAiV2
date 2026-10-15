@@ -1,8 +1,8 @@
 """Communication rail beyond channels: tags and folders.
 
-Tags with ``show_in_nav`` form flat tag rows. Folder rows come from the derived
-filterset tree (tag-set inclusion). Each row opens the same queues as a channel
-with ``folder_tag_ids`` (AND of tags) or ``project_id`` resolved to those tags.
+Tags with ``show_in_nav`` form flat tag rows. Folder rows come from the stored
+``parent_id`` tree. Each row opens queues for that folder and its descendants
+(match any subtree label rule, or ``Signal.project_id`` in the subtree).
 """
 
 from __future__ import annotations
@@ -93,8 +93,11 @@ async def list_predicates(
     filters: dict[str, Any],
     tree: FolderCatalog | None = None,
 ) -> list[Any] | None:
-    """Resolve ``project_id`` to the folder's AND tag set via ``project_tag_links``."""
-    from app.services.folders import folder_tag_ids
+    """Resolve ``project_id`` to subtree membership (labels OR home project)."""
+    from sqlalchemy import or_
+
+    from app.services.folders import folder_subtree_ids, folder_tag_ids
+    from app.services.signal_tags import signals_with_tag_ids
 
     resolved = dict(filters)
     if resolved.get("project_id") and "folder_tag_ids" not in resolved:
@@ -104,16 +107,36 @@ async def list_predicates(
         extra = _uuid_list(resolved.get("path"))
         if extra is None:
             return None
-        tag_ids = await folder_tag_ids(session, project_id)
-        if extra:
-            tag_ids = [*tag_ids, *extra]
-        if not tag_ids:
-            resolved["folder_tag_ids"] = []
-            resolved["missing_folder"] = True
-        else:
-            resolved["folder_tag_ids"] = tag_ids
+        catalog = tree or await load_catalog(session, tenant_id)
+        subtree = folder_subtree_ids(catalog, project_id)
+        if not subtree:
+            subtree = [project_id]
+        clauses: list[Any] = [Signal.project_id.in_(subtree)]
+        any_labels = False
+        for fid in subtree:
+            folder = catalog.by_id.get(fid)
+            tag_ids = list(folder.tag_ids) if folder else await folder_tag_ids(session, fid)
+            if extra:
+                tag_ids = [*tag_ids, *extra]
+            if not tag_ids:
+                continue
+            any_labels = True
+            and_parts = [Signal.id.in_(signals_with_tag_ids(tenant_id, [tid])) for tid in tag_ids]
+            if len(and_parts) == 1:
+                clauses.append(and_parts[0])
+            else:
+                from sqlalchemy import and_
+
+                clauses.append(and_(*and_parts))
+        if not any_labels and not extra:
+            # Structural folder with no labels: only cached home project_id.
+            return [Signal.project_id.in_(subtree)]
         resolved.pop("project_id", None)
         resolved.pop("path", None)
+        base = filter_predicates(tenant_id, resolved)
+        if base is None:
+            return None
+        return [*base, or_(*clauses)]
     return filter_predicates(tenant_id, resolved)
 
 

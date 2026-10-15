@@ -29,6 +29,7 @@ class ProjectCreateBody(BaseModel):
     description: str = ""
     tag_ids: list[UUID] = []
     tags: list[str] = []
+    parent_id: UUID | None = None
     sort_order: int = 0
 
 
@@ -38,11 +39,14 @@ class ProjectPatchBody(BaseModel):
     autonomous_scope: str | None = None
     tag_ids: list[UUID] | None = None
     tags: list[str] | None = None
+    parent_id: UUID | None = None
     sort_order: int | None = None
 
 
 class NestFolderBody(BaseModel):
-    onto_folder_id: UUID
+    """``onto_folder_id`` null unnests to the root."""
+
+    onto_folder_id: UUID | None = None
 
 
 class ProjectDeleteBody(BaseModel):
@@ -63,8 +67,8 @@ async def create_project(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Create a folder. Every folder carries a tag; conversations with the
-    path's tags move in."""
+    """Create a named folder. Optional labels (tags) define membership; optional
+    parent_id places it in the free tree."""
     return await svc.create_project(
         session,
         auth.tenant.id,
@@ -74,6 +78,7 @@ async def create_project(
         description=body.description,
         tag_ids=body.tag_ids or None,
         tags=body.tags or None,
+        parent_id=body.parent_id,
         sort_order=body.sort_order,
         user_id=auth.user.id if auth.user else None,
     )
@@ -86,7 +91,7 @@ async def nest_folder(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Widen this folder's tag set to nest under another folder (union of tags)."""
+    """Move this folder under another (or to root when onto_folder_id is null)."""
     return await svc.nest_folder(
         session,
         auth.tenant.id,
@@ -192,6 +197,7 @@ async def patch_project(
         autonomous_scope=body.autonomous_scope,
         tag_ids=extras["tag_ids"] if "tag_ids" in extras else ...,
         tags=extras["tags"] if "tags" in extras else ...,
+        parent_id=extras["parent_id"] if "parent_id" in extras else ...,
         sort_order=body.sort_order,
         user_id=auth.user.id if auth.user else None,
     )

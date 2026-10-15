@@ -41,7 +41,7 @@ export default function DocsSideNav({
 
   return (
     <nav className={cn('space-y-7', className)} aria-label={t('docs.title')}>
-      <div>
+      <div className="space-y-0.5">
         <Link
           to="/docs"
           onClick={onNavigate}
@@ -50,6 +50,16 @@ export default function DocsSideNav({
           aria-current={!activeSlug && activePage === 'docs' ? 'page' : undefined}
         >
           {t('docs.overview')}
+        </Link>
+        {/* Mobile drawer: API is header-only on lg+; keep it reachable here. */}
+        <Link
+          to="/docs/api"
+          onClick={onNavigate}
+          className={cn(navLinkClass(activePage === 'api'), 'lg:hidden')}
+          data-active={activePage === 'api' ? 'true' : undefined}
+          aria-current={activePage === 'api' ? 'page' : undefined}
+        >
+          {t('docs.apiReference')}
         </Link>
       </div>
 
@@ -74,7 +84,7 @@ export default function DocsSideNav({
               )
             })}
             {navSection.id === 'developers' ? (
-              <li>
+              <li className="hidden lg:list-item">
                 <Link
                   to="/docs/api"
                   onClick={onNavigate}

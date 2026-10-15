@@ -796,11 +796,14 @@ async def _deliver_chat_reply(
             metadata["usage"] = tokens
         if is_mock_reply:
             metadata.update({"is_mock": True, "llm_mode": "mock", "llm_configured": False})
-        message = await append_signal_chat_message(
+        from app.services.chat_runtime import post_message
+
+        message = await post_message(
             session,
             signal,
-            role="assistant",
             content=text,
+            role="assistant",
+            trust="external",
             author_agent_id=agent.id,
             metadata=metadata,
         )

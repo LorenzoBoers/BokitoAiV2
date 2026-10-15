@@ -1,0 +1,65 @@
+﻿# Cursor indexing / AI context — keep Agent on product source, not deps & scratch.
+# Syntax matches .gitignore. Cursor already respects .gitignore; this adds
+# heavy paths that are still on disk (or easy to re-include by mistake).
+
+# --- Dependencies & virtualenvs ---
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+venv/
+**/venv/
+.pnpm-store/
+**/.pnpm-store/
+
+# --- Build / cache outputs ---
+dist/
+build/
+out/
+.next/
+web-build/
+coverage/
+.turbo/
+.expo/
+.kotlin/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+**/*.pyc
+**/*.tsbuildinfo
+
+# --- Native mobile artifacts ---
+apps/mobile/android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/
+apps/mobile/**/*.jks
+apps/mobile/**/*.keystore
+
+# --- Local data, DBs, uploads ---
+tmp/
+**/.tmp/
+data/uploads/
+apps/api/data/uploads/
+**/*.db
+**/e2e-dev.db
+
+# --- Scratch / one-off agent scripts (this repo accumulates many) ---
+_tmp*
+**/_tmp*
+apps/api/scripts/dev/_tmp*
+apps/api/scripts/dev/**/*.png
+apps/api/scripts/dev/**/*.html
+
+# --- Large binaries rarely useful as code context ---
+*.lottie
+*.mp4
+*.zip
+*.wasm
+*.map
+widget-wink-build.zip
+
+# --- Test runner output ---
+test-results/
+playwright-report/

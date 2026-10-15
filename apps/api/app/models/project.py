@@ -7,13 +7,12 @@ from sqlmodel import Field, SQLModel
 
 
 class Project(SQLModel, table=True):
-    """A folder: a saved tag filterset (operators see Folder / Map).
+    """A folder: named place in a free tree, with optional label rules.
 
-    Membership is AND of ``project_tag_links``: a conversation matches when its
-    effective tags (own links, action tag, contact/company) contain every tag
-    in the set. The Communication/Agenda tree is derived from overlapping sets;
-    there is no stored parent. ``Signal.project_id`` may cache the longest
-    matching filterset for attribution. Canvas, docs and files stay on this hub.
+    Tree shape is ``parent_id`` (operators nest/reorder freely). Membership is
+    AND of ``project_tag_links`` (labels): a conversation matches when its
+    effective labels contain every linked label. ``Signal.project_id`` caches the
+    best matching folder for attribution. Canvas, docs and files stay on this hub.
     """
 
     __tablename__ = "projects"
@@ -25,7 +24,11 @@ class Project(SQLModel, table=True):
     description: str = ""
     autonomous_scope: str = ""
     active_domains_json: str = Field(default="[]")
-    # Sibling order in the derived tree / flat list.
+    # Free hierarchy — not derived from labels.
+    parent_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="projects.id", index=True
+    )
+    # Sibling order under the same parent.
     sort_order: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils'
 
 /** Compact closed control shared by selects and menu chips. */
 export const controlChipClass =
-  'inline-flex h-7 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1.5 rounded-md border border-border/70 bg-transparent px-2 text-xs font-medium text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/70 disabled:opacity-50'
+  'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border/60 bg-transparent px-1.5 text-[11px] font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/60 disabled:opacity-50'
 
 function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root {...props} />

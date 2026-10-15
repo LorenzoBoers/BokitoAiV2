@@ -1,12 +1,23 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import { X } from 'lucide-react'
+import type { LabelColor } from '../../lib/signals-api'
 import { cn } from '../../lib/utils'
-import { Hashtag, HashtagMark } from './HashtagMark'
+import { HashtagMark } from './HashtagMark'
 
 export type TagPillTone = 'free' | 'action' | 'set' | 'inherited'
 
+const FREE_COLOR_PILL: Record<Exclude<LabelColor, ''>, string> = {
+  neutral: 'bg-bg-hover text-text-heading',
+  accent: 'bg-accent/18 text-accent',
+  ai: 'bg-ai/12 text-ai-ink',
+  success: 'bg-status-success/12 text-status-success',
+  warning: 'bg-status-warning/12 text-status-warning',
+  info: 'bg-status-info/12 text-status-info',
+}
+
 type PillVisual = {
   tone?: TagPillTone
+  color?: LabelColor
   selected?: boolean
   applied?: boolean
   size?: 'sm' | 'md' | 'lg'
@@ -15,11 +26,12 @@ type PillVisual = {
 }
 
 /**
- * Soft fill, no border, rounded-md — same family as Badge / FilterChip.
- * Never a glass capsule.
+ * Stadium pill: soft tinted fill, matching leading dot, no `#`, no hard border.
+ * Fits platform tokens (elevated hover fill for free labels, accent wash for action tags).
  */
 function pillClassName({
   tone = 'free',
+  color = '',
   selected = false,
   applied = false,
   size = 'md',
@@ -28,27 +40,27 @@ function pillClassName({
 }: PillVisual) {
   const isAction = tone === 'action'
   const isInherited = tone === 'inherited'
+  const freeTint = tone === 'free' && color ? FREE_COLOR_PILL[color] : null
   return cn(
     'tag-pill group/pill inline-flex max-w-full items-center font-medium leading-none transition-colors duration-150',
-    size === 'sm' && 'h-6 gap-1 rounded-md px-1.5 text-2xs',
-    size === 'md' && 'h-7 gap-1 rounded-md px-2 text-xs',
-    size === 'lg' && 'h-8 gap-1.5 rounded-md px-2.5 text-sm',
+    size === 'sm' && 'h-5 gap-1 rounded-full px-2 text-[10px]',
+    size === 'md' && 'h-7 gap-2 rounded-full px-3.5 text-xs',
+    size === 'lg' && 'h-8 gap-2.5 rounded-full px-4 text-sm',
     isInherited
-      ? 'bg-transparent text-text-muted'
+      ? 'bg-bg-elevated/70 text-text-muted'
       : isAction
-        ? 'bg-accent/12 text-text-heading'
-        : // Surface (white in light) — not gray hover fill; hairline for edge on paper.
-          'bg-bg-surface text-text-heading ring-1 ring-inset ring-border/50',
-    selected && !applied && !isInherited && 'bg-accent/16 text-text-heading ring-accent/25',
+        ? 'bg-accent/18 text-accent'
+        : freeTint ?? 'bg-bg-hover text-text-heading',
+    selected && !applied && !isInherited && (isAction ? 'bg-accent/28 text-accent' : 'bg-border-light/40 text-text-heading'),
     !applied &&
       !selected &&
       interactive &&
       (isAction
-        ? 'hover:bg-accent/18'
+        ? 'hover:bg-accent/28'
         : isInherited
-          ? 'hover:bg-bg-surface/80 hover:text-text-secondary'
-          : 'hover:bg-bg-elevated hover:text-text-heading'),
-    applied && 'opacity-40',
+          ? 'hover:bg-bg-elevated hover:text-text-secondary'
+          : 'hover:bg-border-light/35'),
+    applied && 'opacity-45',
     className,
   )
 }
@@ -56,44 +68,46 @@ function pillClassName({
 function PillLabel({
   names,
   tone,
+  color = '',
   iconUrl,
+  size = 'md',
 }: {
   names: string[]
   tone: TagPillTone
+  color?: LabelColor
   iconUrl?: string | null
+  size?: 'sm' | 'md' | 'lg'
 }) {
   const isAction = tone === 'action'
+  const gap = size === 'sm' ? 'gap-1' : 'gap-2'
+  const mark = size === 'sm' ? 'h-1.5 w-1.5' : size === 'lg' ? 'h-2.5 w-2.5' : 'h-2 w-2'
   if (iconUrl) {
     return (
-      <span className="inline-flex min-w-0 items-center gap-1.5">
-        <img src={iconUrl} alt="" className="h-3.5 w-3.5 shrink-0 rounded object-cover" />
+      <span className={cn('inline-flex min-w-0 items-center', gap)}>
+        <img
+          src={iconUrl}
+          alt=""
+          className={cn('shrink-0 rounded-full object-cover', size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5')}
+        />
         <span className="min-w-0 truncate">{names.join(' · ')}</span>
       </span>
     )
   }
   return (
-    <span className="inline-flex min-w-0 items-center gap-1">
-      {names.map((name, index) => (
-        <span key={`${name}-${index}`} className="inline-flex min-w-0 items-center gap-1">
-          {index > 0 ? (
-            <span aria-hidden className="shrink-0 text-text-muted/55">
-              ·
-            </span>
-          ) : null}
-          <Hashtag name={name} category={isAction} />
-        </span>
-      ))}
+    <span className={cn('inline-flex min-w-0 items-center', gap)}>
+      <HashtagMark category={isAction} color={isAction ? '' : color} className={mark} />
+      <span className="min-w-0 truncate">{names.join(' · ')}</span>
     </span>
   )
 }
 
 /**
- * Platform tag chip. Soft fill like Badge/FilterChip; typographic `#name`.
- * Multi-tag sets: `#a · #b`.
+ * Platform label chip: stadium pill, round leading mark, no `#`.
  */
 export function TagPill({
   names,
   tone = 'free',
+  color = '',
   selected = false,
   applied = false,
   size = 'md',
@@ -110,6 +124,8 @@ export function TagPill({
 }: {
   names: string | string[]
   tone?: TagPillTone
+  /** Design-system preset for free labels; ignored for action tags. */
+  color?: LabelColor
   selected?: boolean
   applied?: boolean
   size?: 'sm' | 'md' | 'lg'
@@ -127,8 +143,21 @@ export function TagPill({
   if (!list.length && !children) return null
 
   const interactive = Boolean(onClick) && !applied && !disabled
-  const visual = pillClassName({ tone, selected, applied, size, interactive, className })
+  const canRemove = Boolean(onRemove) && !applied
+  /** Hover-reveal X overlays the text (no reserved gap). Trays keep an in-flow X. */
+  const overlayRemove = canRemove && !removeAlwaysVisible
+  const visual = pillClassName({
+    tone,
+    color,
+    selected,
+    applied,
+    size,
+    interactive,
+    className: cn(overlayRemove && 'relative', className),
+  })
   const removeIcon = size === 'lg' ? 14 : size === 'sm' ? 10 : 12
+  const labelGap = size === 'sm' ? 'gap-1' : 'gap-2'
+  const label = children ?? <PillLabel names={list} tone={tone} color={color} iconUrl={iconUrl} size={size} />
 
   return (
     <span
@@ -143,25 +172,42 @@ export function TagPill({
           type="button"
           disabled={applied || disabled}
           onClick={onClick}
-          className="inline-flex min-w-0 items-center gap-1 bg-transparent text-left disabled:cursor-default"
+          className={cn(
+            'inline-flex min-w-0 items-center bg-transparent text-left disabled:cursor-default',
+            labelGap,
+            overlayRemove &&
+              'transition-[mask-image,-webkit-mask-image] group-hover/pill:[mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)] group-hover/pill:[-webkit-mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)] group-focus-within/pill:[mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)] group-focus-within/pill:[-webkit-mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)]',
+          )}
         >
-          {children ?? <PillLabel names={list} tone={tone} iconUrl={iconUrl} />}
+          {label}
         </button>
       ) : (
-        (children ?? <PillLabel names={list} tone={tone} iconUrl={iconUrl} />)
+        <span
+          className={cn(
+            'inline-flex min-w-0 items-center',
+            labelGap,
+            overlayRemove &&
+              'transition-[mask-image,-webkit-mask-image] group-hover/pill:[mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)] group-hover/pill:[-webkit-mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)] group-focus-within/pill:[mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)] group-focus-within/pill:[-webkit-mask-image:linear-gradient(to_right,#000_calc(100%-1.1rem),transparent)]',
+          )}
+        >
+          {label}
+        </span>
       )}
-      {onRemove && !applied ? (
+      {canRemove ? (
         <button
           type="button"
           disabled={disabled}
-          onClick={onRemove}
+          onClick={(event) => {
+            event.stopPropagation()
+            onRemove?.()
+          }}
           aria-label={removeLabel ?? 'Remove'}
           className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-md text-text-muted/80 transition-[opacity,background-color,color] hover:bg-bg-hover hover:text-text-primary focus-visible:opacity-100 disabled:opacity-40',
-            size === 'lg' ? 'h-7 w-7 -mr-1' : size === 'sm' ? 'h-5 w-5 -mr-0.5' : 'h-6 w-6 -mr-0.5',
+            'inline-flex items-center justify-center rounded-full text-current/80 transition-[opacity,background-color,color] hover:bg-black/5 hover:text-current focus-visible:opacity-100 disabled:opacity-40 dark:hover:bg-white/10',
+            size === 'lg' ? 'h-6 w-6' : size === 'sm' ? 'h-4 w-4' : 'h-5 w-5',
             removeAlwaysVisible
-              ? 'opacity-100'
-              : 'opacity-0 group-hover/pill:opacity-100 focus-visible:opacity-100',
+              ? 'shrink-0 opacity-100'
+              : 'pointer-events-none absolute right-0.5 top-1/2 z-[1] -translate-y-1/2 opacity-0 group-hover/pill:pointer-events-auto group-hover/pill:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100',
           )}
         >
           <X size={removeIcon} />
@@ -171,7 +217,7 @@ export function TagPill({
   )
 }
 
-/** Compact `#name` for chat inline — same visual family as TagPill. */
+/** Compact inline label — same stadium family as TagPill. */
 export function TagPillInline({
   name,
   action = false,
@@ -187,17 +233,17 @@ export function TagPillInline({
   return (
     <a
       className={cn(
-        'tag-pill tag-pill--inline inline-flex items-center gap-1 rounded-md px-1.5 py-px text-[0.92em] font-medium leading-none no-underline transition-colors',
+        'tag-pill tag-pill--inline inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[0.92em] font-medium leading-none no-underline transition-colors',
         action
-          ? 'bg-accent/12 text-text-heading hover:bg-accent/18'
-          : 'bg-bg-surface text-text-heading ring-1 ring-inset ring-border/50 hover:bg-bg-elevated',
+          ? 'bg-accent/18 text-accent hover:bg-accent/28'
+          : 'bg-bg-hover text-text-heading hover:bg-border-light/35',
         className,
       )}
       data-tag-tone={action ? 'action' : 'free'}
       {...props}
     >
       {iconUrl ? (
-        <img src={iconUrl} alt="" className="h-3 w-3 shrink-0 rounded object-cover" />
+        <img src={iconUrl} alt="" className="h-3 w-3 shrink-0 rounded-full object-cover" />
       ) : (
         <HashtagMark category={action} />
       )}

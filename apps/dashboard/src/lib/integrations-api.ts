@@ -62,6 +62,30 @@ export interface AttachedMcpToolServer {
   tools: Array<{ name: string; description?: string }>
 }
 
+export interface ModulePackageTag {
+  slug: string
+  module_slug: string
+  name: string
+  description: string
+}
+
+export interface ModulePackagePlaybook {
+  slug: string
+  module_slug: string
+  name: string
+  description?: string
+}
+
+export interface ModulePackageInfo {
+  module_slug: string
+  tags: ModulePackageTag[]
+  playbooks: ModulePackagePlaybook[]
+  agent_template?: {
+    name: string
+    role_blurb: string
+  } | null
+}
+
 export interface IntegrationModuleRow {
   slug: string
   name: string
@@ -86,6 +110,17 @@ export interface IntegrationModuleRow {
   /** Exact MCP tools from servers attached to this module. */
   attached_mcp_tools?: AttachedMcpToolServer[]
   default_agent_id?: string | null
+  default_agent_name?: string | null
+  specialist_agent_id?: string | null
+  specialist_agent_name?: string | null
+  has_managed_specialist?: boolean
+  specialist_avatar_kind?: string | null
+  specialist_avatar_icon?: string | null
+  specialist_avatar_color?: string | null
+  specialist_avatar_shape?: string | null
+  specialist_avatar_image_url?: string | null
+  /** Packaged hashtags, flows and specialist template shipped with the module. */
+  package?: ModulePackageInfo | null
   /** False when this member is outside the module's user_access selection. */
   user_accessible?: boolean
   tenant_status?:
@@ -230,9 +265,14 @@ export interface ModuleAgentRow {
   /** Without this flag the agent gets read tools only. */
   can_write: boolean
   created_at: string
+  managed?: boolean
+  managed_origin?: string | null
+  managed_ref?: string | null
+  origin_label?: string | null
   avatar_kind?: string | null
   avatar_icon?: string | null
   avatar_color?: string | null
+  avatar_shape?: string | null
   avatar_image_url?: string | null
 }
 
@@ -299,6 +339,25 @@ export async function addModuleAgent(
   return apiPost<ModuleAgentRow>(integrationsRoutes.platform.moduleAgents(slug), {
     agent_id: agentId,
     is_default: isDefault,
+  })
+}
+
+export type HireModuleAgentResult = {
+  ok: boolean
+  action?: string
+  agent_id?: string
+  agent_name?: string
+  path?: string
+  setup_signal_id?: string | null
+  change_id?: string | null
+}
+
+export async function hireModuleAgent(
+  slug: string,
+  openSetupChat = true,
+): Promise<HireModuleAgentResult> {
+  return apiPost<HireModuleAgentResult>(integrationsRoutes.platform.moduleAgentsHire(slug), {
+    open_setup_chat: openSetupChat,
   })
 }
 

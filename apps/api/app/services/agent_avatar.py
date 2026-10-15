@@ -52,7 +52,7 @@ ALLOWED_ICONS = frozenset(
 # Bot-orb silhouettes (mirrored in dashboard bot-orb-shapes.ts).
 ALLOWED_SHAPES = frozenset(
     {
-        "monkey",
+        "bokito",
         "blob",
         "pebble",
         "egg",
@@ -61,6 +61,8 @@ ALLOWED_SHAPES = frozenset(
         "hex",
         "crystal",
         "wedge",
+        "triangle",
+        "triangledown",
         "shield",
         "dome",
         "arch",
@@ -71,12 +73,13 @@ ALLOWED_SHAPES = frozenset(
 
 # Retired silhouettes still stored on agents → live key.
 _RETIRED_SHAPES = {
-    "chimp": "monkey",
-    "ape": "monkey",
+    "monkey": "bokito",
+    "chimp": "bokito",
+    "ape": "bokito",
     "bean": "blob",
 }
 
-DEFAULT_AVATAR_SHAPE = "blob"
+DEFAULT_AVATAR_SHAPE = "bokito"
 
 # Grok-like named palette (6-digit hex).
 ALLOWED_COLORS = frozenset(
@@ -128,6 +131,7 @@ def _settings(raw: str | None) -> dict[str, Any]:
 
 
 def normalize_color(value: str | None) -> str | None:
+    """Accept curated palette hexes and any other valid #RRGGBB (tenant brand)."""
     if not value:
         return None
     hex_color = value.strip()
@@ -135,8 +139,7 @@ def normalize_color(value: str | None) -> str | None:
         hex_color = f"#{hex_color}"
     if not _HEX_RE.match(hex_color):
         return None
-    normalized = hex_color.lower()
-    return normalized if normalized in ALLOWED_COLORS else None
+    return hex_color.lower()
 
 
 def normalize_shape(value: str | None) -> str | None:
@@ -193,33 +196,41 @@ def _role_default_mark(agent: Agent) -> dict[str, Any]:
     }
 
 
+def default_orb_mark() -> dict[str, Any]:
+    """Round purple bot — default for new agents and unmarked rows."""
+    return {
+        "avatar_kind": AVATAR_KIND_ORB,
+        "avatar_icon": None,
+        "avatar_color": DEFAULT_ORB_COLOR,
+        "avatar_shape": DEFAULT_AVATAR_SHAPE,
+        "avatar_image_url": None,
+    }
+
+
 def avatar_payload(agent: Agent | None) -> dict[str, Any]:
     """Public avatar fields for API / widget / thread payloads.
 
     Always returns a concrete mark when possible so list rows, timeline
     bubbles, and the Agents library share one silhouette per agent.
     Orb mode carries shape + curated tint; other modes stay violet.
+    Unmarked agents default to the round purple bot (not initials).
     """
-    empty = {
-        "avatar_kind": AVATAR_KIND_ICON,
-        "avatar_icon": "sparkles",
-        "avatar_color": PLATFORM_AVATAR_COLOR,
-        "avatar_shape": None,
-        "avatar_image_url": None,
-    }
     if agent is None:
-        return empty
+        return default_orb_mark()
     stored = _settings(agent.settings_json)
-    kind = str(stored.get("avatar_kind") or AVATAR_KIND_INITIALS).strip().lower()
-    if kind not in AVATAR_KINDS:
-        kind = AVATAR_KIND_INITIALS
+    raw_kind = str(stored.get("avatar_kind") or "").strip().lower()
+    if not raw_kind or raw_kind not in AVATAR_KINDS:
+        return default_orb_mark()
+    kind = raw_kind
     icon = normalize_icon(str(stored.get("avatar_icon") or "") or None)
     image = normalize_image_url(str(stored.get("avatar_image_url") or "") or None)
     color = normalize_color(str(stored.get("avatar_color") or "") or None)
     shape = normalize_shape(str(stored.get("avatar_shape") or "") or None) or DEFAULT_AVATAR_SHAPE
 
     if kind == AVATAR_KIND_IMAGE and not image:
-        kind = AVATAR_KIND_ICON if icon else AVATAR_KIND_INITIALS
+        kind = AVATAR_KIND_ICON if icon else AVATAR_KIND_ORB
+        if kind == AVATAR_KIND_ORB:
+            return default_orb_mark()
     if kind == AVATAR_KIND_ORB:
         return {
             "avatar_kind": AVATAR_KIND_ORB,
@@ -302,15 +313,15 @@ def apply_avatar_settings(
         else:
             out.pop("avatar_image_url", None)
 
-    kind = str(out.get("avatar_kind") or AVATAR_KIND_INITIALS)
+    kind = str(out.get("avatar_kind") or AVATAR_KIND_ORB)
     if kind == AVATAR_KIND_IMAGE and not out.get("avatar_image_url"):
         out["avatar_kind"] = (
-            AVATAR_KIND_ICON if out.get("avatar_icon") else AVATAR_KIND_INITIALS
+            AVATAR_KIND_ICON if out.get("avatar_icon") else AVATAR_KIND_ORB
         )
         kind = str(out["avatar_kind"])
     if kind == AVATAR_KIND_ICON and not out.get("avatar_icon"):
-        out["avatar_kind"] = AVATAR_KIND_INITIALS
-        kind = AVATAR_KIND_INITIALS
+        out["avatar_kind"] = AVATAR_KIND_ORB
+        kind = AVATAR_KIND_ORB
     if kind == AVATAR_KIND_ORB:
         out.pop("avatar_icon", None)
         out.pop("avatar_image_url", None)

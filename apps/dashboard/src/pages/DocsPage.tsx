@@ -130,12 +130,12 @@ function Landing({
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
             {startHere[0] ? (
-              <Link to={`/docs/${startHere[0].path}`} className="docs-cta">
+              <Link to={`/docs/${startHere[0].path}`} className="docs-cta inline-flex">
                 {startHere[0].title}
                 <ChevronRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
             ) : null}
-            <Link to="/docs/api" className="docs-cta-outline">
+            <Link to="/docs/api" className="docs-cta-outline inline-flex">
               {t('docs.apiReference')}
               <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
@@ -318,13 +318,13 @@ function ArticleView({
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link to="/docs/api" className="docs-cta">
+            <Link to="/docs/api" className="docs-cta inline-flex">
               {t('docs.apiReference')}
               <ChevronRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
             <a
               href="/"
-              className="docs-cta-outline"
+              className="docs-cta-outline inline-flex"
             >
               {t('docs.openApp')}
               <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -350,11 +350,11 @@ function ArticleView({
           </div>
 
           {article.related.length > 0 && index ? (
-            <section className="mt-14 border-t border-[var(--docs-border)] pt-8">
+            <section className="mt-14">
               <p className="text-sm font-medium text-[var(--docs-fg)]">
                 {t('pageGuides.relatedArticlesTitle')}
               </p>
-              <ul className="mt-3 space-y-1.5">
+              <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
                 {article.related.map((rel) => {
                   const target = index.articles.find((item) => item.slug === rel)
                   if (!target) return null
@@ -362,9 +362,15 @@ function ArticleView({
                     <li key={rel}>
                       <Link
                         to={`/docs/${target.path}`}
-                        className="text-sm text-[var(--docs-accent)] hover:underline"
+                        className="docs-link-card group flex h-full items-start gap-2.5 rounded-xl px-3.5 py-3 transition-colors"
                       >
-                        {target.title}
+                        <ChevronRight
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--docs-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--docs-accent)]"
+                          aria-hidden
+                        />
+                        <span className="min-w-0 text-sm font-medium text-[var(--docs-fg)] group-hover:text-[var(--docs-accent)]">
+                          {target.title}
+                        </span>
                       </Link>
                     </li>
                   )
@@ -373,27 +379,33 @@ function ArticleView({
             </section>
           ) : null}
 
-          <nav className="mt-10 grid gap-6 border-t border-[var(--docs-border)] pt-8 sm:grid-cols-2">
+          <nav className="mt-10 grid gap-3 sm:grid-cols-2">
             {previous ? (
-              <Link to={`/docs/${previous.path}`} className="group min-w-0">
-                <p className="flex items-center gap-1 text-xs text-[var(--docs-muted)]">
-                  <ArrowLeft className="h-3 w-3" aria-hidden />
+              <Link
+                to={`/docs/${previous.path}`}
+                className="docs-link-card group flex min-w-0 flex-col gap-1.5 rounded-xl px-4 py-3.5 transition-colors"
+              >
+                <p className="flex items-center gap-1.5 text-xs text-[var(--docs-muted)]">
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                   {t('docs.previous')}
                 </p>
-                <p className="mt-1 text-sm font-medium text-[var(--docs-fg)] group-hover:text-[var(--docs-accent)]">
+                <p className="text-sm font-medium text-[var(--docs-fg)] group-hover:text-[var(--docs-accent)]">
                   {previous.title}
                 </p>
               </Link>
             ) : (
-              <span />
+              <span className="hidden sm:block" aria-hidden />
             )}
             {next ? (
-              <Link to={`/docs/${next.path}`} className="group min-w-0 text-right sm:justify-self-end">
-                <p className="flex items-center justify-end gap-1 text-xs text-[var(--docs-muted)]">
+              <Link
+                to={`/docs/${next.path}`}
+                className="docs-link-card group flex min-w-0 flex-col items-end gap-1.5 rounded-xl px-4 py-3.5 text-right transition-colors"
+              >
+                <p className="flex items-center gap-1.5 text-xs text-[var(--docs-muted)]">
                   {t('docs.next')}
-                  <ArrowRight className="h-3 w-3" aria-hidden />
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                 </p>
-                <p className="mt-1 text-sm font-medium text-[var(--docs-fg)] group-hover:text-[var(--docs-accent)]">
+                <p className="text-sm font-medium text-[var(--docs-fg)] group-hover:text-[var(--docs-accent)]">
                   {next.title}
                 </p>
               </Link>

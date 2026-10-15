@@ -1,4 +1,4 @@
-import type { BotOrbMotion } from '../../lib/agentActivity'
+import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import { toAiAvatarProps, type AgentAvatarSource } from '../../lib/agent-avatar'
 import type { AgentPresenceStatus } from '../../lib/teams-api'
 import { AiAvatar } from './AiAvatar'
@@ -11,6 +11,8 @@ type Props = {
   decorative?: boolean
   activity?: AgentPresenceStatus | null
   motion?: BotOrbMotion | null
+  pulseId?: string | null
+  baseMotion?: BotOrbMotion | null
   /** Freeze orb idle motion (facepiles, static previews). */
   paused?: boolean
   fallbackName?: string
@@ -27,6 +29,8 @@ export function AgentMark({
   decorative = true,
   activity,
   motion,
+  pulseId,
+  baseMotion,
   paused,
   fallbackName,
 }: Props) {
@@ -38,6 +42,8 @@ export function AgentMark({
       decorative={decorative}
       activity={activity}
       motion={motion}
+      pulseId={pulseId}
+      baseMotion={baseMotion}
       paused={paused}
     />
   )

@@ -7,8 +7,6 @@ import {
   Bot,
   ChevronDown,
   Copy,
-  Loader2,
-  MessageSquareWarning,
   StickyNote,
   ThumbsDown,
   ThumbsUp,
@@ -57,7 +55,6 @@ import { ProposalChoiceRest } from './ProposalChoiceRest'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
-import { useCorrectionChat } from '../../lib/correction-chat'
 import { apiPost } from '../../lib/api'
 import { appRoutes } from '../../api/routes'
 import {
@@ -74,7 +71,6 @@ import { useAuth } from '../../context/AuthContext'
 import { listAgents } from '../../lib/agents-api'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
@@ -333,7 +329,6 @@ export default function DecisionRequestMessage({
   const { token, user } = useAuth()
   const [sentiment, setSentiment] = useState<'up' | 'down' | null>(null)
   const [compactOpen, setCompactOpen] = useState(false)
-  const { startCorrection, starting: correctionStarting } = useCorrectionChat()
   const [agentSignatureHtml, setAgentSignatureHtml] = useState('')
   const [agentDisplayName, setAgentDisplayName] = useState('')
 
@@ -380,6 +375,9 @@ export default function DecisionRequestMessage({
     cardMessageId: message.id,
     decisionId: message.decisionId ? String(message.decisionId) : null,
     resolved,
+    agentId:
+      agentId ??
+      (typeof message.payload?.agent_id === 'string' ? message.payload.agent_id : null),
     onResolved,
     onAnswer,
   })
@@ -1275,8 +1273,7 @@ export default function DecisionRequestMessage({
           </div>
         ) : null}
         {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
-        {/* Learning loop: thumbs feed decision feedback; the correct action
-            opens a grounded chat with the responsible agent. Hide on leftover
+        {/* Learning loop: thumbs feed decision feedback. Hide on leftover
             resolved cards so dismissed drafts do not keep asking for a vote. */}
         {!resolved ? (
         <div className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2">
@@ -1306,34 +1303,6 @@ export default function DecisionRequestMessage({
           >
             <ThumbsDown size={11} />
           </button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={t('decisionCard.correctInterpretation')}
-                disabled={correctionStarting}
-                className="ml-1 flex h-5 w-5 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body disabled:opacity-50"
-                onClick={() =>
-                  void startCorrection({
-                    threadId: String(threadId),
-                    agentId:
-                      typeof message.payload?.agent_id === 'string' ? message.payload.agent_id : null,
-                    agentName,
-                    subjectType: 'decision',
-                    subjectId: decisionSubjectId,
-                    summary: draftBody || summary,
-                  })
-                }
-              >
-                {correctionStarting ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : (
-                  <MessageSquareWarning size={11} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{t('decisionCard.correctInterpretation')}</TooltipContent>
-          </Tooltip>
         </div>
         ) : null}
         </>

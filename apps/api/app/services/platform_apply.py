@@ -680,7 +680,6 @@ async def apply_project_change(
         create_project,
         delete_project,
         get_project_row,
-        nest_folder,
         resolve_folder_ref,
     )
 
@@ -749,10 +748,9 @@ async def apply_project_change(
             description=description,
             tag_ids=tag_ids or None,
             tags=tags or None,
+            parent_id=onto_id,
             sort_order=int(after.get("sort_order") or 0),
         )
-        if onto_id and isinstance(row, dict) and row.get("id"):
-            row = await nest_folder(session, tenant_id, _UUID(str(row["id"])), onto_id)
     except Exception as exc:  # noqa: BLE001 — surface to Govern
         return {"status": "error", "error": str(exc)}
     after["project_id"] = row.get("id") if isinstance(row, dict) else None

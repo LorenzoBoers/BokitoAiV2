@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, X } from 'lucide-react'
-import { Hashtag } from '../ui/HashtagMark'
+import { Plus } from 'lucide-react'
 import { normalizeHashtag, stripHash } from '../../lib/hashtag'
+import { TagPill } from '../ui/TagPill'
 
 type Tag = { id?: string; name: string }
 
@@ -37,31 +37,25 @@ export function OwnerTagsField({
     <div className="space-y-1.5" data-testid="owner-tags">
       <div className="flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
-          <span
+          <TagPill
             key={tag.id ?? tag.name}
-            className="inline-flex h-6 items-center gap-1 rounded-md border border-border/70 px-2 text-xs"
-          >
-            <Hashtag name={tag.name} />
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onChange(names.filter((name) => name !== tag.name))}
-              aria-label={t('tags.remove', { tag: tag.name })}
-              className="-mr-0.5 rounded text-text-muted hover:text-text-primary disabled:opacity-40"
-            >
-              <X size={11} />
-            </button>
-          </span>
+            names={tag.name}
+            tone="free"
+            size="sm"
+            disabled={disabled}
+            onRemove={() => onChange(names.filter((name) => name !== tag.name))}
+            removeLabel={t('tags.remove', { tag: tag.name })}
+            removeAlwaysVisible
+          />
         ))}
         {inherited.map((tag) => (
-          <span
+          <TagPill
             key={`via-${tag.id ?? tag.name}`}
-            className="inline-flex h-6 items-center gap-1 rounded-md border border-dashed border-border/70 px-2 text-xs text-text-muted"
+            names={tag.name}
+            tone="inherited"
+            size="sm"
             title={inheritedLabel}
-          >
-            <Hashtag name={tag.name} />
-            {inheritedLabel ? <span className="text-2xs">{inheritedLabel}</span> : null}
-          </span>
+          />
         ))}
       </div>
       <div className="flex items-center gap-1.5">

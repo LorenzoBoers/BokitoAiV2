@@ -61,6 +61,10 @@ def test_reply_mode_per_channel():
 
 def test_split_chat_messages_merges_fragments_and_caps():
     assert split_chat_messages("Hi\n\nok") == ["Hi\nok"]
+    assert split_chat_messages("Je\n\nJe dashboardtaal is Nederlands.") == [
+        "Je dashboardtaal is Nederlands."
+    ]
+    assert split_chat_messages("Ok\n\nIk regel dat vandaag.") == ["Ok\nIk regel dat vandaag."]
     parts = split_chat_messages("\n\n".join(f"part {i}" for i in range(7)), max_messages=5)
     assert len(parts) == 5
     assert parts[-1] == "part 4\n\npart 5\n\npart 6"

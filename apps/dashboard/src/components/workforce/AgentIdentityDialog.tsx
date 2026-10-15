@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,10 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
+import { SectionLabel } from '../ui/section-label'
 import { AiAvatar } from '../ui/AiAvatar'
 import { BotOrbAvatar } from '../ui/BotOrbAvatar'
 import { Textarea } from '../ui/textarea'
 import { useAuth } from '../../context/AuthContext'
+import { useWorkspace } from '../../context/WorkspaceContext'
+import { reloadAgentsCache } from '../../hooks/useAgents'
 import { bokitoUpdateAgent } from '../../lib/bokito-api'
 import {
   DEFAULT_AGENT_AVATAR_COLOR,
@@ -24,8 +27,26 @@ import {
   resolveAgentAvatarShape,
   type AgentAvatarKind,
 } from '../../lib/agent-avatar'
-import { BOT_ORB_COLORS, BOT_ORB_SHAPE_KEYS } from '../../lib/bot-orb-shapes'
+import {
+  BOT_ORB_SHAPE_KEYS,
+  botOrbMoreColors,
+  DEFAULT_BOT_ORB_COLOR,
+} from '../../lib/bot-orb-shapes'
+import type { BotOrbMotion } from '../../lib/bot-orb-motion'
+import { useLocalOrbPreview } from '../../hooks/useBotOrbPulse'
+import { resolveBrandSeed } from '../../lib/tenant-branding'
 import { cn } from '../../lib/utils'
+
+const PREVIEW_MOTIONS: { id: BotOrbMotion; labelKey: string }[] = [
+  { id: 'idle', labelKey: 'workforce.agents.orbPreview.idle' },
+  { id: 'thinking', labelKey: 'workforce.agents.orbPreview.thinking' },
+  { id: 'typing', labelKey: 'workforce.agents.orbPreview.typing' },
+  { id: 'working', labelKey: 'workforce.agents.orbPreview.working' },
+  { id: 'yes', labelKey: 'workforce.agents.orbPreview.yes' },
+  { id: 'no', labelKey: 'workforce.agents.orbPreview.no' },
+  { id: 'alert', labelKey: 'workforce.agents.orbPreview.alert' },
+  { id: 'jump', labelKey: 'workforce.agents.orbPreview.jump' },
+]
 
 type Props = {
   open: boolean
@@ -44,7 +65,9 @@ const MAX_DESCRIPTION = 280
 
 function editorKind(value: string | null | undefined): 'initials' | 'orb' {
   const kind = (value ?? '').trim().toLowerCase() as AgentAvatarKind | ''
-  return kind === 'orb' ? 'orb' : 'initials'
+  // Bot (orb) is the product default; initials/icons are the secondary option.
+  if (kind === 'initials' || kind === 'icon' || kind === 'image') return 'initials'
+  return 'orb'
 }
 
 /** Name, short description and bot mark (shape + color) or initials. */
@@ -63,6 +86,7 @@ export function AgentIdentityDialog({
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation()
   const { token } = useAuth()
+  const { currentWorkspace } = useWorkspace()
   const [name, setName] = useState(agentName)
   const [description, setDescription] = useState(agentDescription ?? '')
   const [kind, setKind] = useState<'initials' | 'orb'>(editorKind(avatarKind))
@@ -70,16 +94,36 @@ export function AgentIdentityDialog({
   const [shape, setShape] = useState(resolveAgentAvatarShape(avatarShape))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [moreColorsOpen, setMoreColorsOpen] = useState(false)
+  const orbPreview = useLocalOrbPreview('idle')
+
+  const accentHex = useMemo(
+    () => resolveBrandSeed(currentWorkspace?.brand_color).toLowerCase(),
+    [currentWorkspace?.brand_color],
+  )
+  const quickColors = useMemo(
+    () =>
+      [
+        { id: 'violet', value: DEFAULT_BOT_ORB_COLOR },
+        { id: 'accent', value: accentHex },
+        { id: 'gray', value: '#777777' },
+      ] as const,
+    [accentHex],
+  )
+  const moreColors = useMemo(() => botOrbMoreColors(), [])
 
   useEffect(() => {
     if (!open) return
     setName(agentName)
     setDescription(agentDescription ?? '')
     setKind(editorKind(avatarKind))
-    setColor(resolveAgentAvatarColor(avatarColor))
+    const nextColor = resolveAgentAvatarColor(avatarColor)
+    setColor(nextColor)
     setShape(resolveAgentAvatarShape(avatarShape))
     setError(null)
-  }, [open, agentName, agentDescription, avatarKind, avatarColor, avatarShape])
+    const inQuick = quickColors.some((row) => row.value === nextColor)
+    setMoreColorsOpen(!inQuick)
+  }, [open, agentName, agentDescription, avatarKind, avatarColor, avatarShape, quickColors])
 
   const save = async () => {
     if (!token || busy) return
@@ -100,6 +144,7 @@ export function AgentIdentityDialog({
         avatar_shape: kind === 'orb' ? shape : null,
         avatar_image_url: null,
       })
+      void reloadAgentsCache().catch(() => {})
       toast.success(t('workforce.agents.identitySaved'))
       onOpenChange(false)
       onChanged?.()
@@ -129,6 +174,9 @@ export function AgentIdentityDialog({
               color={kind === 'orb' ? color : null}
               shape={kind === 'orb' ? shape : null}
               imageUrl={null}
+              motion={kind === 'orb' ? orbPreview.motion : undefined}
+              pulseId={kind === 'orb' ? orbPreview.pulseId : undefined}
+              baseMotion="idle"
             />
             <div className="min-w-0 flex-1 space-y-1.5">
               <label className="text-xs font-medium text-text-secondary" htmlFor="agent-identity-name">
@@ -162,19 +210,15 @@ export function AgentIdentityDialog({
             <p className="text-2xs text-text-muted">{t('workforce.agents.identityDescriptionHint')}</p>
           </div>
 
-          <Tabs value={kind} onValueChange={(v) => setKind(v === 'orb' ? 'orb' : 'initials')}>
+          <Tabs value={kind} onValueChange={(v) => setKind(v === 'initials' ? 'initials' : 'orb')}>
             <TabsList className="h-9 w-full sm:w-auto">
-              <TabsTrigger value="initials" className="flex-1 text-xs sm:flex-none">
-                {t('workforce.agents.visualKind.initials')}
-              </TabsTrigger>
               <TabsTrigger value="orb" className="flex-1 text-xs sm:flex-none">
                 {t('workforce.agents.visualKind.orb')}
               </TabsTrigger>
+              <TabsTrigger value="initials" className="flex-1 text-xs sm:flex-none">
+                {t('workforce.agents.visualKind.initials')}
+              </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="initials" className="mt-3">
-              <p className="text-sm text-text-muted">{t('workforce.agents.visualInitialsHint')}</p>
-            </TabsContent>
 
             <TabsContent value="orb" className="mt-3 space-y-4">
               <div className="space-y-2">
@@ -218,7 +262,7 @@ export function AgentIdentityDialog({
                   {t('workforce.agents.visualPickColor')}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {BOT_ORB_COLORS.map((swatch) => {
+                  {quickColors.map((swatch) => {
                     const selected = color === swatch.value
                     const label = t(`workforce.agents.visualColors.${swatch.id}`, {
                       defaultValue: swatch.id,
@@ -243,8 +287,69 @@ export function AgentIdentityDialog({
                     )
                   })}
                 </div>
+                <SectionLabel
+                  title={t('workforce.agents.visualMoreColors')}
+                  open={moreColorsOpen}
+                  onOpenChange={setMoreColorsOpen}
+                  className="pt-1"
+                  contentClassName="pt-1.5"
+                >
+                  <div className="flex flex-wrap gap-1.5">
+                    {moreColors.map((swatch) => {
+                      const selected = color === swatch.value
+                      const label = t(`workforce.agents.visualColors.${swatch.id}`, {
+                        defaultValue: swatch.id,
+                      })
+                      return (
+                        <button
+                          key={swatch.id}
+                          type="button"
+                          title={label}
+                          aria-label={label}
+                          aria-pressed={selected}
+                          disabled={busy}
+                          onClick={() => setColor(swatch.value)}
+                          className={cn(
+                            'h-8 w-8 rounded-full border-2 transition-shadow',
+                            selected
+                              ? 'border-text-heading shadow-[0_0_0_2px_rgb(var(--color-bg-surface)),0_0_0_4px_rgb(var(--color-ai)/0.45)]'
+                              : 'border-border/50 hover:border-border',
+                          )}
+                          style={{ backgroundColor: swatch.value }}
+                        />
+                      )
+                    })}
+                  </div>
+                </SectionLabel>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-text-secondary">
+                  {t('workforce.agents.orbPreview.label')}
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {PREVIEW_MOTIONS.map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => orbPreview.play(row.id)}
+                      className={cn(
+                        'rounded-md px-2 py-1 text-2xs font-medium transition-colors',
+                        orbPreview.motion === row.id
+                          ? 'bg-ai/15 text-ai-ink'
+                          : 'bg-bg-elevated text-text-muted hover:text-text-heading',
+                      )}
+                    >
+                      {t(row.labelKey)}
+                    </button>
+                  ))}
+                </div>
               </div>
               <p className="text-2xs text-text-muted">{t('workforce.agents.visualOrbHint')}</p>
+            </TabsContent>
+
+            <TabsContent value="initials" className="mt-3">
+              <p className="text-sm text-text-muted">{t('workforce.agents.visualInitialsHint')}</p>
             </TabsContent>
           </Tabs>
 

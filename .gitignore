@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Python virtualenv (local; never commit)
+.venv/
+venv/
+
 # Environment and secrets
 .env
 .env.*
@@ -71,6 +75,9 @@ widget-wink-build.zip
 .tmp-*
 *.xs.bak
 **/.tmp/
+_tmp*
+**/_tmp*
+apps/api/scripts/dev/_tmp*
 
 # Local upload storage (dev)
 data/uploads/

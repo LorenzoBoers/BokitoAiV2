@@ -240,6 +240,11 @@ export default function ThreadList({
           checked={bulkSelectedIds?.has(String(thread.id))}
           onToggleChecked={onToggleBulkSelect}
           selectionActive={selectionActive}
+          dragThreadIds={
+            bulkSelectedIds?.size
+              ? [...bulkSelectedIds]
+              : undefined
+          }
           assigneeName={assigneeName}
           assigneePresence={assigneePresence}
           assigneeKind={assigneeKind}

@@ -44,8 +44,10 @@ import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import { parseServerTime, scheduleChipLabel, scheduleLongLabel } from '../../lib/thread-schedule'
 import { stageLabel } from '../../lib/tickets-api'
 import { HashtagMark } from '../ui/HashtagMark'
+import { TagPill } from '../ui/TagPill'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { setThreadDragData } from '../../lib/thread-folder-drag'
 
 const FolderIcon = ENTITY_ICONS.project
 
@@ -67,6 +69,8 @@ type Props = {
   onToggleChecked?: (id: ThreadId, shiftKey?: boolean) => void
   /** True while any thread is selected: keeps all checkboxes visible. */
   selectionActive?: boolean
+  /** When dragging a checked row, file all of these ids onto a rail folder/flow. */
+  dragThreadIds?: string[]
   /** Display name of the assigned member or team (resolved by the parent list). */
   assigneeName?: string | null
   assigneePresence?: PresenceStatus
@@ -147,6 +151,7 @@ function ThreadListItem({
   checked,
   onToggleChecked,
   selectionActive = false,
+  dragThreadIds,
   assigneeName = null,
   assigneePresence,
   assigneeKind = null,
@@ -241,10 +246,19 @@ function ThreadListItem({
   const freeTags = (thread.tags ?? []).filter((tag) => tag.trim().toLowerCase() !== ticketNameLower)
   const hasMeta = Boolean((assigneeName && !isDirect) || ticket || freeTags.length > 0 || folder)
 
+  const dragIds =
+    checked && dragThreadIds?.length
+      ? dragThreadIds
+      : [String(thread.id)]
+
   return (
     <div
       role="button"
       tabIndex={0}
+      draggable
+      onDragStart={(event) => {
+        setThreadDragData(event.dataTransfer, dragIds)
+      }}
       onClick={() => onSelect(thread.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -552,8 +566,8 @@ function ThreadListItem({
                   <div className="flex min-w-0 flex-wrap items-center gap-1">
                     {ticket ? (
                       <span
-                        className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border/70 px-1.5 text-2xs text-text-muted"
-                        title={ticket.stage ? `${ticketName} · ${stageLabel(ticket.stage, t)}` : ticketName}
+                        className="tag-pill inline-flex h-6 max-w-full items-center gap-1.5 rounded-full bg-accent/18 px-2.5 text-2xs font-medium text-accent"
+                        title={ticket.stage ? `${ticket.name} · ${stageLabel(ticket.stage, t)}` : ticket.name}
                         data-testid="thread-row-ticket"
                       >
                         <HashtagMark category />
@@ -567,14 +581,7 @@ function ThreadListItem({
                       </span>
                     ) : null}
                     {freeTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex max-w-[7rem] items-center gap-1 text-2xs text-text-muted"
-                        title={`#${tag}`}
-                      >
-                        <HashtagMark />
-                        <span className="truncate">{tag}</span>
-                      </span>
+                      <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />
                     ))}
                     {folder ? (
                       <span

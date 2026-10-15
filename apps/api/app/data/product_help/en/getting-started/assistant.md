@@ -31,6 +31,12 @@ Handing work over does not need an owner or admin role. Configuring agents does 
 2. Bokito works with your permissions. What your role may not change, Bokito does not change either.
 3. If the change needs a higher role, Bokito says so and offers to prepare it for an owner or admin.
 
+## Change your interface language
+
+1. Ask Bokito why the menus are still English (or Dutch), or say you want the UI in Dutch.
+2. Bokito checks your account language and points you to **Settings** → **Profile & security** → **Language** (`/settings/profile`). That switches menus and labels for you only.
+3. Organization working language (how agents write for the team) is separate, under **Settings** → **Communication**.
+
 ## Continue an earlier chat
 
 1. Open the Bokito button in the bottom-right corner.

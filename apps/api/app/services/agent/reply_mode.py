@@ -7,8 +7,9 @@
 - ``document``: runs without a conversation (triggers, workstreams). Output is
   a result, not a reply, so structured markdown stays allowed.
 
-``split_chat_messages`` is mirrored in the dashboard
-(``apps/dashboard/src/lib/chatMessages.ts``); keep both in sync.
+``split_chat_messages`` is mirrored in ``@bokito/shared``
+(``packages/shared/src/chat-messages.ts``; dashboard and chat-widget import
+that). Keep both in sync.
 """
 
 from __future__ import annotations
@@ -101,6 +102,9 @@ def split_chat_messages(text: str, max_messages: int = MAX_CHAT_MESSAGES) -> lis
     """Blank line = new message (as on WhatsApp). Lists and code stay together.
 
     Fragments shorter than ``MIN_MESSAGE_CHARS`` join the previous message.
+    A short previous opener that the next block restarts (``Je`` then
+    ``Je dashboard…``) is replaced so a stream stutter is not two bubbles.
+    A short previous that is not a restart joins forward into the next block.
     Numbered or bulleted blocks join each other, and a short lead-in
     (``Besluitpunten:``) joins the list that follows, so an enumeration is
     one bubble. Anything past ``max_messages`` merges into the last one.
@@ -112,6 +116,14 @@ def split_chat_messages(text: str, max_messages: int = MAX_CHAT_MESSAGES) -> lis
             continue
         if merged and len(block) < MIN_MESSAGE_CHARS:
             merged[-1] = f"{merged[-1]}\n{block}"
+            continue
+        if merged and len(merged[-1]) < MIN_MESSAGE_CHARS:
+            prev = merged[-1]
+            # Model restarted after a blank line: drop the false start.
+            if block.startswith(prev):
+                merged[-1] = block
+            else:
+                merged[-1] = f"{prev}\n{block}"
             continue
         if merged and _is_list_block(block) and (_is_list_block(merged[-1]) or _is_list_lead(merged[-1])):
             merged[-1] = f"{merged[-1]}\n{block}"

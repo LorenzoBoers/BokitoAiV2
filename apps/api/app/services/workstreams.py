@@ -1076,15 +1076,17 @@ async def _execute_agent_step(
         text = f"Mock output for step '{step.name}'"
         tokens_in, tokens_out = 100, 50
     else:
-        from app.services.agent.loop import AgentLoop
+        from app.services.chat_runtime import build_agent_loop
 
-        loop = AgentLoop(
+        loop = build_agent_loop(
             session,
-            tenant_id,
-            None,
-            runtime_agent,
-            agent_run,
+            tenant_id=tenant_id,
+            user_id=None,
+            agent=runtime_agent,
             signal_id=run.signal_id,
+            trust="system",
+            run=agent_run,
+            surface="workstream",
         )
         loop.usage_scope = "workstream"
         loop.usage_call_type = "workstream"

@@ -50,6 +50,7 @@ export async function createProject(input: {
   description?: string
   tag_ids?: string[]
   tags?: string[]
+  parent_id?: string | null
   sort_order?: number
 }): Promise<ProjectRow> {
   return foldersPost<ProjectRow>(foldersRoutes.list, input)
@@ -67,7 +68,7 @@ export async function listFolderFiles(
 export async function patchProject(
   projectId: string,
   patch: Partial<
-    Pick<ProjectRow, 'name' | 'description' | 'sort_order'> & {
+    Pick<ProjectRow, 'name' | 'description' | 'sort_order' | 'parent_id'> & {
       tag_ids?: string[]
       tags?: string[]
     }
@@ -76,8 +77,13 @@ export async function patchProject(
   return foldersPatch<ProjectRow>(foldersRoutes.byId(projectId), patch)
 }
 
-export async function nestFolder(folderId: string, ontoFolderId: string): Promise<ProjectRow> {
-  return foldersPost<ProjectRow>(foldersRoutes.nest(folderId), { onto_folder_id: ontoFolderId })
+export async function nestFolder(
+  folderId: string,
+  ontoFolderId: string | null,
+): Promise<ProjectRow> {
+  return foldersPost<ProjectRow>(foldersRoutes.nest(folderId), {
+    onto_folder_id: ontoFolderId,
+  })
 }
 
 export async function deleteProject(projectId: string, confirmName: string): Promise<{ deleted: boolean }> {

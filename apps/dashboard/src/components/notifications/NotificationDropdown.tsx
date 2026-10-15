@@ -9,9 +9,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dr
 import { translateNotificationCopy } from '../../lib/activity-labels'
 import { collapseNotifications, type GroupedNotification } from '../../lib/notification-groups'
 import { activityDayBucket } from '../../lib/activity-day'
+import { parseNotificationFrom } from '../../lib/notification-from'
 import { openEntityPath } from '../../lib/open-entity'
 import { timeAgo } from '../../lib/time-ago'
 import { forYouPath } from '../../lib/messages-paths'
+import { NotificationFromMark } from './NotificationFromMark'
 
 const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
   status_update: CalendarClock,
@@ -56,6 +58,7 @@ export default function NotificationDropdown() {
 
   const renderItem = (notification: GroupedNotification<AppNotification>) => {
     const IconComponent = NOTIFICATION_ICONS[notification.kind] ?? MessageSquare
+    const from = parseNotificationFrom(notification.payload)
     const unread = notification.status === 'unread' || notification.ids.some((id) =>
       notifications.find((item) => item.id === id)?.status === 'unread',
     )
@@ -66,13 +69,19 @@ export default function NotificationDropdown() {
         className={`row-interactive p-3 rounded-lg cursor-pointer hover:bg-bg-muted/50 ${unread ? 'bg-accent/5' : ''}`}
       >
         <div className="flex gap-3">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              unread ? 'bg-accent/10 text-accent' : 'bg-bg-muted text-text-muted'
-            }`}
-          >
-            <IconComponent size={14} />
-          </div>
+          {from ? (
+            <div className="flex-shrink-0">
+              <NotificationFromMark from={from} size={32} />
+            </div>
+          ) : (
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                unread ? 'bg-accent/10 text-accent' : 'bg-bg-muted text-text-muted'
+              }`}
+            >
+              <IconComponent size={14} />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className={`text-sm ${unread ? 'font-medium text-text-heading' : 'text-text-primary'}`}>
               {translateNotificationCopy(notification.title, t)}

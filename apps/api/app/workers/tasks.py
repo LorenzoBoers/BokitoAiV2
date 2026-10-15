@@ -14,7 +14,6 @@ from app.db.session import async_session_factory, init_db
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.channel import ChannelAccount
 from app.models.signal import Signal, SignalEvent, SignalMessage
-from app.services.agent.loop import AgentLoop
 from app.services.orchestration.runner import run_agent_task_segment
 
 settings = get_settings()
@@ -457,8 +456,26 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             activity_id=run.id,
         )
 
-        loop = AgentLoop(
-            session, UUID(tenant_id), None, agent=agent, run=run, signal_id=signal.id
+        from app.services.chat_runtime import build_agent_loop
+        from app.services.participants import ensure_participant
+
+        await ensure_participant(
+            session,
+            signal,
+            kind="agent",
+            ref_id=agent.id,
+            role="member",
+            joined_via="inbound",
+        )
+        loop = build_agent_loop(
+            session,
+            tenant_id=UUID(tenant_id),
+            user_id=None,
+            agent=agent,
+            signal_id=signal.id,
+            trust="external",
+            run=run,
+            surface="inbound",
         )
 
         # Language policy: reply drafts mirror the customer's language (or a
@@ -1288,6 +1305,110 @@ async def drive_operator_chat_job(
 
 
 WorkerSettings.functions.append(drive_operator_chat_job)
+
+
+async def run_participant_turn_job(
+    ctx,
+    tenant_id: str,
+    signal_id: str,
+    agent_id: str,
+    prompt: str,
+    requested_by_kind: str,
+    requested_by_id: str | None,
+    nonce: str,
+):
+    """Execute a multi-agent floor turn on the worker (no double floor)."""
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+    from app.models.signal import Signal
+    from app.services.participant_turns import (
+        _deadline_expired,
+        _parse_active,
+        execute_participant_turn,
+    )
+
+    async with async_session_factory() as session:
+        signal = (
+            await session.execute(
+                select(Signal).where(
+                    Signal.id == UUID(signal_id),
+                    Signal.tenant_id == UUID(tenant_id),
+                )
+            )
+        ).scalar_one_or_none()
+        agent = (
+            await session.execute(
+                select(Agent).where(
+                    Agent.id == UUID(agent_id),
+                    Agent.tenant_id == UUID(tenant_id),
+                )
+            )
+        ).scalar_one_or_none()
+        if signal is None or agent is None:
+            return {"ok": False, "error": "not_found"}
+        active = _parse_active(signal)
+        # Floor cleared (timeout/pass/sent) or replaced — do not revive a stale job.
+        if not active.get("nonce") or (nonce and active.get("nonce") != nonce):
+            return {"ok": False, "error": "stale_nonce"}
+        if _deadline_expired(active):
+            return {"ok": False, "error": "expired"}
+        result = await execute_participant_turn(
+            session,
+            signal,
+            agent=agent,
+            prompt=prompt or "",
+            nonce=nonce or active.get("nonce") or "",
+            requested_by_kind=requested_by_kind or "system",
+            requested_by_id=UUID(requested_by_id) if requested_by_id else None,
+        )
+        await session.commit()
+        return result
+
+
+WorkerSettings.functions.append(run_participant_turn_job)
+
+
+async def enqueue_participant_turn(
+    *,
+    tenant_id: str,
+    signal_id: str,
+    agent_id: str,
+    prompt: str,
+    requested_by_kind: str,
+    requested_by_id: str | None,
+    nonce: str,
+    defer_by_s: int = 0,
+) -> bool:
+    """True when the worker accepted the job."""
+    try:
+        from datetime import timedelta
+
+        redis = await _get_arq_pool()
+        kwargs: dict = {}
+        if defer_by_s and defer_by_s > 0:
+            kwargs["_defer_by"] = timedelta(seconds=min(int(defer_by_s), 30))
+        await redis.enqueue_job(
+            "run_participant_turn_job",
+            tenant_id,
+            signal_id,
+            agent_id,
+            prompt,
+            requested_by_kind,
+            requested_by_id,
+            nonce,
+            **kwargs,
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Redis unavailable, participant turn %s stays in-process: %s",
+            signal_id,
+            exc,
+        )
+        return False
 
 
 async def enqueue_operator_chat_turn(

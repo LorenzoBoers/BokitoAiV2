@@ -121,18 +121,7 @@ export default function SettingsLayout() {
     /^\/settings\/channels\/[^/]+/.test(pathname)
   // One title per page: the active section name, with its hint as subtitle.
   // The topbar breadcrumb already reads "Settings / {section}".
-  const tagsPage = activeLink?.labelKey === 'settings.links.categories'
-  const title = activeLink ? (
-    tagsPage ? (
-      <>
-        <span className="text-text-muted">#</span> {t(activeLink.labelKey)}
-      </>
-    ) : (
-      t(activeLink.labelKey)
-    )
-  ) : (
-    t('tabs.settings.title')
-  )
+  const title = activeLink ? t(activeLink.labelKey) : t('tabs.settings.title')
   const subtitle = activeLink?.hintKey ? t(activeLink.hintKey) : undefined
 
   return (
@@ -335,22 +324,13 @@ function SettingsNav({
                 {group.links.map((link) => {
                   const active = linkIsActive(pathname, link)
                   const hint = link.hintKey ? t(link.hintKey) : ''
-                  const tagsLink = link.labelKey === 'settings.links.categories'
                   const item = (
                     <NavLink
                       to={link.to}
                       className={cn('nav-row', !compact && 'pl-4')}
                       data-active={active ? 'true' : undefined}
                     >
-                      <span className="min-w-0 flex-1 truncate-fade">
-                        {tagsLink ? (
-                          <>
-                            <span className="text-text-muted">#</span> {t(link.labelKey)}
-                          </>
-                        ) : (
-                          t(link.labelKey)
-                        )}
-                      </span>
+                      <span className="min-w-0 flex-1 truncate-fade">{t(link.labelKey)}</span>
                     </NavLink>
                   )
                   if (!hint || active) return <div key={link.to}>{item}</div>

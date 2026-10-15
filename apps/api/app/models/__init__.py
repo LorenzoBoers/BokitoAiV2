@@ -7,6 +7,8 @@ from app.models.user_identity import UserIdentity
 from app.models.channel import ChannelAccount, ChannelBinding, Company, Contact
 from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
+from app.models.message_reaction import MessageReaction
+from app.models.signal_participant import SignalParticipant
 from app.models.platform_change import PlatformChange
 from app.models.signal import (
     CompanyTagLink,
@@ -125,6 +127,8 @@ __all__ = [
     "CompanyTagLink",
     "SavedReply",
     "Feedback",
+    "MessageReaction",
+    "SignalParticipant",
     "EvalScore",
     "InboxRule",
     "PlatformChange",

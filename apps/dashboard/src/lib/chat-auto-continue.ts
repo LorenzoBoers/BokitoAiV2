@@ -1,5 +1,5 @@
 /**
- * Durable hand-off from "New conversation" / Correction into ThreadDetail.
+ * Durable hand-off from "New conversation" into ThreadDetail.
  *
  * Navigation `state` alone is unreliable: Communication remounts and
  * `navigate(..., { replace: true })` / `setSearchParams` can wipe it before

@@ -69,6 +69,8 @@ export const appRoutes = {
     threadHandledExternally: (threadId: string) => `/signals/${threadId}/handled-externally`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
+    /** Give an agent the floor (participant turn) — @ mention / Ask parity. */
+    threadParticipantTurn: (threadId: string) => `/signals/${threadId}/participant-turn`,
     /** Re-queue inbound agent read (record_thread_read + reply when allowed). */
     threadTriage: (threadId: string) => `/signals/${threadId}/triage`,
     threadAgentCandidates: (threadId: string) => `/signals/${threadId}/agent-candidates`,
@@ -109,7 +111,9 @@ export const appRoutes = {
     nav: '/signals/nav',
     note: (threadId: string, messageId: string) => `/signals/${threadId}/notes/${messageId}`,
     messageFeedback: (messageId: string) => `/messages/${messageId}/feedback`,
+    messageReactions: (messageId: string) => `/messages/${messageId}/reactions`,
   },
+
   uploads: {
     create: '/uploads',
     file: (tenantId: string, filename: string) => `/uploads/files/${tenantId}/${filename}`,

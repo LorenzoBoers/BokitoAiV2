@@ -10,8 +10,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.models.notification import DecisionRequest
+from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage, SignalTag
 from app.services.signal_tags import create_tag, promote_tag
 from app.services.conversation_split import SPLIT_DECISION_SOURCE, split_or_propose
@@ -199,13 +200,28 @@ async def test_ai_split_follows_ai_handling(client: AsyncClient, session_overrid
     out = await split_or_propose(session_override, tenant.id, manual, category=complaint)
     assert out["status"] == "manual"
 
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id).limit(1))
+    ).scalar_one()
     assisted, _rows = await _thread(session_override, tenant.id, ai_handling="assisted")
+    assisted.agent_id = agent.id
+    session_override.add(assisted)
+    await session_override.flush()
     assisted_id = assisted.id
-    out = await split_or_propose(session_override, tenant.id, assisted, category=complaint)
+    out = await split_or_propose(
+        session_override, tenant.id, assisted, category=complaint, agent_id=agent.id
+    )
     assert out["status"] == "proposed"
+    decision_id = UUID(out["decision_id"])
+    card = await session_override.get(DecisionRequest, decision_id)
+    assert card is not None
+    notify = await session_override.get(Notification, card.notification_id)
+    assert notify is not None
+    notify_payload = json.loads(notify.payload_json or "{}")
+    assert notify_payload.get("from", {}).get("kind") == "agent"
+    assert notify_payload["from"].get("id") == str(agent.id)
     again = await split_or_propose(session_override, tenant.id, assisted, category=complaint)
     assert again["status"] == "pending"
-    decision_id = UUID(out["decision_id"])
     await resolve_decision(session_override, tenant.id, decision_id, "split", "approved")
     session_override.expunge_all()
     parent = await session_override.get(Signal, assisted_id)

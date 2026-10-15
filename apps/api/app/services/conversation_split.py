@@ -358,6 +358,7 @@ async def split_or_propose(
         return {"status": "pending", "decision_id": str(pending.id)}
     from app.services.signal_decisions import create_decision
 
+    asker_agent_id = agent_id or signal.agent_id
     payload = {
         "signal_id": str(signal.id),
         "from_message_id": str(anchor.id),
@@ -382,7 +383,7 @@ async def split_or_propose(
             {"id": "keep", "label": "Keep here", "action_type": "reject"},
         ],
         user_id=signal.assigned_user_id,
-        agent_id=agent_id,
+        agent_id=asker_agent_id,
         signal_id=signal.id,
         project_id=signal.project_id,
         source_type=SPLIT_DECISION_SOURCE,

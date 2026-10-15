@@ -10,6 +10,8 @@ export const integrationsRoutes = {
     moduleBySlug: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}`,
     moduleAgents: (slug: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/agents`,
+    moduleAgentsHire: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/agents/hire`,
     moduleAgentById: (slug: string, agentId: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/agents/${encodeURIComponent(agentId)}`,
     moduleConnections: (slug: string) =>

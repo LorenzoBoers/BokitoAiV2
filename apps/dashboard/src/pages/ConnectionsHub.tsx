@@ -6,6 +6,7 @@ import { MessageSquare, Search } from 'lucide-react'
 import { CalendarAccountsSection } from '../components/integrations/CalendarAccountsSection'
 import { ConnectionSections } from '../components/integrations/ConnectionSections'
 import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
+import { ModuleShowcaseModal } from '../components/integrations/ModuleShowcaseModal'
 import { ApplicationCard } from '../components/integrations/ApplicationCard'
 import { AiToolCard } from '../components/integrations/AiToolCard'
 import { ConnectedTile } from '../components/integrations/ConnectedTile'
@@ -40,7 +41,6 @@ import {
 import {
   effectiveOfferKind,
   filterOfferRows,
-  flattenApplicationOffers,
   localizeOfferCopy,
   resolveApplicationConnectTarget,
   type IntegrationApplication,
@@ -48,7 +48,12 @@ import {
 } from '../lib/integration-applications'
 import { resolveIntegrationKind } from '../lib/integration-kind'
 import { moduleHomePath, moduleIsOn, moduleNavIcon } from '../lib/integration-modules'
-import { applicationsForModule } from '../lib/module-applications'
+import {
+  applicationsForModule,
+  marketplaceOfferRows,
+  moduleForPackageSlug,
+  moduleMatchesMarketplaceQuery,
+} from '../lib/module-applications'
 import {
   parseHubConnectParam,
   stripOAuthCallbackParams,
@@ -97,6 +102,7 @@ export default function ConnectionsHub() {
   const [hubOffer, setHubOffer] = useState<IntegrationOffer | null>(null)
   const [hubStep, setHubStep] = useState<ApplicationHubStep>('app')
   const [hubBanner, setHubBanner] = useState<HubBanner>(null)
+  const [moduleShowcase, setModuleShowcase] = useState<IntegrationModuleRow | null>(null)
 
   const setKindFilter = useCallback(
     (next: IntegrationKindFilter) => {
@@ -160,6 +166,20 @@ export default function ConnectionsHub() {
         const staticId = SLUG_TO_STATIC_ID[slug] ?? slug
         const isGithub =
           slug === 'github' || params.get('github') === 'connected' || staticId === 'github'
+        const packageModule = moduleForPackageSlug(modules, connectParam ?? slug)
+        if (packageModule) {
+          if (integrationCb.error) {
+            toast.error(integrationCb.error)
+          } else if (integrationCb.connected) {
+            toast.success(
+              integrationCb.reused
+                ? t('integrations.connections.reused')
+                : t('integrations.hub.setup.successRemoteMcp'),
+            )
+          }
+          navigate(moduleHomePath(packageModule))
+          return true
+        }
         if (integrationCb.error) {
           setHubBanner({ type: 'error', message: integrationCb.error })
         } else if (integrationCb.connected) {
@@ -194,15 +214,23 @@ export default function ConnectionsHub() {
 
       return false
     },
-    [applications, openApplicationHub, t],
+    [applications, modules, navigate, openApplicationHub, t],
   )
 
   useEffect(() => {
     if (applications.length === 0) return
     const params = new URLSearchParams(window.location.search)
     const { integrationId: connectParam, step } = parseHubConnectParam(params)
+    const packageModule = connectParam ? moduleForPackageSlug(modules, connectParam) : null
     const hadCallback = applyCallbackBanner(params, connectParam)
     const cleaned = stripOAuthCallbackParams(params)
+    if (packageModule) {
+      cleaned.delete('connect')
+      cleaned.delete('step')
+      setSearchParams(cleaned, { replace: true })
+      if (!hadCallback) navigate(moduleHomePath(packageModule))
+      return
+    }
     if (hadCallback || connectParam) {
       if (!hadCallback && connectParam) {
         const target = resolveApplicationConnectTarget(applications, connectParam)
@@ -216,9 +244,12 @@ export default function ConnectionsHub() {
       }
       setSearchParams(cleaned, { replace: true })
     }
-  }, [applications, applyCallbackBanner, openApplicationHub, setSearchParams])
+  }, [applications, applyCallbackBanner, modules, navigate, openApplicationHub, setSearchParams])
 
-  const allOfferRows = useMemo(() => flattenApplicationOffers(applications), [applications])
+  const allOfferRows = useMemo(
+    () => marketplaceOfferRows(applications, modules),
+    [applications, modules],
+  )
 
   const connectedOffers = useMemo(
     () => filterOfferRows(allOfferRows.filter((row) => row.offer.connectionCount > 0), 'all', '', t),
@@ -267,16 +298,9 @@ export default function ConnectionsHub() {
 
   const visibleModules = useMemo(() => {
     if (kindFilter !== 'all' && kindFilter !== 'modules') return []
-    const q = query.trim().toLowerCase()
-    const filtered = !q
-      ? [...modules]
-      : modules.filter((module) => {
-          const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
-          const description = t(`integrations.modules.${module.slug}.description`, {
-            defaultValue: module.description,
-          })
-          return `${name} ${description}`.toLowerCase().includes(q)
-        })
+    const filtered = modules.filter((module) =>
+      moduleMatchesMarketplaceQuery(module, applications, query, t),
+    )
     return filtered.sort((a, b) => {
       const rank = (m: IntegrationModuleRow) => (m.status === 'coming_soon' ? 2 : moduleIsOn(m) ? 0 : 1)
       const byRank = rank(a) - rank(b)
@@ -285,7 +309,7 @@ export default function ConnectionsHub() {
       const bName = t(`integrations.modules.${b.slug}.name`, { defaultValue: b.name })
       return aName.localeCompare(bName)
     })
-  }, [kindFilter, modules, query, t])
+  }, [applications, kindFilter, modules, query, t])
 
   const visibleOffers = useMemo(
     () => filterOfferRows(allOfferRows, kindFilter, query, t),
@@ -378,6 +402,11 @@ export default function ConnectionsHub() {
   }
 
   const openProgram = (programKey: string) => {
+    const packageModule = moduleForPackageSlug(modules, programKey)
+    if (packageModule) {
+      navigate(moduleHomePath(packageModule))
+      return
+    }
     const target = resolveApplicationConnectTarget(applications, programKey)
     if (target) {
       openApplicationHub(target.app, 'offer-setup', target.offer ?? null)
@@ -434,13 +463,27 @@ export default function ConnectionsHub() {
           <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(14rem,1fr))]">
             {installedModules.map((module) => {
               const Icon = moduleNavIcon(module.slug)
+              const specialist = module.specialist_agent_name
               return (
                 <ConnectedTile
                   key={`module:${module.slug}`}
                   mark={<IconTile icon={Icon} />}
                   name={t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })}
-                  meta={t('integrations.filters.modules')}
-                  onClick={() => navigate(moduleHomePath(module))}
+                  meta={
+                    specialist
+                      ? t('integrations.connectedStrip.specialistMeta', {
+                          defaultValue: 'Specialist · {{name}}',
+                          name: specialist,
+                        })
+                      : t('integrations.filters.modules')
+                  }
+                  onClick={() =>
+                    navigate(
+                      specialist && module.specialist_agent_id
+                        ? moduleHomePath(module) + '?tab=setup'
+                        : moduleHomePath(module),
+                    )
+                  }
                 />
               )
             })}
@@ -538,6 +581,7 @@ export default function ConnectionsHub() {
                     module={item.module}
                     applications={applicationsForModule(applications, item.module)}
                     onAction={runModuleAction}
+                    onOpenDetail={() => setModuleShowcase(item.module)}
                     showKindBadge
                   />
                 )
@@ -586,6 +630,21 @@ export default function ConnectionsHub() {
         modules={modules}
         onViewConnected={handleViewConnected}
         onSaved={() => void refreshAll()}
+      />
+
+      <ModuleShowcaseModal
+        open={Boolean(moduleShowcase)}
+        onOpenChange={(open) => {
+          if (!open) setModuleShowcase(null)
+        }}
+        module={moduleShowcase}
+        applications={
+          moduleShowcase ? applicationsForModule(applications, moduleShowcase) : []
+        }
+        onAction={async (slug, action) => {
+          await runModuleAction(slug, action)
+          await refreshCatalog()
+        }}
       />
     </PageContent>
   )

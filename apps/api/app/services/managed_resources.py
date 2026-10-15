@@ -115,6 +115,7 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
         "slug",
         "model",
         "provider",
+        "description",
         "system_prompt",
         "chat_access",
         "autonomy_level",
@@ -300,12 +301,19 @@ async def ensure_managed_agent(
     )
 
     if agent is None:
+        from app.services.workforce_runtime import assert_unique_agent_name
+
         fields = dict(create_fields)
         fields.setdefault("slug", create_slug or tmpl)
         fields.setdefault("kind", "company")
         fields.setdefault("is_active", True)
         fields.setdefault("runtime_status", "standby")
-        agent = Agent(tenant_id=tenant.id, name=str(fields.get("name") or tmpl))
+        # Managed packs must not collide with an active operator-named agent.
+        wanted_name = await assert_unique_agent_name(
+            session, tenant.id, str(fields.get("name") or tmpl)
+        )
+        fields["name"] = wanted_name
+        agent = Agent(tenant_id=tenant.id, name=wanted_name)
         stamp_provenance(
             agent,
             managed_origin=origin,

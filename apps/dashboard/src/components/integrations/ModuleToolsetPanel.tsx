@@ -67,6 +67,13 @@ export function ModuleToolsetPanel({ module, compact = false, className }: Props
               {t('integrations.modules.toolRead', { defaultValue: 'Read' })}
             </Badge>
           )}
+          {card.exposure === 'customer' || card.exposure === 'both' ? (
+            <Badge variant="secondary" className="text-2xs font-medium">
+              {t('integrations.modules.toolWebchat', {
+                defaultValue: 'Website chat',
+              })}
+            </Badge>
+          ) : null}
         </div>
         {!compact || description ? (
           <p className={cn('mt-0.5 text-text-secondary', compact ? 'text-xs' : 'text-xs')}>

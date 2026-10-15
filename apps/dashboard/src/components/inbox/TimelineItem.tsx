@@ -1,4 +1,4 @@
-import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Forward, Hash, Layers, Loader2, Mail, MessageSquareWarning, Pencil, Phone, Reply, ReplyAll, ThumbsDown, ThumbsUp, Trash2, User, Users, X as XIcon } from 'lucide-react'
+import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Forward, Hash, Layers, Loader2, Mail, Pencil, Phone, Reply, ReplyAll, Trash2, User, Users, X as XIcon } from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
@@ -6,8 +6,8 @@ import { toast } from 'sonner'
 import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labels'
 import { humanizeIsoDatetimes } from '../../lib/bundleActionLabel'
 import { cn } from '../../lib/utils'
-import { cancelScheduledMessage, submitMessageFeedback } from '../../lib/signals-api'
-import { useCorrectionChat } from '../../lib/correction-chat'
+import { cancelScheduledMessage } from '../../lib/signals-api'
+import { MessageReactions } from './MessageReactions'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tip } from '../ui/Tip'
@@ -17,12 +17,13 @@ import type { TFunction } from 'i18next'
 import { formatAppTime } from '../../lib/app-locale'
 import { scheduleLongLabel } from '../../lib/thread-schedule'
 import { useAgents } from '../../hooks/useAgents'
+import { useBotOrbPulse } from '../../hooks/useBotOrbPulse'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { inboxPath, teamPath } from '../../lib/messages-paths'
 import { openEntityPath } from '../../lib/open-entity'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { preferLiveAgentAvatar, toAiAvatarProps } from '../../lib/agent-avatar'
 import { TeamAvatar } from '../ui/TeamAvatar'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
@@ -80,6 +81,7 @@ import { inferMarketplaceItems, mergeShowcaseItems } from '../../lib/marketplace
 import { ProposalItemList } from './ProposalItemPreview'
 import { ActionBundleCard } from './ActionBundleCard'
 import { ProposalActions } from './ProposalActions'
+import { TagPill } from '../ui/TagPill'
 
 type MessageLayout = 'chat' | 'email'
 
@@ -910,6 +912,18 @@ export function isAgentSideEvent(event: InboxEvent): boolean {
   return event.eventType === 'category_set' && Boolean(event.payload?.proposed)
 }
 
+/**
+ * Cluster key so human actions stay with that person (and not under the agent
+ * no-reply block). Agent / system / per-user lanes never mix.
+ */
+export function eventClusterKey(event: InboxEvent): string {
+  if (isAgentSideEvent(event)) return 'agent'
+  if (event.actorType === 'user' && event.actorUserId != null) return `user:${event.actorUserId}`
+  return 'system'
+}
+
+type EventActorVoice = 'you' | 'them' | null
+
 const EVENT_LABELS: Record<string, EventLabelFn> = {
   thread_created: (t) => t('timeline.events.threadCreated'),
   signal_created: (t, p) => {
@@ -946,6 +960,14 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   reply_sent: (t) => t('timeline.events.replySent'),
   note_added: (t) => t('timeline.events.noteAdded'),
   message_added: (t) => t('timeline.events.messageAdded'),
+  folder_set: (t, p) => {
+    const path = typeof p.path === 'string' && p.path ? p.path : ''
+    const tags = Array.isArray(p.tags) ? p.tags.filter((n): n is string => typeof n === 'string') : []
+    const label = path || (tags[0] ? `#${tags[0]}` : '')
+    return label
+      ? t('timeline.events.folderSet', { path: label })
+      : t('timeline.events.folderSetGeneric')
+  },
   reopened: (t) => t('timeline.events.reopened'),
   thread_updated: (t, p, _name, memberNameFor) => {
     const status = typeof p.status === 'string' ? p.status : null
@@ -965,6 +987,14 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
         : t('timeline.events.threadAssigned')
     }
     if (typeof p.priority === 'string' && p.priority) return t('timeline.events.priority', { priority: p.priority })
+    // Tag diffs render as a rich Trans + TagPill row in EventPill; this is the
+    // plain-text fallback (tooltips / unknown surfaces).
+    if (Array.isArray(p.tags_added) && p.tags_added.length > 0) {
+      return t('timeline.events.labels', { tags: p.tags_added.join(', ') })
+    }
+    if (Array.isArray(p.tags_removed) && p.tags_removed.length > 0) {
+      return t('timeline.events.labels', { tags: p.tags_removed.join(', ') })
+    }
     if (Array.isArray(p.tags)) {
       return p.tags.length > 0
         ? t('timeline.events.labels', { tags: p.tags.join(', ') })
@@ -988,6 +1018,33 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   wake_quiet: (t, p) => {
     const agent = typeof p.agent_name === 'string' && p.agent_name ? p.agent_name : ''
     return agent ? t('timeline.events.wakeQuietBy', { name: agent }) : t('timeline.events.wakeQuiet')
+  },
+  participant_turn_requested: (t, p) => {
+    const agent = typeof p.name === 'string' && p.name ? p.name : typeof p.agent_name === 'string' ? p.agent_name : ''
+    return agent
+      ? t('timeline.events.participantTurnRequested', { name: agent })
+      : t('timeline.events.participantTurnRequestedGeneric')
+  },
+  participant_turn_sent: (t, p) => {
+    const agent = typeof p.agent_name === 'string' && p.agent_name ? p.agent_name : ''
+    return agent
+      ? t('timeline.events.participantTurnSent', { name: agent })
+      : t('timeline.events.participantTurnSentGeneric')
+  },
+  participant_turn_pass: (t, p) => {
+    const agent = typeof p.agent_name === 'string' && p.agent_name ? p.agent_name : ''
+    return agent
+      ? t('timeline.events.participantTurnPass', { name: agent })
+      : t('timeline.events.participantTurnPassGeneric')
+  },
+  participant_turn_timeout: (t, p) => {
+    if (p.reason === 'max_consecutive') {
+      return t('timeline.events.participantTurnMaxConsecutive')
+    }
+    const agent = typeof p.agent_name === 'string' && p.agent_name ? p.agent_name : ''
+    return agent
+      ? t('timeline.events.participantTurnTimeout', { name: agent })
+      : t('timeline.events.participantTurnTimeoutGeneric')
   },
   widget_seen: (t) => t('timeline.events.widgetSeen'),
   agent_processed: (t, p) =>
@@ -1180,6 +1237,18 @@ function handlingEventMode(eventType: string, payload: Record<string, unknown>):
   return null
 }
 
+function isTagOnlyThreadPatch(p: Record<string, unknown>): boolean {
+  if (typeof p.status === 'string' && p.status) return false
+  if (typeof p.bulk === 'string' && p.bulk) return false
+  if (p.assigned_to != null) return false
+  if (typeof p.priority === 'string' && p.priority) return false
+  return (
+    Array.isArray(p.tags) ||
+    (Array.isArray(p.tags_added) && p.tags_added.length > 0) ||
+    (Array.isArray(p.tags_removed) && p.tags_removed.length > 0)
+  )
+}
+
 function eventPresentation(
   eventType: string,
   payload: Record<string, unknown> = {},
@@ -1209,8 +1278,17 @@ function eventPresentation(
   if (eventType === 'ticket_stage_changed') {
     return { ai: false, icon: <Layers size={THREAD_ICON} /> }
   }
-  if (eventType === 'tag_added' || eventType === 'tag_removed' || eventType === 'category_set') {
-    return { ai: false, icon: <Hash size={THREAD_ICON} /> }
+  if (
+    eventType === 'tag_added' ||
+    eventType === 'tag_removed' ||
+    eventType === 'category_set' ||
+    (eventType === 'thread_updated' && isTagOnlyThreadPatch(payload))
+  ) {
+    const agentTagged =
+      payload.via === 'set_thread_tags' ||
+      typeof payload.agent_id === 'string' ||
+      typeof payload.agent_name === 'string'
+    return { ai: agentTagged, icon: <Hash size={THREAD_ICON} /> }
   }
   if (
     eventType === 'assigned' ||
@@ -1228,9 +1306,43 @@ function eventLabel(
   t: TFunction,
   memberName?: string,
   memberNameFor?: MemberNameResolver,
+  actorVoice: EventActorVoice = null,
 ): string {
+  const p = event.payload ?? {}
+  if (event.eventType === 'category_set' && !p.proposed && actorVoice) {
+    const category = String(p.category ?? '')
+    const previous = typeof p.previous === 'string' && p.previous ? p.previous : ''
+    if (previous) {
+      return actorVoice === 'you'
+        ? t('timeline.events.categoryChangedYou', { category, previous })
+        : t('timeline.events.categoryChangedBy', {
+            category,
+            previous,
+            name: memberName || t('timeline.events.someone'),
+          })
+    }
+    return actorVoice === 'you'
+      ? t('timeline.events.categorySetYou', { category })
+      : t('timeline.events.categorySetBy', {
+          category,
+          name: memberName || t('timeline.events.someone'),
+        })
+  }
+  if (event.eventType === 'ticket_stage_changed' && actorVoice) {
+    const kind = p.to_kind as TicketStageKind | undefined
+    const stageName = String(p.to_stage ?? '')
+    const stage = kind
+      ? stageLabel({ key: String(p.to_key ?? kind), name: stageName, kind }, t)
+      : stageName
+    return actorVoice === 'you'
+      ? t('timeline.events.ticketStageChangedYou', { stage })
+      : t('timeline.events.ticketStageChangedBy', {
+          stage,
+          name: memberName || t('timeline.events.someone'),
+        })
+  }
   const labelFn = EVENT_LABELS[event.eventType]
-  if (labelFn) return labelFn(t, event.payload, memberName, memberNameFor)
+  if (labelFn) return labelFn(t, p, memberName, memberNameFor)
   // Prefer a known generic label over English snake_case leftovers (F-77).
   return t('timeline.events.messageAdded')
 }
@@ -1340,6 +1452,89 @@ function assistedHandoverLabel(event: InboxEvent, t: TFunction): ReactNode | nul
   return <Trans t={t} i18nKey="timeline.events.assistDecision" components={{ owner }} />
 }
 
+function tagNameList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((n): n is string => typeof n === 'string')
+    .map((n) => n.replace(/^#/, '').trim())
+    .filter(Boolean)
+}
+
+function InlineTagPills({ names }: { names: string[] }) {
+  if (names.length === 0) return null
+  return (
+    <span className="inline-flex max-w-full flex-wrap items-center gap-1 align-middle">
+      {names.map((name) => (
+        <TagPill key={name} names={name} tone="free" size="sm" />
+      ))}
+    </span>
+  )
+}
+
+/** Actor sentence + real TagPills for tag add/remove timeline rows. */
+function tagsChangeLabel(
+  event: InboxEvent,
+  t: TFunction,
+  memberName?: string,
+  actorVoice: EventActorVoice = null,
+): ReactNode | null {
+  const p = event.payload ?? {}
+  const isTagEvent =
+    event.eventType === 'tag_added' ||
+    event.eventType === 'tag_removed' ||
+    (event.eventType === 'thread_updated' && isTagOnlyThreadPatch(p))
+  if (!isTagEvent) return null
+  // Prefer the diff when the API logged it; fall back to the full list for older events.
+  const added = tagNameList(p.tags_added).length
+    ? tagNameList(p.tags_added)
+    : event.eventType === 'tag_added'
+      ? tagNameList(p.tags)
+      : event.eventType === 'thread_updated' &&
+          !Array.isArray(p.tags_added) &&
+          !Array.isArray(p.tags_removed)
+        ? tagNameList(p.tags)
+        : []
+  const removed = tagNameList(p.tags_removed).length
+    ? tagNameList(p.tags_removed)
+    : event.eventType === 'tag_removed'
+      ? tagNameList(p.tags)
+      : []
+  const who = memberName || t('timeline.events.someone')
+  const voiceKey = (base: 'labelsAdded' | 'labelsRemoved' | 'labelsCleared') =>
+    actorVoice === 'you' ? `${base}You` : actorVoice === 'them' ? `${base}By` : base
+
+  if (added.length > 0) {
+    return (
+      <Trans
+        t={t}
+        i18nKey={`timeline.events.${voiceKey('labelsAdded')}`}
+        values={{ name: who }}
+        components={{ tags: <InlineTagPills names={added} /> }}
+      />
+    )
+  }
+  if (removed.length > 0) {
+    return (
+      <Trans
+        t={t}
+        i18nKey={`timeline.events.${voiceKey('labelsRemoved')}`}
+        values={{ name: who }}
+        components={{ tags: <InlineTagPills names={removed} /> }}
+      />
+    )
+  }
+  if (event.eventType === 'thread_updated' && Array.isArray(p.tags) && p.tags.length === 0) {
+    return (
+      <Trans
+        t={t}
+        i18nKey={`timeline.events.${voiceKey('labelsCleared')}`}
+        values={{ name: who }}
+      />
+    )
+  }
+  return null
+}
+
 // Same meta line as activity: icon + sentence, no competing chip sizes.
 function ActivityPill({
   label,
@@ -1367,12 +1562,15 @@ function EventPill({
   memberName,
   memberNameFor,
   startedByName,
+  actorVoice = null,
 }: {
   event: InboxEvent
   memberName?: string
   memberNameFor?: MemberNameResolver
   /** Contact who opened the thread, when the event payload has no name yet. */
   startedByName?: string | null
+  /** Human actor lane: “You …” / “{name} …” instead of impersonal copy. */
+  actorVoice?: EventActorVoice
 }) {
   const { t, i18n } = useTranslation('communication')
   const { ai, icon } = eventPresentation(event.eventType, event.payload ?? {})
@@ -1383,10 +1581,12 @@ function EventPill({
     event.eventType === 'signal_created' && startedByName && !event.payload?.started_by
       ? { ...event, payload: { ...event.payload, started_by: startedByName } }
       : event
-  const richLabel = assistedHandoverLabel(labelEvent, t)
+  const richLabel =
+    assistedHandoverLabel(labelEvent, t) ??
+    tagsChangeLabel(labelEvent, t, memberName, actorVoice)
   const pill = (
     <ActivityPill
-      label={richLabel ?? eventLabel(labelEvent, t, memberName, memberNameFor)}
+      label={richLabel ?? eventLabel(labelEvent, t, memberName, memberNameFor, actorVoice)}
       ai={ai}
       icon={icon}
       tip={when}
@@ -1464,115 +1664,6 @@ function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
   )
 }
 
-// Thumbs up/down on agent replies. Votes feed the learning loop
-// (`POST /api/messages/{id}/feedback`) and drive the Usage "Avg feedback" metric.
-// The correct-interpretation action opens a chat with the responsible agent,
-// grounded in this thread, so the operator can explain what should have
-// happened and the agent can capture the learning.
-function MessageFeedbackControls({
-  messageId,
-  initial,
-  threadId,
-  agentId,
-  agentName,
-  summary,
-}: {
-  messageId: string
-  initial?: InboxMessage['myFeedback']
-  threadId?: string
-  agentId?: string | null
-  agentName?: string | null
-  summary?: string
-}) {
-  const { t } = useTranslation('communication')
-  const { token } = useAuth()
-  const [sentiment, setSentiment] = useState<'up' | 'down' | null>(initial?.sentiment ?? null)
-  const [busy, setBusy] = useState(false)
-  const { startCorrection, starting } = useCorrectionChat()
-
-  const vote = useCallback(
-    async (value: 'up' | 'down') => {
-      if (!token || busy || sentiment === value) return
-      const previous = sentiment
-      setSentiment(value)
-      setBusy(true)
-      try {
-        await submitMessageFeedback(token, messageId, value)
-      } catch {
-        setSentiment(previous)
-        toast.error(t('decisionCard.feedbackError'))
-      } finally {
-        setBusy(false)
-      }
-    },
-    [token, busy, sentiment, messageId, t],
-  )
-
-  const buttonClass = (active: boolean) =>
-    cn(
-      'flex h-5 w-5 items-center justify-center rounded transition-colors [&_svg]:h-2.5 [&_svg]:w-2.5',
-      active ? 'text-accent bg-accent/10' : 'text-text-muted hover:text-text-primary hover:bg-bg-hover',
-    )
-
-  const correctLabel = t('decisionCard.correctInterpretation')
-
-  return (
-    <div className="flex items-center gap-px border-r border-border/40 pr-1">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label={t('decisionCard.feedbackGood')}
-            className={buttonClass(sentiment === 'up')}
-            onClick={() => vote('up')}
-          >
-            <ThumbsUp size={10} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">{t('decisionCard.feedbackGood')}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label={t('decisionCard.feedbackPoor')}
-            className={buttonClass(sentiment === 'down')}
-            onClick={() => vote('down')}
-          >
-            <ThumbsDown size={10} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top">{t('decisionCard.feedbackPoor')}</TooltipContent>
-      </Tooltip>
-      {threadId ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={correctLabel}
-              disabled={starting}
-              className="flex h-5 w-5 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-50 [&_svg]:h-2.5 [&_svg]:w-2.5"
-              onClick={() =>
-                void startCorrection({
-                  threadId,
-                  agentId,
-                  agentName,
-                  subjectType: 'message',
-                  subjectId: messageId,
-                  summary,
-                })
-              }
-            >
-              {starting ? <Loader2 size={10} className="animate-spin" /> : <MessageSquareWarning size={10} />}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">{correctLabel}</TooltipContent>
-        </Tooltip>
-      ) : null}
-    </div>
-  )
-}
-
 export function MessageTimelineItem({
   message: messageProp,
   threadId,
@@ -1603,6 +1694,12 @@ export function MessageTimelineItem({
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { user, token } = useAuth()
+  const { agents } = useAgents()
+  const timelineAgentId =
+    typeof messageProp.payload?.agent_id === 'string' && messageProp.payload.agent_id
+      ? messageProp.payload.agent_id
+      : agentId ?? null
+  const timelineOrbPulse = useBotOrbPulse(timelineAgentId)
   const [proposalPicked, setProposalPicked] = useState<string[]>([])
   const [retrying, setRetrying] = useState(false)
   // Brief green check after delivery lands, then settle to muted grey.
@@ -1887,22 +1984,34 @@ export function MessageTimelineItem({
   const contactAvatar = (
     <ContactAvatarWithHover email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
   )
+  // Prefer the live agents catalog so timeline marks stay in sync with the
+  // rail (thread-stamped fields can lag after an identity change).
+  const messageAgentId =
+    typeof message.payload?.agent_id === 'string' && message.payload.agent_id
+      ? message.payload.agent_id
+      : agentId ?? null
+  const liveAgent = messageAgentId
+    ? agents.find((row) => String(row.id) === String(messageAgentId))
+    : undefined
   const agentAvatar = (
     <AiAvatar
       {...toAiAvatarProps(
-        {
-          name: agentName,
-          agentId,
+        preferLiveAgentAvatar(liveAgent, {
+          name: agentName || liveAgent?.name,
+          agentId: messageAgentId,
           agentAvatarKind,
           agentAvatarIcon,
           agentAvatarColor,
           agentAvatarShape,
           agentAvatarImageUrl,
-        },
+        }),
         t('timeline.aiAgent'),
       )}
       size={28}
       decorative
+      motion={timelineOrbPulse?.motion}
+      pulseId={timelineOrbPulse?.pulseId}
+      baseMotion="idle"
     />
   )
 
@@ -2144,15 +2253,12 @@ export function MessageTimelineItem({
             : 'team'
   const side: 'left' | 'right' = isOwn ? 'right' : 'left'
 
-  const feedbackRow =
-    isAgentMessage && typeof message.id === 'string' ? (
-      <MessageFeedbackControls
+  const reactionRow =
+    typeof message.id === 'string' ? (
+      <MessageReactions
         messageId={message.id}
-        initial={message.myFeedback}
-        threadId={String(message.threadId)}
-        agentId={typeof message.payload?.agent_id === 'string' ? message.payload.agent_id : null}
-        agentName={agentName}
-        summary={message.bodyText || message.bodyPreview || ''}
+        initial={message.reactions ?? null}
+        className="mr-0.5"
       />
     ) : null
 
@@ -2406,8 +2512,8 @@ export function MessageTimelineItem({
     isInbound && authorKind === 'external' && threadId && typeof message.id === 'string' && isCustomerChannel(channel) ? (
       <SplitConversationAction threadId={String(threadId)} messageId={message.id} />
     ) : null
-  // Mail-client actions: Reply / Reply all / Forward on inbound external mail,
-  // Forward only on mail we or a colleague sent.
+  // Mail-client actions (top-right on the envelope): Reply / Reply all /
+  // Forward on inbound external mail; Forward only on mail we or a colleague sent.
   const mailActions =
     isMailCard && onMailAction ? (
       <>
@@ -2416,14 +2522,13 @@ export function MessageTimelineItem({
             <BubbleAction label={t('timeline.replyMail')} onClick={() => onMailAction(message, 'reply')}>
               <Reply size={12} />
             </BubbleAction>
-            {canReplyAll(message, mailOwnAddresses ?? []) ? (
-              <BubbleAction
-                label={t('timeline.replyAllMail')}
-                onClick={() => onMailAction(message, 'reply_all')}
-              >
-                <ReplyAll size={12} />
-              </BubbleAction>
-            ) : null}
+            <BubbleAction
+              label={t('timeline.replyAllMail')}
+              onClick={() => onMailAction(message, 'reply_all')}
+              disabled={!canReplyAll(message, mailOwnAddresses ?? [])}
+            >
+              <ReplyAll size={12} />
+            </BubbleAction>
           </>
         ) : null}
         <BubbleAction label={t('timeline.forwardMail')} onClick={() => onMailAction(message, 'forward')}>
@@ -2432,16 +2537,10 @@ export function MessageTimelineItem({
       </>
     ) : null
   const actions =
-    copyAction ||
-    cancelSendAction ||
-    feedbackRow ||
-    noteEditControls ||
-    splitAction ||
-    mailActions ? (
+    copyAction || cancelSendAction || reactionRow || noteEditControls || splitAction ? (
       <>
-        {mailActions}
         {cancelSendAction}
-        {feedbackRow}
+        {reactionRow}
         {noteEditControls}
         {copyAction}
         {splitAction}
@@ -2470,6 +2569,7 @@ export function MessageTimelineItem({
       envelopeAria={t('timeline.envelope.details')}
       body={bubbleBodyWithMeta}
       meta={timeMeta}
+      headerActions={mailActions}
       actions={actions}
       collapsed={mailStillSending ? false : mailCollapsed}
       onToggleCollapsed={() => setMailCollapsed(false)}
@@ -2518,6 +2618,7 @@ export function MessageTimelineItem({
           <ActionBundleCard
             proposal={proposal}
             threadId={threadId}
+            agentId={messageAgentId}
             agentName={agentName}
             membersById={membersById}
             onResolved={onProposalResolved}
@@ -2527,6 +2628,7 @@ export function MessageTimelineItem({
           <ProposalActions
             proposal={proposal}
             threadId={threadId}
+            agentId={messageAgentId}
             membersById={membersById}
             onResolved={onProposalResolved}
             onAnswer={onAnswer}
@@ -2575,10 +2677,53 @@ export function EventTimelineItem({ event, memberName, memberNameFor }: EventIte
   )
 }
 
-// Consecutive events share one left-aligned meta block (same rail as activity).
+function LiveAgentMark({
+  name,
+  agentId,
+  agentAvatarKind,
+  agentAvatarIcon,
+  agentAvatarColor,
+  agentAvatarShape,
+  agentAvatarImageUrl,
+  size = 28,
+}: {
+  name?: string | null
+  agentId?: string | null
+  agentAvatarKind?: string | null
+  agentAvatarIcon?: string | null
+  agentAvatarColor?: string | null
+  agentAvatarShape?: string | null
+  agentAvatarImageUrl?: string | null
+  size?: number
+}) {
+  const { agents } = useAgents()
+  const live = agentId ? agents.find((row) => String(row.id) === String(agentId)) : undefined
+  return (
+    <AiAvatar
+      {...toAiAvatarProps(
+        preferLiveAgentAvatar(live, {
+          name: name || live?.name,
+          agentId,
+          agentAvatarKind,
+          agentAvatarIcon,
+          agentAvatarColor,
+          agentAvatarShape,
+          agentAvatarImageUrl,
+        }),
+        name || 'Agent',
+      )}
+      size={size}
+      decorative
+    />
+  )
+}
+
+// Consecutive events share one meta block (agent left, self right, teammate left).
 export function EventClusterTimelineItem({
   events,
   memberNameFor,
+  membersById,
+  currentUserId,
   startedByName,
   agentName,
   agentId,
@@ -2591,6 +2736,8 @@ export function EventClusterTimelineItem({
   events: InboxEvent[]
   time?: string
   memberNameFor: MemberNameResolver
+  membersById?: Record<number, InboxMember>
+  currentUserId?: number | null
   startedByName?: string | null
   agentName?: string | null
   agentId?: string | null
@@ -2601,7 +2748,18 @@ export function EventClusterTimelineItem({
   agentAvatarImageUrl?: string | null
 }) {
   if (events.length === 0) return null
-  const agentSide = events.every(isAgentSideEvent)
+  const lane = eventClusterKey(events[0])
+  const agentSide = lane === 'agent'
+  const actorUserId =
+    lane.startsWith('user:') && Number.isFinite(Number(lane.slice(5)))
+      ? Number(lane.slice(5))
+      : null
+  const isSelf =
+    actorUserId != null && currentUserId != null && actorUserId === currentUserId
+  const actorVoice: EventActorVoice =
+    actorUserId != null ? (isSelf ? 'you' : 'them') : agentSide ? 'them' : null
+  const actorMember = actorUserId != null ? membersById?.[actorUserId] : undefined
+  const actorName = actorMember?.name || memberNameFor(actorUserId)
   const named =
     events
       .map((event) =>
@@ -2615,17 +2773,20 @@ export function EventClusterTimelineItem({
         typeof event.payload?.agent_id === 'string' ? event.payload.agent_id : '',
       )
       .find(Boolean) ||
+    events.map((event) => (event.actorType === 'agent' ? event.actorAgentId : null)).find(Boolean) ||
     agentId ||
     null
+  const pillActorName = agentSide ? named || agentName || '' : actorName || memberNameFor(actorUserId)
   const pills = (
-    <div className="flex min-w-0 flex-col">
+    <div className={cn('flex min-w-0 flex-col', isSelf && 'items-end')}>
       {events.map((event) => (
         <EventPill
           key={event.id}
           event={event}
-          memberName={memberNameFor(event.actorUserId)}
+          memberName={pillActorName || memberNameFor(event.actorUserId)}
           memberNameFor={memberNameFor}
           startedByName={startedByName}
+          actorVoice={actorVoice}
         />
       ))}
     </div>
@@ -2635,19 +2796,32 @@ export function EventClusterTimelineItem({
       <ThreadMetaBlock
         header={named || undefined}
         avatar={
-          <AiAvatar
-            {...toAiAvatarProps(
-              {
-                name: named,
-                agentId: avatarAgentId,
-                agentAvatarKind,
-                agentAvatarIcon,
-                agentAvatarColor,
-                agentAvatarShape,
-                agentAvatarImageUrl,
-              },
-              named || 'Agent',
-            )}
+          <LiveAgentMark
+            name={named}
+            agentId={avatarAgentId}
+            agentAvatarKind={agentAvatarKind}
+            agentAvatarIcon={agentAvatarIcon}
+            agentAvatarColor={agentAvatarColor}
+            agentAvatarShape={agentAvatarShape}
+            agentAvatarImageUrl={agentAvatarImageUrl}
+          />
+        }
+      >
+        {pills}
+      </ThreadMetaBlock>
+    )
+  }
+  if (isSelf) {
+    return <div className="flex justify-end">{pills}</div>
+  }
+  if (actorUserId != null) {
+    return (
+      <ThreadMetaBlock
+        avatar={
+          <UserAvatar
+            name={actorName || '?'}
+            email={actorMember?.email}
+            avatarUrl={actorMember?.avatarUrl}
             size={28}
             decorative
           />

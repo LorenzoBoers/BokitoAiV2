@@ -24,12 +24,12 @@ Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, dra
 ## Zoek en koppel iets nieuws
 
 ![Koppelpaneel](/api/docs/assets/integrations/connect-panel.png)
-*Een kaart kiezen opent rechts een paneel: beschrijving, endpoint, mogelijkheden en de koppelknop.*
+*Een kaart kiezen opent een showcase-modal: beschrijving, endpoint, mogelijkheden en de koppelknop.*
 
-1. Gebruik onder **Alles** de categorie-chips: **Communicatie**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** en **AI-tools**. Elke chip toont zijn aantal. Zoeken werkt op namen en beschrijvingen in elke categorie. De chip staat in de URL (`/connections?kind=mcp` voor Tools, `?kind=modules`, `?kind=ai_tools`), dus een link opent altijd de categorie die hij noemt.
-2. Kaarten vormen één platte lijst — nooit genest in een module, nooit gegroepeerd onder een vendor. Microsoft 365, Outlook Calendar en Microsoft Graph hebben elk een eigen kaart. Een modulekaart draagt het label **Module** met zijn status; **Installeren** installeert hem, een geïnstalleerde module toont **Beheren** en **Deïnstalleren**. Een integratiekaart toont **Koppelen** voor de eerste login, of **Nieuwe koppeling** plus het aantal. Coming-soon modules en hun geplande programma's (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) staan faded tot ze live gaan.
-3. Kies een integratiekaart. Rechts opent het paneel met de beschrijving, het **Tool-endpoint** voor remote MCP-apps, **Mogelijkheden**, **Werkt met modules** (de presets die deze login kunnen gebruiken) en **Nieuwe verbinding instellen**. Rond OAuth of de providersetup af; je keert hier terug met het paneel open. Een login blijft op Koppelingen tot je hem aan een module hangt.
-4. Agents linken rechtstreeks naar dit paneel: een kaart in een gesprek opent `/connections?connect=slack_mcp` met het Slack-paneel al open.
+1. Gebruik onder **Alles** de categorie-chips: **Communicatie**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** en **AI-tools**. Elke chip toont zijn aantal. Zoeken werkt op namen en beschrijvingen in elke categorie, en matcht ook een module wanneer je een partternaam typt (bijvoorbeeld **Moneybird** toont **Boekhouding**). De chip staat in de URL (`/connections?kind=mcp` voor Tools, `?kind=modules`, `?kind=ai_tools`), dus een link opent altijd de categorie die hij noemt.
+2. Kaarten vormen één platte lijst — nooit genest in een module, nooit gegroepeerd onder een vendor. Modulepakketten (Moneybird API, KING, Bjorn Lunden, en hetzelfde patroon voor Bankieren / Documenten wanneer die live gaan) krijgen **geen** eigen marketplacekaart; die koppel je alleen vanuit de modulepagina. Hosted MCP-kaarten (bijvoorbeeld **Moneybird MCP**) blijven in het grid naast de module. Microsoft 365, Outlook Calendar en Microsoft Graph hebben elk een eigen kaart. Een modulekaart draagt het label **Module**; zachte statusstekst staat onder de partnerlogo's. Coming-soon modules staan faded tot ze live gaan.
+3. Kies een **module**- of **integratiekaart**. Er opent een showcase-modal: modules tonen de **modulespecialist** (eigenaar van de tools), partners, Labels en flows (hashtags), agent-tools (inclusief websitechat) en setupstappen met **Installeren** / **Module openen** / **Praat met specialist**; integraties tonen beschrijving, endpoint, mogelijkheden en **Koppelen**. Rond OAuth of setup af; je keert hier terug met de modal open. Een login blijft op Koppelingen tot je hem aan een module hangt.
+4. Agents linken rechtstreeks naar deze modal: een kaart in een gesprek opent `/connections?connect=slack_mcp` met de Slack-modal al open. Een modulepakket-vermelding zoals Moneybird opent de pagina **Boekhouding**.
 5. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [project](/docs/ai/folders). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Tools** of **Custom MCP-servers**. Zie [MCP](/docs/integrations/mcp).
 
 WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst je daarheen.
@@ -43,9 +43,9 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst
 
 1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modules staan in de strook **Verbonden**; gebruik de chip **Modules** om een preset te vinden die nog niet geïnstalleerd is.
 2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Status wordt **Nog inrichten**.
-3. Wijs **minstens één AI-agent** toe. Markeer er één als **Standaard** voor de setup-chat. Alleen toegewezen agents krijgen de tools van deze module.
-4. Bekijk **Wat agents kunnen doen**: elke module-actie toont een korte beschrijving, het universele pad (`accounting_list_companies`, …) en of het **Lezen** of **Goedkeuring nodig** is. Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de exacte MCP-toolnamen van die servers.
-5. Bovenaan de modulepagina, onder **Koppelingen**, kies je **Nieuwe registratie** om in één stap te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** voor een login die al op Koppelingen staat. Geplande pakketten (Exact Online, SnelStart) blijven grijs. De overige tabs zijn **Overzicht**, **Bronnen** en **Setup**.
+3. **Installeren** neemt automatisch een beheerde specialist aan op de roster en kan de standaard-hashtag toevoegen. De toast biedt **Praat met specialist**. Op Setup kun je hun chat openen of een andere bedrijfsagent toewijzen. Markeer er één als **Standaard**. Alleen agents op de roster krijgen de tools van deze module. Deïnstalleren archiveert de beheerde specialist zacht en leegt de roster; koppelingen blijven op Koppelingen.
+4. Bekijk **Wat agents kunnen doen**: elke actie toont een korte beschrijving, het pad (`accounting_list_companies`, …), **Lezen** of **Goedkeuring nodig**, en **Websitechat** wanneer de tool in de widget mag (aanzetten onder Overzicht). Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de ontdekte MCP-namen.
+5. Bovenaan de modulepagina, onder **Koppelingen**, kies je **Nieuwe registratie** om het modulepakket (Moneybird, KING of Bjorn Lunden) te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** wanneer er al een login bestaat. Geplande pakketten (Exact Online, SnelStart) blijven grijs. De overige tabs zijn **Overzicht**, **Bronnen** en **Setup**.
 6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Inrichten afronden**. Status wordt **Installatie incompleet** tot er een partnerlogin hangt, daarna **Gekoppeld**. Hashtags en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
 
 ## Koppel een optionele boekhoudintegratie
@@ -62,15 +62,16 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst
 
 ## Beheer koppelingen met één provider
 
-Open een providerkaart om elke registratie bij die provider op één plek te beheren.
+Losse marketplace-logins (inbox, agenda, hosted MCP, custom tools) openen een providerpaneel. Modulepakketten zoals Moneybird API beheer je op de pagina **Boekhouding**.
 
 ![Providerkoppelingen](/api/docs/assets/integrations/provider-connections.png)
 *Het providerpaneel toont elke registratie met status, projecten en acties.*
 
-1. Open **Koppelingen** en kies de providerkaart, bijvoorbeeld **Moneybird**.
+1. Open **Koppelingen** en kies een losse providerkaart, bijvoorbeeld **Moneybird MCP** of **Slack**.
 2. Het paneel toont elke registratie met status, identiteit, administratienummer, projecten en de modules die hem gebruiken. Een badge **Beperkt** betekent dat alleen sommige mensen of agents hem mogen gebruiken.
 3. Gebruik **Verifiëren**, **Hernoemen** of **Ontkoppelen** op een rij. Ontkoppelen haalt hem weg als modulestandaard en verwijdert zijn projectkoppelingen.
 4. Kies **Nog een registratie toevoegen** om een tweede account te koppelen. Dezelfde administratie twee keer werkt de bestaande rij bij.
+5. Voor Moneybird API, KING of Bjorn Lunden open je **Boekhouding** en beheer je registraties bovenaan die pagina.
 
 ## Gebruik een koppeling alleen voor één klant of afdeling
 

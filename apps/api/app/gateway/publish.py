@@ -414,6 +414,26 @@ async def publish_agent_status(
     )
 
 
+async def publish_message_reaction(
+    *,
+    tenant_id: Any,
+    signal_id: Any,
+    message_id: Any,
+    reactions: dict[str, Any],
+) -> None:
+    """Reaction stack on a message changed — open threads patch without refetch."""
+    await _safe_publish(
+        tenant_id,
+        [f"signal:{signal_id}"],
+        "message.reaction",
+        {
+            "signal_id": str(signal_id),
+            "message_id": str(message_id),
+            "reactions": reactions,
+        },
+    )
+
+
 ENTITY_KINDS = frozenset(
     {
         "trigger",

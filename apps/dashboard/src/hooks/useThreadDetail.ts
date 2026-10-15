@@ -9,6 +9,7 @@ import {
   mergeThreadRow,
   upsertLiveMessage,
 } from '../lib/thread-live'
+import { normalizeMessageReactions } from '../lib/signals-api'
 import type { AiHandling, AiHandlingMode } from '../lib/ai-handling'
 import { setAiHandling } from '../lib/ai-handling-api'
 import {
@@ -297,6 +298,32 @@ export function useThreadDetail(
           }
           return
         }
+      }
+      if (event.event === 'message.reaction') {
+        const messageId = String(event.data.message_id || '')
+        if (!messageId) {
+          scheduleQuietRefetch()
+          return
+        }
+        const reactions = normalizeMessageReactions(event.data.reactions)
+        const mine = reactions.mine
+        const myFeedback =
+          mine === 'up' || mine === 'hundred'
+            ? { score: 5, sentiment: 'up' as const }
+            : mine === 'down' || mine === 'angry'
+              ? { score: 1, sentiment: 'down' as const }
+              : null
+        setRawDetail((prev) => {
+          if (!prev || String(prev.thread.id) !== String(threadId)) return prev
+          let changed = false
+          const messages = prev.messages.map((m) => {
+            if (String(m.id) !== messageId) return m
+            changed = true
+            return { ...m, reactions, myFeedback }
+          })
+          return changed ? { ...prev, messages } : prev
+        })
+        return
       }
       if (event.event === 'message') {
         const msg = extractLiveMessage(event)

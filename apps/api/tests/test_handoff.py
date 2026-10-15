@@ -95,6 +95,10 @@ async def test_handoff_tool_pauses_thread_and_notifies(client: AsyncClient, sess
     assert notification.signal_id == signal.id
     title_l = notification.title.lower()
     assert "takeover" in title_l or "medewerker" in title_l
+    notify_payload = json.loads(notification.payload_json or "{}")
+    assert notify_payload.get("from", {}).get("kind") == "agent"
+    assert notify_payload["from"].get("id") == str(agent.id)
+
 
 
 @pytest.mark.asyncio

@@ -15,8 +15,9 @@ import {
   moduleHomePath,
   moduleInstallState,
   moduleIsOn,
-  type IntegrationModuleRow,
 } from '../../lib/integration-modules'
+import { talkToAssistantPath } from '../../lib/talk-to-assistant'
+import type { IntegrationModuleRow } from '../../lib/integrations-api'
 
 type LifecycleAction = 'install' | 'complete_setup' | 'uninstall'
 
@@ -31,6 +32,8 @@ type Props = {
     | 'install_state'
     | 'setup_path'
     | 'assigned_agent_count'
+    | 'specialist_agent_id'
+    | 'specialist_agent_name'
   >
   onAction: (slug: string, action: LifecycleAction) => Promise<unknown>
   /** Compact buttons for cards; default shows primary + secondary. */
@@ -52,7 +55,9 @@ export function ModuleInstallControls({ module, onAction, compact = false }: Pro
   const run = (action: LifecycleAction, thenNavigate?: string) => {
     setBusy(true)
     void onAction(module.slug, action)
-      .then(() => {
+      .then((result) => {
+        const row = (result && typeof result === 'object' ? result : {}) as Partial<IntegrationModuleRow>
+        const specialistId = row.specialist_agent_id || module.specialist_agent_id
         const toastKey =
           action === 'install'
             ? 'integrations.modules.installStarted'
@@ -63,12 +68,32 @@ export function ModuleInstallControls({ module, onAction, compact = false }: Pro
           t(toastKey, {
             defaultValue:
               action === 'install'
-                ? '{{name}} is ready for setup.'
+                ? '{{name}} is ready for setup. A specialist was hired onto the roster.'
                 : action === 'complete_setup'
                   ? '{{name}} is installed.'
-                  : '{{name}} was uninstalled.',
+                  : '{{name}} was uninstalled. The managed specialist was archived.',
             name,
           }),
+          action === 'install' && specialistId
+            ? {
+                action: {
+                  label: t('integrations.modules.showcase.talkSpecialistShort', {
+                    defaultValue: 'Talk to specialist',
+                  }),
+                  onClick: () =>
+                    navigate(
+                      talkToAssistantPath(
+                        t('integrations.modules.showcase.talkPrefill', {
+                          defaultValue:
+                            'Help me use {{name}}. What can you do, and what should we set up next?',
+                          name,
+                        }),
+                        specialistId,
+                      ),
+                    ),
+                },
+              }
+            : undefined,
         )
         if (thenNavigate) navigate(thenNavigate)
       })

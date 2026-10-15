@@ -129,6 +129,7 @@ async def test_helper_may_delegate_but_not_reply_to_customers():
     """The passport hands work over instead of doing customer-facing work."""
     assert "delegate_to_agent" in TOOL_ALLOWLIST
     assert "create_task" in TOOL_ALLOWLIST
+    assert "get_operator_settings" in TOOL_ALLOWLIST
     assert "send_message" not in TOOL_ALLOWLIST
     assert "close_thread" not in TOOL_ALLOWLIST
 

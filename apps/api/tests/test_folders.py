@@ -1,4 +1,4 @@
-"""Folders are saved AND tag filtersets; placement follows from a conversation's tags."""
+"""Folders are named tree nodes with AND label rules; placement follows labels."""
 
 import os
 from uuid import UUID
@@ -51,21 +51,14 @@ def _primary_tag_id(folder: dict) -> str:
 async def _folder(client, headers, name, *, parent_id=None, tags=None, **extra) -> dict:
     slug = name.lower().replace(" ", "-")
     body = {"name": name, "slug": slug, "tags": tags or [slug]}
+    if parent_id:
+        body["parent_id"] = parent_id
     body.update({k: v for k, v in extra.items() if k not in ("parent_id", "child_group_id", "tag")})
     if extra.get("tag"):
         body["tags"] = [extra["tag"]]
     res = await client.post("/api/folders", headers=headers, json=body)
     assert res.status_code == 200, res.text
-    data = res.json()
-    if parent_id:
-        nest = await client.post(
-            f"/api/folders/{data['id']}/nest",
-            headers=headers,
-            json={"onto_folder_id": parent_id},
-        )
-        assert nest.status_code == 200, nest.text
-        data = nest.json()
-    return data
+    return res.json()
 
 
 async def _thread(client, headers, signal_id) -> dict:
@@ -76,12 +69,17 @@ async def _thread(client, headers, signal_id) -> dict:
 async def test_nested_folders_resolve_to_the_deepest_path(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
+    # Labels stay independent of nest; operators may stack them for depth matching.
     clients = await _folder(client, headers, "Clients", tags=["clients"])
-    acme = await _folder(client, headers, "Acme", tags=["acme"], parent_id=clients["id"])
-    q4 = await _folder(client, headers, "Q4", tags=["q4"], parent_id=acme["id"])
+    acme = await _folder(
+        client, headers, "Acme", tags=["clients", "acme"], parent_id=clients["id"]
+    )
+    q4 = await _folder(
+        client, headers, "Q4", tags=["clients", "acme", "q4"], parent_id=acme["id"]
+    )
+    assert acme["parent_id"] == clients["id"]
+    assert q4["parent_id"] == acme["id"]
     assert _primary_tag(clients) == "clients"
-    assert _primary_tag(acme) == "acme"
-    assert _primary_tag(q4) == "q4"
 
     signal = await _signal(session_override, tenant.id)
     await client.patch(f"/api/signals/{signal.id}", headers=headers, json={"tags": ["q4"]})
@@ -296,8 +294,13 @@ async def test_one_thread_lists_in_two_folder_paths(client: AsyncClient, session
     await _tenant(session_override)
     acme = await _folder(client, headers, "Acme", tags=["acme"])
     partner = await _folder(client, headers, "Partner", tags=["partner"])
+    # Same label under two parents — allowed; membership is the label alone.
     invoices = await _folder(client, headers, "Facturen", tags=["facturen"], parent_id=acme["id"])
-    partner_invoices = await _folder(client, headers, "Facturen", tags=["facturen"], parent_id=partner["id"])
+    partner_invoices = await _folder(
+        client, headers, "Facturen", tags=["facturen"], parent_id=partner["id"]
+    )
+    assert invoices["parent_id"] == acme["id"]
+    assert partner_invoices["parent_id"] == partner["id"]
     assert invoices["tag_ids"][-1] == partner_invoices["tag_ids"][-1]
 
     signal = await _signal(session_override, (await _tenant(session_override)).id)
@@ -308,7 +311,7 @@ async def test_one_thread_lists_in_two_folder_paths(client: AsyncClient, session
     )
     thread = await _thread(client, headers, signal.id)
     paths = {frozenset(row["tag_names"]) for row in thread.get("folder_paths") or []}
-    assert paths == {frozenset(["acme", "facturen"]), frozenset(["partner", "facturen"])}
+    assert frozenset(["facturen"]) in paths
 
     in_acme = await client.get(f"/api/signals?view=all&project_id={invoices['id']}", headers=headers)
     in_partner = await client.get(
@@ -320,12 +323,11 @@ async def test_one_thread_lists_in_two_folder_paths(client: AsyncClient, session
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
     roots = {row["name"].lower(): row for row in nav["projects"] if row.get("project_id")}
     assert any("acme" in k or v.get("tag_ids") for k, v in roots.items())
-    # Counts on derived tree rows
     assert any(row.get("count", 0) >= 1 for row in nav["projects"])
 
 
 @pytest.mark.asyncio
-async def test_folder_filterset_must_be_unique(client: AsyncClient, session_override):
+async def test_folder_same_labels_allowed(client: AsyncClient, session_override):
     headers = await _login(client)
     first = await _folder(client, headers, "Admin", tags=["administratie", "overig"])
     assert set(first["tag_names"]) == {"administratie", "overig"}
@@ -333,20 +335,16 @@ async def test_folder_filterset_must_be_unique(client: AsyncClient, session_over
     dup = await client.post(
         "/api/folders",
         headers=headers,
-        json={"tags": ["overig", "administratie"]},
+        json={"name": "Admin copy", "tags": ["overig", "administratie"]},
     )
-    assert dup.status_code == 409, dup.text
-    err = dup.json()
-    detail = err.get("detail") or (err.get("error") or {}).get("message") or ""
-    assert "already exists" in detail.lower()
+    assert dup.status_code == 200, dup.text
 
     other = await _folder(client, headers, "OnlyOverig", tags=["overig"])
     assert other["tag_names"] == ["overig"]
 
-    # Editing an existing folder into a taken set is also blocked.
-    conflict = await client.patch(
+    updated = await client.patch(
         f"/api/folders/{other['id']}",
         headers=headers,
         json={"tags": ["administratie", "overig"]},
     )
-    assert conflict.status_code == 409, conflict.text
+    assert updated.status_code == 200, updated.text

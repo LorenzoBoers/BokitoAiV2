@@ -1,12 +1,10 @@
-"""Folders are saved tag filtersets (AND).
+"""Folders are named tree nodes with optional label (tag) filtersets.
 
-A `Project` row is a folder hub. Its tags live in ``project_tag_links``. A
-conversation matches a folder when every tag in the set is present in the
-conversation's effective tags (own links, action tag, contact and company
-tags). The same conversation can match many folders; narrower sets nest under
-broader ones in the derived rail tree. ``Signal.project_id`` caches the
-longest matching filterset for attribution. Filing a conversation in a folder
-adds that folder's tags — there is no stored parent tree.
+A `Project` row is a folder hub. Tree shape is stored ``parent_id``. Labels live
+in ``project_tag_links`` (AND). A conversation matches a folder when every label
+in the set is present in its effective labels. ``Signal.project_id`` caches the
+best match (most labels, then deepest in the tree). Filing applies that folder's
+labels — nesting does not rewrite them.
 """
 
 from __future__ import annotations
@@ -37,7 +35,7 @@ FOLDER_DECISION_SOURCE = "folder"
 
 @dataclass(frozen=True)
 class FilterSet:
-    """One saved folder: name + AND tag set."""
+    """One folder: display name, optional parent, AND label set."""
 
     id: UUID
     name: str
@@ -45,6 +43,7 @@ class FilterSet:
     sort_order: int
     tag_ids: tuple[UUID, ...]
     tag_names: tuple[str, ...] = ()
+    parent_id: UUID | None = None
 
     @property
     def tag_set(self) -> frozenset[UUID]:
@@ -55,9 +54,9 @@ class FilterSet:
         return bool(self.tag_ids) and self.tag_set.issubset(present)
 
     def label(self) -> str:
-        if self.tag_names:
-            return " · ".join(f"#{n}" for n in self.tag_names)
-        return self.name
+        return self.name or (
+            " · ".join(f"#{n}" for n in self.tag_names) if self.tag_names else "Folder"
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -66,6 +65,7 @@ class FilterSet:
             "name": self.name,
             "slug": self.slug,
             "sort_order": self.sort_order,
+            "parent_id": str(self.parent_id) if self.parent_id else None,
             "tag_ids": [str(t) for t in self.tag_ids],
             "tag_names": list(self.tag_names),
             "label": self.label(),
@@ -98,18 +98,23 @@ class DerivedNode:
     children: list[DerivedNode] = field(default_factory=list)
     tag_names: tuple[str, ...] = ()
 
-    def to_nav_dict(self, *, count: int = 0) -> dict[str, Any]:
+    def to_nav_dict(self, *, count: int = 0, parent_id: str | None = None) -> dict[str, Any]:
         return {
             "id": str(self.project_id) if self.project_id else self.key,
             "name": self.name,
-            "parent_id": None,
+            "parent_id": parent_id,
             "project_id": str(self.project_id) if self.project_id else None,
             "tag_id": str(self.tag_ids[-1]) if self.tag_ids else None,
             "tag_ids": [str(t) for t in self.tag_ids],
             "tag_names": list(self.tag_names),
             "virtual": self.virtual,
             "count": count,
-            "children": [c.to_nav_dict() for c in self.children],
+            "children": [
+                c.to_nav_dict(
+                    parent_id=str(self.project_id) if self.project_id else self.key
+                )
+                for c in self.children
+            ],
         }
 
 
@@ -167,61 +172,81 @@ def matching_folders(catalog: FolderCatalog, effective: Iterable[UUID]) -> list[
     return [f for f in catalog.folders if f.matches(present)]
 
 
+def _folder_depth(catalog: FolderCatalog, folder_id: UUID) -> int:
+    depth = 0
+    seen: set[UUID] = set()
+    current: UUID | None = folder_id
+    while current is not None and current not in seen:
+        seen.add(current)
+        folder = catalog.by_id.get(current)
+        if folder is None or folder.parent_id is None:
+            break
+        depth += 1
+        current = folder.parent_id
+    return depth
+
+
 def longest_match(catalog: FolderCatalog, effective: Iterable[UUID]) -> FilterSet | None:
     hits = matching_folders(catalog, effective)
     if not hits:
         return None
-    hits.sort(key=lambda f: (-len(f.tag_ids), f.sort_order, f.name.lower()))
+    hits.sort(
+        key=lambda f: (
+            -len(f.tag_ids),
+            -_folder_depth(catalog, f.id),
+            f.sort_order,
+            f.name.lower(),
+        )
+    )
     return hits[0]
 
 
 def derive_tree(catalog: FolderCatalog) -> list[DerivedNode]:
-    """Nest folders by strict tag-set inclusion; emit virtual clusters for shared prefixes."""
-    folders = [f for f in catalog.folders if f.tag_ids]
+    """Build the nav tree from stored ``parent_id`` (free hierarchy)."""
+    folders = list(catalog.folders)
     if not folders:
         return []
 
-    # Parent of A is the folder with the largest proper subset of A's tags.
-    parent_of: dict[UUID, UUID | None] = {}
-    for folder in folders:
-        best: FilterSet | None = None
-        for other in folders:
-            if other.id == folder.id:
-                continue
-            if other.tag_set < folder.tag_set:
-                if best is None or len(other.tag_ids) > len(best.tag_ids):
-                    best = other
-                elif best and len(other.tag_ids) == len(best.tag_ids):
-                    if other.sort_order < best.sort_order or (
-                        other.sort_order == best.sort_order and other.name.lower() < best.name.lower()
-                    ):
-                        best = other
-        parent_of[folder.id] = best.id if best else None
-
+    known = {f.id for f in folders}
     children: dict[UUID | None, list[FilterSet]] = {}
     for folder in folders:
-        children.setdefault(parent_of.get(folder.id), []).append(folder)
+        parent = folder.parent_id if folder.parent_id in known else None
+        children.setdefault(parent, []).append(folder)
     for rows in children.values():
         rows.sort(key=lambda f: (f.sort_order, f.name.lower()))
 
-    def build(folder: FilterSet, parent: FilterSet | None = None) -> DerivedNode:
-        kids = [build(c, folder) for c in children.get(folder.id, [])]
-        # Virtual cluster: when siblings share an overlap of ≥2 tags beyond the parent.
-        clustered = _cluster_siblings(kids, catalog)
-        local = _local_tag_names(folder.tag_names, parent.tag_names if parent else None)
-        display = " · ".join(f"#{n}" for n in local) if local else folder.name
+    def build(folder: FilterSet) -> DerivedNode:
+        kids = [build(c) for c in children.get(folder.id, [])]
         return DerivedNode(
             key=str(folder.id),
-            name=display,
+            name=folder.name,
             tag_ids=folder.tag_ids,
             project_id=folder.id,
             virtual=False,
             sort_order=folder.sort_order,
-            children=clustered,
+            children=kids,
             tag_names=folder.tag_names,
         )
 
     return [build(root) for root in children.get(None, [])]
+
+
+def folder_subtree_ids(catalog: FolderCatalog, root_id: UUID) -> list[UUID]:
+    """``root_id`` plus every descendant via ``parent_id``."""
+    children: dict[UUID | None, list[UUID]] = {}
+    for folder in catalog.folders:
+        children.setdefault(folder.parent_id, []).append(folder.id)
+    out: list[UUID] = []
+    stack = [root_id]
+    seen: set[UUID] = set()
+    while stack:
+        current = stack.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        out.append(current)
+        stack.extend(children.get(current, []))
+    return out
 
 
 def _cluster_siblings(nodes: list[DerivedNode], catalog: FolderCatalog) -> list[DerivedNode]:
@@ -326,6 +351,7 @@ async def load_catalog(session: AsyncSession, tenant_id: UUID) -> FolderCatalog:
                 sort_order=project.sort_order,
                 tag_ids=tuple(tag_ids),
                 tag_names=tuple(catalog_proto.tag_name(t) for t in tag_ids),
+                parent_id=project.parent_id,
             )
         )
     folders.sort(key=lambda f: (f.sort_order, f.name.lower()))

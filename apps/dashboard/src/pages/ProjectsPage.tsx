@@ -13,8 +13,8 @@ import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
-import { HashtagMark } from '../components/ui/HashtagMark'
-import { TagSetPicker } from '../components/ui/TagSetPicker'
+import { TagPill } from '../components/ui/TagPill'
+import { CreateFolderDialog } from '../components/folders/CreateFolderDialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { EmptyState } from '../components/ui/empty-state'
@@ -25,7 +25,7 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { projectHubPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
 import { notifyFoldersChanged } from '../lib/folders-bus'
-import { createProject, deleteProject, listProjects, type ProjectRow } from '../lib/projects-api'
+import { deleteProject, listProjects, type ProjectRow } from '../lib/projects-api'
 import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
 import { workspaceBrandName } from '../lib/tenant-branding'
 
@@ -37,13 +37,15 @@ function stopCard(event: { stopPropagation: () => void }) {
 }
 
 function displayName(project: ProjectRow): string {
+  const named = project.name.replace(/^#/, '').trim()
+  if (named) return named
   if (project.tag_names?.length) {
     const parentNames = project.ancestors?.length
       ? project.ancestors[project.ancestors.length - 1]?.tag_names
       : null
     return filtersetPlainLabel(filtersetLocalNames(project.tag_names, parentNames))
   }
-  return project.name.replace(/^#/, '')
+  return 'Folder'
 }
 
 function ProjectCard({
@@ -99,9 +101,20 @@ function ProjectCard({
             </p>
           ) : null}
           <p className="flex min-w-0 items-center gap-1.5 truncate-fade font-medium text-text-heading group-hover:text-accent">
-            <HashtagMark className="shrink-0 text-sm" />
+            <FolderKanban size={16} className="shrink-0 text-text-muted" aria-hidden />
             <span className="min-w-0 truncate">{title}</span>
           </p>
+          {project.tag_names?.length ? (
+            <div
+              className="mt-1.5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden"
+              onClick={stopCard}
+              onKeyDown={stopCard}
+            >
+              {project.tag_names.map((tag) => (
+                <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />
+              ))}
+            </div>
+          ) : null}
         </div>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
@@ -341,20 +354,10 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <TagSetPicker
+      <CreateFolderDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        mode="folder"
-        title={t('projects.page.dialogTitle')}
-        description={t('projects.page.dialogBody')}
-        confirmLabel={t('projects.page.create')}
-        showParentPreview
-        onConfirm={async (tagNames) => {
-          const created = await createProject({ tags: tagNames })
-          notifyFoldersChanged({ folderId: created.id })
-          toast.success(t('projects.page.created'))
-          navigate(`/folders/${created.id}`)
-        }}
+        onCreated={(folderId) => navigate(`/folders/${folderId}`)}
       />
 
       {deleteTarget ? (

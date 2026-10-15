@@ -613,12 +613,23 @@ async def test_close_threads_by_age(client: AsyncClient, session_override):
         tenant.id,
         user.id if user else None,
         "close_threads",
-        {"older_than_days": 4, "dry_run": True, "limit": 50},
+        {"older_than_days": 4, "preview": True, "limit": 50},
         approved=True,
     )
     assert preview.get("ok") is True
-    assert preview.get("dry_run") is True
+    assert preview.get("preview") is True
     assert str(stale.id) in (preview.get("signal_ids") or [])
+
+    # Older MCP clients may still send dry_run.
+    legacy = await execute_tool(
+        session_override,
+        tenant.id,
+        user.id if user else None,
+        "close_threads",
+        {"older_than_days": 4, "dry_run": True, "limit": 50},
+        approved=True,
+    )
+    assert legacy.get("preview") is True
 
     closed = await execute_tool(
         session_override,

@@ -24,12 +24,12 @@ Integrations are partner logins. A **module** is one package of hashtags, playbo
 ## Find and connect something new
 
 ![Connect panel](/api/docs/assets/integrations/connect-panel.png)
-*Choosing a card opens a panel on the right: description, endpoint, capabilities and the connect button.*
+*Choosing a card opens a showcase modal: description, endpoint, capabilities and the connect button.*
 
-1. Under **All**, use the category chips: **Communication**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** and **AI tools**. Each chip shows its count. Search covers names and descriptions across every category. The chip lives in the URL (`/connections?kind=mcp` for Tools, `?kind=modules`, `?kind=ai_tools`), so a link always opens the category it names.
-2. Cards are one flat list — never nested inside a module, never grouped under a vendor. Microsoft 365, Outlook Calendar and Microsoft Graph each have their own card. A module card carries a **Module** label with its status; **Install** installs it, an installed module shows **Manage** and **Uninstall**. An integration card shows **Connect** for the first login, or **New connection** plus the count. Coming-soon modules and their planned programs (Tink, Yapily, Knab, Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) are faded until they ship.
-3. Choose an integration card. The panel opens on the right with the description, the **Tool endpoint** for remote MCP apps, **Capabilities**, **Works with modules** (the presets that can use this login), and **Set up new connection**. Finish OAuth or the provider setup and you return here with the panel open. A login stays on Connections until you attach it to a module.
-4. Agents link straight to this panel: a card in a conversation opens `/connections?connect=slack_mcp` with the Slack panel already open.
+1. Under **All**, use the category chips: **Communication**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** and **AI tools**. Each chip shows its count. Search covers names and descriptions across every category, and also matches a module when you type one of its partner names (for example **Moneybird** surfaces **Accounting**). The chip lives in the URL (`/connections?kind=mcp` for Tools, `?kind=modules`, `?kind=ai_tools`), so a link always opens the category it names.
+2. Cards are one flat list — never nested inside a module, never grouped under a vendor. Module packages (Moneybird API, KING, Bjorn Lunden, and the same pattern for Banking / Documents when those ship) do **not** get their own marketplace card; you connect them only from the module page. Hosted MCP cards (for example **Moneybird MCP**) stay in the grid next to the module. Microsoft 365, Outlook Calendar and Microsoft Graph each have their own card. A module card carries a **Module** label; soft status text sits under the partner logos. Coming-soon modules are faded until they ship.
+3. Choose a **module** or **integration** card. A showcase modal opens: modules show the **module specialist** (who owns the tools), partners, Labels & flows (packaged hashtags), agent tools (including which can run in website chat), and setup steps with **Install** / **Open module** / **Talk to specialist**; integrations show description, endpoint, capabilities and **Connect**. Finish OAuth or setup and you return here with the modal open. A login stays on Connections until you attach it to a module.
+4. Agents link straight to this modal: a card in a conversation opens `/connections?connect=slack_mcp` with the Slack modal already open. A module-package mention such as Moneybird opens the **Accounting** module page instead.
 5. Communication apps add queues (email, WhatsApp). Code apps attach to a [project](/docs/ai/folders). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Tools** or **Custom MCP servers**. See [MCP](/docs/integrations/mcp).
 
 WhatsApp itself is configured under **Channels**, not only here. The card points you there.
@@ -43,9 +43,9 @@ WhatsApp itself is configured under **Channels**, not only here. The card points
 
 1. Open **Connections** in the rail under **Organization**. Installed modules sit in the **Connected** strip; use the **Modules** chip to find a preset that is not installed yet.
 2. Open **Accounting** (or another live module), then choose **Install**. Status becomes **Needs setup**.
-3. Assign **at least one AI agent**. Mark one as **Default** for setup chat. Only assigned agents get this module’s tools.
-4. Review **What agents can do**: each module action shows a short description, the universal path (`accounting_list_companies`, …), and whether it is **Read** or **Needs approval**. When partners are attached, **Tools from connected MCP servers** lists the exact MCP tool names discovered from those servers.
-5. At the top of the module page, under **Connections**, choose **New registration** to connect and attach in one step, or **Use an existing connection** for a login that already lives on Connections. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Overview**, **Sources**, and **Setup**.
+3. Choosing **Install** hires a managed specialist onto the roster and may add the module’s default hashtag. The toast offers **Talk to specialist**. On Setup you can still open their chat or assign another company agent. Mark one as **Default**. Only rostered agents get this module’s tools. Uninstall soft-archives the managed specialist and clears the roster; connections stay on Connections.
+4. Review **What agents can do**: each action shows a short description, the path (`accounting_list_companies`, …), **Read** or **Needs approval**, and **Website chat** when the tool can run in the installable widget (enable under Overview). When partners are attached, **Tools from connected MCP servers** lists discovered MCP names.
+5. At the top of the module page, under **Connections**, choose **New registration** to connect the module package (Moneybird, KING, or Bjorn Lunden) and attach it in one step, or **Use an existing connection** when a login already exists. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Overview**, **Sources**, and **Setup**.
 6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installation incomplete** until a partner login is attached, then **Connected**. Its hashtags and playbooks remain available through their existing product surfaces; the module stays in Connections and adds no rail item.
 
 ## Connect an optional accounting integration
@@ -62,15 +62,16 @@ WhatsApp itself is configured under **Channels**, not only here. The card points
 
 ## Manage connections to one provider
 
-Open a provider card to manage every registration to it in one place.
+Standalone marketplace logins (inbox, agenda, hosted MCP, custom tools) open a provider panel. Module packages such as Moneybird API are managed on the **Accounting** module page instead.
 
 ![Provider connections](/api/docs/assets/integrations/provider-connections.png)
 *The provider panel lists each registration with status, projects and actions.*
 
-1. Open **Connections** and choose the provider card, for example **Moneybird**.
+1. Open **Connections** and choose a standalone provider card, for example **Moneybird MCP** or **Slack**.
 2. The panel lists every registration with its status, identity, administration number, projects, and the modules that use it. A **Restricted** badge means only some people or agents may use it.
 3. Use **Verify**, **Rename** or **Disconnect** on a row. Disconnecting clears it as a module default and drops its project links.
 4. Choose **Add another registration** to connect a second account. The same administration twice updates the existing row.
+5. For Moneybird API, KING or Bjorn Lunden, open **Accounting** and manage registrations at the top of that page.
 
 ## Use a connection for one client or department only
 

@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ChevronRight, Pin, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import {
   folderPinRef,
@@ -11,8 +13,14 @@ import {
 } from '../../context/SidebarPrefsContext'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { filtersetLocalNames, filtersetPlainLabel } from '../../lib/folder-filter-tree'
-import { listSignalTags } from '../../lib/signals-api'
+import {
+  bulkUpdateSignalThreads,
+  listSignalTags,
+  patchSignalThread,
+} from '../../lib/signals-api'
 import type { NavRow } from '../../lib/signals-api'
+import { fileTicket } from '../../lib/tickets-api'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { HashtagMark } from '../ui/HashtagMark'
 import { Tip } from '../ui/Tip'
 import { SidebarFolder } from './QueueSublist'
@@ -20,7 +28,65 @@ import { NavSectionSkeleton } from '../ui/skeleton'
 import type { HubLeaf, SubQueue } from '../../lib/messages-paths'
 import { cn } from '../../lib/utils'
 
+function useFileThreadsOntoRail() {
+  const { token } = useAuth()
+  const { t } = useTranslation('nav')
+
+  const fileThreadsIntoFolder = useCallback(
+    async (threadIds: string[], projectId: string, folderLabel: string) => {
+      if (!token || !threadIds.length) return
+      try {
+        if (threadIds.length === 1) {
+          await patchSignalThread(token, threadIds[0]!, { projectId })
+        } else {
+          await bulkUpdateSignalThreads(token, threadIds, 'file', undefined, projectId)
+        }
+        toast.success(
+          t('support.folders.filedToast', {
+            defaultValue: 'Filed in {{name}}',
+            name: folderLabel,
+          }),
+        )
+      } catch (err) {
+        toast.error(
+          formatApiErrorMessage(
+            err,
+            t('support.folders.fileError', { defaultValue: 'Could not file conversation' }),
+          ),
+        )
+      }
+    },
+    [token, t],
+  )
+
+  const fileThreadsIntoFlow = useCallback(
+    async (threadIds: string[], tagId: string, flowLabel: string) => {
+      if (!token || !threadIds.length || !tagId) return
+      try {
+        await Promise.all(threadIds.map((id) => fileTicket(id, tagId)))
+        toast.success(
+          t('support.flows.filedToast', {
+            defaultValue: 'Filed on #{{name}}',
+            name: flowLabel,
+          }),
+        )
+      } catch (err) {
+        toast.error(
+          formatApiErrorMessage(
+            err,
+            t('support.flows.fileError', { defaultValue: 'Could not file on flow' }),
+          ),
+        )
+      }
+    },
+    [token, t],
+  )
+
+  return { fileThreadsIntoFolder, fileThreadsIntoFlow }
+}
+
 const Workflow = ENTITY_ICONS.flow
+const FolderIcon = ENTITY_ICONS.project
 
 type TFn = (key: string, opts?: { defaultValue?: string }) => string
 
@@ -59,9 +125,11 @@ function folderTooltip(
 }
 
 function folderRowLabel(row: NavRow, nameById: Map<string, string>, parentTagNames?: string[] | null): string {
+  const named = (row.name ?? '').replace(/^#/, '').trim()
+  if (named) return named
   const names = folderTagNames(row, nameById)
   if (names.length) return filtersetPlainLabel(filtersetLocalNames(names, parentTagNames))
-  return (row.name ?? '').replace(/^#/, '')
+  return named || 'Folder'
 }
 
 function rowVisible(
@@ -158,17 +226,21 @@ function CommunicationFolderRow({
   )
   const label = folderRowLabel(row, nameById, parentTagNames)
   const ownTags = folderTagNames(row, nameById)
+  const { fileThreadsIntoFolder } = useFileThreadsOntoRail()
 
   return (
     <SidebarFolder
       baseLeaf={leaf}
       label={label}
-      icon={<HashtagMark className="text-xs" />}
+      icon={<FolderIcon size={12} className="text-text-muted" aria-hidden />}
       activeLeaf={activeLeaf}
       defaultQueue={defaultQueueFor(leaf)}
       badgeCount={row.count}
       retainOnExpand={ancestors}
       closeOnCollapse={children.flatMap(projectScopeKeys)}
+      onFileThreads={(ids) =>
+        fileThreadsIntoFolder(ids, row.projectId ?? row.id, label)
+      }
       headerAction={
         <PinButton
           pinned={pinned}
@@ -218,6 +290,7 @@ function CommunicationTagRow({
   t: TFn
 }) {
   const { isPinned, toggleRailPin } = useSidebarPrefs()
+  const { fileThreadsIntoFlow } = useFileThreadsOntoRail()
   const leaf: HubLeaf = { type: 'tag', tag: row.name }
   const ref = tagPinRef(row.name)
   const pinned = isPinned(ref)
@@ -239,6 +312,9 @@ function CommunicationTagRow({
       activeLeaf={activeLeaf}
       defaultQueue={defaultQueueFor(leaf)}
       badgeCount={row.count}
+      onFileThreads={
+        category ? (ids) => fileThreadsIntoFlow(ids, row.id, bare) : undefined
+      }
       headerAction={
         <PinButton
           pinned={pinned}

@@ -28,7 +28,14 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
-import type { InboxThread, PatchThreadInput, ThreadDetail as ThreadDetailType } from '../../lib/inbox-api'
+import type {
+  InboxThread,
+  PatchThreadInput,
+  ThreadActiveTurn,
+  ThreadDetail as ThreadDetailType,
+  ThreadParticipant,
+} from '../../lib/inbox-api'
+import { ParticipantStrip } from './ParticipantStrip'
 import { setThreadExample } from '../../lib/signals-api'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { openEntityPath } from '../../lib/open-entity'
@@ -103,6 +110,10 @@ type Props = {
   onExampleChanged?: (isExample: boolean) => void
   /** The project folder this conversation is filed in; `path` is the ancestor chain. */
   folder?: { id: string; name: string; path: string } | null
+  /** Humans and agents on this conversation (hub strip). */
+  participants?: ThreadParticipant[]
+  /** Who currently has the multi-agent floor. */
+  activeTurn?: ThreadActiveTurn
 }
 
 /** " · [folder] Name" after the status: where this conversation is filed. */
@@ -152,6 +163,8 @@ export default function ThreadHeader({
   panelCount = 0,
   onExampleChanged,
   folder = null,
+  participants = [],
+  activeTurn = null,
 }: Props) {
   const { t } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
@@ -165,7 +178,6 @@ export default function ThreadHeader({
   const held = handling?.own === 'manual'
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
-
   // The " · email" suffix is skipped when the name already is the address, to
   // avoid reading "x@y · x@y".
   const contactDisplayName =
@@ -184,7 +196,7 @@ export default function ThreadHeader({
           <ArrowLeft size={16} />
         </button>
       ) : null}
-      <div className="min-w-0 flex-1 overflow-hidden leading-tight">
+      <div className="min-w-0 flex-1 leading-tight">
         <h2 className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-text-heading">
           {priority !== 'normal' ? (
             <span
@@ -192,7 +204,9 @@ export default function ThreadHeader({
               title={`${t('threadChrome.setPriority')}: ${t(priorityMeta.labelKey)}`}
             />
           ) : null}
-          <span className="min-w-0 flex-1 truncate-fade">{translateDecisionText(thread.emailSubject, t)}</span>
+          <span className="min-w-0 flex-1 truncate" title={translateDecisionText(thread.emailSubject, t)}>
+            {translateDecisionText(thread.emailSubject, t)}
+          </span>
         </h2>
         <p className="truncate-fade text-xs text-text-muted">
           {internal ? (
@@ -258,6 +272,14 @@ export default function ThreadHeader({
             </>
           )}
         </p>
+        <ParticipantStrip
+          participants={participants}
+          activeTurn={activeTurn}
+          waitingLabel={t('threadChrome.waitingOnParticipant', {
+            defaultValue: 'Waiting on {{name}}',
+            name: '{{name}}',
+          })}
+        />
       </div>
       {csat ? (
         <Tooltip>

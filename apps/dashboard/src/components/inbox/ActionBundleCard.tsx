@@ -46,6 +46,7 @@ function rowState(entry: ProposalBundleEntry, local: Record<string, RowState>): 
 export function ActionBundleCard({
   proposal,
   threadId,
+  agentId,
   agentName,
   membersById,
   onResolved,
@@ -53,6 +54,7 @@ export function ActionBundleCard({
 }: {
   proposal: MessageProposal
   threadId: ThreadId
+  agentId?: string | null
   agentName?: string | null
   membersById?: Record<number, InboxMember>
   onResolved?: (info?: { closed?: boolean }) => void
@@ -70,6 +72,7 @@ export function ActionBundleCard({
     cardMessageId: proposal.cardMessageId,
     decisionId: proposal.decisionId,
     resolved: false,
+    agentId: agentId ?? null,
     onResolved,
     onAnswer,
   })

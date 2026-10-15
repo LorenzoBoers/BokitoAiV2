@@ -81,6 +81,12 @@ export function useAiChatStream(token: string | null, conversationId: string | n
 
   const flushDeltasNow = useCallback(() => {
     deltaFlushTimerRef.current = null
+    // Stop / abort must win over a late batched flush — otherwise Stop and
+    // “Nadenken” linger after the operator cancels.
+    if (!streamingRef.current) {
+      pendingDeltaRef.current = { text: '', thinking: '' }
+      return
+    }
     const pending = pendingDeltaRef.current
     if (!pending.text && !pending.thinking) return
     pendingDeltaRef.current = { text: '', thinking: '' }
@@ -93,6 +99,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
   }, [])
 
   const scheduleDeltaFlush = useCallback(() => {
+    if (!streamingRef.current) return
     if (deltaFlushTimerRef.current != null) return
     deltaFlushTimerRef.current = window.setTimeout(flushDeltasNow, FLUSH_MS)
   }, [flushDeltasNow])
@@ -102,8 +109,22 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     clearDeltaFlush()
     pendingPartsRef.current = []
     const sessionId = sessionIdRef.current
+    // Mark idle before abort so any in-flight delta callback / timer cannot
+    // revive `active` after this return.
+    streamingRef.current = false
     abortRef.current?.abort()
     abortRef.current = null
+    // Clear busy immediately so Stop / “Nadenken” do not linger while the
+    // cancel request is in flight (or if the SSE finally never settles).
+    committedStreamRef.current = { text: '', thinking: '' }
+    pendingDeltaRef.current = { text: '', thinking: '' }
+    setStream((prev) => ({
+      ...prev,
+      text: '',
+      thinking: '',
+      active: false,
+      optimisticUsers: [],
+    }))
     if (token && sessionId) {
       try {
         await bokitoCancelConversation(token, sessionId)
@@ -111,8 +132,17 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         // Best-effort; client abort already dropped the SSE body.
       }
     }
+    // Drop anything that arrived between abort and cancel settling.
+    clearDeltaFlush()
+    committedStreamRef.current = { text: '', thinking: '' }
+    setStream((prev) => ({
+      ...prev,
+      text: '',
+      thinking: '',
+      active: false,
+      optimisticUsers: [],
+    }))
   }, [token])
-
   const takePending = (): {
     text: string
     attachments?: unknown[]
@@ -189,10 +219,16 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           throw err
         }
       } finally {
-        flushDeltasNow()
+        const aborted = !streamingRef.current || abortRef.current !== controller
+        if (!aborted) {
+          flushDeltasNow()
+        } else {
+          clearDeltaFlush()
+          committedStreamRef.current = { text: '', thinking: '' }
+        }
         streamingRef.current = false
         abortRef.current = null
-        const keepOptimistic = pendingPartsRef.current.length > 0
+        const keepOptimistic = !aborted && pendingPartsRef.current.length > 0
         setStream((prev) => ({
           text: '',
           thinking: '',
@@ -203,9 +239,10 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         }))
         committedStreamRef.current = { text: '', thinking: '' }
         await onFinishedRef.current?.()
-        if (pendingPartsRef.current.length) {
+        if (!aborted && pendingPartsRef.current.length) {
           scheduleFlush(sessionId)
         } else {
+          pendingPartsRef.current = []
           setStream((prev) => ({ ...prev, active: false, optimisticUsers: [] }))
         }
       }

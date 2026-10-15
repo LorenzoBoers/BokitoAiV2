@@ -10,6 +10,7 @@ import { cn } from '../../lib/utils'
 import ScrollFade from '../ui/ScrollFade'
 
 const OPEN_KEY = 'bokito-project-folders-open'
+const OPEN_INIT_KEY = 'bokito-project-folders-open-init'
 
 function loadOpen(): Set<string> {
   try {
@@ -89,6 +90,27 @@ export default function ProjectsFolderNav({ className }: { className?: string })
     })
   }, [projectId, projects])
 
+  // First visit only: expand every parent that has children so nesting is visible.
+  useEffect(() => {
+    if (projects.length === 0) return
+    try {
+      if (sessionStorage.getItem(OPEN_INIT_KEY)) return
+    } catch {
+      // ignore
+    }
+    const parents = new Set(
+      projects.map((project) => project.parent_id).filter((id): id is string => Boolean(id)),
+    )
+    if (parents.size === 0) return
+    try {
+      sessionStorage.setItem(OPEN_INIT_KEY, '1')
+    } catch {
+      // ignore
+    }
+    setOpen(parents)
+    saveOpen(parents)
+  }, [projects])
+
   const filtered = useMemo(() => filterProjects(projects, query), [projects, query])
 
   // While searching, expand every visible node so matches under closed parents show.
@@ -114,6 +136,7 @@ export default function ProjectsFolderNav({ className }: { className?: string })
     tag_ids: project.tag_ids ?? [],
     tag_names: project.tag_names,
     sort_order: project.sort_order,
+    parent_id: project.parent_id ?? null,
   }))
 
   return (

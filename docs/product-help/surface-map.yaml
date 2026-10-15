@@ -263,8 +263,11 @@ agents:
     - apps/dashboard/src/pages/AiAgents.tsx
     - apps/dashboard/src/pages/AiAgentDetail.tsx
     - apps/dashboard/src/components/workforce/**
+    - apps/dashboard/src/components/inbox/ThreadHeader.tsx
     - apps/api/app/services/agent_rules.py
     - apps/api/app/services/workforce_runtime.py
+    - apps/api/app/services/participants.py
+    - apps/api/app/services/participant_turns.py
   screenshots:
     - agent-brief
     - library
@@ -579,6 +582,18 @@ widget-embed:
     - docs/product-help/en/developers/widget-embed.md
   screenshots:
     - snippet
+
+thread-messaging:
+  section: developers
+  routes:
+    - /docs/developers/thread-messaging
+  code_globs:
+    - apps/api/app/services/chat_runtime.py
+    - apps/api/app/services/participants.py
+    - apps/api/app/services/participant_turns.py
+    - apps/api/app/models/signal_participant.py
+    - packages/chat-client/**
+  screenshots: []
 
 rate-limits:
   section: developers

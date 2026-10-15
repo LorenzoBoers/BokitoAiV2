@@ -227,6 +227,13 @@ export function upsertThreadRow(prev: InboxThread[], row: InboxThread): InboxThr
  * left the bubble stuck on "Sending".
  */
 export function mergeLiveMessage(existing: InboxMessage, incoming: InboxMessage): InboxMessage {
+  // Live `message` events omit the reaction stack (only thread detail and
+  // `message.reaction` carry it). An empty normalized aggregate must not wipe
+  // reactions already shown on the bubble.
+  const incomingReactions = incoming.reactions
+  const keepExistingReactions =
+    incomingReactions == null ||
+    (incomingReactions.kinds.length === 0 && incomingReactions.mine == null)
   return {
     ...existing,
     ...incoming,
@@ -236,6 +243,9 @@ export function mergeLiveMessage(existing: InboxMessage, incoming: InboxMessage)
     payload: incoming.payload ?? existing.payload,
     activity: incoming.activity ?? existing.activity,
     activityAfter: incoming.activityAfter ?? existing.activityAfter,
+    reactions: keepExistingReactions
+      ? (existing.reactions ?? incomingReactions ?? null)
+      : incomingReactions,
   }
 }
 

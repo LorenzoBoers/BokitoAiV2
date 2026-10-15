@@ -1,25 +1,42 @@
 import { cn } from '../../lib/utils'
+import type { LabelColor } from '../../lib/signals-api'
+
+const MARK_COLOR: Record<Exclude<LabelColor, ''>, string> = {
+  neutral: 'bg-text-muted',
+  accent: 'bg-accent',
+  ai: 'bg-ai',
+  success: 'bg-status-success',
+  warning: 'bg-status-warning',
+  info: 'bg-status-info',
+}
 
 /**
- * The `#` in front of a tag. Pass `category` for accent colour on action tags
- * (Tags list and Communication rail); omit it for a muted gray `#` on free tags.
+ * Round leading mark for a label (free) or action tag.
+ * Action tags use accent; free labels use a softer muted dot that sits on tinted pills.
  */
-export function HashtagMark({ category = false, className }: { category?: boolean; className?: string }) {
+export function HashtagMark({
+  category = false,
+  color = '',
+  className,
+}: {
+  category?: boolean
+  color?: LabelColor
+  className?: string
+}) {
+  const tint = !category && color ? MARK_COLOR[color] : null
   return (
     <span
       aria-hidden
       className={cn(
-        'select-none font-semibold leading-none',
-        category ? 'text-accent' : 'text-text-muted/80',
+        'inline-block h-2 w-2 shrink-0 rounded-full',
+        tint ?? (category ? 'bg-accent' : 'bg-text-muted'),
         className,
       )}
-    >
-      #
-    </span>
+    />
   )
 }
 
-/** `#name` with the right mark colour and breathing room after `#`. */
+/** Label name with a leading round mark (no `#`). Prefer TagPill for chips. */
 export function Hashtag({
   name,
   category = false,
@@ -31,14 +48,14 @@ export function Hashtag({
 }) {
   const bare = name.replace(/^#/, '')
   return (
-    <span className={cn('inline-flex min-w-0 max-w-full items-baseline gap-px', className)}>
-      <HashtagMark category={category} className="shrink-0" />
+    <span className={cn('inline-flex min-w-0 max-w-full items-center gap-2', className)}>
+      <HashtagMark category={category} />
       <span className="min-w-0 truncate">{bare}</span>
     </span>
   )
 }
 
-/** `#a · #b` for filtersets and multi-tag titles. */
+/** One stadium pill per label (dot + text). */
 export function HashtagSet({
   names,
   category = false,
@@ -56,19 +73,22 @@ export function HashtagSet({
   return (
     <span
       className={cn(
-        'inline-flex min-w-0 max-w-full items-baseline gap-x-1.5 gap-y-0.5',
+        'inline-flex min-w-0 max-w-full items-center gap-1.5',
         nowrap ? 'flex-nowrap overflow-hidden' : 'flex-wrap',
         className,
       )}
     >
-      {list.map((name, index) => (
-        <span key={`${name}-${index}`} className="inline-flex min-w-0 shrink items-baseline gap-px">
-          {index > 0 ? (
-            <span aria-hidden className="shrink-0 text-text-muted/55">
-              ·
-            </span>
-          ) : null}
-          <Hashtag name={name} category={category} />
+      {list.map((name) => (
+        <span
+          key={name}
+          className={cn(
+            'tag-pill inline-flex h-7 max-w-full items-center gap-2 rounded-full px-3.5 text-xs font-medium leading-none',
+            category ? 'bg-accent/18 text-accent' : 'bg-bg-hover text-text-heading',
+          )}
+          data-tag-tone={category ? 'action' : 'free'}
+        >
+          <HashtagMark category={category} />
+          <span className="min-w-0 truncate">{name}</span>
         </span>
       ))}
     </span>

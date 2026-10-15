@@ -10,7 +10,8 @@ import { cn } from '../../lib/utils'
  * neutral paper. The author shows in the envelope band on top (accent for
  * you, AI tint for agents, neutral for everyone else) and in a tightened
  * top corner on the side the card hangs from — same grammar as chat bubbles.
- * Reply / forward / copy sit at the bottom of the letter, next to the time.
+ * Reply / reply-all / forward sit top-right on the envelope band; copy and
+ * reactions stay at the bottom of the letter next to the time.
  */
 
 export type MailCardTone = 'self' | 'agent' | 'team' | 'external'
@@ -42,6 +43,7 @@ export function MailMessageCard({
   envelopeAria,
   body,
   meta,
+  headerActions,
   actions,
   collapsed = false,
   onToggleCollapsed,
@@ -62,7 +64,9 @@ export function MailMessageCard({
   body: ReactNode
   /** Time + delivery state, bottom-right of the letter. */
   meta?: ReactNode
-  /** Reply / forward / copy — bottom-right, beside the time. */
+  /** Reply / reply-all / forward — top-right on the envelope band. */
+  headerActions?: ReactNode
+  /** Copy / reactions — bottom-right, beside the time. */
   actions?: ReactNode
   /** Older mail folds to its band; click re-opens it. */
   collapsed?: boolean
@@ -152,11 +156,21 @@ export function MailMessageCard({
           )}
         >
           {bandButton}
-          {collapsed && meta ? (
-            <span className="flex shrink-0 items-center gap-1 text-2xs leading-4 tabular-nums text-text-muted">
-              {meta}
-            </span>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-1 self-start pt-0.5">
+            {headerActions ? (
+              <div
+                className="flex items-center gap-px"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {headerActions}
+              </div>
+            ) : null}
+            {collapsed && meta ? (
+              <span className="flex items-center gap-1 text-2xs leading-4 tabular-nums text-text-muted">
+                {meta}
+              </span>
+            ) : null}
+          </div>
         </div>
         {collapsed ? null : (
           <div className="px-3.5 py-2.5 text-base leading-relaxed">

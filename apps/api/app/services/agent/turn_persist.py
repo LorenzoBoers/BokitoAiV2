@@ -721,6 +721,13 @@ async def persist_agent_turn(
             existing.body_preview = speech[:200]
             existing.metadata_json = json.dumps(meta, default=str)
             existing.author_agent_id = author_agent_id or existing.author_agent_id
+            # Checkpoint rows keep the early created_at from "Working on this.".
+            # Bump so the finished bubble sorts after mid-turn side effects
+            # (tag events, notes) that landed while the turn was open.
+            now = datetime.utcnow()
+            existing.created_at = now
+            if hasattr(existing, "received_at"):
+                existing.received_at = now
             await session.flush()
             await publish_signal_message(signal, existing)
             msg = existing

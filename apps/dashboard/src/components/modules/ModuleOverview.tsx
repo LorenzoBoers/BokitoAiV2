@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -20,6 +20,7 @@ import { listModuleAgents, type ModuleAgentRow } from '../../lib/integrations-ap
 import { AgentOptionRow } from '../ui/AgentOptionRow'
 import { Badge } from '../ui/badge'
 import { Switch } from '../ui/switch'
+import { ModuleAgentBadges } from './ModuleAgentBadges'
 
 type Props = {
   module: IntegrationModuleRow
@@ -53,6 +54,10 @@ export function ModuleOverview({ module }: Props) {
       .catch(() => setRoster([]))
   }, [module.slug, loadConnections])
 
+  const specialist = useMemo(
+    () => roster.find((r) => r.managed && r.managed_origin === 'module') ?? null,
+    [roster],
+  )
   const customerCards = (module.tool_cards ?? []).filter((card) => card.exposure === 'customer')
   const customerTools = connections?.prefs?.customer_tools ?? {}
 
@@ -180,7 +185,7 @@ export function ModuleOverview({ module }: Props) {
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-text-heading">
-              {t('integrations.modules.agents.sectionTitle', { defaultValue: 'Assigned agents' })}
+              {t('integrations.modules.agents.sectionTitle', { defaultValue: 'Agents for this module' })}
             </h2>
             <Link
               to={`${moduleHomePath(module)}?tab=setup`}
@@ -214,30 +219,14 @@ export function ModuleOverview({ module }: Props) {
                     size={22}
                   />
                 </Link>
-                {row.is_default ? (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
-                    {t('integrations.modules.agents.defaultBadge', { defaultValue: 'Default' })}
+                <ModuleAgentBadges row={row} />
+                {!row.company_ids || row.company_ids.length === 0 ? (
+                  <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
+                    {t('integrations.modules.agents.scopeAll', {
+                      defaultValue: 'All administrations',
+                    })}
                   </Badge>
                 ) : null}
-                {row.can_write ? (
-                  <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
-                    {t('integrations.modules.agents.writeBadge', { defaultValue: 'Write' })}
-                  </Badge>
-                ) : (
-                  <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
-                    {t('integrations.modules.agents.readOnlyBadge', { defaultValue: 'Read-only' })}
-                  </Badge>
-                )}
-                <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
-                  {row.company_ids && row.company_ids.length > 0
-                    ? t('integrations.modules.agents.scopeBadge', {
-                        defaultValue: '{{count}} administration(s)',
-                        count: row.company_ids.length,
-                      })
-                    : t('integrations.modules.agents.scopeAll', {
-                        defaultValue: 'All administrations',
-                      })}
-                </Badge>
               </li>
             ))}
           </ul>
@@ -258,12 +247,23 @@ export function ModuleOverview({ module }: Props) {
           {t('integrations.modules.workspace.actionsTitle', { defaultValue: 'Quick actions' })}
         </h2>
         <div className="flex flex-wrap gap-2">
-          <Link
-            to="/agents"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
-          >
-            {t('integrations.connected.openAgents', { defaultValue: 'Open Agents' })}
-          </Link>
+          {specialist ? (
+            <Link
+              to={`/agents/${specialist.agent_id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
+            >
+              {t('integrations.modules.agents.openSpecialist', {
+                defaultValue: 'Open specialist',
+              })}
+            </Link>
+          ) : (
+            <Link
+              to="/agents"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
+            >
+              {t('integrations.connected.openAgents', { defaultValue: 'Open Agents' })}
+            </Link>
+          )}
           <Link
             to={inboxPath('open')}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"

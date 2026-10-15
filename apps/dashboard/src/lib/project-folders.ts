@@ -32,10 +32,11 @@ function sources(projects: FolderSource[]): FolderFilterSource[] {
     tag_ids: project.tag_ids ?? [],
     tag_names: project.tag_names,
     sort_order: project.sort_order,
+    parent_id: project.parent_id ?? null,
   }))
 }
 
-/** Roots first, then nested by tag-set inclusion (not SQL parent_id). */
+/** Roots first, then nested by stored parent_id. */
 export function folderRows(projects: FolderSource[]): FolderRow[] {
   const tree = deriveFolderTree(sources(projects))
   return folderFilterRows(tree).map((row) => ({
@@ -48,7 +49,7 @@ export function folderRows(projects: FolderSource[]): FolderRow[] {
   }))
 }
 
-/** Roots with nested children from tag filtersets. */
+/** Roots with nested children from stored parent_id. */
 export function folderTree(projects: FolderSource[]): FolderFilterNode[] {
   return deriveFolderTree(sources(projects))
 }

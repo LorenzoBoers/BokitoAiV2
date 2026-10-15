@@ -12,6 +12,7 @@
  * 4 actions" / "Thought for 3s".
  */
 import type { TFunction } from 'i18next'
+import type { BotOrbMotion } from './bot-orb-motion'
 
 export type ActivityKind = 'think' | 'work' | 'other'
 export type ActivityStatus = 'running' | 'ok' | 'error'
@@ -154,8 +155,18 @@ export function shouldShowWaitingTurn(
   return true
 }
 
-/** Face motion for the bot orb during a live turn. */
-export type BotOrbMotion = 'idle' | 'thinking' | 'typing' | 'working'
+/** Face motion for the bot orb — re-exported from bot-orb-motion. */
+export type { BotOrbMotion, BotOrbDrive } from './bot-orb-motion'
+export {
+  BOT_ORB_MS,
+  decisionOrbPulse,
+  errorOrbPulse,
+  isBotOrbBusyLoop,
+  isBotOrbOneShot,
+  presenceOrbMotion,
+  resolveBotOrbDrive,
+  wakeOrbPulse,
+} from './bot-orb-motion'
 
 /** Derive orb face motion from the live turn (thinking / typing / working). */
 export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMotion {
@@ -365,6 +376,8 @@ export function groupSummary(group: ActivityGroup, t: TFunction): string {
   }
   if (group.kind === 'work') {
     const count = group.items.length
+    // One quick tool: show what it did ("Added #noreply"), not "1 action".
+    if (count === 1) return itemLabel(group.items[0], t)
     if (brief) return t('activity.actionCount', { ns: 'communication', count })
     return t('activity.workedFor', { ns: 'communication', duration, count })
   }

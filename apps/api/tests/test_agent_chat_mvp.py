@@ -135,3 +135,45 @@ async def test_create_agent_rejects_empty_name(client: AsyncClient):
         json={"name": "   "},
     )
     assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_create_agent_rejects_duplicate_name(client: AsyncClient):
+    headers = await _auth_headers(client)
+    first = await client.post(
+        "/api/workforce/agents",
+        headers=headers,
+        json={"name": "Billing Twin"},
+    )
+    assert first.status_code == 200, first.text
+    dup = await client.post(
+        "/api/workforce/agents",
+        headers=headers,
+        json={"name": "billing twin"},
+    )
+    assert dup.status_code == 409, dup.text
+    body = dup.json()
+    message = str(body.get("detail") or body.get("error", {}).get("message") or "")
+    assert "already exists" in message.lower()
+
+
+@pytest.mark.asyncio
+async def test_rename_agent_rejects_taken_name(client: AsyncClient):
+    headers = await _auth_headers(client)
+    a = await client.post(
+        "/api/workforce/agents",
+        headers=headers,
+        json={"name": "Alpha Desk"},
+    )
+    b = await client.post(
+        "/api/workforce/agents",
+        headers=headers,
+        json={"name": "Beta Desk"},
+    )
+    assert a.status_code == 200 and b.status_code == 200
+    renamed = await client.patch(
+        f"/api/workforce/agents/{b.json()['agent']['id']}",
+        headers=headers,
+        json={"name": "alpha desk"},
+    )
+    assert renamed.status_code == 409, renamed.text

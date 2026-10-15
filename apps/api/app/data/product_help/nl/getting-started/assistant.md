@@ -31,6 +31,12 @@ Werk doorgeven vraagt geen owner- of adminrol. Agents inrichten wel — zie [Gov
 2. Bokito werkt met jouw rechten. Wat jouw rol niet mag wijzigen, wijzigt Bokito ook niet.
 3. Heeft de wijziging een hogere rol nodig, dan zegt Bokito dat en biedt hij aan om het voor te bereiden voor een owner of admin.
 
+## Wijzig je interfacetaal
+
+1. Vraag Bokito waarom de menu's nog Engels (of Nederlands) zijn, of zeg dat je de UI in het Nederlands wilt.
+2. Bokito controleert je accounttaal en stuurt je naar **Instellingen** → **Profiel & beveiliging** → **Taal** (`/settings/profile`). Dat wisselt menu's en labels alleen voor jou.
+3. De werktaal van de organisatie (hoe agents voor het team schrijven) is apart, onder **Instellingen** → **Communicatie**.
+
 ## Ga verder met een eerder gesprek
 
 1. Open de Bokito-knop rechtsonder.

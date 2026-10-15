@@ -16,6 +16,8 @@ import {
   type ThreadId,
 } from '../../lib/inbox-api'
 import { bulkUpdateSignalThreads, resolveDecisionBundle, type BundleResolveRow } from '../../lib/signals-api'
+import { decisionOrbPulse } from '../../lib/bot-orb-motion'
+import { publishBotOrbPulse } from '../../hooks/useBotOrbPulse'
 
 export type DecisionAction = 'approve' | 'defer' | 'reject'
 
@@ -51,6 +53,8 @@ type Args = {
   cardMessageId: ThreadId | null
   decisionId: string | null
   resolved: boolean
+  /** Agent mark to pulse yes/no on resolve. */
+  agentId?: string | null
   onResolved?: (info?: DecisionResolvedInfo) => void
   /** Immediate operator bubble, before the thread refresh lands. */
   onAnswer?: (answer: { text: string; decisionId: string } | null) => void
@@ -67,6 +71,7 @@ export function useDecisionResolve({
   cardMessageId,
   decisionId,
   resolved,
+  agentId,
   onResolved,
   onAnswer,
 }: Args) {
@@ -133,6 +138,9 @@ export function useDecisionResolve({
         setRuleSuggestion(suggestion)
       }
       const closed = opts.closed || opts.optionId === 'close' || opts.optionId === 'close_thread'
+      if (action === 'approve' || action === 'reject') {
+        publishBotOrbPulse(agentId, decisionOrbPulse(action === 'approve' ? 'approved' : 'rejected'))
+      }
       onResolved?.(closed ? { closed: true } : undefined)
     } catch (err) {
       setOutcome(null)

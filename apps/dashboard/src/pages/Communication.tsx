@@ -74,6 +74,7 @@ import {
   useInboxCommunication,
   type InboxListQuickFilter,
 } from '../context/InboxCommunicationContext'
+import { WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { useThreads } from '../hooks/useThreads'
 import { useThreadDetail } from '../hooks/useThreadDetail'
@@ -1534,7 +1535,7 @@ export default function Communication() {
             {t('onboarding.openGuide')}
           </Link>
           <Link
-            to="/ai/assistant/external/installation"
+            to={WEBSITE_WIDGET_PATH}
             className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
           >
             {t('onboarding.installWidget')}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Workflow } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
@@ -17,6 +18,7 @@ import { Hashtag } from '../ui/HashtagMark'
 /** Workstream templates a module ships: install copies them to the tenant. */
 export function ModuleTemplatesPanel({ slug }: { slug: string }) {
   const { t } = useTranslation(['nav', 'common'])
+  const navigate = useNavigate()
   const [rows, setRows] = useState<ModuleWorkstreamTemplate[]>([])
   const [tags, setTags] = useState<ModuleTagTemplate[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +61,17 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
     try {
       await installModuleTagTemplate(slug, templateSlug)
       await refresh()
+      toast.success(
+        t('integrations.modules.templates.tagInstalled', {
+          defaultValue: 'Hashtag installed. Open Labels to file conversations on it.',
+        }),
+        {
+          action: {
+            label: t('integrations.modules.templates.openLabels', { defaultValue: 'Open Labels' }),
+            onClick: () => navigate('/categories'),
+          },
+        },
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -72,12 +85,12 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
     <section>
       <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-text-primary">
         <Workflow size={14} />
-        {t('integrations.modules.templates.title', { defaultValue: 'Workstream templates' })}
+        {t('integrations.modules.templates.title', { defaultValue: 'Flows & hashtags' })}
       </h3>
       <p className="mb-3 max-w-2xl text-xs text-text-muted">
         {t('integrations.modules.templates.intro', {
           defaultValue:
-            'Pre-built workstreams this module ships. Installing copies the workstream to your workspace; you own and can edit the copy.',
+            'Flows and hashtags this module ships. Installing copies them into your workspace; you own and can edit the copies.',
         })}
       </p>
       {error ? <p className="mb-2 text-xs text-destructive">{error}</p> : null}

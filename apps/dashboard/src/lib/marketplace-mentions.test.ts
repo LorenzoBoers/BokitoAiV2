@@ -52,7 +52,7 @@ describe('splitMarketplaceMentions', () => {
     const nodes = splitMarketplaceMentions('Koppel Moneybird vandaag.')
     expect(nodes).toEqual([
       { type: 'text', text: 'Koppel ' },
-      { type: 'link', label: 'Moneybird', href: '/connections?connect=moneybird' },
+      { type: 'link', label: 'Moneybird', href: '/connections/accounting' },
       { type: 'text', text: ' vandaag.' },
     ])
   })

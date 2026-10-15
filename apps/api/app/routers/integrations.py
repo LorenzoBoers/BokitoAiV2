@@ -314,6 +314,10 @@ class ModuleAgentPatchBody(BaseModel):
     can_write: bool | None = None
 
 
+class ModuleAgentHireBody(BaseModel):
+    open_setup_chat: bool = True
+
+
 @router.get("/modules/{slug}/agents")
 async def get_module_agents(
     slug: str,
@@ -324,6 +328,30 @@ async def get_module_agents(
 
     await _ensure_module_access(session, auth, slug)
     return await module_agents_svc.list_module_agents(session, auth.tenant.id, slug)
+
+
+@router.post("/modules/{slug}/agents/hire")
+async def hire_module_specialist(
+    slug: str,
+    body: ModuleAgentHireBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Hire the managed module specialist (or reuse if already managed)."""
+    from app.modules.catalog import hire_module_agent
+
+    auth.require_role("owner", "admin")
+    await _ensure_module_access(session, auth, slug)
+    try:
+        return await hire_module_agent(
+            session,
+            auth.tenant.id,
+            slug,
+            actor_id=auth.user.id,
+            open_setup_chat=body.open_setup_chat,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/modules/{slug}/agents")

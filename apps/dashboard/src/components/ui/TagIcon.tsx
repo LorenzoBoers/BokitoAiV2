@@ -1,7 +1,7 @@
 import { cn } from '../../lib/utils'
 
 /**
- * Custom tag glyph only. Prefer typographic `Hashtag` / `HashtagMark` for the
+ * Custom tag glyph only. Prefer `TagPill` / `HashtagMark` (round leading mark) for the
  * default `#` mark — this component is for registry `iconUrl` images.
  */
 export function TagIcon({

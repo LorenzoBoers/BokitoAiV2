@@ -1210,13 +1210,17 @@ async def draft_reply(
         if extra:
             instruction += f"\nOperator guidance: {extra}"
 
-    loop = AgentLoop(
+    from app.services.chat_runtime import build_agent_loop
+
+    loop = build_agent_loop(
         session,
-        auth.tenant.id,
-        auth.user.id,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
         agent=agent,
         signal_id=signal.id,
+        trust="operator",
         user_role=auth.role,
+        surface="draft_reply",
     )
     loop.tools = []
     draft_text, tokens = await loop.run_chat(
@@ -1232,6 +1236,60 @@ class InvokeAgentBody(BaseModel):
     agent_id: UUID | None = None
     instruction: str = ""
     output: str = "note"  # note | reply_suggestion
+
+
+class ParticipantTurnBody(BaseModel):
+    agent_id: UUID
+    prompt: str = ""
+    run: bool = True
+
+
+@router.post(
+    "/{signal_id}/participant-turn",
+    dependencies=[Depends(rate_limit("participant-turn", limit=30))],
+)
+async def request_thread_participant_turn(
+    signal_id: UUID,
+    body: ParticipantTurnBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Give an agent the floor on this conversation (dashboard @ / Ask parity)."""
+    from sqlalchemy import select
+
+    from app.models.signal import Signal
+    from app.services.participants import ensure_participant
+    from app.services.participant_turns import request_participant_turn
+
+    signal = (
+        await session.execute(
+            select(Signal).where(Signal.id == signal_id, Signal.tenant_id == auth.tenant.id)
+        )
+    ).scalar_one_or_none()
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    await ensure_participant(
+        session,
+        signal,
+        kind="agent",
+        ref_id=body.agent_id,
+        role="member",
+        invited_by_kind="user",
+        invited_by_id=auth.user.id,
+        joined_via="operator",
+    )
+    turn = await request_participant_turn(
+        session,
+        signal,
+        member_kind="agent",
+        member_ref_id=body.agent_id,
+        prompt=(body.prompt or "").strip()[:2000],
+        requested_by_kind="user",
+        requested_by_id=auth.user.id,
+        run=body.run,
+    )
+    await session.commit()
+    return turn
 
 
 @router.post(
@@ -1277,8 +1335,8 @@ async def invoke_agent(
     from app.services.thread_dispatch import run_agent_note
 
     if body.output == "reply_suggestion":
-        from app.services.agent.loop import AgentLoop
         from app.services.assistant_threads import signal_chat_history
+        from app.services.chat_runtime import build_agent_loop
         from app.services.inbound_agent import create_reply_suggestion
         from app.services.suggestion_format import split_suggestion
 
@@ -1291,8 +1349,15 @@ async def invoke_agent(
         operator = (body.instruction or "").strip()
         if operator:
             instruction += f"\nTeammate's request: {operator}"
-        loop = AgentLoop(
-            session, auth.tenant.id, auth.user.id, agent=agent, signal_id=signal.id, user_role=auth.role
+        loop = build_agent_loop(
+            session,
+            tenant_id=auth.tenant.id,
+            user_id=auth.user.id,
+            agent=agent,
+            signal_id=signal.id,
+            trust="operator",
+            user_role=auth.role,
+            surface="invoke_reply",
         )
         reply_text, tokens = await loop.run_chat([*history, {"role": "user", "content": instruction}])
         text = (reply_text or "").strip() or "No output produced."

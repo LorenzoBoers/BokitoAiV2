@@ -528,6 +528,21 @@ async def create_decision(
     )
     bell_user_id = addressee.user_id if addressee.kind == "user" else None
     bell_status = await decision_bell_status(session, tenant_id, bell_user_id)
+    from app.services.notify import from_agent, from_user
+
+    bell_payload: dict[str, Any] = {**(notification_payload or {})}
+    if agent_id and "from" not in bell_payload:
+        agent = await session.get(Agent, agent_id)
+        mark = from_agent(agent)
+        if mark:
+            bell_payload["from"] = mark
+    elif user_id and "from" not in bell_payload:
+        from app.models.auth import User
+
+        asker = await session.get(User, user_id)
+        mark = from_user(asker)
+        if mark:
+            bell_payload["from"] = mark
     pending_reveal = {
         "items": items or [],
         "question": question,
@@ -536,7 +551,7 @@ async def create_decision(
         "agent_id": str(agent_id) if agent_id else None,
         "project_id": str(project_id) if project_id else None,
         "bell_status": bell_status,
-        "notification_payload": notification_payload or {},
+        "notification_payload": bell_payload,
     }
     # Pending rows stay out of unread / push until reveal_decision flips them.
     notification = Notification(
@@ -550,7 +565,7 @@ async def create_decision(
         status="pending" if not reveal else bell_status,
         payload_json=json.dumps(
             {
-                **(notification_payload or {}),
+                **bell_payload,
                 _PENDING_REVEAL_KEY: pending_reveal,
             },
             default=str,
@@ -579,7 +594,7 @@ async def create_decision(
     await session.flush()
     if not reveal:
         payload = {
-            **(notification_payload or {}),
+            **bell_payload,
             "decision_id": str(decision.id),
             "signal_id": str(decision.signal_id) if decision.signal_id else None,
             _PENDING_REVEAL_KEY: pending_reveal,
@@ -607,7 +622,8 @@ async def create_decision(
         decision,
         notification,
         message=message,
-        notification_payload=notification_payload or {},
+        # Keep sender mark (`from`) — do not pass the raw caller payload alone.
+        notification_payload=bell_payload,
         bell_user_id=bell_user_id,
         bell_status=bell_status,
     )

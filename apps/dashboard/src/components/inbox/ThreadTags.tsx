@@ -42,7 +42,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             title={t('tags.categoryLocked')}
             className="no-underline"
           >
-            <TagPill names={actionTag.name} tone="action" />
+            <TagPill names={actionTag.name} tone="action" size="sm" />
           </Link>
         ) : null}
         {folderPaths.map((path) => (
@@ -56,13 +56,14 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             title={filtersetLabel(path.tags)}
             className="no-underline"
           >
-            <TagPill names={path.tags} tone="set" />
+            <TagPill names={path.tags} tone="set" size="sm" />
           </Link>
         ))}
         {freeTags.map((tag) => (
           <TagPill
             key={tag}
             names={tag}
+            size="sm"
             onRemove={onPatch ? () => void save(tags.filter((other) => other !== tag)) : undefined}
             removeLabel={t('tags.remove', { tag })}
             disabled={saving}
@@ -77,7 +78,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             title={t('tags.viaContact')}
             className="no-underline"
           >
-            <TagPill names={tag} tone="inherited" />
+            <TagPill names={tag} tone="inherited" size="sm" />
           </Link>
         ))}
         {onPatch ? (
@@ -87,9 +88,9 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             onClick={() => setOpen(true)}
             aria-label={t('tags.add')}
             title={t('tags.add')}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-bg-surface text-text-secondary ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-elevated hover:text-text-heading disabled:opacity-40"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-bg-surface text-text-secondary ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-elevated hover:text-text-heading disabled:opacity-40"
           >
-            <Plus size={12} />
+            <Plus size={11} />
           </button>
         ) : null}
       </div>

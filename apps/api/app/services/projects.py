@@ -1,7 +1,8 @@
 """Folder service (dashboard: folders; model: ``Project`` + ``project_tag_links``).
 
-Each folder is a saved AND tag filterset. Nesting is derived from tag-set
-inclusion, not stored parent rows. Filing and trash call into ``services.folders``.
+Each folder is a named tree node (``parent_id``) with an optional AND label
+filterset. Nesting sets parent; labels stay independent. Filing and trash call
+into ``services.folders``.
 """
 
 import json
@@ -54,6 +55,7 @@ def serialize_project(
         "description": project.description or "",
         "autonomous_scope": project.autonomous_scope or "",
         "active_domains": _parse_json(project.active_domains_json),
+        "parent_id": str(project.parent_id) if project.parent_id else None,
         "tag_ids": [str(t) for t in tag_ids],
         "tag_names": tag_names,
         "sort_order": project.sort_order,
@@ -494,20 +496,31 @@ async def find_folder_with_tag_set(
     return None
 
 
-async def assert_unique_filterset(
+async def _would_create_cycle(
     session: AsyncSession,
     tenant_id: UUID,
-    tag_ids: list[UUID],
-    *,
-    exclude_id: UUID | None = None,
-) -> None:
-    hit = await find_folder_with_tag_set(session, tenant_id, tag_ids, exclude_id=exclude_id)
-    if hit is None:
-        return
-    raise HTTPException(
-        status_code=409,
-        detail=f"A folder with those tags already exists ({hit.label()}).",
-    )
+    folder_id: UUID,
+    new_parent_id: UUID | None,
+) -> bool:
+    if new_parent_id is None:
+        return False
+    if new_parent_id == folder_id:
+        return True
+    current: UUID | None = new_parent_id
+    seen: set[UUID] = {folder_id}
+    while current is not None:
+        if current in seen:
+            return True
+        seen.add(current)
+        row = (
+            await session.execute(
+                select(Project.parent_id).where(
+                    Project.id == current, Project.tenant_id == tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+        current = row
+    return False
 
 
 async def create_project(
@@ -520,38 +533,46 @@ async def create_project(
     description: str = "",
     tag_ids: list[UUID] | None = None,
     tags: list[str] | None = None,
+    parent_id: UUID | None = None,
     sort_order: int = 0,
     user_id: UUID | None = None,
 ) -> dict[str, Any]:
+    from uuid import uuid4
+
     from app.services.folders import refile_tagged, set_folder_tags
     from app.services.signal_tags import normalize_tag
     from app.services.workstreams import ensure_default_workstream
 
     resolved = await _resolve_tag_ids(session, tenant_id, tag_ids=tag_ids, tags=tags, user_id=user_id)
-    if not resolved:
-        raise HTTPException(status_code=422, detail="A folder needs at least one tag")
-    await assert_unique_filterset(session, tenant_id, resolved)
-    # Folders are tag compositions; ignore any client-supplied name.
-    _ = name
-    display_name = await _default_folder_name(session, tenant_id, resolved)
-    slug_norm = normalize_tag(slug or "-".join(display_name.replace("#", "").split(" · "))) or str(resolved[0])[:8]
+    clean_name = (name or "").strip()
+    if not clean_name and not resolved:
+        raise HTTPException(status_code=422, detail="A folder needs a name or at least one label")
+    if not clean_name:
+        clean_name = await _default_folder_name(session, tenant_id, resolved)
+    if parent_id is not None:
+        await get_project_row(session, tenant_id, parent_id)
+    slug_seed = slug or clean_name.replace("#", "").replace(" · ", "-")
+    slug_norm = normalize_tag(slug_seed) or (str(resolved[0])[:8] if resolved else "folder")
     if await _slug_in_use(session, tenant_id, slug_norm):
-        slug_norm = f"{slug_norm}-{str(resolved[0])[:8]}"
+        slug_norm = f"{slug_norm}-{(str(resolved[0])[:8] if resolved else str(uuid4())[:8])}"
     now = datetime.utcnow()
     project = Project(
         tenant_id=tenant_id,
-        name=display_name,
+        name=clean_name,
         slug=slug_norm,
         description=description,
         autonomous_scope=autonomous_scope.strip(),
+        parent_id=parent_id,
         sort_order=sort_order,
         updated_at=now,
     )
     session.add(project)
     await session.flush()
-    await set_folder_tags(session, tenant_id, project.id, resolved)
+    if resolved:
+        await set_folder_tags(session, tenant_id, project.id, resolved)
     await ensure_default_workstream(session, tenant_id, project.id, commit=False)
-    await refile_tagged(session, tenant_id, await _refile_tags_for(session, tenant_id, project.id))
+    if resolved:
+        await refile_tagged(session, tenant_id, await _refile_tags_for(session, tenant_id, project.id))
     await session.commit()
     await session.refresh(project)
     return await serialize_with_tag(session, project)
@@ -568,27 +589,20 @@ async def nest_folder(
     session: AsyncSession,
     tenant_id: UUID,
     project_id: UUID,
-    onto_folder_id: UUID,
+    onto_folder_id: UUID | None,
     *,
     user_id: UUID | None = None,
 ) -> dict[str, Any]:
-    from app.services.folders import folder_tag_ids, refile_subtree, set_folder_tags
-
+    """Move a folder in the free tree. Labels are unchanged."""
+    del user_id
     project, _ = await get_project_row(session, tenant_id, project_id)
-    await get_project_row(session, tenant_id, onto_folder_id)
-    onto_tags = await folder_tag_ids(session, onto_folder_id)
-    mine = await folder_tag_ids(session, project.id)
-    onto_set = set(onto_tags)
-    merged = list(onto_tags) + [t for t in mine if t not in onto_set]
-    if not merged:
-        raise HTTPException(status_code=422, detail="Target folder has no tags")
-    await assert_unique_filterset(session, tenant_id, merged, exclude_id=project.id)
-    await set_folder_tags(session, tenant_id, project.id, merged)
-    project.name = await _default_folder_name(session, tenant_id, merged)
+    if onto_folder_id is not None:
+        await get_project_row(session, tenant_id, onto_folder_id)
+        if await _would_create_cycle(session, tenant_id, project.id, onto_folder_id):
+            raise HTTPException(status_code=422, detail="Cannot nest a folder under its own descendant")
+    project.parent_id = onto_folder_id
     project.updated_at = datetime.utcnow()
     session.add(project)
-    await session.flush()
-    await refile_subtree(session, tenant_id, project.id, actor_id=str(user_id or ""))
     await session.commit()
     await session.refresh(project)
     return await serialize_with_tag(session, project)
@@ -604,6 +618,7 @@ async def patch_project(
     autonomous_scope: str | None = None,
     tag_ids: list[UUID] | None | object = ...,
     tags: list[str] | None | object = ...,
+    parent_id: UUID | None | object = ...,
     sort_order: int | None = None,
     user_id: UUID | None = None,
 ) -> dict[str, Any]:
@@ -613,13 +628,25 @@ async def patch_project(
     before_tags = await folder_tag_ids(session, project.id)
     tags_changed = False
     if name is not None:
-        project.name = name.strip()
+        clean = name.strip()
+        if not clean:
+            raise HTTPException(status_code=422, detail="Folder name cannot be empty")
+        project.name = clean
     if description is not None:
         project.description = description
     if autonomous_scope is not None:
         project.autonomous_scope = autonomous_scope.strip()
     if sort_order is not None:
         project.sort_order = sort_order
+    if parent_id is not ...:
+        next_parent = parent_id if isinstance(parent_id, UUID) else None
+        if next_parent is not None:
+            await get_project_row(session, tenant_id, next_parent)
+            if await _would_create_cycle(session, tenant_id, project.id, next_parent):
+                raise HTTPException(
+                    status_code=422, detail="Cannot nest a folder under its own descendant"
+                )
+        project.parent_id = next_parent
     next_ids: list[UUID] | None = None
     if tags is not ... and tags is not None:
         next_ids = await _resolve_tag_ids(
@@ -632,14 +659,8 @@ async def patch_project(
     elif tag_ids is not ...:
         next_ids = list(tag_ids) if tag_ids else []
     if next_ids is not None:
-        if not next_ids:
-            raise HTTPException(status_code=422, detail="A folder needs at least one tag")
         tags_changed = frozenset(next_ids) != frozenset(before_tags)
-        if tags_changed:
-            await assert_unique_filterset(session, tenant_id, next_ids, exclude_id=project.id)
         await set_folder_tags(session, tenant_id, project.id, next_ids)
-        # Display label is the filterset; keep stored name in sync with tags.
-        project.name = await _default_folder_name(session, tenant_id, next_ids)
     project.updated_at = datetime.utcnow()
     session.add(project)
     await session.flush()

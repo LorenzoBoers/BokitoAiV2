@@ -164,3 +164,24 @@ export {
   type BubbleStack,
   type ChatStackInput,
 } from './chat-layout.js'
+
+export {
+  MAX_CHAT_MESSAGES,
+  MIN_MESSAGE_CHARS,
+  isCustomerChannel,
+  splitChatMessages,
+} from './chat-messages.js'
+
+export {
+  SMOOTH_STREAM,
+  SMOOTH_STREAM_CPS,
+  SmoothStreamController,
+  advanceSmoothStream,
+  plainRevealCap,
+  revealLimit,
+  smoothStreamRate,
+  streamRateJitter,
+  type RevealCapFn,
+  type SmoothStreamAdvanceInput,
+  type SmoothStreamAdvanceResult,
+} from './smooth-stream.js'

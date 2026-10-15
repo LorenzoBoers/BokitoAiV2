@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
-import { filtersetLabel } from '../../lib/folder-filter-tree'
+import { filtersetPlainLabel } from '../../lib/folder-filter-tree'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { folderRows, folderSubtreeIds } from '../../lib/project-folders'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -29,7 +29,7 @@ type Props = {
   onConfirm: (projectId: string | null) => Promise<void>
 }
 
-/** Pick a saved map. Confirming applies that map's tags to the conversation (file in folder). */
+/** Pick a folder. Confirming applies that folder's labels to the conversation. */
 export default function FileInFolderDialog({
   open,
   onOpenChange,
@@ -93,7 +93,7 @@ export default function FileInFolderDialog({
   }
 
   const defaultDescription = t('threadChrome.fileApplyTags', {
-    defaultValue: 'Applies every tag in that map to the conversation.',
+    defaultValue: "Applies every label in that folder to the conversation.",
   })
 
   return (
@@ -126,7 +126,7 @@ export default function FileInFolderDialog({
           ) : null}
           {visible.map((row) => {
             const project = byId.get(row.id)
-            const tagLine = row.tag_names.length ? filtersetLabel(row.tag_names) : project?.name
+            const tagLine = row.tag_names.length ? filtersetPlainLabel(row.tag_names) : null
             return (
               <button
                 key={row.id}

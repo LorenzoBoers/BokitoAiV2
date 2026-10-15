@@ -25,7 +25,7 @@ import {
 } from '../components/ui/dropdown-menu'
 import FileInFolderDialog from '../components/inbox/FileInFolderDialog'
 import { useConfirm } from '../components/ui/confirm-dialog'
-import { TagSetPicker } from '../components/ui/TagSetPicker'
+import { CreateFolderDialog } from '../components/folders/CreateFolderDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -45,21 +45,15 @@ import { withNavReveal } from '../lib/nav-reveal'
 import { runThreadPath } from '../lib/open-entity'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
 import {
-  createProject,
   deleteProject,
   getProject,
   listFolderFiles,
   nestFolder,
-  patchProject,
   type ProjectRow,
 } from '../lib/projects-api'
 import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
-import {
-  filtersetLocalNames,
-  filtersetPlainLabel,
-  previewNestMerge,
-} from '../lib/folder-filter-tree'
+import { filtersetPlainLabel } from '../lib/folder-filter-tree'
 import { notifyFoldersChanged } from '../lib/folders-bus'
 import { FiltersetHeading } from '../components/folders/FiltersetHeading'
 
@@ -180,13 +174,10 @@ export default function ProjectDetail() {
   const folders = project?.children ?? []
   const hubHref = project ? withNavReveal(projectHubPath(project.id, 'open')) : '/communication'
   const ancestors = project?.ancestors ?? []
-  const parentTagNames = ancestors.length
-    ? (ancestors[ancestors.length - 1]?.tag_names ?? null)
-    : null
   const crumbLabel = project
-    ? project.tag_names?.length
-      ? filtersetPlainLabel(filtersetLocalNames(project.tag_names, parentTagNames))
-      : project.name.replace(/^#/, '')
+    ? project.name.replace(/^#/, '').trim() ||
+      filtersetPlainLabel(project.tag_names ?? []) ||
+      'Folder'
     : ''
 
   return (
@@ -203,10 +194,10 @@ export default function ProjectDetail() {
           {t('projects.detail.back')}
         </Link>
         {ancestors.map((ancestor, index) => {
-          const parentNames = index > 0 ? ancestors[index - 1]?.tag_names : null
-          const label = ancestor.tag_names?.length
-            ? filtersetPlainLabel(filtersetLocalNames(ancestor.tag_names, parentNames))
-            : (ancestor.name ?? '').replace(/^#/, '')
+          const label =
+            (ancestor.name ?? '').replace(/^#/, '').trim() ||
+            filtersetPlainLabel(ancestor.tag_names ?? []) ||
+            'Folder'
           return (
             <span key={ancestor.id} className="inline-flex min-w-0 items-center gap-1.5">
               <span aria-hidden>/</span>
@@ -234,15 +225,16 @@ export default function ProjectDetail() {
             <div className="min-w-0 flex-1 space-y-2">
               <FiltersetHeading
                 folderId={project.id}
+                name={project.name}
                 tagNames={project.tag_names ?? []}
-                parentTagNames={parentTagNames}
                 canEdit={isAdmin}
                 onChanged={() => load({ silent: true })}
                 size="lg"
               />
               <p className="text-xs text-text-muted">
                 {t('projects.detail.filtersetTitleHint', {
-                  defaultValue: 'Conversations match when they carry every tag. Click the tags to edit.',
+                  defaultValue:
+                    'Conversations match when they carry every label. Edit the name or labels above.',
                 })}
               </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
@@ -512,20 +504,13 @@ export default function ProjectDetail() {
         />
       ) : null}
       {project ? (
-        <TagSetPicker
+        <CreateFolderDialog
           open={folderOpen}
           onOpenChange={setFolderOpen}
-          mode="folder"
-          title={t('projects.detail.newFolderTitle')}
-          description={t('projects.detail.newFolderBody')}
-          confirmLabel={t('projects.detail.newFolder')}
-          lockedNames={project.tag_names ?? []}
-          initialSelected={[]}
-          onConfirm={async (tagNames) => {
-            const created = await createProject({ tags: tagNames })
-            notifyFoldersChanged({ folderId: created.id })
+          parentId={project.id}
+          onCreated={(folderId) => {
             toast.success(t('projects.detail.folderCreated'))
-            navigate(`/folders/${created.id}`)
+            navigate(`/folders/${folderId}`)
           }}
         />
       ) : null}
@@ -533,56 +518,23 @@ export default function ProjectDetail() {
         <FileInFolderDialog
           open={moveOpen}
           onOpenChange={setMoveOpen}
-          title={t('projects.detail.nestTitle', { defaultValue: 'Nest under a broader map' })}
+          title={t('projects.detail.nestTitle', { defaultValue: 'Nest under another folder' })}
           description={t('projects.detail.nestBody', {
             defaultValue:
-              'Nesting adds every tag from the map you choose. This map becomes more specific and sits under that broader filterset.',
+              'Places this folder under the one you choose. Labels stay the same — only the tree position changes.',
           })}
           confirmLabel={t('projects.detail.nestConfirm', { defaultValue: 'Nest' })}
           excludeSubtreeOf={project.id}
           onConfirm={async (ontoId) => {
             if (!ontoId) return
-            const previousTags = (project.tag_names ?? []).map((name) => name.replace(/^#/, '')).filter(Boolean)
-            // Resolve target tags from children/ancestors when possible for confirm copy.
-            const onto =
-              project.children?.find((row) => row.id === ontoId) ??
-              project.ancestors?.find((row) => row.id === ontoId) ??
-              null
-            const ontoTags = (onto?.tag_names ?? []).map((name) => name.replace(/^#/, '')).filter(Boolean)
-            if (ontoTags.length) {
-              const preview = previewNestMerge(previousTags, ontoTags)
-              if (preview.addedNames.length > 0) {
-                const ok = await confirm({
-                  title: t('projects.detail.nestConfirmTitle', {
-                    defaultValue: 'Nest under broader map?',
-                  }),
-                  description: preview.unrelated
-                    ? t('projects.detail.nestConfirmUnrelated', {
-                        defaultValue:
-                          'These maps shared no tags. After nesting, matching conversations must also carry {{parent}}. Result: {{merged}} — sits under {{parent}}.',
-                        parent: preview.parentLabel,
-                        merged: preview.mergedLabel,
-                      })
-                    : t('projects.detail.nestConfirmBody', {
-                        defaultValue:
-                          'Becomes {{merged}} and sits under {{parent}}. Nesting adds the broader map\'s tags to this filterset.',
-                        merged: preview.mergedLabel,
-                        parent: preview.parentLabel,
-                      }),
-                  confirmLabel: t('projects.detail.nestConfirm', { defaultValue: 'Nest' }),
-                  destructive: preview.unrelated,
-                })
-                if (!ok) return
-              }
-            }
+            const previousParent = project.parent_id ?? null
             await nestFolder(project.id, ontoId)
             const label = t('projects.detail.nested', {
-              defaultValue: 'Folder nested — it now requires the broader tags too.',
+              defaultValue: 'Folder nested',
             })
             const undoLabel = t('projects.detail.undoMove', { defaultValue: 'Undo' })
             const run = async () => {
-              if (!previousTags.length) return
-              await patchProject(project.id, { tags: previousTags })
+              await nestFolder(project.id, previousParent)
               await load({ silent: true })
             }
             const id = toast.success(label, {

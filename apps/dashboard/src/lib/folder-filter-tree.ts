@@ -1,4 +1,4 @@
-/** Smart folder tree: nesting by strict tag-set inclusion (matches backend `derive_tree` parent rules). */
+/** Folder tree from stored ``parent_id`` (matches backend ``derive_tree``). */
 
 export type FolderFilterSource = {
   id: string
@@ -6,6 +6,7 @@ export type FolderFilterSource = {
   tag_ids: string[]
   tag_names?: string[]
   sort_order?: number
+  parent_id?: string | null
 }
 
 export type FolderFilterNode = {
@@ -14,6 +15,7 @@ export type FolderFilterNode = {
   tag_ids: string[]
   tag_names: string[]
   sort_order: number
+  parent_id: string | null
   children: FolderFilterNode[]
 }
 
@@ -27,44 +29,11 @@ export type FolderFilterRow = {
   parentId: string | null
 }
 
-function tagSet(ids: string[]): Set<string> {
-  return new Set(ids)
-}
-
-function isProperSubset(sub: Set<string>, sup: Set<string>): boolean {
-  if (sub.size >= sup.size) return false
-  for (const id of sub) {
-    if (!sup.has(id)) return false
-  }
-  return true
-}
-
 function compareFolders(a: FolderFilterSource, b: FolderFilterSource): number {
   const ao = a.sort_order ?? 0
   const bo = b.sort_order ?? 0
   if (ao !== bo) return ao - bo
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-}
-
-function pickParent(
-  folder: FolderFilterSource,
-  others: FolderFilterSource[],
-): FolderFilterSource | null {
-  let best: FolderFilterSource | null = null
-  const mine = tagSet(folder.tag_ids)
-  for (const other of others) {
-    if (other.id === folder.id) continue
-    const otherSet = tagSet(other.tag_ids)
-    if (!isProperSubset(otherSet, mine)) continue
-    if (
-      best === null ||
-      other.tag_ids.length > best.tag_ids.length ||
-      (other.tag_ids.length === best.tag_ids.length && compareFolders(other, best) < 0)
-    ) {
-      best = other
-    }
-  }
-  return best
 }
 
 function toNode(source: FolderFilterSource): FolderFilterNode {
@@ -74,24 +43,20 @@ function toNode(source: FolderFilterSource): FolderFilterNode {
     tag_ids: [...source.tag_ids],
     tag_names: source.tag_names?.length ? [...source.tag_names] : [],
     sort_order: source.sort_order ?? 0,
+    parent_id: source.parent_id ?? null,
     children: [],
   }
 }
 
-/** Roots and nested children from filtersets (real folders only; no virtual clusters). */
+/** Roots and nested children from stored parent_id. */
 export function deriveFolderTree(sources: FolderFilterSource[]): FolderFilterNode[] {
-  const folders = sources.filter((row) => row.tag_ids.length > 0)
-  if (folders.length === 0) return []
+  if (sources.length === 0) return []
 
-  const parentOf = new Map<string, string | null>()
-  for (const folder of folders) {
-    const parent = pickParent(folder, folders)
-    parentOf.set(folder.id, parent?.id ?? null)
-  }
-
+  const known = new Set(sources.map((row) => row.id))
   const childrenByParent = new Map<string | null, FolderFilterSource[]>()
-  for (const folder of folders) {
-    const parentId = parentOf.get(folder.id) ?? null
+  for (const folder of sources) {
+    const parentId =
+      folder.parent_id && known.has(folder.parent_id) ? folder.parent_id : null
     const group = childrenByParent.get(parentId) ?? []
     group.push(folder)
     childrenByParent.set(parentId, group)
@@ -130,7 +95,7 @@ export function folderFilterRows(tree: FolderFilterNode[]): FolderFilterRow[] {
   return out
 }
 
-/** Every folder nested under `rootId` in the derived tree (includes `rootId`). */
+/** Every folder nested under `rootId` in the tree (includes `rootId`). */
 export function folderFilterSubtreeIds(tree: FolderFilterNode[], rootId: string): Set<string> {
   const find = (nodes: FolderFilterNode[]): FolderFilterNode | null => {
     for (const node of nodes) {
@@ -165,8 +130,8 @@ export function filtersetLabel(tagNames: string[]): string {
 }
 
 /**
- * Tags that distinguish this folder from its parent in a layered tree /
- * breadcrumb. Full filterset stays for titles; nested rows show only the delta.
+ * Labels that distinguish this folder from its parent in a layered tree /
+ * breadcrumb. Full label set stays for titles; nested rows may show only the delta.
  */
 export function filtersetLocalNames(
   tagNames: string[],
@@ -215,7 +180,6 @@ export function resolveSiblingReorderTarget(
   if (!activeSibs) return null
   const isSibling = (id: string) => activeSibs.siblings.some((sibling) => sibling.id === id)
   if (isSibling(overId)) return overId
-  // Pointer over a descendant of a sibling (expanded branch): reorder vs that sibling.
   const ancestors = folderAncestorChain(tree, overId)
   for (let i = ancestors.length - 1; i >= 0; i -= 1) {
     const ancestorId = ancestors[i]!.id
@@ -225,11 +189,7 @@ export function resolveSiblingReorderTarget(
   return null
 }
 
-function bareName(name: string): string {
-  return name.replace(/^#/, '').trim()
-}
-
-/** Find a node by id in a derived tree. */
+/** Find a node by id in a tree. */
 export function findFolderNode(tree: FolderFilterNode[], id: string): FolderFilterNode | null {
   for (const node of tree) {
     if (node.id === id) return node
@@ -239,7 +199,7 @@ export function findFolderNode(tree: FolderFilterNode[], id: string): FolderFilt
   return null
 }
 
-/** Derived ancestors of `folderId` (root → parent), excluding the folder itself. */
+/** Ancestors of `folderId` (root → parent), excluding the folder itself. */
 export function folderAncestorChain(tree: FolderFilterNode[], folderId: string): FolderFilterNode[] {
   const chain: FolderFilterNode[] = []
   const walk = (nodes: FolderFilterNode[], prefix: FolderFilterNode[]): boolean => {
@@ -257,42 +217,89 @@ export function folderAncestorChain(tree: FolderFilterNode[], folderId: string):
 }
 
 /**
- * Strip ancestor tags so the folder becomes a root in `deriveFolderTree`.
- * Returns null when already root or stripping would leave no tags.
+ * Set parent_id to null so the folder becomes a root.
+ * Returns null when already root.
  */
 export function optimisticUnnestToRoot<T extends FolderFilterSource>(
   sources: T[],
   folderId: string,
 ): T[] | null {
-  const tree = deriveFolderTree(sources)
-  const ancestors = folderAncestorChain(tree, folderId)
-  if (!ancestors.length) return null
   const folder = sources.find((source) => source.id === folderId)
-  if (!folder) return null
-  const ancestorIds = new Set(ancestors.flatMap((node) => node.tag_ids))
-  const ancestorNames = new Set(
-    ancestors.flatMap((node) => (node.tag_names ?? []).map(bareName).map((name) => name.toLowerCase())),
-  )
-  const nextIds = folder.tag_ids.filter((id) => !ancestorIds.has(id))
-  if (!nextIds.length) return null
-  const mineNames = (folder.tag_names ?? []).map(bareName).filter(Boolean)
-  const nextNames = mineNames.filter((name) => !ancestorNames.has(name.toLowerCase()))
-  if (
-    nextIds.length === folder.tag_ids.length &&
-    nextNames.length === mineNames.length
-  ) {
-    return null
-  }
+  if (!folder || !folder.parent_id) return null
   return sources.map((source) =>
-    source.id === folderId
-      ? {
-          ...source,
-          tag_ids: nextIds,
-          tag_names: nextNames.length ? nextNames : source.tag_names,
-          name: filtersetPlainLabel(nextNames.length ? nextNames : mineNames) || source.name,
-        }
-      : source,
+    source.id === folderId ? { ...source, parent_id: null } : source,
   )
+}
+
+export type RootPlace =
+  | { at: 'start' }
+  | { at: 'end' }
+  | { at: 'before'; rootId: string }
+  | { at: 'after'; rootId: string }
+
+/**
+ * Unnest to root and set root `sort_order` so the map appears at `place`
+ * among the other roots (live DnD preview).
+ */
+export function optimisticUnnestToRootAt<T extends FolderFilterSource>(
+  sources: T[],
+  folderId: string,
+  place: RootPlace = { at: 'end' },
+): T[] | null {
+  const unnested = optimisticUnnestToRoot(sources, folderId)
+  if (!unnested) return null
+  const tree = deriveFolderTree(unnested)
+  const rootIds = tree.map((node) => node.id)
+  if (!rootIds.includes(folderId)) return unnested
+  const without = rootIds.filter((id) => id !== folderId)
+  let nextRoots: string[]
+  if (place.at === 'start') {
+    nextRoots = [folderId, ...without]
+  } else if (place.at === 'end') {
+    nextRoots = [...without, folderId]
+  } else {
+    const idx = without.indexOf(place.rootId)
+    if (idx < 0) {
+      nextRoots = [...without, folderId]
+    } else if (place.at === 'before') {
+      nextRoots = [...without.slice(0, idx), folderId, ...without.slice(idx)]
+    } else {
+      nextRoots = [...without.slice(0, idx + 1), folderId, ...without.slice(idx + 1)]
+    }
+  }
+  const order = new Map(nextRoots.map((id, index) => [id, index]))
+  return unnested.map((source) => {
+    const sortOrder = order.get(source.id)
+    if (sortOrder == null) return source
+    return { ...source, sort_order: sortOrder }
+  })
+}
+
+/** Set parent_id so the folder nests under `parentId` (live DnD preview). */
+export function optimisticNestSources<T extends FolderFilterSource>(
+  sources: T[],
+  activeId: string,
+  parentId: string,
+): T[] | null {
+  if (activeId === parentId) return null
+  const parent = sources.find((source) => source.id === parentId)
+  const child = sources.find((source) => source.id === activeId)
+  if (!parent || !child) return null
+  if (child.parent_id === parentId) return null
+  // Block nesting under own descendant.
+  const tree = deriveFolderTree(sources)
+  const blocked = folderFilterSubtreeIds(tree, activeId)
+  if (blocked.has(parentId)) return null
+  return sources.map((source) =>
+    source.id === activeId ? { ...source, parent_id: parentId } : source,
+  )
+}
+
+/** Top-level root id for a folder hit (itself if root, else first ancestor). */
+export function rootFolderIdFor(tree: FolderFilterNode[], folderId: string): string | null {
+  if (tree.some((node) => node.id === folderId)) return folderId
+  const ancestors = folderAncestorChain(tree, folderId)
+  return ancestors[0]?.id ?? null
 }
 
 export type NestMergePreview = {
@@ -310,13 +317,13 @@ export type NestMergePreview = {
 }
 
 /**
- * Client-side preview of nest (= union parent tags into the child filterset).
- * Matches backend `nest_folder` merge order.
+ * @deprecated Nesting no longer unions labels. Kept for any leftover call sites.
  */
 export function previewNestMerge(
   childTagNames: string[],
   parentTagNames: string[],
 ): NestMergePreview {
+  const bareName = (name: string) => name.replace(/^#/, '').trim()
   const parentNames = parentTagNames.map(bareName).filter(Boolean)
   const childNames = childTagNames.map(bareName).filter(Boolean)
   const parentLower = new Set(parentNames.map((name) => name.toLowerCase()))
@@ -339,37 +346,11 @@ export function previewNestMerge(
 }
 
 /**
- * Which existing map would become the derived parent of a draft filterset
- * (strict inclusion — same rule as `deriveFolderTree`).
+ * @deprecated Tree nesting is parent_id; create-dialog parent preview unused.
  */
 export function predictFiltersetParent(
-  selectedTagNames: string[],
-  maps: { id: string; name: string; tag_names?: string[] | null }[],
+  _selectedTagNames: string[],
+  _maps: { id: string; name: string; tag_names?: string[] | null }[],
 ): { id: string; name: string; tag_names: string[] } | null {
-  const mine = selectedTagNames.map(bareName).filter(Boolean)
-  if (!mine.length) return null
-  const mineLower = new Set(mine.map((name) => name.toLowerCase()))
-  let best: { id: string; name: string; tag_names: string[] } | null = null
-  for (const map of maps) {
-    const other = (map.tag_names ?? []).map(bareName).filter(Boolean)
-    if (!other.length || other.length >= mine.length) continue
-    const otherLower = new Set(other.map((name) => name.toLowerCase()))
-    let subset = true
-    for (const name of otherLower) {
-      if (!mineLower.has(name)) {
-        subset = false
-        break
-      }
-    }
-    if (!subset) continue
-    if (
-      !best ||
-      other.length > best.tag_names.length ||
-      (other.length === best.tag_names.length &&
-        map.name.localeCompare(best.name, undefined, { sensitivity: 'base' }) < 0)
-    ) {
-      best = { id: map.id, name: map.name, tag_names: other }
-    }
-  }
-  return best
+  return null
 }

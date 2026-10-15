@@ -221,11 +221,33 @@ async def start_session(
         context_signal_id=thread_id,
         session_state="active",
     )
-    from app.services.ownership import set_owner
+    from app.services.ownership import apply_owner
+    from app.services.participants import ensure_participant
 
-    set_owner(conversation, "user", user.id, by_user_id=user.id)
     session.add(conversation)
     await session.flush()
+    await apply_owner(session, conversation, "user", user.id, by_user_id=user.id)
+    # Host thread + Ask session share the same participant roster model.
+    await ensure_participant(
+        session,
+        thread,
+        kind="agent",
+        ref_id=agent.id,
+        role="member",
+        invited_by_kind="user",
+        invited_by_id=user.id,
+        joined_via="ask_session",
+    )
+    await ensure_participant(
+        session,
+        conversation,
+        kind="agent",
+        ref_id=agent.id,
+        role="member",
+        invited_by_kind="user",
+        invited_by_id=user.id,
+        joined_via="ask_session",
+    )
     session.add(
         SignalEvent(
             signal_id=thread_id,
@@ -289,6 +311,21 @@ async def thread_agent_candidates(
 
             add(await get_lead_agent(session, tenant_id), "project")
 
+    # Module specialists for installed modules (and ticket/folder-related work).
+    from app.services.module_agents import module_roster_summaries
+
+    roster = await module_roster_summaries(session, tenant_id)
+    for slug, summary in roster.items():
+        sid = summary.get("specialist_agent_id")
+        if not sid:
+            continue
+        specialist = (
+            await session.execute(
+                select(Agent).where(Agent.id == UUID(sid), Agent.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        add(specialist, f"module:{slug}")
+
     for agent in await allowed_company_agents(session, tenant_id, user.id, is_admin=is_admin):
         add(agent, "company")
 
@@ -309,6 +346,10 @@ async def resolve_session_agent(
     Wider than plain chat targets on purpose: the agent that handles this
     channel may not be open for direct chat, yet it is exactly the one an
     operator wants next to a conversation it owns.
+
+    Threads can still point at an archived/inactive agent after a purge. In
+    that case fall back to the best live candidate so Ask does not 403 with
+    a generic "could not start session" toast.
     """
     candidates = await thread_agent_candidates(
         session, tenant_id, user, thread_id, is_admin=is_admin
@@ -316,9 +357,23 @@ async def resolve_session_agent(
     if not candidates:
         raise HTTPException(status_code=409, detail="No agent available for this workspace")
 
+    candidate_ids = {c["id"] for c in candidates}
     wanted = str(agent_id) if agent_id else candidates[0]["id"]
-    if wanted not in {c["id"] for c in candidates}:
-        raise HTTPException(status_code=403, detail="Agent not available on this thread")
+    if wanted not in candidate_ids:
+        if agent_id is not None:
+            stale = (
+                await session.execute(
+                    select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
+                )
+            ).scalar_one_or_none()
+            # Archived / inactive / missing: remount onto the best candidate.
+            # An active agent the operator may not call stays a hard 403.
+            if stale is None or not stale.is_active:
+                wanted = candidates[0]["id"]
+            else:
+                raise HTTPException(status_code=403, detail="Agent not available on this thread")
+        else:
+            wanted = candidates[0]["id"]
 
     agent = (
         await session.execute(

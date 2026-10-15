@@ -7,7 +7,7 @@
 
 ## Shared branding
 
-Launcher and header avatar art (with blink animation) are kept in sync with [`../shared_components/Happy bokito.svg`](../shared_components/Happy%20bokito.svg). After editing that file, copy the SVG fragment into the `#render()` template in `src/widget-main.ts` (launcher + `.bk-avatar-logo`).
+Launcher, header, and AI-bubble avatars use the bokito orb mark in `src/icons.ts` (`BOKITO_MARK` / `BOKITO_LAUNCHER_MARK`), matching dashboard `bot-orb-shapes` `bokito` layers. Soft eye blink only — the legacy Happy-ape morph SVG is retired.
 
 ## Local preview (widget files local, chat API on FastAPI)
 

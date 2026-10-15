@@ -84,10 +84,13 @@ import {
   type ComposerMode,
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
+import { onGatewayEvent } from '../../lib/gateway'
+import type { ThreadActiveTurn } from '../../lib/inbox-api'
 import AgentTurnLive from './AgentTurnLive'
 import { answeredDecisionIds } from './ThreadTimeline'
 import { AiAvatar } from '../ui/AiAvatar'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { preferLiveAgentAvatar, toAiAvatarProps } from '../../lib/agent-avatar'
+import { useAgents } from '../../hooks/useAgents'
 import {
   liveTurnFromLatestInProgress,
   liveTurnOrbMotion,
@@ -96,10 +99,12 @@ import {
   turnHasContent,
   turnSaved,
 } from '../../lib/agentActivity'
+import { useAgentOrbDrive } from '../../hooks/useBotOrbPulse'
 import {
   bokitoListMessages,
   closeAgentSession,
   discardAgentSession,
+  requestParticipantTurn,
   startAgentSession,
   type ChatMessage,
   type ThreadSession,
@@ -209,6 +214,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { token, user } = useAuth()
+  const { agents } = useAgents()
   const collectStageFields = useCollectStageFields()
   const location = useLocation()
   const navigate = useNavigate()
@@ -218,6 +224,37 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     [detail?.messages],
   )
   const gatewayStream = useSignalStream(threadId ? String(threadId) : null, checkpointTurn)
+  const [liveActiveTurn, setLiveActiveTurn] = useState<ThreadActiveTurn>(null)
+  useEffect(() => {
+    setLiveActiveTurn(detail?.activeTurn ?? null)
+  }, [detail?.activeTurn, threadId])
+  useEffect(() => {
+    if (!threadId) return
+    return onGatewayEvent(`signal:${threadId}`, (event) => {
+      if (event.event !== 'thread.presence') return
+      const item = event.data?.item
+      if (!item || typeof item !== 'object') return
+      const floor = (item as Record<string, unknown>).active_turn
+      const row =
+        floor && typeof floor === 'object' ? (floor as Record<string, unknown>) : null
+      // Require a floor holder; empty `{}` / null means idle (do not keep a stale wait label).
+      if (row && typeof row.ref_id === 'string' && row.ref_id) {
+        setLiveActiveTurn({
+          kind: typeof row.kind === 'string' ? row.kind : undefined,
+          ref_id: row.ref_id,
+          name: typeof row.name === 'string' ? row.name : undefined,
+          nonce: typeof row.nonce === 'string' ? row.nonce : undefined,
+          deadline: typeof row.deadline === 'string' ? row.deadline : undefined,
+          prompt: typeof row.prompt === 'string' ? row.prompt : undefined,
+          streak: typeof row.streak === 'number' ? row.streak : undefined,
+        })
+        return
+      }
+      if (!floor || event.data?.phase === 'idle') {
+        setLiveActiveTurn(null)
+      }
+    })
+  }, [threadId])
   const timelineRef = useRef<ThreadTimelineHandle>(null)
   const previousMessageCountRef = useRef<number>(0)
   const landedThreadRef = useRef<string | null>(null)
@@ -555,6 +592,30 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     [sessionInboxMessages],
   )
   const sessionLive = useSignalStream(activeSessionId, sessionCheckpointTurn)
+  const resetSessionLive = sessionLive.reset
+  const sessionLiveActive = sessionLive.turn.active || sessionLive.streaming
+  // Ask streams run on the child session topic; host floor/idle events never
+  // end them. When a peer takes the floor (or the host goes idle), seal the
+  // Ask overlay so Stop / “Nadenken” do not linger after the handoff bubble.
+  useEffect(() => {
+    if (!threadId || !activeSessionId) return
+    return onGatewayEvent(`signal:${threadId}`, (event) => {
+      if (event.event !== 'thread.presence') return
+      const item = event.data?.item
+      const floor =
+        item && typeof item === 'object'
+          ? (item as Record<string, unknown>).active_turn
+          : null
+      const row =
+        floor && typeof floor === 'object' ? (floor as Record<string, unknown>) : null
+      const peerFloor = Boolean(row && typeof row.ref_id === 'string' && row.ref_id)
+      // Only seal on an explicit peer floor or host idle — not on thinking/writing
+      // presence that simply omits active_turn.
+      if (!peerFloor && event.data?.phase !== 'idle') return
+      if (!sessionLiveActive) return
+      resetSessionLive()
+    })
+  }, [threadId, activeSessionId, sessionLiveActive, resetSessionLive])
 
   useEffect(() => {
     if (!detail || pendingDecisionAnswers.length === 0) return
@@ -1216,10 +1277,27 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       }
       const talksDirect = Boolean(detail && isInternalThread(detail.thread))
       let sessionId = talksDirect ? threadIdString : activeSessionId
-      const wantedAgentId = askAgentId ?? detail?.thread.agentId ?? null
+      // Prefer an explicit Ask pick, then the thread agent — but only when that
+      // id is still a live candidate. Archived handlers (e.g. purged Front desk)
+      // fall through to the ranked candidate list so session start does not 403.
+      const candidateIds = new Set(agentCandidates.map((row) => row.id))
+      const preferredAsk =
+        askAgentId && candidateIds.has(askAgentId)
+          ? askAgentId
+          : detail?.thread.agentId && candidateIds.has(detail.thread.agentId)
+            ? detail.thread.agentId
+            : agentCandidates[0]?.id ?? null
+      const wantedAgentId = preferredAsk
+      // Internal threads: Ask already talks on the host — also hand the floor
+      // so the participant strip matches @agent on notes.
+      if (talksDirect && wantedAgentId && token) {
+        void requestParticipantTurn(token, threadIdString, wantedAgentId, text || '', true).catch(
+          () => undefined,
+        )
+      }
       const needsNewSession =
         !talksDirect &&
-        (!sessionId || Boolean(askAgentId && activeSession?.agentId && activeSession.agentId !== askAgentId))
+        (!sessionId || Boolean(wantedAgentId && activeSession?.agentId && activeSession.agentId !== wantedAgentId))
       if (needsNewSession) {
         let started: ThreadSession | null = null
         try {
@@ -1280,6 +1358,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       activeSessionId,
       activeSession?.agentId,
       askAgentId,
+      agentCandidates,
       detail,
       sendAgentSessionMessage,
       stopAgentSessionStream,
@@ -1332,7 +1411,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
 
   const handleStopAgent = useCallback(() => {
     void stopAgentSessionStream()
-  }, [stopAgentSessionStream])
+    // Ask overlay also rides useSignalStream on the child session; aborting
+    // the HTTP SSE alone leaves that turn active → Stop / “Nadenken” linger.
+    resetSessionLive()
+  }, [stopAgentSessionStream, resetSessionLive])
 
   // Reply / Reply all / Forward on an email bubble opens the mail-native
   // composer, prefilled with recipients, subject and the quoted source mail.
@@ -1569,6 +1651,18 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   useEffect(() => {
     if (sessionTurn.ended && sessionTurnSaved && sessionPlaybackDone) resetSessionTurn()
   }, [sessionTurn.ended, sessionTurnSaved, sessionPlaybackDone, resetSessionTurn])
+  // Safety: if saved bubbles are in and the turn closed, do not keep the
+  // typing overlay forever when reveal never reports done (throttle / stall).
+  useEffect(() => {
+    if (!liveTurn.streamId || !liveTurn.ended || !liveTurnSaved || livePlaybackDone) return
+    const timer = window.setTimeout(() => setSettledStreamId(liveTurn.streamId), 1600)
+    return () => window.clearTimeout(timer)
+  }, [liveTurn.streamId, liveTurn.ended, liveTurnSaved, livePlaybackDone])
+  useEffect(() => {
+    if (!sessionTurn.streamId || !sessionTurn.ended || !sessionTurnSaved || sessionPlaybackDone) return
+    const timer = window.setTimeout(() => setSettledStreamId(sessionTurn.streamId), 1600)
+    return () => window.clearTimeout(timer)
+  }, [sessionTurn.streamId, sessionTurn.ended, sessionTurnSaved, sessionPlaybackDone])
 
   const liveAgentId =
     askAgentId ?? activeSession?.agentId ?? detail?.thread.agentId ?? null
@@ -1619,6 +1713,12 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       threadLiveTurn.streamId === sessionTurn.streamId &&
       !(liveTurn.streamId === threadLiveTurn.streamId && turnHasContent(liveTurn)),
   )
+  const liveOrbAgentId =
+    activeSession?.agentId ?? askAgentId ?? detail?.thread.agentId ?? null
+  const liveOrbDrive = useAgentOrbDrive(
+    liveOrbAgentId,
+    liveTurnOrbMotion(threadLiveTurn),
+  )
   // Turns the reader watched stream in: their saved bubbles land without the
   // enter animation, so the live -> saved hand-off does not flash.
   const watchedTurnIdsRef = useRef<Set<string>>(new Set())
@@ -1631,9 +1731,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   // Pulse avatar corners as soon as this thread sees a live turn / Ask stream.
   // The API also broadcasts agent.status; this covers the same browser before
   // that event lands (and keeps the open-thread agent marked working).
-  const sseBusy = Boolean(
-    agentStreaming || (threadLiveTurn && (threadLiveTurn.active || !threadLiveTurn.ended)),
-  )
+  // Only an *active* live turn keeps Stop up — a sealed/ended overlay must not
+  // leave Stop / “Nadenken” after the operator cancels (ended=false alone used
+  // to stick when gateway never sent `end`).
+  const sseBusy = Boolean(agentStreaming || (threadLiveTurn && threadLiveTurn.active))
   const agentTurnBusy = sseBusy || agentWorkingHere
   useEffect(() => {
     if (!liveAgentId || !agentStreaming) return
@@ -1881,6 +1982,8 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         onBlockContact={handleBlockContact}
         blockingContact={blockingContact}
         onPlan={onPlan}
+        participants={detail.participants}
+        activeTurn={liveActiveTurn ?? detail.activeTurn}
         panelCount={openSignalCount + (thread.nextAt || thread.schedule ? 1 : 0)}
         onExampleChanged={() => {
           void onRefresh()
@@ -1979,29 +2082,47 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                   liveTurnIsSession || agentStreaming ? (
                     <AiAvatar
                       {...toAiAvatarProps(
-                        {
-                          name: activeSession?.agentName ?? askAgentName ?? thread.agentName,
-                          agentId: activeSession?.agentId ?? askAgentId ?? thread.agentId,
-                          agentAvatarKind: thread.agentAvatarKind,
-                          agentAvatarIcon: thread.agentAvatarIcon,
-                          agentAvatarColor: thread.agentAvatarColor,
-                          agentAvatarShape: thread.agentAvatarShape,
-                          agentAvatarImageUrl: thread.agentAvatarImageUrl,
-                        },
+                        preferLiveAgentAvatar(
+                          (activeSession?.agentId ?? askAgentId ?? thread.agentId)
+                            ? agents.find(
+                                (row) =>
+                                  String(row.id) ===
+                                  String(activeSession?.agentId ?? askAgentId ?? thread.agentId),
+                              )
+                            : undefined,
+                          {
+                            name: activeSession?.agentName ?? askAgentName ?? thread.agentName,
+                            agentId: activeSession?.agentId ?? askAgentId ?? thread.agentId,
+                            agentAvatarKind: thread.agentAvatarKind,
+                            agentAvatarIcon: thread.agentAvatarIcon,
+                            agentAvatarColor: thread.agentAvatarColor,
+                            agentAvatarShape: thread.agentAvatarShape,
+                            agentAvatarImageUrl: thread.agentAvatarImageUrl,
+                          },
+                        ),
                         t('agentSession.title'),
                       )}
                       size={28}
                       decorative
                       activity="working"
-                      motion={liveTurnOrbMotion(threadLiveTurn)}
+                      motion={liveOrbDrive.motion}
+                      pulseId={liveOrbDrive.pulseId}
+                      baseMotion={liveOrbDrive.baseMotion}
                     />
                   ) : thread.agentId ? (
                     <AiAvatar
-                      {...toAiAvatarProps(thread)}
+                      {...toAiAvatarProps(
+                        preferLiveAgentAvatar(
+                          agents.find((row) => String(row.id) === String(thread.agentId)),
+                          thread,
+                        ),
+                      )}
                       size={28}
                       decorative
                       activity="working"
-                      motion={liveTurnOrbMotion(threadLiveTurn)}
+                      motion={liveOrbDrive.motion}
+                      pulseId={liveOrbDrive.pulseId}
+                      baseMotion={liveOrbDrive.baseMotion}
                     />
                   ) : undefined
                 }

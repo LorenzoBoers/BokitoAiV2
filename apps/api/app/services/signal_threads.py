@@ -279,6 +279,26 @@ async def _latest_message_previews(
 _OMIT = object()
 
 
+def _active_turn_payload(signal: Signal) -> dict[str, Any] | None:
+    """Parse multi-agent floor state for thread detail clients."""
+    raw = getattr(signal, "active_turn_json", None) or "{}"
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict) or not data.get("ref_id"):
+        return None
+    deadline_raw = str(data.get("deadline") or "").strip()
+    if deadline_raw:
+        try:
+            deadline = datetime.fromisoformat(deadline_raw.replace("Z", ""))
+            if datetime.utcnow() >= deadline:
+                return None
+        except ValueError:
+            pass
+    return data
+
+
 def serialize_thread(
     signal: Signal,
     *,
@@ -748,12 +768,28 @@ def serialize_message(
         "auto_sent": bool(message.auto_sent),
         "is_mock": is_mock,
         "delivered_to_customer": delivered,
-        "attachments": json.loads(message.attachments_json or "[]"),
+        "attachments": _safe_json_list(message.attachments_json),
         "decision_id": str(message.decision_id) if message.decision_id else None,
         "payload": payload,
         "received_at": _iso(message.received_at),
         "created_at": _iso(message.created_at),
     }
+
+
+def _safe_json_list(raw: str | None) -> list[Any]:
+    try:
+        data = json.loads(raw or "[]")
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _safe_json_dict(raw: str | None) -> dict[str, Any]:
+    try:
+        data = json.loads(raw or "{}")
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def serialize_event(event: SignalEvent, *, user_num_map: dict[UUID, int] | None = None) -> dict[str, Any]:
@@ -772,7 +808,7 @@ def serialize_event(event: SignalEvent, *, user_num_map: dict[UUID, int] | None 
         "actor_type": actor_type,
         "actor_user_id": actor_num,
         "actor_agent_id": event.actor_id if actor_type == "agent" and event.actor_id else None,
-        "payload": json.loads(event.payload_json or "{}"),
+        "payload": _safe_json_dict(event.payload_json),
         "created_at": _iso(event.created_at),
     }
 
@@ -1370,9 +1406,25 @@ async def list_threads(
 
     if agent_id:
         try:
-            query = query.where(Signal.agent_id == UUID(agent_id))
+            agent_uuid = UUID(agent_id)
         except ValueError:
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
+        from app.models.signal_participant import SignalParticipant
+
+        # Owner agent OR active participant (A2A / invited specialists).
+        query = query.where(
+            or_(
+                Signal.agent_id == agent_uuid,
+                Signal.id.in_(
+                    select(SignalParticipant.signal_id).where(
+                        SignalParticipant.tenant_id == tenant_id,
+                        SignalParticipant.kind == "agent",
+                        SignalParticipant.ref_id == agent_uuid,
+                        SignalParticipant.left_at.is_(None),
+                    )
+                ),
+            )
+        )
 
     if scheduled_from is not None:
         query = query.where(Signal.next_at >= scheduled_from)
@@ -1678,6 +1730,7 @@ async def get_thread(
 
     # Caller's own feedback per message so thumbs state survives reloads.
     from app.models.learning import Feedback
+    from app.services import message_reactions as reaction_svc
 
     feedback_by_subject: dict[str, Feedback] = {}
     if messages:
@@ -1690,6 +1743,14 @@ async def get_thread(
             )
         )
         feedback_by_subject = {f.subject_id: f for f in fb_result.scalars().all()}
+
+    reaction_by_message = await reaction_svc.aggregate_for_messages(
+        session,
+        tenant_id,
+        [m.id for m in messages],
+        viewer_type="user",
+        viewer_id=user_id,
+    )
 
     # Email needs HTML in the window (LazyEmailHtmlFrame). Chat / assistant /
     # WhatsApp render plain text; agent traces load on expand via get_message.
@@ -1723,9 +1784,14 @@ async def get_thread(
                 decisions_by_id[did] for did in bundle_ids.get(m.id, []) if did in decisions_by_id
             ],
         )
+        reactions = reaction_by_message.get(str(m.id)) or reaction_svc.empty_aggregate()
+        row["reactions"] = reactions
         fb = feedback_by_subject.get(str(m.id))
         if fb:
             row["my_feedback"] = {"score": fb.score, "sentiment": fb.sentiment}
+        elif reactions.get("mine") in reaction_svc.SCORED_KINDS:
+            sentiment, score = reaction_svc.SCORED_KINDS[reactions["mine"]]
+            row["my_feedback"] = {"score": score, "sentiment": sentiment}
         serialized_messages.append(row)
 
     # Inline agent sessions anchored on this thread (active + closed).
@@ -1777,6 +1843,25 @@ async def get_thread(
     from app.services.thread_schedule import rules_by_signal, schedule_payload
 
     folder_catalog = await load_catalog(session, tenant_id)
+    from app.services.participants import serialize_participants, sync_signal_baseline
+
+    try:
+        await sync_signal_baseline(session, signal)
+        await session.flush()
+    except Exception:  # noqa: BLE001 — roster sync must not break the thread
+        logger.debug("sync_signal_baseline failed for %s", signal.id, exc_info=True)
+        try:
+            await session.rollback()
+            # Re-load signal after rollback so later reads use a clean session.
+            signal = await session.get(Signal, signal_id) or signal
+        except Exception:  # noqa: BLE001
+            logger.debug("rollback after baseline sync failed for %s", signal_id, exc_info=True)
+    try:
+        participants = await serialize_participants(session, tenant_id, signal_id)
+    except Exception:  # noqa: BLE001 — participants are best-effort for the detail pane
+        logger.exception("serialize_participants failed for %s", signal_id)
+        participants = []
+    active_turn = _active_turn_payload(signal)
     return {
         "thread": serialize_thread(
             signal,
@@ -1796,6 +1881,8 @@ async def get_thread(
         # "Send and close" default) and the last person/team that handled it.
         "routing_policy": routing_policy if not is_internal_channel(signal.channel) else None,
         "last_human_owner": human_owner_payload(signal),
+        "participants": participants,
+        "active_turn": active_turn,
         "messages": serialized_messages,
         "events": [serialize_event(e, user_num_map=rev_map) for e in events],
         "sessions": sessions,
@@ -2063,12 +2150,17 @@ async def patch_thread(
         if kind == "user" and owner_id != signal.assigned_user_id and owner_id != user_id:
             newly_assigned = owner_id
         set_owner(signal, kind, owner_id, by_user_id=user_id)
+    tags_added: list[str] | None = None
+    tags_removed: list[str] | None = None
     if tags is not None:
         from app.services.signal_tags import set_signal_tags
 
         # Operator-typed tags join the tenant vocabulary, so the sidebar,
         # settings, and agent tagging all see the same list.
-        tags = await set_signal_tags(session, tenant_id, signal.id, tags, user_id=user_id)
+        tag_outcome = await set_signal_tags(session, tenant_id, signal.id, tags, user_id=user_id)
+        tags = tag_outcome["tags"]
+        tags_added = tag_outcome["added"]
+        tags_removed = tag_outcome["removed"]
     if priority is not None:
         signal.priority = priority
     if project_id_set:
@@ -2131,6 +2223,17 @@ async def patch_thread(
                 payload_json=json.dumps({"before": before_owner, "after": owner_payload(signal)}),
             )
         )
+    patch_payload: dict[str, Any] = {
+        "status": status,
+        "priority": priority,
+        "project_id": str(project_id) if project_id else None,
+        "assigned_to": assigned_to_user_id,
+        "tags": tags,
+    }
+    if tags_added is not None:
+        patch_payload["tags_added"] = tags_added
+    if tags_removed is not None:
+        patch_payload["tags_removed"] = tags_removed
     session.add(
         SignalEvent(
             signal_id=signal_id,
@@ -2138,15 +2241,7 @@ async def patch_thread(
             event_type="thread_updated",
             actor_type="user",
             actor_id=str(user_id),
-            payload_json=json.dumps(
-                {
-                    "status": status,
-                    "priority": priority,
-                    "project_id": str(project_id) if project_id else None,
-                    "assigned_to": assigned_to_user_id,
-                    "tags": tags,
-                }
-            ),
+            payload_json=json.dumps(patch_payload),
         )
     )
     # Govern audit only for the mutations that matter (status / assignee) —
@@ -2246,9 +2341,15 @@ async def _notify_assignment(
     """Tell a teammate a conversation is theirs now (tier 1)."""
     from app.services.notify import TIER_NOW, notify
 
+    from app.services.notify import from_user
+
     actor_result = await session.execute(select(User).where(User.id == actor_id))
     actor = actor_result.scalar_one_or_none()
     actor_name = (actor.display_name or actor.email) if actor else "A teammate"
+    payload: dict[str, Any] = {}
+    mark = from_user(actor)
+    if mark:
+        payload["from"] = mark
     await notify(
         session,
         tenant_id,
@@ -2259,6 +2360,7 @@ async def _notify_assignment(
         tier=TIER_NOW,
         category="assigned-to-me",
         signal_id=signal.id,
+        payload=payload or None,
     )
 
 
@@ -3221,6 +3323,14 @@ async def notify_mentions(
     ]
     if not targets:
         return []
+    from app.services.notify import from_user
+
+    payload: dict[str, Any] = {}
+    if author_user_id:
+        author = await session.get(User, author_user_id)
+        mark = from_user(author)
+        if mark:
+            payload["from"] = mark
     await notify(
         session,
         tenant_id,
@@ -3231,6 +3341,7 @@ async def notify_mentions(
         tier=TIER_NOW,
         category="mentions",
         signal_id=signal.id,
+        payload=payload or None,
     )
     return targets
 
@@ -3311,8 +3422,9 @@ async def _generate_agent_reply(
     (agent.turn / agent.activity / message.delta / message) keep the open
     thread live; each chat bubble arrives as its own message.
     """
-    from app.services.agent.loop import AgentLoop
     from app.services.assistant_threads import signal_chat_history
+    from app.services.chat_runtime import build_agent_loop
+    from app.services.participants import ensure_participant
 
     signal_id = signal.id
     agent = None
@@ -3335,13 +3447,23 @@ async def _generate_agent_reply(
             summary="Replying",
             signal_id=signal.id,
         )
-        history = await signal_chat_history(session, signal_id)
-        loop = AgentLoop(
+        await ensure_participant(
             session,
-            tenant_id,
-            user_id,
+            signal,
+            kind="agent",
+            ref_id=agent.id,
+            role="member",
+            joined_via="thread_reply",
+        )
+        history = await signal_chat_history(session, signal_id)
+        loop = build_agent_loop(
+            session,
+            tenant_id=tenant_id,
+            user_id=user_id,
             agent=agent,
             signal_id=signal_id,
+            trust="operator",
+            surface="thread_reply",
             enable_chat_thinking=True,
         )
         tokens: dict = {"input_tokens": 0, "output_tokens": 0}

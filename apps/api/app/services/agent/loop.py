@@ -376,7 +376,7 @@ class AgentLoop:
         turn = self.turn
         showcase = list(self._showcase_items)
         self._showcase_items = []
-        return await persist_agent_turn(
+        saved = await persist_agent_turn(
             self.session,
             signal,
             segments=list(turn.segments) if turn else [],
@@ -391,6 +391,14 @@ class AgentLoop:
             showcase_items=showcase,
             replace_message_id=self._checkpoint_message_id,
         )
+        # Peer turns claimed mid-loop start only after this handoff is on the timeline.
+        try:
+            from app.services.participant_turns import flush_deferred_participant_turn
+
+            await flush_deferred_participant_turn(self.session, signal)
+        except Exception:  # noqa: BLE001
+            logger.debug("flush deferred participant turn failed", exc_info=True)
+        return saved
 
     async def _checkpoint_turn(self) -> None:
         """Write thinking and tools onto the thread while the turn is still open."""
@@ -521,7 +529,10 @@ class AgentLoop:
         """Tell the model who is chatting — an internal operator, not a customer."""
         if not self.user_id:
             return ""
+        import json
+
         from app.models.auth import User
+        from app.services.language import LANGUAGE_NAMES, platform_default_ui_language
 
         user = await self.session.get(User, self.user_id)
         if not user:
@@ -535,12 +546,29 @@ class AgentLoop:
                 "entity — never address this human as yourself, never chip them with "
                 "an agent: id, and never list them among agents."
             )
+        ui_line = ""
+        if self.agent is not None and self.agent.acts_for_user:
+            try:
+                stored = json.loads(user.settings_json or "{}")
+            except json.JSONDecodeError:
+                stored = {}
+            if not isinstance(stored, dict):
+                stored = {}
+            code = stored.get("ui_language")
+            if code not in ("en", "nl"):
+                code = platform_default_ui_language()
+            ui_name = LANGUAGE_NAMES.get(code, code)
+            ui_line = (
+                f" Their dashboard UI language is {ui_name} (`ui_language={code}`); "
+                "they change it under Settings → Profile & security → Language at "
+                "/settings/profile. That is independent of the workspace working language."
+            )
         return (
             "## Current operator\n"
             f"You are assisting **{name}** <{user.email}> (user:{self.user_id}), a "
             f"human workspace {role} on this Bokito tenant. They are an internal "
             "operator (teammate), not an external customer and not an AI agent."
-            f"{agent_line} Address them by their human name when needed. Prefer "
+            f"{agent_line}{ui_line} Address them by their human name when needed. Prefer "
             "tools and workspace context over asking them for information that is "
             "already in the tenant snapshot."
         )
@@ -609,6 +637,19 @@ class AgentLoop:
                     "Chip other agents only from the Tenant snapshot or a tool result, "
                     "copied exactly; never invent an id."
                 )
+                role_key = (self.agent.role or "").strip().lower()
+                if role_key in ("po", "orchestrator", "manager", "orchestra"):
+                    parts.append(
+                        "## Lead routing\n"
+                        "Do not do module specialist work yourself. To ask another "
+                        "agent something in this same conversation, use "
+                        "request_participant_turn (or invite_to_thread with wake=true "
+                        "if they are not a participant yet) so their reply stays "
+                        "inline here. Use start_conversation only when you need a "
+                        "separate peer chat; use delegate_to_agent / "
+                        "start_conversation mode=task for longer background jobs. "
+                        "Keep your own tools to orchestration, messaging, and decisions."
+                    )
         if workspace:
             parts.append(workspace)
         # Always remind agents with custom prompts that live tenant tools exist.
@@ -674,8 +715,10 @@ class AgentLoop:
             # The personal assistant is the one agent that carries memory of
             # the person across workspaces.
             if self.agent is not None and self.agent.acts_for_user:
+                from app.services.assistant_context import settings_guide_block
                 from app.services.user_memory import user_memory_block
 
+                parts.append(settings_guide_block())
                 memory = await user_memory_block(self.session, self.user_id)
                 if memory:
                     parts.append(memory)

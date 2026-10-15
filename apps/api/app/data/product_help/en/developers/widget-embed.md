@@ -73,3 +73,7 @@ The widget reads the reply as server-sent events. A custom client on the same st
 2. Confirm the thread appears in Communication on the chat channel.
 3. Check branding and welcome text under widget settings.
 4. Then add the snippet to your production template.
+
+## Bokito docs
+
+The public `/docs` and `/docs/api` pages mount the same anonymous website-chat embed for the Bokito tenant (not the signed-in in-app helper). That keeps product help reachable for visitors who are not logged in, with conversations landing in Bokito's Communication hub.

@@ -5,7 +5,9 @@ import { apiGet, apiPost } from '../lib/api';
 import type { GatewayEvent } from '../lib/gateway';
 import { applyLive, listLive, onLiveReconnect, seedLive, useLiveList } from '../lib/live-store';
 import { openEntityPath } from '../lib/open-entity';
+import { parseNotificationFrom } from '../lib/notification-from';
 import { playIncomingNotificationSound } from '../lib/notification-sound';
+import { NotificationToast } from '../components/notifications/NotificationToast';
 import { useAuth } from './AuthContext';
 
 const TABLE = 'notification';
@@ -150,19 +152,43 @@ export function announceNotification(
   const openLabel = (document.documentElement.lang || 'nl').toLowerCase().startsWith('nl')
     ? 'Openen'
     : 'Open';
-  toast(raw.title || kind, {
-    description: (raw.body || '').slice(0, 160) || undefined,
-    duration: 6000,
-    action: href
-      ? {
-          label: openLabel,
-          onClick: () => {
-            if (navigate) navigate(href);
-            else window.location.assign(href);
-          },
+  const payload =
+    raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {};
+  const from = parseNotificationFrom(payload);
+  toast.custom(
+    (id) => (
+      <NotificationToast
+        toastId={id}
+        title={raw.title || kind}
+        body={(raw.body || '').slice(0, 160) || undefined}
+        from={from}
+        openLabel={openLabel}
+        href={href}
+        onOpen={
+          href
+            ? () => {
+                if (navigate) navigate(href);
+                else window.location.assign(href);
+              }
+            : undefined
         }
-      : undefined,
-  });
+      />
+    ),
+    {
+      duration: 6000,
+      closeButton: false,
+      // Own glass chrome — strip Sonner's opaque card around the custom body.
+      // Inline style beats Sonner's `--normal-bg` variable; CSS :has() is the backup.
+      className: '!bg-transparent !border-0 !shadow-none !p-0',
+      style: {
+        background: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
+        padding: 0,
+      },
+      unstyled: true,
+    },
+  );
 }
 
 /**

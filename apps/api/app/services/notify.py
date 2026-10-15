@@ -241,6 +241,109 @@ def serialize_notification(n: Notification) -> dict[str, Any]:
     }
 
 
+def from_user(user: User | None) -> dict[str, Any] | None:
+    """Sender mark for a workspace member (toast + bell avatar)."""
+    if user is None:
+        return None
+    name = (user.display_name or user.email or "").strip()
+    if not name:
+        return None
+    return {
+        "kind": "user",
+        "id": str(user.id),
+        "name": name,
+        "email": user.email or "",
+        "avatar_url": user.avatar_url,
+    }
+
+
+def from_agent(agent: Any | None) -> dict[str, Any] | None:
+    """Sender mark for an AI agent."""
+    if agent is None:
+        return None
+    from app.services.agent_avatar import avatar_payload
+
+    name = (getattr(agent, "name", None) or "").strip()
+    if not name:
+        return None
+    av = avatar_payload(agent)
+    return {
+        "kind": "agent",
+        "id": str(agent.id),
+        "name": name,
+        "avatar_kind": av.get("avatar_kind"),
+        "avatar_icon": av.get("avatar_icon"),
+        "avatar_color": av.get("avatar_color"),
+        "avatar_shape": av.get("avatar_shape"),
+        "avatar_image_url": av.get("avatar_image_url"),
+    }
+
+
+def from_contact(
+    *,
+    name: str = "",
+    email: str = "",
+    contact_id: UUID | str | None = None,
+    host: str | None = None,
+) -> dict[str, Any] | None:
+    """Sender mark for an external contact / visitor."""
+    label = (name or email or "").strip()
+    if not label:
+        return None
+    row: dict[str, Any] = {
+        "kind": "contact",
+        "name": label,
+        "email": (email or "").strip(),
+    }
+    if contact_id:
+        row["id"] = str(contact_id)
+    if host:
+        row["host"] = host
+    return row
+
+
+def from_signal_contact(signal: Any) -> dict[str, Any] | None:
+    """Contact mark from a conversation row."""
+    return from_contact(
+        name=getattr(signal, "contact_name", "") or "",
+        email=getattr(signal, "contact_email", "") or "",
+        contact_id=getattr(signal, "contact_id", None),
+    )
+
+
+async def resolve_from_actor(
+    session: AsyncSession,
+    *,
+    actor_type: str = "",
+    actor_id: str = "",
+    signal: Any | None = None,
+) -> dict[str, Any] | None:
+    """Pick a toast/bell sender: agent, user, or the conversation contact."""
+    kind = (actor_type or "").strip().lower()
+    raw_id = (actor_id or "").strip()
+    if kind == "agent" and raw_id:
+        from app.models.agent import Agent
+
+        try:
+            agent = await session.get(Agent, UUID(raw_id))
+        except (TypeError, ValueError):
+            agent = None
+        mark = from_agent(agent)
+        if mark:
+            return mark
+    if kind == "user" and raw_id:
+        try:
+            user = await session.get(User, UUID(raw_id))
+        except (TypeError, ValueError):
+            user = None
+        mark = from_user(user)
+        if mark:
+            return mark
+    if signal is not None:
+        return from_signal_contact(signal)
+    return None
+
+
 async def _users(session: AsyncSession, ids: Iterable[UUID]) -> list[User]:
     unique = list(dict.fromkeys(uid for uid in ids if uid))
     if not unique:
@@ -434,6 +537,10 @@ async def notify_new_inbound(
     lang = resolve_workspace_language(tenant)
     who = (sender or "").strip() or ("Iemand" if lang == "nl" else "Someone")
     title = f"Nieuw bericht van {who}" if lang == "nl" else f"New message from {who}"
+    contact_mark = from_signal_contact(signal) or from_contact(name=who)
+    payload: dict[str, Any] = {"channel": getattr(signal, "channel", "")}
+    if contact_mark:
+        payload["from"] = contact_mark
     return await notify(
         session,
         tenant_id,
@@ -444,7 +551,7 @@ async def notify_new_inbound(
         tier=TIER_NOW,
         category="new-message",
         signal_id=signal.id,
-        payload={"channel": getattr(signal, "channel", "")},
+        payload=payload,
         exclude=exclude,
     )
 

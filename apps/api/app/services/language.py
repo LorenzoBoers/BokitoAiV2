@@ -118,7 +118,9 @@ def internal_language_instruction(code: str) -> str:
         f"This workspace's working language is {name}. "
         f"Write every reply, thinking/reasoning block, tool narration, "
         f"activity summary, and decision title in {name}. "
-        f"Do not switch to another language unless the operator explicitly asks."
+        f"Do not switch to another language unless the operator explicitly asks. "
+        f"This is not the dashboard UI language: menus and Settings labels follow "
+        f"each person's Profile setting at /settings/profile (Dutch or English)."
     )
 
 

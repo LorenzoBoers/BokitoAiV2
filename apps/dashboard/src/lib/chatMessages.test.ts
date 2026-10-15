@@ -13,6 +13,16 @@ describe('splitChatMessages', () => {
     expect(splitChatMessages('Thanks for waiting\n\nok')).toEqual(['Thanks for waiting\nok'])
   })
 
+  it('drops a short restarted opener instead of two stutter bubbles', () => {
+    expect(
+      splitChatMessages('Je\n\nJe dashboardtaal is Nederlands. Je kunt dat zelf wijzigen.'),
+    ).toEqual(['Je dashboardtaal is Nederlands. Je kunt dat zelf wijzigen.'])
+  })
+
+  it('joins a short non-restart opener into the next message', () => {
+    expect(splitChatMessages('Ok\n\nIk regel dat vandaag.')).toEqual(['Ok\nIk regel dat vandaag.'])
+  })
+
   it('drops blocks without text, such as a lone horizontal rule', () => {
     expect(
       splitChatMessages('Hier zijn suggesties:\n\n---\n\n#### Actietags\n- #feature\n\n***\n\n**', 0),

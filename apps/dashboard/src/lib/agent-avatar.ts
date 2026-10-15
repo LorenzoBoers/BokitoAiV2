@@ -145,7 +145,13 @@ export function toAiAvatarProps(
   fallbackName = 'Agent',
 ): AgentAvatarProps {
   if (!source) {
-    return { name: fallbackName, kind: 'initials' }
+    // Pending shell (empty tinted circle) until agents/thread hydrate.
+    return {
+      name: fallbackName,
+      kind: null,
+      color: DEFAULT_BOT_ORB_COLOR,
+      shape: DEFAULT_BOT_ORB_SHAPE,
+    }
   }
   const kind =
     source.avatar_kind ?? source.avatarKind ?? source.agentAvatarKind
@@ -153,17 +159,34 @@ export function toAiAvatarProps(
     source.avatar_shape ?? source.avatarShape ?? source.agentAvatarShape
   const colorRaw =
     source.avatar_color ?? source.avatarColor ?? source.agentAvatarColor
-  const isOrb = (kind ?? '').trim().toLowerCase() === 'orb'
+  const normalized = (kind ?? '').trim().toLowerCase()
+  const isOrb = normalized === 'orb' || !normalized
   return {
     name: source.name || source.agentName || fallbackName,
     seed: String(source.seed || source.agentId || source.id || '') || undefined,
-    kind,
+    kind: normalized || null,
     icon: source.avatar_icon ?? source.avatarIcon ?? source.agentAvatarIcon,
     imageUrl:
       source.avatar_image_url ?? source.avatarImageUrl ?? source.agentAvatarImageUrl,
-    color: isOrb ? resolveBotOrbColor(colorRaw) : colorRaw,
+    color: isOrb ? resolveBotOrbColor(colorRaw) : colorRaw || DEFAULT_BOT_ORB_COLOR,
     shape: isOrb ? resolveBotOrbShape(shapeRaw) : shapeRaw,
   }
+}
+
+/**
+ * Prefer the live agents catalog over thread-stamped avatar fields so a mark
+ * change does not leave timeline bubbles on initials while the rail already
+ * shows the bot.
+ */
+export function preferLiveAgentAvatar(
+  live: AgentAvatarSource | null | undefined,
+  stamped: AgentAvatarSource | null | undefined,
+): AgentAvatarSource | null {
+  if (live) {
+    const kind = live.avatar_kind ?? live.avatarKind ?? live.agentAvatarKind
+    if (kind) return { ...stamped, ...live }
+  }
+  return stamped ?? live ?? null
 }
 
 export type { BotOrbShapeKey }

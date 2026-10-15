@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
-import { filtersetLabel, predictFiltersetParent } from '../../lib/folder-filter-tree'
+import { filtersetPlainLabel, predictFiltersetParent } from '../../lib/folder-filter-tree'
 import { normalizeHashtag, stripHash } from '../../lib/hashtag'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listSignalTags, type SignalTag } from '../../lib/signals-api'
@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from './dialog'
 import { HashtagMark } from './HashtagMark'
+import { TagChipInput, type TagChip } from './TagChipInput'
 import { TagPill } from './TagPill'
 
 export type TagSetOption = {
@@ -59,8 +60,8 @@ type Props = {
 }
 
 /**
- * Shared multi-select tag cloud: saved maps first, then tags. Click toggles
- * into a selection tray; Confirm applies all at once.
+ * Shared multi-select tag cloud: selected labels live as chips in the search
+ * field (type after them); the cloud below discovers or creates labels.
  */
 export function TagSetPicker({
   open,
@@ -160,7 +161,7 @@ export function TagSetPicker({
     for (const map of savedMaps) {
       const names = (map.tag_names ?? []).map((n) => normalizeHashtag(n)).filter(Boolean)
       if (!names.length) continue
-      const label = filtersetLabel(names)
+      const label = filtersetPlainLabel(names)
       if (q && !names.some((name) => name.includes(q)) && !label.toLowerCase().includes(q)) continue
       out.push({
         key: `map-${map.id}`,
@@ -176,7 +177,7 @@ export function TagSetPicker({
         if (q && !row.name.includes(q) && !row.description.toLowerCase().includes(q)) continue
         out.push({
           key: `cat-${row.id}`,
-          label: `#${row.name}`,
+          label: row.name,
           tagNames: [row.name],
           viaContact: inherited.has(row.name),
           isCategory: true,
@@ -187,7 +188,7 @@ export function TagSetPicker({
       if (q && !row.name.includes(q) && !row.description.toLowerCase().includes(q)) continue
       out.push({
         key: `tag-${row.id}`,
-        label: `#${row.name}`,
+        label: row.name,
         tagNames: [row.name],
         viaContact: inherited.has(row.name),
       })
@@ -249,7 +250,8 @@ export function TagSetPicker({
   }
 
   const confirm = async () => {
-    if (!fullSelection.length) return
+    // Folder label edit may clear all labels (place-only folder).
+    if (mode !== 'folder' && !fullSelection.length) return
     // Creating under a locked parent requires at least one extra tag.
     if (locked.length > 0 && selected.filter((n) => !applied.has(n)).length === 0) return
     setBusy(true)
@@ -266,14 +268,30 @@ export function TagSetPicker({
   const pendingOnly = selected.filter((n) => !applied.has(n) && !lockedSet.has(n))
   const canConfirm =
     fullSelection.length > 0 && (locked.length === 0 ? pendingOnly.length > 0 || selected.length > 0 : pendingOnly.length > 0)
-  // Edit existing folder: allow save when selection differs from initial (including removals).
+  // Folder mode: allow save with zero labels, or when selection differs from initial.
   const editReady =
     mode === 'folder' && locked.length === 0
-      ? fullSelection.length > 0
+      ? true
       : canConfirm
 
   const mapOptions = options.filter((row) => row.isSavedMap)
   const tagOptions = options.filter((row) => !row.isSavedMap)
+
+  const inputChips: TagChip[] = [
+    ...locked.map((name) => ({
+      name,
+      tone: 'set' as const,
+      locked: true,
+      title: t('tags.lockedFromParent', {
+        defaultValue: 'Inherited from the broader map — always required',
+      }),
+    })),
+    ...pendingOnly.map((name) => ({ name, tone: 'free' as const, title: name })),
+  ]
+
+  const removeChip = (name: string) => {
+    setSelected((prev) => prev.filter((n) => n !== name))
+  }
 
   const renderOption = (row: TagSetOption) => {
     const allApplied =
@@ -287,7 +305,7 @@ export function TagSetPicker({
         key={row.key}
         names={row.tagNames}
         tone={tone}
-        size="lg"
+        size="md"
         selected={allSelected && !allApplied}
         applied={allApplied}
         title={
@@ -299,13 +317,22 @@ export function TagSetPicker({
                 ? t('tags.savedMap', { defaultValue: 'Saved map' })
                 : t('tags.freeHashtag')
         }
-        onClick={allApplied ? undefined : () => pickOption(row)}
+        onClick={
+          allApplied
+            ? undefined
+            : () => {
+                pickOption(row)
+                if (!row.isCategory) setQuery('')
+              }
+        }
         disabled={busy}
+        className="transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]"
       >
-        <span className="inline-flex min-w-0 items-center gap-1.5">
-          <span className="truncate">{row.label}</span>
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <HashtagMark category={row.isCategory} />
+          <span className="min-w-0 truncate">{row.label}</span>
           {allSelected && !allApplied ? (
-            <Check size={14} className="shrink-0 text-accent" aria-hidden />
+            <Check size={13} className="shrink-0 text-accent" aria-hidden />
           ) : null}
           {row.viaContact ? (
             <span className="text-2xs text-text-muted">{t('tags.viaContact')}</span>
@@ -323,95 +350,40 @@ export function TagSetPicker({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        {locked.length > 0 || pendingOnly.length > 0 ? (
-          <div className="space-y-2 rounded-xl border border-accent/25 bg-accent/[0.06] p-2.5">
-            {locked.length > 0 ? (
-              <div className="space-y-1.5">
-                <p className="text-2xs font-medium uppercase tracking-wide text-text-muted">
-                  {t('tags.fromBroaderMap', { defaultValue: 'From broader map' })}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {locked.map((name) => (
-                    <TagPill
-                      key={`locked-${name}`}
-                      names={name}
-                      tone="set"
-                      size="lg"
-                      applied
-                      title={t('tags.lockedFromParent', {
-                        defaultValue: 'Inherited from the broader map — always required',
-                      })}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {pendingOnly.length > 0 ? (
-              <div className="space-y-1.5">
-                {locked.length > 0 ? (
-                  <p className="text-2xs font-medium uppercase tracking-wide text-text-muted">
-                    {t('tags.extraTags', { defaultValue: 'Extra tags (this map)' })}
-                  </p>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
-                  {pendingOnly.map((name) => (
-                    <TagPill
-                      key={name}
-                      names={name}
-                      selected
-                      size="lg"
-                      removeAlwaysVisible
-                      onRemove={() => setSelected((prev) => prev.filter((n) => n !== name))}
-                      removeLabel={t('tags.remove', { tag: name })}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <TagChipInput
+          chips={inputChips}
+          value={query}
+          onChange={(next) => setQuery(stripHash(next))}
+          onSubmit={addDraft}
+          onRemove={removeChip}
+          disabled={busy}
+          autoFocus
+          placeholder={t('tags.searchPlaceholder')}
+          aria-label={t('tags.searchPlaceholder')}
+        />
 
         {mode === 'folder' && fullSelection.length > 0 ? (
           <p className="text-xs text-text-muted" data-testid="tag-set-preview">
             {t('tags.filtersetPreview', {
-              defaultValue: 'Filterset: {{set}}',
-              set: filtersetLabel(fullSelection),
+              defaultValue: 'Labels: {{set}}',
+              set: filtersetPlainLabel(fullSelection),
             })}
             {parentPreview ? (
               <>
                 {' · '}
                 {t('tags.comesUnder', {
                   defaultValue: 'Comes under {{parent}}',
-                  parent: filtersetLabel(parentPreview.tag_names),
+                  parent: filtersetPlainLabel(parentPreview.tag_names),
                 })}
               </>
             ) : showParentPreview ? (
               <>
                 {' · '}
-                {t('tags.comesUnderRoot', { defaultValue: 'Top-level map' })}
+                {t('tags.comesUnderRoot', { defaultValue: 'Top-level folder' })}
               </>
             ) : null}
           </p>
         ) : null}
-
-        <label className="flex h-10 items-center gap-2 rounded-xl border border-border/80 bg-bg-input px-3 focus-within:border-accent/45">
-          <HashtagMark className="text-sm" />
-          <input
-            autoFocus
-            value={query}
-            disabled={busy}
-            onChange={(e) => setQuery(stripHash(e.target.value))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                addDraft()
-              }
-            }}
-            placeholder={t('tags.searchPlaceholder')}
-            aria-label={t('tags.searchPlaceholder')}
-            className="h-full w-full bg-transparent text-sm text-text-primary outline-none"
-          />
-        </label>
 
         <div className="max-h-72 space-y-3 overflow-y-auto pr-0.5">
           {loading ? (
@@ -423,7 +395,7 @@ export function TagSetPicker({
               {mode === 'folder' && mapOptions.length > 0 ? (
                 <div className="space-y-1.5">
                   <p className="px-0.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
-                    {t('tags.savedMaps', { defaultValue: 'Saved maps' })}
+                    {t('tags.savedMaps', { defaultValue: 'Saved folders' })}
                   </p>
                   <div className="flex flex-wrap gap-2">{mapOptions.map(renderOption)}</div>
                 </div>
@@ -431,7 +403,7 @@ export function TagSetPicker({
               <div className="space-y-1.5">
                 {mode === 'folder' && mapOptions.length > 0 ? (
                   <p className="px-0.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
-                    {t('tags.tagsSection', { defaultValue: 'Tags' })}
+                    {t('tags.tagsSection', { defaultValue: 'Labels' })}
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
@@ -440,7 +412,7 @@ export function TagSetPicker({
                     <TagPill
                       names={normalized}
                       tone="free"
-                      size="lg"
+                      size="md"
                       selected={selectedSet.has(normalized)}
                       onClick={() => {
                         if (mode === 'thread' && onCreateChoice) onCreateChoice(normalized)
@@ -450,7 +422,7 @@ export function TagSetPicker({
                         }
                       }}
                       disabled={busy}
-                      className="border-dashed"
+                      className="border border-dashed border-border/70 bg-transparent transition-transform duration-150 hover:-translate-y-px"
                     />
                   ) : null}
                 </div>

@@ -75,13 +75,13 @@ While a person or team owns the conversation, the agent only drafts, even on an 
 
 ## Work with the AI inside a customer conversation
 
-An Ask turn opens a session with the agent on the conversation itself. The exchange shows as ordinary rows in the same timeline, so you read it next to the customer mail; nothing leaves the workspace.
+**Ask** is a quiet side session: the customer never sees it. **@agent** in a note or reply invites that agent onto the conversation and gives them the floor — the header shows who is waiting, and they work in the same thread as the team.
 
 1. Switch the composer to **Ask {agent}** and send. A small line **{agent} · internal** marks where the session starts; the agent name links to the agent. The session opens on that first send — you do not start it by hand. Agent chats and team threads have no session: Ask talks on the thread itself.
 2. Your question lands on the right, the agent answers on the left while it streams, exactly like an agent chat. Every session row carries a crossed-eye mark with the tooltip **Internal - not visible to the customer**.
-3. The agent answers briefly and does not narrate what it is about to read. When a customer reply is the obvious next step it drafts one right away: the draft opens in your composer and the **Suggested a reply** card in the timeline shows **In composer**. Edit, then send to the customer. When it only needs to leave context for the team, it posts an **Internal note** with an **AI** chip (purple dashed note) — that is not a draft and needs no approval.
-4. The session closes itself when the agent is done, when you send a reply to the customer, or after about an hour without activity. There is no wrap-up card and no **End session** button.
-5. A closed session folds to one line: **Session with {agent} · N messages · N actions · time**. Click it to read the summary, the actions and the full exchange.
+3. To put an agent on the floor instead of a quiet Ask, type `@` in a **Note** (or reply) and pick the agent, then send. They join the participant row and the timeline shows their turn. Module specialists appear in the same pick list when that module is installed.
+4. The agent answers briefly and does not narrate what it is about to read. When a customer reply is the obvious next step it drafts one right away: the draft opens in your composer and the **Suggested a reply** card in the timeline shows **In composer**. Edit, then send to the customer. When it only needs to leave context for the team, it posts an **Internal note** with an **AI** chip (purple dashed note) — that is not a draft and needs no approval.
+5. A quiet Ask session closes itself when the agent is done, when you send a reply to the customer, or after about an hour without activity. There is no wrap-up card and no **End session** button. A closed session folds to one line: **Session with {agent} · N messages · N actions · time**. Click it to read the summary, the actions and the full exchange.
 
 ## Read an email thread
 
@@ -134,6 +134,13 @@ An agent turn reads like a chat: a few short messages, with one line between the
 5. Agent messages use chat formatting only: bold, italic, strikethrough and links. Headings and tables become plain lines.
 6. Under an agent message, **Sent to the customer** or **Not delivered** shows only on customer channels (email, WhatsApp, website chat). Chats with agents and internal threads never show a delivery label.
 
+## React to a message
+
+Every timeline message can take a reaction — customer mail, teammate notes, and agent replies alike. Reactions stack like LinkedIn: one emoji per person, counts when several people pick the same one. Like and Agree feed the learning loop (Usage average feedback); Not helpful and Frustrated count as negative. Agents can leave **Looking into it** via tools; people cannot pick that one.
+
+1. Hover a message (or a mail card). A row of reaction choices appears next to the time: Like, Not helpful, Agree, Frustrated, Thinking.
+2. Choose one. The emoji sits on the message with a count when others react the same way. Hover the stack to see who reacted. Choose the same emoji again to clear yours, or pick another to replace it.
+
 ## Review an AI-suggested reply
 
 1. When the channel agent suggests a reply, the draft appears in the composer. The text glows purple for a couple of seconds so you can see it was generated. The timeline shows that action next to that agent's avatar: **Suggested a reply**. The first line of the timeline is **Conversation started by {name}**.
@@ -180,7 +187,7 @@ You called the customer, answered from a personal WhatsApp or settled it from an
 
 ## Tag a conversation and file a ticket
 
-1. Open a customer conversation. The side panel **This conversation** shows the AI summary when the channel agent has read the thread, then priority, look-again, tags and the ticket. When this conversation owns a snapshot canvas, the same block shows its name, a compact preview and a link to that canvas. Choose **Add tags** for free tags and action tags (action tags start a ticket flow); see [Action tags and tickets](/docs/ai/categories). On a closed conversation, the ⋯ menu offers **Use as example** so the next similar reply can learn from it.
+1. Open a customer conversation. The side panel **This conversation** shows the AI summary when the channel agent has read the thread, then priority, look-again, labels and the ticket. When this conversation owns a snapshot canvas, the same block shows its name, a compact preview and a link to that canvas. Choose **Add labels** for free labels and action tags (action tags start a ticket flow); see [Action tags and tickets](/docs/ai/categories). On a closed conversation, the ⋯ menu offers **Use as example** so the next similar reply can learn from it.
 2. Type with a soft `#`. Spaces, hyphens and underscores become `_`, so `mistral ai` is `#mistral_ai`. Matching rows are paths (`#acme / #facturen`), not a bare tag. One matching path: Enter takes it and sets every tag on that path. When the contact already has the parent tag, the leaf is enough and the row shows **via contact**. An unknown name asks whether to add it as a tag or **Make action tag**. The conversation can appear in every folder whose path tags it carries. Tags inherited from the contact show as dashed chips you cannot remove here.
 3. The action-tag chip is locked on the conversation. Change it by replacing in the picker, or **Split** when a second request needs its own ticket. Free tags show a muted `#` and an **x** to remove.
 4. Manage the list under **Settings** → **# Tags**: rename a tag, put it in a group, add a description agents read, pin it to Communication, choose **Create folder** or **Create flow** / **Open flow**, or delete it from every conversation. You can also ask an agent in chat (*add the tags #vip and #partner*): it proposes **Create hashtag #vip** and the rest as rows on one card you approve in the thread; see [Decisions](/docs/ai/decisions). Agents propose action tags the same way, through Govern.

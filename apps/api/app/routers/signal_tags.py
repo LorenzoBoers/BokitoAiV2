@@ -22,6 +22,7 @@ class TagRow(BaseModel):
     id: str
     name: str
     description: str
+    color: str = ""
     count: int
     is_category: bool = False
     workstream_id: str | None = None
@@ -37,6 +38,7 @@ class TagRow(BaseModel):
 class TagCreate(BaseModel):
     name: str
     description: str = ""
+    color: str = ""
     show_in_nav: bool = False
     group_id: UUID | None = None
 
@@ -44,6 +46,7 @@ class TagCreate(BaseModel):
 class TagUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    color: str | None = None
     show_in_nav: bool | None = None
     ai_auto_tag: bool | None = None
     group_id: UUID | None = None
@@ -198,6 +201,7 @@ async def create_tag(
             auth.tenant.id,
             body.name,
             description=body.description,
+            color=body.color,
             show_in_nav=body.show_in_nav,
             group_id=body.group_id,
             user_id=auth.user.id,
@@ -226,6 +230,7 @@ async def update_tag(
             tag_id,
             name=body.name,
             description=body.description,
+            color=body.color,
             show_in_nav=body.show_in_nav,
             ai_auto_tag=body.ai_auto_tag,
             group_id=body.group_id,

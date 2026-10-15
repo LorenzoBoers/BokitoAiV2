@@ -24,8 +24,10 @@ import type {
   RelatedConversation,
   ReplyInput,
   ScheduleRecipient,
+  ThreadActiveTurn,
   ThreadDetail,
   ThreadFilters,
+  ThreadParticipant,
   ThreadRoutingPolicy,
 } from './inbox-api'
 import { parsePresenceStatus, type PresenceStatus } from './teams-api'
@@ -102,6 +104,7 @@ export function normalizeSignalMessage(row: unknown): InboxMessage | null {
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
     myFeedback: normalizeMyFeedback(raw),
+    reactions: normalizeMessageReactions(raw.reactions),
     ...normalizeMessageActivity(raw),
     ...messageProposalFields(raw.payload),
     receivedAt: asNullableTimestampString(raw.received_at),
@@ -225,12 +228,14 @@ function normalizeThreadSession(row: unknown): ThreadSession | null {
 }
 
 /** Why an agent is offered on a thread; drives the picker's hint label. */
-export type ThreadAgentReason = 'channel' | 'project' | 'company'
+export type ThreadAgentReason = 'channel' | 'project' | 'company' | 'module'
 
 export type ThreadAgentCandidate = {
   id: string
   name: string
   reason: ThreadAgentReason
+  /** Module slug when reason is module (from `module:{slug}`). */
+  moduleSlug?: string
 }
 
 export async function setThreadExample(
@@ -254,21 +259,41 @@ export async function listThreadAgentCandidates(
     appRoutes.signals.threadAgentCandidates(threadId),
     token,
   )
-  const reasons: ThreadAgentReason[] = ['channel', 'project', 'company']
+  const reasons: ThreadAgentReason[] = ['channel', 'project', 'company', 'module']
   return (payload.items ?? [])
     .map((row): ThreadAgentCandidate | null => {
       if (!row || typeof row !== 'object') return null
       const raw = row as Record<string, unknown>
       const id = asString(raw.id)
       if (!id) return null
-      const reason = asString(raw.reason) as ThreadAgentReason
+      const rawReason = asString(raw.reason)
+      const moduleSlug = rawReason.startsWith('module:')
+        ? rawReason.slice('module:'.length) || undefined
+        : undefined
+      const reason = (moduleSlug ? 'module' : rawReason) as ThreadAgentReason
       return {
         id,
         name: asString(raw.name),
         reason: reasons.includes(reason) ? reason : 'company',
+        moduleSlug,
       }
     })
     .filter((c): c is ThreadAgentCandidate => c !== null)
+}
+
+/** Give an agent the floor on the host thread (not a quiet Ask session). */
+export async function requestParticipantTurn(
+  token: string,
+  threadId: string,
+  agentId: string,
+  prompt = '',
+  run = true,
+): Promise<{ ok?: boolean; status?: string } | null> {
+  return apiPost<{ ok?: boolean; status?: string }>(
+    appRoutes.signals.threadParticipantTurn(threadId),
+    { agent_id: agentId, prompt, run },
+    token,
+  )
 }
 
 export async function startAgentSession(
@@ -334,6 +359,8 @@ export async function getSignalThread(
     messages?: unknown[]
     events?: unknown[]
     sessions?: unknown[]
+    participants?: unknown[]
+    active_turn?: unknown
     csat?: { score?: unknown; comment?: unknown; created_at?: unknown } | null
     has_older?: unknown
     oldest_message_id?: unknown
@@ -374,6 +401,46 @@ export async function getSignalThread(
   const messages = (payload.messages ?? [])
     .map(normalizeSignalMessage)
     .filter((m): m is InboxMessage => m !== null)
+  const participants = (payload.participants ?? [])
+    .map((raw): ThreadParticipant | null => {
+      if (!raw || typeof raw !== 'object') return null
+      const row = raw as Record<string, unknown>
+      if (typeof row.ref_id !== 'string' || !row.ref_id) return null
+      return {
+        id: typeof row.id === 'string' ? row.id : row.ref_id,
+        kind: typeof row.kind === 'string' ? row.kind : 'user',
+        ref_id: row.ref_id,
+        role: typeof row.role === 'string' ? row.role : 'member',
+        name: typeof row.name === 'string' ? row.name : '',
+        email: typeof row.email === 'string' ? row.email : '',
+        joined_via: typeof row.joined_via === 'string' ? row.joined_via : '',
+        avatar_kind: typeof row.avatar_kind === 'string' ? row.avatar_kind : null,
+        avatar_icon: typeof row.avatar_icon === 'string' ? row.avatar_icon : null,
+        avatar_color: typeof row.avatar_color === 'string' ? row.avatar_color : null,
+        avatar_shape: typeof row.avatar_shape === 'string' ? row.avatar_shape : null,
+        avatar_image_url:
+          typeof row.avatar_image_url === 'string' ? row.avatar_image_url : null,
+      }
+    })
+    .filter((p): p is ThreadParticipant => p !== null)
+  const activeRaw = payload.active_turn
+  const activeRow =
+    activeRaw && typeof activeRaw === 'object'
+      ? (activeRaw as Record<string, unknown>)
+      : null
+  // Empty `{}` must not become a truthy floor (would keep “Waiting on…” / Stop).
+  const activeTurn: ThreadActiveTurn =
+    activeRow && typeof activeRow.ref_id === 'string' && activeRow.ref_id
+      ? {
+          kind: typeof activeRow.kind === 'string' ? activeRow.kind : undefined,
+          ref_id: activeRow.ref_id,
+          name: typeof activeRow.name === 'string' ? activeRow.name : undefined,
+          nonce: typeof activeRow.nonce === 'string' ? activeRow.nonce : undefined,
+          deadline: typeof activeRow.deadline === 'string' ? activeRow.deadline : undefined,
+          prompt: typeof activeRow.prompt === 'string' ? activeRow.prompt : undefined,
+          streak: typeof activeRow.streak === 'number' ? activeRow.streak : undefined,
+        }
+      : null
   return {
     thread,
     messages,
@@ -381,6 +448,8 @@ export async function getSignalThread(
     sessions: (payload.sessions ?? [])
       .map(normalizeThreadSession)
       .filter((s): s is ThreadSession => s !== null),
+    participants,
+    activeTurn,
     csat,
     hasOlder: Boolean(payload.has_older),
     oldestMessageId:
@@ -863,10 +932,25 @@ export async function deleteInboxRule(token: string, ruleId: string): Promise<vo
   await apiDelete(appRoutes.signals.rule(ruleId), token)
 }
 
+/** Design-system presets for free labels; empty uses the default free tone. */
+export type LabelColor = '' | 'neutral' | 'accent' | 'ai' | 'success' | 'warning' | 'info'
+
+export const LABEL_COLORS: LabelColor[] = [
+  '',
+  'neutral',
+  'accent',
+  'ai',
+  'success',
+  'warning',
+  'info',
+]
+
 export type SignalTag = {
   id: string
   name: string
   description: string
+  /** Design-system color preset for free labels. */
+  color: LabelColor
   /** Conversations carrying the tag (as a link or as their category). */
   count: number
   /** Has a playbook: filing it makes the conversation a ticket. */
@@ -884,6 +968,12 @@ export type SignalTag = {
   aiAutoTag: boolean
   /** draft/ask force a concept; send follows AI handling. */
   sendMode: 'draft' | 'ask' | 'send'
+}
+
+function normalizeLabelColor(raw: unknown): LabelColor {
+  if (typeof raw !== 'string') return ''
+  const value = raw.trim().toLowerCase()
+  return (LABEL_COLORS as string[]).includes(value) ? (value as LabelColor) : ''
 }
 
 export type TagFolderRef = { id: string; name: string; path: string; tagNames: string[] }
@@ -925,6 +1015,7 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     id: row.id,
     name: row.name,
     description: typeof row.description === 'string' ? row.description : '',
+    color: normalizeLabelColor(row.color),
     count: typeof row.count === 'number' ? row.count : 0,
     isCategory: row.is_category === true,
     workstreamId: typeof row.workstream_id === 'string' ? row.workstream_id : null,
@@ -961,13 +1052,20 @@ export async function listSignalTags(token: string): Promise<SignalTag[]> {
 
 export async function createSignalTag(
   token: string,
-  input: { name: string; description?: string; showInNav?: boolean; groupId?: string | null },
+  input: {
+    name: string
+    description?: string
+    color?: LabelColor
+    showInNav?: boolean
+    groupId?: string | null
+  },
 ): Promise<SignalTag | null> {
   const payload = await apiPost<unknown>(
     appRoutes.signals.tags,
     {
       name: input.name,
       description: input.description ?? '',
+      color: input.color ?? '',
       show_in_nav: input.showInNav ?? false,
       group_id: input.groupId ?? null,
     },
@@ -983,6 +1081,7 @@ export async function updateSignalTag(
   patch: {
     name?: string
     description?: string
+    color?: LabelColor
     show_in_nav?: boolean
     ai_auto_tag?: boolean
     group_id?: string | null
@@ -1254,6 +1353,102 @@ export async function submitMessageFeedback(
     { sentiment, comment },
     token,
   )
+}
+
+export type ReactionKind =
+  | 'up'
+  | 'down'
+  | 'hundred'
+  | 'angry'
+  | 'thinking'
+  | 'investigating'
+
+export type MessageReactionAggregate = {
+  kinds: Array<{
+    kind: ReactionKind
+    emoji: string
+    count: number
+    reactors: Array<{ actorType: 'user' | 'agent'; actorId: string; name: string }>
+  }>
+  mine: ReactionKind | null
+}
+
+export function normalizeMessageReactions(raw: unknown): MessageReactionAggregate {
+  if (!raw || typeof raw !== 'object') return { kinds: [], mine: null }
+  const data = raw as Record<string, unknown>
+  const kindsRaw = Array.isArray(data.kinds) ? data.kinds : []
+  const kinds = kindsRaw
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null
+      const r = row as Record<string, unknown>
+      const kind = String(r.kind || '') as ReactionKind
+      if (
+        kind !== 'up' &&
+        kind !== 'down' &&
+        kind !== 'hundred' &&
+        kind !== 'angry' &&
+        kind !== 'thinking' &&
+        kind !== 'investigating'
+      ) {
+        return null
+      }
+      const reactors = Array.isArray(r.reactors)
+        ? r.reactors
+            .map((item) => {
+              if (!item || typeof item !== 'object') return null
+              const p = item as Record<string, unknown>
+              const actorType = p.actor_type === 'agent' ? 'agent' : 'user'
+              return {
+                actorType: actorType as 'user' | 'agent',
+                actorId: String(p.actor_id || ''),
+                name: String(p.name || ''),
+              }
+            })
+            .filter((x): x is NonNullable<typeof x> => x != null)
+        : []
+      return {
+        kind,
+        emoji: typeof r.emoji === 'string' ? r.emoji : '',
+        count: typeof r.count === 'number' ? r.count : reactors.length || 1,
+        reactors,
+      }
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null)
+  const mineRaw = data.mine
+  const mine =
+    mineRaw === 'up' ||
+    mineRaw === 'down' ||
+    mineRaw === 'hundred' ||
+    mineRaw === 'angry' ||
+    mineRaw === 'thinking' ||
+    mineRaw === 'investigating'
+      ? mineRaw
+      : null
+  return { kinds, mine }
+}
+
+export async function setMessageReaction(
+  token: string,
+  messageId: string,
+  kind: ReactionKind,
+): Promise<MessageReactionAggregate> {
+  const payload = await apiPut<unknown>(
+    appRoutes.signals.messageReactions(messageId),
+    { kind },
+    token,
+  )
+  return normalizeMessageReactions(payload)
+}
+
+export async function clearMessageReaction(
+  token: string,
+  messageId: string,
+): Promise<MessageReactionAggregate> {
+  const payload = await apiDelete<unknown>(
+    appRoutes.signals.messageReactions(messageId),
+    token,
+  )
+  return normalizeMessageReactions(payload)
 }
 
 export async function listSignalMembers(token: string): Promise<InboxMember[]> {

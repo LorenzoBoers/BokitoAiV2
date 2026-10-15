@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Clock, Info } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import {
   localizeOfferCopy,
   type IntegrationApplication,
@@ -21,6 +21,7 @@ export function ApplicationCard({ application, offer, onOpenDetail }: Props) {
   const copy = localizeOfferCopy(offer, t)
   const isComingSoon = offer.integration.status === 'coming_soon'
   const isConnected = offer.connectionCount > 0
+  const isMcp = offer.kind === 'mcp'
 
   return (
     <article
@@ -37,7 +38,7 @@ export function ApplicationCard({ application, offer, onOpenDetail }: Props) {
         }
       }}
       className={cn(
-        'panel flex flex-col p-5',
+        'panel flex h-full flex-col p-5',
         isComingSoon
           ? 'pointer-events-none cursor-not-allowed opacity-50'
           : 'hover-lift hover:border-border cursor-pointer',
@@ -46,15 +47,19 @@ export function ApplicationCard({ application, offer, onOpenDetail }: Props) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold text-text-heading">{copy.name}</h3>
-            {application.module ? null : (
+            {isMcp ? (
+              <Badge variant="neutral" className="text-2xs font-medium">
+                {t('integrations.kindBadge.mcp', { defaultValue: 'MCP' })}
+              </Badge>
+            ) : application.module ? null : (
               <Badge variant="neutral" className="text-2xs font-medium">
                 {t(`integrations.kind.${offer.kind}`)}
               </Badge>
             )}
           </div>
-          <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">{copy.description}</p>
+          <p className="line-clamp-2 text-xs leading-relaxed text-text-secondary">{copy.description}</p>
         </div>
         <IntegrationHostLogo
           logoUrl={application.brand.logoUrl}
@@ -67,20 +72,24 @@ export function ApplicationCard({ application, offer, onOpenDetail }: Props) {
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-4">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary"
-          onClick={(e) => {
-            e.stopPropagation()
-            onOpenDetail()
-          }}
-          aria-label={t('integrations.actions.viewInfo')}
+      <div className="mt-4 flex flex-1 items-end justify-between gap-3 border-t border-border/60 pt-4">
+        <p
+          className={cn(
+            'min-w-0 text-xs',
+            isConnected ? 'font-medium text-accent' : 'text-text-muted',
+          )}
         >
-          <Info size={14} />
-        </button>
+          {isConnected
+            ? t('integrations.card.activeConnections', {
+                count: offer.connectionCount,
+                defaultValue: '{{count}} active connections',
+              })
+            : t('integrations.card.notInstalledYet', {
+                defaultValue: 'Not installed yet',
+              })}
+        </p>
         {isComingSoon ? (
-          <Button size="sm" variant="secondary" disabled className="gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="secondary" disabled className="gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
             <Clock size={14} />
             {t('integrations.actions.comingSoon')}
           </Button>
@@ -88,19 +97,18 @@ export function ApplicationCard({ application, offer, onOpenDetail }: Props) {
           <Button
             size="sm"
             variant="secondary"
+            className="shrink-0"
             onClick={(e) => {
               e.stopPropagation()
               onOpenDetail()
             }}
           >
-            {t('integrations.actions.connectAnother')}
-            <span className="ml-1.5 text-2xs text-text-muted">
-              {t('integrations.application.alreadyCount', { count: offer.connectionCount })}
-            </span>
+            {t('integrations.actions.manage')}
           </Button>
         ) : (
           <Button
             size="sm"
+            className="shrink-0"
             onClick={(e) => {
               e.stopPropagation()
               onOpenDetail()

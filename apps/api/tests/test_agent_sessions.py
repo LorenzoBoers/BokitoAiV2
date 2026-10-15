@@ -212,6 +212,36 @@ async def test_agent_candidates_rank_channel_agent_first(
 
 
 @pytest.mark.asyncio
+async def test_start_session_falls_back_when_thread_agent_archived(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """Ask still opens when the thread still points at a purged/archived agent."""
+    from app.models.agent import Agent
+
+    headers = await _login(client)
+    thread = await _customer_thread(session_override)
+    agents = list((await session_override.execute(select(Agent))).scalars().all())
+    assert len(agents) >= 2
+    archived, live = agents[0], agents[1]
+    archived.is_active = False
+    archived.kind = "archived"
+    thread.agent_id = archived.id
+    await session_override.commit()
+
+    r = await client.post(
+        f"/api/signals/{thread.id}/sessions",
+        headers=headers,
+        json={"agent_id": str(archived.id)},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["state"] == "active"
+    assert body["agent_id"] != str(archived.id)
+    # Any remaining active agent is fine; the archived one must not win.
+    assert body["agent_id"] in {str(a.id) for a in agents if a.id != archived.id}
+
+
+@pytest.mark.asyncio
 async def test_cancel_before_first_turn_leaves_no_trace(
     client: AsyncClient, session_override: AsyncSession
 ):

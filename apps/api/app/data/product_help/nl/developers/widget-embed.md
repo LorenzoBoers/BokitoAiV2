@@ -73,3 +73,7 @@ De widget leest het antwoord als server-sent events. Een eigen client op dezelfd
 2. Controleer dat het gesprek in Communication verschijnt op het chatkanaal.
 3. Check branding en welkomsttekst onder de widgetinstellingen.
 4. Voeg daarna het snippet toe aan je productietemplate.
+
+## Bokito-docs
+
+De openbare pagina's `/docs` en `/docs/api` laden dezelfde anonieme websitechat-embed voor de Bokito-tenant (niet de ingelogde in-app helper). Zo blijft producthulp bereikbaar voor bezoekers die niet zijn ingelogd; gesprekken landen in Communication van Bokito.

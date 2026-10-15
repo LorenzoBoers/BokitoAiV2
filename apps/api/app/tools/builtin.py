@@ -110,6 +110,66 @@ async def _remember_about_me(ctx: ToolContext, tool_input: dict[str, Any]) -> di
     return {"remembered": entry.key, "content": entry.content}
 
 
+async def _get_operator_settings(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Read the chatting person's UI prefs and workspace language (deep-link ready)."""
+    import json
+
+    from app.models.auth import Tenant, User
+    from app.services.language import (
+        LANGUAGE_NAMES,
+        platform_default_ui_language,
+        resolve_workspace_language,
+    )
+
+    if not ctx.user_id:
+        return {"error": "No operator in this session"}
+    user = await ctx.session.get(User, ctx.user_id)
+    if not user:
+        return {"error": "Operator not found"}
+    try:
+        stored = json.loads(user.settings_json or "{}")
+    except json.JSONDecodeError:
+        stored = {}
+    if not isinstance(stored, dict):
+        stored = {}
+    ui = stored.get("ui_language")
+    if ui not in ("en", "nl"):
+        ui = platform_default_ui_language()
+    tenant = await ctx.session.get(Tenant, ctx.tenant_id)
+    workspace = resolve_workspace_language(tenant)
+    landing = stored.get("default_landing")
+    if landing not in ("communication", "overview"):
+        landing = "communication"
+    return {
+        "user": {
+            "id": str(user.id),
+            "name": (user.display_name or "").strip() or user.email,
+            "email": user.email,
+            "ui_language": ui,
+            "ui_language_name": LANGUAGE_NAMES.get(ui, ui),
+            "ui_language_path": "/settings/profile",
+            "ui_language_label": "Settings → Profile & security → Language",
+            "default_landing": landing,
+            "default_landing_path": "/settings/profile",
+        },
+        "workspace": {
+            "working_language": workspace,
+            "working_language_name": LANGUAGE_NAMES.get(workspace, workspace),
+            "working_language_path": "/settings/communication",
+            "working_language_label": "Settings → Communication → Organization working language",
+            "general_path": "/settings/general",
+            "branding_path": "/settings/branding",
+            "channels_path": "/settings/channels",
+            "ai_handling_path": "/settings/ai-handling",
+        },
+        "hint": (
+            "Dashboard UI language is per person at /settings/profile. "
+            "Organization working language is per workspace at /settings/communication. "
+            "Link those paths; do not claim Dutch or English UI is unavailable."
+        ),
+    }
+
+
 async def _list_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.workspace import list_docs, serialize_doc
 
@@ -549,13 +609,9 @@ async def _resolve_messaging_signal(
 
 async def _post_internal_note(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Leave a durable team-only note on a conversation (never a customer draft)."""
-    import json as _json
-    from datetime import datetime
-    from html import escape
-
-    from app.gateway.publish import publish_signal_message, publish_thread_update
-    from app.models.signal import SignalMessage
+    from app.gateway.publish import publish_thread_update
     from app.services.agent.style import strip_emoji
+    from app.services.chat_runtime import post_message
 
     if not ctx.agent:
         return {"error": "Only an agent can post an internal note"}
@@ -568,36 +624,23 @@ async def _post_internal_note(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     if len(body_text) > 4000:
         body_text = body_text[:4000].rstrip()
 
-    now = datetime.utcnow()
-    note = SignalMessage(
-        signal_id=signal.id,
-        tenant_id=ctx.tenant_id,
-        kind="internal_note",
-        direction="internal",
+    note = await post_message(
+        ctx.session,
+        signal,
+        content=body_text,
         role="assistant",
+        trust="agent",
         author_agent_id=ctx.agent.id,
-        from_address="",
-        to_addresses="",
-        subject=signal.subject or "",
-        body_text=body_text,
-        body_preview=body_text[:200],
-        body_html=f"<p>{escape(body_text)}</p>",
-        metadata_json=_json.dumps(
-            {
-                "agent_name": ctx.agent.name,
-                "agent_note": True,
-                "run_id": str(ctx.run_id) if ctx.run_id else None,
-            }
-        ),
-        received_at=now,
+        kind="internal_note",
+        metadata={
+            "agent_name": ctx.agent.name,
+            "agent_note": True,
+            "run_id": str(ctx.run_id) if ctx.run_id else None,
+        },
     )
-    ctx.session.add(note)
-    signal.last_message_at = now
-    ctx.session.add(signal)
     await ctx.session.commit()
     await ctx.session.refresh(note)
     await publish_thread_update(signal)
-    await publish_signal_message(signal, note)
     return {
         "ok": True,
         "signal_id": str(signal.id),
@@ -607,6 +650,247 @@ async def _post_internal_note(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             "Posted as a team-only internal note. The customer cannot see it. "
             "It is not a draft and needs no approval."
         ),
+    }
+
+
+async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Add a user, agent, or team as a participant on this conversation."""
+    from uuid import UUID
+
+    from app.services.participants import ensure_participant
+    from app.services.participant_turns import request_participant_turn
+
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
+    kind = str(tool_input.get("kind") or "").strip()
+    if kind not in ("user", "agent", "team"):
+        return {"error": "kind must be user, agent, or team"}
+    try:
+        ref_id = UUID(str(tool_input.get("id") or ""))
+    except ValueError:
+        return {"error": "id must be a uuid"}
+    role = str(tool_input.get("role") or "member")
+    if role not in ("member", "watcher"):
+        role = "member"
+    await ensure_participant(
+        ctx.session,
+        signal,
+        kind=kind,
+        ref_id=ref_id,
+        role=role,
+        invited_by_kind="agent" if ctx.agent else "user",
+        invited_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
+        joined_via="invite",
+    )
+    wake = bool(tool_input.get("wake"))
+    out: dict[str, Any] = {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "kind": kind,
+        "ref_id": str(ref_id),
+        "role": role,
+    }
+    if wake and kind == "agent":
+        turn = await request_participant_turn(
+            ctx.session,
+            signal,
+            member_kind="agent",
+            member_ref_id=ref_id,
+            prompt=str(tool_input.get("message") or tool_input.get("prompt") or ""),
+            requested_by_kind="agent" if ctx.agent else "user",
+            requested_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
+            run=True,
+        )
+        out["turn"] = turn
+    await ctx.session.commit()
+    return out
+
+
+async def _leave_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID
+
+    from app.services.participants import leave_participant
+
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
+    kind = str(tool_input.get("kind") or ("agent" if ctx.agent else "user"))
+    raw_id = tool_input.get("id")
+    if raw_id:
+        try:
+            ref_id = UUID(str(raw_id))
+        except ValueError:
+            return {"error": "id must be a uuid"}
+    elif ctx.agent and kind == "agent":
+        ref_id = ctx.agent.id
+    elif ctx.user_id and kind == "user":
+        ref_id = ctx.user_id
+    else:
+        return {"error": "id required"}
+    try:
+        left = await leave_participant(ctx.session, signal, kind=kind, ref_id=ref_id)
+    except ValueError as exc:
+        return {"error": str(exc)}
+    await ctx.session.commit()
+    return {"ok": True, "left": left, "signal_id": str(signal.id)}
+
+
+async def _post_thread_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Post a visible message on a thread where the agent is a participant.
+
+    Never sends to an external customer — use send_reply / suggest_thread_reply
+    for that. Works on internal, assistant, and host threads.
+    """
+    from app.services.chat_runtime import post_message
+    from app.services.participants import is_participant
+
+    if not ctx.agent:
+        return {"error": "Only an agent can post_thread_message"}
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
+    body = str(tool_input.get("body_text") or tool_input.get("body") or "").strip()
+    if not body:
+        return {"error": "body_text required"}
+    # Allow if participant, owner agent, or Ask session tool host.
+    allowed = await is_participant(
+        ctx.session, ctx.tenant_id, signal.id, kind="agent", ref_id=ctx.agent.id
+    )
+    if not allowed and signal.agent_id != ctx.agent.id:
+        return {"error": "You are not a participant on this conversation; invite_to_thread first"}
+    note_kind = str(tool_input.get("visibility") or "chat")
+    kind = "internal_note" if note_kind == "note" else None
+    message = await post_message(
+        ctx.session,
+        signal,
+        content=body[:4000],
+        role="assistant",
+        trust="agent",
+        author_agent_id=ctx.agent.id,
+        kind=kind,
+        metadata={"agent_name": ctx.agent.name, "post_thread_message": True},
+    )
+    await ctx.session.commit()
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "message_id": str(message.id),
+        "kind": message.kind,
+    }
+
+
+async def _request_participant_turn(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID
+
+    from app.services.participant_turns import request_participant_turn
+
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    if signal is None:
+        return {"error": err or "Signal not found"}
+    try:
+        ref_id = UUID(str(tool_input.get("agent_id") or tool_input.get("id") or ""))
+    except ValueError:
+        return {"error": "agent_id required"}
+    result = await request_participant_turn(
+        ctx.session,
+        signal,
+        member_kind="agent",
+        member_ref_id=ref_id,
+        prompt=str(tool_input.get("prompt") or tool_input.get("message") or ""),
+        deadline_s=int(tool_input.get("deadline_s") or 120),
+        requested_by_kind="agent" if ctx.agent else "user",
+        requested_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
+        run=tool_input.get("run", True) is not False,
+    )
+    await ctx.session.commit()
+    return result
+
+
+async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Start a peer conversation (chat) or a background task with another agent."""
+    from datetime import datetime
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+    from app.models.signal import Signal
+    from app.services.ownership import apply_owner
+    from app.services.participants import ensure_participant
+    from app.services.participant_turns import request_participant_turn
+
+    mode = str(tool_input.get("mode") or "chat").strip()
+    if mode == "task":
+        return await _delegate_to_agent(ctx, tool_input)
+
+    try:
+        peer_id = UUID(str(tool_input.get("agent_id") or ""))
+    except ValueError:
+        return {"error": "agent_id required"}
+    peer = (
+        await ctx.session.execute(
+            select(Agent).where(
+                Agent.id == peer_id,
+                Agent.tenant_id == ctx.tenant_id,
+                Agent.is_active.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if peer is None:
+        return {"error": "Target agent not found"}
+    if ctx.agent and peer.id == ctx.agent.id:
+        return {"error": "Cannot start a peer chat with yourself"}
+
+    title = str(tool_input.get("title") or f"{(ctx.agent.name if ctx.agent else 'Agent')} × {peer.name}")
+    now = datetime.utcnow()
+    signal = Signal(
+        tenant_id=ctx.tenant_id,
+        channel="internal",
+        source="agent_peer",
+        subject=title[:200],
+        status="open",
+        agent_id=peer.id,
+        created_at=now,
+        updated_at=now,
+        last_message_at=now,
+    )
+    ctx.session.add(signal)
+    await ctx.session.flush()
+    if ctx.agent:
+        await apply_owner(ctx.session, signal, "agent", ctx.agent.id, by_user_id=ctx.user_id)
+    elif ctx.user_id:
+        await apply_owner(ctx.session, signal, "user", ctx.user_id, by_user_id=ctx.user_id)
+    await ensure_participant(
+        ctx.session,
+        signal,
+        kind="agent",
+        ref_id=peer.id,
+        role="member",
+        invited_by_kind="agent" if ctx.agent else "user",
+        invited_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
+        joined_via="a2a",
+    )
+    prompt = str(tool_input.get("message") or tool_input.get("instructions") or "").strip()
+    turn = await request_participant_turn(
+        ctx.session,
+        signal,
+        member_kind="agent",
+        member_ref_id=peer.id,
+        prompt=prompt or f"Join this conversation about: {title}",
+        requested_by_kind="agent" if ctx.agent else "user",
+        requested_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
+        run=True,
+    )
+    await ctx.session.commit()
+    return {
+        "ok": True,
+        "mode": "chat",
+        "signal_id": str(signal.id),
+        "path": f"/communication/inbox/all/t/{signal.id}",
+        "peer_agent_id": str(peer.id),
+        "peer_agent_name": peer.name,
+        "turn": turn,
     }
 
 
@@ -712,6 +996,69 @@ async def _note_no_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         run_id=ctx.run_id,
     )
     return {"ok": True, "awaiting_approval": True, **outcome}
+
+
+async def _react_to_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Leave a stacked emoji reaction on a timeline message."""
+    from app.models.signal import SignalMessage
+    from app.services import message_reactions as reactions
+
+    if not ctx.agent:
+        return {"error": "Only an agent can call react_to_message"}
+    kind = str(tool_input.get("kind") or "").strip().lower()
+    raw_id = tool_input.get("message_id")
+    if not raw_id:
+        return {"error": "message_id required"}
+    try:
+        message_id = UUID(str(raw_id))
+    except ValueError:
+        return {"error": "message_id must be a UUID"}
+
+    message = (
+        await ctx.session.execute(
+            select(SignalMessage).where(
+                SignalMessage.id == message_id,
+                SignalMessage.tenant_id == ctx.tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if message is None:
+        return {"error": "Message not found"}
+
+    # Prefer the host conversation when the agent is in an inline session.
+    signal, err = await _resolve_messaging_signal(ctx, tool_input)
+    host_id = signal.id if signal is not None else ctx.signal_id
+    if host_id and message.signal_id != host_id:
+        # Allow reacting on the host when the tool is scoped to a session child.
+        if signal is None or message.signal_id != getattr(signal, "id", None):
+            # Still allow if message belongs to the session thread itself.
+            if ctx.signal_id and message.signal_id != ctx.signal_id:
+                return {"error": err or "Message is not on this conversation"}
+
+    try:
+        payload = await reactions.set_reaction(
+            ctx.session,
+            tenant_id=ctx.tenant_id,
+            message_id=message_id,
+            actor_type="agent",
+            actor_id=ctx.agent.id,
+            kind=kind,
+            commit=True,
+        )
+    except Exception as exc:  # noqa: BLE001 — surface as tool error
+        from fastapi import HTTPException
+
+        if isinstance(exc, HTTPException):
+            return {"error": str(exc.detail)}
+        return {"error": str(exc)}
+
+    return {
+        "ok": True,
+        "message_id": str(message_id),
+        "kind": payload.get("mine") or kind,
+        "reactions": payload,
+        "emoji": reactions.REACTION_EMOJI.get(kind, ""),
+    }
 
 
 async def _propose_session_checkout(
@@ -1146,14 +1493,25 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     if added or outcome["replaced"]:
         signal.updated_at = datetime.utcnow()
         ctx.session.add(signal)
+        actor_type = "agent" if ctx.agent else "user"
+        actor_id = str(ctx.agent.id if ctx.agent else ctx.user_id or "")
+        payload: dict[str, Any] = {
+            "tags": tags,
+            "tags_added": added,
+            "tags_removed": outcome.get("replaced") or [],
+            "via": "set_thread_tags",
+        }
+        if ctx.agent:
+            payload["agent_id"] = str(ctx.agent.id)
+            payload["agent_name"] = ctx.agent.name
         ctx.session.add(
             SignalEvent(
                 signal_id=signal.id,
                 tenant_id=ctx.tenant_id,
                 event_type="thread_updated",
-                actor_type="agent" if ctx.agent else "user",
-                actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
-                payload_json=json.dumps({"tags": tags, "via": "set_thread_tags"}),
+                actor_type=actor_type,
+                actor_id=actor_id,
+                payload_json=json.dumps(payload),
             )
         )
         await ctx.session.flush()
@@ -2157,6 +2515,24 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="get_operator_settings",
+        description=(
+            "Read the chatting person's dashboard UI language and start page, plus "
+            "this workspace's working language and common Settings paths. Use when "
+            "someone asks why the interface is English/Dutch, where to change "
+            "language, branding, channels, or AI handling. Link the returned paths "
+            "(especially /settings/profile for UI language). Does not change anything."
+        ),
+        category="workspace",
+        input_schema={"type": "object", "properties": {}},
+        handler=_get_operator_settings,
+        mutating=False,
+        gated=False,
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="list_docs",
         description=(
             "List workspace docs (path, kind, title, project_id, agent_id). "
@@ -2312,6 +2688,170 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="invite_to_thread",
+        description=(
+            "Add a teammate, agent, or team as a participant on this conversation. "
+            "Use wake=true with kind=agent to give them the floor immediately "
+            "(request_participant_turn). Prefer this over doing specialist work yourself."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "kind": {
+                    "type": "string",
+                    "enum": ["user", "agent", "team"],
+                    "description": "Who to invite",
+                },
+                "id": {"type": "string", "description": "UUID of the user, agent, or team"},
+                "role": {
+                    "type": "string",
+                    "enum": ["member", "watcher"],
+                    "description": "member (default) or watcher",
+                },
+                "wake": {
+                    "type": "boolean",
+                    "description": "If true and kind=agent, start their turn now",
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Optional brief for the woken agent",
+                },
+            },
+            "required": ["kind", "id"],
+        },
+        handler=_invite_to_thread,
+        gated=False,
+        audience="both",
+        display_name="Invite to conversation",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="leave_thread",
+        description=(
+            "Leave a conversation as a participant (not the owner). "
+            "Agents use this after their specialist turn is done."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "kind": {"type": "string", "enum": ["user", "agent", "team"]},
+                "id": {"type": "string", "description": "Defaults to the calling agent"},
+            },
+        },
+        handler=_leave_thread,
+        gated=False,
+        audience="both",
+        display_name="Leave conversation",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="post_thread_message",
+        description=(
+            "Post a visible message on a conversation where you are a participant. "
+            "Never reaches the external customer — use suggest_thread_reply or "
+            "send_reply for that. Prefer this during a requested participant turn."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "body_text": {"type": "string"},
+                "visibility": {
+                    "type": "string",
+                    "enum": ["chat", "note"],
+                    "description": "chat (default) or note (team-only internal note)",
+                },
+            },
+            "required": ["body_text"],
+        },
+        handler=_post_thread_message,
+        gated=False,
+        audience="both",
+        display_name="Posted a chat reply",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="request_participant_turn",
+        description=(
+            "Give the floor to another agent on this conversation. They see peers "
+            "and your prompt, then reply or pass. Use after invite_to_thread when "
+            "a specialist should speak. The peer starts only after you finish this "
+            "turn — write one short handoff (what you asked them), then stop. "
+            "You will be woken to summarize for the human; do not claim you are "
+            "still waiting after they reply. Loop guard: same agent cannot take "
+            "too many turns in a row — then ask a human."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "agent_id": {"type": "string"},
+                "prompt": {"type": "string"},
+                "deadline_s": {"type": "integer"},
+                "run": {
+                    "type": "boolean",
+                    "description": "Run the turn now (default true)",
+                },
+            },
+            "required": ["agent_id"],
+        },
+        handler=_request_participant_turn,
+        gated=False,
+        audience="both",
+        display_name="Asked a participant to reply",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="start_conversation",
+        description=(
+            "Start a separate peer conversation with another agent (mode=chat) or a "
+            "background job (mode=task, same as delegate_to_agent). Chat creates "
+            "an internal thread with both as participants and gives the peer the floor. "
+            "Do not use this to ask a peer who is already on the current conversation — "
+            "use request_participant_turn so their reply stays inline here."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string"},
+                "mode": {
+                    "type": "string",
+                    "enum": ["chat", "task"],
+                    "description": "chat (default) or task",
+                },
+                "title": {"type": "string"},
+                "message": {"type": "string"},
+                "instructions": {
+                    "type": "string",
+                    "description": "For mode=task: task brief (alias of message)",
+                },
+            },
+            "required": ["agent_id"],
+        },
+        handler=_start_conversation,
+        gated=False,
+        audience="both",
+        display_name="Start conversation",
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="suggest_thread_reply",
         description=(
             "Propose a reply to the external customer only — never for team "
@@ -2342,6 +2882,47 @@ register_tool(
         # Proposing to a human is the safe path; it never waits on approval.
         gated=False,
         audience="both",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="react_to_message",
+        description=(
+            "React to a timeline message with a small emoji stack (Communication "
+            "only). Kinds: up (good), down (not good), hundred (very good), "
+            "angry (very bad), thinking (unclear), investigating (you will look "
+            "into it — agent-only). One reaction per actor; calling the same "
+            "kind again clears it. Use investigating when you start research "
+            "instead of a long status note."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "message_id": {
+                    "type": "string",
+                    "description": "Signal message UUID to react to.",
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "up",
+                        "down",
+                        "hundred",
+                        "angry",
+                        "thinking",
+                        "investigating",
+                    ],
+                },
+                "signal_id": {"type": "string"},
+            },
+            "required": ["message_id", "kind"],
+        },
+        handler=_react_to_message,
+        gated=False,
+        audience="operator",
+        display_name="React to message",
     )
 )
 
@@ -2652,6 +3233,9 @@ register_tool(
             "required": ["tags"],
         },
         handler=_set_thread_tags,
+        gated=False,
+        audience="both",
+        display_name="Added labels",
     )
 )
 
@@ -4054,7 +4638,9 @@ async def _close_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     from app.services.tenant_introspection import list_threads_summary
 
     note = str(tool_input.get("note") or "").strip()
-    dry_run = bool(tool_input.get("dry_run"))
+    # ``preview`` is the operator-facing name; ``dry_run`` stays accepted for
+    # older MCP clients. Never echo either name in chat — ask in plain words.
+    preview = bool(tool_input.get("preview") or tool_input.get("dry_run"))
     limit = max(1, min(int(tool_input.get("limit") or 100), 200))
     raw_ids = tool_input.get("signal_ids") or []
     if isinstance(raw_ids, str):
@@ -4083,10 +4669,10 @@ async def _close_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     else:
         return {"error": "Provide older_than_days or signal_ids"}
 
-    if dry_run:
+    if preview:
         return {
             "ok": True,
-            "dry_run": True,
+            "preview": True,
             "matched": matched,
             "would_close": len(signal_ids),
             "signal_ids": signal_ids,
@@ -4229,7 +4815,10 @@ register_tool(
         description=(
             "Close many open/pending threads at once for cleanup or support. "
             "Pass older_than_days (inactive longer than N days) and/or signal_ids. "
-            "Set dry_run=true to preview ids without closing. One page per call "
+            "Set preview=true to list matching ids without closing — then ask the "
+            "person in plain language whether to close them (e.g. 'Zal ik ze "
+            "eerst tonen?' / 'Want a list first?'), never say preview, dry_run, "
+            "or other tool parameter names out loud. One page per call "
             "(limit max 200); if truncated is true, call again with the same filters."
         ),
         category="messaging",
@@ -4245,7 +4834,13 @@ register_tool(
                 "channel": {"type": "string"},
                 "limit": {"type": "integer"},
                 "note": {"type": "string"},
-                "dry_run": {"type": "boolean"},
+                "preview": {
+                    "type": "boolean",
+                    "description": (
+                        "List matches without closing. Ask the person in everyday "
+                        "words — do not mention this parameter name in chat."
+                    ),
+                },
             },
         },
         handler=_close_threads,
@@ -4686,10 +5281,10 @@ register_tool(
     ToolSpec(
         name="create_folder",
         description=(
-            "Propose creating a Folder (a saved AND tag filterset with conversations, "
-            "boards, canvas and docs). Goes through Govern. Pass tags or tag_ids for the "
-            "filterset. Optional nest_under (folder id from list_folders) unions that "
-            "folder's tags into this set so the rail nests it under the broader map."
+            "Propose creating a Folder (named place with optional AND label rules, "
+            "conversations, boards, canvas and docs). Goes through Govern. Pass tags or "
+            "tag_ids for membership. Optional nest_under / parent_id places it in the "
+            "free tree without changing labels."
         ),
         category="workspace",
         input_schema={
@@ -4702,24 +5297,23 @@ register_tool(
                 "nest_under": {
                     "type": "string",
                     "description": (
-                        "Broader folder id from list_folders whose tags are unioned "
-                        "into this filterset. Slug or name work when unique. "
-                        "parent_id is accepted as an alias."
+                        "Parent folder id from list_folders. Slug or name work when "
+                        "unique. parent_id is accepted as an alias."
                     ),
                 },
                 "parent_id": {
                     "type": "string",
-                    "description": "Alias of nest_under (legacy).",
+                    "description": "Alias of nest_under.",
                 },
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Tag names in this folder's AND set (created when new)",
+                    "description": "Label names in this folder's AND set (created when new)",
                 },
                 "tag_ids": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Existing tag ids in this folder's AND set",
+                    "description": "Existing label ids in this folder's AND set",
                 },
                 "tag": {"type": "string", "description": "Single tag name (alias for tags)"},
                 "tag_id": {"type": "string", "description": "Single tag id (alias for tag_ids)"},

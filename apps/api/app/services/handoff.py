@@ -124,13 +124,21 @@ async def request_human_handoff(
     lang = await _workspace_lang(session, tenant_id)
     who = signal.contact_name or ("Een bezoeker" if lang == "nl" else "A visitor")
     title, default_body = _handoff_copy(lang, who=who, subject=signal.subject)
+    from app.services.notify import resolve_from_actor
+
+    sender = await resolve_from_actor(
+        session, actor_type=actor_type, actor_id=actor_id, signal=signal
+    )
+    payload: dict[str, Any] = {"channel": signal.channel}
+    if sender:
+        payload["from"] = sender
     await notify_tenant_admins(
         session,
         tenant_id,
         category="handoff",
         title=title,
         body=reason or default_body,
-        payload={"channel": signal.channel},
+        payload=payload,
         cooldown_minutes=30,
         user_ids=recipients,
         kind="handoff",
@@ -175,13 +183,21 @@ async def request_callback(
     lang = await _workspace_lang(session, tenant_id)
     who = signal.contact_name or ("Een bezoeker" if lang == "nl" else "A visitor")
     title, default_body = _callback_copy(lang, who=who, subject=signal.subject)
+    from app.services.notify import resolve_from_actor
+
+    sender = await resolve_from_actor(
+        session, actor_type=actor_type, actor_id=actor_id, signal=signal
+    )
+    payload: dict[str, Any] = {"channel": signal.channel, "via": via}
+    if sender:
+        payload["from"] = sender
     await notify_tenant_admins(
         session,
         tenant_id,
         category="handoff",
         title=title,
         body=reason or default_body,
-        payload={"channel": signal.channel, "via": via},
+        payload=payload,
         cooldown_minutes=30,
         user_ids=recipients,
         kind="handoff",

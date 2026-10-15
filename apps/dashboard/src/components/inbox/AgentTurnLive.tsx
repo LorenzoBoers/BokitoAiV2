@@ -114,6 +114,7 @@ function LiveBubble({
  */
 function LiveSpeech({
   text,
+  streamActive,
   holdReserve,
   leads,
   closes,
@@ -123,6 +124,8 @@ function LiveSpeech({
   onRevealed,
 }: {
   text: string
+  /** False once the gateway closed the turn — drain faster and stop the cursor. */
+  streamActive: boolean
   /** Open tail of a live turn: keep a reserve so a network pause stays hidden. */
   holdReserve: boolean
   /** First speech block of a turn that opens a new run: avatar + author line. */
@@ -136,11 +139,18 @@ function LiveSpeech({
 }) {
   // Follow the backend buffer at cruise. holdReserve keeps a short lead
   // while the model is still sending; after that the leftover drains.
-  const smooth = useSmoothStreamText(text, true, holdReserve)
+  const smooth = useSmoothStreamText(text, streamActive, holdReserve)
   const caughtUp = text.length === 0 || smooth.length >= text.length
   useEffect(() => {
     onRevealed?.(caughtUp)
   }, [caughtUp, onRevealed])
+  // If the turn already ended but the reveal stall (tab throttle, reset),
+  // force caught-up so the parent can hand off to saved bubbles.
+  useEffect(() => {
+    if (streamActive || caughtUp) return
+    const timer = window.setTimeout(() => onRevealed?.(true), 1200)
+    return () => window.clearTimeout(timer)
+  }, [streamActive, caughtUp, onRevealed])
   const writing = smooth.length < text.length
   const parts = splitChatMessages(smooth)
   const items = mergeShowcaseItems(
@@ -231,8 +241,10 @@ export default function AgentTurnLive({
   const header = lead ? (
     <BubbleHeader name={agentName || t('timeline.aiAgent')} chip={<RoleChip kind="ai" />} />
   ) : null
+  // Empty tinted circle while the parent still wires the real mark — never
+  // flash initials or a generic sparkles icon mid-turn.
   const avatarNode = avatar ?? (
-    <AiAvatar name={agentName} kind="icon" icon="sparkles" size={28} decorative />
+    <AiAvatar name={agentName} kind={null} size={28} decorative />
   )
   // The avatar normally rides on the first speech bubble. Until one exists
   // (thinking, tool calls), it marks the first activity row instead.
@@ -254,6 +266,7 @@ export default function AgentTurnLive({
           <LiveSpeech
             key={block.key}
             text={block.text}
+            streamActive={turn.active}
             holdReserve={turn.active && index === blocks.length - 1}
             leads={lead && index === firstSpeechIndex}
             closes={index === blocks.length - 1}

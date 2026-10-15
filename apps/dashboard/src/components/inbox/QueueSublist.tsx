@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
@@ -12,6 +12,10 @@ import {
   type HubLeaf,
   type SubQueue,
 } from '../../lib/messages-paths'
+import {
+  dataTransferHasThreads,
+  readThreadDragIds,
+} from '../../lib/thread-folder-drag'
 import NavCountBadge from '../layout/NavCountBadge'
 import { Tip } from '../ui/Tip'
 import { cn } from '../../lib/utils'
@@ -82,6 +86,8 @@ type SidebarFolderProps = {
   retainOnExpand?: string[]
   /** Project scope keys closed together with this folder (the folders inside it). */
   closeOnCollapse?: string[]
+  /** Drop conversations here (Communication rail file-into-folder / flow). */
+  onFileThreads?: (threadIds: string[]) => void | Promise<void>
 }
 
 /**
@@ -106,10 +112,12 @@ export function SidebarFolder({
   headerAction,
   retainOnExpand,
   closeOnCollapse,
+  onFileThreads,
 }: SidebarFolderProps) {
   const navigate = useNavigate()
   const { prefs, setLeafExpanded } = useSidebarPrefs()
   const flashKey = useNavFlashKey()
+  const [dropLit, setDropLit] = useState(false)
 
   const scopeKey = folderScopeKey(baseLeaf)
   const revealed = flashKey === scopeKey
@@ -137,17 +145,43 @@ export function SidebarFolder({
     navigate(leafPath({ ...baseLeaf, queue: defaultQueue } as HubLeaf))
   }
 
+  const onDragOver = (event: DragEvent) => {
+    if (!onFileThreads || !dataTransferHasThreads(event.dataTransfer.types)) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+    setDropLit(true)
+  }
+  const onDragLeave = (event: DragEvent) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+    setDropLit(false)
+  }
+  const onDrop = (event: DragEvent) => {
+    if (!onFileThreads) return
+    const ids = readThreadDragIds(event.dataTransfer)
+    setDropLit(false)
+    if (!ids.length) return
+    event.preventDefault()
+    event.stopPropagation()
+    void onFileThreads(ids)
+  }
+
   return (
     <div className="space-y-px">
       <Tip label={title || label} side="right" className="max-w-56 font-normal">
         <button
           type="button"
           onClick={toggleFolder}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
           aria-expanded={expanded}
           data-nav-folder={scopeKey}
           data-active={headerActive || (scopeActive && !expanded) ? 'true' : undefined}
           data-nav-reveal={revealed ? 'true' : undefined}
-          className={cn('nav-row group h-[26px] text-left text-xs')}
+          className={cn(
+            'nav-row group h-[26px] text-left text-xs',
+            dropLit && 'bg-accent/15 ring-1 ring-inset ring-accent/40',
+          )}
         >
           <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted">
             {icon}

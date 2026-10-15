@@ -118,7 +118,15 @@ const router = createBrowserRouter([
                       position="top-right"
                       toastOptions={{
                         duration: 3400,
-                        className: 'shadow-overlay',
+                        classNames: {
+                          toast: 'shadow-overlay',
+                          actionButton:
+                            '!bg-accent !text-accent-fg hover:!bg-accent-hover',
+                          cancelButton:
+                            '!bg-bg-hover !text-text-secondary',
+                          closeButton:
+                            '!border-border/60 !bg-bg-elevated/80 !text-text-muted hover:!bg-bg-hover hover:!text-text-heading',
+                        },
                       }}
                     />
                   </ValidationProvider>

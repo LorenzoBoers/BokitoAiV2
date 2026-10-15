@@ -33,9 +33,14 @@ import type { MailDraftMode } from '../../lib/mail-reply'
 import { assignBubbleStacks, CHAT_COLUMN_CLASS, CHAT_STACK_GAP_MS } from '../../lib/chat-layout'
 import { parseDecisionOptions } from '../../lib/decision-options'
 import { sessionIdOf } from '../../lib/session-timeline'
-import { threadPatchHasMeaning } from '../../lib/thread-events'
+import { threadPatchHasMeaning, withTagDiffs } from '../../lib/thread-events'
 import { cn } from '../../lib/utils'
-import { EventClusterTimelineItem, MessageTimelineItem, isAgentSideEvent } from './TimelineItem'
+import {
+  EventClusterTimelineItem,
+  MessageTimelineItem,
+  eventClusterKey,
+} from './TimelineItem'
+import { useAuth } from '../../context/AuthContext'
 import DecisionRequestMessage from './DecisionRequestMessage'
 import type { DecisionResolvedInfo } from './useDecisionResolve'
 import SessionMarker from './SessionMarker'
@@ -77,7 +82,14 @@ function isHiddenEvent(
     eventType === 'contact_unlinked' ||
     // The agent's own tool calls are the timeline. This pill is the worker
     // closing the run, and it reads as a platform step rather than the agent.
-    eventType === 'agent_processed'
+    eventType === 'agent_processed' ||
+    // Floor handoffs show as chat bubbles + participant strip, not pills.
+    eventType === 'participant_turn_requested' ||
+    eventType === 'participant_turn_sent' ||
+    // Inbound mail already shows as its own bubble; this system pill is noise.
+    eventType === 'message_added' ||
+    // Filing already updates the header folder chip; avoid a vague leftover pill.
+    eventType === 'folder_set'
   ) {
     return true
   }
@@ -214,6 +226,8 @@ export function buildTimelineRows(
   )
   const answeredIds = answeredDecisionIds(healed)
   const questionDecisionIds = questionDecisionIdsFrom(healed)
+  // Older patches stored the full label list; derive per-step diffs for the feed.
+  const events = withTagDiffs(detail.events)
   const entries: TimelineEntry[] = [
     ...healed
       .filter(
@@ -227,7 +241,7 @@ export function buildTimelineRows(
       id: `m-${m.id}`,
       data: m,
     })),
-    ...detail.events
+    ...events
       .filter((e) => !isHiddenEvent(e.eventType, e.payload, answeredIds, questionDecisionIds))
       .map((e) => ({ kind: 'event' as const, time: e.createdAt, id: `e-${e.id}`, data: e })),
     ...(detail.sessions ?? []).map((s) => ({
@@ -271,7 +285,7 @@ export function buildTimelineRows(
         if (
           previous &&
           eventsShareCluster(previous.createdAt, entry.time) &&
-          isAgentSideEvent(previous) === isAgentSideEvent(entry.data)
+          eventClusterKey(previous) === eventClusterKey(entry.data)
         ) {
           last.events.push(entry.data)
           continue
@@ -612,6 +626,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   ref,
 ) {
   const { t } = useTranslation('communication')
+  const { user } = useAuth()
+  const currentUserId = user?.id ?? null
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const scrollerNode = useRef<HTMLDivElement | null>(null)
   const bottomTimersRef = useRef<number[]>([])
@@ -994,13 +1010,15 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             events={row.events}
             time={row.time}
             memberNameFor={(userId) => (userId != null ? membersById[userId]?.name : undefined)}
+            membersById={membersById}
+            currentUserId={currentUserId}
             startedByName={contactName}
             agentName={agentName}
             agentId={agentId}
             agentAvatarKind={agentAvatarKind}
             agentAvatarIcon={agentAvatarIcon}
             agentAvatarColor={agentAvatarColor}
-      agentAvatarShape={agentAvatarShape}
+            agentAvatarShape={agentAvatarShape}
             agentAvatarImageUrl={agentAvatarImageUrl}
           />
         </div>

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import type { BotOrbMotion } from '../../lib/agentActivity'
+import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import { getInitials } from '../../lib/avatar'
 import {
   resolveAgentAvatarColor,
@@ -28,25 +28,36 @@ interface AiAvatarProps {
   decorative?: boolean
   /** Corner: static purple standby, pulsing purple working, red error. */
   activity?: AgentPresenceStatus | null
-  /** Orb face mood (thinking / typing / working). Defaults from activity when omitted. */
+  /** Orb face mood (thinking / typing / working / one-shots). Defaults from activity when omitted. */
   motion?: BotOrbMotion | null
+  /** Replay one-shot when this changes. */
+  pulseId?: string | null
+  /** Loop to return to after a one-shot. */
+  baseMotion?: BotOrbMotion | null
   /** Freeze orb idle motion (facepiles, static previews). */
   paused?: boolean
 }
+
+type ResolvedMark = AgentAvatarKind | 'pending'
 
 function resolveKind(
   kind: string | null | undefined,
   icon: string | null | undefined,
   imageUrl: string | null | undefined,
-): AgentAvatarKind {
+): ResolvedMark {
   const normalized = (kind ?? '').trim().toLowerCase()
   if (normalized === 'image' && imageUrl) return 'image'
   if (normalized === 'orb') return 'orb'
   if (normalized === 'icon' && icon && resolveAgentAvatarIcon(icon)) return 'icon'
   if (normalized === 'initials') return 'initials'
+  if (normalized === 'image' || normalized === 'icon' || normalized === 'pending') {
+    // Known kind but payload still loading (no icon/url yet): empty tinted circle.
+    return 'pending'
+  }
   if (imageUrl) return 'image'
   if (icon && resolveAgentAvatarIcon(icon)) return 'icon'
-  return 'initials'
+  // Missing kind while agents/thread still hydrate — never flash initials.
+  return 'pending'
 }
 
 function resolveOrbMotion(
@@ -75,6 +86,8 @@ export function AiAvatar({
   decorative = false,
   activity,
   motion,
+  pulseId = null,
+  baseMotion = null,
   paused = false,
 }: AiAvatarProps) {
   const displayName = name?.trim() || 'Agent'
@@ -108,6 +121,8 @@ export function AiAvatar({
         shape={orbShape}
         size={size}
         motion={orbMotion}
+        pulseId={pulseId}
+        baseMotion={baseMotion ?? (activity === 'working' ? 'working' : 'idle')}
         paused={paused}
         className={cn(activity ? '' : className)}
         decorative={decorative}
@@ -124,6 +139,17 @@ export function AiAvatar({
       >
         <img src={imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />
       </span>
+    )
+  } else if (resolved === 'pending') {
+    // Quick-load shell: solid circle in the agent tint, no initials flash.
+    face = (
+      <span
+        style={{ ...style, background: orbColor }}
+        className={cn('ai-avatar ai-avatar-pending', activity ? '' : className)}
+        data-working={working || undefined}
+        data-testid="ai-avatar-pending"
+        {...a11yProps}
+      />
     )
   } else {
     face = (

@@ -239,6 +239,48 @@ async def update_widget_settings(
 
 
 
+class ReactionBody(BaseModel):
+    kind: str
+
+
+@router.put("/messages/{message_id}/reactions")
+async def put_message_reaction(
+    message_id: UUID,
+    body: ReactionBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Set or toggle this operator's reaction on a timeline message."""
+    from app.services import message_reactions as reactions
+
+    return await reactions.set_reaction(
+        session,
+        tenant_id=auth.tenant.id,
+        message_id=message_id,
+        actor_type="user",
+        actor_id=auth.user.id,
+        kind=body.kind,
+    )
+
+
+@router.delete("/messages/{message_id}/reactions")
+async def delete_message_reaction(
+    message_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Clear this operator's reaction on a timeline message."""
+    from app.services import message_reactions as reactions
+
+    return await reactions.clear_reaction(
+        session,
+        tenant_id=auth.tenant.id,
+        message_id=message_id,
+        actor_type="user",
+        actor_id=auth.user.id,
+    )
+
+
 @router.post("/messages/{message_id}/feedback")
 async def create_feedback(
     message_id: UUID,
@@ -246,6 +288,13 @@ async def create_feedback(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Legacy thumbs API — maps to reaction kinds ``up`` / ``down``.
+
+    Prefer ``PUT /messages/{id}/reactions``. Kept so older clients and tests
+    keep working while Communication moves to the stacked reaction UI.
+    """
+    from app.services import message_reactions as reactions
+
     sentiment = body.sentiment
     if sentiment is not None and sentiment not in ("up", "down"):
         raise HTTPException(status_code=400, detail="sentiment must be 'up' or 'down'")
@@ -256,24 +305,20 @@ async def create_feedback(
         raise HTTPException(status_code=400, detail="Provide a score or sentiment")
     if not 1 <= score <= 5:
         raise HTTPException(status_code=400, detail="score must be between 1 and 5")
+    kind = "up" if (sentiment == "up" or (score is not None and score >= 4)) else "down"
+    payload = await reactions.set_reaction(
+        session,
+        tenant_id=auth.tenant.id,
+        message_id=message_id,
+        actor_type="user",
+        actor_id=auth.user.id,
+        kind=kind,
+    )
+    from sqlalchemy import select
 
-    # The message must exist inside this tenant: feedback on foreign or
-    # non-existent ids would poison cockpit averages and learning data.
-    from app.models.signal import SignalMessage
+    from app.models.learning import Feedback
 
-    message = (
-        await session.execute(
-            select(SignalMessage).where(
-                SignalMessage.id == message_id,
-                SignalMessage.tenant_id == auth.tenant.id,
-            )
-        )
-    ).scalars().first()
-    if message is None:
-        raise HTTPException(status_code=404, detail="Message not found")
-
-    # One feedback entry per user per message: re-voting updates it.
-    existing = (
+    fb = (
         await session.execute(
             select(Feedback).where(
                 Feedback.tenant_id == auth.tenant.id,
@@ -282,36 +327,15 @@ async def create_feedback(
                 Feedback.subject_id == str(message_id),
             )
         )
-    ).scalars().first()
-    if existing:
-        existing.score = score
-        existing.sentiment = sentiment
-        if body.comment:
-            existing.comment = body.comment
-        existing.processed = False
-        fb = existing
-    else:
-        fb = Feedback(
-            tenant_id=auth.tenant.id,
-            subject_type="message",
-            subject_id=str(message_id),
-            score=score,
-            sentiment=sentiment,
-            comment=body.comment,
-            user_id=auth.user.id,
-        )
-    session.add(fb)
-    await session.commit()
-    if sentiment == "down":
-        from app.models.signal import Signal
-        from app.services.ai_handling import check_breaker, load_layers
-
-        signal = await session.get(Signal, message.signal_id)
-        if signal is not None:
-            account, _contact = await load_layers(session, auth.tenant.id, signal)
-            await check_breaker(session, auth.tenant, account)
-    return {"id": str(fb.id), "score": score, "sentiment": sentiment}
-
+    ).scalar_one_or_none()
+    resolved_sentiment = sentiment or ("up" if kind == "up" else "down")
+    resolved_score = score if score is not None else (5 if kind == "up" else 1)
+    return {
+        "id": str(fb.id) if fb is not None else None,
+        "score": resolved_score,
+        "sentiment": resolved_sentiment,
+        "reactions": payload,
+    }
 
 class NotificationChannelsModel(BaseModel):
     inapp: bool

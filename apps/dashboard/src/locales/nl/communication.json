@@ -412,7 +412,6 @@
       "addSource": "Bron toevoegen",
       "addToQueue": "Aan queue toevoegen"
     },
-    "correctInterpretation": "Corrigeer",
     "feedbackGood": "Goed",
     "feedbackPoor": "Niet behulpzaam",
     "feedbackError": "Kon feedback niet opslaan.",
@@ -582,14 +581,15 @@
     "draftInComposer": "In de invoer"
   },
   "agentSession": {
-    "launcher": "Agent betrekken",
-    "launcherNamed": "{{name}} betrekken",
-    "launcherHint": "Betrek een agent bij dit gesprek: meedenken, opzoeken, een antwoord voorstellen of het gesprek overnemen.",
+    "launcher": "Stil een agent vragen",
+    "launcherNamed": "{{name}} stil vragen",
+    "launcherHint": "Stille Ask-sessie naast het gesprek. Voor de vloer in de thread: noem de agent met @.",
     "pickAgent": "Kies welke agent",
     "reason": {
       "channel": "handelt dit kanaal",
       "project": "projectlead",
-      "company": "bedrijfsagent"
+      "company": "bedrijfsagent",
+      "module": "modulespecialist"
     },
     "title": "Agent-sessie",
     "internalHint": "Intern - niet zichtbaar voor de klant",
@@ -799,7 +799,7 @@
     "filedIn": "Opgeborgen in",
     "closeAndFile": "Sluiten en opbergen",
     "fileConfirm": "Tags toepassen",
-    "fileApplyTags": "Voegt elke tag in die map toe aan het gesprek.",
+    "fileApplyTags": "Voegt elk label in die map toe aan het gesprek.",
     "fileSearch": "Mappen zoeken",
     "fileLoading": "Mappen laden...",
     "fileEmpty": "Geen mappen gevonden.",
@@ -883,6 +883,7 @@
     "assignAgents": "Agents",
     "assignTeams": "Teams",
     "noChannelAccess": "Geen toegang tot dit kanaal",
+    "waitingOnParticipant": "Wacht op {{name}}",
     "assigneesLoadError": "Kon niet laden wie dit gesprek kan oppakken.",
     "handoverTitle": "Toewijzen aan {{name}}",
     "handoverHintAgent": "Schrijf wat de agent moet doen. Hij begint meteen en antwoordt met een interne notitie.",
@@ -1171,8 +1172,8 @@
   },
   "timeline": {
     "internalNote": "Interne notitie",
-    "replyMail": "Beantwoorden",
-    "replyAllMail": "Allen beantwoorden",
+    "replyMail": "Antwoorden",
+    "replyAllMail": "Antwoord allen",
     "forwardMail": "Doorsturen",
     "toLabel": "Aan",
     "ccLabel": "CC",
@@ -1256,7 +1257,15 @@
       "threadReopened": "Gesprek heropend",
       "threadAssigned": "Gesprek toegewezen",
       "labels": "Tags: {{tags}}",
+      "labelsAdded": "Labels <tags /> toegevoegd",
+      "labelsAddedYou": "Jij hebt labels <tags /> toegevoegd",
+      "labelsAddedBy": "{{name}} heeft labels <tags /> toegevoegd",
+      "labelsRemoved": "Labels <tags /> verwijderd",
+      "labelsRemovedYou": "Jij hebt labels <tags /> verwijderd",
+      "labelsRemovedBy": "{{name}} heeft labels <tags /> verwijderd",
       "labelsCleared": "Tags gewist",
+      "labelsClearedYou": "Jij hebt de labels gewist",
+      "labelsClearedBy": "{{name}} heeft de labels gewist",
       "threadUpdated": "Gesprek bijgewerkt",
       "snoozeExpired": "Datum verstreken",
       "widgetSeen": "Gezien door de klant",
@@ -1281,9 +1290,15 @@
       "splitOut": "Nieuwe vraag verplaatst naar een eigen gesprek",
       "splitOutCategory": "Nieuwe vraag verplaatst naar een eigen gesprek: {{category}}",
       "categorySet": "Actietag ingesteld op {{category}}",
+      "categorySetYou": "Jij hebt actietag {{category}} ingesteld",
+      "categorySetBy": "{{name}} heeft actietag {{category}} ingesteld",
       "categoryProposed": "Actietag voorgesteld: {{category}}",
       "categoryChanged": "Actietag gewijzigd van {{previous}} naar {{category}}",
+      "categoryChangedYou": "Jij hebt actietag gewijzigd van {{previous}} naar {{category}}",
+      "categoryChangedBy": "{{name}} heeft actietag gewijzigd van {{previous}} naar {{category}}",
       "ticketStageChanged": "Ticket verplaatst naar {{stage}}",
+      "ticketStageChangedYou": "Jij hebt het ticket verplaatst naar {{stage}}",
+      "ticketStageChangedBy": "{{name}} heeft het ticket verplaatst naar {{stage}}",
       "escalated": "Doorgestuurd naar het team",
       "aiPaused": "AI gepauzeerd op dit gesprek",
       "aiResumed": "AI hervat op dit gesprek",
@@ -1354,7 +1369,18 @@
       "wakeStarted": "Agent is aan de slag",
       "wakeStartedBy": "{{name}} is aan de slag",
       "wakeQuiet": "Agent keek, niets nieuws",
-      "wakeQuietBy": "{{name}} keek, niets nieuws"
+      "wakeQuietBy": "{{name}} keek, niets nieuws",
+      "participantTurnRequested": "{{name}} gevraagd te antwoorden",
+      "participantTurnRequestedGeneric": "Deelnemer gevraagd te antwoorden",
+      "participantTurnSent": "{{name}} heeft geantwoord",
+      "participantTurnSentGeneric": "Deelnemer heeft geantwoord",
+      "participantTurnPass": "{{name}} heeft overgeslagen",
+      "participantTurnPassGeneric": "Deelnemer heeft overgeslagen",
+      "participantTurnTimeout": "{{name}} reageerde niet op tijd",
+      "participantTurnTimeoutGeneric": "Deelnemer reageerde niet op tijd",
+      "participantTurnMaxConsecutive": "Agents stopten: te veel beurten achter elkaar — menselijke hulp nodig",
+      "folderSet": "Opgeborgen in {{path}}",
+      "folderSetGeneric": "Opgeborgen in een map"
     }
   },
   "triage": {
@@ -1479,18 +1505,18 @@
     "team": "Team"
   },
   "tags": {
-    "title": "Tags",
-    "add": "Tags toevoegen",
+    "title": "Labels",
+    "add": "Labels toevoegen",
     "hint": "Actietags starten een ticketflow",
     "placeholder": "Naam",
     "remove": "Tag {{tag}} verwijderen",
     "categoryLocked": "Actietag. Wijzig die door te vervangen of te splitsen.",
     "openFolder": "Open alle gesprekken met #{{tag}}",
     "viaContact": "Via contact",
-    "modalTitle": "Tags aan dit gesprek",
-    "modalHint": "Vrije tags labelen het gesprek. Een actietag start een ticketflow.",
-    "modalHintMulti": "Selecteer meerdere tags of mappen, bevestig daarna. Een actietag start direct een ticketflow.",
-    "applySelected": "Tags toevoegen",
+    "modalTitle": "Labels aan dit gesprek",
+    "modalHint": "Vrije labels markeren het gesprek. Een actietag start een ticketflow.",
+    "modalHintMulti": "Selecteer meerdere labels of mappen, bevestig daarna. Een actietag start direct een ticketflow.",
+    "applySelected": "Labels toevoegen",
     "savedMap": "Opgeslagen map",
     "searchPlaceholder": "Zoek of typ een naam",
     "actionTag": "Actietag",
@@ -1701,6 +1727,18 @@
       "under": "Onder",
       "showEmpty": "{{count}} lege mappen tonen",
       "showEmptyLabel": "Lege mappen"
+    }
+  },
+  "reactions": {
+    "pickerLabel": "Reageer op dit bericht",
+    "error": "Kon die reactie niet opslaan.",
+    "kinds": {
+      "up": "Leuk",
+      "down": "Niet behulpzaam",
+      "hundred": "Mee eens",
+      "angry": "Gefrustreerd",
+      "thinking": "Denk na",
+      "investigating": "Ik zoek het uit"
     }
   }
 }

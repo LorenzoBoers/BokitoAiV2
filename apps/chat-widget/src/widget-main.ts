@@ -17,12 +17,14 @@ import {
   chatRunCloses,
   chatRunLeads,
   consumeSpeechResults,
+  SmoothStreamController,
   speechWaveSvgHtml,
+  splitChatMessages,
 } from '@bokito/shared'
 import { LIVECHAT_DEFAULT_HOST_AUTH_GROUP, apiGroupUrl, gatewayWebSocketUrl, livechatHttpUrl, normalizeApiOrigin, normalizeLivechatApiBase } from './api/livechat-url'
 import { livechatRoutes } from './api/livechat.routes'
 import { applyBrandToHost, parseHexColor } from './brand'
-import { ICONS, MONKEY_MARK } from './icons'
+import { attachLiveOrb, BOKITO_LAUNCHER_MARK, BOKITO_MARK, BOKITO_ORB_COLOR, ICONS, type LiveOrbHandle } from './icons'
 import {
   appendWorkLogEvent,
   collapseWorkLogStack,
@@ -578,12 +580,26 @@ const WIDGET_CSS = `
   --bk-window-h:      min(640px,calc(100vh - 80px));
   --bk-atmosphere-height: min(56%, 380px);
   --bk-atmosphere-min-height: 260px;
-  --bk-launcher-ring: color-mix(in srgb, var(--bk-primary) 34%, transparent);
+  --bk-launcher-ring: transparent;
   --bk-launcher-close-color: #fff;
+  --bk-orb-fill: var(--bk-primary, #32BF8E);
+  /* No hard disc — soft brand halo behind a freestanding ape. */
+  --bk-launcher-bg: transparent;
+  --bk-launcher-bg-hover: transparent;
+  --bk-launcher-halo: radial-gradient(circle at 50% 58%,
+    color-mix(in srgb, var(--bk-primary) 34%, transparent) 0%,
+    color-mix(in srgb, var(--bk-primary) 12%, transparent) 42%,
+    transparent 72%);
+  --bk-launcher-halo-hover: radial-gradient(circle at 50% 58%,
+    color-mix(in srgb, var(--bk-primary) 48%, transparent) 0%,
+    color-mix(in srgb, var(--bk-primary) 18%, transparent) 46%,
+    transparent 74%);
+  --bk-launcher-shadow: none;
+  --bk-launcher-shadow-hover: none;
 }
-@media (prefers-color-scheme:dark){:host{--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-ai:#8B5CF6;--bk-ai-ink:#C4B5FD;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
-:host([data-theme="light"]){--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7F8FA;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F1F3F6;--bk-border:#E2E6EC;--bk-border-light:#EEF1F5;--bk-popover:#FFFFFF;--bk-ai:#7C3AED;--bk-ai-ink:#5B21B6;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 10%,#ffffff) 0%,var(--bk-bg) 100%);--bk-header-text:#161022;--bk-window-glow:none;--bk-shadow-sm:0 1px 3px rgba(17,24,39,.08),0 1px 2px rgba(17,24,39,.06);--bk-shadow:0 8px 20px rgba(12,18,32,.12),0 2px 8px rgba(12,18,32,.06);--bk-shadow-lg:0 24px 64px rgba(12,18,32,.14),0 8px 20px rgba(12,18,32,.06);--bk-launcher-bg:var(--bk-primary);--bk-launcher-icon:var(--bk-on-primary,#fff);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 72%,#ffffff);--bk-launcher-shadow:0 10px 28px color-mix(in srgb,var(--bk-primary) 34%,rgba(2,6,23,.12)),0 2px 8px rgba(2,6,23,.06);--bk-launcher-shadow-hover:0 14px 36px color-mix(in srgb,var(--bk-primary) 42%,rgba(2,6,23,.14)),0 4px 12px rgba(2,6,23,.08);--bk-launcher-close-color:var(--bk-on-primary,#fff);}
-:host([data-theme="dark"]){--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-ai:#8B5CF6;--bk-ai-ink:#C4B5FD;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-launcher-bg:color-mix(in srgb,var(--bk-bg) 76%,var(--bk-primary) 24%);--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 28%,transparent),inset 0 -10px 20px color-mix(in srgb,var(--bk-primary) 42%,#030508);--bk-launcher-shadow-hover:0 14px 34px color-mix(in srgb,var(--bk-primary) 42%,transparent),inset 0 -12px 24px color-mix(in srgb,var(--bk-primary) 52%,#030508),0 0 44px color-mix(in srgb,var(--bk-primary) 38%,transparent);--bk-launcher-ring:color-mix(in srgb,var(--bk-primary) 42%,transparent);--bk-launcher-close-color:#fff;}
+@media (prefers-color-scheme:dark){:host{--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-ai:#8B5CF6;--bk-ai-ink:#C4B5FD;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-shadow:0 8px 20px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);--bk-shadow-lg:0 24px 64px rgba(0,0,0,.6),0 8px 20px rgba(0,0,0,.35);--bk-launcher-bg:transparent;--bk-launcher-bg-hover:transparent;--bk-launcher-halo:radial-gradient(circle at 50% 58%,color-mix(in srgb,var(--bk-primary) 40%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 14%,transparent) 44%,transparent 72%);--bk-launcher-halo-hover:radial-gradient(circle at 50% 58%,color-mix(in srgb,var(--bk-primary) 56%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 22%,transparent) 48%,transparent 74%);--bk-launcher-ring:transparent;--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:none;--bk-launcher-shadow-hover:none;--bk-launcher-close-color:#fff;}:host .bk-record-cancel{background:#252A3A;color:#B5BAC8;}:host .bk-record-cancel:hover{background:#2F354A;}}
+:host([data-theme="light"]){--bk-text:#161022;--bk-text-muted:#5B5870;--bk-bg:#F7F8FA;--bk-bg-surface:#FFFFFF;--bk-bg-hover:#F1F3F6;--bk-border:#E2E6EC;--bk-border-light:#EEF1F5;--bk-popover:#FFFFFF;--bk-ai:#7C3AED;--bk-ai-ink:#5B21B6;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 10%,#ffffff) 0%,var(--bk-bg) 100%);--bk-header-text:#161022;--bk-window-glow:none;--bk-shadow-sm:0 1px 3px rgba(17,24,39,.08),0 1px 2px rgba(17,24,39,.06);--bk-shadow:0 8px 20px rgba(12,18,32,.12),0 2px 8px rgba(12,18,32,.06);--bk-shadow-lg:0 24px 64px rgba(12,18,32,.14),0 8px 20px rgba(12,18,32,.06);--bk-launcher-bg:transparent;--bk-launcher-bg-hover:transparent;--bk-launcher-halo:radial-gradient(circle at 50% 58%,color-mix(in srgb,var(--bk-primary) 28%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 10%,transparent) 42%,transparent 72%);--bk-launcher-halo-hover:radial-gradient(circle at 50% 58%,color-mix(in srgb,var(--bk-primary) 42%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 16%,transparent) 46%,transparent 74%);--bk-launcher-ring:transparent;--bk-launcher-icon:var(--bk-on-primary,#fff);--bk-launcher-shadow:none;--bk-launcher-shadow-hover:none;--bk-launcher-close-color:var(--bk-on-primary,#fff);}
+:host([data-theme="dark"]){--bk-text:#B5BAC8;--bk-text-muted:#82879A;--bk-bg:#10131A;--bk-bg-surface:#1D2130;--bk-bg-hover:#252A3A;--bk-border:#2C314A;--bk-border-light:#353B53;--bk-popover:#161A26;--bk-ai:#8B5CF6;--bk-ai-ink:#C4B5FD;--bk-header-bg:linear-gradient(180deg,color-mix(in srgb,var(--bk-brand) 22%,#14171F) 0%,#14171F 100%);--bk-header-text:#F4F7FB;--bk-window-glow:radial-gradient(135% 78% at 50% 30%,color-mix(in srgb,var(--bk-primary) 8.5%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 3.2%,transparent) 44%,transparent 72%);--bk-launcher-bg:transparent;--bk-launcher-bg-hover:transparent;--bk-launcher-halo:radial-gradient(circle at 50% 58%,color-mix(in srgb,var(--bk-primary) 40%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 14%,transparent) 44%,transparent 72%);--bk-launcher-halo-hover:radial-gradient(circle at 50% 58%,color-mix(in srgb,var(--bk-primary) 56%,transparent) 0%,color-mix(in srgb,var(--bk-primary) 22%,transparent) 48%,transparent 74%);--bk-launcher-ring:transparent;--bk-launcher-icon:var(--bk-primary);--bk-launcher-shadow:none;--bk-launcher-shadow-hover:none;--bk-launcher-close-color:#fff;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 @keyframes bk-spring-in{0%{transform:scale(.6) translateY(20px);opacity:0}60%{transform:scale(1.04) translateY(-4px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
 @keyframes bk-slide-up{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -601,17 +617,26 @@ const WIDGET_CSS = `
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking,.agent-live-dot,.thinking-shimmer-text{animation:none!important;}.thinking-shimmer-text{color:var(--bk-ai-ink);-webkit-text-fill-color:var(--bk-ai-ink);background:none;}}
-.bk-launcher{position:fixed;bottom:20px;right:20px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:var(--bk-launcher-bg);border:2px solid var(--bk-launcher-ring);cursor:grab;box-shadow:var(--bk-launcher-shadow);display:flex;align-items:center;justify-content:center;overflow:visible;transition:transform var(--bk-launcher-transition),box-shadow var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
-:host([data-theme="dark"]) .bk-launcher{box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);}
-@media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-launcher{box-shadow:var(--bk-launcher-shadow),var(--bk-shadow-lg);}}
-.bk-launcher:hover{transform:scale(1.06);box-shadow:var(--bk-launcher-shadow-hover);}
-.bk-launcher:active{transform:scale(1.01);cursor:grabbing;}
-.bk-launcher.is-dragging{transition:none;cursor:grabbing;transform:scale(1.04);}
-.bk-launcher.is-dragging:hover{transform:scale(1.04);}
-.bk-launcher-icon{width:26px;height:26px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);}
-.bk-launcher-icon--monkey{width:29px;height:29px;transform:translateY(0.5px);}
-.bk-launcher-icon--custom{width:29px;height:29px;object-fit:contain;border-radius:8px;position:relative;z-index:1;}
-.bk-launcher.has-brand-icon .bk-launcher-icon--monkey{display:none!important;}
+.bk-launcher{position:fixed;bottom:16px;right:16px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:transparent;border:none;cursor:grab;box-shadow:none;display:flex;align-items:center;justify-content:center;overflow:visible;transition:transform var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
+/* Soft brand aura — not a hard bubble. */
+.bk-launcher::before{content:'';position:absolute;inset:-18%;border-radius:50%;background:var(--bk-launcher-halo);opacity:.9;transform:scale(.92);filter:blur(1px);transition:opacity var(--bk-launcher-transition),transform var(--bk-launcher-transition),background var(--bk-launcher-transition);pointer-events:none;z-index:0;}
+.bk-launcher:hover::before{background:var(--bk-launcher-halo-hover);opacity:1;transform:scale(1.05);}
+.bk-launcher:hover .bk-launcher-icon--bokito,.bk-launcher:hover .bk-launcher-icon--monkey{transform:scale(1.06) translateY(-1px);}
+.bk-launcher:active{cursor:grabbing;}
+.bk-launcher:active .bk-launcher-icon--bokito,.bk-launcher:active .bk-launcher-icon--monkey{transform:scale(1.01);}
+.bk-launcher.is-dragging{transition:none;cursor:grabbing;}
+.bk-launcher.is-dragging .bk-launcher-icon--bokito,.bk-launcher.is-dragging .bk-launcher-icon--monkey{transform:scale(1.04);}
+/* Open = compact close control (needs a real surface). */
+.bk-launcher.is-open{background:var(--bk-primary);box-shadow:0 8px 24px color-mix(in srgb,var(--bk-primary) 35%,transparent);}
+.bk-launcher.is-open::before{opacity:0;transform:scale(.6);}
+.bk-launcher.is-open:hover{background:color-mix(in srgb,var(--bk-primary) 92%,#000);}
+.bk-launcher-icon{width:26px;height:26px;color:var(--bk-launcher-icon);transition:transform var(--bk-transition),opacity var(--bk-transition);position:relative;z-index:1;}
+/* Freestanding ape — larger than hit target, soft depth under the mark. */
+.bk-launcher-icon--bokito,.bk-launcher-icon--monkey{width:calc(var(--bk-bubble-size) + 18px);height:calc(var(--bk-bubble-size) + 18px);transform:none;color:unset;filter:drop-shadow(0 10px 18px color-mix(in srgb,var(--bk-primary) 28%,rgba(2,6,23,.22))) drop-shadow(0 2px 4px rgba(2,6,23,.18));}
+.bk-launcher-icon--custom{width:29px;height:29px;object-fit:contain;border-radius:8px;}
+.bk-launcher.has-brand-icon .bk-launcher-icon--bokito,.bk-launcher.has-brand-icon .bk-launcher-icon--monkey{display:none!important;}
+.bk-launcher.has-brand-icon{background:var(--bk-bg-surface);box-shadow:0 8px 24px rgba(2,6,23,.16);}
+.bk-launcher.has-brand-icon::before{opacity:0;}
 .bk-launcher-icon--close{color:var(--bk-launcher-close-color,#fff);position:absolute;z-index:2;transform:scale(0) rotate(-90deg);opacity:0;}
 .bk-launcher.is-open .bk-launcher-icon--chat{transform:scale(0) rotate(90deg);opacity:0;}
 .bk-launcher.is-open .bk-launcher-icon--close{transform:scale(1) rotate(0);opacity:1;}
@@ -641,11 +666,10 @@ const WIDGET_CSS = `
 .bk-launcher.is-open~.bk-window .bk-header>.bk-header-info{animation-delay:.14s;}
 .bk-launcher.is-open~.bk-window .bk-header>.bk-header-actions{animation-delay:.19s;}
 .bk-header>.bk-btn-back{flex-shrink:0;}
-.bk-header-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;position:relative;overflow:hidden;}
-@media (prefers-color-scheme:dark){:host:not([data-theme="light"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}}
-:host([data-theme="dark"]) .bk-header-avatar{background:color-mix(in srgb,var(--bk-primary) 8%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 22%,transparent);box-shadow:0 4px 12px color-mix(in srgb,var(--bk-primary) 22%,transparent),inset 0 -8px 20px color-mix(in srgb,var(--bk-primary) 32%,var(--bk-bg));}
-:host([data-theme="light"]) .bk-header-avatar{background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);}
-.bk-header-avatar .bk-avatar-logo{width:22px;height:22px;color:var(--bk-mark,var(--bk-primary));}
+/* Freestanding agent orb — same look light/dark; plate only for uploaded brand art. */
+.bk-header-avatar{width:36px;height:36px;border-radius:var(--bk-radius-full);background:transparent;border:none;box-shadow:none;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;position:relative;overflow:visible;}
+.bk-header-avatar.has-brand-icon{background:var(--bk-bg-surface);border:1px solid var(--bk-border-light);box-shadow:0 1px 2px rgba(2,6,23,.06);overflow:hidden;}
+.bk-header-avatar .bk-avatar-logo,.bk-header-avatar .bk-orb-mark{width:36px;height:36px;color:unset;}
 .bk-header-avatar.has-brand-icon .bk-avatar-logo{display:none!important;}
 .bk-header-avatar-img{width:100%;height:100%;padding:5px;object-fit:contain;display:block;border-radius:inherit;box-sizing:border-box;}
 :host([data-preview-mode="true"]){position:relative;display:block;width:100%;height:100%;min-height:0;min-width:0;max-width:none;margin:0;--bk-z-widget:50;--bk-window-w:100%;--bk-window-h:100%;}
@@ -821,9 +845,9 @@ const WIDGET_CSS = `
 .bk-msg-avatar{flex:0 0 22px;width:22px;height:22px;margin-top:2px;border-radius:999px;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;font-weight:600;letter-spacing:.02em;}
 .bk-msg-avatar--hidden{visibility:hidden;}
 .bk-msg-avatar-img{width:100%;height:100%;object-fit:cover;}
-.bk-msg-avatar .bk-avatar-logo{width:14px;height:14px;color:var(--bk-ai-ink);}
+.bk-msg-avatar .bk-avatar-logo,.bk-msg-avatar .bk-orb-mark{width:20px;height:20px;color:unset;}
 .bk-msg-avatar svg{width:13px;height:13px;}
-.bk-msg--ai .bk-msg-avatar{background:color-mix(in srgb,var(--bk-ai) 14%,var(--bk-bg-surface));color:var(--bk-ai-ink);border:1px solid color-mix(in srgb,var(--bk-ai) 22%,transparent);}
+.bk-msg--ai .bk-msg-avatar{background:transparent;border:none;color:unset;}
 .bk-msg--team .bk-msg-avatar{background:var(--bk-bg-surface);color:var(--bk-text-muted);border:1px solid var(--bk-border);}
 .bk-msg-bubble{position:relative;min-width:0;max-width:calc(100% - 28px);padding:7px 11px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
 .bk-msg--user .bk-msg-bubble{max-width:86%;}
@@ -841,7 +865,15 @@ const WIDGET_CSS = `
 .bk-msg-chip{flex-shrink:0;padding:0 5px;border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.02em;line-height:15px;}
 .bk-msg-chip--ai{background:color-mix(in srgb,var(--bk-ai) 14%,transparent);color:var(--bk-ai-ink);}
 .bk-msg-chip--team{background:var(--bk-border-light);color:var(--bk-text-muted);}
-.bk-msg-time{margin-top:2px;font-size:10.5px;line-height:1.3;color:var(--bk-text-muted);text-align:right;font-variant-numeric:tabular-nums;}
+.bk-msg-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:18px;margin-top:2px;}
+.bk-msg-typing{display:none;align-items:center;gap:3px;padding:0 2px;margin-right:auto;}
+.bk-msg--streaming .bk-msg-typing{display:inline-flex;}
+.bk-msg-typing>span{width:4px;height:4px;border-radius:50%;background:var(--bk-ai-ink);opacity:.45;animation:bk-thinking-pulse 1.2s ease-in-out infinite;}
+.bk-msg-typing>span:nth-child(2){animation-delay:.15s;}
+.bk-msg-typing>span:nth-child(3){animation-delay:.3s;}
+@media (prefers-reduced-motion:reduce){.bk-msg-typing>span{animation:none;opacity:.7;}}
+.bk-msg-time{font-size:10.5px;line-height:1.3;color:var(--bk-text-muted);text-align:right;font-variant-numeric:tabular-nums;}
+.bk-msg--streaming .bk-msg-time{visibility:hidden;}
 .bk-msg-time--hidden{display:none;}
 .bk-msg-disclosure{margin-top:4px;font-size:10.5px;line-height:1.35;color:var(--bk-text-muted);}
 .bk-date-sep{width:100%;max-width:var(--bk-chat-col);margin:6px auto 10px;text-align:center;font-size:11px;color:var(--bk-text-muted);padding:2px 0;position:relative;}
@@ -1212,6 +1244,13 @@ class BokitoChatWidget extends HTMLElement {
   #deltaQueue = [];
   #deltaRaf = null;
   #pendingFinalMsg = null;
+  /** Shared agent-turn paint (same cruise/split as Communication AgentTurnLive). */
+  #liveStream = new SmoothStreamController();
+  #livePaintRaf = null;
+  #liveSealedEls = [];
+  #liveSealedCount = 0;
+  #livePaintSendMeta = null;
+  #livePaintDoneResolve = null;
   #pendingAttachments = []; // [{ localUrl, id, url, uploading }]
   #nonBlockingSend = true;
   /** In-flight POST /conversation so the first message does not double-create. */
@@ -1261,6 +1300,9 @@ class BokitoChatWidget extends HTMLElement {
   #storNs = '';
   #headerAvatarImg = null;
   #launcherIconImg = null;
+  /** Live gaze/blink on launcher + header orbs (platform BotOrb feel). */
+  #launcherOrbLive = null;
+  #headerOrbLive = null;
   /** Parsed JSON from data-preview-overrides (dashboard draft). */
   #previewParsedOverrides = null;
 
@@ -1420,7 +1462,7 @@ class BokitoChatWidget extends HTMLElement {
     }
   }
 
-  /** Brand image when the workspace set one, otherwise the Bokito mark. */
+  /** Brand image when the workspace set one, otherwise the Bokito orb mark. */
   #syncHeaderAvatarFromTheme(theme) {
     const t = theme && typeof theme === 'object' ? theme : {};
     const imageUrl =
@@ -1432,10 +1474,18 @@ class BokitoChatWidget extends HTMLElement {
       typeof t.chatbot_name === 'string' && t.chatbot_name.trim()
         ? t.chatbot_name.trim()
         : (this.#sessionTenant?.name || '').trim();
+    // Chrome orb = tenant brand (Bokito mint). Never agent purple on the launcher.
+    const brandColor =
+      typeof t.primary_color === 'string' && /^#[0-9a-fA-F]{6}$/.test(t.primary_color.trim())
+        ? t.primary_color.trim().toLowerCase()
+        : (typeof t.brand_color === 'string' && /^#[0-9a-fA-F]{6}$/.test(t.brand_color.trim())
+          ? t.brand_color.trim().toLowerCase()
+          : null);
+    this.style.setProperty('--bk-orb-fill', brandColor || BOKITO_ORB_COLOR);
     const headerImg = this.#headerAvatarImg || this.#root?.querySelector('.bk-header-avatar-img');
     const launcherImg = this.#launcherIconImg || this.#root?.querySelector('.bk-launcher-icon--custom');
     const headerWrap = headerImg?.closest?.('.bk-header-avatar') || this.#root?.querySelector('.bk-header-avatar');
-    const monkey = headerWrap?.querySelector('.bk-avatar-logo');
+    const orbMark = headerWrap?.querySelector('.bk-avatar-logo');
     if (headerImg) {
       if (url) {
         headerImg.src = url;
@@ -1458,9 +1508,10 @@ class BokitoChatWidget extends HTMLElement {
     this.#agentDisplayName = name || '';
     this.#refreshMessageIdentities();
     const branded = Boolean(url);
-    if (monkey) monkey.hidden = branded;
+    if (orbMark) orbMark.hidden = branded;
     headerWrap?.classList.toggle('has-brand-icon', branded);
     this.#launcher?.classList.toggle('has-brand-icon', Boolean(url));
+    this.#mountLiveOrbs();
   }
 
   setIdentityToken(token) { this.#identityToken = token; }
@@ -1705,6 +1756,7 @@ class BokitoChatWidget extends HTMLElement {
       const workLogId = e?.detail?.workLogId || e?.detail?.work_log_id;
       if (workLogId) this.#subscribeWorkLog(String(workLogId));
     });
+    this.style.setProperty('--bk-orb-fill', BOKITO_ORB_COLOR);
     this.#parsePreviewOverridesAttribute();
     this.#refreshChromeFromThemeAndPreview();
     if (this.dataset.previewMode === 'true') {
@@ -1712,6 +1764,13 @@ class BokitoChatWidget extends HTMLElement {
         void this.#openWidget();
       });
     }
+  }
+
+  disconnectedCallback() {
+    this.#launcherOrbLive?.destroy();
+    this.#headerOrbLive?.destroy();
+    this.#launcherOrbLive = null;
+    this.#headerOrbLive = null;
   }
 
   #chromeLocale() {
@@ -1810,21 +1869,7 @@ class BokitoChatWidget extends HTMLElement {
     div.innerHTML = `
       <button class="bk-launcher" aria-label="Open chat">
         <img class="bk-launcher-icon bk-launcher-icon--chat bk-launcher-icon--custom" alt="" hidden />
-        <svg class="bk-launcher-icon bk-launcher-icon--chat bk-launcher-icon--monkey" viewBox="-22 -24 361 403" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .bk-bokito-wink-g{transform-origin:158.5px 177.5px;animation:bkHeadWink 45s ease-in-out infinite}
-            .bk-bokito-g{transform-origin:158.5px 177.5px;animation:bkHeadMove 15s cubic-bezier(.42,0,.58,1) infinite}
-            .bk-bokito-f{animation:bkFaceExpr 45s cubic-bezier(.42,0,.58,1) infinite}
-            @keyframes bkHeadWink{0%,66%,69.5%,100%{transform:rotate(0) translate(0,0)}67.5%,68.5%{transform:rotate(2deg) translate(2px,-1px)}}
-            @keyframes bkHeadMove{0%{transform:rotate(0) translate(0,0) scale(1)}1%{transform:rotate(1.5deg) translate(.5px,.5px) scale(.99)}5%{transform:rotate(-10deg) translate(-5px,-8px) scale(1.01)}7%{transform:rotate(-8.5deg) translate(-4px,-7px) scale(1.005)}8%{transform:rotate(-9deg) translate(-4.5px,-7.5px) scale(1.005)}12%{transform:rotate(1deg) translate(.3px,.3px) scale(1)}13%{transform:rotate(0) translate(0,0) scale(1)}18%{transform:rotate(-.5deg) translate(0,-1px) scale(1.01)}20%{transform:rotate(0) translate(0,-.5px) scale(1.005)}23%{transform:rotate(.5deg) translate(0,.5px) scale(.995)}26%{transform:rotate(0) translate(0,0) scale(1.005)}29%,100%{transform:rotate(0) translate(0,0) scale(1)}}
-            @keyframes bkFaceExpr{0%,5%,5.3%,9.7%,10.7%,15.3%,22%,28%,31%,33.3%,37%,42%,57%,69.5%,72%,84%,93%,100%{d:path("M26.6433 267.197C45.1327 277.878 75.6447 286.435 101.358 290.367C146.687 297.256 196.097 295.654 238.874 285.905C259.443 281.121 273.961 275.586 288.806 268.009C285.993 282.241 279.806 295.127 268.54 308.402C229.03 350.457 151.035 366.187 97.7947 344.087C67.3069 331.432 37.7979 305.137 28.1169 272.852C27.5527 270.971 27.0636 269.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 115.085C261.634 96.6836 247.099 68.673 225.354 70.0582C224.845 70.0897 224.339 70.1266 223.83 70.1685C209.08 76.2057 197.865 101.588 191.255 115.718C190.325 117.71 189.354 120.748 189.179 122.962L189.694 123.821C192.954 123.676 203.874 118.28 207.554 116.913C213.529 114.696 218.275 113.116 224.8 112.534C235.324 112.489 241.365 114.05 250.915 118.668C256.53 121.383 262.664 125.248 262.3 115.085ZM93.2605 71.108C90.6937 69.8213 87.4802 69.9627 84.9294 70.1441C63.3749 75.2763 51.8802 98.0641 52.7224 119.095C52.7689 120.263 53.5808 120.889 54.3152 121.607C58.0322 122.098 71.2004 114.553 76.6384 113.59C84.4266 112.212 87.9264 112.256 95.7996 113.206C100.812 114.322 123.644 124.057 125.413 123.759C125.971 122.434 125.164 119.889 124.471 118.538C117.079 104.119 108.177 78.5861 93.2605 71.108Z");animation-timing-function:cubic-bezier(.42,0,.58,1)}4.3%,14.7%,21.3%,27.3%,40%,55%,82%{d:path("M26.6433 267.197C45.1327 277.878 75.6447 286.435 101.358 290.367C146.687 297.256 196.097 295.654 238.874 285.905C259.443 281.121 273.961 275.586 288.806 268.009C285.993 282.241 279.806 295.127 268.54 308.402C229.03 350.457 151.035 366.187 97.7947 344.087C67.3069 331.432 37.7979 305.137 28.1169 272.852C27.5527 270.971 27.0636 269.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 100.085C261.634 97.6836 247.099 93.673 225.354 94.0582C224.845 94.0897 224.339 94.1266 223.83 94.1685C209.08 95.2057 197.865 97.588 191.255 100.718C190.325 101.71 189.354 102.748 189.179 103.962L189.694 104.821C192.954 104.676 203.874 102.28 207.554 101.913C213.529 101.696 218.275 101.116 224.8 100.534C235.324 100.489 241.365 101.05 250.915 102.668C256.53 103.383 262.664 104.248 262.3 100.085ZM93.2605 94.108C90.6937 93.8213 87.4802 93.9627 84.9294 94.1441C63.3749 95.2763 51.8802 97.0641 52.7224 101.095C52.7689 101.263 53.5808 101.889 54.3152 102.607C58.0322 102.098 71.2004 100.553 76.6384 100.59C84.4266 100.212 87.9264 100.256 95.7996 100.206C100.812 100.322 123.644 103.057 125.413 102.759C125.971 102.434 125.164 101.889 124.471 101.538C117.079 98.119 108.177 95.5861 93.2605 94.108Z");animation-timing-function:cubic-bezier(.12,0,.39,0)}4.7%,15%,21.7%,27.7%,40.7%,55.7%,82.7%{d:path("M26.6433 267.197C45.1327 277.878 75.6447 286.435 101.358 290.367C146.687 297.256 196.097 295.654 238.874 285.905C259.443 281.121 273.961 275.586 288.806 268.009C285.993 282.241 279.806 295.127 268.54 308.402C229.03 350.457 151.035 366.187 97.7947 344.087C67.3069 331.432 37.7979 305.137 28.1169 272.852C27.5527 270.971 27.0636 269.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 117.085C261.634 94.6836 247.099 63.673 225.354 65.0582C224.845 65.0897 224.339 65.1266 223.83 65.1685C209.08 72.2057 197.865 99.588 191.255 117.718C190.325 119.71 189.354 123.748 189.179 126.962L189.694 127.821C192.954 127.676 203.874 121.28 207.554 119.913C213.529 117.696 218.275 116.116 224.8 115.534C235.324 115.489 241.365 117.05 250.915 121.668C256.53 124.383 262.664 129.248 262.3 117.085ZM93.2605 65.108C90.6937 63.8213 87.4802 63.9627 84.9294 64.1441C63.3749 70.2763 51.8802 95.0641 52.7224 123.095C52.7689 124.263 53.5808 124.889 54.3152 125.607C58.0322 126.098 71.2004 117.553 76.6384 116.59C84.4266 115.212 87.9264 115.256 95.7996 116.206C100.812 117.322 123.644 128.057 125.413 127.759C125.971 126.434 125.164 123.889 124.471 122.538C117.079 107.119 108.177 73.5861 93.2605 65.108Z");animation-timing-function:cubic-bezier(.61,1,.88,1)}6%,6.7%{d:path("M26.6433 267.197C45.1327 280.878 75.6447 290.435 101.358 294.367C146.687 301.256 196.097 299.654 238.874 289.905C259.443 285.121 273.961 278.586 288.806 268.009C285.993 284.241 279.806 299.127 268.54 313.402C229.03 356.457 151.035 372.187 97.7947 349.087C67.3069 336.432 37.7979 309.137 28.1169 276.852C27.5527 274.971 27.0636 271.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 110.085C261.634 95.6836 247.099 80.673 225.354 81.0582C224.845 81.0897 224.339 81.1266 223.83 81.1685C209.08 84.2057 197.865 100.588 191.255 110.718C190.325 112.71 189.354 114.748 189.179 115.962L189.694 116.821C192.954 116.676 203.874 113.28 207.554 112.913C213.529 111.696 218.275 110.116 224.8 109.534C235.324 109.489 241.365 110.05 250.915 112.668C256.53 114.383 262.664 117.248 262.3 110.085ZM93.2605 81.108C90.6937 80.8213 87.4802 80.9627 84.9294 81.1441C63.3749 84.2763 51.8802 96.0641 52.7224 112.095C52.7689 112.263 53.5808 112.889 54.3152 113.607C58.0322 113.098 71.2004 109.553 76.6384 108.59C84.4266 107.212 87.9264 107.256 95.7996 108.206C100.812 109.322 123.644 116.057 125.413 115.759C125.971 115.434 125.164 113.889 124.471 112.538C117.079 101.119 108.177 84.5861 93.2605 81.108Z");animation-timing-function:cubic-bezier(.42,0,.58,1)}7.7%,8.7%{d:path("M26.6433 267.197C45.1327 279.878 75.6447 288.435 101.358 292.367C146.687 299.256 196.097 297.654 238.874 287.905C259.443 283.121 273.961 277.586 288.806 268.009C285.993 283.241 279.806 297.127 268.54 311.402C229.03 354.457 151.035 370.187 97.7947 347.087C67.3069 334.432 37.7979 307.137 28.1169 274.852C27.5527 272.971 27.0636 270.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 117.085C261.634 94.6836 247.099 63.673 225.354 65.0582C224.845 65.0897 224.339 65.1266 223.83 65.1685C209.08 72.2057 197.865 99.588 191.255 117.718C190.325 119.71 189.354 123.748 189.179 126.962L189.694 127.821C192.954 127.676 203.874 121.28 207.554 119.913C213.529 117.696 218.275 116.116 224.8 115.534C235.324 115.489 241.365 117.05 250.915 121.668C256.53 124.383 262.664 129.248 262.3 117.085ZM93.2605 65.108C90.6937 63.8213 87.4802 63.9627 84.9294 64.1441C63.3749 70.2763 51.8802 95.0641 52.7224 123.095C52.7689 124.263 53.5808 124.889 54.3152 125.607C58.0322 126.098 71.2004 117.553 76.6384 116.59C84.4266 115.212 87.9264 115.256 95.7996 116.206C100.812 117.322 123.644 128.057 125.413 127.759C125.971 126.434 125.164 123.889 124.471 122.538C117.079 107.119 108.177 73.5861 93.2605 65.108Z");animation-timing-function:cubic-bezier(.42,0,.58,1)}66%{d:path("M26.6433 267.197C45.1327 277.878 75.6447 286.435 101.358 290.367C146.687 297.256 196.097 295.654 238.874 285.905C259.443 281.121 273.961 275.586 288.806 268.009C285.993 282.241 279.806 295.127 268.54 308.402C229.03 350.457 151.035 366.187 97.7947 344.087C67.3069 331.432 37.7979 305.137 28.1169 272.852C27.5527 270.971 27.0636 269.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 115.085C261.634 96.6836 247.099 68.673 225.354 70.0582C224.845 70.0897 224.339 70.1266 223.83 70.1685C209.08 76.2057 197.865 101.588 191.255 115.718C190.325 117.71 189.354 120.748 189.179 122.962L189.694 123.821C192.954 123.676 203.874 118.28 207.554 116.913C213.529 114.696 218.275 113.116 224.8 112.534C235.324 112.489 241.365 114.05 250.915 118.668C256.53 121.383 262.664 125.248 262.3 115.085ZM93.2605 71.108C90.6937 69.8213 87.4802 69.9627 84.9294 70.1441C63.3749 75.2763 51.8802 98.0641 52.7224 119.095C52.7689 120.263 53.5808 120.889 54.3152 121.607C58.0322 122.098 71.2004 114.553 76.6384 113.59C84.4266 112.212 87.9264 112.256 95.7996 113.206C100.812 114.322 123.644 124.057 125.413 123.759C125.971 122.434 125.164 119.889 124.471 118.538C117.079 104.119 108.177 78.5861 93.2605 71.108Z");animation-timing-function:cubic-bezier(.12,0,.39,0)}67.5%,68.5%{d:path("M26.6433 267.197C45.1327 277.878 75.6447 286.435 101.358 290.367C146.687 297.256 196.097 295.654 238.874 285.905C259.443 281.121 273.961 275.586 288.806 268.009C285.993 282.241 279.806 295.127 268.54 308.402C229.03 350.457 151.035 366.187 97.7947 344.087C67.3069 331.432 37.7979 305.137 28.1169 272.852C27.5527 270.971 27.0636 269.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 100.085C261.634 97.6836 247.099 93.673 225.354 94.0582C224.845 94.0897 224.339 94.1266 223.83 94.1685C209.08 95.2057 197.865 97.588 191.255 100.718C190.325 101.71 189.354 102.748 189.179 103.962L189.694 104.821C192.954 104.676 203.874 102.28 207.554 101.913C213.529 101.696 218.275 101.116 224.8 100.534C235.324 100.489 241.365 101.05 250.915 102.668C256.53 103.383 262.664 104.248 262.3 100.085ZM93.2605 71.108C90.6937 69.8213 87.4802 69.9627 84.9294 70.1441C63.3749 75.2763 51.8802 98.0641 52.7224 119.095C52.7689 120.263 53.5808 120.889 54.3152 121.607C58.0322 122.098 71.2004 114.553 76.6384 113.59C84.4266 112.212 87.9264 112.256 95.7996 113.206C100.812 114.322 123.644 124.057 125.413 123.759C125.971 122.434 125.164 119.889 124.471 118.538C117.079 104.119 108.177 78.5861 93.2605 71.108Z");animation-timing-function:cubic-bezier(.61,1,.88,1)}}
-          </style>
-          <g class="bk-bokito-wink-g">
-          <g class="bk-bokito-g">
-            <path class="bk-bokito-f" d="M26.6433 267.197C45.1327 277.878 75.6447 286.435 101.358 290.367C146.687 297.256 196.097 295.654 238.874 285.905C259.443 281.121 273.961 275.586 288.806 268.009C285.993 282.241 279.806 295.127 268.54 308.402C229.03 350.457 151.035 366.187 97.7947 344.087C67.3069 331.432 37.7979 305.137 28.1169 272.852C27.5527 270.971 27.0636 269.085 26.6433 267.197ZM47.3689 0.20468C80.7091 -3.0015 124.515 32.3146 155.875 46.2232C165.375 41.7758 174.63 36.8241 183.605 31.3902C211.035 14.9719 239.021 -4.81321 272.735 2.00644C285.825 4.68202 297.29 12.5187 304.535 23.7476C317.79 43.9641 318.685 73.8533 314.085 97.1842C309.63 119.773 297.83 141.189 280.615 156.548C276.05 160.619 270.65 164.026 265.5 167.39C280.314 183.136 288.75 212.782 290.245 234.152C290.778 241.779 290.884 248.889 290.417 255.633C286.146 255.342 281.211 256.355 277.984 258.497C273.711 261.331 266.218 264.926 261.065 266.943C210.169 286.514 138.268 289.603 80.365 274.703C68.1936 271.555 57.6311 267.761 47.99 263.115C40.9507 259.722 38.6823 256.002 27.824 255.582C26.816 255.808 25.8593 256.059 24.9724 256.329C22.2867 225.615 36.144 194.75 50.5974 168.344C30.2548 152.877 20.2597 143.275 9.59936 118.911C-0.660435 95.4629 -3.88523 67.428 5.83862 43.2017C13.4066 23.9125 28.3537 8.43671 47.3689 0.20468ZM199.965 174.918C198.364 165.857 189.749 159.788 180.675 161.332C171.525 162.89 165.395 171.598 167.005 180.739C168.62 189.879 177.365 195.96 186.5 194.289C195.55 192.633 201.565 183.979 199.965 174.918ZM128.599 161.347C120.507 159.531 112.3 163.89 109.274 171.612C108.017 174.82 107.777 178.337 108.586 181.686C110.533 189.748 118.071 195.184 126.336 194.485C134.6 193.786 141.118 187.162 141.683 178.887C142.249 170.613 136.692 163.164 128.599 161.347ZM262.3 115.085C261.634 96.6836 247.099 68.673 225.354 70.0582C224.845 70.0897 224.339 70.1266 223.83 70.1685C209.08 76.2057 197.865 101.588 191.255 115.718C190.325 117.71 189.354 120.748 189.179 122.962L189.694 123.821C192.954 123.676 203.874 118.28 207.554 116.913C213.529 114.696 218.275 113.116 224.8 112.534C235.324 112.489 241.365 114.05 250.915 118.668C256.53 121.383 262.664 125.248 262.3 115.085ZM93.2605 71.108C90.6937 69.8213 87.4802 69.9627 84.9294 70.1441C63.3749 75.2763 51.8802 98.0641 52.7224 119.095C52.7689 120.263 53.5808 120.889 54.3152 121.607C58.0322 122.098 71.2004 114.553 76.6384 113.59C84.4266 112.212 87.9264 112.256 95.7996 113.206C100.812 114.322 123.644 124.057 125.413 123.759C125.971 122.434 125.164 119.889 124.471 118.538C117.079 104.119 108.177 78.5861 93.2605 71.108Z" fill="currentColor"/>
-          </g>
-          </g>
-        </svg>
+        ${BOKITO_LAUNCHER_MARK}
         ${ICONS.close.replace('<svg ', '<svg class="bk-launcher-icon bk-launcher-icon--close" ')}
         <span class="bk-badge" style="display:none"></span>
       </button>
@@ -1836,7 +1881,7 @@ class BokitoChatWidget extends HTMLElement {
           </button>
           <div class="bk-header-avatar">
             <img class="bk-header-avatar-img" alt="" hidden />
-            ${MONKEY_MARK}
+            ${BOKITO_MARK}
           </div>
           <div class="bk-header-info">
             <div class="bk-header-name"></div>
@@ -2072,6 +2117,8 @@ class BokitoChatWidget extends HTMLElement {
     this.#imageViewerClose  = this.#root.querySelector('.bk-image-viewer-close');
     this.#loginSigninEl     = this.#root.querySelector('.bk-login-signin');
 
+    this.#mountLiveOrbs();
+
     this.#api = new ApiClient({
       baseUrl: this.#apiUrl,
       agentSlug: this.#agentSlug,
@@ -2089,6 +2136,36 @@ class BokitoChatWidget extends HTMLElement {
         this.#emitTenantMcpTelemetry('session_refresh');
       },
     });
+  }
+
+  /** Platform-like gaze + blink on launcher / header bokito orbs. */
+  #mountLiveOrbs() {
+    this.#launcherOrbLive?.destroy();
+    this.#headerOrbLive?.destroy();
+    this.#launcherOrbLive = null;
+    this.#headerOrbLive = null;
+    const brandedLauncher = this.#launcher?.classList?.contains('has-brand-icon');
+    const launcherSvg = !brandedLauncher
+      ? this.#launcher?.querySelector?.('svg.bk-launcher-icon--bokito')
+      : null;
+    if (launcherSvg) {
+      this.#launcherOrbLive = attachLiveOrb(launcherSvg, { proximityEl: this.#launcher });
+    }
+    const headerWrap = this.#root?.querySelector?.('.bk-header-avatar');
+    const brandedHeader = headerWrap?.classList?.contains('has-brand-icon');
+    const headerSvg = !brandedHeader
+      ? headerWrap?.querySelector?.('svg.bk-orb-mark')
+      : null;
+    if (headerSvg) {
+      this.#headerOrbLive = attachLiveOrb(headerSvg, { proximityEl: headerWrap || headerSvg });
+    }
+    this.#syncLiveOrbPaused();
+  }
+
+  #syncLiveOrbPaused() {
+    const open = this.#sm?.state && this.#sm.state !== 'idle';
+    // Launcher shows close icon while open — pause gaze there; header stays live.
+    this.#launcherOrbLive?.setPaused(Boolean(open));
   }
 
   #bindEvents() {
@@ -2251,6 +2328,7 @@ class BokitoChatWidget extends HTMLElement {
     const launcher = this.#launcher, win = this.#window;
     this.#closeChatActionsMenu();
     this.#updateHeaderActionButtons(state);
+    this.#syncLiveOrbPaused();
     switch (state) {
       case 'idle':
         this.#clearProcessingWatchdog();
@@ -3243,11 +3321,12 @@ class BokitoChatWidget extends HTMLElement {
     this.#isResponding = false;
     this.#sendQueue = [];
     this.#updateQueueTelemetry();
-    this.#streamingMsgEl = null;
+    this.  this.#streamingMsgEl = null;
     this.#streamingMsgId = null;
     this.#deltaQueue = [];
     this.#pendingFinalMsg = null;
     if (this.#deltaRaf) { cancelAnimationFrame(this.#deltaRaf); this.#deltaRaf = null; }
+    this.#resetLivePaint();
     const banner = this.#root.querySelector('.bk-agent-banner');
     if (banner) banner.style.display = 'none';
     if (this.#messageList) this.#messageList.innerHTML = '';
@@ -3292,6 +3371,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#deltaQueue = [];
     this.#pendingFinalMsg = null;
     if (this.#deltaRaf) { cancelAnimationFrame(this.#deltaRaf); this.#deltaRaf = null; }
+    this.#resetLivePaint();
     this.#root.querySelector('.bk-agent-banner').style.display = 'none';
     this.#messageList.innerHTML = '';
     try {
@@ -3610,7 +3690,7 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#agentAvatarUrl) {
       return `<img class="bk-msg-avatar-img" src="${String(this.#agentAvatarUrl).replace(/"/g, '')}" alt="" loading="lazy">`;
     }
-    return MONKEY_MARK;
+    return BOKITO_MARK;
   }
 
   #laneAuthorHtml(lane) {
@@ -3651,7 +3731,8 @@ class BokitoChatWidget extends HTMLElement {
     el.dataset.stackId = `m${++this.#stackSeq}`;
     const avatar =
       lane === 'user' ? '' : `<span class="bk-msg-avatar" aria-hidden="true">${this.#laneAvatarHtml(lane)}</span>`;
-    el.innerHTML = `${avatar}<div class="bk-msg-bubble">${this.#laneAuthorHtml(lane)}<div class="bk-msg-body">${bodyHtml}</div><div class="bk-msg-time">${formatTime(createdAtValue)}</div></div>`;
+    const typingLabel = this.#chrome('writing');
+    el.innerHTML = `${avatar}<div class="bk-msg-bubble">${this.#laneAuthorHtml(lane)}<div class="bk-msg-body">${bodyHtml}</div><div class="bk-msg-footer"><span class="bk-msg-typing" role="status" aria-label="${typingLabel}"><span></span><span></span><span></span></span><div class="bk-msg-time">${formatTime(createdAtValue)}</div></div></div>`;
     return el;
   }
 
@@ -3783,13 +3864,13 @@ class BokitoChatWidget extends HTMLElement {
     this.#ssePaintSendMeta = null;
     this.#ssePaintPending = false;
     this.#streamPaintSource = null;
-    if (this.#streamingMsgEl) {
-      this.#streamingMsgEl.remove();
-      this.#streamingMsgEl = null;
-      this.#streamingMsgId = null;
-      this.#recomputeDaySeparators();
-      this.#recomputeMessageStacks();
-    }
+    for (const el of this.#liveSealedEls) el.remove();
+    if (this.#streamingMsgEl) this.#streamingMsgEl.remove();
+    this.#streamingMsgEl = null;
+    this.#streamingMsgId = null;
+    this.#resetLivePaint();
+    this.#recomputeDaySeparators();
+    this.#recomputeMessageStacks();
   }
 
   #queueBundledSend(text = '', attachments = []) {
@@ -3936,8 +4017,10 @@ class BokitoChatWidget extends HTMLElement {
 
   #updateThinkingLabel() {
     if (!this.#thinkingLabel) return;
+    // While speech is streaming, typing lives in the bubble footer — never
+    // a sibling "Schrijft…" row above the live text (Communication parity).
     if (this.#messageList?.querySelector('.bk-msg--streaming')) {
-      this.#thinkingLabel.textContent = this.#chrome('writing');
+      this.#thinkingEl.style.display = 'none';
       return;
     }
     const working = this.#chrome('working');
@@ -3946,6 +4029,121 @@ class BokitoChatWidget extends HTMLElement {
       return;
     }
     this.#thinkingLabel.textContent = working;
+  }
+
+  #hideThinkingForSpeech() {
+    if (this.#thinkingEl) this.#thinkingEl.style.display = 'none';
+  }
+
+  #resetLivePaint() {
+    if (this.#livePaintRaf) {
+      cancelAnimationFrame(this.#livePaintRaf);
+      this.#livePaintRaf = null;
+    }
+    this.#liveStream.reset();
+    this.#liveSealedEls = [];
+    this.#liveSealedCount = 0;
+    this.#livePaintSendMeta = null;
+    if (this.#livePaintDoneResolve) {
+      this.#livePaintDoneResolve();
+      this.#livePaintDoneResolve = null;
+    }
+  }
+
+  #ensureLiveStreamShell(createdAt) {
+    this.#hideThinkingForSpeech();
+    if (this.#streamingMsgEl) return this.#streamingMsgEl;
+    const el = this.#createMessageShell({
+      lane: 'ai',
+      createdAt: createdAt || new Date().toISOString(),
+      streaming: true,
+    });
+    this.#messageList.appendChild(el);
+    this.#streamingMsgEl = el;
+    this.#recomputeDaySeparators();
+    this.#recomputeMessageStacks();
+    return el;
+  }
+
+  /** Append tokens into the shared buffer and drive smooth reveal + live split. */
+  #feedLiveBuffer(chunk, { sendMeta = null, createdAt = null } = {}) {
+    const text = String(chunk || '');
+    if (!text) return;
+    if (sendMeta) this.#livePaintSendMeta = sendMeta;
+    this.#liveStream.setTarget(this.#liveStream.target + text);
+    this.#liveStream.setActive(true, true);
+    this.#ensureLiveStreamShell(createdAt);
+    this.#scheduleLivePaint();
+  }
+
+  #scheduleLivePaint() {
+    if (this.#livePaintRaf) return;
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.#liveStream.reduceMotion = reduceMotion;
+    const tick = (now) => {
+      this.#livePaintRaf = null;
+      const sendMeta = this.#livePaintSendMeta;
+      if (sendMeta && this.#activeSend && this.#activeSend !== sendMeta) {
+        this.#resetLivePaint();
+        return;
+      }
+      const visible = this.#liveStream.tick(now);
+      this.#paintLiveVisible(visible, !this.#liveStream.caughtUp || this.#liveStream.active);
+      if (!this.#liveStream.caughtUp || this.#liveStream.active) {
+        this.#livePaintRaf = requestAnimationFrame(tick);
+        return;
+      }
+      if (this.#livePaintDoneResolve) {
+        const resolve = this.#livePaintDoneResolve;
+        this.#livePaintDoneResolve = null;
+        resolve();
+      }
+    };
+    this.#livePaintRaf = requestAnimationFrame(tick);
+  }
+
+  #paintLiveVisible(visible, writing) {
+    const parts = splitChatMessages(visible);
+    const bubbles = parts.length ? parts : writing ? [''] : [];
+    while (this.#liveSealedCount < Math.max(0, bubbles.length - (writing ? 1 : 0))) {
+      const text = bubbles[this.#liveSealedCount] || '';
+      if (this.#streamingMsgEl) {
+        const body = this.#bubbleBody(this.#streamingMsgEl);
+        if (body) body.textContent = text;
+        this.#streamingMsgEl.classList.remove('bk-msg--streaming');
+        this.#liveSealedEls.push(this.#streamingMsgEl);
+        this.#streamingMsgEl = null;
+      }
+      this.#liveSealedCount += 1;
+      if (writing || this.#liveSealedCount < bubbles.length) {
+        this.#ensureLiveStreamShell();
+      }
+    }
+    const last = bubbles[bubbles.length - 1] ?? '';
+    if (writing || last) {
+      const el = this.#ensureLiveStreamShell();
+      const body = this.#bubbleBody(el);
+      if (body) body.textContent = last;
+      el.classList.toggle('bk-msg--streaming', Boolean(writing));
+      this.#streamingMsgEl = el;
+    }
+    this.#recomputeMessageStacks();
+    this.#scrollToBottom();
+  }
+
+  /** Drain the lead and resolve when the reveal has caught the buffer. */
+  #drainLivePaint() {
+    this.#liveStream.setActive(false, false);
+    if (this.#liveStream.caughtUp) {
+      this.#paintLiveVisible(this.#liveStream.visible, false);
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      this.#livePaintDoneResolve = resolve;
+      this.#scheduleLivePaint();
+    });
   }
 
   async #drainSendQueue() {
@@ -4317,7 +4515,7 @@ class BokitoChatWidget extends HTMLElement {
     if (Array.isArray(evt.message_ids)) state.messageIds = evt.message_ids.map(String);
   }
 
-  /** `message_break`: close the live bubble and show typing until the next one starts. */
+  /** `message_break`: seal the current live segment; next tokens open a new bubble. */
   #sseBreakBubble(state, sendMeta) {
     if (sendMeta && this.#activeSend !== sendMeta) return;
     if (this.#ssePaintRaf) {
@@ -4325,34 +4523,46 @@ class BokitoChatWidget extends HTMLElement {
       this.#ssePaintRaf = null;
     }
     this.#ssePaintPending = false;
-    const el = state.streamEl;
-    if (el && state.fullContent.trim()) {
-      const bubble = this.#bubbleBody(el);
-      if (bubble) bubble.innerHTML = MarkdownRenderer.render(state.fullContent);
-      el.classList.remove('bk-msg--streaming');
+    // Flush revealed text into sealed bubbles, then start a fresh stream buffer.
+    this.#liveStream.setActive(false, false);
+    this.#paintLiveVisible(this.#liveStream.visible || state.fullContent, false);
+    for (const el of this.#liveSealedEls) {
+      const body = this.#bubbleBody(el);
+      if (body) body.innerHTML = MarkdownRenderer.render(body.textContent || '');
       state.sealedEls.push(el);
-    } else if (el?.parentNode) {
-      el.remove();
     }
-    if (this.#streamingMsgEl === el) {
+    if (this.#streamingMsgEl) {
+      const body = this.#bubbleBody(this.#streamingMsgEl);
+      if (body && (body.textContent || '').trim()) {
+        body.innerHTML = MarkdownRenderer.render(body.textContent || '');
+        this.#streamingMsgEl.classList.remove('bk-msg--streaming');
+        state.sealedEls.push(this.#streamingMsgEl);
+      } else if (this.#streamingMsgEl.parentNode) {
+        this.#streamingMsgEl.remove();
+      }
       this.#streamingMsgEl = null;
       this.#streamingMsgId = null;
     }
+    this.#liveSealedEls = [];
+    this.#liveSealedCount = 0;
+    this.#liveStream.reset();
     state.streamEl = null;
     state.fullContent = '';
-    this.#showThinking();
-    if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('writing');
+    // Next segment: empty streaming shell with footer dots (no Schrijft row).
+    this.#ensureLiveStreamShell();
+    state.streamEl = this.#streamingMsgEl;
     this.#scrollToBottom();
   }
 
   /** Several final bubbles: replace this turn's live bubbles with one message each. */
   #sseFinalizeBubbles(state) {
     for (const el of state.sealedEls) el.remove();
+    for (const el of this.#liveSealedEls) el.remove();
     if (state.streamEl?.parentNode) state.streamEl.remove();
-    if (this.#streamingMsgEl === state.streamEl) {
-      this.#streamingMsgEl = null;
-      this.#streamingMsgId = null;
-    }
+    if (this.#streamingMsgEl?.parentNode) this.#streamingMsgEl.remove();
+    this.#streamingMsgEl = null;
+    this.#streamingMsgId = null;
+    this.#resetLivePaint();
     state.sealedEls = [];
     state.streamEl = null;
     this.#streamPaintSource = null;
@@ -4416,9 +4626,12 @@ class BokitoChatWidget extends HTMLElement {
 
     state.fullContent = '';
     state.msgId = savedId;
-    if (state.streamEl) {
-      const b = this.#bubbleBody(state.streamEl);
+    // Replay through the shared buffer so sim and live SSE share one paint path.
+    this.#resetLivePaint();
+    if (this.#streamingMsgEl) {
+      const b = this.#bubbleBody(this.#streamingMsgEl);
       if (b) b.textContent = '';
+      state.streamEl = this.#streamingMsgEl;
     } else {
       state.streamEl = null;
     }
@@ -4446,41 +4659,24 @@ class BokitoChatWidget extends HTMLElement {
     this.#streamPaintSource = 'sse';
     this.#ssePaintState = state;
     this.#ssePaintSendMeta = sendMeta;
-    this.#ssePaintPending = true;
-    this.#scheduleSsePaint();
+    this.#feedLiveBuffer(chunk, { sendMeta });
+    state.streamEl = this.#streamingMsgEl;
   }
 
   #scheduleSsePaint() {
-    if (this.#ssePaintRaf) return;
-    this.#ssePaintRaf = requestAnimationFrame(() => {
-      this.#ssePaintRaf = null;
-      if (!this.#ssePaintPending) return;
-      this.#ssePaintPending = false;
-      const state = this.#ssePaintState;
-      const sendMeta = this.#ssePaintSendMeta;
-      if (!state) return;
-      if (sendMeta && this.#activeSend !== sendMeta) return;
-      if (!state.streamEl) {
-        if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('writing');
-        const el = this.#createMessageShell({ lane: 'ai', createdAt: new Date().toISOString(), streaming: true });
-        this.#messageList.appendChild(el);
-        state.streamEl = el;
-        this.#streamingMsgEl = el;
-        this.#recomputeDaySeparators();
-        this.#recomputeMessageStacks();
-      }
-      const bubble = this.#bubbleBody(state.streamEl);
-      if (bubble) bubble.textContent = state.fullContent;
-      this.#scrollToBottom();
-    });
+    // Legacy entry: live paint is driven by #feedLiveBuffer / #scheduleLivePaint.
+    this.#scheduleLivePaint();
   }
 
   #sseDiscardPartialBubble(state) {
+    for (const el of state.sealedEls || []) el.remove();
+    for (const el of this.#liveSealedEls) el.remove();
     if (state.streamEl?.parentNode) state.streamEl.remove();
-    if (this.#streamingMsgEl === state.streamEl) {
-      this.#streamingMsgEl = null;
-      this.#streamingMsgId = null;
-    }
+    if (this.#streamingMsgEl?.parentNode) this.#streamingMsgEl.remove();
+    this.#streamingMsgEl = null;
+    this.#streamingMsgId = null;
+    this.#resetLivePaint();
+    state.sealedEls = [];
     state.streamEl = null;
     state.fullContent = '';
     state.msgId = null;
@@ -4496,8 +4692,8 @@ class BokitoChatWidget extends HTMLElement {
     this.#showThinking();
   }
 
-  /** After stream ends: markdown + remove streaming class, or #appendMessage if no chunks arrived. */
-  #sseFinalizeAssistantMessage(state, sendMeta) {
+  /** After stream ends: drain reveal, seal live bubbles, or replace from `done.messages`. */
+  async #sseFinalizeAssistantMessage(state, sendMeta) {
     if (this.#ssePaintRaf) {
       cancelAnimationFrame(this.#ssePaintRaf);
       this.#ssePaintRaf = null;
@@ -4506,10 +4702,25 @@ class BokitoChatWidget extends HTMLElement {
     if (sendMeta && this.#activeSend !== sendMeta) {
       for (const el of state.sealedEls) el.remove();
       state.sealedEls = [];
-    } else if ((state.messages?.length ?? 0) > 1 || state.sealedEls.length > 0) {
+      for (const el of this.#liveSealedEls) el.remove();
+      if (this.#streamingMsgEl?.parentNode) this.#streamingMsgEl.remove();
+      this.#streamingMsgEl = null;
+      this.#streamingMsgId = null;
+      this.#resetLivePaint();
+      this.#streamPaintSource = null;
+      return false;
+    }
+
+    // Catch the reveal up to the buffer before sealing.
+    this.#liveStream.setTarget(state.fullContent || this.#liveStream.target);
+    await this.#drainLivePaint();
+    state.streamEl = this.#streamingMsgEl;
+
+    if ((state.messages?.length ?? 0) > 1 || state.sealedEls.length > 0) {
       if (!state.messages?.length) {
         state.messages = [
           ...state.sealedEls.map((el) => this.#bubbleBody(el)?.textContent || ''),
+          ...this.#liveSealedEls.map((el) => this.#bubbleBody(el)?.textContent || ''),
           state.fullContent ?? '',
         ].filter((m) => m.trim());
       }
@@ -4518,62 +4729,76 @@ class BokitoChatWidget extends HTMLElement {
         return true;
       }
     }
+
     const raw = state.fullContent ?? '';
     const trimmed = raw.trim();
-    if (!trimmed) {
-      if (state.streamEl?.parentNode) state.streamEl.remove();
-      if (this.#streamingMsgEl === state.streamEl) {
-        this.#streamingMsgEl = null;
-        this.#streamingMsgId = null;
-      }
+    const liveEls = [
+      ...this.#liveSealedEls,
+      ...(this.#streamingMsgEl ? [this.#streamingMsgEl] : []),
+    ];
+    if (!trimmed && !liveEls.some((el) => (this.#bubbleBody(el)?.textContent || '').trim())) {
+      for (const el of liveEls) el.remove();
+      this.#streamingMsgEl = null;
+      this.#streamingMsgId = null;
+      this.#resetLivePaint();
       this.#streamPaintSource = null;
       return false;
     }
-    if (sendMeta && this.#activeSend !== sendMeta) {
-      if (state.streamEl?.parentNode) state.streamEl.remove();
-      this.#streamPaintSource = null;
-      return false;
-    }
+
     const finalId = state.msgId ?? `stream-${Date.now()}`;
-    if (state.streamEl) {
+    const parts = liveEls.length
+      ? liveEls.map((el, i) => {
+          const body = this.#bubbleBody(el);
+          const text = i === liveEls.length - 1 && trimmed ? raw : (body?.textContent || '');
+          return { el, text };
+        }).filter((p) => p.text.trim())
+      : [];
+
+    if (parts.length) {
       this.#playSound('incoming');
-      const bubble = this.#bubbleBody(state.streamEl);
-      const prevHeight = bubble ? bubble.offsetHeight : 0;
-      if (bubble) {
-        if (prevHeight > 0) bubble.style.minHeight = `${prevHeight}px`;
-        bubble.innerHTML = MarkdownRenderer.render(raw);
-      }
-      const el = state.streamEl;
-      this.#appendDisclosure(el, state.disclosure);
-      requestAnimationFrame(() => {
+      parts.forEach(({ el, text }, index) => {
+        const bubble = this.#bubbleBody(el);
+        const prevHeight = bubble ? bubble.offsetHeight : 0;
+        if (bubble) {
+          if (prevHeight > 0) bubble.style.minHeight = `${prevHeight}px`;
+          bubble.innerHTML = MarkdownRenderer.render(text);
+        }
+        if (index === 0) this.#appendDisclosure(el, state.disclosure);
         el.classList.remove('bk-msg--streaming');
         if (bubble) {
           requestAnimationFrame(() => {
-            bubble.style.minHeight = '';
+            requestAnimationFrame(() => {
+              bubble.style.minHeight = '';
+            });
           });
         }
+        this.#renderedMsgIds.add(index === 0 ? finalId : `${finalId}-${index}`);
       });
-      this.#renderedMsgIds.add(finalId);
       this.#streamingMsgEl = null;
       this.#streamingMsgId = null;
+      this.#liveSealedEls = [];
+      this.#liveSealedCount = 0;
+      this.#resetLivePaint();
       this.#streamPaintSource = null;
       this.#recomputeDaySeparators();
       this.#recomputeMessageStacks();
       this.#scrollToBottom();
-    } else {
-      this.#thinkingEl.style.display = 'none';
-      this.#thinkingSteps.innerHTML = '';
-      const finalObj = {
-        id: finalId,
-        message_content: raw,
-        sender_type: 'ai',
-        created_at: new Date().toISOString(),
-        ai_disclosure: state.disclosure,
-      };
-      this.#appendMessage(finalObj);
-      this.#renderedMsgIds.add(finalObj.id);
-      this.#streamPaintSource = null;
+      return true;
     }
+
+    this.#thinkingEl.style.display = 'none';
+    this.#thinkingSteps.innerHTML = '';
+    this.#resetLivePaint();
+    const finalObj = {
+      id: finalId,
+      message_content: raw,
+      sender_type: 'ai',
+      created_at: new Date().toISOString(),
+      ai_disclosure: state.disclosure,
+    };
+    this.#appendMessage(finalObj);
+    this.#renderedMsgIds.add(finalObj.id);
+    this.#streamPaintSource = null;
     return true;
   }
 
@@ -4696,7 +4921,7 @@ class BokitoChatWidget extends HTMLElement {
 
     await this.#sseMaybeSimulateClientChunks(state, sendMeta);
 
-    if (this.#sseFinalizeAssistantMessage(state, sendMeta)) {
+    if (await this.#sseFinalizeAssistantMessage(state, sendMeta)) {
       if (sendMeta) this.#finishAssistantTurn('stream_done');
       else if (this.#sm.state === 'processing') this.#sm.transition('active');
       this.#loadSuggestions();
@@ -4816,7 +5041,7 @@ class BokitoChatWidget extends HTMLElement {
 
     if (this.#thinkingLabel) this.#thinkingLabel.textContent = this.#chrome('working');
     await this.#sseMaybeSimulateClientChunks(state, sendMeta);
-    if (this.#sseFinalizeAssistantMessage(state, sendMeta)) {
+    if (await this.#sseFinalizeAssistantMessage(state, sendMeta)) {
       if (sendMeta) this.#finishAssistantTurn('stream_continue_done');
       else if (this.#sm.state === 'processing') this.#sm.transition('active');
       this.#loadSuggestions();
@@ -4912,62 +5137,40 @@ class BokitoChatWidget extends HTMLElement {
     if (this.#pollTimer) { clearInterval(this.#pollTimer); this.#pollTimer = null; }
   }
 
-  // Animate streaming deltas a few chars per frame for a visible typewriter effect
+  // Legacy name: WS deltas now go through the shared smooth buffer.
   #drainDeltaQueue() {
-    if (this.#deltaRaf) return;
-    const step = () => {
-      if (this.#deltaQueue.length === 0) {
-        this.#deltaRaf = null;
-        if (this.#pendingFinalMsg) {
-          this.#finalizeSteamingMsg(this.#pendingFinalMsg);
-          this.#pendingFinalMsg = null;
-        }
-        return;
-      }
-      // 3 chars per frame = ~180 chars/sec — natural-looking streaming pace
-      let batch = '';
-      for (let i = 0; i < 3 && this.#deltaQueue.length > 0; i++) {
-        batch += this.#deltaQueue.shift();
-      }
-      if (this.#streamingMsgEl) {
-        const bubble = this.#bubbleBody(this.#streamingMsgEl);
-        if (bubble) {
-          bubble.textContent = (bubble.textContent || '') + batch;
-          this.#scrollToBottom();
-        }
-      }
-      this.#deltaRaf = requestAnimationFrame(step);
-    };
-    this.#deltaRaf = requestAnimationFrame(step);
+    this.#scheduleLivePaint();
   }
 
-  // Start a typewriter animation from full message content (used when no WebSocket streaming)
+  // Reveal a finished message through the shared cruise (used when no live stream).
   #animateAsStream(obj) {
     if (this.#renderedMsgIds.has(obj.id)) return;
     this.#thinkingEl.style.display = 'none';
     this.#thinkingSteps.innerHTML = '';
-    const el = this.#createMessageShell({ lane: 'ai', createdAt: obj.created_at, streaming: true });
-    this.#messageList.appendChild(el);
-    this.#streamingMsgEl = el;
+    this.#streamPaintSource = 'ws';
+    this.#resetLivePaint();
     this.#streamingMsgId = obj.id;
-    // Split content into individual chars and queue them all at once
-    const chars = [...(obj.message_content || '')];
-    this.#deltaQueue.push(...chars);
     this.#pendingFinalMsg = obj;
-    this.#drainDeltaQueue();
-    this.#recomputeDaySeparators();
-    this.#recomputeMessageStacks();
-    this.#scrollToBottom();
+    this.#feedLiveBuffer(obj.message_content || '', { createdAt: obj.created_at });
+    void this.#drainLivePaint().then(() => {
+      if (this.#pendingFinalMsg === obj) {
+        this.#finalizeSteamingMsg(obj);
+        this.#pendingFinalMsg = null;
+      }
+    });
   }
 
   #finalizeSteamingMsg(obj) {
     this.#renderedMsgIds.add(obj.id);
-    if (this.#streamingMsgEl) {
-      const bubble = this.#bubbleBody(this.#streamingMsgEl);
+    const finalizeEl = (el) => {
+      if (!el) return;
+      const bubble = this.#bubbleBody(el);
       const prevHeight = bubble ? bubble.offsetHeight : 0;
       if (bubble) {
         if (prevHeight > 0) bubble.style.minHeight = `${prevHeight}px`;
-        bubble.innerHTML = MarkdownRenderer.render(obj.message_content);
+        bubble.innerHTML = MarkdownRenderer.render(
+          el === this.#streamingMsgEl ? obj.message_content : bubble.textContent || '',
+        );
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (bubble) bubble.style.minHeight = '';
@@ -4975,15 +5178,20 @@ class BokitoChatWidget extends HTMLElement {
         });
       }
       const finalizedAt = obj.created_at || new Date().toISOString();
-      this.#streamingMsgEl.dataset.createdAt = String(finalizedAt);
-      this.#streamingMsgEl.dataset.createdAtMs = String(this.#toEpochMs(finalizedAt) ?? Date.now());
-      this.#streamingMsgEl.dataset.senderGroup = 'ai';
-      this.#streamingMsgEl.classList.remove('bk-msg--streaming');
-      this.#streamingMsgEl = null;
-      this.#streamingMsgId = null;
-    }
+      el.dataset.createdAt = String(finalizedAt);
+      el.dataset.createdAtMs = String(this.#toEpochMs(finalizedAt) ?? Date.now());
+      el.dataset.senderGroup = 'ai';
+      el.classList.remove('bk-msg--streaming');
+    };
+    for (const el of this.#liveSealedEls) finalizeEl(el);
+    finalizeEl(this.#streamingMsgEl);
+    this.#streamingMsgEl = null;
+    this.#streamingMsgId = null;
+    this.#liveSealedEls = [];
+    this.#liveSealedCount = 0;
     if (this.#deltaRaf) { cancelAnimationFrame(this.#deltaRaf); this.#deltaRaf = null; }
     this.#deltaQueue = [];
+    this.#resetLivePaint();
     this.#streamPaintSource = null;
     if (this.#nonBlockingSend && this.#activeSend) this.#finishAssistantTurn('streaming_delta');
     else if (this.#sm.state === 'processing') this.#sm.transition('active');
@@ -5011,20 +5219,9 @@ class BokitoChatWidget extends HTMLElement {
         // When HTTP SSE already paints this turn, ignore WS deltas to avoid double typewriter.
         if (this.#streamPaintSource === 'sse') break;
         this.#streamPaintSource = 'ws';
-        // Ensure streaming bubble exists
-        if (!this.#streamingMsgEl) {
-          this.#thinkingEl.style.display = 'none';
-          this.#thinkingSteps.innerHTML = '';
-          const el = this.#createMessageShell({ lane: 'ai', createdAt: obj.created_at, streaming: true });
-          this.#messageList.appendChild(el);
-          this.#streamingMsgEl = el;
-          this.#streamingMsgId = obj.message_id;
-          this.#recomputeDaySeparators();
-          this.#recomputeMessageStacks();
-        }
-        // Queue the delta and animate via rAF for smooth streaming effect
-        this.#deltaQueue.push(delta);
-        this.#drainDeltaQueue();
+        this.#thinkingSteps.innerHTML = '';
+        this.#streamingMsgId = obj.message_id || this.#streamingMsgId;
+        this.#feedLiveBuffer(delta, { createdAt: obj.created_at });
         break;
       }
       case 'message':
@@ -5161,12 +5358,12 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #showThinking() {
-    const streaming = this.#messageList.querySelector('.bk-msg--streaming');
-    if (streaming) {
-      this.#messageList.insertBefore(this.#thinkingEl, streaming);
-    } else {
-      this.#messageList.appendChild(this.#thinkingEl);
+    // Never park the status row above a live speech bubble.
+    if (this.#messageList?.querySelector('.bk-msg--streaming')) {
+      this.#thinkingEl.style.display = 'none';
+      return;
     }
+    this.#messageList.appendChild(this.#thinkingEl);
     this.#thinkingEl.style.display = '';
     this.#markProcessingActivity();
     this.#updateThinkingLabel();

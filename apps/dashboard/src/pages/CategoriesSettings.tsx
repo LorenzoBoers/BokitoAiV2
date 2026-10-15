@@ -1,8 +1,8 @@
 /**
- * Tags (`/settings/action-tags`): one list of free tags and action tags,
+ * Labels (`/settings/action-tags`): one list of free labels and action tags,
  * backlog of unmatched patterns, and who may confirm tickets.
  *
- * Make an action tag by adding a tag, then Create flow. Filing rules live on
+ * Make an action tag by adding a label, then Create flow. Filing rules live on
  * the flow page (Open flow).
  */
 

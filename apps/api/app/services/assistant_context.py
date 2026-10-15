@@ -27,6 +27,34 @@ def page_context_block(page_context: str) -> str:
     )
 
 
+def settings_guide_block() -> str:
+    """Where operators change account vs workspace settings (deep links).
+
+    Injected for the personal Bokito helper so it never invents that the
+    dashboard UI is English-only, and can send people to the right page.
+    """
+    return (
+        "## Settings map\n"
+        "Two different language settings exist — never confuse them:\n"
+        "- **Dashboard UI language** (menus, labels, Settings pages): per "
+        "person, Dutch or English. Path: [/settings/profile](/settings/profile) "
+        "(Profile & security → Language). Call get_operator_settings to read "
+        "the current value. Never say the UI cannot be Dutch or English.\n"
+        "- **Organization working language** (how agents write for the team): "
+        "per workspace. Path: [/settings/communication](/settings/communication).\n"
+        "Other common destinations:\n"
+        "- Workspace name / platform support → [/settings/general](/settings/general)\n"
+        "- Branding → [/settings/branding](/settings/branding)\n"
+        "- Channels & mailboxes → [/settings/channels](/settings/channels)\n"
+        "- AI handling (autonomy dial) → [/settings/ai-handling](/settings/ai-handling)\n"
+        "- Notifications → [/settings/notifications](/settings/notifications)\n"
+        "- Members & teams → [/team](/team)\n"
+        "When someone wants a setting changed, link the path with real UI "
+        "labels and walk them there. Prefer get_operator_settings before "
+        "guessing their UI language."
+    )
+
+
 async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
     """Compact map so agents know each category's playbook and the folders that carry it."""
     from sqlalchemy import select

@@ -273,8 +273,18 @@ export type InboxMessage = {
   attachments: unknown[] | null
   decisionId?: string | null
   payload?: Record<string, unknown>
-  /** The signed-in user's feedback on this message (thumbs state). */
+  /** The signed-in user's feedback on this message (legacy thumbs / scored reaction). */
   myFeedback?: { score: number | null; sentiment: 'up' | 'down' | null } | null
+  /** LinkedIn-style stacked reactions on this timeline message. */
+  reactions?: {
+    kinds: Array<{
+      kind: 'up' | 'down' | 'hundred' | 'angry' | 'thinking' | 'investigating'
+      emoji: string
+      count: number
+      reactors: Array<{ actorType: 'user' | 'agent'; actorId: string; name: string }>
+    }>
+    mine: 'up' | 'down' | 'hundred' | 'angry' | 'thinking' | 'investigating' | null
+  } | null
   /** What the agent did before this bubble (thinking, tool calls). */
   activity?: ActivityItem[]
   /** Activity after the last bubble of a turn. */
@@ -613,12 +623,41 @@ export type RelatedConversation = {
   hasOpenProposal: boolean
 }
 
+export type ThreadParticipant = {
+  id: string
+  kind: 'user' | 'agent' | 'contact' | 'team' | string
+  ref_id: string
+  role: 'owner' | 'member' | 'watcher' | string
+  name: string
+  email?: string
+  joined_via?: string
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_shape?: string | null
+  avatar_image_url?: string | null
+}
+
+export type ThreadActiveTurn = {
+  kind?: string
+  ref_id?: string
+  name?: string
+  nonce?: string
+  deadline?: string
+  prompt?: string
+  streak?: number
+} | null
+
 export type ThreadDetail = {
   thread: InboxThread
   messages: InboxMessage[]
   events: InboxEvent[]
   /** Inline agent sessions anchored on this thread (active + closed). */
   sessions: ThreadSession[]
+  /** Humans and agents on this conversation. */
+  participants?: ThreadParticipant[]
+  /** Who currently has the floor (multi-agent turn). */
+  activeTurn?: ThreadActiveTurn
   /** End-customer satisfaction rating (widget CSAT prompt), if given. */
   csat?: { score: number; comment: string; created_at: string } | null
   /** True when older messages exist above the current window. */
@@ -1026,6 +1065,7 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     decisionId: raw.decision_id ? asString(raw.decision_id) : null,
     payload,
     myFeedback: normalizeMyFeedback(raw),
+    reactions: normalizeReactionsField(raw),
     ...normalizeMessageActivity(raw),
     ...messageProposalFields(payload),
     receivedAt: asNullableTimestampString(raw.received_at),
@@ -1067,6 +1107,60 @@ export function normalizeMyFeedback(raw: Record<string, unknown>): InboxMessage[
   return { score, sentiment }
 }
 
+function normalizeReactionsField(raw: Record<string, unknown>): InboxMessage['reactions'] {
+  const data = raw.reactions
+  if (!data || typeof data !== 'object') return null
+  const obj = data as Record<string, unknown>
+  const kindsRaw = Array.isArray(obj.kinds) ? obj.kinds : []
+  const kinds = kindsRaw
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null
+      const r = row as Record<string, unknown>
+      const kind = String(r.kind || '')
+      if (
+        kind !== 'up' &&
+        kind !== 'down' &&
+        kind !== 'hundred' &&
+        kind !== 'angry' &&
+        kind !== 'thinking' &&
+        kind !== 'investigating'
+      ) {
+        return null
+      }
+      const reactors = Array.isArray(r.reactors)
+        ? r.reactors
+            .map((item) => {
+              if (!item || typeof item !== 'object') return null
+              const p = item as Record<string, unknown>
+              return {
+                actorType: (p.actor_type === 'agent' ? 'agent' : 'user') as 'user' | 'agent',
+                actorId: String(p.actor_id || ''),
+                name: String(p.name || ''),
+              }
+            })
+            .filter((x): x is NonNullable<typeof x> => x != null)
+        : []
+      return {
+        kind: kind as NonNullable<InboxMessage['reactions']>['kinds'][number]['kind'],
+        emoji: typeof r.emoji === 'string' ? r.emoji : '',
+        count: typeof r.count === 'number' ? r.count : reactors.length || 1,
+        reactors,
+      }
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null)
+  const mineRaw = obj.mine
+  const mine =
+    mineRaw === 'up' ||
+    mineRaw === 'down' ||
+    mineRaw === 'hundred' ||
+    mineRaw === 'angry' ||
+    mineRaw === 'thinking' ||
+    mineRaw === 'investigating'
+      ? mineRaw
+      : null
+  return { kinds, mine }
+}
+
 function normalizeEvent(row: unknown): InboxEvent | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
@@ -1077,7 +1171,9 @@ function normalizeEvent(row: unknown): InboxEvent | null {
     id,
     threadId,
     eventType: asString(raw.event_type),
+    actorType: raw.actor_type == null ? null : asString(raw.actor_type),
     actorUserId: raw.actor_user_id == null || raw.actor_user_id === 0 ? null : asNumber(raw.actor_user_id),
+    actorAgentId: raw.actor_agent_id == null ? null : asString(raw.actor_agent_id) || null,
     payload: raw.payload && typeof raw.payload === 'object' ? (raw.payload as Record<string, unknown>) : {},
     createdAt: asTimestampString(raw.created_at),
   }

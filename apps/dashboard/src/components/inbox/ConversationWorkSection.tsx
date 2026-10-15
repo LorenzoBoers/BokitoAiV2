@@ -38,7 +38,11 @@ export const PRIORITY_META: Record<string, { labelKey: string; dot: string }> = 
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
-  return <SettingRow label={label}>{children}</SettingRow>
+  return (
+    <SettingRow label={label} className="py-1.5">
+      {children}
+    </SettingRow>
+  )
 }
 
 const VALUE_BUTTON = controlChipClass
@@ -98,22 +102,23 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
   }
 
   return (
-    <div className="space-y-3 border-t border-border/40 px-4 py-3">
+    <div className="space-y-2 border-t border-border/40 px-3 py-2">
       <SectionLabel
         title={t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
-        headerClassName="-mx-1"
+        className="[&_.nav-folder]:h-5 [&_.nav-folder]:text-[10px] [&_.nav-folder]:font-normal"
+        headerClassName="-mx-0.5"
         actions={
           !internal && token ? (
             <button
               type="button"
               onClick={() => void handleReread()}
               disabled={rereading || saving}
-              className="inline-flex max-w-full items-center gap-1 px-1 text-xs font-medium text-ai-ink hover:underline disabled:opacity-40"
+              className="inline-flex max-w-full items-center gap-0.5 px-0.5 text-[10px] font-medium text-ai-ink hover:underline disabled:opacity-40"
               title={t('sidePanel.rereadHint', {
-                defaultValue: 'Ask the channel agent to review this conversation again',
+                defaultValue: 'Wake channel agent to review this conversation again',
               })}
             >
-              <Sparkles size={12} className={rereading ? 'animate-pulse' : undefined} aria-hidden />
+              <Sparkles size={10} className={rereading ? 'animate-pulse' : undefined} aria-hidden />
               <span className="truncate">{t('sidePanel.reread')}</span>
             </button>
           ) : null
@@ -144,7 +149,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
         </div>
       ) : null}
 
-      <div className="space-y-0.5">
+      <div className="divide-y divide-border/40">
         {internal ? null : (
           <>
             <Row label={t('sidePanel.priority', { defaultValue: 'Priority' })}>
@@ -157,9 +162,9 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                       aria-label={t('threadChrome.setPriority')}
                       className={VALUE_BUTTON}
                     >
-                      <span className={`h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
+                      <span className={`h-1 w-1 rounded-full ${priorityMeta.dot}`} />
                       {t(priorityMeta.labelKey)}
-                      <ChevronDown size={11} className="text-text-muted" />
+                      <ChevronDown size={10} className="text-text-muted" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-36">

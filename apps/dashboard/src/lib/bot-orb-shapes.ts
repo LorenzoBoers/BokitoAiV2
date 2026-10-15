@@ -4,7 +4,7 @@
  */
 
 export const BOT_ORB_SHAPE_KEYS = [
-  'monkey',
+  'bokito',
   'blob',
   'pebble',
   'egg',
@@ -13,6 +13,8 @@ export const BOT_ORB_SHAPE_KEYS = [
   'hex',
   'crystal',
   'wedge',
+  'triangle',
+  'triangledown',
   'shield',
   'dome',
   'arch',
@@ -24,8 +26,9 @@ export type BotOrbShapeKey = (typeof BOT_ORB_SHAPE_KEYS)[number]
 
 /** Retired silhouettes still stored on agents → map to a live key. */
 const RETIRED_BOT_ORB_SHAPES: Record<string, BotOrbShapeKey> = {
-  chimp: 'monkey',
-  ape: 'monkey',
+  monkey: 'bokito',
+  chimp: 'bokito',
+  ape: 'bokito',
   bean: 'blob',
 }
 
@@ -40,20 +43,46 @@ export type BotOrbShapeDef = {
   underPath?: string
   /** Optional darker overlays (e.g. inner-ear shades), drawn between under and body. */
   shadePath?: string
+  /**
+   * Optional darker detail on top of the body (e.g. nostrils) — after `path`,
+   * before the animated eyes. Prefer `detailLeft` / `detailRight` when the
+   * marks should parallax independently with gaze.
+   */
+  detailPath?: string
+  detailLeft?: string
+  detailRight?: string
   /** Nudge the eye group vertically (SVG units). */
   faceY?: number
   /** Scale the eye group around the face center. */
   faceScale?: number
 }
 
-/** Soft round default — closest to a classic companion mark. */
-export const DEFAULT_BOT_ORB_SHAPE: BotOrbShapeKey = 'blob'
+/** Brand ape mark is the default companion silhouette. */
+export const DEFAULT_BOT_ORB_SHAPE: BotOrbShapeKey = 'bokito'
 
 /**
  * Body silhouettes. Paths are hand-authored for Bokito; tweak here later
  * without touching the face/animation layer.
  */
 export const BOT_ORB_SHAPES: Record<BotOrbShapeKey, BotOrbShapeDef> = {
+  /**
+   * Brand mark from bokitov2.svg — ears + head + chin; nostrils as detail.
+   * Static gray eyes from the source are dropped; BotOrbAvatar draws live eyes.
+   */
+  bokito: {
+    underPath:
+      'M3.023 22.273C3.861 29.342 8.728 34.576 13.893 33.963C19.059 33.351 22.567 27.125 21.729 20.056C20.892 12.988 16.025 7.754 10.859 8.366C5.694 8.978 2.186 15.205 3.023 22.273ZM61.005 22.273C60.167 29.342 55.300 34.576 50.135 33.963C44.969 33.351 41.461 27.125 42.299 20.056C43.137 12.988 48.003 7.754 53.169 8.366C58.334 8.978 61.843 15.205 61.005 22.273Z',
+    shadePath:
+      'M7.607 24.271C8.285 29.985 12.219 34.216 16.394 33.721C20.570 33.226 23.406 28.192 22.729 22.478C22.052 16.764 18.117 12.533 13.942 13.028C9.766 13.523 6.930 18.556 7.607 24.271ZM56.421 24.271C55.744 29.985 51.809 34.216 47.634 33.721C43.458 33.226 40.622 28.192 41.299 22.478C41.977 16.764 45.911 12.533 50.086 13.028C54.262 13.523 57.098 18.556 56.421 24.271Z',
+    path:
+      'M51.993 29.846C51.993 42.322 43.069 52.435 32.059 52.435C21.050 52.435 12.125 42.322 12.125 29.846C12.125 17.371 21.050 7.257 32.059 7.257C43.069 7.257 51.993 17.371 51.993 29.846ZM51.292 42.318C51.292 50.284 42.659 56.743 32.009 56.743C21.359 56.743 12.726 50.284 12.726 42.318C12.726 34.351 21.359 27.893 32.009 27.893C42.659 27.893 51.292 34.351 51.292 42.318Z',
+    detailLeft:
+      'M31.037 36.191L29.331 33.765C28.881 33.124 27.903 33.224 27.592 33.943L27.236 34.766C27.132 35.008 27.232 35.290 27.466 35.410L30.397 36.924C30.862 37.164 31.338 36.620 31.037 36.191Z',
+    detailRight:
+      'M33.132 36.191L34.837 33.765C35.287 33.124 36.265 33.224 36.576 33.943L36.932 34.766C37.037 35.008 36.936 35.290 36.702 35.410L33.771 36.924C33.306 37.164 32.831 36.620 33.132 36.191Z',
+    faceY: -5.5,
+    faceScale: 0.92,
+  },
   blob: {
     path: 'M32 5C19 5 7 17 7 32s12 27 25 27 25-12 25-27S45 5 32 5Z',
   },
@@ -93,6 +122,20 @@ export const BOT_ORB_SHAPES: Record<BotOrbShapeKey, BotOrbShapeDef> = {
     faceY: 5,
     faceScale: 0.85,
   },
+  /** Point-up triangle — convex rounded corners (from driehoek staand.svg). */
+  triangle: {
+    path:
+      'M25.130 11.980C28.168 6.718 35.762 6.718 38.799 11.980L57.361 44.129C60.398 49.390 56.601 55.966 50.526 55.966H13.404C7.328 55.966 3.532 49.390 6.569 44.129L25.130 11.980Z',
+    faceY: 8,
+    faceScale: 0.82,
+  },
+  /** Point-down triangle — convex rounded corners (from driehoek ondersteboven.svg). */
+  triangledown: {
+    path:
+      'M38.799 52.020C35.762 57.282 28.168 57.282 25.130 52.020L6.569 19.871C3.532 14.610 7.328 8.034 13.404 8.034L50.526 8.034C56.601 8.034 60.398 14.610 57.361 19.871L38.799 52.020Z',
+    faceY: -6,
+    faceScale: 0.82,
+  },
   shield: {
     path:
       'M32 8C39 11 47 12 52 15C55 17 56 20 56 24V34C56 45 47 54 32 58C17 54 8 45 8 34V24C8 20 9 17 12 15C17 12 25 11 32 8Z',
@@ -123,20 +166,6 @@ export const BOT_ORB_SHAPES: Record<BotOrbShapeKey, BotOrbShapeDef> = {
     faceY: -2,
     faceScale: 0.85,
   },
-  /**
-   * Monkey: Vector.svg — outer ears, inner-ear shades, then head+muzzle on top.
-   * Eyes clip to `path` (face) only so ear overlaps never punch holes in the mask.
-   */
-  monkey: {
-    underPath:
-      'M58.64 25.41C57.77 32.80 52.68 38.26 47.29 37.62C41.89 36.98 38.23 30.48 39.11 23.10C39.98 15.72 45.06 10.25 50.46 10.89C55.85 11.53 59.52 18.03 58.64 25.41ZM5.37 25.41C6.25 32.80 11.33 38.26 16.72 37.62C22.12 36.98 25.78 30.48 24.91 23.10C24.03 15.72 18.95 10.25 13.55 10.89C8.16 11.53 4.50 18.03 5.37 25.41Z',
-    shadePath:
-      'M54.59 27.53C53.89 33.50 49.78 37.92 45.42 37.40C41.06 36.88 38.10 31.63 38.80 25.66C39.51 19.69 43.62 15.27 47.98 15.79C52.34 16.31 55.30 21.56 54.59 27.53ZM10.16 27.50C10.86 33.47 14.97 37.89 19.33 37.37C23.70 36.85 26.66 31.59 25.95 25.63C25.24 19.66 21.13 15.24 16.77 15.76C12.41 16.28 9.45 21.53 10.16 27.50Z',
-    path:
-      'M49.17 31.00C49.17 41.75 41.48 50.46 32.00 50.46C22.52 50.46 14.83 41.75 14.83 31.00C14.83 20.25 22.52 11.54 32.00 11.54C41.48 11.54 49.17 20.25 49.17 31.00ZM48.57 41.74C48.57 48.60 41.13 54.17 31.96 54.17C22.78 54.17 15.35 48.60 15.35 41.74C15.35 34.88 22.78 29.32 31.96 29.32C41.13 29.32 48.57 34.88 48.57 41.74Z',
-    faceY: -3,
-    faceScale: 0.85,
-  },
 }
 
 /** Grok-like named swatches (our hex values, 6-digit). */
@@ -155,11 +184,20 @@ export const BOT_ORB_COLORS = [
 ] as const
 
 export type BotOrbColorId = (typeof BOT_ORB_COLORS)[number]['id']
-export type BotOrbColorValue = (typeof BOT_ORB_COLORS)[number]['value']
+/** Curated catalog values, plus arbitrary brand hex via resolve. */
+export type BotOrbColorValue = (typeof BOT_ORB_COLORS)[number]['value'] | (string & {})
 
 export const DEFAULT_BOT_ORB_COLOR: BotOrbColorValue = '#9159fe'
 
+/** Quick-access ids in the identity dialog (plus workspace brand as `accent`). */
+export const BOT_ORB_QUICK_COLOR_IDS = ['violet', 'gray'] as const
+
 const COLOR_VALUES = new Set<string>(BOT_ORB_COLORS.map((row) => row.value))
+const HEX_RE = /^#[0-9a-f]{6}$/
+
+export function isBotOrbHex(value: string | null | undefined): value is string {
+  return typeof value === 'string' && HEX_RE.test(value.trim().toLowerCase())
+}
 
 export function resolveBotOrbShape(value: string | null | undefined): BotOrbShapeKey {
   const key = (value ?? '').trim().toLowerCase()
@@ -172,8 +210,15 @@ export function resolveBotOrbShape(value: string | null | undefined): BotOrbShap
 export function resolveBotOrbColor(value: string | null | undefined): BotOrbColorValue {
   const hex = (value ?? '').trim().toLowerCase()
   if (COLOR_VALUES.has(hex)) return hex as BotOrbColorValue
+  if (HEX_RE.test(hex)) return hex
   const byId = BOT_ORB_COLORS.find((row) => row.id === hex)
   return byId?.value ?? DEFAULT_BOT_ORB_COLOR
+}
+
+/** Catalog swatches that sit behind the identity-dialog “more colors” fold. */
+export function botOrbMoreColors() {
+  const quick = new Set<string>(BOT_ORB_QUICK_COLOR_IDS)
+  return BOT_ORB_COLORS.filter((row) => !quick.has(row.id))
 }
 
 export function botOrbShapeDef(shape: string | null | undefined): BotOrbShapeDef {

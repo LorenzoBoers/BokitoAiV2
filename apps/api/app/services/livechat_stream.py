@@ -13,12 +13,9 @@ from app.models.agent import Agent
 from app.models.auth import Tenant, User
 from app.models.channel import Contact
 from app.models.signal import Signal
-from app.services.agent.loop import AgentLoop
 from app.services.assistant_context import page_context_block
-from app.services.assistant_threads import (
-    append_signal_chat_message,
-    signal_chat_history,
-)
+from app.services.chat_runtime import build_agent_loop, post_message
+from app.services.assistant_threads import signal_chat_history
 from app.services.livechat_compat import SURFACE_IN_APP, SURFACE_SITE, normalize_surface
 from app.services.personal_assistant import (
     PERSONAL_THREAD_SOURCE,
@@ -177,13 +174,34 @@ async def widget_stream_events(
 
     history: list[dict[str, Any]]
     if signal:
-        await append_signal_chat_message(
+        await post_message(
             session,
             signal,
-            role="user",
             content=message or "Hello",
+            role="user",
+            trust="widget" if not user_id else "operator",
             author_user_id=user_id,
             attachments=attachments,
+        )
+        # Widget visitors + answering agent share the hub participant model.
+        from app.services.participants import ensure_participant
+
+        if signal.contact_id:
+            await ensure_participant(
+                session,
+                signal,
+                kind="contact",
+                ref_id=signal.contact_id,
+                role="member",
+                joined_via="widget",
+            )
+        await ensure_participant(
+            session,
+            signal,
+            kind="agent",
+            ref_id=agent.id,
+            role="member",
+            joined_via="widget",
         )
         await session.commit()
         if getattr(signal, "_newly_created", False):
@@ -239,10 +257,10 @@ async def widget_stream_events(
     # A signed-in teammate's session is clamped to their own workspace role
     # (AgentLoop resolves the membership row itself), so the effective mode is
     # the minimum of the agent passport and what that person may do in the API.
-    loop = AgentLoop(
+    loop = build_agent_loop(
         session,
-        tenant.id,
-        user_id,
+        tenant_id=tenant.id,
+        user_id=user_id,
         agent=agent,
         signal_id=signal.id if signal else None,
         trust="operator" if user_id else "external",
@@ -347,8 +365,13 @@ async def widget_stream_events(
             return
     if not final_sent:
         if signal:
-            await append_signal_chat_message(
-                session, signal, role="assistant", content=full_text, author_agent_id=agent.id
+            await post_message(
+                session,
+                signal,
+                content=full_text,
+                role="assistant",
+                trust="widget" if not user_id else "operator",
+                author_agent_id=agent.id,
             )
             await session.commit()
         yield f"data: {json.dumps({'type': 'done', 'content': full_text, 'messages': [full_text]})}\n\n"

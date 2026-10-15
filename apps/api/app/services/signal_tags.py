@@ -214,12 +214,15 @@ async def set_signal_tags(
     names: Iterable[Any],
     *,
     user_id: UUID | None = None,
-) -> list[str]:
+) -> dict[str, list[str]]:
     """Replace a conversation's free tags (registering new names). Flushes, never commits.
 
     The operator's list is authoritative: of two tags from one exclusive
     group the last one stays. The folder is refiled afterwards.
+
+    Returns ``{"tags": all names, "added": names, "removed": names}``.
     """
+    before = set(await signal_tag_names(session, signal_id))
     rows = await ensure_tags(session, tenant_id, normalize_tags(names), user_id=user_id)
     exclusive = await _exclusive_groups(session, tenant_id)
     kept = _dedupe_exclusive(list(rows.values()), exclusive)
@@ -235,7 +238,13 @@ async def set_signal_tags(
         session.add(SignalTagLink(signal_id=signal_id, tag_id=row.id, tenant_id=tenant_id))
     await session.flush()
     await _after_tag_change(session, tenant_id, signal_id, actor_type="user", actor_id=str(user_id or ""))
-    return sorted(row.name for row in kept)
+    tags = sorted(row.name for row in kept)
+    after = set(tags)
+    return {
+        "tags": tags,
+        "added": sorted(after - before),
+        "removed": sorted(before - after),
+    }
 
 
 async def add_signal_tags(
@@ -428,11 +437,20 @@ async def registry_with_counts(session: AsyncSession, tenant_id: UUID) -> list[d
     return out
 
 
+LABEL_COLORS = frozenset({"", "neutral", "accent", "ai", "success", "warning", "info"})
+
+
+def normalize_label_color(value: str | None) -> str:
+    raw = (value or "").strip().lower()
+    return raw if raw in LABEL_COLORS else ""
+
+
 def serialize_tag(row: SignalTag, count: int = 0) -> dict[str, Any]:
     return {
         "id": str(row.id),
         "name": row.name,
         "description": row.description or "",
+        "color": normalize_label_color(getattr(row, "color", None)),
         "count": count,
         "is_category": row.workstream_id is not None,
         "workstream_id": str(row.workstream_id) if row.workstream_id else None,
@@ -602,6 +620,7 @@ async def create_tag(
     name: str,
     *,
     description: str = "",
+    color: str | None = None,
     show_in_nav: bool = False,
     group_id: UUID | None = None,
     user_id: UUID | None = None,
@@ -616,6 +635,8 @@ async def create_tag(
         session.add(row)
     if description:
         row.description = description.strip()[:300]
+    if color is not None:
+        row.color = normalize_label_color(color)
     if show_in_nav:
         row.show_in_nav = True
     if group_id is not None:
@@ -636,6 +657,7 @@ async def update_tag(
     *,
     name: str | None = None,
     description: str | None = None,
+    color: str | None = None,
     show_in_nav: bool | None = None,
     ai_auto_tag: bool | None = None,
     group_id: UUID | None = None,
@@ -689,6 +711,8 @@ async def update_tag(
                 )
     if description is not None:
         row.description = description.strip()[:300]
+    if color is not None:
+        row.color = normalize_label_color(color)
     if show_in_nav is not None:
         row.show_in_nav = bool(show_in_nav)
     if ai_auto_tag is not None:

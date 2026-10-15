@@ -145,13 +145,15 @@ export function DocsHeader({
             </button>
           </div>
 
-          <nav className="flex shrink-0 items-center gap-2">
+          <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {/* Desktop only — on smaller viewports API lives in the side/drawer nav
+                so the search field stays visible. */}
             {activePage === 'api' ? (
-              <span className={cn(docsChipClass(true), 'hidden sm:inline-flex')} aria-current="page">
+              <span className={cn(docsChipClass(true), 'hidden lg:inline-flex')} aria-current="page">
                 {t('docs.apiReference')}
               </span>
             ) : (
-              <Link to="/docs/api" className={cn('docs-cta hidden sm:inline-flex')}>
+              <Link to="/docs/api" className="docs-cta hidden lg:inline-flex">
                 {t('docs.apiReference')}
                 <ChevronRight className="h-3.5 w-3.5" aria-hidden />
               </Link>

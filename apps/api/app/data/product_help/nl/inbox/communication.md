@@ -75,13 +75,13 @@ Zolang een persoon of team eigenaar is, maakt de agent alleen concepten, ook op 
 
 ## Met de AI werken binnen een klantgesprek
 
-Een Vraag-beurt opent een sessie met de agent op het gesprek zelf. De uitwisseling staat als gewone regels in dezelfde tijdlijn, zodat je die naast de klantmail leest; niets verlaat de workspace.
+**Vraag** is een stille sessie naast het gesprek: de klant ziet niets. **@agent** in een notitie of antwoord nodigt die agent uit op het gesprek en geeft hem de vloer — in de header zie je wie wacht, en hij werkt in dezelfde thread als het team.
 
 1. Zet de composer op **Vraag {agent}** en verstuur. Een kleine regel **{agent} · intern** markeert waar de sessie begint; de agentnaam linkt naar de agent. De sessie opent bij dat eerste bericht — je start hem niet zelf. Agentchats en teamgesprekken hebben geen sessie: Vraag praat op het gesprek zelf.
 2. Jouw vraag landt rechts, de agent antwoordt links terwijl hij streamt, precies zoals in een agentchat. Elke sessieregel draagt een doorgestreept oog met de tooltip **Intern - niet zichtbaar voor de klant**.
-3. De agent antwoordt kort en vertelt niet eerst wat hij gaat lezen. Is een antwoord aan de klant de logische volgende stap, dan maakt hij dat concept meteen: het concept opent in je composer en de kaart **Antwoord voorgesteld** in de tijdlijn toont **In de invoer**. Pas aan en verstuur naar de klant. Is het alleen context voor het team, dan plaatst hij een **Interne notitie** met een chip **AI** (paarse gestippelde notitie) — dat is geen concept en hoeft niet goedgekeurd.
-4. De sessie sluit zichzelf als de agent klaar is, als je de klant antwoordt, of na ongeveer een uur zonder activiteit. Er is geen afrondkaart en geen knop **Sessie afronden**.
-5. Een gesloten sessie vouwt tot één regel: **Sessie met {agent} · N berichten · N acties · tijd**. Klik erop voor de samenvatting, de acties en de volledige uitwisseling.
+3. Om een agent de vloer te geven in plaats van stil te vragen, typ `@` in een **Notitie** (of antwoord), kies de agent en verstuur. Hij komt in de deelnemersrij en de tijdlijn toont zijn beurt. Modulespecialisten staan in dezelfde keuzelijst wanneer die module is geïnstalleerd.
+4. De agent antwoordt kort en vertelt niet eerst wat hij gaat lezen. Is een antwoord aan de klant de logische volgende stap, dan maakt hij dat concept meteen: het concept opent in je composer en de kaart **Antwoord voorgesteld** in de tijdlijn toont **In de invoer**. Pas aan en verstuur naar de klant. Is het alleen context voor het team, dan plaatst hij een **Interne notitie** met een chip **AI** (paarse gestippelde notitie) — dat is geen concept en hoeft niet goedgekeurd.
+5. Een stille Vraag-sessie sluit zichzelf als de agent klaar is, als je de klant antwoordt, of na ongeveer een uur zonder activiteit. Er is geen afrondkaart en geen knop **Sessie afronden**. Een gesloten sessie vouwt tot één regel: **Sessie met {agent} · N berichten · N acties · tijd**. Klik erop voor de samenvatting, de acties en de volledige uitwisseling.
 
 ## Een e-mailgesprek lezen
 
@@ -134,6 +134,13 @@ Een beurt van een agent leest als een chat: een paar korte berichten, met daartu
 5. Agentberichten gebruiken alleen chatopmaak: vet, cursief, doorgehaald en links. Koppen en tabellen worden gewone regels.
 6. Onder een agentbericht staat **Verstuurd naar de klant** of **Niet afgeleverd** alleen op klantkanalen (e-mail, WhatsApp, websitechat). Chats met agents en interne gesprekken tonen nooit een afleverlabel.
 
+## Reageer op een bericht
+
+Elk bericht in de tijdlijn kan een reactie krijgen — klantmail, notities van collega's en agentantwoorden. Reacties stapelen zoals op LinkedIn: één emoji per persoon, met een telling als meerdere mensen hetzelfde kiezen. Leuk en Mee eens voeden de learning-loop (gemiddelde feedback op Verbruik); Niet behulpzaam en Gefrustreerd tellen als negatief. Agents kunnen via tools **Ik zoek het uit** zetten; mensen kunnen die niet kiezen.
+
+1. Hover een bericht (of een mailkaart). Naast de tijd verschijnt een rij keuzes: Leuk, Niet behulpzaam, Mee eens, Gefrustreerd, Denk na.
+2. Kies er één. De emoji blijft op het bericht staan, met een telling als anderen hetzelfde kiezen. Hover de stapel om te zien wie reageerde. Kies dezelfde emoji opnieuw om de jouwe te wissen, of een andere om te vervangen.
+
 ## Keur een AI-voorstel goed vanuit de composer
 
 1. Als de kanaalagent een antwoord voorstelt, verschijnt het concept in de composer. De tekst gloeit een paar seconden paars, zodat je ziet dat het gegenereerd is. In de tijdlijn staat die actie naast de avatar van die agent: **Antwoord voorgesteld**. Bovenaan de tijdlijn staat **Gesprek gestart door {naam}**.
@@ -180,7 +187,7 @@ Je hebt de klant gebeld, geantwoord vanuit een eigen WhatsApp of het geregeld va
 
 ## Een gesprek taggen en een ticket vastleggen
 
-1. Open een klantgesprek. Het zijpaneel **Dit gesprek** toont de AI-samenvatting wanneer de kanaalagent het gesprek heeft gelezen, daarna prioriteit, opnieuw kijken, tags en het ticket. Als dit gesprek een snapshot-canvas bezit, toont hetzelfde blok de naam, een compacte preview en een link naar dat canvas. Kies **Tags toevoegen** voor vrije tags en actietags (actietags starten een ticketflow); zie [Actietags en tickets](/docs/ai/categories). Op een gesloten gesprek biedt het ⋯-menu **Gebruik als voorbeeld**, zodat het volgende vergelijkbare antwoord daarvan kan leren.
+1. Open een klantgesprek. Het zijpaneel **Dit gesprek** toont de AI-samenvatting wanneer de kanaalagent het gesprek heeft gelezen, daarna prioriteit, opnieuw kijken, labels en het ticket. Als dit gesprek een snapshot-canvas bezit, toont hetzelfde blok de naam, een compacte preview en een link naar dat canvas. Kies **Labels toevoegen** voor vrije labels en actietags (actietags starten een ticketflow); zie [Actietags en tickets](/docs/ai/categories). Op een gesloten gesprek biedt het ⋯-menu **Gebruik als voorbeeld**, zodat het volgende vergelijkbare antwoord daarvan kan leren.
 2. Typ met een zachte `#`. Spatie, streepje en underscore worden `_`, dus `mistral ai` is `#mistral_ai`. De rijen zijn paden (`#acme / #facturen`), geen kale tag. Eén passend pad: Enter pakt dat pad en zet elke tag erop. Heeft het contact de ouder al, dan volstaat het blad en toont de rij **via contact**. Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**. Het gesprek kan in elke map staan waarvan het de pad-tags draagt. Tags van het contact tonen als gestippelde chips die je hier niet kunt verwijderen.
 3. De actietag-chip is vergrendeld op het gesprek. Wijzig die door te vervangen in de picker, of **Splits** als een tweede verzoek een eigen ticket nodig heeft. Vrije tags tonen een gedempte `#` en een **x** om te verwijderen.
 4. Beheer de lijst onder **Instellingen** → **# Tags**: hernoem een tag, zet hem in een groep, voeg een omschrijving toe die agents lezen, zet hem vast in Communicatie, kies **Map aanmaken** of **Flow aanmaken** / **Flow openen**, of verwijder hem van alle gesprekken. Je kunt het ook een agent in de chat vragen (*voeg de tags #vip en #partner toe*): die stelt **Hashtag #vip aanmaken** en de rest voor als rijen op één kaart die je in het gesprek goedkeurt; zie [Beslissingen](/docs/ai/decisions). Actietags stellen agents op dezelfde manier voor, via Govern.

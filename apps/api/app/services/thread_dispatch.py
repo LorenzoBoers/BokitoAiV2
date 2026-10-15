@@ -72,10 +72,8 @@ async def run_agent_note(
     base_instruction: str = NOTE_INSTRUCTION,
 ) -> SignalMessage:
     """Run ``agent`` on the thread; its answer becomes an internal note (commits)."""
-    from app.gateway.publish import publish_signal_message
-    from app.services.agent.loop import AgentLoop
     from app.services.assistant_threads import signal_chat_history
-
+    from app.services.chat_runtime import build_agent_loop
     from app.services.workforce_runtime import mark_agent_activity
 
     history = await signal_chat_history(session, signal.id)
@@ -92,44 +90,40 @@ async def run_agent_note(
     )
     try:
         # A note is read by the team, never by the customer: chat style, one card.
-        loop = AgentLoop(
-            session, tenant_id, user_id, agent=agent, signal_id=signal.id, user_role=user_role,
+        loop = build_agent_loop(
+            session,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            agent=agent,
+            signal_id=signal.id,
+            trust="operator",
+            user_role=user_role,
             reply_mode="chat",
+            surface="mention_note",
         )
         reply_text, tokens = await loop.run_chat([*history, {"role": "user", "content": instruction}])
         turn = loop.turn
         text = ((turn.full_text if turn else "") or reply_text or "").strip() or "No output produced."
-        now = datetime.utcnow()
-        message = SignalMessage(
-            signal_id=signal.id,
-            tenant_id=tenant_id,
-            kind="internal_note",
-            direction="internal",
-            role="assistant",
-            author_agent_id=agent.id,
-            from_address="",
-            to_addresses="",
-            subject=signal.subject,
-            body_text=text,
-            body_preview=text[:200],
-            body_html=f"<p>{text}</p>",
-            metadata_json=json.dumps(
-                {
-                    "usage": tokens,
-                    "activity": turn.all_activity() if turn else [],
-                    "turn_id": turn.stream_id if turn else None,
-                    "invoked_by_user_id": str(user_id),
-                    "agent_name": agent.name,
-                }
-            ),
-            received_at=now,
-        )
-        session.add(message)
         from app.services.agent.turn_persist import touch_agent_activity
+        from app.services.chat_runtime import post_message
 
+        message = await post_message(
+            session,
+            signal,
+            content=text,
+            role="assistant",
+            trust="operator",
+            author_agent_id=agent.id,
+            kind="internal_note",
+            metadata={
+                "usage": tokens,
+                "activity": turn.all_activity() if turn else [],
+                "turn_id": turn.stream_id if turn else None,
+                "invoked_by_user_id": str(user_id),
+                "agent_name": agent.name,
+            },
+        )
         await touch_agent_activity(session, agent.id)
-        signal.updated_at = now
-        session.add(signal)
         session.add(
             SignalEvent(
                 signal_id=signal.id,
@@ -142,7 +136,6 @@ async def run_agent_note(
         )
         await session.commit()
         await session.refresh(message)
-        await publish_signal_message(signal, message)
         return message
     finally:
         try:
@@ -267,10 +260,49 @@ async def dispatch_to(
         agent = await _active_agent(session, tenant_id, target_id)
         if agent is None or not await agent_can_handle(session, account, agent.id):
             return {"kind": "agent", "id": str(target_id), "dispatched": False}
-        await _start_agent(
-            session, tenant_id, author_user_id, signal, agent, operator_text=text, user_role=user_role
+        from app.services.participants import ensure_participant
+        from app.services.participant_turns import request_participant_turn
+
+        await ensure_participant(
+            session,
+            signal,
+            kind="agent",
+            ref_id=agent.id,
+            role="member",
+            invited_by_kind="user",
+            invited_by_id=author_user_id,
+            joined_via="mention",
         )
-        return {"kind": "agent", "id": str(agent.id), "dispatched": True}
+        # @agent: invite onto the roster and give them the floor (not only a note).
+        turn = await request_participant_turn(
+            session,
+            signal,
+            member_kind="agent",
+            member_ref_id=agent.id,
+            prompt=plain_mentions(text)[:2000],
+            requested_by_kind="user",
+            requested_by_id=author_user_id,
+            run=True,
+        )
+        if not turn.get("ok"):
+            # Avoid a stale floor chip when the turn queue fails.
+            signal.active_turn_json = None
+            session.add(signal)
+            await _start_agent(
+                session,
+                tenant_id,
+                author_user_id,
+                signal,
+                agent,
+                operator_text=text,
+                user_role=user_role,
+            )
+        return {
+            "kind": "agent",
+            "id": str(agent.id),
+            "dispatched": True,
+            "turn": turn,
+        }
 
     team = await get_team(session, tenant_id, target_id)
     if team is None:

@@ -18,7 +18,7 @@ Agents are the AI workers for this workspace. Every agent has one shape: name, d
 
 1. Open **Agents**. Company agents appear as cards. Each card can show **open** conversations (the agent's detail, **Open conversations**) and threads that **need a decision** (**For you**, filtered to that agent). Search and the pills **All** and **Working** narrow the grid. An agent that leads a project shows that project as a folder chip on its card; click it to open the folder. Above the cards, **Activity** is a now-centered timeline of even-sized points. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time, not a from–to range. Choose a point to open the run, conversation or Agenda item. The same timeline sits on each agent page for that agent alone.
 2. Choose **New agent**. Enter a **Name**, an optional **Description**, select a **Model**, add **Instructions**, then choose **Create agent**. The description is the short role others see on the card; instructions are the brief the agent follows.
-3. Open a card for instructions, model and chat access. Use **Chat with this agent** to start an internal thread. Agenda and conversations are quiet links on the detail page. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
+3. Open a card for instructions, model and chat access. Use **New chat** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
 
@@ -33,7 +33,7 @@ New chats in Communication require a **company agent**. If none are available fo
 ![Agent detail](/api/docs/assets/agents/agent-brief.png)
 *Edit purpose, model and allowed tools.*
 
-1. Open the agent. The **Instructions** card shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model and runtime**.
+1. Open the agent. The profile header shows the mark, **name**, and **description** in the mark color. The **Instructions** card below shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model and runtime**.
 2. Under **Model and runtime**, pick **Workspace default** (follows [Models](/docs/govern/models)), **Automatic** (Bokito picks a tier per action), or pin **Maki**, **Bokito** or **Kong**. New agents start on Workspace default.
 3. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
 4. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
@@ -54,9 +54,21 @@ Sending to customers always asks, whatever the rules say. Agents can propose a r
 2. Keep **Automatic** to ask the conversation owner, then whoever handed over the work, then the owner team. Someone who is away is skipped.
 3. Or pick one person or one team. Their questions and drafts go there; the agent still skips that person while they are away.
 
+## Bring another agent into a conversation
+
+1. In **Communication**, open a conversation. Mention an agent with `@` in a note or message (same chip style as people), or use **Bring in an agent** for a quiet Ask session.
+2. `@` joins them as a participant and gives them the floor (same model as the website widget and peer chats). Avatars under the subject show who is in the thread; **Waiting on …** appears while a specialist turn is open.
+3. Leads invite module specialists (Connections → Hire / Install) instead of doing module or hashtag work themselves. Peer chats use **start conversation** and look like any other internal thread.
+
+## Hire a module specialist
+
+1. Open **Connections**, then a module such as **Accounting**.
+2. Under assigned agents, choose **Hire specialist**. Bokito creates a managed agent for that module, puts it on the roster, and opens a setup chat.
+3. Or choose an existing company agent to assign. Only rostered agents get that module’s tools.
+
 ## Managed agents
 
-Some agents are owned by a platform stack or module (for example Trading). They show a **Managed** badge on the library card and the agent detail page.
+Some agents are owned by a platform stack or module (for example Trading or a hired module specialist). They show a **Managed** badge on the library card and the agent detail page.
 
 1. Open **Agents** and find a card with the **Managed** label.
 2. Open the agent. The badge names the owning pack when you hover.
@@ -79,8 +91,9 @@ Some agents are owned by a platform stack or module (for example Trading). They 
 ## Set name, description or look
 
 1. Open a company agent.
-2. Hover or focus the large agent mark at the top, then choose the pencil (or open **Edit** from the ··· menu).
-3. Change the **name**, fill in the **Description** (the short role on the library card), then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face, then save. Instructions stay on the agent page; they are not this description.
+2. Hover or focus the large agent mark in the profile header, then choose the pencil (or open **Edit** from the ··· menu).
+3. Change the **name**, fill in the **Description** (the short role under the name, tinted with the mark color, and on the library card), then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. Instructions stay on the agent page; they are not this description.
+4. Under **Preview motion**, try **Idle**, **Thinking**, **Typing**, **Working**, and short reactions (**Yes**, **No**, **Alert**, **Jump**). In live chats the face follows the turn: thinking while it reasons, typing while text streams, working while tools run; approving or rejecting a decision plays a short yes/no reaction.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.
 

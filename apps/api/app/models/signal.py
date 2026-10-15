@@ -115,6 +115,9 @@ class Signal(SQLModel, table=True):
     turn_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     turn_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
     turn_reason: str = ""  # reply_needed | question | draft_ready
+    # Multi-agent floor: which participant currently has a requested turn
+    # {"kind","ref_id","nonce","deadline","prompt","requested_by_kind","requested_by_id"}.
+    active_turn_json: str = Field(default="{}")
     has_unread: bool = Field(default=True, index=True)
     # Temporary AI handling override for this conversation (manual | assisted |
     # autonomous); null follows contact -> channel -> workspace. Cleared on
@@ -300,6 +303,8 @@ class SignalTag(SQLModel, table=True):
     name: str = Field(default="", index=True)
     # When to use this tag. Shown in settings and fed to AI tagging.
     description: str = ""
+    # Design-system preset for free labels: neutral|accent|ai|success|warning|info|"" (default).
+    color: str = ""
     workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
     group_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tag_groups.id", index=True)
     # Workspace default: a row in the Folders and tags rail for everyone.

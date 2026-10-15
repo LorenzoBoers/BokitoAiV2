@@ -14,13 +14,12 @@ import { ModuleUsageNote } from './ModuleUsageNote'
 import { modulesForApplication } from '../../lib/module-applications'
 import type { IntegrationModuleRow } from '../../lib/integrations-api'
 import {
-  SidePanel,
-  SidePanelBody,
-  SidePanelContent,
-  SidePanelDescription,
-  SidePanelHeader,
-  SidePanelTitle,
-} from '../ui/side-panel'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 
@@ -46,9 +45,9 @@ function kindLabelKey(kind: IntegrationOffer['kind']): string {
 }
 
 /**
- * Right-hand detail panel for one connectable program: pick the offer when a
- * vendor has several, read what it does, connect, or manage existing
- * connections. `?connect={slug}` on the Connections page opens it directly.
+ * Showcase modal for one connectable program: pick the offer when a vendor has
+ * several, read what it does, connect, or manage existing connections.
+ * `?connect={slug}` on the Connections page opens it directly.
  */
 export function ApplicationHubPanel({
   open,
@@ -89,16 +88,16 @@ export function ApplicationHubPanel({
         : localized.name
 
   return (
-    <SidePanel open={open} onOpenChange={onOpenChange}>
-      <SidePanelContent>
-        <SidePanelHeader>
-          <div className="flex items-start gap-3">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
+        <DialogHeader className="shrink-0 space-y-0 border-b border-border/60 px-6 py-5 pr-14 text-left">
+          <div className="flex items-start gap-4">
             {step !== 'app' ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="mt-0.5 h-8 w-8 shrink-0 p-0"
+                className="mt-1 h-8 w-8 shrink-0 p-0"
                 onClick={() => {
                   if (step === 'offer-setup') {
                     setStep('offer-detail')
@@ -122,24 +121,24 @@ export function ApplicationHubPanel({
               color={application.brand.color}
               name={localized.name}
               hostSlug={application.brand.hostSlug}
-              size="md"
+              size="lg"
             />
-            <div className="min-w-0 flex-1">
-              <SidePanelTitle>{title}</SidePanelTitle>
+            <div className="min-w-0 flex-1 space-y-1">
+              <DialogTitle className="text-xl">{title}</DialogTitle>
               {step === 'app' ? (
-                <SidePanelDescription>
+                <DialogDescription>
                   {t('integrations.application.hubSubtitle', { count: application.offers.length })}
-                </SidePanelDescription>
+                </DialogDescription>
               ) : step === 'offer-detail' ? (
-                <SidePanelDescription>{t('integrations.hub.detail.subtitle')}</SidePanelDescription>
+                <DialogDescription>{t('integrations.hub.detail.subtitle')}</DialogDescription>
               ) : (
-                <SidePanelDescription className="sr-only">{title}</SidePanelDescription>
+                <DialogDescription className="sr-only">{title}</DialogDescription>
               )}
             </div>
           </div>
-        </SidePanelHeader>
+        </DialogHeader>
 
-        <SidePanelBody>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
           {step === 'app' ? (
             <div className="space-y-4">
               {banner ? (
@@ -225,8 +224,8 @@ export function ApplicationHubPanel({
               onBack={() => setStep('offer-detail')}
             />
           ) : null}
-        </SidePanelBody>
-      </SidePanelContent>
-    </SidePanel>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

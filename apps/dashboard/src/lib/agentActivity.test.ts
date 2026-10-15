@@ -215,8 +215,8 @@ describe('labels', () => {
   it('drops the duration when a group took under a second', () => {
     const [think, work] = groupActivity([item('t', 'think', 0, 300), item('w', 'work', 300, 700)])
     expect(groupSummary(think, t)).toBe('activity.thoughtBriefly:{}')
-    expect(groupSummary(work, t)).toContain('activity.actionCount')
-    expect(groupSummary(work, t)).toContain('"count":1')
+    // A single quick tool shows its label, not "1 action".
+    expect(groupSummary(work, t)).toBe(itemLabel(work.items[0], t))
   })
 
   it('keeps one provider only when every action used it', () => {

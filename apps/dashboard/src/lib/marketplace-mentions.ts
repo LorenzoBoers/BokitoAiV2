@@ -2,6 +2,8 @@
  * Catalog names that agents should chip inline and showcase as cards.
  * Used live (while streaming) and on saved bubbles when attach_items was skipped.
  */
+import { FALLBACK_MODULES } from './integration-modules'
+import { modulePackageConnectPath } from './module-applications'
 import { REMOTE_MCP_HOSTS } from './mcp-remote-providers'
 import type { ProposalItem } from './inbox-api'
 
@@ -87,6 +89,8 @@ export function isSafeMentionSlice(slice: string): boolean {
 }
 
 export function marketplaceConnectPath(slug: string): string {
+  const modulePath = modulePackageConnectPath(FALLBACK_MODULES, slug)
+  if (modulePath) return modulePath
   return `/connections?connect=${encodeURIComponent(slug)}`
 }
 

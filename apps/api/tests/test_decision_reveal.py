@@ -255,4 +255,7 @@ async def test_create_decision_reveal_true_still_immediate(client: AsyncClient, 
         )
     ).scalar_one()
     assert notification.status == "unread"
-    assert "_pending_reveal" not in json.loads(notification.payload_json)
+    payload = json.loads(notification.payload_json)
+    assert "_pending_reveal" not in payload
+    assert payload.get("from", {}).get("kind") == "agent"
+    assert payload["from"].get("id") == str(agent.id)

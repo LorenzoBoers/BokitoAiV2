@@ -42,11 +42,26 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
   const byCategory = useMemo(() => {
     const groups = new Map<string, GovernToolRow[]>()
     for (const tool of available ?? []) {
-      const list = groups.get(tool.category) ?? []
+      // Bucket module verbs (accounting_*, banking_*, …) under integrations.
+      const category =
+        tool.category === 'integrations' ||
+        /^(accounting|banking|investing|documents)_/.test(tool.name)
+          ? 'integrations'
+          : tool.category
+      const list = groups.get(category) ?? []
       list.push(tool)
-      groups.set(tool.category, list)
+      groups.set(category, list)
     }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
+    // Lead-friendly order: messaging + invite first, then modules, then govern.
+    const priority = ['messaging', 'delegation', 'integrations', 'govern', 'agents', 'workspace']
+    return [...groups.entries()].sort(([a], [b]) => {
+      const ia = priority.indexOf(a)
+      const ib = priority.indexOf(b)
+      if (ia === -1 && ib === -1) return a.localeCompare(b)
+      if (ia === -1) return 1
+      if (ib === -1) return -1
+      return ia - ib
+    })
   }, [available])
 
   const toggle = useCallback((name: string) => {

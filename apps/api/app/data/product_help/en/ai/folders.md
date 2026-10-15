@@ -1,60 +1,60 @@
 ---
 title: How Folders works
-intro: A folder is a saved tag filter — conversations that carry every tag in the set land here, with canvas, docs and boards on the same hub.
-description: Create maps as AND tag filtersets, nest by adding tags, open matching conversations, and keep canvas and docs on the folder hub.
-keywords: folders, maps, tags, filterset, canvas, tickets, flows, boards, documentation, communication, nest
+intro: A folder is a named place in your tree with optional label rules — matching conversations land here, with canvas, docs and boards on the same hub.
+description: Create named folders, nest them freely, set label rules for membership, file conversations, and keep canvas and docs on the folder hub.
+keywords: folders, maps, labels, tags, filterset, canvas, tickets, flows, boards, documentation, communication, nest
 sort: 40
 related: workstreams,categories,agenda,knowledge,communication
 ---
 
 # How Folders works
 
-A folder is a saved set of tags. A conversation matches when it has **every** tag in that set (including tags inherited from the contact). The same conversation can appear in several folders; narrower sets nest under broader ones in the rail. Open **Folders** for the hub: conversations, tickets, canvas, docs and files. There is no per-folder agent, budget or repository.
+A folder has a **name** and a place in a free tree. Optional **labels** (AND) decide which conversations match. Nesting only changes the tree — labels stay the same. Open **Folders** for the hub: conversations, tickets, canvas, docs and files. There is no per-folder agent, budget or repository.
 
 ## Create or open a folder
 
 ![Projects list](/api/docs/assets/folders/project.png)
-*Each card is a tag set (for example `#2026 · #facturen`) with open work.*
+*Each card is a folder with open work.*
 
-1. Open **Folders**. The left menu shows the derived tree (narrower maps under broader ones). Choose **New folder**, then pick or create the tags that define the filter — there is no separate name.
-2. While you pick tags, the dialog shows the full filterset and whether the new map **comes under** an existing broader map.
-3. Open a card. You land on **Overview**. Admins change the tag set in place (broader tags stay locked when the map already sits under another). Members can read; they cannot delete.
+1. Open **Folders**. The left menu shows the tree. Choose **New folder**, give it a name, and optionally pick labels that define membership.
+2. Confirm. The folder appears in the tree at the root (or under a parent if you chose one).
+3. Open a card. You land on **Overview**. Admins can rename the folder and edit its labels. Members can read; they cannot delete.
 
-## Create a narrower map under this one
+## Nest a folder under another
 
-1. Open a folder, then choose **New folder**.
-2. Tags from the open map stay required (locked). Add one or more **extra tags** — those extras are what the tree row shows under the parent.
-3. Confirm. Conversations match only when they carry every tag of the new set. The map appears under the broader one in Folders and in Communication **What**.
+1. On **Folders**, drag a folder over the **right half** of another row (or use **Nest** in the folder menu). The **left half** of the tree only changes order among siblings.
+2. Drop to place it. Labels do not change — only the tree position does.
+3. Use **Undo** on the toast, or Ctrl/Cmd+Z, to reverse the last nest, reorder, or unnest.
 
-## Nest a map under a broader one
+## Move a folder to the top level
 
-1. On **Folders**, drag a map over the **right half** of another row (or use **Nest** in the folder menu). The **left half** of the tree only changes order among siblings.
-2. Read the preview: the result filterset and which broader map it will sit under. If the maps shared no tags, confirm the warning — matching conversations must then also carry the broader tags.
-3. Confirm **Nest**. Use **Undo** on the toast, or Ctrl/Cmd+Z, to reverse the last nest, reorder, unnest, or tag move.
-
-## Move a map or tag to the top level
-
-1. On **Folders**, drag a nested map (or a single tag chip) onto the **Top level** zone that appears above the tree.
-2. A nested map drops its broader tags and sits next to the other root maps. A tag leaves the source filterset; if no top-level map exists for that tag alone, Bokito creates one.
+1. On **Folders**, drag a nested folder onto a **Top level** zone (above or below the tree), or onto the left half of another root folder — the map appears in place while you drag.
+2. The folder sits among the other root folders. Its labels stay the same.
 3. Use **Undo** on the toast, or Ctrl/Cmd+Z, if you need to reverse it.
 
-## Move a single tag between maps
+## Move a single label between folders
 
-1. On **Folders**, hover a tag in a tree row — it gets a pill so you see it is separate from the others on that row.
-2. Drag that tag onto another folder (or its **Nest** zone), or onto **Top level**. The tag leaves the source filterset and joins the target. A folder always keeps at least one tag.
+1. On **Folders**, hover a label in a tree row — it gets a pill so you see it is separate from the others on that row.
+2. Drag that label onto another folder (or its **Nest** zone), or onto **Top level**. The label leaves the source set and joins the target.
 3. Use **Undo** on the toast, or Ctrl/Cmd+Z, if you need to reverse it.
+
+## File a conversation in a folder
+
+1. Open the conversation in [Communication](/docs/inbox/communication).
+2. Use **File in folder** (or close-and-file) and pick the folder. Bokito applies that folder's labels to the thread.
+3. The conversation then matches that folder (and any others whose labels it also carries).
 
 ## Read the Overview
 
-1. The header shows the full filter tags (`#2026 · #facturen`). Tree rows show only the tags that are new versus the parent. **Open in Communication** jumps to the same filter in the Communication rail.
-2. Hover a tree row for the full set and **Under:** the broader map.
+1. The header shows the folder name and its labels. **Open in Communication** jumps to the same scope in the Communication rail.
+2. Hover a tree row for the labels and **Under:** the parent folder when nested.
 3. **Recent conversations** lists matches; **All conversations** opens the Conversations tab. Canvas, docs and files stay on this hub when you use them.
 
 ## See conversations in a folder
 
 1. Open the **Conversations** tab, or use **Folders** in Communication. Empty maps stay hidden in the rail until they have open work or you pin them.
-2. Each row is a conversation that carries every tag of this map. Filing a conversation into a map adds those tags.
-3. Contact tags apply automatically (shown as inherited); they are not copied onto the thread.
+2. Each row matches this folder or a folder nested under it (by labels or by filed home). Filing a conversation into a map adds those labels.
+3. Contact labels apply automatically (shown as inherited); they are not copied onto the thread.
 
 ## Move a ticket on a board
 
@@ -77,5 +77,5 @@ A folder is a saved set of tags. A conversation matches when it has **every** ta
 
 ## Agenda and the rail
 
-1. In Communication and Agenda **What**, maps share one derived `#` tree with the same local labels and full-set tooltips as Folders.
-2. Pin a row to keep it visible; hide empty ones with the row menu. Agenda filters by the selected map's tags. Clear the chip in the header to see everything again.
+1. In Communication and Agenda **What**, maps share one `#` tree with the same structure as Folders.
+2. Counts and filters follow the folder subtree you select.

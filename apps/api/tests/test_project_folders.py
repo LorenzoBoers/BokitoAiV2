@@ -27,19 +27,16 @@ async def _project(
     tags: list[str],
     parent_id: str | None = None,
 ) -> dict:
-    body: dict = {"name": name, "slug": slug, "autonomous_scope": "ops", "tags": tags}
+    body: dict = {
+        "name": name,
+        "slug": slug,
+        "autonomous_scope": "ops",
+        "tags": tags,
+        "parent_id": parent_id,
+    }
     response = await client.post("/api/folders", headers=headers, json=body)
     assert response.status_code == 200, response.text
-    data = response.json()
-    if parent_id:
-        nested = await client.post(
-            f"/api/folders/{data['id']}/nest",
-            headers=headers,
-            json={"onto_folder_id": parent_id},
-        )
-        assert nested.status_code == 200, nested.text
-        data = nested.json()
-    return data
+    return response.json()
 
 
 @pytest.mark.asyncio
@@ -53,8 +50,10 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
     same_name = await _project(
         client, headers, "Facturen", "facturen-2", tags=["facturen"], parent_id=orders["id"]
     )
-    assert set(same_name["tag_names"]) >= {"administratie", "werkbonnen", "facturen"}
+    assert same_name["parent_id"] == orders["id"]
+    assert set(same_name["tag_names"]) == {"facturen"}
     assert invoices["tag_names"][-1] == same_name["tag_names"][-1]
+    assert invoices["parent_id"] == admin["id"]
 
     clash = await client.post(
         "/api/folders",

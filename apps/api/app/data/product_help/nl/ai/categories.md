@@ -1,34 +1,34 @@
 ---
 title: Actietags en tickets
 intro: Een actietag is een hashtag die een ticketflow start. Leg je haar vast op een gesprek, dan wordt dat gesprek een ticket dat door de fasen van de flow gaat.
-description: Maak van een tag een actietag, leg een ticket vast via Tags toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en splits een gesprek als er een tweede verzoek in opduikt.
-keywords: actietags, tickets, hashtags, fasen, flow, project, intake, gesprek splitsen, categorieën
+description: Maak van een label een actietag, leg een ticket vast via Labels toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en splits een gesprek als er een tweede verzoek in opduikt.
+keywords: actietags, tickets, labels, fasen, flow, project, intake, gesprek splitsen, categorieën
 sort: 46
 related: workstreams,communication,channels,folders,widget
 ---
 
 # Actietags en tickets
 
-Een actietag is een tag met een flow. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat. De map volgt uit de tags van het gesprek, inclusief tags op het contact. Dezelfde tag kan via **Map aanmaken** ook een map zijn.
+Een actietag is een label met een flow. Een gesprek heeft hooguit één actietag: vastleggen maakt van het gesprek een ticket dat door de fasen van die flow gaat. De map volgt uit de labels van het gesprek, inclusief labels op het contact. Hetzelfde label kan via **Opslaan als map** ook een map zijn.
 
-Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend bericht (samenvatting, prioriteit, tags en tickets) in één run. Bij AI-afhandeling **Handmatig** leest de agent nog wel en mag die tags of tickets vastleggen, maar er komt geen conceptantwoord naar de klant. Zonder kanaalagent is er geen AI-lezing. Een zekere lezing legt het ticket vast wanneer die actietag automatisch taggen toestaat. Een zekere lezing op een tag zonder automatisch taggen wordt een kaart **Dien in als #naam** met **Dien in** en **Niet nu**. Een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije tags staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
+Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend bericht (samenvatting, prioriteit, labels en tickets) in één run. Bij AI-afhandeling **Handmatig** leest de agent nog wel en mag die labels of tickets vastleggen, maar er komt geen conceptantwoord naar de klant. Zonder kanaalagent is er geen AI-lezing. Een zekere lezing legt het ticket vast wanneer die actietag automatisch labelen toestaat. Een zekere lezing op een label zonder automatisch labelen wordt een kaart **Dien in als naam** met **Dien in** en **Niet nu**. Een onzekere lezing wordt een bevestiging op het gesprek, en een verzoek dat nergens bij past telt mee onder **Wat we misten**. Vrije labels staan naast de actietag om te groeperen; zie [Communicatie](/docs/inbox/communication).
 
-## Een tag tot actietag maken
+## Een label tot actietag maken
 
 ![Instellingen met één actietag](/api/docs/assets/categories/catalog.png)
-*Eén Tags-lijst: elke rij ziet er hetzelfde uit; flow aanmaken of openen vanaf de rij.*
+*Eén Labels-lijst: naam, telling en bewerken; flow aanmaken of openen vanuit de bewerkmodal.*
 
-1. Open **Instellingen**, dan **# Tags**. De pagina toont één **Tags**-lijst (actietags eerst, met accent-`#`), dan **Wat we misten** en wie tickets mag bevestigen.
-2. Kies **Nieuwe tag** om een vrije tag toe te voegen, daarna **Flow aanmaken** op die rij. Dat maakt of koppelt een flow met titel `#naam`. De tag wordt een actietag in dezelfde lijst.
-3. Op een actietag kies je **Flow openen** om fasen en vastleggen op de flowpagina in te richten. Een nieuwe flow start met Open, Wachtend en Klaar. Kies **Map aanmaken** om dezelfde tag een plek in de mappenboom te geven.
-4. Gebruik de punaise op een vrije tag voor een rij onder **Mappen** in Communicatie. Actietags met een flow verschijnen onder **Flows**. Met de AI-schakelaar zet je aan of triage deze tag automatisch mag toepassen. Zet samenhangende tags in een groep (optioneel exclusief). Het aantal gesprekken op een rij opent die gesprekken in Communicatie.
+1. Open **Instellingen**, dan **Labels**. De pagina toont één **Labels**-lijst (actietags eerst, met een Flow-badge), dan **Wat we misten** en wie tickets mag bevestigen.
+2. Kies **Nieuw label** om een vrij label toe te voegen. Open **Bewerken** op een rij om te hernoemen, kleur, groep, vastzetten en AI-autolabel in te stellen, en kies daarna **Flow aanmaken**. Dat maakt of koppelt een flow met de labelnaam. Het label wordt een actietag in dezelfde lijst.
+3. Op een actietag open je **Bewerken** en kies je **Flow openen** om fasen en vastleggen op de flowpagina in te richten. Een nieuwe flow start met Open, Wachtend en Klaar. Kies **Opslaan als map** om hetzelfde label een plek in de mappenboom te geven.
+4. Gebruik **Vastzetten in Communicatie** in de bewerkmodal voor een rij onder **Mappen** in Communicatie. Actietags met een flow verschijnen onder **Flows**. Met de AI-schakelaar zet je aan of triage dit label automatisch mag toepassen. Zet samenhangende labels in een groep (optioneel exclusief). Het aantal gesprekken op een rij opent die gesprekken in Communicatie.
 
 ## Een ticket op een gesprek vastleggen
 
 ![Ticketpaneel op een gesprek](/api/docs/assets/categories/ticket-panel.png)
 *Het Ticketpaneel toont de flow, een fasebalk, het project en de eigen velden van de flow.*
 
-1. Open een gesprek in **Communicatie**. Onder **Dit gesprek** kies je **Tags toevoegen**.
+1. Open een gesprek in **Communicatie**. Onder **Dit gesprek** kies je **Labels toevoegen**.
 2. Typ met een zachte `#` en kies een actietag (gemarkeerd **Actietag**), of een vrije tag. Een onbekende naam vraagt of je die als tag toevoegt of **Actietag maakt**.
 3. Vastleggen vraagt niet om een map. Het gesprek past bij elke bewaarde map waarvan het alle tags draagt; de kop toont die mappen. Canvas en docs staan op de maphub onder **Mappen**.
 4. Het ticket start in de eerste fase van de flow. De lijstrij toont de actietag met fase en gekleurde stip. Een andere actietag kiezen vraagt om **Vervangen** (of splits het gesprek voor een tweede verzoek).
@@ -37,7 +37,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 ## Bevestigen wat de AI voorstelde
 
 1. Een onzekere lezing toont op het gesprek als "Lijkt op #klacht" met **Bevestigen** en **Afwijzen**.
-2. Niets routeert en geen flow start voordat iemand bevestigt. Leden mogen zelf altijd een ticket vastleggen; **Wie mag tickets bevestigen** op **Instellingen** → **# Tags** bepaalt wie een voorstel mag bevestigen.
+2. Niets routeert en geen flow start voordat iemand bevestigt. Leden mogen zelf altijd een ticket vastleggen; **Wie mag tickets bevestigen** op **Instellingen** → **Labels** bepaalt wie een voorstel mag bevestigen.
 3. Voorstellen tellen niet mee als vastgelegde tickets op Overview tot ze bevestigd zijn.
 4. Stel de **Tickets**-houding in op [Govern](/docs/govern/govern) als agents moeten stoppen met tickets vastleggen.
 
@@ -60,7 +60,7 @@ Als een klant iets nieuws in een oud thread opbrengt, krijgt dat verzoek een eig
 
 ## Een gemist patroon tot actietag maken
 
-1. Open **Instellingen**, dan **# Tags**, en lees **Wat we misten**. Daar staan verzoeken die bleven binnenkomen zonder passende actietag, met hoe vaak elk gezien is.
+1. Open **Instellingen**, dan **Labels**, en lees **Wat we misten**. Daar staan verzoeken die bleven binnenkomen zonder passende actietag, met hoe vaak elk gezien is.
 2. Stel **Stel een nieuwe actietag voor na** in op hoeveel waarnemingen je wilt voordat een patroon klaar staat.
 3. Kies **Maak er een actietag van** om die met de voorgestelde tag en omschrijving aan te maken, of **Geen actietag** om hem te laten vallen. Agents maken zelf nooit een actietag.
 

@@ -8,7 +8,7 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { useAuth } from '../context/AuthContext'
 import { authRoutes } from '../api/routes/auth.routes'
 import { AUTH_API_BASE } from '../lib/api'
-import { WEBSITE_WIDGET_CUSTOMIZE_PATH } from '../lib/assistant-settings-path'
+import { WEBSITE_WIDGET_CUSTOMIZE_PATH, WEBSITE_WIDGET_PATH } from '../lib/assistant-settings-path'
 import { brandPalette, BRAND_DEFAULT_BG } from '@bokito/shared'
 import { DEFAULT_BRAND_COLOR, normalizeBrandHex, resolveBrandSeed } from '../lib/tenant-branding'
 import { inboxPath } from '../lib/messages-paths'
@@ -538,7 +538,7 @@ export default function CompanyConfig() {
             <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">
               {t('brandingPage.openCommunication')}
             </Link>
-            <Link to="/ai/assistant/external/installation" className="text-xs font-medium text-accent hover:underline">
+            <Link to={WEBSITE_WIDGET_PATH} className="text-xs font-medium text-accent hover:underline">
               {t('brandingPage.openInstall')}
             </Link>
           </div>

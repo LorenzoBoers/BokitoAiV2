@@ -328,4 +328,34 @@ describe('upsertLiveMessage', () => {
     expect(next[0].sendStatus).toBe('sent')
     expect(next[0].bodyText).toBe('Hi Harold')
   })
+
+  it('keeps the reaction stack when a live message omits it', () => {
+    const withReactions = {
+      id: 'msg-1',
+      threadId: 'sig-1',
+      kind: 'user_message',
+      direction: 'inbound',
+      bodyText: 'Hi',
+      reactions: {
+        kinds: [
+          {
+            kind: 'up' as const,
+            emoji: '👍',
+            count: 1,
+            reactors: [{ actorType: 'user' as const, actorId: 'u1', name: 'Ada' }],
+          },
+        ],
+        mine: 'up' as const,
+      },
+    } as InboxMessage
+    const liveUpdate = {
+      ...withReactions,
+      bodyText: 'Hi (edited)',
+      reactions: { kinds: [], mine: null },
+    } as InboxMessage
+    const next = upsertLiveMessage([withReactions], liveUpdate)
+    expect(next[0].bodyText).toBe('Hi (edited)')
+    expect(next[0].reactions?.mine).toBe('up')
+    expect(next[0].reactions?.kinds).toHaveLength(1)
+  })
 })

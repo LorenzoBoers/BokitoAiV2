@@ -55,6 +55,7 @@ async def test_feedback_upsert_and_thread_exposure(client: AsyncClient, session_
     thread = await client.get(f"/api/signals/{signal_id}", headers=headers)
     message = next(m for m in thread.json()["messages"] if m["id"] == message_id)
     assert message["my_feedback"] == {"score": 1, "sentiment": "down"}
+    assert message["reactions"]["mine"] == "down"
 
 
 @pytest.mark.asyncio
