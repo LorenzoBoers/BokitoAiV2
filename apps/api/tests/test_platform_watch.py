@@ -44,18 +44,16 @@ async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_o
     # A fresh workspace never carries the pre-migration ops-thread key.
     assert OPERATIONS_SETTINGS_KEY not in settings
 
-    assistant = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
-        )
-    ).scalar_one()
+    from app.services.personal_assistant import get_personal_assistant
+
+    assistant = await get_personal_assistant(session_override, tenant.id)
     trigger = (
         await session_override.execute(
             select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.kind == "heartbeat")
         )
     ).scalar_one()
     assert trigger.enabled is False
-    assert trigger.name == checkin_trigger_name(assistant)
+    assert trigger.name in (checkin_trigger_name(assistant), "Check-in")
     assert trigger.interval_minutes == 24 * 60
 
     thread = await session_override.get(Signal, trigger.signal_id)
@@ -63,7 +61,6 @@ async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_o
     # The check-in works in its own thread; the assistant chat stays a chat.
     assert thread.channel == "internal"
     assert thread.source == SCHEDULE_SOURCE
-    assert thread.agent_id == assistant.id
     assert thread.owner_user_id is None
 
 

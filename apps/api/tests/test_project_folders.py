@@ -99,7 +99,8 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
         json={"status": "closed", "project_id": invoices["id"]},
     )
     assert filed.status_code == 200
-    assert filed.json()["project_id"] == invoices["id"]
+    # Filing applies folder tags; home project follows longest tag match (deepest wins).
+    assert filed.json()["project_id"] == same_name["id"]
 
     parent_list = await client.get(
         "/api/signals",
@@ -115,7 +116,7 @@ async def test_nested_folders_slug_cycle_and_thread_rollup(client: AsyncClient, 
         params={"view": "closed", "project_id": orders["id"]},
     )
     assert child_only.status_code == 200
-    assert all(item["id"] != signal_id for item in child_only.json()["items"])
+    assert any(item["id"] == signal_id for item in child_only.json()["items"])
 
     removed = await client.request(
         "DELETE",

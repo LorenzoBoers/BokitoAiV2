@@ -143,7 +143,7 @@ async def test_overview_lists_people_agents_and_presence(client: AsyncClient, se
     null_agent = next(a for a in body["agents"] if a["id"] == str(agent.id))
     assert null_agent["autonomy_level"] == "assisted"
     assert null_agent["status"] in ("standby", "working", "error")
-    assert null_agent["avatar_kind"] in ("initials", "icon", "image")
+    assert null_agent["avatar_kind"] in ("initials", "icon", "image", "orb")
     assert "avatar_icon" in null_agent
     assert me["deactivated"] is False
     assert null_agent["deactivated"] is False

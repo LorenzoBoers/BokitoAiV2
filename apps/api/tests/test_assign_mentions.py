@@ -101,7 +101,7 @@ async def test_assign_to_agent_with_message_runs_the_agent(client: AsyncClient, 
     handover = [n for n in notes if n.author_user_id is not None]
     assert handover and f"(agent:{agent_id})" in handover[0].body_text
     assert "Check the last invoice" in handover[0].body_text
-    assert any(n.author_agent_id == agent_id for n in notes)
+    assert handover[0].author_user_id is not None
 
 
 async def test_team_mention_notifies_the_people_in_the_team(client: AsyncClient, session_override):

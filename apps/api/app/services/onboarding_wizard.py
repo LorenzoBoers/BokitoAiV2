@@ -51,19 +51,13 @@ def serialize_intake(block: dict[str, Any]) -> dict[str, str]:
 
 
 async def lead_assistant_row(session: AsyncSession, tenant_id: UUID) -> Agent | None:
-    return (
-        await session.execute(
-            select(Agent)
-            .where(
-                Agent.tenant_id == tenant_id,
-                Agent.kind == "company",
-                Agent.is_active == True,  # noqa: E712
-                Agent.is_lead == True,  # noqa: E712
-            )
-            .order_by(Agent.created_at)
-            .limit(1)
-        )
-    ).scalars().first()
+    from app.services.lead_agent import get_lead_agent
+    from app.services.personal_assistant import get_personal_assistant
+
+    lead = await get_lead_agent(session, tenant_id)
+    if lead is not None:
+        return lead
+    return await get_personal_assistant(session, tenant_id)
 
 
 async def get_wizard_state(

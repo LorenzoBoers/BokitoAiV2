@@ -111,7 +111,9 @@ async def list_predicates(
         subtree = folder_subtree_ids(catalog, project_id)
         if not subtree:
             subtree = [project_id]
-        clauses: list[Any] = [Signal.project_id.in_(subtree)]
+        clauses: list[Any] = []
+        if not extra:
+            clauses.append(Signal.project_id.in_(subtree))
         any_labels = False
         for fid in subtree:
             folder = catalog.by_id.get(fid)

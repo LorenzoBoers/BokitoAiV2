@@ -152,7 +152,7 @@ async def test_folder_follows_from_tags(client: AsyncClient, session_override):
     ticket = filed.json()["ticket"]
     assert ticket["status"] == "open"
     assert ticket["project_id"] == str(acme.id)
-    assert ticket["folder_path"]["label"].lstrip("#") == "acme"
+    assert ticket["folder_path"]["label"].lstrip("#") == "Acme"
     thread = (await client.get(f"/api/signals/{signal.id}", headers=headers)).json()["thread"]
     assert "acme" in thread["tags"]
 

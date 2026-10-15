@@ -107,8 +107,11 @@ async def test_resolver_returns_a_snapshot_per_type(client: AsyncClient, session
     assert by_type["file"]["image_url"] == "/api/files/photo.png"
     assert by_type["user"]["title"]
     assert by_type["agent"]["title"] == agent.name
-    assert by_type["agent"].get("avatar_kind") in ("icon", "initials", "image")
-    assert by_type["agent"].get("avatar_icon") or by_type["agent"].get("avatar_kind") == "initials"
+    assert by_type["agent"].get("avatar_kind") in ("icon", "initials", "image", "orb")
+    assert by_type["agent"].get("avatar_icon") or by_type["agent"].get("avatar_kind") in (
+        "initials",
+        "orb",
+    )
     assert not any(item.get("missing") for item in items)
 
     more = await resolve_items(
