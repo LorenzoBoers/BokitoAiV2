@@ -1,7 +1,5 @@
 """Bootstrap backfill: purge Front desk, keep the lead agent reachable."""
 
-from sqlalchemy import select
-
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.services.tenant_bootstrap import (

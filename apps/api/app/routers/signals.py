@@ -1176,7 +1176,6 @@ async def draft_reply(
     from sqlalchemy import select
 
     from app.models.signal import Signal
-    from app.services.agent.loop import AgentLoop
     from app.services.assistant_threads import signal_chat_history
     from app.services.routing import resolve_agent_for_signal
 

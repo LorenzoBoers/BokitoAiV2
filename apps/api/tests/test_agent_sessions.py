@@ -222,7 +222,7 @@ async def test_start_session_falls_back_when_thread_agent_archived(
     thread = await _customer_thread(session_override)
     agents = list((await session_override.execute(select(Agent))).scalars().all())
     assert len(agents) >= 2
-    archived, live = agents[0], agents[1]
+    archived = agents[0]
     archived.is_active = False
     archived.kind = "archived"
     thread.agent_id = archived.id
