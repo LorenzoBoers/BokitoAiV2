@@ -303,6 +303,8 @@ async def _home_payloads(
     from app.models.agent import Agent
     from app.models.signal import Signal
 
+    from app.services.agent_avatar import avatar_payload
+
     extra: dict[str, Any] = {"thread": None, "managing_agent": None}
     agent = None
     if canvas.managing_agent_id:
@@ -312,6 +314,7 @@ async def _home_payloads(
                 "id": str(agent.id),
                 "name": agent.name,
                 "path": f"/agents/{agent.id}",
+                **avatar_payload(agent),
             }
     if canvas.signal_id:
         signal = await session.get(Signal, canvas.signal_id)

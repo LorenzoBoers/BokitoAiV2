@@ -70,6 +70,8 @@
     --shadow-overlay:
       0 0 0 1px rgba(255, 255, 255, 0.04),
       0 16px 48px -16px rgba(0, 0, 0, 0.7);
+    /* Bot-orb think/type badge edge (paired with theme-aware drop-shadow). */
+    --bot-orb-badge-edge: #0c0c10;
   }
 
   :root[data-theme='light'] {
@@ -129,6 +131,7 @@
     --shadow-overlay:
       0 0 0 1px rgba(24, 24, 22, 0.035),
       0 12px 32px -12px rgba(24, 24, 22, 0.14);
+    --bot-orb-badge-edge: #ffffff;
   }
 
   * {
@@ -300,6 +303,15 @@
   .nav-row[data-active='true'] > svg,
   .nav-row[aria-current='page'] > svg {
     @apply text-text-primary;
+  }
+
+  /*
+   * Nested nav children under a parent .nav-row. ml-[15px] lines the border up
+   * with the centre of the parent's leading mark (px-2 + half of 14px icon).
+   * Communication, /folders and Agenda all share this so the tree reads the same.
+   */
+  .nav-tree-children {
+    @apply ml-[15px] space-y-px border-l border-border/70 pl-2;
   }
 
   /* Folder header above a group of nav rows: sentence case, left chevron. */
@@ -789,6 +801,22 @@
     user-select: none;
     filter: drop-shadow(0 0 calc(var(--ai-halo, 3px) * 1.2) color-mix(in oklab, var(--bot-orb-color) 32%, transparent));
   }
+  /*
+   * Facepile cutout: follow the silhouette (not a circle) with a ~2px
+   * surface edge so overlapping orbs separate like user rings.
+   */
+  .bot-orb--stack {
+    /* ~1px surface edge — closer to the people facepile ring weight. */
+    filter:
+      drop-shadow(1px 0 0 rgb(var(--color-bg-surface)))
+      drop-shadow(-1px 0 0 rgb(var(--color-bg-surface)))
+      drop-shadow(0 1px 0 rgb(var(--color-bg-surface)))
+      drop-shadow(0 -1px 0 rgb(var(--color-bg-surface)))
+      drop-shadow(0.7px 0.7px 0 rgb(var(--color-bg-surface)))
+      drop-shadow(-0.7px 0.7px 0 rgb(var(--color-bg-surface)))
+      drop-shadow(0.7px -0.7px 0 rgb(var(--color-bg-surface)))
+      drop-shadow(-0.7px -0.7px 0 rgb(var(--color-bg-surface)));
+  }
   .bot-orb > svg,
   .bot-orb__svg {
     display: block;
@@ -840,11 +868,22 @@
     transform-box: fill-box;
     transform-origin: 32px 32px;
   }
+  /* Body + face as one unit (working shrink / bob). */
+  .bot-orb__figure {
+    transform-box: view-box;
+    transform-origin: 32px 32px;
+  }
 
   /* Thinking: looking-side eye soft-squints (gaze itself is JS). */
   .bot-orb[data-think-side='left'] .bot-orb__eye:first-of-type,
   .bot-orb[data-think-side='right'] .bot-orb__eye:last-of-type {
     transform: scaleY(0.72);
+  }
+
+  /* Working: slightly shorter eyes = focused. */
+  .bot-orb[data-motion='working'] .bot-orb__eye {
+    transform: scaleY(0.7);
+    transition: transform 0.22s ease;
   }
 
   /* Blink (~220–300ms held by JS). */
@@ -863,35 +902,171 @@
   .bot-orb[data-motion='idle']:not(.bot-orb--paused) .bot-orb__body {
     animation: bot-orb-breathe 0.96s ease-in-out infinite;
   }
-  /* Soft pulse while tools run. */
-  .bot-orb[data-motion='working'] .bot-orb__body {
-    animation: bot-orb-pulse-work 1.8s ease-in-out infinite;
-  }
-  /* Typing bob. */
-  .bot-orb[data-motion='typing'] .bot-orb__body {
-    animation: bot-orb-type-bob 0.84s ease-in-out infinite;
+  /* Working: shrink figure so orbits clear the body, plus a light bob. */
+  .bot-orb[data-motion='working'] .bot-orb__figure {
+    animation: bot-orb-work-bob 0.84s ease-in-out infinite;
   }
   .bot-orb[data-motion='paused'] .bot-orb__body,
-  .bot-orb--paused .bot-orb__body {
+  .bot-orb--paused .bot-orb__body,
+  .bot-orb[data-motion='paused'] .bot-orb__figure,
+  .bot-orb--paused .bot-orb__figure {
     animation: none;
   }
 
-  /* Chrome ring / load arc (Lottie outer + load). */
-  .bot-orb__ring {
+  /*
+   * Full spawn: rise in place from below, small hop, then eyes open.
+   * Root clips during the rise so it reads as coming out of the ground.
+   * Quickspawn: short pop for later answers in the same thread.
+   */
+  .bot-orb--spawn {
+    overflow: hidden;
+  }
+  .bot-orb--spawn .bot-orb__figure {
+    transform-box: view-box;
+    transform-origin: 32px 58px;
+    /* Slow crawl out of the ground, then accelerate into the hop. */
+    animation: bot-orb-spawn-rise 1.05s linear both;
+  }
+  .bot-orb--spawn .bot-orb__eyes,
+  .bot-orb--spawn .bot-orb__nose {
+    transform-box: view-box;
+    transform-origin: 32px 31px;
+    animation: bot-orb-spawn-eyes 1.05s linear both;
+  }
+  /* Quickspawn: grow in place from a prior live seat (no hop / ground rise). */
+  .bot-orb--quickspawn .bot-orb__figure {
+    transform-box: view-box;
     transform-origin: 32px 32px;
+    animation: bot-orb-quickspawn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes bot-orb-spawn-rise {
+    0% {
+      transform: translateY(78%) scaleX(1.14) scaleY(0.36);
+    }
+    /* Linger underground / slow peek */
+    18% {
+      transform: translateY(62%) scaleX(1.12) scaleY(0.44);
+    }
+    36% {
+      transform: translateY(38%) scaleX(1.06) scaleY(0.62);
+    }
+    /* Accelerate upward */
+    52% {
+      transform: translateY(0) scaleX(0.94) scaleY(1.12);
+    }
+    64% {
+      transform: translateY(-10%) scaleX(1.05) scaleY(0.94);
+    }
+    78% {
+      transform: translateY(2px) scaleX(1.02) scaleY(0.97);
+    }
+    100% {
+      transform: translateY(0) scaleX(1) scaleY(1);
+    }
+  }
+  @keyframes bot-orb-spawn-eyes {
+    0%,
+    50% {
+      opacity: 0;
+      transform: scaleY(0);
+    }
+    62% {
+      opacity: 1;
+      transform: scaleY(0.12);
+    }
+    74% {
+      transform: scaleY(1.14);
+    }
+    86% {
+      transform: scaleY(0.88);
+    }
+    100% {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
+  @keyframes bot-orb-quickspawn {
+    0% {
+      transform: scale(0.15);
+      opacity: 0.4;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  /* Done check pops in when a live seat becomes a static footprint. */
+  .agent-done-corner--enter {
+    animation: agent-done-corner-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes agent-done-corner-enter {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.18);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bot-orb--spawn {
+      overflow: visible;
+    }
+    .bot-orb--spawn .bot-orb__figure,
+    .bot-orb--spawn .bot-orb__eyes,
+    .bot-orb--spawn .bot-orb__nose,
+    .bot-orb--quickspawn .bot-orb__figure,
+    .agent-done-corner--enter {
+      animation: none;
+    }
+  }
+
+  /*
+   * 3D-ish chrome: fixed tilted ellipses (back + front halves).
+   * Animate stroke-dashoffset so the dash crawls along the orbit —
+   * never rotate the ellipse (that reads as a flat 2D spin).
+   */
+  .bot-orb__orbits {
+    pointer-events: none;
+  }
+  .bot-orb[data-motion='working'] .bot-orb__orbit--a .bot-orb__orbit-ring {
+    animation: bot-orb-orbit-crawl 1.6s linear infinite;
+  }
+  .bot-orb[data-motion='working'] .bot-orb__orbit--b .bot-orb__orbit-ring {
+    animation: bot-orb-orbit-crawl-rev 2.4s linear infinite;
+  }
+  .bot-orb__orbit-load {
+    animation: bot-orb-orbit-crawl 1.1s linear infinite;
+  }
+  /* Theme-aware shadow: soft light lift in light mode, quiet dark in dark. */
+  .bot-orb__badge-glyph {
+    filter: drop-shadow(0 0.5px 0.7px rgba(0, 0, 0, 0.22));
+  }
+  :root[data-theme='light'] .bot-orb__badge-glyph {
+    filter: drop-shadow(0 0.5px 0.8px rgba(255, 255, 255, 0.4));
+  }
+  /* Thinking: soft grow/shrink question mark (top-right). */
+  .bot-orb__think-mark {
     transform-box: fill-box;
+    transform-origin: center;
+    animation: bot-orb-think-mark 1.35s ease-in-out infinite;
   }
-  .bot-orb[data-motion='working'] .bot-orb__ring {
-    animation: bot-orb-spin 4.5s linear infinite;
-  }
-  .bot-orb[data-motion='thinking'] .bot-orb__ring,
-  .bot-orb[data-motion='typing'] .bot-orb__ring {
-    animation: bot-orb-spin 2.2s linear infinite;
-  }
-  .bot-orb__load {
-    transform-origin: 32px 32px;
+  /* Typing: classic left-to-right dot pulse (no orbits). */
+  .bot-orb__type-dot {
     transform-box: fill-box;
-    animation: bot-orb-spin 1.1s linear infinite;
+    transform-origin: center;
+    animation: bot-orb-type-dot 1.05s ease-in-out infinite;
+  }
+  .bot-orb__type-dot:nth-child(2) {
+    animation-delay: 0.16s;
+  }
+  .bot-orb__type-dot:nth-child(3) {
+    animation-delay: 0.32s;
   }
   .bot-orb__alert-cross {
     animation: bot-orb-alert-flash 0.45s ease-in-out 2;
@@ -925,15 +1100,6 @@
       transform: scale(1.03);
     }
   }
-  @keyframes bot-orb-pulse-work {
-    0%,
-    100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.04);
-    }
-  }
   @keyframes bot-orb-type-bob {
     0%,
     100% {
@@ -943,9 +1109,47 @@
       transform: translateY(0.8px) scale(1.015);
     }
   }
-  @keyframes bot-orb-spin {
+  @keyframes bot-orb-work-bob {
+    0%,
+    100% {
+      transform: translateY(0) scale(0.84);
+    }
+    50% {
+      transform: translateY(0.7px) scale(0.86);
+    }
+  }
+  /* One lap = pathLength 100 on the orbit ellipses. */
+  @keyframes bot-orb-orbit-crawl {
     to {
-      transform: rotate(360deg);
+      stroke-dashoffset: -100;
+    }
+  }
+  @keyframes bot-orb-orbit-crawl-rev {
+    to {
+      stroke-dashoffset: 100;
+    }
+  }
+  @keyframes bot-orb-think-mark {
+    0%,
+    100% {
+      transform: scale(0.88);
+      opacity: 0.72;
+    }
+    50% {
+      transform: scale(1.12);
+      opacity: 1;
+    }
+  }
+  @keyframes bot-orb-type-dot {
+    0%,
+    70%,
+    100% {
+      opacity: 0.22;
+      transform: scale(0.85);
+    }
+    30% {
+      opacity: 1;
+      transform: scale(1.08);
     }
   }
   @keyframes bot-orb-alert-flash {
@@ -1024,8 +1228,11 @@
       animation: none !important;
     }
     .bot-orb__body,
-    .bot-orb__ring,
-    .bot-orb__load,
+    .bot-orb__figure,
+    .bot-orb__orbit-ring,
+    .bot-orb__orbit-load,
+    .bot-orb__think-mark,
+    .bot-orb__type-dot,
     .bot-orb__alert-cross {
       animation: none !important;
     }
@@ -1492,7 +1699,8 @@
     .activity-live-icon,
     .activity-live-label,
     .ai-avatar[data-working]::after,
-    .typing-dots > span {
+    .typing-dots > span,
+    .live-ellipsis > span {
       animation: none;
     }
     .stagger-in,
@@ -1849,6 +2057,40 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/** Live status ellipsis: Nadenken... (periods light left → right). */
+.live-ellipsis {
+  display: inline;
+  white-space: nowrap;
+}
+
+.live-ellipsis > span {
+  display: inline;
+  animation: live-ellipsis-dot 1.2s ease-in-out infinite;
+  opacity: 0.28;
+}
+
+.live-ellipsis > span:nth-child(1) { animation-delay: 0s; }
+.live-ellipsis > span:nth-child(2) { animation-delay: 0.2s; }
+.live-ellipsis > span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes live-ellipsis-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.28;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-ellipsis > span {
+    animation: none;
+    opacity: 1;
   }
 }
 

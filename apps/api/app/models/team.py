@@ -23,11 +23,11 @@ class Team(SQLModel, table=True):
     description: str = ""
     kind: str = Field(default=TEAM_KIND_CUSTOM, index=True)  # people | agents | custom
     pickup: str = Field(default="people")
-    # Shown under All communication in the Communication sidebar.
-    pinned: bool = Field(default=False)
+    # Custom teams always appear as Communication folders (system teams stay False).
+    pinned: bool = Field(default=True)
     # Round-robin cursor: the member key that was picked last.
     last_pick: str = ""
-    # Avatar and other light prefs (mirrors Agent.settings_json).
+    # Legacy light prefs; team marks are member facepiles (not editable).
     settings_json: str = Field(default="{}")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

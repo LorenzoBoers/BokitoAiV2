@@ -1,94 +1,55 @@
-"""Operational outcome ingestion and feedback mapping.
+"""Trading webhook ingest — outcomes table retired.
 
-DEPRECATED for new product surfaces. Trading-era OperationalOutcome rows are
-outside the conversation-first model; prefer Feedback and RunEvent. Kept so
-legacy webhooks and tests still compile during the cutover.
+Previously wrote ``operational_outcomes``. New ingest posts a ``SignalEvent``
+on the wake thread so the transcript stays the log. Learning and
+introspection no longer query a side table.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.outcome import OUTCOME_KINDS, OperationalOutcome
-from app.services.learning import submit_feedback
+from app.models.signal import SignalEvent
+
+OUTCOME_KINDS = ("trade_closed", "session_summary", "setup_skipped", "error")
 
 
-def _normalize_kind(payload: dict[str, Any]) -> str:
-    subtype = str(payload.get("subtype") or payload.get("report_type") or "").lower()
-    mapping = {
-        "trade_closed": "trade_closed",
-        "session_summary": "session_summary",
-        "setup_skipped": "setup_skipped",
-        "error": "error",
-    }
-    if subtype in mapping:
-        return mapping[subtype]
-    if payload.get("error") or payload.get("error_message"):
-        return "error"
-    if payload.get("pnl_r") is not None or payload.get("pnl") is not None:
-        return "trade_closed"
-    return "session_summary"
-
-
-def _sentiment_from_payload(payload: dict[str, Any]) -> str | None:
-    pnl = payload.get("pnl_r")
-    if pnl is None:
-        pnl = payload.get("pnl")
-    if pnl is None:
-        return None
+def _sentiment_from_payload(payload: dict[str, Any]) -> str:
+    raw = str(payload.get("sentiment") or payload.get("mood") or "").strip().lower()
+    if raw in ("up", "down", "positive", "negative", "neutral"):
+        return raw
+    pnl = payload.get("pnl") or payload.get("profit")
     try:
-        return "up" if float(pnl) >= 0 else "down"
+        value = float(pnl)
     except (TypeError, ValueError):
-        return None
+        return "neutral"
+    if value > 0:
+        return "positive"
+    if value < 0:
+        return "negative"
+    return "neutral"
 
 
-def serialize_outcome(row: OperationalOutcome) -> dict[str, Any]:
-    try:
-        payload = json.loads(row.payload_json or "{}")
-    except json.JSONDecodeError:
-        payload = {}
-    return {
-        "id": str(row.id),
-        "tenant_id": str(row.tenant_id),
-        "source": row.source,
-        "kind": row.kind,
-        "subtype": row.subtype,
-        "payload": payload,
-        "signal_id": str(row.signal_id) if row.signal_id else None,
-        "created_at": row.created_at.isoformat(),
-    }
+def summarize_outcomes(rows: list[Any]) -> str:
+    """Kept for call-site compatibility; always empty after table drop."""
+    del rows
+    return ""
 
 
-async def record_outcome(
+async def list_recent_outcomes(
     session: AsyncSession,
     tenant_id: UUID,
     *,
-    source: str,
-    kind: str,
-    payload: dict[str, Any],
-    subtype: str = "",
-    signal_id: UUID | None = None,
-) -> OperationalOutcome:
-    if kind not in OUTCOME_KINDS:
-        kind = _normalize_kind(payload)
-    row = OperationalOutcome(
-        tenant_id=tenant_id,
-        source=source,
-        kind=kind,
-        subtype=subtype or str(payload.get("subtype") or ""),
-        payload_json=json.dumps(payload),
-        signal_id=signal_id,
-    )
-    session.add(row)
-    await session.flush()
-    await session.refresh(row)
-    return row
+    days: int = 7,
+    kind: str | None = None,
+) -> list[Any]:
+    del session, tenant_id, days, kind
+    return []
 
 
 async def ingest_trading_report(
@@ -98,64 +59,34 @@ async def ingest_trading_report(
     *,
     source: str = "trading_webhook",
     signal_id: UUID | None = None,
-) -> OperationalOutcome:
-    kind = _normalize_kind(payload)
-    outcome = await record_outcome(
-        session,
-        tenant_id,
-        source=source,
-        kind=kind,
-        payload=payload,
+) -> SignalEvent:
+    """Record a structured trading report as a thread event."""
+    raw_kind = str(payload.get("kind") or "").strip()
+    subtype = str(payload.get("subtype") or payload.get("setup") or "")[:120]
+    # Webhook envelope uses kind=report; the outcome kind sits in subtype.
+    kind = subtype if raw_kind == "report" and subtype in OUTCOME_KINDS else raw_kind
+    if kind not in OUTCOME_KINDS:
+        kind = "session_summary"
+    if signal_id is None:
+        raise ValueError("signal_id is required to ingest a trading report")
+    event = SignalEvent(
         signal_id=signal_id,
+        tenant_id=tenant_id,
+        event_type="trading_report",
+        actor_type="system",
+        actor_id=source,
+        payload_json=json.dumps(
+            {
+                "kind": kind,
+                "subtype": subtype,
+                "source": source,
+                "sentiment": _sentiment_from_payload(payload),
+                "payload": payload,
+            },
+            default=str,
+        ),
+        created_at=datetime.utcnow(),
     )
-    sentiment = _sentiment_from_payload(payload)
-    if sentiment:
-        subject_id = str(outcome.id)
-        if signal_id:
-            subject_id = str(signal_id)
-        await submit_feedback(
-            session,
-            tenant_id,
-            subject_type="signal" if signal_id else "run",
-            subject_id=subject_id,
-            sentiment=sentiment,
-            comment=json.dumps(payload)[:2000],
-        )
-    return outcome
-
-
-async def list_recent_outcomes(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    days: int = 7,
-    kind: str | None = None,
-    limit: int = 100,
-) -> list[OperationalOutcome]:
-    since = datetime.utcnow() - timedelta(days=days)
-    stmt = (
-        select(OperationalOutcome)
-        .where(OperationalOutcome.tenant_id == tenant_id, OperationalOutcome.created_at >= since)
-        .order_by(OperationalOutcome.created_at.desc())
-        .limit(limit)
-    )
-    if kind:
-        stmt = stmt.where(OperationalOutcome.kind == kind)
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
-
-def summarize_outcomes(rows: list[OperationalOutcome]) -> str:
-    if not rows:
-        return "No operational outcomes in the requested window."
-    lines = [f"Recent outcomes ({len(rows)}):"]
-    for row in rows[:20]:
-        try:
-            payload = json.loads(row.payload_json or "{}")
-        except json.JSONDecodeError:
-            payload = {}
-        note = payload.get("notes") or payload.get("summary") or ""
-        pnl = payload.get("pnl_r", payload.get("pnl"))
-        extra = f" pnl={pnl}" if pnl is not None else ""
-        lines.append(f"- [{row.kind}] {row.subtype or row.source}{extra}: {note[:200]}")
-    return "\n".join(lines)
+    session.add(event)
+    await session.flush()
+    return event

@@ -1,4 +1,8 @@
-"""Open-web search via Brave Search API for the agent ``web_search`` tool."""
+"""Open-web search for the agent ``web_search`` tool.
+
+Primary backend: self-hosted SearXNG (``SEARXNG_URL``).
+Fallback: Brave Search API when SearXNG is unset and ``BRAVE_SEARCH_API_KEY`` is set.
+"""
 
 from __future__ import annotations
 
@@ -49,16 +53,120 @@ def _url_field(value: Any) -> str:
     return ""
 
 
+def _kind_key(kind: str) -> str:
+    return "images" if str(kind).lower() in ("images", "image", "img") else "web"
+
+
+async def web_search(
+    query: str,
+    *,
+    count: int = 5,
+    kind: str = "web",
+) -> dict[str, Any]:
+    """Run open-web search. Returns ``{query, kind, results}`` or ``{error}``."""
+    q = (query or "").strip()
+    if not q:
+        return {"error": "query_required", "message": "query is required"}
+    settings = get_settings()
+    searx = (settings.searxng_url or "").strip().rstrip("/")
+    if searx:
+        return await _searxng_search(searx, q, count=count, kind=kind)
+    if (settings.brave_search_api_key or "").strip():
+        return await _brave_search(q, count=count, kind=kind)
+    return {
+        "error": "web_search_not_configured",
+        "message": (
+            "Web search is not configured (set SEARXNG_URL, or BRAVE_SEARCH_API_KEY "
+            "as a fallback)."
+        ),
+    }
+
+
+# Back-compat alias for tests and older imports.
 async def brave_search(
     query: str,
     *,
     count: int = 5,
     kind: str = "web",
 ) -> dict[str, Any]:
-    """Run a Brave search. Returns ``{query, kind, results}`` or ``{error}``."""
-    q = (query or "").strip()
-    if not q:
-        return {"error": "query_required", "message": "query is required"}
+    return await web_search(query, count=count, kind=kind)
+
+
+async def _searxng_search(
+    base_url: str,
+    query: str,
+    *,
+    count: int,
+    kind: str,
+) -> dict[str, Any]:
+    n = max(1, min(int(count or 5), MAX_COUNT))
+    kind_key = _kind_key(kind)
+    params: dict[str, Any] = {
+        "q": query,
+        "format": "json",
+        "pageno": 1,
+    }
+    if kind_key == "images":
+        params["categories"] = "images"
+    url = f"{base_url}/search"
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(url, params=params)
+    except httpx.HTTPError as exc:
+        return {"error": "web_search_failed", "message": str(exc)[:200]}
+    if resp.status_code == 403:
+        return {
+            "error": "web_search_failed",
+            "message": (
+                "SearXNG rejected JSON format (enable json under search.formats "
+                "in settings.yml)."
+            ),
+        }
+    if resp.status_code >= 400:
+        return {
+            "error": "web_search_failed",
+            "message": f"SearXNG HTTP {resp.status_code}",
+        }
+    try:
+        payload = resp.json()
+    except ValueError:
+        return {"error": "web_search_failed", "message": "Invalid JSON from SearXNG"}
+
+    results: list[dict[str, Any]] = []
+    for row in (payload.get("results") or [])[:n]:
+        if not isinstance(row, dict):
+            continue
+        href = str(row.get("url") or "").strip()
+        if not href:
+            continue
+        host = _host(href)
+        img = (
+            _url_field(row.get("img_src"))
+            or _url_field(row.get("thumbnail"))
+            or _url_field(row.get("thumbnail_src"))
+        )
+        entry: dict[str, Any] = {
+            "title": _clip(row.get("title") or host, 120),
+            "url": href,
+            "host": host,
+            "favicon_url": _favicon(host),
+            "snippet": _clip(row.get("content") or row.get("description") or "", 280),
+        }
+        if kind_key == "images":
+            entry["image_url"] = img or href
+            entry["snippet"] = _clip(row.get("content") or "", 200)
+        elif img:
+            entry["image_url"] = img
+        results.append(entry)
+    return {"query": query, "kind": kind_key, "count": len(results), "results": results}
+
+
+async def _brave_search(
+    query: str,
+    *,
+    count: int = 5,
+    kind: str = "web",
+) -> dict[str, Any]:
     settings = get_settings()
     api_key = (settings.brave_search_api_key or "").strip()
     if not api_key:
@@ -67,9 +175,9 @@ async def brave_search(
             "message": "Web search is not configured for this workspace (missing BRAVE_SEARCH_API_KEY).",
         }
     n = max(1, min(int(count or 5), MAX_COUNT))
-    kind_key = "images" if str(kind).lower() in ("images", "image", "img") else "web"
+    kind_key = _kind_key(kind)
     url = BRAVE_IMAGES if kind_key == "images" else BRAVE_WEB
-    params = {"q": q, "count": n}
+    params = {"q": query, "count": n}
     headers = {
         "Accept": "application/json",
         "Accept-Encoding": "gzip",
@@ -144,4 +252,4 @@ async def brave_search(
                     "image_url": thumb or None,
                 }
             )
-    return {"query": q, "kind": kind_key, "count": len(results), "results": results}
+    return {"query": query, "kind": kind_key, "count": len(results), "results": results}

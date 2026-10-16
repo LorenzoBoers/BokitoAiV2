@@ -47,16 +47,22 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 const VALUE_BUTTON = controlChipClass
 
-function canvasItem(row: ProjectCanvas, cadence: string): ProposalItem {
+function canvasItem(row: ProjectCanvas, cadence: string, writingLabel: string): ProposalItem {
+  const empty = Boolean(row.empty)
   return {
     type: 'canvas',
     id: row.id,
     title: row.title,
-    subtitle: [row.managing_agent?.name, cadence].filter(Boolean).join(' · '),
-    path: row.project_id
-      ? `/folders/${row.project_id}?tab=canvas&canvas=${row.id}`
-      : `/cockpit/canvas?canvas=${row.id}`,
+    subtitle: empty
+      ? writingLabel
+      : [row.managing_agent?.name, cadence].filter(Boolean).join(' · '),
+    path: empty
+      ? null
+      : row.project_id
+        ? `/folders/${row.project_id}?tab=canvas&canvas=${row.id}`
+        : `/cockpit/canvas?canvas=${row.id}`,
     signalId: row.signal_id ?? null,
+    empty,
   }
 }
 
@@ -102,18 +108,18 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
   }
 
   return (
-    <div className="space-y-2 border-t border-border/40 px-3 py-2">
+    <div className="space-y-2 border-t border-border/40 px-4 py-3">
       <SectionLabel
         title={t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
         className="[&_.nav-folder]:h-5 [&_.nav-folder]:text-[10px] [&_.nav-folder]:font-normal"
-        headerClassName="-mx-0.5"
+        headerClassName="-mx-1"
         actions={
           !internal && token ? (
             <button
               type="button"
               onClick={() => void handleReread()}
               disabled={rereading || saving}
-              className="inline-flex max-w-full items-center gap-0.5 px-0.5 text-[10px] font-medium text-ai-ink hover:underline disabled:opacity-40"
+              className="inline-flex max-w-full items-center gap-0.5 px-0.5 text-[10px] font-medium text-text-muted hover:text-ai-ink hover:underline disabled:opacity-40"
               title={t('sidePanel.rereadHint', {
                 defaultValue: 'Wake channel agent to review this conversation again',
               })}
@@ -143,6 +149,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
               item={canvasItem(
                 row,
                 t(`projects.canvas.cadence.${row.refresh_cadence || 'manual'}`, { ns: 'nav' }),
+                t('projects.canvas.writing', { ns: 'nav' }),
               )}
             />
           ))}

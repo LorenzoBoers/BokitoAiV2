@@ -278,12 +278,12 @@ export type InboxMessage = {
   /** LinkedIn-style stacked reactions on this timeline message. */
   reactions?: {
     kinds: Array<{
-      kind: 'up' | 'down' | 'hundred' | 'angry' | 'thinking' | 'investigating'
+      kind: 'up' | 'down' | 'hundred' | 'facepalm' | 'clap' | 'thinking' | 'investigating'
       emoji: string
       count: number
       reactors: Array<{ actorType: 'user' | 'agent'; actorId: string; name: string }>
     }>
-    mine: 'up' | 'down' | 'hundred' | 'angry' | 'thinking' | 'investigating' | null
+    mine: 'up' | 'down' | 'hundred' | 'facepalm' | 'clap' | 'thinking' | 'investigating' | null
   } | null
   /** What the agent did before this bubble (thinking, tool calls). */
   activity?: ActivityItem[]
@@ -355,6 +355,8 @@ export type ProposalItem = {
   at?: string | null
   deletedAt?: string | null
   missing?: boolean
+  /** Canvas shell created but not yet filled — listed, not openable. */
+  empty?: boolean
   /** Compact canvas tree for the chat preview card. */
   preview?: CanvasNode | null
 }
@@ -494,6 +496,7 @@ export function normalizeProposalItem(row: unknown): ProposalItem | null {
     at: asNullableString(raw.at),
     deletedAt: asNullableString(raw.deleted_at),
     missing: raw.missing === true,
+    empty: raw.empty === true,
     preview: asCanvasPreview(raw.preview),
   }
 }
@@ -631,6 +634,8 @@ export type ThreadParticipant = {
   name: string
   email?: string
   joined_via?: string
+  /** People photo (data URI or URL); agents/teams use avatar_* mark fields. */
+  avatar_url?: string | null
   avatar_kind?: string | null
   avatar_icon?: string | null
   avatar_color?: string | null
@@ -658,6 +663,16 @@ export type ThreadDetail = {
   participants?: ThreadParticipant[]
   /** Who currently has the floor (multi-agent turn). */
   activeTurn?: ThreadActiveTurn
+  /** Nestable multi-agent handoff (opener + co-invitees). */
+  handoffSession?: {
+    id: string
+    status: string
+    depth?: number
+    openerId?: string
+    openerName?: string
+    agentIds?: string[]
+    humanIds?: string[]
+  } | null
   /** End-customer satisfaction rating (widget CSAT prompt), if given. */
   csat?: { score: number; comment: string; created_at: string } | null
   /** True when older messages exist above the current window. */
@@ -1116,12 +1131,14 @@ function normalizeReactionsField(raw: Record<string, unknown>): InboxMessage['re
     .map((row) => {
       if (!row || typeof row !== 'object') return null
       const r = row as Record<string, unknown>
-      const kind = String(r.kind || '')
+      const rawKind = String(r.kind || '')
+      const kind = rawKind === 'angry' ? 'facepalm' : rawKind
       if (
         kind !== 'up' &&
         kind !== 'down' &&
         kind !== 'hundred' &&
-        kind !== 'angry' &&
+        kind !== 'facepalm' &&
+        kind !== 'clap' &&
         kind !== 'thinking' &&
         kind !== 'investigating'
       ) {
@@ -1148,12 +1165,13 @@ function normalizeReactionsField(raw: Record<string, unknown>): InboxMessage['re
       }
     })
     .filter((x): x is NonNullable<typeof x> => x != null)
-  const mineRaw = obj.mine
+  const mineRaw = obj.mine === 'angry' ? 'facepalm' : obj.mine
   const mine =
     mineRaw === 'up' ||
     mineRaw === 'down' ||
     mineRaw === 'hundred' ||
-    mineRaw === 'angry' ||
+    mineRaw === 'facepalm' ||
+    mineRaw === 'clap' ||
     mineRaw === 'thinking' ||
     mineRaw === 'investigating'
       ? mineRaw
@@ -1341,8 +1359,9 @@ export async function addNoteToThread(
   threadId: ThreadId,
   bodyText: string,
   attachments?: MessageAttachment[],
+  opts?: { asChat?: boolean },
 ): Promise<InboxMessage | null> {
-  return addNoteToSignalThread(token, String(threadId), bodyText, attachments)
+  return addNoteToSignalThread(token, String(threadId), bodyText, attachments, opts)
 }
 
 export async function updateThreadNote(

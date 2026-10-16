@@ -404,7 +404,7 @@ async def test_delete_thread_cleans_referencing_rows(client: AsyncClient, sessio
     """Deleting a thread must not leave FK references behind (Postgres 500s).
 
     Decisions attached to the thread are deleted with it; tasks, triggers,
-    outcomes, and platform changes survive but lose their link.
+    and platform changes survive but lose their link.
     """
     from uuid import UUID
 
@@ -412,7 +412,6 @@ async def test_delete_thread_cleans_referencing_rows(client: AsyncClient, sessio
 
     from app.models.notification import DecisionRequest
     from app.models.orchestration import AgentTask
-    from app.models.outcome import OperationalOutcome
     from app.models.platform_change import PlatformChange
     from app.models.signal import Signal
     from app.models.trigger import Trigger
@@ -434,8 +433,7 @@ async def test_delete_thread_cleans_referencing_rows(client: AsyncClient, sessio
     )
     task = AgentTask(tenant_id=tenant_id, signal_id=sig_uuid, title="Follow up")
     trigger = Trigger(tenant_id=tenant_id, name="Daily scan", signal_id=sig_uuid)
-    outcome = OperationalOutcome(tenant_id=tenant_id, signal_id=sig_uuid)
-    session_override.add_all([change, task, trigger, outcome])
+    session_override.add_all([change, task, trigger])
     await session_override.commit()
     decision_id = decision.id
 

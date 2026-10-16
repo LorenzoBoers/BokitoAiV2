@@ -128,7 +128,7 @@ async def _create_agent(client: AsyncClient, headers: dict, name: str) -> str:
     r = await client.post(
         "/api/workforce/agents",
         headers=headers,
-        json={"name": name, "role": "communication"},
+        json={"name": name, "job_title": "Support", "role": "communication"},
     )
     assert r.status_code == 200, r.text
     return r.json()["agent"]["id"]
@@ -177,24 +177,43 @@ async def test_agent_description_roundtrip(client: AsyncClient):
     r = await client.post(
         "/api/workforce/agents",
         headers=owner,
-        json={"name": "Role Agent", "description": "Handles inbound support"},
+        json={
+            "name": "Role Agent",
+            "job_title": "Support lead",
+            "description": "Handles inbound support",
+        },
     )
     assert r.status_code == 200, r.text
     agent = r.json()["agent"]
+    assert agent["job_title"] == "Support lead"
     assert agent["description"] == "Handles inbound support"
     agent_id = agent["id"]
 
     r = await client.patch(
         f"/api/workforce/agents/{agent_id}",
         headers=owner,
-        json={"description": "  Hands off billing  "},
+        json={"job_title": "Billing", "description": "  Hands off billing  "},
     )
     assert r.status_code == 200, r.text
-    assert r.json()["agent"]["description"] == "Hands off billing"
+    body = r.json()["agent"]
+    assert body["job_title"] == "Billing"
+    assert body["description"] == "Hands off billing"
 
     listed = await _list_agents(client, owner)
     row = next(a for a in listed if a["id"] == agent_id)
+    assert row["job_title"] == "Billing"
     assert row["description"] == "Hands off billing"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_rejects_empty_job_title(client: AsyncClient):
+    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
+    r = await client.post(
+        "/api/workforce/agents",
+        headers=owner,
+        json={"name": "No Title Agent", "job_title": "   "},
+    )
+    assert r.status_code == 400
 
 
 @pytest.mark.asyncio

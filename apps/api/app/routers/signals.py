@@ -360,6 +360,9 @@ class ComposingBody(BaseModel):
 class NoteBody(BaseModel):
     body_text: str
     attachments: list[dict] | None = None
+    # True when @-messaging a teammate: durable chat bubble, not amber note chrome.
+    # Still never delivered to an external customer (direction stays internal).
+    as_chat: bool = False
 
 
 class DraftBody(BaseModel):
@@ -1404,6 +1407,11 @@ class AssigneeTeamPresence(BaseModel):
     status: Literal["available", "away", "offline", "standby", "working"]
 
 
+class AssigneeTeamMember(BaseModel):
+    kind: Literal["user", "agent"]
+    id: str
+
+
 class AssigneeTeam(BaseModel):
     id: str
     name: str
@@ -1411,6 +1419,7 @@ class AssigneeTeam(BaseModel):
     can_handle: bool = True
     reason: str = ""
     presence: AssigneeTeamPresence | None = None
+    members: list[AssigneeTeamMember] = Field(default_factory=list)
     avatar_kind: str | None = None
     avatar_icon: str | None = None
     avatar_color: str | None = None
@@ -1571,7 +1580,7 @@ async def add_note(
         signal_id,
         body_text=body.body_text,
         direction="internal",
-        kind="internal_note",
+        kind="user_message" if body.as_chat else "internal_note",
         attachments=body.attachments,
         actor_role=auth.role,
     )

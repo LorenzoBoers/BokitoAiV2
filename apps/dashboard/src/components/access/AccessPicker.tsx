@@ -6,10 +6,9 @@ import { useAuth } from '../../context/AuthContext'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { getTeamOverview, type TeamOverview } from '../../lib/teams-api'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { Button } from '../ui/button'
 import { AiAvatar } from '../ui/AiAvatar'
-import { TeamAvatar } from '../ui/TeamAvatar'
+import { TeamFacepile } from '../ui/TeamFacepile'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Switch } from '../ui/switch'
 import {
@@ -175,7 +174,7 @@ function AccessDialog<L extends string>({
       kind: 'team' as const,
       id: team.system ? team.kind : team.id,
       label: team.system ? t(`teamPage.system.${team.kind}`) : team.name,
-      avatar: <TeamAvatar {...toTeamAvatarProps(team)} size={20} />,
+      avatar: <TeamFacepile team={team} size={20} linkAgents={false} />,
       locked: false,
       deactivated: false,
     }))
@@ -205,7 +204,7 @@ function AccessDialog<L extends string>({
         kind: 'agent' as const,
         id: a.id,
         label: a.name,
-        avatar: <AiAvatar {...toAiAvatarProps(a)} size={20} />,
+        avatar: <AiAvatar {...toAiAvatarProps(a)} size={20} mode="static" />,
         locked: false,
         deactivated: Boolean(a.deactivated),
       }))

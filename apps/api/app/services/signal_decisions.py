@@ -60,6 +60,19 @@ def primary_option_key(options: list[dict[str, Any]] | None) -> tuple[str, str]:
     return "", ""
 
 
+def options_ack_signature(options: list[dict[str, Any]] | None) -> str:
+    """Stable id+label fingerprint for acknowledge cards (Ja/Nee without action_type)."""
+    rows: list[tuple[str, str]] = []
+    for option in options or []:
+        if not isinstance(option, dict):
+            continue
+        oid = str(option.get("id") or "").strip().lower()
+        label = str(option.get("label") or "").strip().lower()
+        if oid or label:
+            rows.append((oid, label))
+    return json.dumps(rows, ensure_ascii=True)
+
+
 def _options_of(decision: DecisionRequest) -> list[dict[str, Any]]:
     try:
         parsed = json.loads(decision.options_json or "[]")
@@ -81,6 +94,7 @@ async def find_open_duplicate_decision(
     runs). Per-thread duplicates are superseded in the tool instead.
     """
     wanted = primary_action(options)
+    ack = options_ack_signature(options) if not wanted else ""
     rows = (
         await session.execute(
             select(DecisionRequest)
@@ -94,7 +108,47 @@ async def find_open_duplicate_decision(
         )
     ).scalars().all()
     for row in rows:
-        if primary_action(_options_of(row)) == wanted:
+        if wanted:
+            if primary_action(_options_of(row)) == wanted:
+                return row
+        elif ack and options_ack_signature(_options_of(row)) == ack:
+            return row
+    return None
+
+
+async def find_open_ack_in_bundle(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    signal_id: UUID,
+    bundle_id: str,
+) -> DecisionRequest | None:
+    """Any awaiting acknowledge card (Ja/Nee, no action_type) in this turn.
+
+    Same-bundle title supersede skips siblings, so a model that raises four
+    near-identical Ja/Nee asks with different titles (S46/U75) used to stack
+    four cards. One open ack in the bundle is enough.
+    """
+    if not bundle_id.strip():
+        return None
+    rows = (
+        await session.execute(
+            select(DecisionRequest)
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.signal_id == signal_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.platform_change_id.is_(None),
+                DecisionRequest.bundle_id == bundle_id,
+            )
+            .order_by(DecisionRequest.created_at.asc())
+        )
+    ).scalars().all()
+    for row in rows:
+        opts = _options_of(row)
+        if primary_option_key(opts)[0]:
+            continue
+        if options_ack_signature(opts):
             return row
     return None
 
@@ -112,11 +166,15 @@ async def find_open_identical_decision(
     Catches the model calling the same gated tool twice in one turn (same
     ``bundle_id``). Same-bundle cards are not superseded by title alone, so
     without this the thread stacks two identical Approve cards.
+
+    Acknowledge cards (Ja/Nee with no ``action_type``) match on option id+label
+    so the agent cannot flood identical asks in one turn.
     """
     if signal_id is None:
         return None
     wanted = primary_option_key(options)
-    if not wanted[0]:
+    ack = options_ack_signature(options) if not wanted[0] else ""
+    if not wanted[0] and not ack:
         return None
     rows = (
         await session.execute(
@@ -132,7 +190,10 @@ async def find_open_identical_decision(
         )
     ).scalars().all()
     for row in rows:
-        if primary_option_key(_options_of(row)) == wanted:
+        if wanted[0]:
+            if primary_option_key(_options_of(row)) == wanted:
+                return row
+        elif ack and options_ack_signature(_options_of(row)) == ack:
             return row
     return None
 

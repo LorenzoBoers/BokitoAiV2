@@ -79,8 +79,13 @@ class Settings(BaseSettings):
     mistral_api_key: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
-    # Brave Search API (agent web_search tool). Empty = tool returns not_configured.
+    # Agent web_search: prefer self-hosted SearXNG. Empty falls back to Brave.
+    searxng_url: str = ""
+    # Brave Search API fallback when searxng_url is empty.
     brave_search_api_key: str = ""
+    # Agent fetch_url: self-hosted Crawl4AI (page → Markdown). Empty = not_configured.
+    crawl4ai_url: str = ""
+    crawl4ai_api_token: str = ""
     # JSON {tier slug: [catalog slug, ...]} overriding the backing chain per
     # Bokito tier. The staff setting (PUT /api/staff/bokito-backings) wins.
     bokito_backings: str = ""

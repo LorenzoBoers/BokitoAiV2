@@ -33,6 +33,7 @@ class AgentModelBody(BaseModel):
 
 class AgentCreateBody(BaseModel):
     name: str
+    job_title: str
     description: str = ""
     purpose: str = ""
     system_prompt: str = ""
@@ -46,6 +47,7 @@ class AgentCreateBody(BaseModel):
 
 class AgentUpdateBody(BaseModel):
     name: str | None = None
+    job_title: str | None = None
     description: str | None = None
     purpose: str | None = None
     system_prompt: str | None = None
@@ -235,6 +237,7 @@ async def create_agent(
         auth.tenant.id,
         name=body.name,
         role="assistant",
+        job_title=body.job_title,
         description=body.description,
         system_prompt=body.purpose or body.system_prompt,
         tools=body.tools,
@@ -273,6 +276,7 @@ async def update_agent(
         auth.tenant.id,
         agent_id,
         name=body.name,
+        job_title=body.job_title,
         description=body.description,
         system_prompt=body.purpose if body.purpose is not None else body.system_prompt,
         tools=body.tools,

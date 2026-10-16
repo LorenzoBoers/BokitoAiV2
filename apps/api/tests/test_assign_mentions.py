@@ -170,3 +170,55 @@ async def test_agent_without_channel_access_is_refused(client: AsyncClient, sess
         json={"assignee": {"kind": "agent", "id": "00000000-0000-0000-0000-000000000000"}},
     )
     assert r.status_code == 422
+
+
+async def test_note_agent_mention_persists_turn_after_request(client: AsyncClient, session_override):
+    """@agent in a note must commit the floor so a worker (or mock run) can claim it.
+
+    Regression: reply_to_thread committed the note, then dispatch_mentions set
+    active_turn without a second commit — session close rolled the floor back
+    and run_participant_turn_job exited as stale_nonce (U08 live fail).
+    """
+    from app.models.signal import Signal, SignalEvent
+
+    headers = await _login(client)
+    signal_id = await _thread(client, headers)
+    agent = await _agent(session_override)
+    agent_id = agent.id
+
+    r = await client.post(
+        f"/api/signals/{signal_id}/notes",
+        headers=headers,
+        json={
+            "body_text": (
+                f"@[Billing](agent:{agent_id}) QA note mention — "
+                "reply only with u08ok"
+            ),
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    session_override.expire_all()
+    signal = await session_override.get(Signal, UUID(signal_id))
+    assert signal is not None
+    floor = signal.active_turn_json or "{}"
+    # Mock execution runs the turn inline (may clear the floor on send). Either
+    # an open floor for this agent or a participant_turn_* event proves dispatch
+    # was persisted, not rolled back with the request session.
+    events = (
+        await session_override.execute(
+            select(SignalEvent).where(
+                SignalEvent.signal_id == UUID(signal_id),
+                SignalEvent.event_type.in_(
+                    (
+                        "participant_turn_requested",
+                        "participant_turn_sent",
+                        "agent_invoked",
+                    )
+                ),
+            )
+        )
+    ).scalars().all()
+    assert events or (f"{agent_id}" in floor), (
+        f"expected turn event or floor after @agent note; floor={floor!r} events={len(events)}"
+    )

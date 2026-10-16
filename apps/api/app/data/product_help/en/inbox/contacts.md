@@ -59,7 +59,7 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 *A contact can follow the channel or have its own mode.*
 
 1. Open the contact on Contacts, or open the side panel in a conversation with them.
-2. Find **AI handling** under the contact details. It shows the current mode. Open the menu to see what it follows: the inherited mode carries a badge such as **Channel default**.
+2. Find **AI handling** under the contact details in the side panel or on Contacts. It shows the current mode. Open the menu to see what it follows: the inherited mode carries a badge such as **Channel default**.
 3. Pick **Autonomous**, **Assisted** or **Manual** to apply it to every conversation with this person. Choose the mode marked **Channel default** to remove it.
 4. On Contacts, filter the list with the **Any AI handling** menu to find contacts with **Custom AI handling** or a specific mode. Rows with their own mode show its icon.
 
@@ -67,7 +67,7 @@ A single conversation can still differ from the contact. See [AI handling](/docs
 
 ## Give a contact a fixed owner
 
-1. Open the contact on Contacts, or open the side panel in a conversation with them. Find **Owner** under **AI handling**.
+1. Open the contact on Contacts, or open the side panel in a conversation with them. Find the **Owner** row under **AI handling**.
 2. Pick a person or a team from the menu; **No fixed owner** clears it.
 3. New conversations from this contact go to that owner when the AI is silent (Manual). On Autonomous or Assisted the agent picks the conversation up first and hands it to the contact owner as soon as a person is needed, before it falls back to the channel team.
 

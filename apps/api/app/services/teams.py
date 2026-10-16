@@ -87,11 +87,24 @@ async def list_teams(session: AsyncSession, tenant_id: UUID) -> list[Team]:
     await ensure_system_teams(session, tenant_id)
     from app.services.trash import alive
 
-    rows = (
-        await session.execute(
-            select(Team).where(Team.tenant_id == tenant_id, alive(Team))
+    rows = list(
+        (
+            await session.execute(
+                select(Team).where(Team.tenant_id == tenant_id, alive(Team))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
+    # Custom teams always appear as Communication folders; heal older unpinned rows.
+    dirty = False
+    for row in rows:
+        if row.kind == TEAM_KIND_CUSTOM and not row.pinned:
+            row.pinned = True
+            session.add(row)
+            dirty = True
+    if dirty:
+        await session.flush()
     order = {TEAM_KIND_PEOPLE: 0, TEAM_KIND_AGENTS: 1}
     return sorted(rows, key=lambda t: (order.get(t.kind, 2), t.name.lower()))
 
@@ -189,7 +202,6 @@ async def create_team(
     name: str,
     description: str = "",
     pickup: str = "people",
-    pinned: bool = False,
     members: list[dict[str, str]] | None = None,
 ) -> Team:
     if pickup not in PICKUP_MODES:
@@ -200,7 +212,8 @@ async def create_team(
         description=description.strip()[:300],
         kind=TEAM_KIND_CUSTOM,
         pickup=pickup,
-        pinned=pinned,
+        # Every custom team is a Communication folder; no opt-in pin.
+        pinned=True,
     )
     session.add(team)
     await session.flush()
@@ -264,13 +277,21 @@ async def delete_team(session: AsyncSession, team: Team, *, permanent: bool = Fa
     fallback = await people_team(session, team.tenant_id)
     await session.execute(
         update(Signal)
-        .where(Signal.tenant_id == team.tenant_id, Signal.assignee_team_id == team.id)
-        .values(assignee_team_id=fallback.id)
+        .where(
+            Signal.tenant_id == team.tenant_id,
+            Signal.assignee_kind == "team",
+            Signal.assignee_id == team.id,
+        )
+        .values(assignee_id=fallback.id)
     )
     await session.execute(
         update(Signal)
-        .where(Signal.tenant_id == team.tenant_id, Signal.turn_team_id == team.id)
-        .values(turn_team_id=fallback.id)
+        .where(
+            Signal.tenant_id == team.tenant_id,
+            Signal.turn_kind == "team",
+            Signal.turn_ref_id == team.id,
+        )
+        .values(turn_ref_id=fallback.id)
     )
     await session.execute(
         update(DecisionRequest)
@@ -343,8 +364,8 @@ async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
         "kind": team.kind,
         "system": team.kind in SYSTEM_TEAM_KINDS,
         "pickup": team.pickup,
-        # System teams are never Communication sidebar folders.
-        "pinned": False if team.kind in SYSTEM_TEAM_KINDS else bool(team.pinned),
+        # System teams are never Communication folders; custom teams always are.
+        "pinned": False if team.kind in SYSTEM_TEAM_KINDS else True,
         "members": [{"kind": ref.kind, "id": str(ref.id)} for ref in members],
         "member_count": len(members),
         "presence": await _team_presence_payload(session, team, members),
@@ -370,7 +391,7 @@ async def get_or_create_team_room(session: AsyncSession, tenant_id: UUID, team: 
                 Signal.channel == "internal",
                 Signal.source == "team",
                 Signal.assignee_kind == "team",
-                Signal.assignee_team_id == team.id,
+                Signal.assignee_id == team.id,
             )
             .order_by(Signal.created_at.asc())
             .limit(1)
@@ -383,12 +404,12 @@ async def get_or_create_team_room(session: AsyncSession, tenant_id: UUID, team: 
             existing.contact_name = team.name
         if existing.assignee_kind != "team":
             existing.assignee_kind = "team"
-            existing.assignee_team_id = team.id
+            existing.assignee_id = team.id
         # Empty rooms must not sit in For you. Turn stays empty until someone
         # posts; hub lists still include the room via assignee_kind=team.
         if existing.turn_reason == "room":
             existing.turn_kind = ""
-            existing.turn_team_id = None
+            existing.turn_ref_id = None
             existing.turn_reason = ""
         return existing
 
@@ -402,7 +423,7 @@ async def get_or_create_team_room(session: AsyncSession, tenant_id: UUID, team: 
         status="open",
         priority="normal",
         assignee_kind="team",
-        assignee_team_id=team.id,
+        assignee_id=team.id,
         last_message_at=now,
         has_unread=False,
     )

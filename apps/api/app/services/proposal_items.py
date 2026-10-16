@@ -535,7 +535,10 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
             subtitle = tenant.name if tenant else "Workspace"
             path = f"/cockpit/canvas?canvas={row.id}"
             project_id = None
-        preview = canvas_chat_preview(row.tree_json)
+        from app.services.project_canvas import serialize_canvas
+
+        empty = bool(serialize_canvas(row).get("empty"))
+        preview = None if empty else canvas_chat_preview(row.tree_json)
         payload = {
             "type": item_type,
             "id": str(row.id),
@@ -543,8 +546,10 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
             "subtitle": _clip(subtitle),
             "kind": row.owner_kind or OWNER_TENANT,
             "slug": row.slug,
-            "path": path,
+            # Empty shells stay listed but are not openable until filled.
+            "path": None if empty else path,
             "project_id": project_id,
+            "empty": empty,
         }
         if preview:
             payload["preview"] = preview

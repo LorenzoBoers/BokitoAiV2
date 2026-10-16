@@ -191,8 +191,6 @@ export type Ticket = {
   folder_path: FolderPath | null
   workstream_id: string | null
   workstream_name: string | null
-  workstream_run_id: string | null
-  current_step_name: string | null
   filed_at: string | null
   field_defs?: TicketStageField[]
   fields?: Record<string, string>

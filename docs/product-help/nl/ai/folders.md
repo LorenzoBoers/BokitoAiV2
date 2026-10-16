@@ -22,20 +22,20 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** (
 
 ## Nest een map onder een andere
 
-1. Op **Mappen** sleep je een map over de **rechterhelft** van een andere rij (of gebruik **Nesten** in het mapmenu). De **linkerhelft** van de boom verandert alleen de volgorde tussen broers.
-2. Laat los om te plaatsen. Labels veranderen niet — alleen de plek in de boom.
+1. Op **Mappen** sleep je een map naar een andere rij. De map springt live in de boom naar de dichtstbijzijnde plek: hetzelfde niveau als die rij, of één niveau dieper als je iets naar rechts sleept (of gebruik **Nesten** in het mapmenu).
+2. Laat los als hij op de goede plek zit. Labels veranderen niet — alleen de plek in de boom.
 3. Gebruik **Ongedaan maken** op de toast, of Ctrl/Cmd+Z, om de laatste nest, herschikking of unnest terug te draaien.
 
 ## Verplaats een map naar het hoogste niveau
 
-1. Op **Mappen** sleep je een geneste map naar een zone **Bovenste laag** (boven of onder de boom), of naar de linkerhelft van een andere wortelmap — de map verschijnt live terwijl je sleept.
+1. Op **Mappen** sleep je een geneste map naar links richting de root-indent, of naar een zone **Bovenste laag** (boven of onder de boom) — de map springt live terwijl je sleept.
 2. De map komt tussen de andere wortelmapen. Labels blijven gelijk.
 3. Gebruik **Ongedaan maken** op de toast, of Ctrl/Cmd+Z, als je het wilt terugdraaien.
 
 ## Verplaats één label tussen mappen
 
 1. Op **Mappen** hover je een label in een boomrij — het krijgt een pill zodat je ziet dat het los van de andere labels op die rij staat.
-2. Sleep dat label naar een andere map (of de **Nest**-zone), of naar **Bovenste laag**. Het label verlaat de bronset en komt bij het doel.
+2. Sleep dat label naar een andere map, of naar **Bovenste laag**. Het label verlaat de bronset en komt bij het doel.
 3. Gebruik **Ongedaan maken** op de toast, of Ctrl/Cmd+Z, als je het wilt terugdraaien.
 
 ## Archiveer een gesprek in een map
@@ -52,7 +52,7 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** (
 
 ## Zie gesprekken in een map
 
-1. Open het tabblad **Gesprekken**, of gebruik **Mappen** in Communicatie. Lege mappen blijven verborgen in de rail tot ze open werk hebben of je ze vastzet.
+1. Open het tabblad **Gesprekken**, of gebruik **Mappen** in Communicatie. Alle mappen staan in de rail, ook lege.
 2. Elke rij matcht deze map of een map eronder (via labels of via de gearchiveerde thuismap). Archiveren in een map voegt die labels toe.
 3. Contactlabels gelden automatisch (getoond als overgenomen); ze worden niet op de thread gekopieerd.
 
@@ -68,7 +68,7 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** (
 ## Vraag een agent om een canvas
 
 1. Open het tabblad **Canvas** en kies **Canvas toevoegen**. Kies de agent die het beheert.
-2. Dat opent een gesprek: de agent vraagt wat je wilt zien, stelt een kort plan voor (titel, widgets, verversing), bouwt daarna de snapshot en zet het verversingsritme. Blijf in die thread praten om het te wijzigen. Workspace-canvassen staan ook op Overzicht **Canvas**.
+2. Dat opent een gesprek: de agent vraagt wat je wilt zien, stelt een kort plan voor (titel, widgets, verversing), bouwt daarna de snapshot en zet het verversingsritme. Blijf in die thread praten om het te wijzigen. Op de canvas-werkbalk staan beheeragent (avatar en naam), bijgewerkt en verversperiode op één regel; gebruik het vernieuw-icoon, of verwijder via het **⋯**-menu. Workspace-canvassen staan ook op Overzicht **Canvas**.
 
 ## Volg documentatie
 

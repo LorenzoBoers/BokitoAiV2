@@ -13,8 +13,11 @@ from app.models.notification import DecisionRequest, Notification
 from app.services.addressee import parse_target
 from app.services.os_graph import OS_GRAPH_RETIRED
 from app.services.signal_decisions import (
+    find_open_ack_in_bundle,
     find_open_duplicate_decision,
     find_open_identical_decision,
+    options_ack_signature,
+    primary_option_key,
     recently_declined_decision,
 )
 from app.tools.registry import ToolContext, ToolSpec, register_tool
@@ -75,13 +78,19 @@ async def _search_index(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
 
 
 async def _web_search(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.web_search import brave_search
+    from app.services.web_search import web_search
 
-    return await brave_search(
+    return await web_search(
         str(tool_input.get("query") or ""),
         count=int(tool_input.get("count") or 5),
         kind=str(tool_input.get("kind") or "web"),
     )
+
+
+async def _fetch_url(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.web_fetch import fetch_url_markdown
+
+    return await fetch_url_markdown(str(tool_input.get("url") or ""))
 
 
 async def _search_product_help(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -251,15 +260,15 @@ async def _platform_change(
     }
 
 
-async def _workstream_run_id(ctx: ToolContext) -> UUID | None:
-    """The workstream run behind the current agent run, when there is one."""
+async def _workstream_id(ctx: ToolContext) -> UUID | None:
+    """The playbook behind the current agent run, when there is one."""
     if not ctx.run_id:
         return None
     from app.models.agent import AgentRun
 
     return (
         await ctx.session.execute(
-            select(AgentRun.workstream_run_id).where(AgentRun.id == ctx.run_id)
+            select(AgentRun.workstream_id).where(AgentRun.id == ctx.run_id)
         )
     ).scalar_one_or_none()
 
@@ -307,20 +316,20 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
         if getattr(existing, "agent_id", None):
             agent_id = str(existing.agent_id)
     # Run-context rule: autonomous agent writes to project docs go through
-    # workstream runs only. A human live in the session (user_id set), a
-    # human-gated proposal (mode "ask"), and non-project docs stay direct.
-    run_ref = await _workstream_run_id(ctx)
+    # a playbook-attributed run only. A human live in the session (user_id set),
+    # a human-gated proposal (mode "ask"), and non-project docs stay direct.
+    ws_ref = await _workstream_id(ctx)
     if (
         ctx.agent is not None
         and ctx.user_id is None
         and ctx.mode == "apply"
         and project_id
-        and run_ref is None
+        and ws_ref is None
     ):
         return {
             "error": (
-                "Project docs are agent-editable only inside a workstream run. "
-                "Route this work through a project workstream (a queue item or "
+                "Project docs are agent-editable only inside a playbook run. "
+                "Route this work through a project flow (a queue item or "
                 "manual run) instead of writing directly."
             )
         }
@@ -338,7 +347,7 @@ async def _write_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
             "kind": tool_input.get("kind"),
             "project_id": project_id,
             "agent_id": agent_id,
-            "workstream_run_id": str(run_ref) if run_ref else None,
+            "workstream_id": str(ws_ref) if ws_ref else None,
         },
         before=before,
         tool_name="write_doc",
@@ -1317,8 +1326,10 @@ async def _mark_handled_externally(ctx: ToolContext, tool_input: dict[str, Any])
 
         owner = (
             await ctx.session.execute(
-                select(Signal.assigned_user_id).where(
-                    Signal.id == signal_id, Signal.tenant_id == ctx.tenant_id
+                select(Signal.assignee_id).where(
+                    Signal.id == signal_id,
+                    Signal.tenant_id == ctx.tenant_id,
+                    Signal.assignee_kind == "user",
                 )
             )
         ).scalar_one_or_none()
@@ -1828,6 +1839,29 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
                     "one Approve card is enough."
                 ),
             }
+        # Same turn: do not stack Ja/Nee cards under different titles (U75).
+        opts = tool_input.get("options") or []
+        if (
+            ctx.bundle_id
+            and not executable_option_actions(opts)
+            and options_ack_signature(opts)
+            and not primary_option_key(opts)[0]
+        ):
+            ack_sibling = await find_open_ack_in_bundle(
+                ctx.session,
+                ctx.tenant_id,
+                signal_id=target_signal_id,
+                bundle_id=str(ctx.bundle_id),
+            )
+            if ack_sibling is not None:
+                return {
+                    "decision_request_id": str(ack_sibling.id),
+                    "status": "already_open",
+                    "message": (
+                        "An acknowledge Decision is already open in this turn. "
+                        "Do not raise another Ja/Nee card; wait for that answer."
+                    ),
+                }
     else:
         # Cards without a thread (heartbeat wakes, scheduled runs) used to pile
         # up: one tenant collected 34 identical "Turn on Banking?" cards, each
@@ -2435,11 +2469,12 @@ register_tool(
     ToolSpec(
         name="web_search",
         description=(
-            "Search the open web (Brave Search). Use for current facts, news, or "
-            "public pages outside this workspace. kind=web returns titles, urls, "
-            "snippets; kind=images returns image urls. To show images in chat, "
-            "call attach_items with type image and each result's image_url. "
-            "Prefer search_index / search_product_help for Bokito and workspace data."
+            "Search the open web. Use for current facts, news, or public pages "
+            "outside this workspace. kind=web returns titles, urls, snippets; "
+            "kind=images returns image urls. To read a result page in full, call "
+            "fetch_url with its url. To show images in chat, call attach_items "
+            "with type image and each result's image_url. Prefer search_index / "
+            "search_product_help for Bokito and workspace data."
         ),
         category="workspace",
         input_schema={
@@ -2463,6 +2498,35 @@ register_tool(
         gated=False,
         audience="both",
         display_name="Web search",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="fetch_url",
+        description=(
+            "Fetch a public http(s) page and return clean Markdown. Use after "
+            "web_search when snippets are not enough, or when the user gives a "
+            "specific URL. Does not crawl whole sites — one URL per call. Prefer "
+            "search_index / read_doc / search_product_help for workspace and "
+            "Bokito content. Private or local network URLs are blocked."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Absolute http or https URL to fetch",
+                },
+            },
+            "required": ["url"],
+        },
+        handler=_fetch_url,
+        mutating=False,
+        gated=False,
+        audience="both",
+        display_name="Fetch page",
     )
 )
 
@@ -2891,10 +2955,10 @@ register_tool(
         description=(
             "React to a timeline message with a small emoji stack (Communication "
             "only). Kinds: up (good), down (not good), hundred (very good), "
-            "angry (very bad), thinking (unclear), investigating (you will look "
-            "into it — agent-only). One reaction per actor; calling the same "
-            "kind again clears it. Use investigating when you start research "
-            "instead of a long status note."
+            "clap (applause), facepalm (awkward / oh no), thinking (unclear), "
+            "investigating (you will look into it — agent-only). One reaction "
+            "per actor; calling the same kind again clears it. Use investigating "
+            "when you start research instead of a long status note."
         ),
         category="messaging",
         input_schema={
@@ -2910,7 +2974,8 @@ register_tool(
                         "up",
                         "down",
                         "hundred",
-                        "angry",
+                        "clap",
+                        "facepalm",
                         "thinking",
                         "investigating",
                     ],
@@ -4233,15 +4298,20 @@ register_tool(
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
+                "job_title": {
+                    "type": "string",
+                    "description": "Short job title under the name (max 20 characters, required)",
+                    "maxLength": 20,
+                },
                 "role": {"type": "string"},
                 "description": {
                     "type": "string",
-                    "description": "Short operator-facing role blurb (not the system prompt)",
+                    "description": "Optional longer operator-facing blurb (not the system prompt)",
                 },
                 "system_prompt": {"type": "string"},
                 "tools": {"type": "array", "items": {"type": "string"}},
             },
-            "required": ["name"],
+            "required": ["name", "job_title"],
         },
         handler=_make_platform_handler("create_agent", "agent", "create", lambda i: f"Create agent {i.get('name')}"),
         handles_ask=True,
@@ -4251,16 +4321,21 @@ register_tool(
 register_tool(
     ToolSpec(
         name="update_agent",
-        description="Update an existing agent (name, description, prompt, role).",
+        description="Update an existing agent (name, job title, description, prompt, role).",
         category="agents",
         input_schema={
             "type": "object",
             "properties": {
                 "agent_id": {"type": "string"},
                 "name": {"type": "string"},
+                "job_title": {
+                    "type": "string",
+                    "description": "Short job title under the name (max 20 characters)",
+                    "maxLength": 20,
+                },
                 "description": {
                     "type": "string",
-                    "description": "Short operator-facing role blurb (not the system prompt)",
+                    "description": "Optional longer operator-facing blurb (not the system prompt)",
                 },
                 "system_prompt": {"type": "string"},
                 "role": {"type": "string"},

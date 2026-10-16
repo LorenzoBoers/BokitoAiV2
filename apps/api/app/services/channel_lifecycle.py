@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.channel import ChannelAccount, ChannelBinding
+from app.models.channel import ChannelAccount
 from app.models.signal import Signal
 from app.services.audit import record_audit
 from app.services.crypto import set_connection_credentials
@@ -149,9 +149,6 @@ async def delete_channel_permanently(
             session, account.tenant_id, signal_id, user_id=user_id, permanent=True, commit=False
         )
     await session.execute(sa_delete(InboxRule).where(InboxRule.channel_account_id == account.id))
-    await session.execute(
-        sa_delete(ChannelBinding).where(ChannelBinding.channel_account_id == account.id)
-    )
     await session.execute(
         sa_update(HandoverCode)
         .where(HandoverCode.whatsapp_account_id == account.id)

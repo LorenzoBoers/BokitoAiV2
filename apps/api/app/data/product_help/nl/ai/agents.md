@@ -1,7 +1,7 @@
 ---
 title: Zo werken Agents
 intro: De bibliotheek van AI-werkers. Communicatie is waar ze praten; deze pagina is waar je ze aanneemt en brief.
-description: Brief bedrijfsagents, zet chattoegang, deactiveer ze, voeg een handtekening toe en stel naam, omschrijving of bot-uiterlijk in.
+description: Brief bedrijfsagents, zet chattoegang, deactiveer ze, voeg een handtekening toe en stel naam, functie, omschrijving of bot-uiterlijk in.
 keywords: agents, ai-workforce, deactiveren, opnieuw activeren, chattoegang, handtekening, avatar, bot, kleur, standaardagent
 sort: 10
 related: govern,knowledge,communication,agenda
@@ -17,7 +17,7 @@ Agents zijn de AI-werkers van deze workspace. Elke agent heeft één vorm: naam,
 *Elke agent is een kaart. De standaardagent staat rustig als Standaard gemarkeerd.*
 
 1. Open **Agents**. Bedrijfsagents staan als kaarten. Op elke kaart zie je open gesprekken (de detaillaag, **Open gesprekken**) en threads die een beslissing nodig hebben (**Voor jou**, gefilterd op die agent). Zoeken en de pillen **Alles** en **Bezig** beperken het raster. Een agent die een project leidt, toont dat project als mapchip op de kaart; klik erop om de map te openen. Boven de kaarten staat **Activiteit**: een tijdlijn met **Nu** in het midden en even grote punten. Elk punt heeft een icoon voor het actietype (chat, geplande wake, heartbeat, enzovoort). Als meerdere acties dicht bij elkaar liggen, toont het punt een getal; hover om ze onder elkaar te zien. Sessies van twee minuten of korter tonen één tijdstip, geen van–tot. Klik om de run, het gesprek of het Agenda-item te openen. Dezelfde tijdlijn staat op elke agentpagina, dan alleen voor die agent.
-2. Kies **Nieuwe agent**. Vul een **Naam** in, optioneel een **Omschrijving**, selecteer een **Model**, beschrijf de **Instructies** en kies **Agent aanmaken**. De omschrijving is de korte rol op de kaart; instructies zijn de brief die de agent volgt.
+2. Kies **Nieuwe agent**. Vul een **Naam** in, een verplichte **Functie** (max. 20 tekens), optioneel een **Omschrijving**, selecteer een **Model**, beschrijf de **Instructies** en kies **Agent aanmaken**. De functie staat onder de naam; de omschrijving is een langere optionele tekst. Instructies zijn de brief die de agent volgt.
 3. Open een kaart voor instructies, model en chattoegang. Gebruik **Nieuwe chat** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links onder de gecentreerde profielheader. Gerelateerde instellingen (AI-afhandeling, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
 
 Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.** Ze kunnen nog steeds chatten vanuit Communicatie.
@@ -33,9 +33,9 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 ![Agentdetail](/api/docs/assets/agents/agent-brief.png)
 *Wijzig doel, model en toegestane tools.*
 
-1. Open de agent. De profielheader toont het mark, de **naam** en de **omschrijving** in de markkleur. De kaart **Instructies** eronder toont een korte preview. Kies **Bewerken** om de volledige prompt in een dialoog te wijzigen. Wijzig ook **Naam**, **Doel** en **Model en runtime**.
+1. Open de agent. De profielheader toont het mark, de **naam**, de verplichte **functie** (in de markkleur) en optioneel de **omschrijving**. De kaart **Instructies** eronder toont een korte preview. Kies **Bewerken** om de volledige prompt in een dialoog te wijzigen. Wijzig ook **Naam**, **Doel** en **Model en runtime**.
 2. Kies onder **Model en runtime** **Workspace-standaard** (volgt [Modellen](/docs/govern/models)), **Automatisch** (Bokito kiest een niveau per actie), of zet **Maki**, **Bokito** of **Kong** vast. Nieuwe agents starten op Workspace-standaard.
-3. Kies onder **Tools en toestemmingen** de tool-allowlist. De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
+3. Kies onder **Tools en toestemmingen** de tool-allowlist. Zet **Web search** en **Fetch page** aan als de agent openbare feiten mag opzoeken of een openbare URL mag lezen (workspace-zoeken blijft via **search index** / docs). De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
 4. Kies op [Kanalen](/docs/inbox/channels) per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Deactiveren** verbergt de agent uit de bibliotheek en wist de kanaalstandaarden; run-geschiedenis blijft.
 5. Nadat je een bedrijfsagent hebt aangemaakt, open je een chat en laat je hem zijn eigen briefing uit de bedrijfsdocs voorstellen. De wijziging landt als Govern-concept; keur dat goed onder [Govern](/docs/govern/govern) **Openstaande concepten** of pas de briefing hier zelf aan.
 
@@ -87,11 +87,11 @@ Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading of ee
 3. Vul een platte-teksthandtekening in. Regelafbrekingen blijven staan. Wanneer de agent namens zichzelf mailt, voegt Bokito altijd een korte regel “Beantwoord door een AI-agent · Powered by Bokito AI” toe met een link naar [bokito.ai](https://bokito.ai).
 4. Sla op. Goedkeuringen voor deze agent gebruiken die standaard tot je op de kaart een andere Send as kiest.
 
-## Stel naam, omschrijving of uiterlijk in
+## Stel naam, functie, omschrijving of uiterlijk in
 
 1. Open een bedrijfsagent.
 2. Hover of focus het grote agentmark in de profielheader en kies het potlood (of open **Bewerken** via het ···-menu).
-3. Pas de **naam** aan, vul de **Omschrijving** in (de korte rol onder de naam, in de markkleur, en op de bibliotheekkaart), kies **Initialen** of **Bot**. Bij **Bot** kies je een **vorm** en een **kleur** voor het geanimeerde gezicht (snelkeuze: paars, de workspace-accentkleur en grijs; open **Meer kleuren** voor de rest), en sla op. Instructies blijven op de agentpagina; dat is niet deze omschrijving.
+3. Pas de **naam** aan, vul de verplichte **Functie** in (max. 20 tekens; onder de naam in de markkleur), voeg optioneel een langere **Omschrijving** toe, kies **Initialen** of **Bot**. Bij **Bot** kies je een **vorm** en een **kleur** voor het geanimeerde gezicht (snelkeuze: paars, de workspace-accentkleur en grijs; open **Meer kleuren** voor de rest), en sla op. Instructies blijven op de agentpagina; dat is niet deze omschrijving.
 4. Onder **Bekijk beweging** probeer **Idle**, **Denkt**, **Typt**, **Werkt** en korte reacties (**Ja**, **Nee**, **Alert**, **Sprong**). In live chats volgt het gezicht de beurt: denkt tijdens redeneren, typt tijdens streamen, werkt tijdens tools; goedkeuren of afwijzen speelt een korte ja/nee-reactie.
 
 Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Communicatie en de webchat-headerbubble van de antwoordingende agent.

@@ -51,9 +51,12 @@ async def test_custom_team_crud(client: AsyncClient, session_override):
     team = r.json()
     assert team["member_count"] == 2
     assert team["system"] is False
+    assert team["pinned"] is True
 
     r = await client.patch(f"/api/teams/{team['id']}", headers=headers, json={"pickup": "round_robin"})
-    assert r.json()["pickup"] == "round_robin"
+    body = r.json()
+    assert body["pickup"] == "round_robin"
+    assert body["pinned"] is True
 
     r = await client.put(f"/api/teams/{team['id']}/members", headers=headers, json={"members": []})
     assert r.json()["member_count"] == 0
@@ -145,6 +148,7 @@ async def test_overview_lists_people_agents_and_presence(client: AsyncClient, se
     assert null_agent["status"] in ("standby", "working", "error")
     assert null_agent["avatar_kind"] in ("initials", "icon", "image", "orb")
     assert "avatar_icon" in null_agent
+    assert "avatar_shape" in null_agent
     assert me["deactivated"] is False
     assert null_agent["deactivated"] is False
 
@@ -159,7 +163,7 @@ async def test_overview_includes_deactivated_people_and_agents(client: AsyncClie
     created = await client.post(
         "/api/workforce/agents",
         headers=headers,
-        json={"name": "Soon deactivated", "role": "communication"},
+        json={"name": "Soon deactivated", "job_title": "Support", "role": "communication"},
     )
     assert created.status_code == 200, created.text
     agent_id = created.json()["agent"]["id"]

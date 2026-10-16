@@ -20,7 +20,7 @@ import {
 } from '../../lib/agentActivity'
 import { cn } from '../../lib/utils'
 import { KnowledgeMark } from '../knowledge/KnowledgeMark'
-import { THREAD_ICON, THREAD_META, ThreadMetaRow } from './ThreadMeta'
+import { LiveEllipsis, THREAD_ICON, THREAD_META, ThreadMetaRow } from './ThreadMeta'
 
 function ProviderLogo({ provider, size }: { provider: string; size: number }) {
   const brand = useIntegrationBrand(provider)
@@ -102,7 +102,7 @@ function GroupIconStrip({
     <span aria-hidden className="inline-flex shrink-0 items-center gap-0.5">
       {shown.map((item, index) => {
         const live = liveLast && index === shown.length - 1
-        if (item.tool === 'web_search') {
+        if (item.tool === 'web_search' || item.tool === 'fetch_url') {
           return <WebSearchLead key={item.id} item={item} size={size} live={live} />
         }
         return (
@@ -139,7 +139,7 @@ export function ActivityIcon({
 }) {
   let icon
   if (kind === 'think') icon = <Brain size={size} className="shrink-0" />
-  else if (tool === 'web_search') icon = <Globe size={size} className="shrink-0" />
+  else if (tool === 'web_search' || tool === 'fetch_url') icon = <Globe size={size} className="shrink-0" />
   else if (kind === 'other') {
     icon = isHandoffTool(tool) ? (
       <UserRound size={size} className="shrink-0" />
@@ -190,7 +190,7 @@ function ItemRow({ item }: { item: ActivityItem }) {
           detail ? 'hover:text-text-primary' : 'cursor-default',
         )}
       >
-        {item.tool === 'web_search' ? (
+        {item.tool === 'web_search' || item.tool === 'fetch_url' ? (
           <WebSearchLead item={item} />
         ) : (
           <ActivityIcon kind={item.kind} tool={item.tool} provider={item.provider} />
@@ -258,9 +258,11 @@ function LiveThinkLine({ group }: { group: ActivityGroup }) {
           text ? 'cursor-pointer' : 'cursor-default',
         )}
       >
-        <ActivityIcon kind="think" live />
         <span className="activity-live-label min-w-0 truncate-fade" role="status" aria-live="polite">
-          <span className="thinking-shimmer-text">{t('activity.thinking')}</span>
+          <span className="thinking-shimmer-text">
+            {t('activity.thinking')}
+            <LiveEllipsis />
+          </span>
         </span>
         <span className="shrink-0 tabular-nums text-text-muted">{formatDuration(group.durationMs)}</span>
         {text ? (
@@ -317,7 +319,6 @@ export function ActivityGroupLine({
       <div key={current?.id} role="status" aria-live="polite">
         <ThreadMetaRow
           live
-          lead={<GroupIconStrip items={group.items} liveLast />}
           trailing={group.kind === 'work' && group.items.length > 1 ? group.items.length : undefined}
         >
           {label}

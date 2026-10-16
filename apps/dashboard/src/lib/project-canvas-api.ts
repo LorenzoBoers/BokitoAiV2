@@ -18,7 +18,16 @@ export type ProjectCanvas = {
   empty: boolean
   managing_agent_id?: string | null
   signal_id?: string | null
-  managing_agent?: { id: string; name: string; path: string } | null
+  managing_agent?: {
+    id: string
+    name: string
+    path: string
+    avatar_kind?: string | null
+    avatar_icon?: string | null
+    avatar_color?: string | null
+    avatar_shape?: string | null
+    avatar_image_url?: string | null
+  } | null
   thread?: { id: string; title: string; path: string } | null
   refresh_trigger_id?: string | null
   refresh_minutes?: number

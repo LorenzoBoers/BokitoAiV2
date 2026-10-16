@@ -1,4 +1,4 @@
-"""Lazy Task promotion: real work lands on the ledger, chat Q&A stays Run-only."""
+"""Lazy work promotion: real work stamps AgentRun; chat Q&A stays Run-only."""
 
 from datetime import datetime
 from uuid import uuid4
@@ -55,24 +55,59 @@ def test_is_work_tool_classification():
 
 
 @pytest.mark.asyncio
-async def test_promote_run_to_task_and_settle(session_override: AsyncSession):
-    tenant, agent, run = await _tenant_agent_run(session_override)
+async def test_promote_run_stamps_work_without_task(session_override: AsyncSession):
+    import json
+
+    _, _, run = await _tenant_agent_run(session_override)
 
     task = await promote_run_to_task(
         session_override, run, first_tool="accounting_propose_booking"
     )
-    assert run.task_id == task.id
-    assert task.status == "running"
-    assert task.origin == "chat"
-    assert task.assignee_agent_id == agent.id
-    assert task.title == "Boek de factuur in"
+    assert task is None
+    assert run.task_id is None
+    await session_override.refresh(run)
+    work = json.loads(run.result_json or "{}").get("work") or {}
+    assert work.get("promoted") is True
+    assert work.get("origin") == "chat"
+    assert work.get("title") == "Boek de factuur in"
+    assert work.get("first_tool") == "accounting_propose_booking"
 
-    # Idempotent: promoting again returns the same task.
+    # Idempotent: promoting again keeps no task link.
     again = await promote_run_to_task(session_override, run)
-    assert again.id == task.id
+    assert again is None
+    assert run.task_id is None
 
+
+@pytest.mark.asyncio
+async def test_promotion_origin_follows_wake_path(session_override: AsyncSession):
+    import json
+
+    _, _, trigger_run = await _tenant_agent_run(session_override, trigger_type="trigger_cron")
+    await promote_run_to_task(session_override, trigger_run)
+    await session_override.refresh(trigger_run)
+    assert json.loads(trigger_run.result_json or "{}")["work"]["origin"] == "trigger"
+
+    _, _, inbound_run = await _tenant_agent_run(session_override, trigger_type="inbound")
+    await promote_run_to_task(session_override, inbound_run, trust="external")
+    await session_override.refresh(inbound_run)
+    assert json.loads(inbound_run.result_json or "{}")["work"]["origin"] == "inbound"
+
+
+@pytest.mark.asyncio
+async def test_settle_mirrors_orchestration_owned_tasks(session_override: AsyncSession):
+    from app.services.orchestration.dispatcher import create_agent_task
+
+    tenant, agent, run = await _tenant_agent_run(session_override)
+    task = await create_agent_task(
+        session_override, tenant.id, title="Workstream job", agent_id=agent.id, auto_start=False
+    )
+    # create_agent_task leaves status queued; mark running so settle can complete it.
+    task.status = "running"
+    run.task_id = task.id
     run.status = "completed"
     run.completed_at = datetime.utcnow()
+    session_override.add(task)
+    await session_override.commit()
     await settle_run_task(session_override, run)
     await session_override.refresh(task)
     assert task.status == "completed"
@@ -80,35 +115,9 @@ async def test_promote_run_to_task_and_settle(session_override: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_promotion_origin_follows_wake_path(session_override: AsyncSession):
-    _, _, trigger_run = await _tenant_agent_run(session_override, trigger_type="trigger_cron")
-    task = await promote_run_to_task(session_override, trigger_run)
-    assert task.origin == "trigger"
-
-    _, _, inbound_run = await _tenant_agent_run(session_override, trigger_type="inbound")
-    task = await promote_run_to_task(session_override, inbound_run, trust="external")
-    assert task.origin == "inbound"
-
-
-@pytest.mark.asyncio
-async def test_settle_skips_orchestration_owned_tasks(session_override: AsyncSession):
-    from app.services.orchestration.dispatcher import create_agent_task
-
-    tenant, agent, run = await _tenant_agent_run(session_override)
-    # A task created through orchestration (not promotion) manages itself.
-    task = await create_agent_task(
-        session_override, tenant.id, title="Workstream job", agent_id=agent.id, auto_start=False
-    )
-    run.task_id = task.id
-    run.status = "failed"
-    run.completed_at = datetime.utcnow()
-    await settle_run_task(session_override, run)
-    await session_override.refresh(task)
-    assert task.status == "queued"  # untouched
-
-
-@pytest.mark.asyncio
 async def test_loop_promotes_on_first_work_tool(session_override: AsyncSession):
+    import json
+
     from app.services.agent.loop import AgentLoop
 
     tenant, agent, run = await _tenant_agent_run(session_override)
@@ -117,10 +126,14 @@ async def test_loop_promotes_on_first_work_tool(session_override: AsyncSession):
     # Q&A-style tool: no promotion.
     await loop._maybe_promote_to_task("search_knowledge")
     assert run.task_id is None
+    assert "work" not in json.loads(run.result_json or "{}")
 
-    # First work tool promotes exactly once.
+    # First work tool stamps work metadata; no shadow task.
     await loop._maybe_promote_to_task("banking_list_transactions")
-    assert run.task_id is not None
-    first_task_id = run.task_id
+    await session_override.refresh(run)
+    assert run.task_id is None
+    work = json.loads(run.result_json or "{}").get("work") or {}
+    assert work.get("promoted") is True
+    assert work.get("first_tool") == "banking_list_transactions"
     await loop._maybe_promote_to_task("schedule_wake")
-    assert run.task_id == first_task_id
+    assert run.task_id is None

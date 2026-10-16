@@ -9,8 +9,10 @@ import {
 } from '../../lib/agent-avatar'
 import type { AgentPresenceStatus } from '../../lib/teams-api'
 import { cn } from '../../lib/utils'
-import { BotOrbAvatar } from './BotOrbAvatar'
+import { BotOrbAvatar, type BotOrbMode } from './BotOrbAvatar'
 import { PresenceCorner } from './PresenceCorner'
+
+export type AiAvatarMode = BotOrbMode
 
 interface AiAvatarProps {
   name?: string | null
@@ -34,8 +36,17 @@ interface AiAvatarProps {
   pulseId?: string | null
   /** Loop to return to after a one-shot. */
   baseMotion?: BotOrbMotion | null
-  /** Freeze orb idle motion (facepiles, static previews). */
+  /** Canonical presentation: live animates; static freezes (footprints / lists). */
+  mode?: AiAvatarMode
+  /**
+   * Alias for `mode="static"`. Prefer `mode`.
+   * @deprecated Use `mode="static"`.
+   */
   paused?: boolean
+  /** Spawn entrance key while live (changes trigger the effect). */
+  spawnKey?: string | null
+  /** Silhouette outline for overlapping facepiles (orbs). */
+  stackOutline?: boolean
 }
 
 type ResolvedMark = AgentAvatarKind | 'pending'
@@ -55,9 +66,11 @@ function resolveKind(
     return 'pending'
   }
   if (imageUrl) return 'image'
+  // No kind (or unknown): product default is the bot orb. Do not infer Lucide
+  // from a leftover avatar_icon — that drops shape/color on pickers and @mentions.
+  if (!normalized) return 'orb'
   if (icon && resolveAgentAvatarIcon(icon)) return 'icon'
-  // Missing kind while agents/thread still hydrate — never flash initials.
-  return 'pending'
+  return 'orb'
 }
 
 function resolveOrbMotion(
@@ -88,7 +101,10 @@ export function AiAvatar({
   motion,
   pulseId = null,
   baseMotion = null,
+  mode,
   paused = false,
+  spawnKey = null,
+  stackOutline = false,
 }: AiAvatarProps) {
   const displayName = name?.trim() || 'Agent'
   const initials = getInitials(displayName)
@@ -123,7 +139,10 @@ export function AiAvatar({
         motion={orbMotion}
         pulseId={pulseId}
         baseMotion={baseMotion ?? (activity === 'working' ? 'working' : 'idle')}
+        mode={mode}
         paused={paused}
+        spawnKey={spawnKey}
+        stackOutline={stackOutline}
         className={cn(activity ? '' : className)}
         decorative={decorative}
         label={displayName}

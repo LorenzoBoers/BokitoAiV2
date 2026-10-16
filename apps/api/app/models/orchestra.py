@@ -98,41 +98,29 @@ class WorkstreamStep(SQLModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class WorkstreamRun(SQLModel, table=True):
-    """One execution of a workstream with a typed input.
+class WorkstreamRun(SQLModel):
+    """In-memory receipt only. No ``workstream_runs`` table.
 
-    The worklog lives in the `AgentRun` rows (one per agent step, linked via
-    `workstream_run_id`) and their RunEvents; `context_json` carries step
-    outputs between steps.
+    ``start_run`` returns a completed instance for API/trigger callers.
+    Ticket stages live on ``Signal``; attribution uses ``AgentRun.workstream_id``.
     """
 
-    __tablename__ = "workstream_runs"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
-    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
-    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
-
-    status: str = Field(default="running", index=True)  # see WORKSTREAM_RUN_STATUSES
-    # Typed input: what started this run.
-    input_kind: str = Field(default="manual")  # see WORKSTREAM_INPUT_KINDS
-    input_ref: str = ""  # id of the queue item / signal / trigger when applicable
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    tenant_id: uuid.UUID | None = None
+    workstream_id: Optional[uuid.UUID] = None
+    project_id: Optional[uuid.UUID] = None
+    signal_id: Optional[uuid.UUID] = None
+    status: str = "completed"
+    input_kind: str = "manual"
+    input_ref: str = ""
     input_text: str = ""
-
-    current_step_id: Optional[uuid.UUID] = Field(default=None)  # legacy; step engine retired
-    # Waiting runs: deadline moment for the scheduler sweep (null = wait forever).
-    wait_until: Optional[datetime] = Field(default=None, index=True)
-    # Set when a reminder was sent for a remind_then_continue deadline.
+    wait_until: Optional[datetime] = None
     reminded_at: Optional[datetime] = None
-
     summary: str = ""
     error: str = ""
-    context_json: str = Field(default="{}")
-
-    triggered_by_type: str = Field(default="user")  # user | agent | trigger | system
+    context_json: str = "{}"
+    triggered_by_type: str = "user"
     triggered_by_id: str = ""
-
     started_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None

@@ -163,6 +163,9 @@ class MessageCreate(BaseModel):
     # After create-with-message: run the agent on the last user bubble without
     # appending a duplicate. content may be empty; the last user message is used.
     continue_pending: bool = False
+    # Ask target when the operator @-tagged (or focused) a peer on an internal
+    # thread. Without this, SSE always drove signal.agent_id (channel default).
+    agent_id: UUID | None = None
 
 
 async def _resolve_turn_content(
@@ -476,7 +479,13 @@ async def send_message(
         if is_held(signal):
             await _hand_back_on_operator_ask(session, signal, auth)
 
-        agent, run = await _agent_run(session, auth, signal, turn_content)
+        agent, run = await _agent_run(
+            session,
+            auth,
+            signal,
+            turn_content,
+            prefer_agent_id=body.agent_id,
+        )
         req_task = asyncio.current_task()
         if req_task:
             _track_chat_turn(conversation_id, req_task)
@@ -590,6 +599,30 @@ _EMPTY_FALLBACK = (
 )
 _CANCELLED_FALLBACK = "Stopped before a reply was ready."
 _ABANDONED_FALLBACK = "The reply stopped unexpectedly. Send your message again."
+# Orchestrator Ask with several tools can exceed three minutes; cutting the drive
+# at 180s left tool trails on the thread but no synthesis bubble.
+_OPERATOR_CHAT_DRIVE_TIMEOUT_S = 420
+_TOOL_ONLY_STREAM_FALLBACK = (
+    "I finished the lookups but could not write a summary. "
+    "Ask again with a narrower question."
+)
+
+
+def _operator_stream_persist_text(
+    *,
+    stream_text: str,
+    cancelled: bool,
+    loop: AgentLoop | None,
+) -> str:
+    """Text persisted for a finished SSE turn (must match ``stream_chat`` done)."""
+    if cancelled:
+        return _CANCELLED_FALLBACK
+    stripped = (stream_text or "").strip()
+    if stripped:
+        return stripped
+    if loop is not None and loop.turn is not None and loop.turn.all_activity():
+        return _TOOL_ONLY_STREAM_FALLBACK
+    return _EMPTY_FALLBACK
 
 
 async def _persist_failed_chat_turn(
@@ -604,28 +637,117 @@ async def _persist_failed_chat_turn(
     error: BaseException | None = None,
     abandoned: bool = False,
 ) -> None:
+    """Finalize a crashed/cancelled Ask: seal the checkpoint, one error bubble, wake.
+
+    Never leave ``in_progress`` + “Update folder canvas” under a separate error
+    card — that is what hard refresh used to show after a mid-tool crash.
+    """
     from app.services.agent.run_cancel import clear_cancel
+    from app.services.agent.turn_persist import seal_in_progress_checkpoints
 
     await _finalize_run(session, run, status="failed", error=error if isinstance(error, Exception) else None)
-    if loop is not None and loop.turn is not None:
-        await loop.persist_turn(
-            signal,
-            metadata={"error": True, **({"abandoned_stream": True} if abandoned else {}), **llm_meta},
-            final_metadata={"error": True},
-            fallback_text=error_text,
-        )
-    else:
-        await append_signal_chat_message(
+    # Drop a stale Ask floor chip so Stop / Nadenken do not linger after failure.
+    try:
+        from app.services.participant_turns import clear_active_turn, clear_ask_floor_chip
+
+        clear_active_turn(signal, reset_streak=True)
+        session.add(signal)
+        await clear_ask_floor_chip(
             session,
             signal,
-            role="assistant",
-            content=error_text,
-            author_agent_id=agent.id if agent else None,
-            metadata={"error": True, **({"abandoned_stream": True} if abandoned else {}), **llm_meta},
+            agent_id=agent.id if agent else None,
         )
+    except Exception:  # noqa: BLE001
+        logger.debug("clear floor after failed chat turn failed", exc_info=True)
+
+    sealed = False
+    checkpoint_id = getattr(loop, "_checkpoint_message_id", None) if loop is not None else None
+    had_partial_work = bool(checkpoint_id) or (
+        loop is not None
+        and loop.turn is not None
+        and bool(getattr(loop.turn, "all_activity", lambda: [])())
+    )
+    if loop is not None and loop.turn is not None:
+        try:
+            await loop.persist_turn(
+                signal,
+                metadata={
+                    "error": True,
+                    **({"abandoned_stream": True} if abandoned else {}),
+                    **llm_meta,
+                },
+                final_metadata={"error": True},
+                fallback_text=error_text,
+            )
+            sealed = True
+        except Exception:  # noqa: BLE001
+            logger.exception("persist_turn after chat failure failed for %s", signal.id)
+    if not sealed:
+        rewritten = await seal_in_progress_checkpoints(
+            session,
+            signal,
+            error_text=error_text,
+            author_agent_id=agent.id if agent else None,
+            replace_with_error=True,
+            checkpoint_message_id=checkpoint_id,
+        )
+        if rewritten:
+            sealed = True
+            had_partial_work = True
+        else:
+            await append_signal_chat_message(
+                session,
+                signal,
+                role="assistant",
+                content=error_text,
+                author_agent_id=agent.id if agent else None,
+                metadata={
+                    "error": True,
+                    **({"abandoned_stream": True} if abandoned else {}),
+                    **llm_meta,
+                },
+            )
+    else:
+        # persist_turn replaced the checkpoint; still seal any twin orphans.
+        await seal_in_progress_checkpoints(session, signal)
+
     await session.commit()
     if run:
         clear_cancel(run.id)
+
+    # Partial tool work crashed: wake the same agent so they can tell the human
+    # and continue (canvas/folder builds must not die silently after a hard refresh).
+    if (
+        not abandoned
+        and agent is not None
+        and had_partial_work
+        and error_text
+    ):
+        try:
+            from app.services.participant_turns import request_participant_turn
+
+            await request_participant_turn(
+                session,
+                signal,
+                member_kind="agent",
+                member_ref_id=agent.id,
+                prompt=(
+                    "Your previous turn failed before you finished "
+                    f"(error for the human: {error_text[:280]}). "
+                    "Tell the human in one short sentence that something went wrong, "
+                    "then continue the unfinished work if you can "
+                    "(for example finish update_folder_canvas). "
+                    "Do not pass. Do not say you are still waiting."
+                ),
+                requested_by_kind="system",
+                requested_by_id=None,
+                run=True,
+                enqueue=True,
+                defer_peer=False,
+            )
+            await session.commit()
+        except Exception:  # noqa: BLE001
+            logger.debug("wake agent after failed chat turn failed", exc_info=True)
 
 
 async def _drive_operator_chat_turn(
@@ -681,7 +803,7 @@ async def _drive_operator_chat_turn(
                     logger.exception("chat history load failed for %s", signal_id)
                     loaded_history = [{"role": "user", "content": turn_content}]
             try:
-                async with asyncio.timeout(180):
+                async with asyncio.timeout(_OPERATOR_CHAT_DRIVE_TIMEOUT_S):
                     async for event in loop.stream_chat(
                         loaded_history,
                         extra_context=extra_context,
@@ -697,10 +819,13 @@ async def _drive_operator_chat_turn(
                                 {"text": event["text"], "segment_id": event.get("segment_id")},
                             )
                         elif event["type"] == "done":
-                            final = event.get("text") or ""
                             cancelled = bool(event.get("cancelled"))
+                            persist_text = _operator_stream_persist_text(
+                                stream_text=str(event.get("text") or ""),
+                                cancelled=cancelled,
+                                loop=loop,
+                            )
                             thinking_meta = loop.thinking_payload()
-                            fallback = _CANCELLED_FALLBACK if cancelled else _EMPTY_FALLBACK
                             final_meta = {
                                 "usage": event.get("usage", {}),
                                 **({"thinking": thinking_meta} if thinking_meta else {}),
@@ -710,7 +835,7 @@ async def _drive_operator_chat_turn(
                                 signal,
                                 metadata=llm_meta,
                                 final_metadata=final_meta,
-                                fallback_text=fallback,
+                                fallback_text=persist_text,
                             )
                             if not cancelled:
                                 _apply_intent_title_once(signal, turn_content)
@@ -724,7 +849,7 @@ async def _drive_operator_chat_turn(
                             if run:
                                 clear_cancel(run.id)
                             done_payload: dict[str, Any] = {
-                                "text": (final or "").strip() or fallback,
+                                "text": persist_text,
                                 "messages": [serialize_chat_message(m) for m in saved],
                                 "usage": event.get("usage", {}),
                                 **llm_meta,
@@ -759,10 +884,12 @@ async def _drive_operator_chat_turn(
                     await session.rollback()
                 except Exception:
                     pass
+                # Keep ``loop`` so the open checkpoint is replaced (not left as a
+                # stuck “Update folder canvas” under a second error bubble).
                 try:
                     await _persist_failed_chat_turn(
                         session,
-                        None,
+                        loop,
                         signal,
                         agent,
                         run,
@@ -824,12 +951,63 @@ async def stream_message(
         if is_held(signal):
             await _hand_back_on_operator_ask(session, signal, auth)
 
+        # Multi-agent Ask (≥2 invitees with ≥1 agent) starts a nestable handoff
+        # instead of a solo SSE drive — same opener path as Note @mentions.
+        from app.services.handoff_sessions import expand_invitees, start_handoff_session
+
+        invitees = await expand_invitees(session, auth.tenant.id, signal, turn_content)
+        if invitees["agents"] and invitees["total"] >= 2:
+            author_name = (
+                (auth.user.display_name or auth.user.email) if auth.user else ""
+            )
+            started = await start_handoff_session(
+                session,
+                auth.tenant.id,
+                signal,
+                body_text=turn_content,
+                author_user_id=auth.user.id,
+                author_name=author_name or "",
+                user_role=auth.role,
+                channel_agent_id=signal.agent_id,
+            )
+            await session.commit()
+            opener_id = (started or {}).get("opener_id")
+            payload = {
+                "text": "",
+                "handoff": True,
+                "opener_id": opener_id,
+                "llm_configured": True,
+                "llm_mode": "handoff",
+                "llm_key_source": "n/a",
+            }
+
+            async def handoff_started_generator():
+                yield {"event": "done", "data": json.dumps(payload)}
+
+            return EventSourceResponse(handoff_started_generator())
+
+        # Solo Ask (one focused agent): close any open handoff so the co-awake
+        # strip and opener floor do not steal the live seat from the target.
+        from app.services.handoff_sessions import get_handoff_session, interrupt_handoff_session
+
+        if get_handoff_session(signal):
+            await interrupt_handoff_session(
+                session, signal, reason="operator_ask"
+            )
+            await session.commit()
+
         from app.services.agent.run_cancel import clear_cancel
 
         agent = None
         run = None
         try:
-            agent, run = await _agent_run(session, auth, signal, turn_content)
+            agent, run = await _agent_run(
+                session,
+                auth,
+                signal,
+                turn_content,
+                prefer_agent_id=body.agent_id,
+            )
             await _set_chat_agent_live(
                 session, agent, status="working", signal=signal, run=run, summary=turn_content
             )
@@ -1046,6 +1224,7 @@ def _should_reclaim_chat_run(conversation_id: UUID, started: datetime) -> bool:
 async def reclaim_orphaned_chat_runs() -> int:
     """Finalize leftover chat runs after API boot (in-process turns die with uvicorn)."""
     from app.services.agent.run_cancel import clear_cancel
+    from app.services.agent.turn_persist import seal_in_progress_checkpoints
 
     async with async_session_factory() as session:
         result = await session.execute(
@@ -1056,9 +1235,23 @@ async def reclaim_orphaned_chat_runs() -> int:
         )
         runs = list(result.scalars().all())
         agent_ids = {run.agent_id for run in runs if run.agent_id}
+        signal_ids = {run.signal_id for run in runs if run.signal_id}
         for run in runs:
             await _finalize_run(session, run, status="failed")
             clear_cancel(run.id)
+        for signal_id in signal_ids:
+            signal = await session.get(Signal, signal_id)
+            if signal is None:
+                continue
+            await seal_in_progress_checkpoints(
+                session,
+                signal,
+                error_text=(
+                    "The assistant stopped unexpectedly while working. "
+                    "Send your message again, or ask me to continue."
+                ),
+                replace_with_error=True,
+            )
         for agent_id in agent_ids:
             agent = await session.get(Agent, agent_id)
             await _set_chat_agent_live(session, agent, status="standby")
@@ -1084,7 +1277,21 @@ async def _ensure_session_idle(
             datetime.utcnow() - started,
             _chat_turn_is_live(conversation_id),
         )
+        from app.services.agent.turn_persist import seal_in_progress_checkpoints
+
         await _finalize_run(session, busy, status="failed")
+        signal = await session.get(Signal, conversation_id)
+        if signal is not None:
+            await seal_in_progress_checkpoints(
+                session,
+                signal,
+                error_text=(
+                    "The assistant stopped unexpectedly while working. "
+                    "Send your message again, or ask me to continue."
+                ),
+                author_agent_id=busy.agent_id,
+                replace_with_error=True,
+            )
         await session.commit()
         clear_cancel(busy.id)
         _cancel_live_chat_turn(conversation_id)
@@ -1136,8 +1343,87 @@ async def _resolve_thread_agent(session: AsyncSession, auth, signal: Signal) -> 
     return await resolve_agent_for_channel(session, auth.tenant.id, signal.channel)
 
 
-async def _agent_run(session, auth, signal: Signal, content: str):
-    agent = await _resolve_thread_agent(session, auth, signal)
+async def _resolve_ask_agent(
+    session: AsyncSession,
+    auth,
+    signal: Signal,
+    content: str,
+    *,
+    prefer_agent_id: UUID | None = None,
+) -> Agent | None:
+    """Who should answer this Ask: sole @agent → Ask focus → last speaker → thread.
+
+    A typed ``@Agent`` chip beats a stale Ask-tab / channel ``agent_id`` (e.g.
+    Orchestrator still focused after a group handoff while the body only tags
+    Bokito). Untagged follow-ups without ``prefer_agent_id`` stay with the last
+    agent author so a Bokito reply is not stolen by the channel Orchestrator.
+    Multi-agent Ask already branched into handoff above.
+    """
+    from sqlalchemy import desc
+
+    from app.models.signal import SignalMessage
+    from app.services.thread_dispatch import entity_mentions
+
+    agent_ids = [tid for kind, tid in entity_mentions(content) if kind == "agent"]
+    if len(agent_ids) == 1:
+        result = await session.execute(
+            select(Agent).where(
+                Agent.id == agent_ids[0],
+                Agent.tenant_id == auth.tenant.id,
+                Agent.is_active.is_(True),
+            )
+        )
+        picked = result.scalar_one_or_none()
+        if picked:
+            return picked
+    if prefer_agent_id:
+        result = await session.execute(
+            select(Agent).where(
+                Agent.id == prefer_agent_id,
+                Agent.tenant_id == auth.tenant.id,
+                Agent.is_active.is_(True),
+            )
+        )
+        picked = result.scalar_one_or_none()
+        if picked:
+            return picked
+    last_author = (
+        await session.execute(
+            select(SignalMessage.author_agent_id)
+            .where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.author_agent_id.is_not(None),
+                SignalMessage.kind == "agent_message",
+            )
+            .order_by(desc(SignalMessage.created_at))
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if last_author and last_author != signal.agent_id:
+        result = await session.execute(
+            select(Agent).where(
+                Agent.id == last_author,
+                Agent.tenant_id == auth.tenant.id,
+                Agent.is_active.is_(True),
+            )
+        )
+        picked = result.scalar_one_or_none()
+        if picked:
+            return picked
+    return await _resolve_thread_agent(session, auth, signal)
+
+
+async def _agent_run(
+    session,
+    auth,
+    signal: Signal,
+    content: str,
+    *,
+    prefer_agent_id: UUID | None = None,
+):
+    agent = await _resolve_ask_agent(
+        session, auth, signal, content, prefer_agent_id=prefer_agent_id
+    )
     run = None
     if agent:
         run = AgentRun(

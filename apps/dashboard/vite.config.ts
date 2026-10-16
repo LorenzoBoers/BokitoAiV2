@@ -95,6 +95,11 @@ export default defineConfig(({ mode }) => {
       port: 5174,
       host: '127.0.0.1',
       open: false,
+      // Test files must not full-reload the operator's open Communication tab
+      // when agents sync them to remote-dev (Vite defaults to page reload).
+      watch: {
+        ignored: ['**/*.test.ts', '**/*.test.tsx', '**/__tests__/**'],
+      },
       ...(publicDevHost
         ? {
             allowedHosts: [publicDevHost],

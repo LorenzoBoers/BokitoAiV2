@@ -1,16 +1,15 @@
-"""Lazy Task promotion: every run that performs real work lands in the ledger.
+"""Work promotion: real work stays on AgentRun (no shadow kind=job task).
 
 Plain chat Q&A stays Run-only. The moment an agent performs work — its first
-mutating/gated tool call or any module tool call — the run is promoted to a
-Task (``promote_run_to_task``), so Cockpit, Agenda, and Projects all read one
-work spine. ``settle_run_task`` mirrors the run's terminal status back onto
-promoted tasks when the run finishes.
+mutating/gated tool call or any module tool call — ``promote_run_to_task``
+marks the run as work without minting an ``AgentTask``. Queue items
+(``feature|bug|task|idea|risk``) and explicit orchestration creates still use
+``AgentTask``. ``settle_run_task`` is a no-op for the retired promotion path.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,51 +67,42 @@ async def promote_run_to_task(
     trust: str = "operator",
     signal_id: Any = None,
     first_tool: str = "",
-) -> AgentTask:
-    """Attach a ledger Task to a run that just started performing work.
+) -> AgentTask | None:
+    """Mark a run as real work without creating a shadow ``kind=job`` task.
 
-    Idempotent: returns the existing task when the run already carries one.
+    Idempotent. Returns an existing linked task when one is already attached
+    (queue / orchestration). Otherwise stamps work metadata on the run and
+    returns ``None``.
     """
     if run.task_id is not None:
         existing = await session.get(AgentTask, run.task_id)
         if existing is not None:
             return existing
 
-    task = AgentTask(
-        tenant_id=run.tenant_id,
-        signal_id=signal_id,
-        kind="job",
-        title=(title or run.subject or "Agent work")[:200],
-        description="",
-        status="running",
-        origin=_run_origin(run, trust),
-        assignee_kind="agent",
-        assignee_agent_id=run.agent_id,
-        trigger_type=run.trigger_type,
-        trigger_id=run.trigger_id,
-        context_json=json.dumps(
-            {
-                "promoted": True,
-                "agent_id": str(run.agent_id),
-                "run_id": str(run.id),
-                "first_tool": first_tool,
-            }
-        ),
-    )
-    session.add(task)
-    await session.flush()
-    run.task_id = task.id
+    try:
+        snapshot = json.loads(run.result_json or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        snapshot = {}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    snapshot["work"] = {
+        "promoted": True,
+        "origin": _run_origin(run, trust),
+        "title": (title or run.subject or "Agent work")[:200],
+        "signal_id": str(signal_id) if signal_id else None,
+        "first_tool": first_tool,
+    }
+    run.result_json = json.dumps(snapshot)
     session.add(run)
     await session.commit()
-    await session.refresh(task)
-    return task
+    return None
 
 
 async def settle_run_task(session: AsyncSession, run: AgentRun) -> None:
-    """Mirror a finished run's status onto its promoted ledger Task.
+    """Mirror a finished run onto a linked ledger Task when one exists.
 
-    Only tasks created by promotion are settled here; orchestration-owned
-    tasks (workstreams, queue intake) manage their own lifecycle in the runner.
+    Promotion no longer creates tasks; this only settles orchestration/queue
+    rows that still point at the run.
     """
     if run.task_id is None or run.status == "running":
         return
@@ -123,8 +113,13 @@ async def settle_run_task(session: AsyncSession, run: AgentRun) -> None:
         promoted = bool(json.loads(task.context_json or "{}").get("promoted"))
     except (json.JSONDecodeError, AttributeError):
         promoted = False
-    if not promoted or task.status not in ("running", "queued"):
+    # Legacy promoted job rows: leave them; new promotions do not create these.
+    if promoted and task.kind == "job":
         return
+    if task.status not in ("running", "queued"):
+        return
+    from datetime import datetime
+
     task.status = "completed" if run.status == "completed" else run.status
     task.completed_at = run.completed_at or datetime.utcnow()
     task.updated_at = datetime.utcnow()

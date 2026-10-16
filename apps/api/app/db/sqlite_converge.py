@@ -22,7 +22,47 @@ from sqlalchemy.engine import Connection
 from app.services.signal_tags import normalize_tag
 
 
-_DROPPED_TABLES = ("cases", "case_type_fields", "case_type_bindings", "case_types", "inbox_folders")
+_DROPPED_TABLES = (
+    "cases",
+    "case_type_fields",
+    "case_type_bindings",
+    "case_types",
+    "inbox_folders",
+    # 101_drop_dead_schema
+    "channel_bindings",
+    "eval_checkpoints",
+    "os_canvas_edges",
+    "os_canvas_nodes",
+    "operational_outcomes",
+    "custom_record_comments",
+    "custom_record_activities",
+    "custom_views",
+    "custom_records",
+    "custom_fields",
+    "custom_tables",
+    # 102_drop_workstream_runs
+    "workstream_runs",
+)
+
+# 103_signal_owner_slim — old ownership columns dropped after backfill.
+_RETIRED_SIGNAL_OWNER_COLUMNS = (
+    "assigned_user_id",
+    "assignee_team_id",
+    "turn_user_id",
+    "turn_team_id",
+    "last_human_owner_kind",
+    "last_human_owner_user_id",
+    "last_human_owner_team_id",
+    "active_turn_json",
+    "handoff_session_json",
+)
+
+_RETIRED_STEP_COLUMNS = (
+    ("workstream_runs", "current_step_id"),
+    ("agent_runs", "step_id"),
+    ("agent_tasks", "current_step_id"),
+    ("agent_tasks", "step_id"),
+)
 
 # SQLite refuses DROP COLUMN on some legacy columns; those stay as unused
 # orphans in dev databases while Alembic drops them on Postgres.
@@ -71,6 +111,26 @@ def converge_sqlite_schema(connection: Connection) -> None:
     for table in _DROPPED_TABLES:
         if inspector.has_table(table):
             connection.execute(text(f"DROP TABLE {table}"))
+    inspector = inspect(connection)
+    for table, column in _RETIRED_STEP_COLUMNS:
+        if not inspector.has_table(table):
+            continue
+        columns = {c["name"] for c in inspector.get_columns(table)}
+        if column not in columns:
+            continue
+        try:
+            connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
+        except Exception:  # noqa: BLE001
+            pass
+    if inspector.has_table("signals"):
+        signal_cols = {c["name"] for c in inspector.get_columns("signals")}
+        for column in _RETIRED_SIGNAL_OWNER_COLUMNS:
+            if column not in signal_cols:
+                continue
+            try:
+                connection.execute(text(f"ALTER TABLE signals DROP COLUMN {column}"))
+            except Exception:  # noqa: BLE001
+                pass
     inspector = inspect(connection)
     for table, retired in _RETIRED_COLUMNS.items():
         if not inspector.has_table(table):

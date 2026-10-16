@@ -445,7 +445,9 @@ async def remove_member(
     assigned = (
         await session.execute(
             select(Signal).where(
-                Signal.tenant_id == tenant_id, Signal.assigned_user_id == user.id
+                Signal.tenant_id == tenant_id,
+                Signal.assignee_kind == "user",
+                Signal.assignee_id == user.id,
             )
         )
     ).scalars().all()

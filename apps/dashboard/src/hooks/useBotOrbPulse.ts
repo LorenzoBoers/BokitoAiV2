@@ -76,19 +76,34 @@ export function useAgentOrbDrive(
 export function useLocalOrbPreview(initial: BotOrbMotion = 'idle') {
   const [motion, setMotion] = useState<BotOrbMotion>(initial)
   const [pulseId, setPulseId] = useState<string | null>(null)
+  const [spawnKey, setSpawnKey] = useState<string | null>(null)
+  const [previewingSpawn, setPreviewingSpawn] = useState(false)
   useEffect(() => {
     if (!isBotOrbOneShot(motion)) return
     const t = window.setTimeout(() => setMotion('idle'), 2000)
     return () => window.clearTimeout(t)
   }, [motion, pulseId])
+  useEffect(() => {
+    if (!previewingSpawn) return
+    const t = window.setTimeout(() => setPreviewingSpawn(false), 1150)
+    return () => window.clearTimeout(t)
+  }, [previewingSpawn, spawnKey])
   return {
     motion,
     pulseId,
+    spawnKey,
+    previewingSpawn,
     play(next: BotOrbMotion) {
+      setPreviewingSpawn(false)
       if (isBotOrbOneShot(next)) {
         setPulseId(`${next}-${Date.now()}`)
       }
       setMotion(next)
+    },
+    playSpawn() {
+      setMotion('idle')
+      setPreviewingSpawn(true)
+      setSpawnKey(`spawn-preview-${Date.now()}`)
     },
   }
 }

@@ -110,7 +110,7 @@ export function FlowTicketCard({
               navigate(openEntityPath({ type: 'tag', name: ticket.tag }))
             }}
             onKeyDown={(event) => event.stopPropagation()}
-            className="rounded hover:underline"
+            className="rounded"
             title={t('tags.openFolder', { ns: 'communication', tag: ticket.tag })}
           >
             <Hashtag name={ticket.tag} category />

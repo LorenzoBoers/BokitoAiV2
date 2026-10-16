@@ -464,7 +464,20 @@ export default function DecisionRequestMessage({
     [toolCopy, options],
   )
   const [bubbles, setBubbles] = useState<string[]>(suggestedBubbles)
-  useEffect(() => setBubbles(suggestedBubbles), [suggestedBubbles])
+  // Bail when content is unchanged — a fresh options[] from the parent would
+  // otherwise recreate suggestedBubbles every render and infinite-loop setState
+  // (Maximum update depth exceeded on Ask threads with open Decisions).
+  useEffect(() => {
+    setBubbles((prev) => {
+      if (
+        prev.length === suggestedBubbles.length &&
+        prev.every((b, i) => b === suggestedBubbles[i])
+      ) {
+        return prev
+      }
+      return suggestedBubbles
+    })
+  }, [suggestedBubbles])
   const editedBubbles = bubbles.map((b) => b.trim()).filter(Boolean)
   const displaySubject = useMemo(() => {
     const raw = toolCopy?.title || message.subject
@@ -682,6 +695,7 @@ export default function DecisionRequestMessage({
       )}
       size={28}
       decorative
+      mode="static"
     />
   )
   const activityBefore = message.activity ?? []

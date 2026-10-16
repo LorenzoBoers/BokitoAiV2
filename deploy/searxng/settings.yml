@@ -1,0 +1,31 @@
+# Minimal SearXNG config for Bokito agent web_search.
+# Mounted read-only into the searxng container. JSON format is required for the API.
+#
+# Docs: https://docs.searxng.org/admin/settings/settings.html
+
+use_default_settings: true
+
+general:
+  instance_name: "Bokito Search"
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  # JSON must be listed or /search?format=json returns 403.
+  formats:
+    - html
+    - json
+
+server:
+  # Overridden at runtime when SEARXNG_SECRET is set in the container env.
+  secret_key: "change-me-set-SEARXNG_SECRET"
+  limiter: false
+  image_proxy: false
+
+ui:
+  static_use_hash: true
+
+# Outbound only; no public UI exposure in prod (no host ports).
+outgoing:
+  request_timeout: 8.0

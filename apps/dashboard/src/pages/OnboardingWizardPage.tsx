@@ -472,6 +472,7 @@ export default function OnboardingWizardPage() {
                 size={48}
                 kind={avatarKind}
                 icon={avatarKind === 'icon' ? avatarIcon : null}
+                mode="live"
               />
               <label className="flex-1">
                 <span className="text-xs font-medium text-text-secondary">{t('agent.nameLabel')}</span>

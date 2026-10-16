@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
-import { Hashtag, HashtagMark } from '../ui/HashtagMark'
+import { Hashtag } from '../ui/HashtagMark'
 import { TagSetPicker } from '../ui/TagSetPicker'
 import { TicketFieldControl } from './TicketFieldControl'
 
@@ -249,7 +249,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
             <DialogHeader>
               <DialogTitle>{t('tags.intakeTitle')}</DialogTitle>
               <DialogDescription>
-                <Hashtag name={pending.name} category className="text-sm text-text-heading" />
+                <Hashtag name={pending.name} category />
                 <span className="mt-1 block">{t('tags.intakeHint')}</span>
               </DialogDescription>
             </DialogHeader>
@@ -289,10 +289,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
           <>
             <DialogHeader>
               <DialogTitle>
-                <span className="inline-flex items-center gap-1">
-                  <HashtagMark category />
-                  {normalizeHashtag(createName)}
-                </span>
+                <Hashtag name={normalizeHashtag(createName)} category />
               </DialogTitle>
               <DialogDescription>{t('tags.modalHint')}</DialogDescription>
             </DialogHeader>

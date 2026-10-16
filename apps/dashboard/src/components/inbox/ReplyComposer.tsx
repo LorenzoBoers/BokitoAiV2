@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Check,
   ChevronDown,
   Paperclip,
   PhoneOff,
@@ -18,7 +17,19 @@ import { Callout } from '../ui/callout'
 import { ComposerCard } from '../ui/ComposerCard'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { AiMark } from '../ai/AiMark'
+import { AvatarStack } from '../ui/AvatarStack'
+import { AgentMark } from '../ui/AgentMark'
+import { UserAvatar } from '../ui/UserAvatar'
 import ProviderLogo from '../email/ProviderLogo'
+import {
+  focusFromTargets,
+  focusLabelName,
+  focusToAvatarStack,
+  syncAgentMentionsInBody,
+  syncFocusMentionsInBody,
+  type ComposerFocusTarget,
+  type ComposerReplyFocus,
+} from '../../lib/composer-reply-focus'
 import { useMembers } from '../../hooks/useMembers'
 import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDictation'
 import {
@@ -58,7 +69,7 @@ import { uploadAttachment } from '../../lib/uploads-api'
 import { parseComposerVerb, composerVerbHelp } from '../../lib/composer-verbs'
 import ComposerWriteAssist from './ComposerWriteAssist'
 import { DictationMicButton } from './DictationMicButton'
-import MentionPopover from './MentionPopover'
+import MentionPopover, { MentionsPickerPanel } from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
 import MessageAttachments from './MessageAttachments'
 
@@ -80,7 +91,11 @@ type Props = {
       quotedHtml?: string
     },
   ) => Promise<void>
-  onNote: (bodyText: string, attachments?: MessageAttachment[]) => Promise<void>
+  onNote: (
+    bodyText: string,
+    attachments?: MessageAttachment[],
+    opts?: { asChat?: boolean },
+  ) => Promise<void>
   /** Channel routing policy; drives the default send label and the ask split. */
   routingPolicy?: ThreadRoutingPolicy | null
   /**
@@ -106,8 +121,8 @@ type Props = {
   draftKey?: string | null
   /** Extra @-mentionable items besides workspace members (e.g. agents). */
   mentionExtras?: MentionItem[]
-  /** Called when a mention is inserted (e.g. to invoke an agent on send). */
-  onMentionInserted?: (item: MentionItem) => void
+  /** Called when a mention is inserted; raw body includes the new chip. */
+  onMentionInserted?: (item: MentionItem, rawBody: string) => void
   /** Controlled mode from the thread (ask sticky while an AI turn is active). */
   mode?: ComposerMode
   onModeChange?: (mode: ComposerMode) => void
@@ -115,6 +130,12 @@ type Props = {
   onVerb?: (verb: import('../../lib/composer-verbs').ParsedComposerVerb) => Promise<boolean> | boolean
   /** Active AI label for the Ask chip. */
   agentModeName?: string | null
+  /** Who Ask/Note is addressing (facepile + quick @ set). */
+  replyFocus?: ComposerReplyFocus | null
+  /** Manual overwrite of Ask/Note recipients from the tab chevron. */
+  onReplyFocusChange?: (focus: ComposerReplyFocus) => void
+  /** Ask tab click; raw body so parent can sync focus from chips. */
+  onAskTabFocus?: (rawBody: string) => void
   /** Stable id (thread id) to persist unsent drafts across thread switches. */
   persistKey?: string | null
   /** When set, outbound replies are blocked (e.g. mailbox disconnected) and
@@ -188,6 +209,9 @@ export default function ReplyComposer({
   onModeChange,
   onVerb,
   agentModeName,
+  replyFocus = null,
+  onReplyFocusChange,
+  onAskTabFocus,
   persistKey,
   replyDisabledNotice,
   suggestedCc,
@@ -343,7 +367,6 @@ export default function ReplyComposer({
           })
         : t('composer.tabReply')
   const replyTooltip = t('composer.tabHintReply')
-  const noteTooltip = t('composer.tabHintNote')
   const askTooltip = t('composer.tabHintAsk')
 
   const refreshMentionState = (value: string, caret: number) => {
@@ -365,7 +388,7 @@ export default function ReplyComposer({
     // Selecting a mention is intentional: people/teams go to a note; agents
     // switch the composer to Ask without opening a meta conversation yet.
     if (mode === 'reply') setMode(item.type === 'agent' ? 'ask' : 'note')
-    onMentionInserted?.(item)
+    onMentionInserted?.(item, applied.raw)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
@@ -600,7 +623,76 @@ export default function ReplyComposer({
   const showReplyTab = surface.modes.includes('reply')
   const showNoteTab = surface.modes.includes('note')
   // Ask AI: first send starts the session (parent), not the chip click.
+  const focusStack = replyFocus ? focusToAvatarStack(replyFocus) : []
+  const focusName = focusLabelName(
+    replyFocus ?? { kind: 'client', targets: [], primaryAgentId: null },
+    agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
+  )
+  const focusHasAgents =
+    replyFocus?.kind === 'agents' || replyFocus?.kind === 'mixed'
+  const focusHumansOnly = replyFocus?.kind === 'humans'
+  const noteTooltip = focusHumansOnly
+    ? t('composer.tabHintTo', {
+        defaultValue: 'Message a teammate in this conversation. The customer does not see it.',
+      })
+    : t('composer.tabHintNote')
   const showAskTab = surface.modes.includes('ask') && Boolean(onAgentMessage)
+  const focusAgentChoices = useMemo(
+    () => mentionItems.filter((item) => item.type === 'agent'),
+    [mentionItems],
+  )
+  const focusPeopleChoices = useMemo(
+    () => mentionItems.filter((item) => item.type === 'user'),
+    [mentionItems],
+  )
+  const focusSelectedKeys = useMemo(
+    () => new Set((replyFocus?.targets ?? []).map((row) => `${row.type}:${row.id}`)),
+    [replyFocus?.targets],
+  )
+
+  const applyFocusTargets = (nextTargets: ComposerFocusTarget[]) => {
+    if (nextTargets.length === 0) {
+      toast.message(t('composer.pickFocusKeepOne'))
+      return
+    }
+    const next = focusFromTargets(nextTargets)
+    onReplyFocusChange?.(next)
+    setBody((prev) => syncFocusMentionsInBody(prev, next))
+    setMode(next.kind === 'humans' ? 'note' : 'ask')
+  }
+
+  const toggleFocusChoice = (item: MentionItem) => {
+    if (item.type !== 'agent' && item.type !== 'user') return
+    const key = `${item.type}:${item.id}`
+    const current = replyFocus?.targets ?? []
+    const exists = current.some((row) => `${row.type}:${row.id}` === key)
+    if (exists) {
+      applyFocusTargets(current.filter((row) => `${row.type}:${row.id}` !== key))
+      return
+    }
+    const added: ComposerFocusTarget = {
+      type: item.type,
+      id: item.id,
+      name: item.name,
+      email: item.email,
+      avatarUrl: item.avatarUrl,
+      agent:
+        item.type === 'agent'
+          ? {
+              id: item.id,
+              name: item.name,
+              agentId: item.id,
+              agentAvatarKind: item.avatarKind,
+              agentAvatarIcon: item.avatarIcon,
+              agentAvatarColor: item.avatarColor,
+              agentAvatarShape: item.avatarShape,
+              agentAvatarImageUrl: item.avatarImageUrl,
+            }
+          : undefined,
+    }
+    applyFocusTargets([...current, added])
+  }
+
   const showCustomerActions =
     showReplyTab && surface.channel !== 'internal' && surface.channel !== 'assistant'
   const isNote = mode === 'note'
@@ -610,6 +702,56 @@ export default function ReplyComposer({
   const canSend = Boolean(body.trim()) || attachments.length > 0
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
+  const [focusHoverIndex, setFocusHoverIndex] = useState<number | undefined>(undefined)
+  const focusPickerSections = useMemo(() => {
+    const sections: { title: string; items: MentionItem[] }[] = []
+    if (focusAgentChoices.length > 0) {
+      sections.push({ title: t('composer.pickFocusAgents'), items: focusAgentChoices })
+    }
+    if (focusPeopleChoices.length > 0) {
+      sections.push({ title: t('composer.pickFocusPeople'), items: focusPeopleChoices })
+    }
+    return sections
+  }, [focusAgentChoices, focusPeopleChoices, t])
+  const focusPickerMenu =
+    onReplyFocusChange && focusPickerSections.length > 0 ? (
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (!open) setFocusHoverIndex(undefined)
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            title={t('composer.pickFocus')}
+            aria-label={t('composer.pickFocus')}
+            onClick={(event) => event.stopPropagation()}
+            className={cn(
+              'inline-flex items-center justify-center self-stretch border-l px-1.5 leading-none transition-colors',
+              isAsk || (isNote && focusHumansOnly)
+                ? 'border-border/50 text-inherit hover:bg-bg-muted/50'
+                : 'border-transparent text-inherit opacity-70 hover:bg-bg-hover/80 hover:opacity-100',
+            )}
+            data-testid="composer-focus-chevron"
+          >
+            <ChevronDown size={11} className="shrink-0 opacity-70" aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="w-auto border-0 bg-transparent p-0 shadow-none"
+          onCloseAutoFocus={(event) => event.preventDefault()}
+        >
+          <MentionsPickerPanel
+            sections={focusPickerSections}
+            activeIndex={focusHoverIndex}
+            selectedKeys={focusSelectedKeys}
+            onSelect={toggleFocusChoice}
+            onHover={setFocusHoverIndex}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null
 
   // Channel policy: a plain send closes the conversation. The primary button
   // then reads "Send and close" and the menu offers "Send and keep open".
@@ -661,7 +803,8 @@ export default function ReplyComposer({
         requestAnimationFrame(() => textareaRef.current?.focus())
         return
       } else if (isNote) {
-        await onNote(text, payload)
+        // @teammate focus posts a real chat bubble; bare Note tab stays a note.
+        await onNote(text, payload, focusHumansOnly ? { asChat: true } : undefined)
         clearDraft()
         setAttachments([])
       } else {
@@ -890,37 +1033,86 @@ export default function ReplyComposer({
               ) : null}
             </div>
           ) : null}
-          {showAskTab ? (
-            <button
-              type="button"
-              onClick={() => setMode('ask')}
-              title={askTooltip}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+          {showAskTab && !focusHumansOnly ? (
+            <div
+              className={cn(
+                'inline-flex h-7 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
                 isAsk
                   ? 'bg-bg-hover font-medium text-ai-ink'
-                  : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink'
-              }`}
+                  : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink',
+              )}
             >
-              <AiMark size={11} />
-              {t('composer.tabAsk', {
-                name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
-              })}
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  let nextBody = body
+                  const hasAgentChip = /@\[[^\]]+\]\(agent:[^)]+\)/.test(body)
+                  if (!hasAgentChip && replyFocus && replyFocus.targets.length > 0) {
+                    nextBody = syncAgentMentionsInBody(body, replyFocus)
+                    setBody(nextBody)
+                  }
+                  onAskTabFocus?.(nextBody)
+                  setMode('ask')
+                }}
+                title={askTooltip}
+                className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
+              >
+                {focusStack.length > 1 ? (
+                  <AvatarStack members={focusStack} size={14} linkAgents={false} />
+                ) : focusStack.length === 1 && focusStack[0].kind === 'agent' ? (
+                  <AgentMark agent={focusStack[0].agent} size={14} mode="static" decorative />
+                ) : focusStack.length === 1 && focusStack[0].kind === 'user' ? (
+                  <UserAvatar
+                    name={focusStack[0].name}
+                    email={focusStack[0].email || focusStack[0].name}
+                    avatarUrl={focusStack[0].avatarUrl}
+                    size={14}
+                  />
+                ) : (
+                  <AiMark size={11} />
+                )}
+                {t('composer.tabAsk', { name: focusName })}
+              </button>
+              {focusPickerMenu}
+            </div>
           ) : null}
-          {showNoteTab ? (
-            <button
-              type="button"
-              onClick={() => setMode('note')}
-              title={noteTooltip}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors ${
+          {showNoteTab || focusHumansOnly ? (
+            <div
+              className={cn(
+                'inline-flex h-7 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
                 isNote
                   ? 'bg-bg-hover font-medium text-text-heading'
-                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-              }`}
+                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+              )}
             >
-              <StickyNote size={11} />
-              {t('composer.tabNote')}
-            </button>
+              <button
+                type="button"
+                onClick={() => setMode('note')}
+                title={noteTooltip}
+                className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
+              >
+                {focusHumansOnly && focusStack.length > 0 ? (
+                  focusStack.length > 1 ? (
+                    <AvatarStack members={focusStack} size={14} linkAgents={false} />
+                  ) : focusStack[0].kind === 'user' ? (
+                    <UserAvatar
+                      name={focusStack[0].name}
+                      email={focusStack[0].email || focusStack[0].name}
+                      avatarUrl={focusStack[0].avatarUrl}
+                      size={14}
+                    />
+                  ) : (
+                    <Send size={11} />
+                  )
+                ) : (
+                  <StickyNote size={11} />
+                )}
+                {focusHumansOnly
+                  ? t('composer.tabTo', { name: focusName, defaultValue: 'To {{name}}' })
+                  : t('composer.tabNote')}
+              </button>
+              {focusHumansOnly ? focusPickerMenu : null}
+            </div>
           ) : null}
           {extraActions ? (
             <div className="ml-auto flex items-center gap-1.5">{extraActions}</div>
@@ -1082,7 +1274,13 @@ export default function ReplyComposer({
           ref={textareaRef}
           id="inbox-reply-composer"
           mode={isNote || isAsk ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
-          tone={isAsk ? 'ai' : isNote ? 'note' : 'default'}
+              tone={
+                isAsk && focusHasAgents
+                  ? 'ai'
+                  : isNote && !focusHumansOnly
+                    ? 'note'
+                    : 'default'
+              }
           value={composerValue}
           readOnly={dictation.listening}
           onChange={(e) => {
@@ -1128,14 +1326,19 @@ export default function ReplyComposer({
                 ? t('composer.askPlaceholder', {
                     name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
                   })
-                : isNote
-                  ? t('composer.notePlaceholder')
-                  : t(surface.replyPlaceholderKey, {
-                      ...surface.replyPlaceholderParams,
-                      defaultValue: surface.replyPlaceholder,
+                : isNote && focusHumansOnly
+                  ? t('composer.teamMessagePlaceholder', {
+                      name: focusName,
+                      defaultValue: 'Message {{name}}...',
                     })
+                  : isNote
+                    ? t('composer.notePlaceholder')
+                    : t(surface.replyPlaceholderKey, {
+                        ...surface.replyPlaceholderParams,
+                        defaultValue: surface.replyPlaceholder,
+                      })
           }
-          className={isAsk || isNote ? undefined : 'bg-bg-surface'}
+          className={isAsk || (isNote && !focusHumansOnly) ? undefined : 'bg-bg-surface'}
           overlay={
             mentionOpen ? (
               <MentionPopover
@@ -1207,26 +1410,46 @@ export default function ReplyComposer({
               data-testid="composer-send"
               title={
                 isAsk
-                  ? t('composer.sendAsk', {
-                      name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
-                    })
-                  : isNote
-                    ? t('composer.sendIntern')
-                    : closesByPolicy
-                      ? `${t('composer.sendAndClose')} — ${t('composer.closesByPolicy')}`
-                      : surface.channel === 'email'
-                        ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
-                        : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
+                  ? t('composer.sendAsk', { name: focusName })
+                  : isNote && focusHumansOnly
+                    ? t('composer.sendTo', {
+                        name: focusName,
+                        defaultValue: 'Send to {{name}}',
+                      })
+                    : isNote
+                      ? t('composer.sendIntern')
+                      : closesByPolicy
+                        ? `${t('composer.sendAndClose')} — ${t('composer.closesByPolicy')}`
+                        : surface.channel === 'email'
+                          ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
+                          : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
               }
               className={`flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40 ${
-                isAsk
+                isAsk && focusHasAgents
                   ? 'bg-ai text-ai-fg hover:opacity-90'
-                  : isNote
+                  : isAsk || (isNote && !focusHumansOnly)
                     ? 'bg-bg-elevated text-text-primary ring-1 ring-border/70 hover:bg-bg-hover'
                     : 'bg-accent text-accent-fg hover:bg-accent-hover'
               } ${isReply && showCustomerActions ? 'rounded-none' : 'rounded-lg'}`}
             >
-              {isAsk ? <AiMark size={13} /> : isNote ? <StickyNote size={13} /> : <Send size={13} />}
+              {isAsk && focusStack.length > 1 ? (
+                <AvatarStack members={focusStack} size={16} linkAgents={false} />
+              ) : isAsk && focusStack.length === 1 && focusStack[0].kind === 'agent' ? (
+                <AgentMark agent={focusStack[0].agent} size={16} mode="static" decorative />
+              ) : isAsk ? (
+                <AiMark size={13} />
+              ) : isNote && focusHumansOnly && focusStack.length === 1 && focusStack[0].kind === 'user' ? (
+                <UserAvatar
+                  name={focusStack[0].name}
+                  email={focusStack[0].email || focusStack[0].name}
+                  avatarUrl={focusStack[0].avatarUrl}
+                  size={16}
+                />
+              ) : isNote && !focusHumansOnly ? (
+                <StickyNote size={13} />
+              ) : (
+                <Send size={13} />
+              )}
               {closesByPolicy ? (
                 <span className="text-2xs font-medium opacity-90">{t('composer.sendAndClose')}</span>
               ) : isReply && surface.channel === 'email' ? (

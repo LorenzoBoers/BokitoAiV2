@@ -8,8 +8,11 @@ import {
   filtersetLocalNames,
   filtersetPlainLabel,
   optimisticNestSources,
+  optimisticPlaceAsSibling,
   optimisticUnnestToRoot,
   optimisticUnnestToRootAt,
+  placementFromAnchor,
+  resolveFolderDepthIntent,
   resolveSiblingReorderTarget,
   rootFolderIdFor,
 } from './folder-filter-tree'
@@ -99,6 +102,45 @@ describe('optimisticNestSources', () => {
     )
     expect(next?.find((row) => row.id === 'b')?.parent_id).toBe('a')
     expect(next?.find((row) => row.id === 'b')?.tag_names).toEqual(['b'])
+    expect(next?.find((row) => row.id === 'b')?.sort_order).toBe(0)
+  })
+})
+
+describe('resolveFolderDepthIntent / placementFromAnchor', () => {
+  it('nests one level deeper than the anchor', () => {
+    const depth = resolveFolderDepthIntent(8 + 23, 0, 0)
+    expect(depth).toBe(1)
+    expect(
+      placementFromAnchor(1, 'a', 0, [], 'after', new Set()),
+    ).toEqual({ mode: 'nest', parentId: 'a' })
+  })
+
+  it('unnests to the ancestor at the intended depth', () => {
+    expect(
+      placementFromAnchor(0, 'c', 2, ['a', 'b'], 'before', new Set()),
+    ).toEqual({ mode: 'sibling', parentId: null, overId: 'a', edge: 'before' })
+    expect(
+      placementFromAnchor(1, 'c', 2, ['a', 'b'], 'after', new Set()),
+    ).toEqual({ mode: 'sibling', parentId: 'a', overId: 'b', edge: 'after' })
+  })
+})
+
+describe('optimisticPlaceAsSibling', () => {
+  it('moves under a new parent before the over row', () => {
+    const next = optimisticPlaceAsSibling(
+      [
+        { id: 'a', name: 'A', tag_ids: ['1'], sort_order: 0, parent_id: null },
+        { id: 'b', name: 'B', tag_ids: ['2'], sort_order: 1, parent_id: null },
+        { id: 'c', name: 'C', tag_ids: ['3'], sort_order: 0, parent_id: 'a' },
+      ],
+      'b',
+      'a',
+      'c',
+      'before',
+    )
+    expect(next?.find((row) => row.id === 'b')?.parent_id).toBe('a')
+    const tree = deriveFolderTree(next!)
+    expect(tree.find((n) => n.id === 'a')?.children.map((n) => n.id)).toEqual(['b', 'c'])
   })
 })
 

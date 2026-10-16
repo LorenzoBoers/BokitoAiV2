@@ -524,7 +524,11 @@ async def fire_trigger(
             triggered_by_type="trigger",
             triggered_by_id=str(trigger.id),
         )
-        return {"run_id": str(run.id), "status": "started", "signal_id": str(signal.id)}
+        return {
+            "workstream_id": str(run.workstream_id) if run.workstream_id else None,
+            "status": "completed",
+            "signal_id": str(signal.id),
+        }
 
     agent = await resolve_trigger_agent(session, trigger)
     if not agent:
@@ -604,8 +608,9 @@ async def fire_trigger(
                 source="trading_webhook",
                 signal_id=signal.id,
             )
+            report_kind = str(payload.get("kind") or "session_summary")
             prompt += (
-                f"\n\nStructured report ingested (outcome_id={outcome.id}, kind={outcome.kind})."
+                f"\n\nStructured report ingested (event_id={outcome.id}, kind={report_kind})."
                 f"\nSummarize for the operator and note any follow-up actions."
             )
         prompt += f"\n\nWebhook payload:\n{json.dumps(payload)[:4000]}"

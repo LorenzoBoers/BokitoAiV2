@@ -68,13 +68,13 @@ async def _eligible(session: AsyncSession, team: Team, signal: Signal):
 async def _open_counts(session: AsyncSession, tenant_id: UUID) -> dict[str, int]:
     counts: dict[str, int] = {}
     rows = await session.execute(
-        select(Signal.assignee_kind, Signal.assigned_user_id, Signal.agent_id, func.count())
+        select(Signal.assignee_kind, Signal.assignee_id, Signal.agent_id, func.count())
         .where(
             Signal.tenant_id == tenant_id,
             Signal.status == "open",
             Signal.assignee_kind.in_(("user", "agent")),
         )
-        .group_by(Signal.assignee_kind, Signal.assigned_user_id, Signal.agent_id)
+        .group_by(Signal.assignee_kind, Signal.assignee_id, Signal.agent_id)
     )
     for kind, user_id, agent_id, count in rows.all():
         member_id = user_id if kind == "user" else agent_id

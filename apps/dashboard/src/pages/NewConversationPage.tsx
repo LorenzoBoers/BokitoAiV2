@@ -173,6 +173,12 @@ export default function NewConversationPage() {
         type: 'agent' as const,
         id: target.id,
         name: target.name,
+        activity: target.status,
+        avatarKind: target.avatar_kind,
+        avatarIcon: target.avatar_icon,
+        avatarColor: target.avatar_color,
+        avatarShape: target.avatar_shape,
+        avatarImageUrl: target.avatar_image_url,
       })),
     ],
     [members, targets],
@@ -833,7 +839,7 @@ export default function NewConversationPage() {
                         </span>
                       ) : selectedAgent ? (
                         <>
-                          <AgentMark agent={selectedAgent} size={20} decorative={false} />
+                          <AgentMark agent={selectedAgent} size={20} decorative={false} mode="static" />
                           <span className="truncate-fade text-sm text-text-primary">{selectedAgent.name}</span>
                         </>
                       ) : (
@@ -854,7 +860,7 @@ export default function NewConversationPage() {
                         onClick={() => chooseAgent(target)}
                         className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
                       >
-                        <AgentMark agent={target} size={24} decorative={false} />
+                        <AgentMark agent={target} size={24} decorative={false} mode="static" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate-fade text-sm text-text-primary">{target.name}</span>
                           <span className="block text-2xs text-text-muted">

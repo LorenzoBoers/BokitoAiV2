@@ -23,6 +23,7 @@ export function NotificationFromMark({ from, size = 36, className }: Props) {
         shape={from.avatar_shape}
         imageUrl={from.avatar_image_url}
         decorative
+        mode="static"
         className={className}
       />
     )

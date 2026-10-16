@@ -84,8 +84,15 @@ function isHiddenEvent(
     // closing the run, and it reads as a platform step rather than the agent.
     eventType === 'agent_processed' ||
     // Floor handoffs show as chat bubbles + participant strip, not pills.
+    // Keep participant_turn_timeout visible: max_consecutive ("Agents stopten…")
+    // and deadline ("reageerde niet op tijd") are the only operator cues.
     eventType === 'participant_turn_requested' ||
     eventType === 'participant_turn_sent' ||
+    eventType === 'handoff_session_started' ||
+    eventType === 'handoff_session_interrupted' ||
+    eventType === 'handoff_depth_exceeded' ||
+    // Team chat / notes already render as bubbles; pills were "Bericht toegevoegd".
+    eventType === 'team_message' ||
     // Inbound mail already shows as its own bubble; this system pill is noise.
     eventType === 'message_added' ||
     // Filing already updates the header folder chip; avoid a vague leftover pill.
@@ -327,7 +334,7 @@ function messageStackKey(message: InboxMessage): string | null {
         : 'agent'
     return `${scope}agent:${aid}`
   }
-  const lane = message.direction === 'internal' ? 'note' : message.direction
+  const lane = message.kind === 'internal_note' ? 'note' : message.direction
   if (message.authorUserId != null) return `${scope}${lane}:user:${message.authorUserId}`
   const from = (message.fromAddress || '').trim().toLowerCase()
   if (from) return `${scope}${lane}:from:${from}`
@@ -1032,7 +1039,6 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             threadId={String(threadId)}
             streaming={row.session.id === activeSessionId && agentStreaming}
             onChanged={onRefresh}
-            renderMessage={(message, stack) => renderMessageItem(message, stack)}
           />
         </div>
       )
@@ -1042,11 +1048,12 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     const unreadFlash = unreadHighlightIds.includes(String(message.id))
     const stack = bubbleStacks.get(row.id) ?? 'single'
     const tightBelow = stack === 'start' || stack === 'middle'
+    // Reaction dock adds its own clearance; keep a little more air between runs.
     return (
       <div
         data-message-id={String(message.id)}
         className={cn(
-          tightBelow ? 'mb-0.5' : 'mb-4',
+          tightBelow ? 'mb-1.5' : 'mb-4',
           focused && 'rounded-[20px] ring-2 ring-accent/50 ring-offset-4 ring-offset-bg-canvas',
           unreadFlash && 'unread-message-flash',
         )}

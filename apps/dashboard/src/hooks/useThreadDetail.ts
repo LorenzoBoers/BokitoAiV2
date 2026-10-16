@@ -308,9 +308,9 @@ export function useThreadDetail(
         const reactions = normalizeMessageReactions(event.data.reactions)
         const mine = reactions.mine
         const myFeedback =
-          mine === 'up' || mine === 'hundred'
+          mine === 'up' || mine === 'hundred' || mine === 'clap'
             ? { score: 5, sentiment: 'up' as const }
-            : mine === 'down' || mine === 'angry'
+            : mine === 'down' || mine === 'facepalm'
               ? { score: 1, sentiment: 'down' as const }
               : null
         setRawDetail((prev) => {
@@ -606,11 +606,15 @@ export function useThreadDetail(
   )
 
   const addNote = useCallback(
-    async (bodyText: string, attachments?: ReplyInput['attachments']) => {
+    async (
+      bodyText: string,
+      attachments?: ReplyInput['attachments'],
+      opts?: { asChat?: boolean },
+    ) => {
       if (!token || !threadId) return
       setSaving(true)
       try {
-        const msg = await addNoteToThread(token, threadId, bodyText, attachments)
+        const msg = await addNoteToThread(token, threadId, bodyText, attachments, opts)
         if (msg) {
           setRawDetail((prev) => {
             if (!prev) return prev

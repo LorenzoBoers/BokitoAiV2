@@ -336,26 +336,39 @@ async def place_turn_decisions(
             anchors[did] = stamp
 
     pending_ids = [UUID(did) for did in anchors if _is_uuid(did)]
+    # Ask/assistant sessions stream speech on the session thread while tools may
+    # target context_signal_id (e.g. the mail host). Cards raised mid-turn must
+    # still reveal next to that speech — look up by activity id even when
+    # DecisionRequest.signal_id still points at the context thread.
     pending_q = select(DecisionRequest).where(
         DecisionRequest.tenant_id == signal.tenant_id,
-        DecisionRequest.signal_id == signal.id,
         DecisionRequest.message_id.is_(None),
         DecisionRequest.status == "awaiting_human",
     )
     if pending_ids and turn_ids:
         pending_q = pending_q.where(
-            (DecisionRequest.id.in_(pending_ids)) | (DecisionRequest.bundle_id.in_(list(turn_ids)))
+            (DecisionRequest.id.in_(pending_ids))
+            | (
+                (DecisionRequest.signal_id == signal.id)
+                & (DecisionRequest.bundle_id.in_(list(turn_ids)))
+            )
         )
     elif pending_ids:
         pending_q = pending_q.where(DecisionRequest.id.in_(pending_ids))
     elif turn_ids:
-        pending_q = pending_q.where(DecisionRequest.bundle_id.in_(list(turn_ids)))
+        pending_q = pending_q.where(
+            DecisionRequest.signal_id == signal.id,
+            DecisionRequest.bundle_id.in_(list(turn_ids)),
+        )
     else:
         pending_q = None
     if pending_q is not None:
         pending_rows = (await session.execute(pending_q)).scalars().all()
         last_stamp = _message_time(turn_messages[-1]) if turn_messages else datetime.utcnow()
         for decision in pending_rows:
+            if decision.signal_id != signal.id:
+                decision.signal_id = signal.id
+                session.add(decision)
             await reveal_decision(session, signal.tenant_id, decision)
             anchors.setdefault(str(decision.id), last_stamp or datetime.utcnow())
 
@@ -598,6 +611,96 @@ def _attach_proposal(
     last_bubble.metadata_json = json.dumps(bubble_meta, default=str)
     card_meta["attached_to_message_id"] = str(last_bubble.id)
     card.metadata_json = json.dumps(card_meta, default=str)
+
+
+def _seal_activity_items(items: Any) -> list[dict[str, Any]]:
+    """Mark still-running activity rows as failed so the trail stops looking live."""
+    out: list[dict[str, Any]] = []
+    if not isinstance(items, list):
+        return out
+    now = datetime.utcnow().isoformat() + "Z"
+    for raw in items:
+        if not isinstance(raw, dict):
+            continue
+        item = dict(raw)
+        if str(item.get("status") or "") == "running":
+            item["status"] = "error"
+            item["ended_at"] = item.get("ended_at") or now
+        out.append(item)
+    return out
+
+
+async def seal_in_progress_checkpoints(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    error_text: str | None = None,
+    author_agent_id: UUID | None = None,
+    replace_with_error: bool = False,
+    checkpoint_message_id: UUID | None = None,
+) -> list[SignalMessage]:
+    """Close open turn checkpoints left by a crash, timeout, or reclaim.
+
+    Clears ``in_progress``, seals running activity as ``error``. When
+    ``replace_with_error`` is set, rewrites the newest checkpoint body to the
+    error text so the operator sees one bubble (trail + failure), not a stuck
+    “Update folder canvas” under a separate error card.
+    """
+    from app.gateway.publish import publish_signal_message
+
+    rows = (
+        await session.execute(
+            select(SignalMessage)
+            .where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.tenant_id == signal.tenant_id,
+                SignalMessage.kind == "agent_message",
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(12)
+        )
+    ).scalars().all()
+    sealed: list[SignalMessage] = []
+    preferred = checkpoint_message_id
+    for message in rows:
+        try:
+            meta = json.loads(message.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if not isinstance(meta, dict) or not meta.get("in_progress"):
+            continue
+        if preferred is not None and message.id != preferred and sealed:
+            # Prefer sealing the known checkpoint; still close other orphans.
+            pass
+        meta["activity"] = _seal_activity_items(meta.get("activity"))
+        meta["activity_after"] = _seal_activity_items(meta.get("activity_after"))
+        meta.pop("in_progress", None)
+        meta["turn_failed"] = True
+        if replace_with_error and error_text and not sealed:
+            speech = error_text.strip() or "The assistant encountered an error."
+            message.body_text = speech
+            message.body_preview = speech[:200]
+            meta["error"] = True
+            if author_agent_id:
+                message.author_agent_id = author_agent_id
+            now = datetime.utcnow()
+            message.created_at = now
+            if hasattr(message, "received_at"):
+                message.received_at = now
+        message.metadata_json = json.dumps(meta, default=str)
+        session.add(message)
+        sealed.append(message)
+        try:
+            await publish_signal_message(signal, message)
+        except Exception:  # noqa: BLE001
+            pass
+    if sealed:
+        now = datetime.utcnow()
+        signal.last_message_at = now
+        signal.updated_at = now
+        session.add(signal)
+        await session.flush()
+    return sealed
 
 
 async def upsert_turn_checkpoint(

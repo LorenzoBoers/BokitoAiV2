@@ -1,10 +1,10 @@
 """Owner and turn of a conversation.
 
-Owner: who is responsible. One person (``assigned_user_id``), one agent
-(``agent_id``) or one team (``assignee_team_id``); ``assignee_kind`` says
-which. Every conversation has an owner: without a person or agent it belongs
-to the channel's owner team, else to All people. It only changes when someone
-assigns or picks up.
+Owner: who is responsible. ``assignee_kind`` + ``assignee_id`` (polymorphic
+user | agent | team). ``agent_id`` is the handling pin and may differ when a
+team/person owns while an agent drafts. Every conversation has an owner:
+without a person or agent it belongs to the channel's owner team, else to
+All people. It only changes when someone assigns or picks up.
 
 Turn: who must act now. Derived after every flush that touches a
 conversation, its messages or its decisions (``recompute``), stored for fast
@@ -32,7 +32,7 @@ from app.models.signal import EXTERNAL_CHANNELS, Signal, SignalMessage
 from app.models.team import TEAM_KIND_PEOPLE, Team
 
 OWNER_KINDS = ("user", "agent", "team")
-TURN_FIELDS = ("turn_kind", "turn_user_id", "turn_team_id", "turn_reason")
+TURN_FIELDS = ("turn_kind", "turn_ref_id", "turn_reason")
 DRAFT_TITLES = ("Suggested reply", "Reply to customer message")
 INTERNAL_CHANNELS = ("internal", "assistant")
 NO_REPLY_TITLE = "No reply needed"
@@ -116,18 +116,18 @@ def _changed(target: Signal, name: str) -> bool:
 
 def _normalize_owner(connection: Any, target: Signal, *, is_insert: bool) -> None:
     kind = target.assignee_kind or ""
-    # A direct write to assigned_user_id (older paths) is an assignment to that person.
-    if is_insert or _changed(target, "assigned_user_id"):
-        if target.assigned_user_id is not None:
-            kind = "user"
-        elif kind == "user":
+    # A direct write to assignee_id is an assignment to that party when kind is set.
+    if is_insert or _changed(target, "assignee_id"):
+        if kind == "user" and target.assignee_id is None:
             kind = ""
-    if kind == "user" and target.assigned_user_id is None:
+    if kind == "user" and target.assignee_id is None:
         kind = ""
-    if kind == "agent" and target.agent_id is None:
+    if kind == "agent" and target.agent_id is None and target.assignee_id is None:
         kind = ""
-    if kind == "team" and target.assignee_team_id is None:
-        target.assignee_team_id = default_team_id(connection, target)
+    if kind == "agent" and target.assignee_id is None and target.agent_id is not None:
+        target.assignee_id = target.agent_id
+    if kind == "team" and target.assignee_id is None:
+        target.assignee_id = default_team_id(connection, target)
     if not kind:
         if (
             is_insert
@@ -139,27 +139,25 @@ def _normalize_owner(connection: Any, target: Signal, *, is_insert: bool) -> Non
             # channels (owner_user_id null) stay with the agent.
             if target.owner_user_id is not None:
                 kind = "user"
-                target.assigned_user_id = target.owner_user_id
+                target.assignee_id = target.owner_user_id
             else:
                 kind = "agent"
+                target.assignee_id = target.agent_id
         else:
             channel_owner = _channel_human_owner(connection, target)
             if channel_owner and channel_owner[0] == "user":
                 kind = "user"
-                target.assigned_user_id = channel_owner[1]
+                target.assignee_id = channel_owner[1]
             else:
                 kind = "team"
-                if target.assignee_team_id is None:
-                    target.assignee_team_id = (
-                        channel_owner[1]
-                        if channel_owner and channel_owner[0] == "team"
-                        else _people_team_id(connection, target.tenant_id)
-                    )
-    if kind != "user" and target.assigned_user_id is not None:
-        target.assigned_user_id = None
-    if kind != "team" and target.assignee_team_id is not None:
-        target.assignee_team_id = None
+                target.assignee_id = (
+                    channel_owner[1]
+                    if channel_owner and channel_owner[0] == "team"
+                    else _people_team_id(connection, target.tenant_id)
+                )
     target.assignee_kind = kind
+    if kind == "agent" and target.assignee_id and not target.agent_id:
+        target.agent_id = target.assignee_id
 
 
 @event.listens_for(Signal, "before_insert")
@@ -171,7 +169,7 @@ def _signal_before_insert(_mapper, connection, target: Signal) -> None:
 def _signal_before_update(_mapper, connection, target: Signal) -> None:
     if any(
         _changed(target, name)
-        for name in ("assignee_kind", "assigned_user_id", "agent_id", "assignee_team_id")
+        for name in ("assignee_kind", "assignee_id", "agent_id")
     ):
         _normalize_owner(connection, target, is_insert=False)
 
@@ -180,11 +178,11 @@ def _signal_before_update(_mapper, connection, target: Signal) -> None:
 
 
 def _owner_target(signal: Signal) -> tuple[str, UUID | None, UUID | None]:
-    if signal.assignee_kind == "user" and signal.assigned_user_id:
-        return "user", signal.assigned_user_id, None
-    if signal.assignee_kind == "agent" and signal.agent_id:
+    if signal.assignee_kind == "user" and signal.assignee_id:
+        return "user", signal.assignee_id, None
+    if signal.assignee_kind == "agent" and (signal.assignee_id or signal.agent_id):
         return "agent", None, None
-    return "team", None, signal.assignee_team_id
+    return "team", None, signal.assignee_id
 
 
 def compute_turn(session: Session, signal: Signal) -> tuple[str, UUID | None, UUID | None, str]:
@@ -239,11 +237,11 @@ def _apply_turn(session: Session, signal: Signal) -> None:
     kind, user_id, team_id, reason = compute_turn(session, signal)
     if kind == "team" and team_id is None:
         team_id = signal.assignee_team_id
-    current = (signal.turn_kind, signal.turn_user_id, signal.turn_team_id, signal.turn_reason)
-    if current != (kind, user_id, team_id, reason):
+    ref_id = user_id or team_id
+    current = (signal.turn_kind, signal.turn_ref_id, signal.turn_reason)
+    if current != (kind, ref_id, reason):
         signal.turn_kind = kind
-        signal.turn_user_id = user_id
-        signal.turn_team_id = team_id
+        signal.turn_ref_id = ref_id
         signal.turn_reason = reason
 
 
@@ -253,7 +251,7 @@ def _touches_turn(obj: Any) -> UUID | None:
         if state.key is None:
             return obj.id
         relevant = (
-            "status", "assignee_kind", "assigned_user_id", "agent_id", "assignee_team_id",
+            "status", "assignee_kind", "assignee_id", "agent_id",
         )
         if any(_changed(obj, name) for name in relevant):
             return obj.id
@@ -312,22 +310,22 @@ def for_you_predicate(
     from app.models.notification import Notification
 
     clauses = [
-        and_(Signal.assignee_kind == "user", Signal.assigned_user_id == user_id),
-        and_(Signal.turn_kind == "user", Signal.turn_user_id == user_id),
+        and_(Signal.assignee_kind == "user", Signal.assignee_id == user_id),
+        and_(Signal.turn_kind == "user", Signal.turn_ref_id == user_id),
     ]
     custom = {t for t in team_ids if t != people_team_id}
     teams_for_turn = set(custom)
     if people_team_id is not None:
         teams_for_turn.add(people_team_id)
     if teams_for_turn:
-        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_team_id.in_(teams_for_turn)))
+        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_ref_id.in_(teams_for_turn)))
     if custom:
         # Team-owned customer work belongs here. Standing group rooms do not —
         # they only appear when it is actually the team's turn.
         clauses.append(
             and_(
                 Signal.assignee_kind == "team",
-                Signal.assignee_team_id.in_(custom),
+                Signal.assignee_id.in_(custom),
                 Signal.source != "team",
             )
         )
@@ -353,13 +351,13 @@ def turn_is_mine_predicate(
     people_team_id: UUID | None = None,
 ):
     """The subset of For you where you must act now (sorted first, counted on the badge)."""
-    clauses = [and_(Signal.turn_kind == "user", Signal.turn_user_id == user_id)]
+    clauses = [and_(Signal.turn_kind == "user", Signal.turn_ref_id == user_id)]
     custom = {t for t in team_ids if t != people_team_id}
     teams_for_turn = set(custom)
     if people_team_id is not None:
         teams_for_turn.add(people_team_id)
     if teams_for_turn:
-        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_team_id.in_(teams_for_turn)))
+        clauses.append(and_(Signal.turn_kind == "team", Signal.turn_ref_id.in_(teams_for_turn)))
     return or_(*clauses)
 
 
@@ -407,8 +405,7 @@ def set_owner(
     if kind not in OWNER_KINDS:
         raise ValueError("Invalid owner kind")
     signal.assignee_kind = kind
-    signal.assigned_user_id = owner_id if kind == "user" else None
-    signal.assignee_team_id = owner_id if kind == "team" else None
+    signal.assignee_id = owner_id
     if kind == "agent":
         signal.agent_id = owner_id
     else:
@@ -434,21 +431,22 @@ async def apply_owner(
 def remember_human_owner(signal: Signal, kind: str, owner_id: UUID | None) -> None:
     """Record the last person or team that handled this conversation."""
     if kind == "user" and owner_id is not None:
-        signal.last_human_owner_kind = "user"
-        signal.last_human_owner_user_id = owner_id
-        signal.last_human_owner_team_id = None
+        signal.last_human_owner_json = json.dumps({"kind": "user", "id": str(owner_id)})
     elif kind == "team" and owner_id is not None:
-        signal.last_human_owner_kind = "team"
-        signal.last_human_owner_user_id = None
-        signal.last_human_owner_team_id = owner_id
+        signal.last_human_owner_json = json.dumps({"kind": "team", "id": str(owner_id)})
 
 
 def human_owner_payload(signal: Signal) -> dict[str, Any] | None:
-    kind = signal.last_human_owner_kind or ""
-    if kind == "user" and signal.last_human_owner_user_id:
-        return {"kind": "user", "id": str(signal.last_human_owner_user_id)}
-    if kind == "team" and signal.last_human_owner_team_id:
-        return {"kind": "team", "id": str(signal.last_human_owner_team_id)}
+    try:
+        data = json.loads(signal.last_human_owner_json or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        data = {}
+    if not isinstance(data, dict):
+        return None
+    kind = str(data.get("kind") or "")
+    raw_id = data.get("id")
+    if kind in ("user", "team") and raw_id:
+        return {"kind": kind, "id": str(raw_id)}
     return None
 
 
@@ -872,6 +870,7 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
                 "can_handle": True,
                 "reason": "",
                 "presence": payload["presence"],
+                "members": payload["members"],
                 "avatar_kind": payload["avatar_kind"],
                 "avatar_icon": payload["avatar_icon"],
                 "avatar_color": payload["avatar_color"],
@@ -900,18 +899,26 @@ async def _user_num_map(session: AsyncSession, tenant_id: UUID) -> dict[int, UUI
 
 
 def owner_payload(signal: Signal) -> dict[str, Any]:
+    kind = signal.assignee_kind or "team"
+    owner_id = str(signal.assignee_id) if signal.assignee_id else None
     return {
-        "kind": signal.assignee_kind or "team",
-        "user_id": str(signal.assigned_user_id) if signal.assigned_user_id else None,
-        "agent_id": str(signal.agent_id) if signal.assignee_kind == "agent" and signal.agent_id else None,
-        "team_id": str(signal.assignee_team_id) if signal.assignee_team_id else None,
+        "kind": kind,
+        "id": owner_id,
+        "user_id": owner_id if kind == "user" else None,
+        "agent_id": owner_id if kind == "agent" else (
+            str(signal.agent_id) if signal.agent_id else None
+        ),
+        "team_id": owner_id if kind == "team" else None,
     }
 
 
 def turn_payload(signal: Signal) -> dict[str, Any]:
+    kind = signal.turn_kind or ""
+    ref = str(signal.turn_ref_id) if signal.turn_ref_id else None
     return {
-        "kind": signal.turn_kind or "",
-        "user_id": str(signal.turn_user_id) if signal.turn_user_id else None,
-        "team_id": str(signal.turn_team_id) if signal.turn_team_id else None,
+        "kind": kind,
+        "id": ref,
+        "user_id": ref if kind == "user" else None,
+        "team_id": ref if kind == "team" else None,
         "reason": signal.turn_reason or "",
     }

@@ -45,6 +45,7 @@ export function MailMessageCard({
   meta,
   headerActions,
   actions,
+  reactions,
   collapsed = false,
   onToggleCollapsed,
   preview,
@@ -66,8 +67,10 @@ export function MailMessageCard({
   meta?: ReactNode
   /** Reply / reply-all / forward — top-right on the envelope band. */
   headerActions?: ReactNode
-  /** Copy / reactions — bottom-right, beside the time. */
+  /** Copy / note actions — bottom-right, beside the time. */
   actions?: ReactNode
+  /** WhatsApp-style reactions overlapping the bottom edge of the card. */
+  reactions?: ReactNode
   /** Older mail folds to its band; click re-opens it. */
   collapsed?: boolean
   onToggleCollapsed?: () => void
@@ -131,11 +134,18 @@ export function MailMessageCard({
   return (
     <div
       className={cn(
-        'msg-bubble-enter group/bubble flex items-start gap-2',
+        'msg-bubble-enter flex items-start gap-2',
         isRight ? 'flex-row-reverse' : 'flex-row',
       )}
     >
       {isRight ? null : <span className="flex w-7 shrink-0 justify-center">{avatar}</span>}
+      {/* group/bubble on the card shell only — not the avatar column. */}
+      <div
+        className={cn(
+          'group/bubble relative flex w-full min-w-0 max-w-[min(100%,42.5rem)] flex-col',
+          isRight ? 'items-end' : 'items-start',
+        )}
+      >
       <div
         data-testid="mail-card"
         data-tone={tone}
@@ -143,7 +153,7 @@ export function MailMessageCard({
         className={cn(
           // Same grammar as chat: round outer corners, tighten the corner that
           // faces the author so the card "hangs" from that side.
-          'relative w-full min-w-0 max-w-[min(100%,42.5rem)] overflow-hidden rounded-[14px] bg-bg-surface text-text-primary ring-1 ring-inset shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
+          'relative w-full min-w-0 overflow-hidden rounded-[14px] bg-bg-surface text-text-primary ring-1 ring-inset shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
           isRight ? 'rounded-tr-[4px]' : 'rounded-tl-[4px]',
           CARD_TONE[tone],
         )}
@@ -190,6 +200,8 @@ export function MailMessageCard({
             ) : null}
           </div>
         )}
+      </div>
+      {reactions}
       </div>
     </div>
   )

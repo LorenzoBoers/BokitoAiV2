@@ -275,6 +275,69 @@ export function optimisticUnnestToRootAt<T extends FolderFilterSource>(
   })
 }
 
+/** Matches `.nav-tree-children` (15px margin + 8px padding) for indent DnD. */
+export const FOLDER_TREE_INDENT_PX = 23
+/** Matches `.nav-row` horizontal padding when reading pointer depth. */
+export const FOLDER_TREE_BASE_PAD_PX = 8
+
+export type FolderDragPlacement =
+  | { mode: 'nest'; parentId: string }
+  | {
+      mode: 'sibling'
+      parentId: string | null
+      overId: string
+      edge: 'before' | 'after'
+    }
+
+/**
+ * Intended tree depth from pointer X: same level as the anchor, one deeper
+ * (nest), or shallower (unnest toward an ancestor).
+ */
+export function resolveFolderDepthIntent(
+  pointerX: number,
+  railLeft: number,
+  anchorDepth: number,
+  basePadPx = FOLDER_TREE_BASE_PAD_PX,
+  indentPx = FOLDER_TREE_INDENT_PX,
+): number {
+  const raw = Math.round((pointerX - railLeft - basePadPx) / indentPx)
+  return Math.max(0, Math.min(anchorDepth + 1, raw))
+}
+
+/**
+ * Map an anchor row + intended depth to nest-under-anchor or sibling of the
+ * node on that depth along the anchor's ancestor chain.
+ */
+export function placementFromAnchor(
+  intendedDepth: number,
+  anchorId: string,
+  anchorDepth: number,
+  ancestorIds: string[],
+  edge: 'before' | 'after',
+  nestBlocked: Set<string>,
+): FolderDragPlacement {
+  if (intendedDepth > anchorDepth && !nestBlocked.has(anchorId)) {
+    return { mode: 'nest', parentId: anchorId }
+  }
+  const depth = Math.min(intendedDepth, anchorDepth)
+  const chain = [...ancestorIds, anchorId]
+  const overId = chain[depth] ?? anchorId
+  const parentId = depth === 0 ? null : (chain[depth - 1] ?? null)
+  return { mode: 'sibling', parentId, overId, edge }
+}
+
+function applySiblingSortOrder<T extends FolderFilterSource>(
+  sources: T[],
+  siblingIds: string[],
+): T[] {
+  const order = new Map(siblingIds.map((id, index) => [id, index]))
+  return sources.map((source) => {
+    const sortOrder = order.get(source.id)
+    if (sortOrder == null || source.sort_order === sortOrder) return source
+    return { ...source, sort_order: sortOrder }
+  })
+}
+
 /** Set parent_id so the folder nests under `parentId` (live DnD preview). */
 export function optimisticNestSources<T extends FolderFilterSource>(
   sources: T[],
@@ -285,13 +348,98 @@ export function optimisticNestSources<T extends FolderFilterSource>(
   const parent = sources.find((source) => source.id === parentId)
   const child = sources.find((source) => source.id === activeId)
   if (!parent || !child) return null
-  if (child.parent_id === parentId) return null
   // Block nesting under own descendant.
   const tree = deriveFolderTree(sources)
   const blocked = folderFilterSubtreeIds(tree, activeId)
   if (blocked.has(parentId)) return null
+  const siblings = sources.filter(
+    (source) => (source.parent_id ?? null) === parentId && source.id !== activeId,
+  )
+  const maxOrder = siblings.reduce((max, row) => Math.max(max, row.sort_order ?? 0), -1)
+  if (child.parent_id === parentId && (child.sort_order ?? 0) === maxOrder + 1) return null
   return sources.map((source) =>
+    source.id === activeId
+      ? { ...source, parent_id: parentId, sort_order: maxOrder + 1 }
+      : source,
+  )
+}
+
+/**
+ * Live DnD preview: move `activeId` next to `overId` under `parentId`
+ * (null = root). Returns null when the placement is already exact.
+ */
+export function optimisticPlaceAsSibling<T extends FolderFilterSource>(
+  sources: T[],
+  activeId: string,
+  parentId: string | null,
+  overId: string,
+  edge: 'before' | 'after',
+): T[] | null {
+  if (activeId === overId) return null
+  const active = sources.find((source) => source.id === activeId)
+  const over = sources.find((source) => source.id === overId)
+  if (!active || !over) return null
+  const tree = deriveFolderTree(sources)
+  const blocked = folderFilterSubtreeIds(tree, activeId)
+  if (blocked.has(overId)) return null
+  if (parentId != null && blocked.has(parentId)) return null
+
+  const withParent = sources.map((source) =>
     source.id === activeId ? { ...source, parent_id: parentId } : source,
+  )
+  const nextTree = deriveFolderTree(withParent)
+  const sibs = folderFilterSiblings(nextTree, activeId)
+  if (!sibs) return null
+  if ((sibs.parentId ?? null) !== parentId) return null
+
+  const withoutActive = sibs.siblings.map((node) => node.id).filter((id) => id !== activeId)
+  const overIdx = withoutActive.indexOf(overId)
+  let nextIds: string[]
+  if (overIdx < 0) {
+    nextIds = [...withoutActive, activeId]
+  } else if (edge === 'before') {
+    nextIds = [
+      ...withoutActive.slice(0, overIdx),
+      activeId,
+      ...withoutActive.slice(overIdx),
+    ]
+  } else {
+    nextIds = [
+      ...withoutActive.slice(0, overIdx + 1),
+      activeId,
+      ...withoutActive.slice(overIdx + 1),
+    ]
+  }
+
+  const ordered = applySiblingSortOrder(withParent, nextIds)
+  const before = sources.find((source) => source.id === activeId)
+  const after = ordered.find((source) => source.id === activeId)
+  if (
+    before &&
+    after &&
+    (before.parent_id ?? null) === (after.parent_id ?? null) &&
+    (before.sort_order ?? 0) === (after.sort_order ?? 0)
+  ) {
+    return null
+  }
+  return ordered
+}
+
+/** Apply a resolved drag placement for live tree preview. */
+export function optimisticApplyFolderPlacement<T extends FolderFilterSource>(
+  sources: T[],
+  activeId: string,
+  placement: FolderDragPlacement,
+): T[] | null {
+  if (placement.mode === 'nest') {
+    return optimisticNestSources(sources, activeId, placement.parentId)
+  }
+  return optimisticPlaceAsSibling(
+    sources,
+    activeId,
+    placement.parentId,
+    placement.overId,
+    placement.edge,
   )
 }
 

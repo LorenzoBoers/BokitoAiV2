@@ -32,7 +32,7 @@ export default function CommunicationTagsCard() {
     }
     listTeams(token)
       .then((rows) => {
-        if (!cancelled) setTeams(rows.filter((team) => team.pinned))
+        if (!cancelled) setTeams(rows.filter((team) => !team.system))
       })
       .catch(() => {
         if (!cancelled) setTeams([])

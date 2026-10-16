@@ -819,7 +819,7 @@ async def delete_project(
     from app.models.trigger import Trigger
     from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
     from app.models.agent import AgentRun
-    from app.models.orchestration import EvalCheckpoint, TaskArtifact
+    from app.models.orchestration import TaskArtifact
 
     await session.execute(sa_delete(ProjectTagLink).where(ProjectTagLink.project_id == project_id))
     await session.execute(
@@ -844,7 +844,6 @@ async def delete_project(
     )
     await session.execute(sa_update(AgentRun).where(AgentRun.task_id.in_(queue_task_ids)).values(task_id=None))
     await session.execute(sa_delete(TaskArtifact).where(TaskArtifact.agent_task_id.in_(queue_task_ids)))
-    await session.execute(sa_delete(EvalCheckpoint).where(EvalCheckpoint.agent_task_id.in_(queue_task_ids)))
     await session.execute(
         sa_update(AgentTask).where(AgentTask.duplicate_of_id.in_(queue_task_ids)).values(duplicate_of_id=None)
     )

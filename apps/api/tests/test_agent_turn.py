@@ -370,6 +370,63 @@ async def test_checkpoint_then_persist_keeps_one_message(client: AsyncClient, se
     assert len(rows) == 1
 
 
+@pytest.mark.asyncio
+async def test_seal_in_progress_rewrites_checkpoint_as_error(client: AsyncClient, session_override):
+    """Crash mid-tool must not leave a live Update-folder-canvas trail after refresh."""
+    from app.services.agent.turn_persist import seal_in_progress_checkpoints, upsert_turn_checkpoint
+
+    _ = client
+    tenant, agent = await _tenant_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        source="test",
+        subject="Wealth map",
+        status="open",
+    )
+    session_override.add(signal)
+    await session_override.commit()
+
+    checkpoint = await upsert_turn_checkpoint(
+        session_override,
+        signal,
+        message_id=None,
+        author_agent_id=agent.id,
+        turn_id="turn-crash",
+        segments=[
+            {
+                "id": "s1",
+                "text": "",
+                "activity": [
+                    _work("create_canvas"),
+                    _work("update_folder_canvas", status="running"),
+                ],
+            }
+        ],
+    )
+    await session_override.commit()
+    assert json.loads(checkpoint.metadata_json)["in_progress"] is True
+
+    sealed = await seal_in_progress_checkpoints(
+        session_override,
+        signal,
+        error_text="The assistant encountered an error while generating a reply.",
+        author_agent_id=agent.id,
+        replace_with_error=True,
+        checkpoint_message_id=checkpoint.id,
+    )
+    await session_override.commit()
+    assert len(sealed) == 1
+    await session_override.refresh(checkpoint)
+    meta = json.loads(checkpoint.metadata_json)
+    assert "in_progress" not in meta
+    assert meta.get("error") is True
+    assert checkpoint.body_text.startswith("The assistant encountered")
+    statuses = [a.get("status") for a in meta.get("activity") or []]
+    assert "running" not in statuses
+    assert statuses.count("error") >= 1
+
+
 async def _login(client: AsyncClient) -> None:
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 

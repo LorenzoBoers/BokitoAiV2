@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
-import { ArrowLeft, Check, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, Loader2, MoreHorizontal, PauseCircle, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
 import { Badge } from '../components/ui/badge'
@@ -12,7 +13,9 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
-import { Hashtag, HashtagMark } from '../components/ui/HashtagMark'
+import { Hashtag } from '../components/ui/HashtagMark'
+import { TagPill } from '../components/ui/TagPill'
+import { Tip } from '../components/ui/Tip'
 import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/workstreams/FlowTicketBoard'
 import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
 import { WorkstreamStagesCard, type StagesDraft } from '../components/workstreams/WorkstreamStagesCard'
@@ -26,13 +29,12 @@ import {
 } from '../components/ui/dialog'
 import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { flowTitle } from '../lib/flow-title'
-import { normalizeHashtag, stripHash } from '../lib/hashtag'
+import { flowActionTag, flowTitle } from '../lib/flow-title'
 import { useEntityRefresh } from '../lib/live-store'
 import { inboxPath, tagPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
-import { listSignalTags, updateSignalTag, type SignalTag } from '../lib/signals-api'
+import { listSignalTags, type SignalTag } from '../lib/signals-api'
 import { cn } from '../lib/utils'
 import type { FlowBoard, TicketStageKind } from '../lib/tickets-api'
 import { timeAgo } from '../lib/time-ago'
@@ -121,6 +123,7 @@ export default function WorkstreamDetail() {
 
   const tag = workstream?.tags?.[0] ?? null
   const titleName = workstream ? flowTitle(workstream) : name
+  const actionTag = workstream ? flowActionTag(workstream) : ''
   const canEdit = isAdmin && editing
 
   useEffect(() => {
@@ -135,8 +138,8 @@ export default function WorkstreamDetail() {
     return projects.filter((p) => ids.has(p.id))
   }, [projects, workstream?.project_ids])
 
-  const nextName = normalizeHashtag(name)
-  const nameDirty = Boolean(workstream) && nextName !== normalizeHashtag(titleName)
+  const nextName = name.trim()
+  const nameDirty = Boolean(workstream) && nextName !== titleName
   const descriptionDirty = Boolean(workstream) && description.trim() !== (workstream?.description ?? '')
   const dirty = nameDirty || descriptionDirty || Boolean(stagesDraft?.dirty)
   const valid = Boolean(nextName) && (stagesDraft?.valid ?? true)
@@ -177,12 +180,8 @@ export default function WorkstreamDetail() {
     if (!workstream || !dirty || !valid) return
     setSavingMeta(true)
     try {
-      if (nameDirty && tag) {
-        if (!token) throw new Error('Not signed in')
-        await updateSignalTag(token, tag.id, { name: nextName })
-      }
       await patchWorkstream(workstream.id, {
-        ...(nameDirty && !tag ? { name: nextName } : {}),
+        ...(nameDirty ? { name: nextName.slice(0, 120) } : {}),
         ...(descriptionDirty ? { description: description.trim() } : {}),
         ...(stagesDraft?.dirty ? { stages: stagesDraft.stages } : {}),
       })
@@ -263,84 +262,125 @@ export default function WorkstreamDetail() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 {canEdit ? (
-                  <span
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void saveEdits()
+                      if (e.key === 'Escape') cancelEditing()
+                    }}
+                    placeholder={t('workstreamsPage.nameLabel')}
+                    aria-label={t('workstreamsPage.nameLabel')}
+                    disabled={savingMeta}
                     className={cn(
-                      'inline-flex max-w-md items-center gap-0.5 rounded-md border bg-bg-input/60 px-1.5 py-0.5 focus-within:ring-1',
+                      'max-w-md rounded-md border bg-bg-input/60 px-2 py-0.5 text-xl font-semibold tracking-[-0.01em] text-text-heading outline-none focus:ring-1',
                       nextName
-                        ? 'border-border/70 focus-within:border-border focus-within:ring-border/60'
-                        : 'border-status-error/60 focus-within:ring-status-error/30',
+                        ? 'border-border/70 focus:border-border focus:ring-border/60'
+                        : 'border-status-error/60 focus:ring-status-error/30',
                     )}
-                  >
-                    <HashtagMark category className="text-xl" />
-                    <input
-                      value={name}
-                      onChange={(e) => setName(stripHash(e.target.value))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void saveEdits()
-                        if (e.key === 'Escape') cancelEditing()
-                      }}
-                      placeholder={t('workstreamsPage.nameLabel')}
-                      aria-label={tag ? t('workstreamsPage.editBar.renameTag') : t('workstreamsPage.nameLabel')}
-                      disabled={savingMeta}
-                      size={Math.max(name.trim().length, 8) + 2}
-                      className="bg-transparent text-xl font-semibold tracking-[-0.01em] text-text-heading outline-none"
-                    />
-                  </span>
+                  />
+                ) : isAdmin ? (
+                  <Tip label={t('workstreamsPage.editNameHint')}>
+                    <button
+                      type="button"
+                      onClick={startEditing}
+                      className="group/title inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md text-left transition-colors hover:bg-bg-hover/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                      aria-label={t('workstreamsPage.editNameHint')}
+                    >
+                      <h1 className="min-w-0 truncate text-xl font-semibold tracking-[-0.01em] text-text-heading">
+                        {titleName}
+                      </h1>
+                      <Pencil
+                        size={14}
+                        className="shrink-0 text-text-muted opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-visible/title:opacity-100"
+                        aria-hidden
+                      />
+                    </button>
+                  </Tip>
                 ) : (
-                  <h1 className="min-w-0 text-xl font-semibold tracking-[-0.01em] text-text-heading">
-                    <Hashtag name={titleName} category />
+                  <h1 className="min-w-0 truncate text-xl font-semibold tracking-[-0.01em] text-text-heading">
+                    {titleName}
                   </h1>
                 )}
-                <Badge variant={workstream.enabled ? 'success' : 'secondary'}>
-                  {workstream.enabled ? t('workstreamsPage.active') : t('workstreamsPage.deactivated')}
-                </Badge>
+                {/* Action tag that files tickets into this flow — not the display title. */}
+                {tag ? (
+                  <TagPill names={tag.name} tone="action" size="sm" title={`#${tag.name.replace(/^#/, '')}`} />
+                ) : null}
                 {savingMeta ? <Loader2 size={14} className="shrink-0 animate-spin text-text-muted" /> : null}
               </div>
-              {isAdmin ? (
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {editing ? null : (
-                    <Button type="button" size="sm" variant="outline" onClick={startEditing}>
-                      <Pencil size={13} className="mr-1" />
-                      {t('workstreamsPage.edit')}
-                    </Button>
-                  )}
-                  {workstream.enabled ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={togglingEnabled}
-                      onClick={() => void toggleEnabled(false)}
-                    >
-                      {togglingEnabled ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
-                      {t('workstreamsPage.deactivate')}
-                    </Button>
-                  ) : (
-                    <>
+              <div className="flex h-8 shrink-0 items-center gap-2">
+                {isAdmin ? (
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
+                        className="h-8 w-8 px-0 text-text-muted"
+                        aria-label={t('workstreamsPage.moreActions')}
                         disabled={togglingEnabled}
-                        onClick={() => void toggleEnabled(true)}
                       >
-                        {togglingEnabled ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
-                        {t('workstreamsPage.activate')}
+                        {togglingEnabled ? (
+                          <Loader2 size={16} className="animate-spin" aria-hidden />
+                        ) : (
+                          <MoreHorizontal size={16} aria-hidden />
+                        )}
                       </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="text-status-error hover:text-status-error"
-                        onClick={() => setDeleteOpen(true)}
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        align="end"
+                        sideOffset={4}
+                        className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
                       >
-                        <Trash2 size={14} className="mr-1" />
-                        {t('workstreamsPage.delete')}
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ) : null}
+                        {editing ? null : (
+                          <DropdownMenu.Item
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                            onSelect={() => startEditing()}
+                          >
+                            <Pencil size={14} />
+                            {t('workstreamsPage.edit')}
+                          </DropdownMenu.Item>
+                        )}
+                        {editing ? null : <DropdownMenu.Separator className="my-1 h-px bg-border/60" />}
+                        {workstream.enabled ? (
+                          <DropdownMenu.Item
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                            onSelect={() => void toggleEnabled(false)}
+                          >
+                            <PauseCircle size={14} />
+                            {t('workstreamsPage.deactivate')}
+                          </DropdownMenu.Item>
+                        ) : (
+                          <>
+                            <DropdownMenu.Item
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                              onSelect={() => void toggleEnabled(true)}
+                            >
+                              <RotateCcw size={14} />
+                              {t('workstreamsPage.activate')}
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+                            <DropdownMenu.Item
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                              onSelect={() => setDeleteOpen(true)}
+                            >
+                              <Trash2 size={14} />
+                              {t('workstreamsPage.delete')}
+                            </DropdownMenu.Item>
+                          </>
+                        )}
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
+                ) : null}
+                <Badge
+                  variant={workstream.enabled ? 'success' : 'secondary'}
+                  className="h-8 px-3 text-xs"
+                >
+                  {workstream.enabled ? t('workstreamsPage.active') : t('workstreamsPage.deactivated')}
+                </Badge>
+              </div>
             </div>
 
             {canEdit ? (
@@ -365,7 +405,7 @@ export default function WorkstreamDetail() {
                 {tag ? (
                   <Link
                     to={withNavReveal(tagPath(tag.name, 'open'))}
-                    className="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-text-heading hover:border-accent/60"
+                    className="inline-flex items-center no-underline"
                   >
                     <Hashtag name={tag.name} category />
                   </Link>
@@ -446,11 +486,6 @@ export default function WorkstreamDetail() {
                       <span className="text-xs text-text-muted">{t('workstreamsPage.editBar.hint')}</span>
                     )}
                   </p>
-                  {nameDirty && tag && nextName ? (
-                    <p className="text-xs text-text-muted">
-                      {t('workstreamsPage.editBar.renameHint', { from: tag.name, to: nextName })}
-                    </p>
-                  ) : null}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button type="button" size="sm" variant="ghost" disabled={savingMeta} onClick={cancelEditing}>
@@ -491,7 +526,7 @@ export default function WorkstreamDetail() {
             <ConfirmDeleteDialog
               title={t('workstreamsPage.deleteTitle')}
               itemLabel={t('workstreamsPage.deleteItem')}
-              itemName={`#${titleName}`}
+              itemName={actionTag ? `#${actionTag}` : titleName}
               impactText={t('workstreamsPage.deleteImpact')}
               isDeleting={deleting}
               onCancel={() => setDeleteOpen(false)}

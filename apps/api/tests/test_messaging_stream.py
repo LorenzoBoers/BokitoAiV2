@@ -398,6 +398,52 @@ async def test_fresh_orphaned_chat_run_is_reclaimed_without_live_task(
     assert row.status != "running"
 
 
+def test_operator_stream_persist_text_uses_done_not_empty_fallback():
+    from app.routers.signal_chat import (
+        _EMPTY_FALLBACK,
+        _operator_stream_persist_text,
+    )
+
+    assert (
+        _operator_stream_persist_text(stream_text="Done.", cancelled=False, loop=None)
+        == "Done."
+    )
+    assert (
+        _operator_stream_persist_text(stream_text="", cancelled=False, loop=None)
+        == _EMPTY_FALLBACK
+    )
+
+
+def test_operator_stream_persist_text_tool_only_graceful():
+    from app.routers.signal_chat import (
+        _TOOL_ONLY_STREAM_FALLBACK,
+        _operator_stream_persist_text,
+    )
+    from app.services.agent.turn import TurnRecorder
+
+    turn = TurnRecorder(lambda *_: None, stream_id="s1")
+    turn._pending = [
+        {
+            "id": "t1",
+            "kind": "tool",
+            "label": "Search index",
+            "tool": "search_index",
+            "provider": "",
+            "started_at": None,
+            "ended_at": None,
+            "status": "ok",
+        }
+    ]
+    from types import SimpleNamespace
+
+    loop = SimpleNamespace(turn=turn)
+
+    assert (
+        _operator_stream_persist_text(stream_text="", cancelled=False, loop=loop)
+        == _TOOL_ONLY_STREAM_FALLBACK
+    )
+
+
 @pytest.mark.asyncio
 async def test_chat_turn_live_map_and_reclaim_rule():
     import asyncio

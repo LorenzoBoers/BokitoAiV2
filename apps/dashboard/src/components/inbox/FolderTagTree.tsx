@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Pin, Plus } from 'lucide-react'
+import { Pin, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -26,7 +26,6 @@ import { Tip } from '../ui/Tip'
 import { SidebarFolder } from './QueueSublist'
 import { NavSectionSkeleton } from '../ui/skeleton'
 import type { HubLeaf, SubQueue } from '../../lib/messages-paths'
-import { cn } from '../../lib/utils'
 
 function useFileThreadsOntoRail() {
   const { token } = useAuth()
@@ -85,7 +84,6 @@ function useFileThreadsOntoRail() {
   return { fileThreadsIntoFolder, fileThreadsIntoFlow }
 }
 
-const Workflow = ENTITY_ICONS.flow
 const FolderIcon = ENTITY_ICONS.project
 
 type TFn = (key: string, opts?: { defaultValue?: string }) => string
@@ -299,16 +297,7 @@ function CommunicationTagRow({
     <SidebarFolder
       baseLeaf={leaf}
       label={bare}
-      icon={
-        category ? (
-          <span className="inline-flex items-center gap-1">
-            <HashtagMark category className="text-xs" />
-            <Workflow size={10} className="text-text-muted" aria-hidden />
-          </span>
-        ) : (
-          <HashtagMark className="text-xs" />
-        )
-      }
+      icon={<HashtagMark category={Boolean(category)} />}
       activeLeaf={activeLeaf}
       defaultQueue={defaultQueueFor(leaf)}
       badgeCount={row.count}
@@ -395,7 +384,7 @@ export function FolderTagTree({
   mode = 'communication',
   selectedId,
   onSelect,
-  hideEmpty = true,
+  hideEmpty = false,
 }: {
   folders: NavRow[]
   tags: NavRow[]
@@ -414,7 +403,6 @@ export function FolderTagTree({
   const sidebarPrefs = useOptionalSidebarPrefs()
   const isPinned = sidebarPrefs?.isPinned ?? (() => false)
   const [nameById, setNameById] = useState<Map<string, string>>(() => new Map())
-  const [showAllMaps, setShowAllMaps] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -455,7 +443,7 @@ export function FolderTagTree({
 
   const visibleFolders = useMemo(() => {
     const list = [...folders, ...extraFolder]
-    if (showAllMaps || !hideEmpty) return list
+    if (!hideEmpty) return list
     return list.filter((row) =>
       rowVisible(row, {
         hideEmpty,
@@ -464,7 +452,7 @@ export function FolderTagTree({
         pathIds,
       }),
     )
-  }, [activeLeaf, extraFolder, folders, hideEmpty, isPinned, pathIds, showAllMaps])
+  }, [activeLeaf, extraFolder, folders, hideEmpty, isPinned, pathIds])
 
   if (mode === 'agenda') {
     const clickFolder = (row: NavRow) => onSelect?.('folder', row.virtual ? row.projectId || row.id : row.id, row.name)
@@ -498,28 +486,10 @@ export function FolderTagTree({
   }
 
   if (!defaultQueueFor || activeLeaf === undefined) return null
-  const hiddenCount = hideEmpty && !showAllMaps ? Math.max(0, folders.length - visibleFolders.length) : 0
 
   return (
     <div className="space-y-px" data-testid="folder-tag-tree">
       {loading ? <NavSectionSkeleton rows={2} /> : null}
-      {hiddenCount > 0 ? (
-        <button
-          type="button"
-          className="nav-row h-7 w-full text-left text-xs text-text-muted"
-          onClick={() => setShowAllMaps(true)}
-          aria-label={t('support.folders.showEmpty', {
-            defaultValue: 'Show {{count}} empty maps',
-            count: hiddenCount,
-          })}
-        >
-          <ChevronRight size={14} className={cn('shrink-0 transition-transform', showAllMaps && 'rotate-90')} aria-hidden />
-          <span className="min-w-0 flex-1 truncate-fade">
-            {t('support.folders.showEmptyLabel', { defaultValue: 'Empty maps' })}
-          </span>
-          <span className="tabular-nums text-2xs">{hiddenCount}</span>
-        </button>
-      ) : null}
       {visibleFolders.map((row) => (
         <CommunicationFolderRow
           key={row.id}
@@ -529,7 +499,7 @@ export function FolderTagTree({
           defaultQueueFor={defaultQueueFor}
           t={t}
           nameById={nameById}
-          hideEmpty={hideEmpty && !showAllMaps}
+          hideEmpty={hideEmpty}
           isPinned={isPinned}
           pathIds={pathIds}
         />
@@ -565,7 +535,7 @@ function AgendaFolderRow({
   const label = folderRowLabel(row, nameById, parentTagNames)
   const ownTags = folderTagNames(row, nameById)
   return (
-    <div>
+    <div className="space-y-px">
       <button
         type="button"
         onClick={() => onSelect(row)}
@@ -573,11 +543,13 @@ function AgendaFolderRow({
         title={tip}
         className="nav-row h-7 w-full text-left text-xs"
       >
-        <HashtagMark className="text-xs" />
+        <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted" aria-hidden>
+          <FolderIcon size={12} />
+        </span>
         <span className="min-w-0 flex-1 truncate-fade">{label}</span>
       </button>
       {children.length > 0 ? (
-        <div className="ml-3 space-y-0.5 border-l border-white/[0.06] pl-1.5">
+        <div className="nav-tree-children">
           {children.map((child) => (
             <AgendaFolderRow
               key={child.id}

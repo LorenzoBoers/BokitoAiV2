@@ -26,7 +26,13 @@ type Props = {
 export function AgentOptionRow({ agent, size = 20, className, trailing, activity }: Props) {
   return (
     <span className={cn('flex min-w-0 items-center gap-2', className)}>
-      <AiAvatar {...toAiAvatarProps(agent)} size={size} decorative activity={activity} />
+      <AiAvatar
+        {...toAiAvatarProps(agent)}
+        size={size}
+        decorative
+        mode="static"
+        activity={activity}
+      />
       <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">{agent.name}</span>
       {trailing}
     </span>

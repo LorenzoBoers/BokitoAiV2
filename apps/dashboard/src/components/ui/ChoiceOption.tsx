@@ -2,11 +2,11 @@ import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
+import type { TeamMemberRef } from '../../lib/teams-api'
 import { BrandMark } from '../integrations/BrandMark'
 import { AiAvatar } from './AiAvatar'
 import { HashtagMark } from './HashtagMark'
-import { TeamAvatar } from './TeamAvatar'
+import { TeamFacepile } from './TeamFacepile'
 import { UserAvatar } from './UserAvatar'
 import { cn } from '../../lib/utils'
 import type { AgentVisualFields } from './AgentOptionRow'
@@ -22,6 +22,7 @@ export type ChoicePerson = {
 export type ChoiceTeam = {
   id?: string
   name?: string | null
+  members?: TeamMemberRef[]
   avatar_kind?: string | null
   avatar_icon?: string | null
   avatar_color?: string | null
@@ -61,7 +62,9 @@ function IconMark({ icon: Icon, size }: { icon: LucideIcon; size: number }) {
 export function ChoiceMark({ item, size = 18 }: { item: ChoiceItem; size?: number }) {
   if (item.kind === 'agent') {
     const agent = item.agent ?? { id: item.value, name: item.label }
-    return <AiAvatar {...toAiAvatarProps(agent, item.label)} size={size} decorative />
+    return (
+      <AiAvatar {...toAiAvatarProps(agent, item.label)} size={size} decorative mode="static" />
+    )
   }
   if (item.kind === 'person') {
     const person = item.person ?? { name: item.label }
@@ -77,7 +80,7 @@ export function ChoiceMark({ item, size = 18 }: { item: ChoiceItem; size?: numbe
   }
   if (item.kind === 'team') {
     const team = item.team ?? { name: item.label }
-    return <TeamAvatar {...toTeamAvatarProps(team)} size={size} decorative />
+    return <TeamFacepile team={{ ...team, name: team.name ?? item.label }} size={size} linkAgents={false} />
   }
   if (item.kind === 'tag') {
     return (

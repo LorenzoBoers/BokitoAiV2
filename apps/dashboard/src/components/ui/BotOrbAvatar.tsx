@@ -16,6 +16,19 @@ import {
 import { distanceToRect, subscribeBotOrbPointer } from '../../lib/bot-orb-pointer'
 import { cn } from '../../lib/utils'
 
+export type BotOrbMode = 'live' | 'static'
+type BotOrbSpawnStyle = 'full' | 'quick'
+
+/** Keys already played this session — seat remounts must not re-rise. */
+const playedBotOrbSpawnKeys = new Set<string>()
+
+const FULL_SPAWN_MS = 1100
+const QUICK_SPAWN_MS = 220
+
+function spawnStyleFromKey(spawnKey: string): BotOrbSpawnStyle {
+  return spawnKey.startsWith('quick-') ? 'quick' : 'full'
+}
+
 type Props = {
   color: string
   shape?: string | null
@@ -27,17 +40,161 @@ type Props = {
   pulseId?: string | null
   /** Base loop after a one-shot settles (defaults to idle). */
   baseMotion?: BotOrbMotion
-  /** Pause idle motion (picker previews / facepiles). */
+  /**
+   * Presentation: `live` animates; `static` freezes the face (footprints,
+   * thread list, facepiles). Defaults to live unless `paused`.
+   */
+  mode?: BotOrbMode
+  /**
+   * Alias for `mode="static"`. Prefer `mode` for new call sites.
+   * @deprecated Use `mode="static"`.
+   */
   paused?: boolean
+  /**
+   * When this changes while live, play a one-shot entrance.
+   * Prefix `quick-` = grow in place; anything else (incl. `full-` / preview) = ground rise.
+   */
+  spawnKey?: string | null
+  /**
+   * Surface-colored silhouette outline for overlapping facepiles (matches
+   * the user AvatarStack ring cutout).
+   */
+  stackOutline?: boolean
   /** Hide from AT when a parent already labels the control. */
   decorative?: boolean
   label?: string
+}
+
+function resolveBotOrbPaused(
+  mode: BotOrbMode | undefined,
+  paused: boolean | undefined,
+): boolean {
+  if (mode === 'static') return true
+  if (mode === 'live') return false
+  return Boolean(paused)
 }
 
 type EyeAct = 'base' | 'squint' | 'blink' | 'happy'
 type ActKind = 'look' | 'squint' | 'blink'
 type ThinkSide = 'center' | 'left' | 'right'
 type Gaze = { x: number; y: number }
+
+/** Orbit chrome always uses brand violet — independent of avatar body color. */
+const BOT_ORB_ORBIT_COLOR = '#9159fe'
+/**
+ * Think/type badges: brand violet. Edge is theme-tinted via CSS
+ * (`--bot-orb-badge-edge`); shadow is theme-aware in index.css.
+ */
+const BOT_ORB_BADGE_FILL = BOT_ORB_ORBIT_COLOR
+
+/**
+ * Perspective orbits: each ring is an ellipse tilted in the screen plane.
+ * Back half (local y < 32) paints behind the body; front half paints after,
+ * so the stroke reads as wrapping around the mark.
+ */
+type OrbitRing = {
+  /** CSS BEM suffix: a | b */
+  id: 'a' | 'b'
+  /** Screen-plane tilt of the orbital plane (deg). */
+  tiltDeg: number
+  /** Minor radius — smaller = steeper foreshortening. */
+  ry: number
+  rx?: number
+  dash: string
+  strokeWidth: number
+  opacity: number
+  /** Optional leading arc on this plane (thinking / typing). */
+  load?: boolean
+}
+
+/**
+ * Dash lengths use pathLength=100 so crawl animations can shift
+ * stroke-dashoffset by exactly one lap without rotating the ellipse.
+ * Typing uses dots (no orbits). Working reuses the former typing orbit pace.
+ */
+function orbitRingsForMotion(motion: BotOrbMotion): OrbitRing[] | null {
+  if (motion === 'working') {
+    return [
+      {
+        id: 'a',
+        tiltDeg: 38,
+        ry: 11.5,
+        dash: '4 10',
+        strokeWidth: 1.4,
+        opacity: 0.45,
+        load: true,
+      },
+      {
+        id: 'b',
+        tiltDeg: -52,
+        ry: 13,
+        dash: '3 11',
+        strokeWidth: 1.1,
+        opacity: 0.3,
+      },
+    ]
+  }
+  return null
+}
+
+function OrbitHalves({
+  rings,
+  clipId,
+  layer,
+}: {
+  rings: OrbitRing[]
+  clipId: string
+  layer: 'back' | 'front'
+}) {
+  const frontBoost = layer === 'front' ? 1.2 : 0.88
+  return (
+    <g className={`bot-orb__orbits bot-orb__orbits--${layer}`} aria-hidden>
+      {rings.map((ring) => (
+        <g
+          key={`${layer}-${ring.id}`}
+          className={`bot-orb__orbit bot-orb__orbit--${ring.id}`}
+          transform={`rotate(${ring.tiltDeg} 32 32)`}
+        >
+          <g clipPath={`url(#${clipId})`}>
+            {/*
+              Ellipse stays fixed in its tilted plane. Only dashoffset crawls,
+              so the segment travels along the orbit (behind then in front).
+            */}
+            <ellipse
+              className="bot-orb__orbit-ring"
+              cx="32"
+              cy="32"
+              rx={ring.rx ?? 30.5}
+              ry={ring.ry}
+              fill="none"
+              stroke={BOT_ORB_ORBIT_COLOR}
+              strokeWidth={ring.strokeWidth}
+              strokeOpacity={Math.min(1, ring.opacity * frontBoost)}
+              strokeDasharray={ring.dash}
+              pathLength={100}
+            />
+            {ring.load ? (
+              <ellipse
+                className="bot-orb__orbit-load"
+                cx="32"
+                cy="32"
+                rx={ring.rx ?? 30.5}
+                ry={ring.ry}
+                fill="none"
+                stroke={BOT_ORB_ORBIT_COLOR}
+                strokeWidth={2}
+                strokeOpacity={Math.min(1, 0.72 * frontBoost)}
+                strokeLinecap="round"
+                strokeDasharray="12 88"
+                pathLength={100}
+              />
+            ) : null}
+          </g>
+        </g>
+      ))}
+    </g>
+  )
+}
 
 /** Idle look targets (SVG user units; view-box transform). */
 const LOOK_GAZE: Record<string, Gaze> = {
@@ -74,8 +231,12 @@ const THINK_GAZE: Record<ThinkSide, Gaze> = {
 /** Typing: slight down toward the composer. */
 const TYPE_GAZE: Gaze = { x: 0, y: 4.2 }
 
-/** Working: soft focus, barely off-center. */
-const WORK_GAZE: Gaze = { x: 1.2, y: -1.5 }
+/** Working focus rest; glances stay a small jitter around this. */
+const WORK_FOCUS: Gaze = { x: 0.25, y: -0.35 }
+/** Max SVG-unit offset from focus (keep subtle — eyes should barely jitter). */
+const WORK_JITTER_X = 0.55
+const WORK_JITTER_Y = 0.4
+const MS_WORK_GLANCE = 75
 
 const GAZE_MAX_X = 9.2
 const GAZE_MAX_Y = 6.4
@@ -188,14 +349,21 @@ export function BotOrbAvatar({
   motion = 'idle',
   pulseId = null,
   baseMotion = 'idle',
+  mode,
   paused = false,
+  spawnKey = null,
+  stackOutline = false,
   decorative = false,
   label = 'Agent',
 }: Props) {
+  const frozen = resolveBotOrbPaused(mode, paused)
   const uid = useId().replace(/:/g, '')
   const clipId = `bot-orb-clip-${uid}`
   const maskId = `bot-orb-mask-${uid}`
   const rootRef = useRef<HTMLSpanElement>(null)
+  const [spawning, setSpawning] = useState(false)
+  const [spawnStyle, setSpawnStyle] = useState<BotOrbSpawnStyle>('full')
+  const lastSpawnKey = useRef<string | null>(null)
   const trackingRef = useRef(false)
   const rafRef = useRef(0)
   const pendingPtr = useRef<{ x: number; y: number } | null>(null)
@@ -219,14 +387,17 @@ export function BotOrbAvatar({
     () => (isBotOrbOneShot(motion) ? motion : null),
   )
 
-  const displayMotion: BotOrbMotion = paused
+  // Spawn always finishes as a neutral idle face — mood chrome (thinking ?,
+  // typing dots, orbits) waits until the entrance ends.
+  const displayMotion: BotOrbMotion = frozen || spawning
     ? 'idle'
     : playingShot ?? activeMotion
   const thinking = displayMotion === 'thinking'
   const typing = displayMotion === 'typing'
   const working = displayMotion === 'working'
   const busyLoop = isBotOrbBusyLoop(displayMotion)
-  const allowTrack = !paused && !busyLoop && !playingShot && displayMotion === 'idle'
+  const allowTrack =
+    !frozen && !spawning && !busyLoop && !playingShot && displayMotion === 'idle'
 
   const moveGaze = (next: Gaze, ms: number) => {
     setGazeMs(ms)
@@ -239,30 +410,69 @@ export function BotOrbAvatar({
     moveGaze({ x: 0, y: 0 }, MS_SETTLE)
   }
 
-  // Sync loop motion from props (ignore while a one-shot plays).
+  // Spawn entrance when spawnKey changes while live (once per key — remounts skip).
+  // Only mark a key played after the animation finishes. Marking on start made
+  // StrictMode / seat remounts skip the rise after the first mount aborted.
+  // While still frozen (static footprint), do not burn the key — the seat often
+  // claims before `live` flips and must still rise on the next paint.
   useEffect(() => {
-    if (paused) return
+    if (!spawnKey || prefersReducedMotion()) {
+      if (spawnKey && prefersReducedMotion()) {
+        lastSpawnKey.current = spawnKey
+        playedBotOrbSpawnKeys.add(spawnKey)
+      }
+      return
+    }
+    if (frozen) return
+    if (lastSpawnKey.current === spawnKey || playedBotOrbSpawnKeys.has(spawnKey)) {
+      lastSpawnKey.current = spawnKey
+      return
+    }
+    lastSpawnKey.current = spawnKey
+    const style = spawnStyleFromKey(spawnKey)
+    setSpawnStyle(style)
+    setPlayingShot(null)
+    settleHome()
+    setSpawning(true)
+    const ms = style === 'quick' ? QUICK_SPAWN_MS : FULL_SPAWN_MS
+    const id = window.setTimeout(() => {
+      playedBotOrbSpawnKeys.add(spawnKey)
+      setSpawning(false)
+    }, ms)
+    return () => {
+      window.clearTimeout(id)
+      // Interrupted before finish — allow the next mount to replay this key.
+      setSpawning(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- spawn trigger only
+  }, [spawnKey, frozen])
+
+  // Sync loop motion from props (ignore while a one-shot plays).
+  // While spawning, still store the target mood so it applies the moment spawn ends.
+  useEffect(() => {
+    if (frozen) return
     if (isBotOrbOneShot(motion)) {
+      if (spawning) return
       setPlayingShot(motion)
       return
     }
     setActiveMotion(motion)
     if (!playingShot) setPlayingShot(null)
-  }, [motion, paused])
+  }, [motion, frozen, spawning])
 
-  // Replay one-shot when pulseId changes.
+  // Replay one-shot when pulseId changes (after spawn finishes).
   useEffect(() => {
-    if (paused || !pulseId) return
+    if (frozen || spawning || !pulseId) return
     if (isBotOrbOneShot(motion)) {
       setPlayingShot(motion)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional pulse trigger
-  }, [pulseId])
+  }, [pulseId, spawning])
 
   // One-shot choreography + settle back to base/loop.
   useEffect(() => {
-    if (!playingShot || paused || prefersReducedMotion()) {
-      if (playingShot && (paused || prefersReducedMotion())) {
+    if (!playingShot || frozen || spawning || prefersReducedMotion()) {
+      if (playingShot && (frozen || prefersReducedMotion())) {
         setPlayingShot(null)
       }
       return
@@ -318,13 +528,14 @@ export function BotOrbAvatar({
     void run()
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playingShot, paused])
+  }, [playingShot, frozen, spawning])
 
   // Idle look / blink / squint — skip tiny facepile marks (lists stay CSS-breathe).
   // Threshold 28 so Communication thread headers (28px) still track + look.
   useEffect(() => {
     if (
-      paused ||
+      frozen ||
+      spawning ||
       tracking ||
       busyLoop ||
       playingShot ||
@@ -379,18 +590,18 @@ export function BotOrbAvatar({
       controller.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused, tracking, busyLoop, playingShot, size])
+  }, [frozen, spawning, tracking, busyLoop, playingShot, size])
 
   useEffect(() => {
-    if (!paused) return
+    if (!frozen) return
     settleHome()
     setPlayingShot(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused])
+  }, [frozen])
 
   // Thinking sway.
   useEffect(() => {
-    if (!thinking || paused || tracking || prefersReducedMotion()) return
+    if (!thinking || frozen || tracking || prefersReducedMotion()) return
     const controller = new AbortController()
     const { signal } = controller
 
@@ -418,11 +629,11 @@ export function BotOrbAvatar({
       settleHome()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thinking, paused, tracking])
+  }, [thinking, frozen, tracking])
 
   // Typing: focused down + micro-blink.
   useEffect(() => {
-    if (!typing || paused || tracking || prefersReducedMotion()) return
+    if (!typing || frozen || tracking || prefersReducedMotion()) return
     const controller = new AbortController()
     const { signal } = controller
 
@@ -448,18 +659,41 @@ export function BotOrbAvatar({
       settleHome()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typing, paused, tracking])
+  }, [typing, frozen, tracking])
 
-  // Working: hold a soft focus gaze (chrome/CSS does the pulse).
+  // Working: focused (CSS scaleY) + tight, quick gaze jitter around a rest point.
   useEffect(() => {
-    if (!working || paused || tracking || prefersReducedMotion()) return
+    if (!working || frozen || tracking || prefersReducedMotion()) return
     setThinkSide(null)
-    moveGaze(WORK_GAZE, MS_THINK)
+    setEyeAct('base')
+    const controller = new AbortController()
+    const { signal } = controller
+
+    const run = async () => {
+      try {
+        moveGaze(WORK_FOCUS, MS_WORK_GLANCE)
+        while (!signal.aborted) {
+          // Alternate axis-biased nudges so it reads as busy focus, not random spasms.
+          const axis = Math.random()
+          const nx = axis < 0.55 ? (Math.random() < 0.5 ? -1 : 1) * randBetween(0.2, WORK_JITTER_X) : randBetween(-0.25, 0.25)
+          const ny = axis >= 0.45 ? (Math.random() < 0.5 ? -1 : 1) * randBetween(0.15, WORK_JITTER_Y) : randBetween(-0.2, 0.2)
+          moveGaze({ x: WORK_FOCUS.x + nx, y: WORK_FOCUS.y + ny }, MS_WORK_GLANCE)
+          await sleep(randBetween(55, 95), signal)
+          moveGaze(WORK_FOCUS, MS_WORK_GLANCE)
+          await sleep(randBetween(40, 70), signal)
+        }
+      } catch {
+        // aborted
+      }
+    }
+
+    void run()
     return () => {
+      controller.abort()
       settleHome()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [working, paused, tracking])
+  }, [working, frozen, tracking])
 
   // Pointer tracking — idle only; 28px+ (thread header + heroes).
   useEffect(() => {
@@ -550,23 +784,30 @@ export function BotOrbAvatar({
     ? { 'aria-hidden': true as const }
     : { role: 'img' as const, 'aria-label': label }
 
-  const dataMotion = paused ? 'paused' : displayMotion
-  const showChrome = !paused && !prefersReducedMotion()
-  const showRing =
-    showChrome && (displayMotion === 'working' || displayMotion === 'thinking' || displayMotion === 'typing')
-  const showLoad =
-    showChrome && (displayMotion === 'thinking' || displayMotion === 'typing')
+  const dataMotion = frozen || spawning ? (frozen ? 'paused' : 'idle') : displayMotion
+  const showChrome = !frozen && !spawning && !prefersReducedMotion()
+  const orbitRings = showChrome ? orbitRingsForMotion(displayMotion) : null
+  const showThinkMark = showChrome && displayMotion === 'thinking'
+  const showTypeDots = showChrome && displayMotion === 'typing'
   const showAlert = showChrome && displayMotion === 'alert'
   const showShotBody =
     displayMotion === 'yes' ||
     displayMotion === 'no' ||
     displayMotion === 'jump' ||
     displayMotion === 'alert'
+  const orbitBackClipId = `bot-orb-orbit-back-${uid}`
+  const orbitFrontClipId = `bot-orb-orbit-front-${uid}`
 
   return (
     <span
       ref={rootRef}
-      className={cn('bot-orb', paused && 'bot-orb--paused', className)}
+      className={cn(
+        'bot-orb',
+        frozen && 'bot-orb--paused',
+        spawning && (spawnStyle === 'quick' ? 'bot-orb--quickspawn' : 'bot-orb--spawn'),
+        stackOutline && 'bot-orb--stack',
+        className,
+      )}
       style={style}
       data-testid="bot-orb-avatar"
       data-shape={shapeKey}
@@ -595,45 +836,22 @@ export function BotOrbAvatar({
           >
             <path d={faceClip} fill="#ffffff" fillRule="nonzero" />
           </mask>
+          {/* Local y < 32 = far side of the orbital plane (paints behind the body). */}
+          <clipPath id={orbitBackClipId} clipPathUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="64" height="32" />
+          </clipPath>
+          <clipPath id={orbitFrontClipId} clipPathUnits="userSpaceOnUse">
+            <rect x="0" y="32" width="64" height="32" />
+          </clipPath>
         </defs>
 
-        {/* Lottie-inspired chrome: outer ring + load arc + alert cross */}
-        <g className="bot-orb__chrome" opacity={showChrome ? 1 : 0}>
-          {showRing ? (
-            <circle
-              className="bot-orb__ring"
-              cx="32"
-              cy="32"
-              r="30.5"
-              fill="none"
-              stroke="var(--bot-orb-color)"
-              strokeWidth="1.4"
-              strokeOpacity="0.45"
-              strokeDasharray={displayMotion === 'thinking' ? '8 6' : displayMotion === 'typing' ? '4 10' : '48 12'}
-            />
-          ) : null}
-          {showLoad ? (
-            <circle
-              className="bot-orb__load"
-              cx="32"
-              cy="32"
-              r="30.5"
-              fill="none"
-              stroke="var(--bot-orb-color)"
-              strokeWidth="2"
-              strokeOpacity="0.75"
-              strokeLinecap="round"
-              strokeDasharray="14 180"
-            />
-          ) : null}
-          {showAlert ? (
-            <g className="bot-orb__alert-cross" stroke="var(--bot-orb-color)" strokeWidth="2.2" strokeLinecap="round">
-              <line x1="24" y1="24" x2="40" y2="40" />
-              <line x1="40" y1="24" x2="24" y2="40" />
-            </g>
-          ) : null}
-        </g>
+        {/* Orbit back halves — drawn before the body so they pass behind. */}
+        {orbitRings ? (
+          <OrbitHalves rings={orbitRings} clipId={orbitBackClipId} layer="back" />
+        ) : null}
 
+        {/* Figure scales as one unit (e.g. working shrink) so eyes stay locked to the body. */}
+        <g className="bot-orb__figure">
         <g
           className={cn(
             'bot-orb__body',
@@ -748,6 +966,77 @@ export function BotOrbAvatar({
             </g>
           </g>
         </g>
+        </g>
+
+        {/* Orbit front halves — after the body so they pass in front. */}
+        {orbitRings ? (
+          <OrbitHalves rings={orbitRings} clipId={orbitFrontClipId} layer="front" />
+        ) : null}
+        {showThinkMark ? (
+          <g transform="translate(48 10) rotate(12)">
+            <g className="bot-orb__think-mark">
+              <text
+                className="bot-orb__badge-glyph"
+                x="0"
+                y="0"
+                fill={BOT_ORB_BADGE_FILL}
+                stroke="var(--bot-orb-badge-edge)"
+                strokeWidth="0.95"
+                paintOrder="stroke fill"
+                strokeLinejoin="round"
+                fontSize="19"
+                fontWeight="700"
+                fontFamily="var(--font-sans), system-ui, sans-serif"
+                textAnchor="middle"
+                dominantBaseline="central"
+              >
+                ?
+              </text>
+            </g>
+          </g>
+        ) : null}
+        {showTypeDots ? (
+          <g className="bot-orb__type-dots" transform="translate(32 56)">
+            <circle
+              className="bot-orb__type-dot bot-orb__badge-glyph"
+              cx="-8.5"
+              cy="0"
+              r="2.8"
+              fill={BOT_ORB_BADGE_FILL}
+              stroke="var(--bot-orb-badge-edge)"
+              strokeWidth="0.7"
+            />
+            <circle
+              className="bot-orb__type-dot bot-orb__badge-glyph"
+              cx="0"
+              cy="0"
+              r="2.8"
+              fill={BOT_ORB_BADGE_FILL}
+              stroke="var(--bot-orb-badge-edge)"
+              strokeWidth="0.7"
+            />
+            <circle
+              className="bot-orb__type-dot bot-orb__badge-glyph"
+              cx="8.5"
+              cy="0"
+              r="2.8"
+              fill={BOT_ORB_BADGE_FILL}
+              stroke="var(--bot-orb-badge-edge)"
+              strokeWidth="0.7"
+            />
+          </g>
+        ) : null}
+        {showAlert ? (
+          <g
+            className="bot-orb__alert-cross"
+            stroke="var(--bot-orb-color)"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          >
+            <line x1="24" y1="24" x2="40" y2="40" />
+            <line x1="40" y1="24" x2="24" y2="40" />
+          </g>
+        ) : null}
       </svg>
     </span>
   )

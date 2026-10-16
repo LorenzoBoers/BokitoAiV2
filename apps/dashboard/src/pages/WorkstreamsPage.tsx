@@ -25,11 +25,11 @@ import {
 } from '../components/ui/dialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
-import { Hashtag } from '../components/ui/HashtagMark'
+import { TagPill } from '../components/ui/TagPill'
 import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
 import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { flowTitle } from '../lib/flow-title'
+import { flowActionTag, flowTitle } from '../lib/flow-title'
 import { normalizeHashtag, stripHash } from '../lib/hashtag'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listSignalTags, type SignalTag } from '../lib/signals-api'
@@ -270,22 +270,15 @@ function CreateFlowDialog({
               aria-label={t('workstreamsPage.dialogTagsAria')}
             >
               {matches.map((tag) => (
-                <button
+                <TagPill
                   key={tag.id}
-                  type="button"
-                  role="option"
+                  names={tag.name}
+                  tone={tag.isCategory ? 'action' : 'free'}
+                  size="sm"
                   disabled={creating}
-                  onClick={() => void createWithName(tag.name)}
-                  className={cn(
-                    'inline-flex max-w-full items-center gap-0.5 rounded-md bg-bg-surface px-2.5 py-1',
-                    'text-xs font-medium text-text-primary ring-1 ring-inset ring-border/50 transition-colors',
-                    'hover:bg-accent/12 hover:text-accent hover:ring-accent/25',
-                    'disabled:pointer-events-none disabled:opacity-60',
-                  )}
                   title={tag.description || undefined}
-                >
-                  <Hashtag name={tag.name} category={tag.isCategory} className="text-xs" />
-                </button>
+                  onClick={() => void createWithName(tag.name)}
+                />
               ))}
             </div>
           ) : canCreateTag ? (
@@ -333,13 +326,15 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
     .map((id) => ({ id, name: projectNames.get(id) }))
     .filter((p): p is { id: string; name: string } => Boolean(p.name))
   const href = workstreamPath(ws.id)
+  const title = flowTitle(ws)
+  const actionTag = flowActionTag(ws)
 
   // The row opens the flow; the project chips inside open their folder.
   return (
     <div
       role="link"
       tabIndex={0}
-      aria-label={flowTitle(ws)}
+      aria-label={title}
       onClick={() => navigate(href)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -355,10 +350,9 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
       data-testid="flow-row"
     >
       <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-text-heading">
-            <Hashtag name={flowTitle(ws)} category />
-          </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate text-sm font-semibold text-text-heading">{title}</span>
+          {actionTag ? <TagPill names={actionTag} tone="action" size="sm" /> : null}
           {!ws.enabled ? (
             <Badge variant="neutral" size="sm">
               {t('workstreamsPage.deactivated')}

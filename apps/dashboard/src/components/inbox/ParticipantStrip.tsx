@@ -1,5 +1,4 @@
-import { AiAvatar } from '../ui/AiAvatar'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { ParticipantMark } from '../ui/ParticipantMark'
 import type { ThreadActiveTurn, ThreadParticipant } from '../../lib/inbox-api'
 
 type Props = {
@@ -45,13 +44,7 @@ export function ParticipantStrip({
                   : 'inline-flex rounded-full ring-1 ring-bg-surface'
               }
             >
-              {p.kind === 'agent' ? (
-                <AiAvatar {...toAiAvatarProps(p)} size={18} decorative />
-              ) : (
-                <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-bg-hover text-[9px] font-medium text-text-muted">
-                  {(p.name || p.kind).slice(0, 1).toUpperCase()}
-                </span>
-              )}
+              <ParticipantMark participant={p} size={18} />
             </span>
           )
         })}

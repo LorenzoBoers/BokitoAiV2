@@ -12,13 +12,15 @@ import {
   Repeat,
   Trash2,
 } from 'lucide-react'
+import { AgentMark } from '../ui/AgentMark'
 import { AiAvatar } from '../ui/AiAvatar'
 import { ContactAvatar } from '../ui/ContactAvatar'
-import { TeamAvatar } from '../ui/TeamAvatar'
+import { TeamFacepile } from '../ui/TeamFacepile'
 import { UserAvatar } from '../ui/UserAvatar'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
+import { preferLiveAgentAvatar, toAiAvatarProps } from '../../lib/agent-avatar'
 import { agentPresenceOf } from '../../hooks/useAgentPresence'
+import { useAgents } from '../../hooks/useAgents'
+import { useTeams } from '../../hooks/useTeams'
 import type { PresenceStatus } from '../../lib/teams-api'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
@@ -81,6 +83,7 @@ type Props = {
   assigneeAvatarKind?: string | null
   assigneeAvatarIcon?: string | null
   assigneeAvatarColor?: string | null
+  assigneeAvatarShape?: string | null
   assigneeAvatarImageUrl?: string | null
   compact?: boolean
   /** Hide pin/read/close controls (Overview and other link-style lists). */
@@ -161,6 +164,7 @@ function ThreadListItem({
   assigneeAvatarKind = null,
   assigneeAvatarIcon = null,
   assigneeAvatarColor = null,
+  assigneeAvatarShape = null,
   assigneeAvatarImageUrl = null,
   compact = false,
   showActions = true,
@@ -169,6 +173,8 @@ function ThreadListItem({
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
+  const { teams } = useTeams()
+  const { agents } = useAgents()
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
   const scheduleAt = thread.schedule?.nextRunAt ?? thread.nextAt
   const scheduleDue = (parseServerTime(scheduleAt)?.getTime() ?? Infinity) <= Date.now()
@@ -329,6 +335,7 @@ function ThreadListItem({
             size={28}
             className="mt-0.5"
             decorative
+            mode="static"
           />
         ) : (
           <ContactAvatar
@@ -516,30 +523,39 @@ function ThreadListItem({
                   {assigneeName && !isDirect ? (
                     <div className="flex min-w-0 shrink items-center gap-1">
                       {assigneeKind === 'team' ? (
-                        <TeamAvatar
-                          {...toTeamAvatarProps({
-                            id: assigneeSeed,
-                            name: assigneeName,
-                            avatar_kind: assigneeAvatarKind,
-                            avatar_icon: assigneeAvatarIcon,
-                            avatar_color: assigneeAvatarColor,
-                            avatar_image_url: assigneeAvatarImageUrl,
-                          })}
+                        <TeamFacepile
+                          team={
+                            (assigneeSeed ? teams.find((row) => row.id === assigneeSeed) : null) ?? {
+                              id: assigneeSeed ?? undefined,
+                              name: assigneeName,
+                              avatar_kind: assigneeAvatarKind,
+                              avatar_icon: assigneeAvatarIcon,
+                              avatar_color: assigneeAvatarColor,
+                              avatar_image_url: assigneeAvatarImageUrl,
+                            }
+                          }
                           size={14}
-                          decorative
+                          linkAgents={false}
                           presence={assigneePresence}
                         />
                       ) : assigneeKind === 'agent' ? (
-                        <AiAvatar
-                          {...toAiAvatarProps({
-                            id: assigneeSeed,
-                            name: assigneeName,
-                            avatar_kind: assigneeAvatarKind,
-                            avatar_icon: assigneeAvatarIcon,
-                            avatar_image_url: assigneeAvatarImageUrl,
-                          })}
+                        <AgentMark
+                          agent={preferLiveAgentAvatar(
+                            assigneeSeed ? agents.find((row) => row.id === assigneeSeed) : null,
+                            {
+                              id: assigneeSeed,
+                              name: assigneeName,
+                              avatar_kind: assigneeAvatarKind,
+                              avatar_icon: assigneeAvatarIcon,
+                              avatar_color: assigneeAvatarColor,
+                              avatar_shape: assigneeAvatarShape,
+                              avatar_image_url: assigneeAvatarImageUrl,
+                            },
+                          )}
+                          fallbackName={assigneeName || 'Agent'}
                           size={14}
                           decorative
+                          mode="static"
                           activity={assigneeSeed ? agentPresenceOf(assigneeSeed) : 'standby'}
                         />
                       ) : (
@@ -565,19 +581,24 @@ function ThreadListItem({
                   ) : null}
                   <div className="flex min-w-0 flex-wrap items-center gap-1">
                     {ticket ? (
-                      <span
-                        className="tag-pill inline-flex h-6 max-w-full items-center gap-1.5 rounded-full bg-accent/18 px-2.5 text-2xs font-medium text-accent"
-                        title={ticket.stage ? `${ticket.name} · ${stageLabel(ticket.stage, t)}` : ticket.name}
-                        data-testid="thread-row-ticket"
-                      >
-                        <HashtagMark category />
-                        <span className="truncate">{ticket.name}</span>
-                        {ticket.stage ? (
-                          <>
-                            <StageProgressIcon kind={ticket.stage.kind} className="size-3" />
-                            <span className="truncate">{stageLabel(ticket.stage, t)}</span>
-                          </>
-                        ) : null}
+                      <span data-testid="thread-row-ticket">
+                        <TagPill
+                          names={ticket.name}
+                          tone="action"
+                          size="sm"
+                          title={ticket.stage ? `${ticket.name} · ${stageLabel(ticket.stage, t)}` : ticket.name}
+                        >
+                          <span className="inline-flex min-w-0 items-center gap-1">
+                            <HashtagMark category className="h-2 w-2" />
+                            <span className="truncate">{ticket.name}</span>
+                            {ticket.stage ? (
+                              <>
+                                <StageProgressIcon kind={ticket.stage.kind} className="size-3" />
+                                <span className="truncate">{stageLabel(ticket.stage, t)}</span>
+                              </>
+                            ) : null}
+                          </span>
+                        </TagPill>
                       </span>
                     ) : null}
                     {freeTags.map((tag) => (

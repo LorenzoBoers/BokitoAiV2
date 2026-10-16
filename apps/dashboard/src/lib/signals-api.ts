@@ -414,6 +414,7 @@ export async function getSignalThread(
         name: typeof row.name === 'string' ? row.name : '',
         email: typeof row.email === 'string' ? row.email : '',
         joined_via: typeof row.joined_via === 'string' ? row.joined_via : '',
+        avatar_url: typeof row.avatar_url === 'string' ? row.avatar_url : null,
         avatar_kind: typeof row.avatar_kind === 'string' ? row.avatar_kind : null,
         avatar_icon: typeof row.avatar_icon === 'string' ? row.avatar_icon : null,
         avatar_color: typeof row.avatar_color === 'string' ? row.avatar_color : null,
@@ -441,6 +442,29 @@ export async function getSignalThread(
           streak: typeof activeRow.streak === 'number' ? activeRow.streak : undefined,
         }
       : null
+  const handoffRaw = payload.handoff_session
+  const handoffRow =
+    handoffRaw && typeof handoffRaw === 'object'
+      ? (handoffRaw as Record<string, unknown>)
+      : null
+  const handoffSession =
+    handoffRow && typeof handoffRow.id === 'string'
+      ? {
+          id: handoffRow.id,
+          status: typeof handoffRow.status === 'string' ? handoffRow.status : 'open',
+          depth: typeof handoffRow.depth === 'number' ? handoffRow.depth : undefined,
+          openerId:
+            typeof handoffRow.opener_id === 'string' ? handoffRow.opener_id : undefined,
+          openerName:
+            typeof handoffRow.opener_name === 'string' ? handoffRow.opener_name : undefined,
+          agentIds: Array.isArray(handoffRow.agent_ids)
+            ? handoffRow.agent_ids.map(String)
+            : undefined,
+          humanIds: Array.isArray(handoffRow.human_ids)
+            ? handoffRow.human_ids.map(String)
+            : undefined,
+        }
+      : null
   return {
     thread,
     messages,
@@ -450,6 +474,7 @@ export async function getSignalThread(
       .filter((s): s is ThreadSession => s !== null),
     participants,
     activeTurn,
+    handoffSession,
     csat,
     hasOlder: Boolean(payload.has_older),
     oldestMessageId:
@@ -743,9 +768,11 @@ export async function addNoteToSignalThread(
   threadId: string,
   bodyText: string,
   attachments?: ReplyInput['attachments'],
+  opts?: { asChat?: boolean },
 ): Promise<InboxMessage | null> {
   const body: Record<string, unknown> = { body_text: bodyText }
   if (attachments?.length) body.attachments = attachments
+  if (opts?.asChat) body.as_chat = true
   const payload = await apiPost<unknown>(
     appRoutes.signals.threadNotes(threadId),
     body,
@@ -1359,9 +1386,26 @@ export type ReactionKind =
   | 'up'
   | 'down'
   | 'hundred'
-  | 'angry'
+  | 'facepalm'
+  | 'clap'
   | 'thinking'
   | 'investigating'
+
+const REACTION_KIND_SET = new Set<string>([
+  'up',
+  'down',
+  'hundred',
+  'facepalm',
+  'clap',
+  'thinking',
+  'investigating',
+])
+
+function asReactionKind(value: unknown): ReactionKind | null {
+  const raw = String(value || '')
+  const kind = raw === 'angry' ? 'facepalm' : raw
+  return REACTION_KIND_SET.has(kind) ? (kind as ReactionKind) : null
+}
 
 export type MessageReactionAggregate = {
   kinds: Array<{
@@ -1381,17 +1425,8 @@ export function normalizeMessageReactions(raw: unknown): MessageReactionAggregat
     .map((row) => {
       if (!row || typeof row !== 'object') return null
       const r = row as Record<string, unknown>
-      const kind = String(r.kind || '') as ReactionKind
-      if (
-        kind !== 'up' &&
-        kind !== 'down' &&
-        kind !== 'hundred' &&
-        kind !== 'angry' &&
-        kind !== 'thinking' &&
-        kind !== 'investigating'
-      ) {
-        return null
-      }
+      const kind = asReactionKind(r.kind)
+      if (!kind) return null
       const reactors = Array.isArray(r.reactors)
         ? r.reactors
             .map((item) => {
@@ -1414,16 +1449,7 @@ export function normalizeMessageReactions(raw: unknown): MessageReactionAggregat
       }
     })
     .filter((x): x is NonNullable<typeof x> => x != null)
-  const mineRaw = data.mine
-  const mine =
-    mineRaw === 'up' ||
-    mineRaw === 'down' ||
-    mineRaw === 'hundred' ||
-    mineRaw === 'angry' ||
-    mineRaw === 'thinking' ||
-    mineRaw === 'investigating'
-      ? mineRaw
-      : null
+  const mine = asReactionKind(data.mine)
   return { kinds, mine }
 }
 
@@ -1502,6 +1528,7 @@ export type AssigneeCandidates = {
       kind: 'people' | 'agents' | 'custom'
       canHandle: boolean
       presence?: PresenceStatus
+      members: Array<{ kind: 'user' | 'agent'; id: string }>
     } & AssigneeAvatarFields
   >
 }
@@ -1556,12 +1583,20 @@ export async function listSignalAssignees(token: string, threadId: string): Prom
       const presenceRaw = raw.presence && typeof raw.presence === 'object'
         ? (raw.presence as Record<string, unknown>).status
         : raw.presence
+      const memberRows = Array.isArray(raw.members) ? raw.members : []
       return {
         id: asString(raw.id),
         name: asString(raw.name),
         kind: raw.kind === 'people' || raw.kind === 'agents' ? raw.kind : 'custom',
         canHandle: raw.can_handle !== false,
         presence: parsePresenceStatus(presenceRaw),
+        members: memberRows
+          .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+          .map((row) => ({
+            kind: row.kind === 'agent' ? ('agent' as const) : ('user' as const),
+            id: asString(row.id),
+          }))
+          .filter((row) => row.id),
         avatarKind: typeof raw.avatar_kind === 'string' ? raw.avatar_kind : null,
         avatarIcon: typeof raw.avatar_icon === 'string' ? raw.avatar_icon : null,
         avatarColor: typeof raw.avatar_color === 'string' ? raw.avatar_color : null,
@@ -1852,12 +1887,15 @@ export async function bokitoStreamMessage(
      * appending a duplicate user bubble.
      */
     continuePending?: boolean
+    /** Focused / @-tagged agent on an internal thread (not always the channel default). */
+    agentId?: string | null
   },
 ): Promise<string> {
   const payload: Record<string, unknown> = { content }
   if (options?.pageContext) payload.page_context = options.pageContext
   if (options?.attachments?.length) payload.attachments = options.attachments
   if (options?.continuePending) payload.continue_pending = true
+  if (options?.agentId) payload.agent_id = options.agentId
   const res = await fetch(
     `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
     {

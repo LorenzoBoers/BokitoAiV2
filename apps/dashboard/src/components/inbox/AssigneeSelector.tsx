@@ -7,14 +7,13 @@ import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { agentPresenceOf, seedAgentPresence, useAgentPresence } from '../../hooks/useAgentPresence'
-import { AiAvatar } from '../ui/AiAvatar'
-import { TeamAvatar } from '../ui/TeamAvatar'
+import { AgentMark } from '../ui/AgentMark'
+import { TeamFacepile } from '../ui/TeamFacepile'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { cn } from '../../lib/utils'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
+import { preferLiveAgentAvatar } from '../../lib/agent-avatar'
 import type { AssigneeInput, ThreadOwner } from '../../lib/inbox-api'
 import { listSignalAssignees, type AssigneeCandidates } from '../../lib/signals-api'
 import {
@@ -112,18 +111,21 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
   const currentAgent = useMemo(() => {
     if (owner?.kind !== 'agent' || !owner.agentId) return null
     const fromCandidates = candidates?.agents.find((a) => a.id === owner.agentId)
-    if (fromCandidates) {
-      return {
-        id: fromCandidates.id,
-        name: fromCandidates.name,
-        avatar_kind: fromCandidates.avatarKind,
-        avatar_icon: fromCandidates.avatarIcon,
-        avatar_color: fromCandidates.avatarColor,
-        avatar_shape: fromCandidates.avatarShape,
-        avatar_image_url: fromCandidates.avatarImageUrl,
-      }
-    }
-    return agents.find((a) => a.id === owner.agentId) ?? null
+    const stamped = fromCandidates
+      ? {
+          id: fromCandidates.id,
+          name: fromCandidates.name,
+          avatarKind: fromCandidates.avatarKind,
+          avatarIcon: fromCandidates.avatarIcon,
+          avatarColor: fromCandidates.avatarColor,
+          avatarShape: fromCandidates.avatarShape,
+          avatarImageUrl: fromCandidates.avatarImageUrl,
+        }
+      : { id: owner.agentId, name: owner.agentId }
+    return preferLiveAgentAvatar(
+      agents.find((a) => a.id === owner.agentId),
+      stamped,
+    )
   }, [owner, candidates, agents])
 
   const triggerMark = currentMember ? (
@@ -136,17 +138,14 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
       decorative
     />
   ) : owner?.kind === 'team' && currentTeam ? (
-    <TeamAvatar
-      {...toTeamAvatarProps(currentTeam)}
-      size={18}
-      decorative
-      presence={currentTeam.presence?.status}
-    />
+    <TeamFacepile team={currentTeam} size={18} linkAgents={false} presence={currentTeam.presence?.status} />
   ) : owner?.kind === 'agent' && owner.agentId ? (
-    <AiAvatar
-      {...toAiAvatarProps(currentAgent ?? { id: owner.agentId, name: owner.agentId })}
+    <AgentMark
+      agent={currentAgent}
+      fallbackName={owner.agentId}
       size={18}
       decorative
+      mode="static"
       activity={currentAgentActivity}
     />
   ) : (
@@ -231,18 +230,15 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   onSelect={() => setHandover({ kind: 'agent', id: a.id, name: a.name })}
                   className={cn('gap-2 text-xs', owner?.kind === 'agent' && owner.agentId === a.id && 'bg-bg-hover/80')}
                 >
-                  <AiAvatar
-                    {...toAiAvatarProps({
-                      id: a.id,
-                      name: a.name,
-                      avatarKind: a.avatarKind,
-                      avatarIcon: a.avatarIcon,
-                      avatarColor: a.avatarColor,
-                      avatarShape: a.avatarShape,
-                      avatarImageUrl: a.avatarImageUrl,
-                    })}
+                  <AgentMark
+                    agent={preferLiveAgentAvatar(
+                      agents.find((row) => row.id === a.id),
+                      a,
+                    )}
+                    fallbackName={a.name}
                     size={18}
                     decorative
+                    mode="static"
                     activity={agentPresenceOf(a.id)}
                   />
                   <span className="min-w-0 flex-1 truncate">{a.name}</span>
@@ -256,17 +252,18 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   onSelect={() => setHandover({ kind: 'team', id: team.id, name: teamLabel(team) })}
                   className={cn('gap-2 text-xs', owner?.kind === 'team' && owner.teamId === team.id && 'bg-bg-hover/80')}
                 >
-                  <TeamAvatar
-                    {...toTeamAvatarProps({
+                  <TeamFacepile
+                    team={{
                       id: team.id,
                       name: teamLabel(team),
+                      members: team.members,
                       avatar_kind: team.avatarKind,
                       avatar_icon: team.avatarIcon,
                       avatar_color: team.avatarColor,
                       avatar_image_url: team.avatarImageUrl,
-                    })}
+                    }}
                     size={18}
-                    decorative
+                    linkAgents={false}
                     presence={team.presence}
                   />
                   <span className="min-w-0 flex-1 truncate">{teamLabel(team)}</span>

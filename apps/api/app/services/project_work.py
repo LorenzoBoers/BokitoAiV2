@@ -1233,11 +1233,14 @@ async def start_queue_item_analysis(
             ctx = {}
     except json.JSONDecodeError:
         ctx = {}
-    ctx["workstream_run_id"] = str(run.id)
+    ctx["workstream_id"] = str(run.workstream_id) if run.workstream_id else None
     item.context_json = json.dumps(ctx)
     session.add(item)
     await session.commit()
-    return {"task_id": str(item.id), "workstream_run_id": str(run.id)}
+    return {
+        "task_id": str(item.id),
+        "workstream_id": str(run.workstream_id) if run.workstream_id else None,
+    }
 
 
 async def start_queue_item_verification(

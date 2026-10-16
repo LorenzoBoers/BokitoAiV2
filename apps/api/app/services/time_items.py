@@ -33,7 +33,7 @@ from datetime import datetime
 from typing import Any, Iterable
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent, AgentRun
@@ -327,7 +327,7 @@ async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) ->
     mine = (
         Signal.tenant_id == tenant_id,
         Signal.assignee_kind == "user",
-        Signal.assigned_user_id == user_id,
+        and_(Signal.assignee_kind == "user", Signal.assignee_id == user_id),
         Signal.status == "open",
     )
     came_back = (
@@ -807,7 +807,7 @@ async def _activity(
         owned_by_user = select(Signal.id).where(
             Signal.tenant_id == tenant_id,
             Signal.assignee_kind == "user",
-            Signal.assigned_user_id == user_id,
+            and_(Signal.assignee_kind == "user", Signal.assignee_id == user_id),
         )
         event_stmt = event_stmt.where(
             or_(SignalEvent.actor_id == str(user_id), SignalEvent.signal_id.in_(owned_by_user))

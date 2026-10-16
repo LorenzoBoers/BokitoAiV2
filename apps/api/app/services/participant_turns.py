@@ -48,6 +48,49 @@ def clear_active_turn(signal: Signal, *, reset_streak: bool = False) -> None:
         signal.active_turn_json = "{}"
 
 
+async def clear_ask_floor_chip(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    agent_id: UUID | None,
+) -> bool:
+    """Drop a UI-only floor chip after Ask/chat finishes for ``agent_id``.
+
+    Internal Ask sets ``active_turn`` with ``run=false`` so the header can show
+    “Waiting on …”. That chip has no ``claimed_at`` and is never cleared by the
+    worker path — without this, the client invents a stuck “Nadenken” row.
+    Does not touch deferred / claimed worker floors (peer baton).
+    """
+    if agent_id is None:
+        return False
+    floor = _parse_active(signal)
+    if not floor.get("ref_id") or not floor.get("nonce"):
+        return False
+    if str(floor.get("ref_id")) != str(agent_id):
+        return False
+    if floor.get("kind") not in (None, "agent", "agent_id"):
+        return False
+    # Worker / deferred peer turns must keep the floor.
+    if floor.get("claimed_at") or floor.get("deferred") or floor.get("enqueued"):
+        return False
+    clear_active_turn(signal)
+    session.add(signal)
+    try:
+        await publish_thread_presence(
+            signal.tenant_id,
+            signal.id,
+            phase="idle",
+            actor_kind="agent",
+            actor_id=str(agent_id),
+            actor_name=str(floor.get("name") or ""),
+            item={"active_turn": None},
+        )
+        await publish_thread_update(signal)
+    except Exception:  # noqa: BLE001
+        logger.debug("publish clear ask floor failed", exc_info=True)
+    return True
+
+
 def _next_chain_streak(active: dict[str, Any], *, requested_by_kind: str) -> int:
     """Count agent↔agent floors in one chain; user starts fresh; idle remnant expires."""
     if requested_by_kind == "user":
@@ -90,6 +133,32 @@ def _same_open_floor(
     return not _deadline_expired(active)
 
 
+def claim_active_turn(
+    signal: Signal,
+    *,
+    nonce: str,
+) -> dict[str, Any] | None:
+    """Atomically mark the open floor as claimed for ``nonce``.
+
+    Returns the claimed floor dict, or ``None`` when the nonce is stale,
+    already claimed, or the deadline passed. Callers must ``flush`` after.
+    """
+    active = _parse_active(signal)
+    if not nonce or active.get("nonce") != nonce:
+        return None
+    if active.get("claimed_at"):
+        return None
+    if _deadline_expired(active):
+        return None
+    claimed = {
+        **active,
+        "claimed_at": datetime.utcnow().isoformat(),
+        "deferred": False,
+    }
+    signal.active_turn_json = json.dumps(claimed)
+    return claimed
+
+
 async def request_participant_turn(
     session: AsyncSession,
     signal: Signal,
@@ -102,12 +171,15 @@ async def request_participant_turn(
     requested_by_id: UUID | None = None,
     run: bool = True,
     enqueue: bool = True,
+    defer_peer: bool | None = None,
 ) -> dict[str, Any]:
     """Give the floor to a participant agent and optionally run their turn.
 
     When an *agent* requests a peer turn mid-loop, the floor is claimed with
     ``deferred=True`` so the peer starts only after the caller persists (see
     ``flush_deferred_participant_turn``). System/user wakes enqueue immediately.
+    Nested handoffs pass ``defer_peer=False`` because the opener already
+    persisted before ``nest_handoff``.
 
     When ``run`` and ``enqueue`` are true (non-deferred), the turn is queued on
     the ARQ worker. If Redis is down, the turn runs in-process.
@@ -182,7 +254,12 @@ async def request_participant_turn(
     )
     peers = await serialize_participants(session, signal.tenant_id, signal.id)
     # Agent callers are mid-turn; defer the peer until the caller persists.
-    defer = bool(run and requested_by_kind == "agent")
+    # Nested batons set defer_peer=False (opener already wrote their bubble).
+    defer = (
+        bool(defer_peer)
+        if defer_peer is not None
+        else bool(run and requested_by_kind == "agent")
+    )
     now_iso = datetime.utcnow().isoformat()
     floor = {
         "kind": member_kind,
@@ -227,9 +304,14 @@ async def request_participant_turn(
         return {"ok": True, "outcome": "requested", "active_turn": floor, "peers": peers}
 
     if defer:
-        # Ask/operator chat often persists on a child session while the floor
-        # lives on the host thread — so also schedule a delayed enqueue. The
-        # persist_turn flush can still start earlier when the same signal is used.
+        # Safety net only: Ask/child sessions persist on a child signal, so
+        # host ``flush_deferred_participant_turn`` may never run. Host-thread
+        # persist flushes immediately and claims first — the delayed job then
+        # exits as already_claimed / stale_nonce (no second bubble).
+        floor = {**floor, "enqueued": True}
+        signal.active_turn_json = json.dumps(floor)
+        session.add(signal)
+        await session.flush()
         started = await _start_or_enqueue_turn(
             session,
             signal,
@@ -413,7 +495,18 @@ async def flush_deferred_participant_turn(
             requested_by_id = None
 
     peers = await serialize_participants(session, signal.tenant_id, signal.id)
-    floor = {**floor, "deferred": False}
+    nonce = str(floor.get("nonce") or "")
+    # Already running — only clear the deferred flag.
+    if floor.get("claimed_at"):
+        floor = {**floor, "deferred": False}
+        signal.active_turn_json = json.dumps(floor)
+        session.add(signal)
+        await session.flush()
+        return {"ok": True, "outcome": "already_claimed", "active_turn": floor, "peers": peers}
+
+    # Prefer an immediate job on persist so the peer does not wait for the
+    # 3s safety enqueue. A twin job (safety net) exits via claim_active_turn.
+    floor = {**floor, "deferred": False, "enqueued": True}
     signal.active_turn_json = json.dumps(floor)
     session.add(signal)
     await session.flush()
@@ -423,12 +516,13 @@ async def flush_deferred_participant_turn(
         signal,
         agent=agent,
         prompt=str(floor.get("prompt") or ""),
-        nonce=str(floor.get("nonce") or ""),
+        nonce=nonce,
         requested_by_kind=str(floor.get("requested_by_kind") or "agent"),
         requested_by_id=requested_by_id,
         peers=peers,
         enqueue=True,
         floor=floor,
+        defer_by_s=0,
     )
 
 
@@ -444,6 +538,18 @@ async def execute_participant_turn(
     peers: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run the agent turn after the floor is already set."""
+    # Re-validate: another worker may have claimed or cleared this nonce.
+    active = _parse_active(signal)
+    if nonce and active.get("nonce") != nonce:
+        return {"ok": False, "error": "stale_nonce", "outcome": "stale"}
+    if nonce and not active.get("claimed_at"):
+        claimed = claim_active_turn(signal, nonce=nonce)
+        if claimed is None:
+            return {"ok": False, "error": "already_claimed", "outcome": "stale"}
+        session.add(signal)
+        await session.flush()
+        active = claimed
+
     peers = peers if peers is not None else await serialize_participants(
         session, signal.tenant_id, signal.id
     )
@@ -489,6 +595,50 @@ async def execute_participant_turn(
         logger.exception("participant turn failed")
         clear_active_turn(signal)
         session.add(signal)
+        error_text = (
+            "The assistant encountered an error while generating a reply. "
+            "Please try again in a moment."
+        )
+        had_partial = False
+        # Same contract as Ask crash: never leave in_progress tool trail stuck.
+        try:
+            from app.services.agent.turn_persist import seal_in_progress_checkpoints
+
+            checkpoint_id = getattr(loop, "_checkpoint_message_id", None)
+            had_partial = bool(checkpoint_id) or (
+                loop.turn is not None
+                and bool(getattr(loop.turn, "all_activity", lambda: [])())
+            )
+            sealed = False
+            if loop.turn is not None:
+                try:
+                    await loop.persist_turn(
+                        signal,
+                        metadata={"error": True, "participant_turn": True},
+                        final_metadata={"error": True, "participant_turn": True},
+                        fallback_text=error_text,
+                    )
+                    sealed = True
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "persist participant turn after failure failed for %s",
+                        signal.id,
+                    )
+            if not sealed:
+                rewritten = await seal_in_progress_checkpoints(
+                    session,
+                    signal,
+                    error_text=error_text,
+                    author_agent_id=agent.id,
+                    replace_with_error=True,
+                    checkpoint_message_id=checkpoint_id,
+                )
+                had_partial = had_partial or bool(rewritten)
+            else:
+                await seal_in_progress_checkpoints(session, signal)
+        except Exception:  # noqa: BLE001
+            logger.exception("seal after participant turn failure failed")
+            had_partial = False
         session.add(
             SignalEvent(
                 signal_id=signal.id,
@@ -522,6 +672,35 @@ async def execute_participant_turn(
             await publish_thread_update(signal)
         except Exception:  # noqa: BLE001
             pass
+        # Wake requester (or the same agent on system wake) so someone tells
+        # the human and can continue unfinished tool work.
+        wake_kind = requested_by_kind
+        wake_id = requested_by_id
+        if wake_kind != "agent" or not wake_id:
+            wake_kind = "agent"
+            wake_id = agent.id
+        if wake_id and (had_partial or wake_id != agent.id):
+            try:
+                await request_participant_turn(
+                    session,
+                    signal,
+                    member_kind="agent",
+                    member_ref_id=wake_id,
+                    prompt=(
+                        f"{agent.name}'s turn failed before it finished "
+                        f"(error for the human: {error_text[:280]}). "
+                        "Tell the human in one short sentence that something went wrong, "
+                        "then continue the unfinished work if you can. "
+                        "Do not pass. Do not say you are still waiting."
+                    ),
+                    requested_by_kind="system",
+                    requested_by_id=None,
+                    run=True,
+                    enqueue=True,
+                    defer_peer=False,
+                )
+            except Exception:  # noqa: BLE001
+                logger.debug("wake after participant turn failure failed", exc_info=True)
         return {"ok": False, "outcome": "error", "error": str(exc)[:300]}
 
     text = text or ""
@@ -570,8 +749,45 @@ async def execute_participant_turn(
     except Exception:  # noqa: BLE001
         pass
 
+    # Opener baton: nest only on real agent-authored turns that still have an
+    # open handoff. System wake-backs must not re-nest when the report @tags
+    # the peer (that caused Extra↔Bokito ping-pong until max_consecutive).
+    if (
+        outcome == "sent"
+        and text.strip()
+        and requested_by_kind != "system"
+    ):
+        try:
+            from app.services.handoff_sessions import get_handoff_session, nest_handoff
+            from app.services.thread_dispatch import entity_mentions
+
+            handoff = get_handoff_session(signal)
+            handoff_open = bool(
+                handoff and handoff.get("status") in ("open", "handed_off")
+            )
+            if handoff_open and len(entity_mentions(text)) >= 1:
+                nested = await nest_handoff(
+                    session,
+                    signal.tenant_id,
+                    signal,
+                    body_text=text,
+                    from_agent_id=agent.id,
+                )
+                if nested.get("ok"):
+                    return {
+                        "ok": True,
+                        "outcome": outcome,
+                        "active_turn": None,
+                        "agent_id": str(agent.id),
+                        "agent_name": agent.name,
+                        "handoff": nested.get("handoff"),
+                    }
+        except Exception:  # noqa: BLE001
+            logger.debug("nest handoff after participant turn failed", exc_info=True)
+
     # Hand the floor back so the requester can report to the operator
     # (including after a peer pass — otherwise Ask/Nadenken lingers with no wake).
+    # Dual jobs cannot both reach here: claim_active_turn is single-winner.
     if (
         outcome in ("sent", "pass")
         and requested_by_kind == "agent"
@@ -579,6 +795,12 @@ async def execute_participant_turn(
         and requested_by_id != agent.id
     ):
         try:
+            from app.services.handoff_sessions import complete_handoff_session
+
+            # Close the tree before the report turn so @peer in the summary
+            # cannot start depth N+1 and burn the streak cap.
+            complete_handoff_session(signal, reason="wake_requester")
+            session.add(signal)
             if outcome == "pass":
                 wake_prompt = (
                     f"{agent.name} passed on their turn (they skipped). "
@@ -592,7 +814,8 @@ async def execute_participant_turn(
                     f"\"{snippet or 'Done.'}\" "
                     "Tell the human in one short sentence what they did "
                     "(use that reply; do not invent other work). "
-                    "Do not pass. Do not say you are still waiting."
+                    "Do not @mention other agents. Do not pass. "
+                    "Do not say you are still waiting."
                 )
             await request_participant_turn(
                 session,

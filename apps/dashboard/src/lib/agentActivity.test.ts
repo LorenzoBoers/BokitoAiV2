@@ -451,7 +451,11 @@ describe('liveTurnOrbMotion', () => {
     expect(liveTurnOrbMotion(turn)).toBe('typing')
   })
 
-  it('returns thinking while waiting and working while tools run', () => {
+  it('returns thinking while waiting with no visible work (Nadenken)', () => {
+    expect(liveTurnOrbMotion({ ...EMPTY_TURN, active: true })).toBe('thinking')
+  })
+
+  it('returns thinking with reasoning text and working while tools run', () => {
     const thinking = { ...EMPTY_TURN, active: true, thinking: { t1: 'hmm' } }
     expect(liveTurnOrbMotion(thinking)).toBe('thinking')
     const working = applyTurnEvent(EMPTY_TURN, 'agent.activity', {
@@ -465,6 +469,22 @@ describe('liveTurnOrbMotion', () => {
       },
     })
     expect(liveTurnOrbMotion(working)).toBe('working')
+  })
+
+  it('stays idle while a proposal is preparing', () => {
+    const preparing = {
+      ...EMPTY_TURN,
+      active: true,
+      entries: [
+        {
+          type: 'activity' as const,
+          item: normalizeActivity([
+            { id: 'p1', kind: 'work', tool: 'propose_action', proposes: true },
+          ])[0],
+        },
+      ],
+    }
+    expect(liveTurnOrbMotion(preparing)).toBe('idle')
   })
 })
 

@@ -28,6 +28,7 @@ ROLE_SLUG_MAP = {
 }
 
 MAX_AGENT_DESCRIPTION = 280
+MAX_AGENT_JOB_TITLE = 20
 
 ROLE_NAME_MAP = {
     "po": "Orchestrator",
@@ -87,6 +88,14 @@ async def assert_unique_agent_name(
 
 def normalize_agent_description(raw: str | None) -> str:
     return (raw or "").strip()[:MAX_AGENT_DESCRIPTION]
+
+
+def normalize_agent_job_title(raw: str | None, *, required: bool = False) -> str:
+    """Trim and cap job title. When required, empty after trim raises 400."""
+    clean = (raw or "").strip()[:MAX_AGENT_JOB_TITLE]
+    if required and not clean:
+        raise HTTPException(status_code=400, detail="Agent job title is required")
+    return clean
 
 
 def _ms(value: datetime | None) -> int:
@@ -153,6 +162,7 @@ def serialize_agent(
     payload: dict[str, Any] = {
         "id": str(agent.id),
         "name": agent.name,
+        "job_title": getattr(agent, "job_title", None) or "",
         "description": agent.description or "",
         "slug": agent.slug or _slugify(agent.name),
         "role": agent.role,
@@ -639,6 +649,7 @@ async def create_agent(
     *,
     name: str,
     role: str = "assistant",
+    job_title: str = "",
     description: str = "",
     system_prompt: str = "",
     tools: list[str] | None = None,
@@ -654,6 +665,7 @@ async def create_agent(
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
     clean_name = await assert_unique_agent_name(session, tenant_id, name)
+    clean_job_title = normalize_agent_job_title(job_title, required=True)
     norm_role = role if role in CREATABLE_AGENT_ROLES else "assistant"
     if chat_access not in ("everyone", "selected", "nobody"):
         chat_access = "nobody"
@@ -703,6 +715,7 @@ async def create_agent(
         kind="company",
         chat_access=chat_access,
         owner_user_id=owner_user_id,
+        job_title=clean_job_title,
         description=normalize_agent_description(description),
         system_prompt=(system_prompt or "").strip(),
         tools_json=json.dumps(tools if tools is not None else default_tools_for_role(norm_role)),
@@ -727,6 +740,7 @@ async def update_agent(
     agent_id: UUID,
     *,
     name: str | None = None,
+    job_title: str | None = None,
     description: str | None = None,
     system_prompt: str | None = None,
     tools: list[str] | None = None,
@@ -755,6 +769,8 @@ async def update_agent(
             session, tenant_id, name, exclude_id=agent.id
         )
         agent.slug = _slugify(agent.name)
+    if job_title is not None:
+        agent.job_title = normalize_agent_job_title(job_title, required=True)
     if description is not None:
         agent.description = normalize_agent_description(description)
     if system_prompt is not None:

@@ -87,6 +87,20 @@ export {
   resolveBotOrbShape as resolveAgentAvatarShape,
 } from './bot-orb-shapes'
 
+/** Lift near-black orb colors so job-title text stays readable on dark surfaces. */
+export function agentProfileAccentColor(hex: string): string {
+  const raw = hex.trim().replace(/^#/, '').toLowerCase()
+  if (!/^[0-9a-f]{6}$/.test(raw)) return hex
+  const r = parseInt(raw.slice(0, 2), 16)
+  const g = parseInt(raw.slice(2, 4), 16)
+  const b = parseInt(raw.slice(4, 6), 16)
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+  if (lum >= 0.32) return `#${raw}`
+  const lift = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.48))
+  const to = (n: number) => n.toString(16).padStart(2, '0')
+  return `#${to(lift(r))}${to(lift(g))}${to(lift(b))}`
+}
+
 export type AgentAvatarKind = 'initials' | 'icon' | 'orb' | 'image'
 
 /** Fields every surface needs to render the same agent mark. */

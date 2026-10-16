@@ -5,10 +5,12 @@ widget, webhook, integration, or internal agent communication). It replaces the
 previously split inbox/email/conversation stacks.
 """
 
+import json
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
+from pydantic import model_validator
 from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
@@ -60,6 +62,21 @@ def is_internal_channel(channel: str) -> bool:
     return channel in ("internal", "assistant")
 
 
+_COMPAT_ATTRS = frozenset(
+    {
+        "assigned_user_id",
+        "assignee_team_id",
+        "turn_user_id",
+        "turn_team_id",
+        "active_turn_json",
+        "handoff_session_json",
+        "last_human_owner_kind",
+        "last_human_owner_user_id",
+        "last_human_owner_team_id",
+    }
+)
+
+
 class Signal(SQLModel, table=True):
     __tablename__ = "signals"
 
@@ -95,29 +112,23 @@ class Signal(SQLModel, table=True):
     # Appointment details: {"note", "location", "attendees", "html_link", "all_day"}.
     schedule_json: str = Field(default="{}")
     priority: str = Field(default="normal", index=True)
-    assigned_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-    # Owner: user (assigned_user_id), agent (agent_id) or team (assignee_team_id).
+    # Owner: assignee_kind + assignee_id (polymorphic). agent_id is the handling
+    # pin and may differ when a team/person owns while an agent drafts.
     # Maintained by services/ownership.py; every conversation has one.
     assignee_kind: str = Field(default="", index=True)  # user | agent | team
-    assignee_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
+    assignee_id: Optional[uuid.UUID] = Field(default=None, index=True)
     assigned_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    # Last person or team that owned this conversation. Set by set_owner for
-    # user/team owners; the escalation chain returns the conversation here
-    # first when the agent hands it back to people.
-    last_human_owner_kind: str = Field(default="")  # user | team | ""
-    last_human_owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    last_human_owner_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id")
+    # Last person or team that owned this conversation: {"kind","id"}.
+    last_human_owner_json: str = Field(default="{}")
     # Collision guard: a person is typing in the composer until this moment;
     # an autonomous agent drafts instead of sending while it is in the future.
     human_composing_until: Optional[datetime] = Field(default=None)
     # Turn: who must act now (derived by ownership.recompute_turn).
     turn_kind: str = Field(default="", index=True)  # customer | agent | user | team | ""
-    turn_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-    turn_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
+    turn_ref_id: Optional[uuid.UUID] = Field(default=None, index=True)
     turn_reason: str = ""  # reply_needed | question | draft_ready
-    # Multi-agent floor: which participant currently has a requested turn
-    # {"kind","ref_id","nonce","deadline","prompt","requested_by_kind","requested_by_id"}.
-    active_turn_json: str = Field(default="{}")
+    # Multi-agent floor: {"active_turn": {...}, "handoff_session": {...}}.
+    floor_json: str = Field(default="{}")
     has_unread: bool = Field(default=True, index=True)
     # Temporary AI handling override for this conversation (manual | assisted |
     # autonomous); null follows contact -> channel -> workspace. Cleared on
@@ -191,6 +202,204 @@ class Signal(SQLModel, table=True):
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
+
+    @staticmethod
+    def _remap_compat_kwargs(data: dict[str, Any]) -> dict[str, Any]:
+        """Map legacy constructor kwargs onto slim columns."""
+        out = dict(data)
+        if out.get("assigned_user_id"):
+            out["assignee_kind"] = "user"
+            out["assignee_id"] = out.pop("assigned_user_id")
+            out.pop("assignee_team_id", None)
+        elif out.get("assignee_team_id"):
+            out["assignee_kind"] = out.get("assignee_kind") or "team"
+            out["assignee_id"] = out.pop("assignee_team_id")
+        else:
+            out.pop("assigned_user_id", None)
+            out.pop("assignee_team_id", None)
+        if out.get("turn_user_id"):
+            out["turn_kind"] = "user"
+            out["turn_ref_id"] = out.pop("turn_user_id")
+            out.pop("turn_team_id", None)
+        elif out.get("turn_team_id"):
+            out["turn_kind"] = out.get("turn_kind") or "team"
+            out["turn_ref_id"] = out.pop("turn_team_id")
+        else:
+            out.pop("turn_user_id", None)
+            out.pop("turn_team_id", None)
+        active = out.pop("active_turn_json", None)
+        handoff = out.pop("handoff_session_json", None)
+        if active is not None or handoff is not None:
+            try:
+                at = json.loads(active or "{}") if active is not None else {}
+            except (TypeError, ValueError, json.JSONDecodeError):
+                at = {}
+            try:
+                hs = json.loads(handoff or "{}") if handoff is not None else {}
+            except (TypeError, ValueError, json.JSONDecodeError):
+                hs = {}
+            floor: dict[str, Any] = {}
+            if isinstance(at, dict) and at:
+                floor["active_turn"] = at
+            if isinstance(hs, dict) and hs:
+                floor["handoff_session"] = hs
+            out["floor_json"] = json.dumps(floor)
+        kind = out.pop("last_human_owner_kind", None)
+        user = out.pop("last_human_owner_user_id", None)
+        team = out.pop("last_human_owner_team_id", None)
+        if kind == "user" and user:
+            out["last_human_owner_json"] = json.dumps({"kind": "user", "id": str(user)})
+        elif kind == "team" and team:
+            out["last_human_owner_json"] = json.dumps({"kind": "team", "id": str(team)})
+        return out
+
+    def __init__(self, **data: Any) -> None:
+        # SQLModel drops unknown fields before model_validator; remap first.
+        super().__init__(**self._remap_compat_kwargs(data))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compat_constructor(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return cls._remap_compat_kwargs(data)
+
+    def _floor(self) -> dict[str, Any]:
+        try:
+            data = json.loads(self.floor_json or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            data = {}
+        return data if isinstance(data, dict) else {}
+
+    def _write_floor(self, data: dict[str, Any]) -> None:
+        super().__setattr__("floor_json", json.dumps(data))
+
+    def _human_owner(self) -> dict[str, Any]:
+        try:
+            data = json.loads(self.last_human_owner_json or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            data = {}
+        return data if isinstance(data, dict) else {}
+
+    def __getattr__(self, name: str) -> Any:
+        if name == "assigned_user_id":
+            return self.assignee_id if self.assignee_kind == "user" else None
+        if name == "assignee_team_id":
+            return self.assignee_id if self.assignee_kind == "team" else None
+        if name == "turn_user_id":
+            return self.turn_ref_id if self.turn_kind == "user" else None
+        if name == "turn_team_id":
+            return self.turn_ref_id if self.turn_kind == "team" else None
+        if name == "active_turn_json":
+            at = self._floor().get("active_turn")
+            return json.dumps(at) if isinstance(at, dict) else "{}"
+        if name == "handoff_session_json":
+            hs = self._floor().get("handoff_session")
+            return json.dumps(hs) if isinstance(hs, dict) else "{}"
+        if name == "last_human_owner_kind":
+            return str(self._human_owner().get("kind") or "")
+        if name == "last_human_owner_user_id":
+            data = self._human_owner()
+            if data.get("kind") != "user" or not data.get("id"):
+                return None
+            try:
+                return uuid.UUID(str(data["id"]))
+            except (ValueError, TypeError, AttributeError):
+                return None
+        if name == "last_human_owner_team_id":
+            data = self._human_owner()
+            if data.get("kind") != "team" or not data.get("id"):
+                return None
+            try:
+                return uuid.UUID(str(data["id"]))
+            except (ValueError, TypeError, AttributeError):
+                return None
+        raise AttributeError(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name not in _COMPAT_ATTRS:
+            super().__setattr__(name, value)
+            return
+        if name == "assigned_user_id":
+            if value is not None:
+                super().__setattr__("assignee_kind", "user")
+                super().__setattr__("assignee_id", value)
+            elif getattr(self, "assignee_kind", None) == "user":
+                super().__setattr__("assignee_id", None)
+            return
+        if name == "assignee_team_id":
+            if value is not None:
+                super().__setattr__("assignee_kind", "team")
+                super().__setattr__("assignee_id", value)
+            elif getattr(self, "assignee_kind", None) == "team":
+                super().__setattr__("assignee_id", None)
+            return
+        if name == "turn_user_id":
+            if value is not None:
+                super().__setattr__("turn_kind", "user")
+                super().__setattr__("turn_ref_id", value)
+            elif getattr(self, "turn_kind", None) == "user":
+                super().__setattr__("turn_ref_id", None)
+            return
+        if name == "turn_team_id":
+            if value is not None:
+                super().__setattr__("turn_kind", "team")
+                super().__setattr__("turn_ref_id", value)
+            elif getattr(self, "turn_kind", None) == "team":
+                super().__setattr__("turn_ref_id", None)
+            return
+        if name == "active_turn_json":
+            floor = self._floor()
+            try:
+                data = json.loads(value or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                data = {}
+            if isinstance(data, dict) and data:
+                floor["active_turn"] = data
+            else:
+                floor.pop("active_turn", None)
+            self._write_floor(floor)
+            return
+        if name == "handoff_session_json":
+            floor = self._floor()
+            try:
+                data = json.loads(value or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                data = {}
+            if isinstance(data, dict) and data:
+                floor["handoff_session"] = data
+            else:
+                floor.pop("handoff_session", None)
+            self._write_floor(floor)
+            return
+        if name == "last_human_owner_kind":
+            kind = (value or "").strip()
+            if not kind:
+                super().__setattr__("last_human_owner_json", "{}")
+                return
+            data = self._human_owner()
+            data["kind"] = kind
+            super().__setattr__("last_human_owner_json", json.dumps(data))
+            return
+        if name == "last_human_owner_user_id":
+            if value is None:
+                if self._human_owner().get("kind") == "user":
+                    super().__setattr__("last_human_owner_json", "{}")
+                return
+            super().__setattr__(
+                "last_human_owner_json", json.dumps({"kind": "user", "id": str(value)})
+            )
+            return
+        if name == "last_human_owner_team_id":
+            if value is None:
+                if self._human_owner().get("kind") == "team":
+                    super().__setattr__("last_human_owner_json", "{}")
+                return
+            super().__setattr__(
+                "last_human_owner_json", json.dumps({"kind": "team", "id": str(value)})
+            )
+            return
+        super().__setattr__(name, value)
 
 
 class SignalMessage(SQLModel, table=True):

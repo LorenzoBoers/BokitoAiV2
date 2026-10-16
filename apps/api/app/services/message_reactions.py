@@ -21,27 +21,33 @@ from app.models.learning import Feedback
 from app.models.message_reaction import MessageReaction
 from app.models.signal import Signal, SignalMessage
 
-ReactionKind = Literal["up", "down", "hundred", "angry", "thinking", "investigating"]
+ReactionKind = Literal[
+    "up", "down", "hundred", "facepalm", "clap", "thinking", "investigating"
+]
 ActorType = Literal["user", "agent"]
 
 REACTION_KINDS: tuple[ReactionKind, ...] = (
     "up",
     "down",
     "hundred",
-    "angry",
+    "facepalm",
+    "clap",
     "thinking",
     "investigating",
 )
+# Legacy DB / tool values → current kind.
+KIND_ALIASES: dict[str, ReactionKind] = {"angry": "facepalm"}
 HUMAN_KINDS: frozenset[str] = frozenset(
-    {"up", "down", "hundred", "angry", "thinking"}
+    {"up", "down", "hundred", "facepalm", "clap", "thinking"}
 )
 AGENT_ONLY_KINDS: frozenset[str] = frozenset({"investigating"})
 # Quality signal for EvalScore / breaker (human reactors preferred).
 SCORED_KINDS: dict[str, tuple[str, int]] = {
     "up": ("up", 5),
     "hundred": ("up", 5),
+    "clap": ("up", 5),
     "down": ("down", 1),
-    "angry": ("down", 1),
+    "facepalm": ("down", 1),
 }
 
 # Display glyphs — Communication reaction UI only.
@@ -49,14 +55,20 @@ REACTION_EMOJI: dict[str, str] = {
     "up": "👍",
     "down": "👎",
     "hundred": "💯",
-    "angry": "😠",
+    "facepalm": "🙈",
+    "clap": "👏",
     "thinking": "🤔",
     "investigating": "🔍",
 }
 
 
-def normalize_kind(kind: str | None, *, actor_type: ActorType) -> ReactionKind:
+def canonicalize_kind(kind: str | None) -> str:
     value = (kind or "").strip().lower()
+    return KIND_ALIASES.get(value, value)
+
+
+def normalize_kind(kind: str | None, *, actor_type: ActorType) -> ReactionKind:
+    value = canonicalize_kind(kind)
     if value not in REACTION_KINDS:
         raise HTTPException(status_code=400, detail="Unknown reaction kind")
     if actor_type == "user" and value in AGENT_ONLY_KINDS:
@@ -200,7 +212,7 @@ async def set_reaction(
         kind=norm,
     )
 
-    if norm in ("down", "angry") and actor_type == "user":
+    if norm in ("down", "facepalm") and actor_type == "user":
         from app.models.auth import Tenant
         from app.services.ai_handling import check_breaker, load_layers
 
@@ -327,16 +339,17 @@ async def aggregate_for_messages(
         buckets: dict[str, list[MessageReaction]] = {}
         mine: str | None = None
         for row in sorted(group, key=lambda r: r.updated_at or r.created_at):
-            buckets.setdefault(row.kind, []).append(row)
-            if row.kind not in kind_order:
-                kind_order.append(row.kind)
+            kind = canonicalize_kind(row.kind)
+            buckets.setdefault(kind, []).append(row)
+            if kind not in kind_order:
+                kind_order.append(kind)
             if (
                 viewer_type
                 and viewer_id
                 and row.actor_type == viewer_type
                 and row.actor_id == viewer_id
             ):
-                mine = row.kind
+                mine = kind
         kinds = []
         for kind in kind_order:
             reactors = buckets[kind]

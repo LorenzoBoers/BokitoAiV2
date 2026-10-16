@@ -8,6 +8,7 @@ import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
 import { cn } from '../../lib/utils'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
+import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { navRowIndex } from '../../lib/signals-api'
@@ -138,6 +139,7 @@ export default function ThreadList({
   }
   const { members } = useMembers()
   const { teams } = useTeams()
+  const { agents } = useAgents()
   const memberNames = useMemo(() => {
     const map = new Map<string, string>()
     for (const m of members) map.set(String(m.id), m.name || m.email)
@@ -191,6 +193,7 @@ export default function ThreadList({
       let assigneeAvatarKind: string | null = null
       let assigneeAvatarIcon: string | null = null
       let assigneeAvatarColor: string | null = null
+      let assigneeAvatarShape: string | null = null
       let assigneeAvatarImageUrl: string | null = null
 
       if (thread.assignedToUserId != null) {
@@ -213,9 +216,15 @@ export default function ThreadList({
           assigneeAvatarImageUrl = team.avatar_image_url ?? null
         }
       } else if (owner?.kind === 'agent' && (thread.agentName || owner.agentId)) {
+        const agent = owner.agentId ? agents.find((row) => row.id === owner.agentId) : null
         assigneeKind = 'agent'
-        assigneeName = thread.agentName ?? null
+        assigneeName = agent?.name ?? thread.agentName ?? null
         assigneeSeed = owner.agentId
+        assigneeAvatarKind = agent?.avatar_kind ?? thread.agentAvatarKind ?? null
+        assigneeAvatarIcon = agent?.avatar_icon ?? thread.agentAvatarIcon ?? null
+        assigneeAvatarColor = agent?.avatar_color ?? thread.agentAvatarColor ?? null
+        assigneeAvatarShape = agent?.avatar_shape ?? thread.agentAvatarShape ?? null
+        assigneeAvatarImageUrl = agent?.avatar_image_url ?? thread.agentAvatarImageUrl ?? null
       }
 
       const folder =
@@ -254,6 +263,7 @@ export default function ThreadList({
           assigneeAvatarKind={assigneeAvatarKind}
           assigneeAvatarIcon={assigneeAvatarIcon}
           assigneeAvatarColor={assigneeAvatarColor}
+          assigneeAvatarShape={assigneeAvatarShape}
           assigneeAvatarImageUrl={assigneeAvatarImageUrl}
           compact={compactRows}
           enterIndex={index}
@@ -276,6 +286,7 @@ export default function ThreadList({
       onToggleBulkSelect,
       selectionActive,
       members,
+      agents,
       memberNames,
       memberPresence,
       teamsById,

@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Trash2, UserMinus } from 'lucide-react'
+import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Store, Trash2, UserMinus } from 'lucide-react'
+import { AI_CARD_CLASS } from '../components/ai/AiMark'
 import { AgentMark } from '../components/ui/AgentMark'
+import { AiAvatar } from '../components/ui/AiAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
+import type { AgentAvatarProps } from '../lib/agent-avatar'
 import {
   type OverviewAgent,
   type PresenceStatus,
@@ -25,7 +28,15 @@ import { Card } from '../components/ui/card'
 import { Badge, type BadgeTone } from '../components/ui/badge'
 import { Callout } from '../components/ui/callout'
 import { useConfirm } from '../components/ui/confirm-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
 import { SearchField } from '../components/ui/search-field'
+import { cn } from '../lib/utils'
 import { memberTypeTone, roleTone } from '../lib/badge-tones'
 import {
   Select,
@@ -82,6 +93,27 @@ type Invite = {
 // Owner is assigned via the member row controls, not via invites.
 const INVITE_ROLE_VALUES: MemberRole[] = ['admin', 'member']
 const MEMBER_ROLE_VALUES: MemberRole[] = ['owner', 'admin', 'member']
+
+/** Showcase orb pool for the hire-agents banner (pick four at random per visit). */
+const MARKETPLACE_BANNER_POOL: AgentAvatarProps[] = [
+  { name: 'Nova', kind: 'orb', color: '#9159fe', shape: 'bokito' },
+  { name: 'Atlas', kind: 'orb', color: '#1084fe', shape: 'blob' },
+  { name: 'Kai', kind: 'orb', color: '#00c972', shape: 'pebble' },
+  { name: 'Mira', kind: 'orb', color: '#ff6700', shape: 'squircle' },
+  { name: 'Rio', kind: 'orb', color: '#ff309b', shape: 'hex' },
+  { name: 'Sky', kind: 'orb', color: '#00bca6', shape: 'capsule' },
+  { name: 'Leo', kind: 'orb', color: '#ff9800', shape: 'egg' },
+  { name: 'Ada', kind: 'orb', color: '#ff263c', shape: 'crystal' },
+]
+
+function pickMarketplaceBannerAgents(count = 4): AgentAvatarProps[] {
+  const pool = [...MARKETPLACE_BANNER_POOL]
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  return pool.slice(0, count)
+}
 
 function asRole(value: unknown): MemberRole {
   const normalized = typeof value === 'string' ? value.toLowerCase() : ''
@@ -186,6 +218,8 @@ export default function MemberManagement({
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<MemberRole>('member')
   const [inviteLoading, setInviteLoading] = useState(false)
+  const [roleMatrixOpen, setRoleMatrixOpen] = useState(false)
+  const [marketplaceBannerAgents] = useState(() => pickMarketplaceBannerAgents(4))
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
   const [rowBusyId, setRowBusyId] = useState<string | null>(null)
   // null = unknown (still loading / request failed); only an explicit false
@@ -534,7 +568,7 @@ export default function MemberManagement({
 
       <Card id="member-invite" className="space-y-3 p-4 scroll-mt-24">
         <p className="text-sm font-medium text-text-heading">{t('membersPage.inviteTitle')}</p>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_160px_auto]">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             type="email"
             value={inviteEmail}
@@ -547,9 +581,10 @@ export default function MemberManagement({
             }}
             placeholder={t('membersPage.emailPlaceholder')}
             disabled={!canInviteMembers || !workspaceId || inviteLoading}
+            className="min-w-[12rem] flex-1"
           />
           <Select value={inviteRole} onValueChange={(value) => setInviteRole(asRole(value))} disabled={!canInviteMembers}>
-            <SelectTrigger>
+            <SelectTrigger className="w-[140px] shrink-0">
               <SelectValue placeholder={t('membersPage.role')} />
             </SelectTrigger>
             <SelectContent>
@@ -560,48 +595,77 @@ export default function MemberManagement({
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => void handleInvite()} disabled={!canInviteMembers || !workspaceId || !isLikelyEmail(inviteEmail) || inviteLoading}>
+          <Button type="button" variant="outline" className="shrink-0" onClick={() => setRoleMatrixOpen(true)}>
+            {t('membersPage.roleMatrixTitle')}
+            <ChevronDown size={14} className="text-text-muted" />
+          </Button>
+          <Button className="shrink-0" onClick={() => void handleInvite()} disabled={!canInviteMembers || !workspaceId || !isLikelyEmail(inviteEmail) || inviteLoading}>
             <MailPlus size={14} />
             {inviteLoading ? t('membersPage.sending') : t('membersPage.invite')}
           </Button>
         </div>
         <p className="text-xs text-text-muted">{t(`membersPage.roleHint.${inviteRole}`)}</p>
-        <details className="group rounded-lg border border-border/60 bg-bg-input/30 px-3 py-2">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-medium text-text-heading [&::-webkit-details-marker]:hidden">
-            <span>{t('membersPage.roleMatrixTitle')}</span>
-            <ChevronDown size={14} className="shrink-0 text-text-muted transition-transform group-open:rotate-180" />
-          </summary>
-          <table className="mt-2 w-full text-left text-xs text-text-muted">
+      </Card>
+
+      <Dialog open={roleMatrixOpen} onOpenChange={setRoleMatrixOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('membersPage.roleMatrixTitle')}</DialogTitle>
+            <DialogDescription>{t('membersPage.roleMatrixHint')}</DialogDescription>
+          </DialogHeader>
+          <table className="w-full text-left text-xs text-text-muted">
             <thead>
               <tr>
-                <th className="py-0.5 font-medium text-text-secondary" />
-                <th className="py-0.5 font-medium text-text-secondary">{t('membersPage.roles.owner')}</th>
-                <th className="py-0.5 font-medium text-text-secondary">{t('membersPage.roles.admin')}</th>
-                <th className="py-0.5 font-medium text-text-secondary">{t('membersPage.roles.member')}</th>
+                <th className="py-1.5 font-medium text-text-secondary" />
+                <th className="py-1.5 font-medium text-text-secondary">{t('membersPage.roles.owner')}</th>
+                <th className="py-1.5 font-medium text-text-secondary">{t('membersPage.roles.admin')}</th>
+                <th className="py-1.5 font-medium text-text-secondary">{t('membersPage.roles.member')}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="py-0.5">{t('membersPage.roleMatrix.invite')}</td>
+                <td className="py-1">{t('membersPage.roleMatrix.invite')}</td>
                 <td>{t('membersPage.roleMatrix.owner')}</td>
                 <td>{t('membersPage.roleMatrix.admin')}</td>
                 <td>{t('membersPage.roleMatrix.memberNo')}</td>
               </tr>
               <tr>
-                <td className="py-0.5">{t('membersPage.roleMatrix.agents')}</td>
+                <td className="py-1">{t('membersPage.roleMatrix.agents')}</td>
                 <td>{t('membersPage.roleMatrix.owner')}</td>
                 <td>{t('membersPage.roleMatrix.admin')}</td>
                 <td>{t('membersPage.roleMatrix.memberNo')}</td>
               </tr>
               <tr>
-                <td className="py-0.5">{t('membersPage.roleMatrix.inbox')}</td>
+                <td className="py-1">{t('membersPage.roleMatrix.inbox')}</td>
                 <td>{t('membersPage.roleMatrix.owner')}</td>
                 <td>{t('membersPage.roleMatrix.admin')}</td>
                 <td>{t('membersPage.roleMatrix.owner')}</td>
               </tr>
             </tbody>
           </table>
-        </details>
+        </DialogContent>
+      </Dialog>
+
+      <Card
+        id="agent-marketplace"
+        className={cn(AI_CARD_CLASS, 'overflow-hidden p-0 scroll-mt-24')}
+        data-testid="agent-marketplace-banner"
+      >
+        <div className="flex flex-wrap items-center gap-4 px-5 py-4 sm:gap-6">
+          <div className="flex items-center gap-1.5" aria-hidden>
+            {marketplaceBannerAgents.map((agent, index) => (
+              <AiAvatar key={agent.name ?? index} {...agent} size={44} decorative mode="static" />
+            ))}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-text-heading">{t('membersPage.hireAgentsTitle')}</p>
+            <p className="mt-0.5 text-xs text-text-muted">{t('membersPage.hireAgentsBody')}</p>
+          </div>
+          <Button type="button" variant="ai" className="shrink-0">
+            <Store size={14} />
+            {t('membersPage.hireAgentsCta')}
+          </Button>
+        </div>
       </Card>
 
       <Card id="directory" className="overflow-hidden p-0 scroll-mt-24">
@@ -890,6 +954,7 @@ export default function MemberManagement({
                           agent={agent}
                           size={32}
                           className="shrink-0 overflow-visible"
+                          mode="static"
                           activity={deactivated ? undefined : agentStatus}
                         />
                         <span className="font-medium text-text-primary">{agent.name}</span>

@@ -11,7 +11,7 @@ import { withNavReveal } from '../../lib/nav-reveal'
 import { listCategories, type CategoryRow } from '../../lib/tickets-api'
 import { listWorkLogs, type WorkLogRow } from '../../lib/work-logs-api'
 import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/workstreams-api'
-import { workstreamRunPath } from '../../lib/workstream-ui'
+import { workstreamPath } from '../../lib/workstream-ui'
 import { openEntityPath } from '../../lib/open-entity'
 import { bokitoGetCockpitSummary, bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
 import { bulkUpdateSignalThreads } from '../../lib/signals-api'
@@ -297,7 +297,7 @@ export default function OverviewFourBlocks() {
         id: `playbook-${run.id}`,
         label: run.workstream_name || run.input_text || copy.playbook,
         detail: `${copy.playbook} · ${run.status}`,
-        to: workstreamRunPath(run.id),
+        to: run.workstream_id ? workstreamPath(run.workstream_id) : '/workstreams',
         at: run.updated_at || run.started_at || '',
       }))
     const jobs = data.jobs

@@ -15,6 +15,23 @@ const ROW = cn(
 
 const ICON_SLOT = 'inline-flex w-3.5 shrink-0 items-center justify-center'
 
+/** Three periods that light up left → right (Nadenken...). */
+export function LiveEllipsis({ className }: { className?: string }) {
+  return (
+    <span className={cn('live-ellipsis', className)} aria-hidden>
+      <span>.</span>
+      <span>.</span>
+      <span>.</span>
+    </span>
+  )
+}
+
+/** Drop a static trailing "..." so live labels do not become "Nadenken......". */
+function withoutTrailingDots(node: ReactNode): ReactNode {
+  if (typeof node !== 'string') return node
+  return node.replace(/[\s.…]+$/u, '')
+}
+
 /**
  * One quiet line in the thread: events, activity, preparing.
  * Same size and column as every other non-speech row.
@@ -52,21 +69,28 @@ export function ThreadMetaRow({
         <span aria-hidden className={cn('inline-flex shrink-0 items-center', live && 'activity-live-icon')}>
           {lead}
         </span>
-      ) : (
+      ) : icon ? (
         <span
           aria-hidden
-          className={cn(ICON_SLOT, live && icon && 'activity-live-icon')}
+          className={cn(ICON_SLOT, live && 'activity-live-icon')}
         >
-          {icon ?? null}
+          {icon}
         </span>
-      )}
+      ) : null}
       <span
         className={cn(
           'min-w-0 truncate-fade',
           live && 'activity-live-label',
         )}
       >
-        {live ? <span className="thinking-shimmer-text">{children}</span> : children}
+        {live ? (
+          <span className="thinking-shimmer-text">
+            {withoutTrailingDots(children)}
+            <LiveEllipsis />
+          </span>
+        ) : (
+          children
+        )}
       </span>
       {suffix ? <span className="inline-flex shrink-0 items-center gap-1">{suffix}</span> : null}
       {trailing ? <span className="ml-auto shrink-0 tabular-nums text-text-muted">{trailing}</span> : null}

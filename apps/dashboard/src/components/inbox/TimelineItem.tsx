@@ -20,11 +20,11 @@ import { useAgents } from '../../hooks/useAgents'
 import { useBotOrbPulse } from '../../hooks/useBotOrbPulse'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { inboxPath, teamPath } from '../../lib/messages-paths'
 import { openEntityPath } from '../../lib/open-entity'
 import { preferLiveAgentAvatar, toAiAvatarProps } from '../../lib/agent-avatar'
-import { TeamAvatar } from '../ui/TeamAvatar'
+import { LiveAgentAvatarSlot, useLiveAgentSeat } from './LiveAgentSeat'
+import { TeamFacepile } from '../ui/TeamFacepile'
 import { useTheme } from '../../context/ThemeContext'
 import { useAuth } from '../../context/AuthContext'
 import type {
@@ -43,6 +43,7 @@ import { AiMark } from '../ai/AiMark'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import { normalizeMode, type AiHandlingMode } from '../../lib/ai-handling'
 import { AiAvatar } from '../ui/AiAvatar'
+import { AgentDoneCorner } from '../ui/AgentDoneCorner'
 import {
   BubbleAction,
   BubbleHeader,
@@ -1343,8 +1344,8 @@ function eventLabel(
   }
   const labelFn = EVENT_LABELS[event.eventType]
   if (labelFn) return labelFn(t, p, memberName, memberNameFor)
-  // Prefer a known generic label over English snake_case leftovers (F-77).
-  return t('timeline.events.messageAdded')
+  // Unknown types stay hidden via isHiddenEvent; never invent "Message added".
+  return ''
 }
 
 const OWNER_CHIP_CLASS =
@@ -1383,10 +1384,10 @@ function OwnerInlineChip({
     const team = id ? teams.find((row) => row.id === id) : undefined
     display = team?.kind === 'people' ? t('nav:teamPage.system.people') : team?.name || label
     face = (
-      <TeamAvatar
-        {...toTeamAvatarProps(team ?? { id: id ?? display, name: display })}
+      <TeamFacepile
+        team={team ?? { id: id ?? display, name: display }}
         size={12}
-        decorative
+        linkAgents={false}
       />
     )
   } else if (kind === 'agent') {
@@ -1397,6 +1398,7 @@ function OwnerInlineChip({
         {...toAiAvatarProps(agent ?? { id: id ?? display, name: display }, display)}
         size={12}
         decorative
+        mode="static"
       />
     )
   } else {
@@ -1584,9 +1586,13 @@ function EventPill({
   const richLabel =
     assistedHandoverLabel(labelEvent, t) ??
     tagsChangeLabel(labelEvent, t, memberName, actorVoice)
+  const label: ReactNode =
+    richLabel ?? eventLabel(labelEvent, t, memberName, memberNameFor, actorVoice)
+  // Rich labels (tag pills, owner chips) are React nodes; only strings have .trim().
+  if (!label || (typeof label === 'string' && !label.trim())) return null
   const pill = (
     <ActivityPill
-      label={richLabel ?? eventLabel(labelEvent, t, memberName, memberNameFor, actorVoice)}
+      label={label}
       ai={ai}
       icon={icon}
       tip={when}
@@ -1695,6 +1701,7 @@ export function MessageTimelineItem({
   const confirm = useConfirm()
   const { user, token } = useAuth()
   const { agents } = useAgents()
+  const liveSeat = useLiveAgentSeat()
   const timelineAgentId =
     typeof messageProp.payload?.agent_id === 'string' && messageProp.payload.agent_id
       ? messageProp.payload.agent_id
@@ -1771,9 +1778,13 @@ export function MessageTimelineItem({
   }, [token, threadId, message.hasHtml, message.bodyHtml, ensureFullMessage])
 
   const currentUserId = user?.id ?? null
-  const isInternal = message.direction === 'internal'
+  // Amber note chrome is for kind=internal_note only. Teammate @-messages use
+  // direction=internal + user_message and render as normal chat bubbles (never
+  // mail cards / delivery ticks — still workspace-only).
+  const isInternal = message.kind === 'internal_note'
+  const isTeamOnly = message.direction === 'internal'
   const isOutbound = message.direction === 'outbound'
-  const isInbound = !isInternal && !isOutbound
+  const isInbound = message.direction === 'inbound'
   // Inline agent session turn: team-only chat next to the customer thread.
   // Same bubbles as an agent chat, never a mail card or a delivery label.
   const isSessionTurn = isSessionMessage(message)
@@ -1993,26 +2004,61 @@ export function MessageTimelineItem({
   const liveAgent = messageAgentId
     ? agents.find((row) => String(row.id) === String(messageAgentId))
     : undefined
-  const agentAvatar = (
-    <AiAvatar
-      {...toAiAvatarProps(
-        preferLiveAgentAvatar(liveAgent, {
-          name: agentName || liveAgent?.name,
-          agentId: messageAgentId,
-          agentAvatarKind,
-          agentAvatarIcon,
-          agentAvatarColor,
-          agentAvatarShape,
-          agentAvatarImageUrl,
-        }),
-        t('timeline.aiAgent'),
-      )}
+  // Prefer the message author (payload.agent_id → catalog) over the thread
+  // channel agent — otherwise Extra’s bubble shows Orchestrator’s name.
+  const displayAgentName =
+    liveAgent?.name || agentName || t('timeline.aiAgent')
+  const agentMarkProps = toAiAvatarProps(
+    preferLiveAgentAvatar(liveAgent, {
+      name: displayAgentName,
+      agentId: messageAgentId,
+      agentAvatarKind,
+      agentAvatarIcon,
+      agentAvatarColor,
+      agentAvatarShape,
+      agentAvatarImageUrl,
+    }),
+    t('timeline.aiAgent'),
+  )
+  const agentSlotId = `msg:${message.id}`
+  const agentLiveSlot =
+    messageAgentId && liveSeat ? liveSeat.slotIdFor(String(messageAgentId)) : null
+  const thisAgentSeatLive = Boolean(
+    messageAgentId && agentLiveSlot === agentSlotId,
+  )
+  // Force the avatar column on whenever this bubble holds the live seat
+  // (including stack end / middle). Other bubbles keep the normal lead rule
+  // so earlier marks stay visible as static footprints with a done check.
+  const showAgentAvatar = thisAgentSeatLive ? true : undefined
+  const agentAvatar = messageAgentId ? (
+    <LiveAgentAvatarSlot
+      agentId={String(messageAgentId)}
+      slotId={agentSlotId}
       size={28}
       decorative
+      name={agentMarkProps.name}
+      kind={agentMarkProps.kind}
+      icon={agentMarkProps.icon}
+      color={agentMarkProps.color}
+      shape={agentMarkProps.shape}
+      imageUrl={agentMarkProps.imageUrl}
       motion={timelineOrbPulse?.motion}
       pulseId={timelineOrbPulse?.pulseId}
       baseMotion="idle"
     />
+  ) : (
+    <span className="relative inline-flex shrink-0" style={{ width: 28, height: 28 }}>
+      <AiAvatar
+        {...agentMarkProps}
+        size={28}
+        decorative
+        mode="static"
+        motion={timelineOrbPulse?.motion}
+        pulseId={timelineOrbPulse?.pulseId}
+        baseMotion="idle"
+      />
+      <AgentDoneCorner size={28} />
+    </span>
   )
 
   // Group-chat author model: customer (external), teammate, AI agent, or the
@@ -2085,7 +2131,7 @@ export function MessageTimelineItem({
     if (isAgentNote) {
       return (
         <BubbleHeader
-          name={agentName || t('timeline.aiAgent')}
+          name={displayAgentName}
           chip={<RoleChip kind="ai" />}
           subtitle={t('timeline.internalNote')}
         />
@@ -2116,7 +2162,7 @@ export function MessageTimelineItem({
             : t('timeline.notDelivered')
       return (
         <BubbleHeader
-          name={agentName || t('timeline.aiAgent')}
+          name={displayAgentName}
           chip={<RoleChip kind="ai" />}
           subtitle={agentSubtitle}
         />
@@ -2169,7 +2215,7 @@ export function MessageTimelineItem({
   // Own messages carry no name; delivery problems and the soft-undo window
   // render inside the bubble so they stay visible mid-run.
   const selfStatusLine = (() => {
-    if (authorKind !== 'self' || isInternal) return null
+    if (authorKind !== 'self' || isInternal || isTeamOnly) return null
     if (sendFailed) {
       // Translate known failure codes so the operator knows what to do
       // (reconnect the mailbox vs just retry) instead of a bare label.
@@ -2253,12 +2299,15 @@ export function MessageTimelineItem({
             : 'team'
   const side: 'left' | 'right' = isOwn ? 'right' : 'left'
 
-  const reactionRow =
-    typeof message.id === 'string' ? (
+  const hasReactions = (message.reactions?.kinds?.length ?? 0) > 0
+  // Own messages: show reactions others left, but never the add-thumbs control.
+  const reactionOverlay =
+    typeof message.id === 'string' && (!isOwn || hasReactions) ? (
       <MessageReactions
         messageId={message.id}
         initial={message.reactions ?? null}
-        className="mr-0.5"
+        side={side}
+        canReact={!isOwn}
       />
     ) : null
 
@@ -2267,7 +2316,11 @@ export function MessageTimelineItem({
   // bubble header and CC line are not used here.
   // Decision-button echoes are operator UI, never outbound mail.
   const isMailCard =
-    layout === 'email' && !isInternal && !isSessionTurn && !message.decisionResponse
+    layout === 'email' &&
+    !isInternal &&
+    !isTeamOnly &&
+    !isSessionTurn &&
+    !message.decisionResponse
   const mailTone: MailCardTone =
     authorKind === 'self'
       ? 'self'
@@ -2280,7 +2333,7 @@ export function MessageTimelineItem({
     authorKind === 'external'
       ? inboundName
       : authorKind === 'agent'
-        ? agentName || t('timeline.aiAgent')
+        ? displayAgentName
         : authorKind === 'self'
           ? t('timeline.events.you')
           : authorName
@@ -2385,6 +2438,7 @@ export function MessageTimelineItem({
   const showDeliveryMark =
     authorKind === 'self' &&
     !isInternal &&
+    !isTeamOnly &&
     !isSessionTurn &&
     isCustomerChannel(channel) &&
     Boolean(message.sendStatus)
@@ -2537,10 +2591,9 @@ export function MessageTimelineItem({
       </>
     ) : null
   const actions =
-    copyAction || cancelSendAction || reactionRow || noteEditControls || splitAction ? (
+    copyAction || cancelSendAction || noteEditControls || splitAction ? (
       <>
         {cancelSendAction}
-        {reactionRow}
         {noteEditControls}
         {copyAction}
         {splitAction}
@@ -2571,6 +2624,7 @@ export function MessageTimelineItem({
       meta={timeMeta}
       headerActions={mailActions}
       actions={actions}
+      reactions={reactionOverlay}
       collapsed={mailStillSending ? false : mailCollapsed}
       onToggleCollapsed={() => setMailCollapsed(false)}
       preview={mailPreview}
@@ -2580,10 +2634,14 @@ export function MessageTimelineItem({
     <ChatMessageBubble
       side={side}
       avatar={avatar}
+      showAvatar={
+        authorKind === 'agent' || isAgentNote ? showAgentAvatar : undefined
+      }
       header={header}
       body={bubbleBodyWithMeta}
       meta={timeMeta}
       actions={actions}
+      reactions={reactionOverlay}
       variant={variant}
       stack={stack}
       enter={enterAnimation || Boolean(message.decisionResponse)}
@@ -2714,6 +2772,7 @@ function LiveAgentMark({
       )}
       size={size}
       decorative
+      mode="static"
     />
   )
 }

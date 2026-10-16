@@ -430,7 +430,7 @@ async def record_usage(
     agent_id: UUID | None = None,
     run_id: UUID | None = None,
     ticket_tag_id: UUID | None = None,
-    workstream_run_id: UUID | None = None,
+    workstream_id: UUID | None = None,
     user_id: UUID | None = None,
     commit: bool = False,
 ) -> UsageLedger:
@@ -457,7 +457,7 @@ async def record_usage(
         agent_id=agent_id,
         run_id=run_id,
         ticket_tag_id=ticket_tag_id,
-        workstream_run_id=workstream_run_id,
+        workstream_id=workstream_id,
         user_id=user_id,
     )
     session.add(entry)

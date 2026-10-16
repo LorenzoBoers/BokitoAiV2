@@ -37,11 +37,14 @@ import { useLocalOrbPreview } from '../../hooks/useBotOrbPulse'
 import { resolveBrandSeed } from '../../lib/tenant-branding'
 import { cn } from '../../lib/utils'
 
-const PREVIEW_MOTIONS: { id: BotOrbMotion; labelKey: string }[] = [
+type PreviewMotionId = BotOrbMotion | 'spawn'
+
+const PREVIEW_MOTIONS: { id: PreviewMotionId; labelKey: string }[] = [
   { id: 'idle', labelKey: 'workforce.agents.orbPreview.idle' },
   { id: 'thinking', labelKey: 'workforce.agents.orbPreview.thinking' },
   { id: 'typing', labelKey: 'workforce.agents.orbPreview.typing' },
   { id: 'working', labelKey: 'workforce.agents.orbPreview.working' },
+  { id: 'spawn', labelKey: 'workforce.agents.orbPreview.spawn' },
   { id: 'yes', labelKey: 'workforce.agents.orbPreview.yes' },
   { id: 'no', labelKey: 'workforce.agents.orbPreview.no' },
   { id: 'alert', labelKey: 'workforce.agents.orbPreview.alert' },
@@ -53,6 +56,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   agentId: string
   agentName: string
+  agentJobTitle?: string | null
   agentDescription?: string | null
   avatarKind?: string | null
   avatarIcon?: string | null
@@ -61,6 +65,7 @@ type Props = {
   onChanged?: () => void
 }
 
+const MAX_JOB_TITLE = 20
 const MAX_DESCRIPTION = 280
 
 function editorKind(value: string | null | undefined): 'initials' | 'orb' {
@@ -70,12 +75,13 @@ function editorKind(value: string | null | undefined): 'initials' | 'orb' {
   return 'orb'
 }
 
-/** Name, short description and bot mark (shape + color) or initials. */
+/** Name, job title, optional description and bot mark (shape + color) or initials. */
 export function AgentIdentityDialog({
   open,
   onOpenChange,
   agentId,
   agentName,
+  agentJobTitle,
   agentDescription,
   avatarKind,
   avatarIcon: _avatarIcon,
@@ -88,6 +94,7 @@ export function AgentIdentityDialog({
   const { token } = useAuth()
   const { currentWorkspace } = useWorkspace()
   const [name, setName] = useState(agentName)
+  const [jobTitle, setJobTitle] = useState(agentJobTitle ?? '')
   const [description, setDescription] = useState(agentDescription ?? '')
   const [kind, setKind] = useState<'initials' | 'orb'>(editorKind(avatarKind))
   const [color, setColor] = useState(resolveAgentAvatarColor(avatarColor))
@@ -115,6 +122,7 @@ export function AgentIdentityDialog({
   useEffect(() => {
     if (!open) return
     setName(agentName)
+    setJobTitle(agentJobTitle ?? '')
     setDescription(agentDescription ?? '')
     setKind(editorKind(avatarKind))
     const nextColor = resolveAgentAvatarColor(avatarColor)
@@ -123,7 +131,7 @@ export function AgentIdentityDialog({
     setError(null)
     const inQuick = quickColors.some((row) => row.value === nextColor)
     setMoreColorsOpen(!inQuick)
-  }, [open, agentName, agentDescription, avatarKind, avatarColor, avatarShape, quickColors])
+  }, [open, agentName, agentJobTitle, agentDescription, avatarKind, avatarColor, avatarShape, quickColors])
 
   const save = async () => {
     if (!token || busy) return
@@ -132,11 +140,17 @@ export function AgentIdentityDialog({
       setError(t('workforce.agents.nameRequired'))
       return
     }
+    const trimmedTitle = jobTitle.trim()
+    if (!trimmedTitle) {
+      setError(t('workforce.agents.identityJobTitleRequired'))
+      return
+    }
     setBusy(true)
     setError(null)
     try {
       await bokitoUpdateAgent(token, agentId, {
         name: trimmed,
+        job_title: trimmedTitle.slice(0, MAX_JOB_TITLE),
         description: description.trim(),
         avatar_kind: kind,
         avatar_icon: null,
@@ -174,8 +188,10 @@ export function AgentIdentityDialog({
               color={kind === 'orb' ? color : null}
               shape={kind === 'orb' ? shape : null}
               imageUrl={null}
+              mode="live"
               motion={kind === 'orb' ? orbPreview.motion : undefined}
               pulseId={kind === 'orb' ? orbPreview.pulseId : undefined}
+              spawnKey={kind === 'orb' ? orbPreview.spawnKey : undefined}
               baseMotion="idle"
             />
             <div className="min-w-0 flex-1 space-y-1.5">
@@ -192,6 +208,24 @@ export function AgentIdentityDialog({
                 }}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-secondary" htmlFor="agent-identity-job-title">
+              {t('workforce.agents.identityJobTitle')}
+            </label>
+            <Input
+              id="agent-identity-job-title"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value.slice(0, MAX_JOB_TITLE))}
+              disabled={busy}
+              maxLength={MAX_JOB_TITLE}
+              placeholder={t('workforce.agents.identityJobTitlePlaceholder')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void save()
+              }}
+            />
+            <p className="text-2xs text-text-muted">{t('workforce.agents.identityJobTitleHint')}</p>
           </div>
 
           <div className="space-y-1.5">
@@ -250,7 +284,7 @@ export function AgentIdentityDialog({
                             : 'border-border/60 bg-bg-input/30 hover:border-ai/30',
                         )}
                       >
-                        <BotOrbAvatar color={color} shape={key} size={28} paused decorative />
+                        <BotOrbAvatar color={color} shape={key} size={28} mode="static" decorative />
                       </button>
                     )
                   })}
@@ -327,22 +361,30 @@ export function AgentIdentityDialog({
                   {t('workforce.agents.orbPreview.label')}
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  {PREVIEW_MOTIONS.map((row) => (
-                    <button
-                      key={row.id}
-                      type="button"
-                      disabled={busy}
-                      onClick={() => orbPreview.play(row.id)}
-                      className={cn(
-                        'rounded-md px-2 py-1 text-2xs font-medium transition-colors',
-                        orbPreview.motion === row.id
-                          ? 'bg-ai/15 text-ai-ink'
-                          : 'bg-bg-elevated text-text-muted hover:text-text-heading',
-                      )}
-                    >
-                      {t(row.labelKey)}
-                    </button>
-                  ))}
+                  {PREVIEW_MOTIONS.map((row) => {
+                    const active =
+                      row.id === 'spawn'
+                        ? orbPreview.previewingSpawn
+                        : !orbPreview.previewingSpawn && orbPreview.motion === row.id
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          row.id === 'spawn' ? orbPreview.playSpawn() : orbPreview.play(row.id)
+                        }
+                        className={cn(
+                          'rounded-md px-2 py-1 text-2xs font-medium transition-colors',
+                          active
+                            ? 'bg-ai/15 text-ai-ink'
+                            : 'bg-bg-elevated text-text-muted hover:text-text-heading',
+                        )}
+                      >
+                        {t(row.labelKey)}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
               <p className="text-2xs text-text-muted">{t('workforce.agents.visualOrbHint')}</p>

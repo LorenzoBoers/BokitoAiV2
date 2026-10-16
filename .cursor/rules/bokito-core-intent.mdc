@@ -30,7 +30,7 @@ Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on 
 
 ## Operator vocabulary (Set C)
 
-Conversation/Gesprek · Action tag/Actietag (a hashtag that starts a ticket flow; filing it makes the conversation a Ticket) · Flow (page title always `#name`) · Folder/Map (a tag with a place; projects are folders) · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: AI handling/AI-afhandeling (Autonomous · Assisted · Manual). Avoid Smarttag / Smartflow.
+Conversation/Gesprek · Action tag/Actietag (a hashtag that starts a ticket flow; filing it makes the conversation a Ticket) · Flow (title + action-tag `#name`) · Folder/Map (a tag with a place; projects are folders) · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: AI handling/AI-afhandeling (Autonomous · Assisted · Manual). Avoid Smarttag / Smartflow.
 
 ## What we are building
 
@@ -38,7 +38,7 @@ A **node-based agentic OS** for AI-driven SMBs. Canonical entities:
 
 - **Sensing:** `Signal` / `SignalMessage` — Communication hub (external + internal threads)
 - **Tickets:** the conversation is the ticket (`Signal.ticket_tag_id`, `stage_key`, `project_id`); at most one action tag per conversation. An action tag is a `SignalTag` with `workstream_id`; free hashtags sit next to it. Flows are stage pipelines. A folder is a tag with a place; `Signal.project_id` caches the deepest materialised folder derived from tags. The board on a folder is the tickets in that subtree.
-- **Orchestration:** `Agent`, `Workstream` (Flow, titled `#hashtag`), Agenda triggers; AI OS canvas at `/os`
+- **Orchestration:** `Agent`, `Workstream` (Flow, title + action-tag `#hashtag`), Agenda triggers; AI OS canvas at `/os`
 - **Knowledge:** docs + examples + connected sources
 - **Decisions:** `DecisionRequest` as messages **in** threads
 - **Govern:** `PlatformChange`, `AuditEvent`, apply modes, Autonomy Posture

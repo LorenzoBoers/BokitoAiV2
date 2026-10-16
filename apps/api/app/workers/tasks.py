@@ -36,6 +36,7 @@ SUGGEST_MODE_TOOLS = frozenset(
     {
         "search_index",
         "web_search",
+        "fetch_url",
         "search_product_help",
         "list_docs",
         "read_doc",
@@ -257,6 +258,15 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         signal = signal_result.scalar_one_or_none()
         if not signal:
             return {"skipped": True}
+
+        try:
+            from app.services.handoff_sessions import interrupt_handoff_session
+
+            await interrupt_handoff_session(
+                session, signal, reason="customer_inbound"
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
         # Workspace-wide LLM block (credits, key, spend cap): do not start a run
         # per message while it lasts; remember the thread and re-triage later.
@@ -910,10 +920,9 @@ async def coding_agent_run(ctx, tenant_id: str, task_subject: str, repo_path: st
 
 
 async def advance_workstream_run_job(ctx, tenant_id: str, run_id: str):
-    from app.services.workstreams import advance_run
-
-    async with async_session_factory() as session:
-        return await advance_run(session, UUID(tenant_id), UUID(run_id))
+    """No-op: workstream step runs are retired."""
+    del ctx, tenant_id, run_id
+    return {"skipped": True, "retired": True}
 
 
 async def run_agent_task_segment_job(ctx, tenant_id: str, task_id: str):
@@ -1325,6 +1334,7 @@ async def run_participant_turn_job(
     from app.services.participant_turns import (
         _deadline_expired,
         _parse_active,
+        claim_active_turn,
         execute_participant_turn,
     )
 
@@ -1353,12 +1363,18 @@ async def run_participant_turn_job(
             return {"ok": False, "error": "stale_nonce"}
         if _deadline_expired(active):
             return {"ok": False, "error": "expired"}
+        job_nonce = nonce or active.get("nonce") or ""
+        claimed = claim_active_turn(signal, nonce=job_nonce)
+        if claimed is None:
+            return {"ok": False, "error": "already_claimed"}
+        session.add(signal)
+        await session.commit()
         result = await execute_participant_turn(
             session,
             signal,
             agent=agent,
             prompt=prompt or "",
-            nonce=nonce or active.get("nonce") or "",
+            nonce=job_nonce,
             requested_by_kind=requested_by_kind or "system",
             requested_by_id=UUID(requested_by_id) if requested_by_id else None,
         )

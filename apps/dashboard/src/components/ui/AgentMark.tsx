@@ -1,7 +1,7 @@
 import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import { toAiAvatarProps, type AgentAvatarSource } from '../../lib/agent-avatar'
 import type { AgentPresenceStatus } from '../../lib/teams-api'
-import { AiAvatar } from './AiAvatar'
+import { AiAvatar, type AiAvatarMode } from './AiAvatar'
 
 type Props = {
   /** Full agent / thread / picker row — do not pre-strip avatar fields. */
@@ -13,8 +13,16 @@ type Props = {
   motion?: BotOrbMotion | null
   pulseId?: string | null
   baseMotion?: BotOrbMotion | null
-  /** Freeze orb idle motion (facepiles, static previews). */
+  /** Canonical presentation: live animates; static freezes. */
+  mode?: AiAvatarMode
+  /**
+   * Alias for `mode="static"`. Prefer `mode`.
+   * @deprecated Use `mode="static"`.
+   */
   paused?: boolean
+  spawnKey?: string | null
+  /** Silhouette outline for overlapping facepiles. */
+  stackOutline?: boolean
   fallbackName?: string
 }
 
@@ -31,7 +39,10 @@ export function AgentMark({
   motion,
   pulseId,
   baseMotion,
+  mode,
   paused,
+  spawnKey,
+  stackOutline,
   fallbackName,
 }: Props) {
   return (
@@ -44,7 +55,10 @@ export function AgentMark({
       motion={motion}
       pulseId={pulseId}
       baseMotion={baseMotion}
+      mode={mode}
       paused={paused}
+      spawnKey={spawnKey}
+      stackOutline={stackOutline}
     />
   )
 }

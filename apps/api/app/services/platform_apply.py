@@ -80,11 +80,24 @@ async def apply_agent_change(
             agent.kind = "company"
             agent.is_active = True
             agent.runtime_status = "standby"
-        for field in ("name", "role", "description", "system_prompt", "model", "autonomy_level", "slug"):
+        for field in (
+            "name",
+            "role",
+            "job_title",
+            "description",
+            "system_prompt",
+            "model",
+            "autonomy_level",
+            "slug",
+        ):
             if field in after:
                 value = after[field]
                 if field == "description":
                     value = str(value or "").strip()[:280]
+                elif field == "job_title":
+                    value = str(value or "").strip()[:20]
+                    if not value:
+                        continue
                 setattr(agent, field, value)
         if "is_active" in after and not after.get("restore"):
             agent.is_active = bool(after["is_active"])
@@ -101,11 +114,13 @@ async def apply_agent_change(
 
     name = after.get("name", "New agent")
     role = after.get("role", "assistant")
+    job_title = str(after.get("job_title") or name).strip()[:20] or "Agent"
     agent = Agent(
         tenant_id=tenant_id,
         name=name,
         role=role,
         slug=_slugify(name),
+        job_title=job_title,
         description=str(after.get("description") or "").strip()[:280],
         system_prompt=after.get("system_prompt", ""),
         model=after.get("model", "bokito-ai-3-1"),
@@ -295,38 +310,20 @@ async def apply_canvas_edge_change(
 async def _track_run_section_write(
     session: AsyncSession, tenant_id: UUID, run_id: str, section: Any
 ) -> None:
-    """Section written inside a workstream run: status moves to review and the
-    run remembers the section so gate approval can promote it to final."""
-    from app.models.orchestra import WorkstreamRun
+    """Section written during agent work: move draft → review.
 
-    try:
-        run = await session.get(WorkstreamRun, UUID(run_id))
-    except ValueError:
+    WorkstreamRun ledger is retired; section status is the durable signal.
+    """
+    del tenant_id, run_id
+    if section.status != "draft":
         return
-    if run is None or run.tenant_id != tenant_id:
-        return
-    if section.status == "draft":
-        now = datetime.utcnow()
-        section.status = "review"
-        section.status_changed_at = now
-        section.status_changed_by_type = "system"
-        section.status_changed_by_id = "workstream_run"
-        section.updated_at = now
-        session.add(section)
-    try:
-        ctx = json.loads(run.context_json or "{}")
-        if not isinstance(ctx, dict):
-            ctx = {}
-    except json.JSONDecodeError:
-        ctx = {}
-    written = ctx.get("written_section_ids")
-    if not isinstance(written, list):
-        written = []
-    if str(section.id) not in written:
-        written.append(str(section.id))
-    ctx["written_section_ids"] = written
-    run.context_json = json.dumps(ctx)
-    session.add(run)
+    now = datetime.utcnow()
+    section.status = "review"
+    section.status_changed_at = now
+    section.status_changed_by_type = "system"
+    section.status_changed_by_id = "agent_run"
+    section.updated_at = now
+    session.add(section)
     await session.flush()
 
 
@@ -367,9 +364,9 @@ async def apply_workspace_doc_change(
             actor_type="agent",
             commit=False,
         )
-        run_id = after.get("workstream_run_id")
-        if run_id:
-            await _track_run_section_write(session, tenant_id, str(run_id), row)
+        ws_id = after.get("workstream_id") or after.get("workstream_run_id")
+        if ws_id:
+            await _track_run_section_write(session, tenant_id, str(ws_id), row)
         return {
             "doc_id": str(doc.id),
             "path": doc.path,

@@ -34,8 +34,8 @@ class UsageLedger(SQLModel, table=True):
     ticket_tag_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="signal_tags.id", index=True
     )
-    workstream_run_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="workstream_runs.id", index=True
+    workstream_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="workstreams.id", index=True
     )
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)

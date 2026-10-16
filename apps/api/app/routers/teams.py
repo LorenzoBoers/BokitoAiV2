@@ -54,23 +54,13 @@ class TeamCreateBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     description: str = ""
     pickup: Literal["people", "agent_first", "round_robin", "least_open"] = "people"
-    pinned: bool = False
     members: list[TeamMemberRef] = Field(default_factory=list)
-    avatar_kind: Literal["initials", "icon", "image"] | None = None
-    avatar_icon: str | None = None
-    avatar_color: str | None = None
-    avatar_image_url: str | None = None
 
 
 class TeamPatchBody(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = None
     pickup: Literal["people", "agent_first", "round_robin", "least_open"] | None = None
-    pinned: bool | None = None
-    avatar_kind: Literal["initials", "icon", "image"] | None = None
-    avatar_icon: str | None = None
-    avatar_color: str | None = None
-    avatar_image_url: str | None = None
 
 
 class TeamMembersBody(BaseModel):
@@ -114,9 +104,11 @@ class OverviewAgent(BaseModel):
     team_ids: list[str]
     open_owned: int
     status: Literal["standby", "working", "error"] = "standby"
-    avatar_kind: str = "icon"
+    # Same mark fields as serialize_agent / Agents page (orb shape was dropped here).
+    avatar_kind: str = "orb"
     avatar_icon: str | None = None
     avatar_color: str | None = None
+    avatar_shape: str | None = None
     avatar_image_url: str | None = None
     deactivated: bool = False
     # Last run, reply or tool step (Unix ms); null before the first run.
@@ -170,35 +162,14 @@ async def create_team(
 ):
     """Create a custom team of people and agents (owner or admin)."""
     auth.require_role("owner", "admin")
-    from app.services.team_avatar import apply_avatar_settings, dump_settings, _settings
-
     team = await teams_svc.create_team(
         session,
         auth.tenant.id,
         name=body.name,
         description=body.description,
         pickup=body.pickup,
-        pinned=body.pinned,
         members=[m.model_dump() for m in body.members],
     )
-    if any(
-        v is not None
-        for v in (body.avatar_kind, body.avatar_icon, body.avatar_color, body.avatar_image_url)
-    ):
-        try:
-            team.settings_json = dump_settings(
-                apply_avatar_settings(
-                    _settings(team.settings_json),
-                    team_id=team.id,
-                    avatar_kind=body.avatar_kind,
-                    avatar_icon=body.avatar_icon,
-                    avatar_color=body.avatar_color,
-                    avatar_image_url=body.avatar_image_url,
-                )
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        session.add(team)
     await record_audit(
         session,
         auth.tenant.id,
@@ -221,9 +192,10 @@ async def patch_team(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Rename a team, change its description, pickup, or sidebar pin.
+    """Rename a team, change its description or pickup.
 
-    System teams (All people / All agents) are not editable.
+    System teams (All people / All agents) are not editable. Custom teams
+    always appear in the Communication sidebar; mark/pin are not configurable.
     """
     auth.require_role("owner", "admin")
     team = await _team_or_404(session, auth.tenant.id, team_id)
@@ -235,27 +207,7 @@ async def patch_team(
         team.description = body.description.strip()[:300]
     if body.pickup is not None:
         team.pickup = body.pickup
-    if body.pinned is not None:
-        team.pinned = body.pinned
-    if any(
-        v is not None
-        for v in (body.avatar_kind, body.avatar_icon, body.avatar_color, body.avatar_image_url)
-    ):
-        from app.services.team_avatar import apply_avatar_settings, dump_settings, _settings
-
-        try:
-            team.settings_json = dump_settings(
-                apply_avatar_settings(
-                    _settings(team.settings_json),
-                    team_id=team.id,
-                    avatar_kind=body.avatar_kind,
-                    avatar_icon=body.avatar_icon,
-                    avatar_color=body.avatar_color,
-                    avatar_image_url=body.avatar_image_url,
-                )
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    team.pinned = True
     team.updated_at = datetime.utcnow()
     session.add(team)
     await session.commit()
@@ -361,27 +313,28 @@ async def team_overview(
     open_owned_user = dict(
         (
             await session.execute(
-                select(Signal.assigned_user_id, func.count())
+                select(Signal.assignee_id, func.count())
                 .where(
                     Signal.tenant_id == tenant_id,
                     Signal.status == "open",
                     Signal.assignee_kind == "user",
-                    Signal.assigned_user_id.is_not(None),
+                    Signal.assignee_id.is_not(None),
                 )
-                .group_by(Signal.assigned_user_id)
+                .group_by(Signal.assignee_id)
             )
         ).all()
     )
     open_turn_user = dict(
         (
             await session.execute(
-                select(Signal.turn_user_id, func.count())
+                select(Signal.turn_ref_id, func.count())
                 .where(
                     Signal.tenant_id == tenant_id,
                     Signal.status == "open",
-                    Signal.turn_user_id.is_not(None),
+                    Signal.turn_kind == "user",
+                    Signal.turn_ref_id.is_not(None),
                 )
-                .group_by(Signal.turn_user_id)
+                .group_by(Signal.turn_ref_id)
             )
         ).all()
     )

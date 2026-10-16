@@ -632,6 +632,7 @@ export default function UsagePage() {
                             )}
                             size={28}
                             decorative
+                            mode="static"
                           />
                           <p className="min-w-0 truncate-fade font-medium text-text-primary">{row.agent_name}</p>
                         </div>

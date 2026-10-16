@@ -38,11 +38,12 @@ export type Team = {
   kind: TeamKind
   system: boolean
   pickup: TeamPickup
-  /** Shown as a folder in the Communication sidebar. */
+  /** Always true for custom teams (Communication folder); false for system teams. */
   pinned: boolean
   members: TeamMemberRef[]
   member_count: number
   presence?: { status: PresenceStatus }
+  /** Fallback mark only; UI prefers the member facepile. */
   avatar_kind?: TeamAvatarKind | string
   avatar_icon?: string | null
   avatar_color?: string | null
@@ -111,22 +112,14 @@ export function getTeamOverview(token: string): Promise<TeamOverview> {
   return apiGet<TeamOverview>(appRoutes.teams.overview, token)
 }
 
-export type TeamAvatarInput = {
-  avatar_kind?: TeamAvatarKind
-  avatar_icon?: string | null
-  avatar_color?: string | null
-  avatar_image_url?: string | null
-}
-
 export function createTeam(
   token: string,
   body: {
     name: string
     description?: string
     pickup?: TeamPickup
-    pinned?: boolean
     members?: TeamMemberRef[]
-  } & TeamAvatarInput,
+  },
 ): Promise<Team> {
   return apiPost<Team>(appRoutes.teams.list, body, token)
 }
@@ -138,8 +131,7 @@ export function patchTeam(
     name?: string
     description?: string
     pickup?: TeamPickup
-    pinned?: boolean
-  } & TeamAvatarInput,
+  },
 ): Promise<Team> {
   return apiPatch<Team>(appRoutes.teams.byId(id), body, token)
 }

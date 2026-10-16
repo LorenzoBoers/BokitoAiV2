@@ -218,7 +218,7 @@ function FlowBoardView({
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Link
           to={workstreamPath(board.workstream_id)}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-text-heading hover:text-accent"
+          className="inline-flex items-center gap-1.5 no-underline"
         >
           <Workflow size={14} className="text-text-muted" aria-hidden />
           <Hashtag name={board.tags[0]?.name || board.name} category />

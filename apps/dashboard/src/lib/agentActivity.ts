@@ -181,6 +181,9 @@ export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMoti
     if (running.length > 0) return 'working'
   }
   if (Object.values(turn.thinking).some((text) => text.trim().length > 0)) return 'thinking'
+  // Match the “Nadenken” waiting label: face thinks while the model decides.
+  // Preparing-proposal uses its own meta line — keep idle there.
+  if (turnPreparesProposal(turn)) return 'idle'
   return 'thinking'
 }
 
@@ -303,11 +306,31 @@ export function webSearchQuery(item: ActivityItem): string {
 const HOST_RE =
   /(?:^|\s)(?:site:)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?:\/|\s|$)/i
 
-/** Hostname for a web_search item: first hit, else a domain mentioned in the query. */
+function hostFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, '')
+  } catch {
+    return ''
+  }
+}
+
+/** Hostname for a web_search / fetch_url item. */
 export function webSearchHost(item: ActivityItem): string {
   const result = item.result
   if (result && typeof result === 'object' && !Array.isArray(result)) {
-    const rows = (result as Record<string, unknown>).results
+    const rec = result as Record<string, unknown>
+    if (item.tool === 'fetch_url') {
+      const host = String(rec.host || '')
+        .trim()
+        .replace(/^www\./i, '')
+      if (host) return host
+      const url = String(rec.url || '').trim()
+      if (url) {
+        const fromUrl = hostFromUrl(url)
+        if (fromUrl) return fromUrl
+      }
+    }
+    const rows = rec.results
     if (Array.isArray(rows)) {
       for (const row of rows) {
         if (!row || typeof row !== 'object') continue
@@ -317,14 +340,17 @@ export function webSearchHost(item: ActivityItem): string {
         if (host) return host
         const url = String((row as Record<string, unknown>).url || '').trim()
         if (url) {
-          try {
-            const fromUrl = new URL(url).hostname.replace(/^www\./i, '')
-            if (fromUrl) return fromUrl
-          } catch {
-            /* ignore */
-          }
+          const fromUrl = hostFromUrl(url)
+          if (fromUrl) return fromUrl
         }
       }
+    }
+  }
+  if (item.tool === 'fetch_url') {
+    const input = item.input
+    if (input && typeof input === 'object' && !Array.isArray(input)) {
+      const url = String((input as Record<string, unknown>).url || '').trim()
+      if (url) return hostFromUrl(url)
     }
   }
   const query = webSearchQuery(item)
@@ -361,6 +387,14 @@ export function itemLabel(item: ActivityItem, t: TFunction): string {
       ns: 'communication',
       query: query || '…',
       defaultValue: query ? `Searching for ${query}` : 'Searching the web',
+    })
+  }
+  if (item.tool === 'fetch_url') {
+    const host = webSearchHost(item)
+    if (host) return host
+    return t('activity.fetchUrl', {
+      ns: 'communication',
+      defaultValue: 'Fetching page',
     })
   }
   return item.label || item.tool || t('activity.action', { ns: 'communication' })

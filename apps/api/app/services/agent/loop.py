@@ -398,6 +398,18 @@ class AgentLoop:
             await flush_deferred_participant_turn(self.session, signal)
         except Exception:  # noqa: BLE001
             logger.debug("flush deferred participant turn failed", exc_info=True)
+        # Ask on internal threads sets a run=false floor chip; clear it once this
+        # agent has persisted so Stop / “Nadenken” do not linger under the bubble.
+        try:
+            from app.services.participant_turns import clear_ask_floor_chip
+
+            await clear_ask_floor_chip(
+                self.session,
+                signal,
+                agent_id=self.agent.id if self.agent else None,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("clear ask floor chip failed", exc_info=True)
         return saved
 
     async def _checkpoint_turn(self) -> None:
@@ -444,6 +456,10 @@ class AgentLoop:
             query = str(tool_input.get("query") or "").strip()
             if query:
                 shown["label"] = f"Search: {query}"
+        if name == "fetch_url" and isinstance(tool_input, dict):
+            url = str(tool_input.get("url") or "").strip()
+            if url:
+                shown["label"] = f"Fetch: {url[:80]}"
         if name == "call_mcp_tool" and isinstance(tool_input, dict):
             server = str(tool_input.get("server_name") or "")
             inner = str(tool_input.get("tool_name") or "")
@@ -879,6 +895,16 @@ class AgentLoop:
                     raise
         raise RuntimeError("unreachable")
 
+    def _llm_first_token_timeout(self) -> float:
+        """Longer waits after tool rounds so thinking models can start."""
+        elapsed = time.monotonic() - self._started if self._started else 0.0
+        tool_steps = sum(1 for s in self.trace_steps if s.get("step_type") == "tool_call")
+        if tool_steps >= 2 or elapsed >= 45:
+            return 120.0
+        if tool_steps >= 1 or elapsed >= 20:
+            return 90.0
+        return 40.0
+
     async def _llm_stream(
         self, llm_messages: list[dict[str, Any]], max_tokens: int
     ) -> AsyncGenerator[dict[str, Any], None]:
@@ -894,8 +920,11 @@ class AgentLoop:
                     max_tokens=max_tokens,
                 )
                 agen = stream.__aiter__()
+                first_token_timeout = self._llm_first_token_timeout()
                 try:
-                    first = await asyncio.wait_for(agen.__anext__(), timeout=40)
+                    first = await asyncio.wait_for(
+                        agen.__anext__(), timeout=first_token_timeout
+                    )
                 except TimeoutError as exc:
                     raise TimeoutError("llm first token timed out") from exc
                 started = True
@@ -1146,8 +1175,8 @@ class AgentLoop:
             agent_id=self.agent.id if self.agent else None,
             run_id=self.run.id if self.run else None,
             ticket_tag_id=getattr(self.run, "ticket_tag_id", None) if self.run else None,
-            workstream_run_id=(
-                getattr(self.run, "workstream_run_id", None) if self.run else None
+            workstream_id=(
+                getattr(self.run, "workstream_id", None) if self.run else None
             ),
             user_id=self.user_id,
             commit=True,
@@ -1228,13 +1257,24 @@ class AgentLoop:
                     tool_use["name"], tool_input, label=shown["label"], provider=shown["provider"]
                 )
                 await self._checkpoint_turn()
+            # Proposal cards must land next to agent speech on the session
+            # thread. tool_signal_id may be a context host (mail) for outbound
+            # replies/tags; explicit ask/propose tools use the speech signal.
+            _SPEECH_DECISION_TOOLS = frozenset(
+                {"create_decision_request", "propose_action", "suggest_integration"}
+            )
+            tool_target = (
+                self.signal_id
+                if tool_use["name"] in _SPEECH_DECISION_TOOLS
+                else self.tool_signal_id
+            )
             result = await execute_tool(
                 self.session,
                 self.tenant_id,
                 self.user_id,
                 tool_use["name"],
                 tool_use.get("input", {}),
-                signal_id=self.tool_signal_id,
+                signal_id=tool_target,
                 agent=self.agent,
                 run_id=self.run.id if self.run else None,
                 project_id=self.run.project_id if self.run else None,
@@ -1475,6 +1515,44 @@ class AgentLoop:
                 continue
             break
 
+        if (
+            not cancelled
+            and not (turn.final_text or "").strip()
+            and turn.all_activity()
+            and not await self._is_cancelled()
+        ):
+            llm_messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "You finished the tool calls. Reply to the operator in plain "
+                        "language with what you learned. Do not call any tools."
+                    ),
+                }
+            )
+            saved_tools = self.tools
+            self.tools = []
+            await self._log_event("think", "Summarizing")
+            try:
+                response = await self._llm_chat(llm_messages, max_tokens)
+                usage = response.get("usage") or {}
+                tokens["input_tokens"] += int(usage.get("input_tokens") or 0)
+                tokens["output_tokens"] += int(usage.get("output_tokens") or 0)
+                text_blocks = [
+                    b["text"]
+                    for b in (response.get("content") or [])
+                    if b.get("type") == "text" and (b.get("text") or "").strip()
+                ]
+                if text_blocks:
+                    summary = "\n".join(text_blocks).strip()
+                    await turn.say(summary)
+                    seg_id = turn.segments[-1]["id"] if turn.segments else None
+                    yield {"type": "delta", "text": summary, "segment_id": seg_id}
+            except Exception:
+                logger.exception("tool-turn finalize chat failed")
+            finally:
+                self.tools = saved_tools
+
         await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
@@ -1489,9 +1567,10 @@ class AgentLoop:
         if cancelled or await self._is_cancelled():
             yield {**base, "text": turn.final_text, "cancelled": True}
             return
+        done_text = (turn.final_text or "").strip() or "Done."
         yield {
             **base,
-            "text": turn.final_text or "Done.",
+            "text": done_text,
             "thinking": self.thinking_text,
             "thinking_ms": self.thinking_ms,
             "thinking_budget": self.thinking_budget,

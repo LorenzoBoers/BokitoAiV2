@@ -535,9 +535,8 @@ async def list_recent_activity(
     *,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """Recent agent runs, trigger firings, and operational outcomes."""
+    """Recent agent runs and trigger firings."""
     from app.models.agent import Agent, AgentRun
-    from app.models.outcome import OperationalOutcome
     from app.models.trigger import Trigger
 
     limit = max(1, min(int(limit or 20), 50))
@@ -583,26 +582,6 @@ async def list_recent_activity(
                 "status": t.last_status or "",
                 "schedule": _schedule_label(t.kind, t.cron_expr, t.interval_minutes),
                 "created_at": _iso(t.last_run_at),
-            }
-        )
-
-    outcomes = (
-        await session.execute(
-            select(OperationalOutcome)
-            .where(OperationalOutcome.tenant_id == tenant_id)
-            .order_by(OperationalOutcome.created_at.desc())
-            .limit(limit)
-        )
-    ).scalars().all()
-    for o in outcomes:
-        events.append(
-            {
-                "kind": "outcome",
-                "id": str(o.id),
-                "source": o.source,
-                "outcome_kind": o.kind,
-                "subtype": o.subtype,
-                "created_at": _iso(o.created_at),
             }
         )
 

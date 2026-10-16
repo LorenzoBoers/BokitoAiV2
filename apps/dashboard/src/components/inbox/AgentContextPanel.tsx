@@ -190,6 +190,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
                 {...toAiAvatarProps(view, t('agentContext.workspaceAssistant'))}
                 size={36}
                 decorative
+                mode="static"
                 activity={corner}
               />
             </Link>
@@ -198,6 +199,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
               {...toAiAvatarProps(view ?? agent, t('agentContext.workspaceAssistant'))}
               size={36}
               decorative
+              mode="static"
             />
           )}
           <div className="min-w-0 flex-1">

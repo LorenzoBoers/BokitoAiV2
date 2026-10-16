@@ -1,7 +1,7 @@
 """Inline evaluation for orchestration steps.
 
 The runner records results in the canonical ``RunEvent`` log. The legacy
-``EvalCheckpoint`` table remains migration history and receives no new rows.
+``EvalCheckpoint`` table was dropped in Alembic 101; results go to RunEvent.
 """
 
 from __future__ import annotations

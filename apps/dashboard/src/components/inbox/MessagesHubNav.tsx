@@ -14,9 +14,8 @@ import { Activity, Inbox, Plus, Settings } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
-import { TeamAvatar } from '../ui/TeamAvatar'
+import { TeamFacepile } from '../ui/TeamFacepile'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { openTeamRoom } from '../../lib/teams-api'
 import { asAgentStatus } from '../../lib/presence'
 import { useAgentLive, seedAgentPresence } from '../../hooks/useAgentPresence'
@@ -354,6 +353,7 @@ function AgentFolderRow({
           {...toAiAvatarProps(agent)}
           size={14}
           decorative
+          mode="static"
           activity={activity}
         />
       }
@@ -508,9 +508,9 @@ function NavRowFolders({
 }
 
 
-function usePinnedTeams(): { teams: Team[]; loading: boolean } {
+function useSidebarTeams(): { teams: Team[]; loading: boolean } {
   const { teams, loading } = useTeams()
-  return { teams: teams.filter((team) => team.pinned && !team.system), loading }
+  return { teams: teams.filter((team) => !team.system), loading }
 }
 
 /**
@@ -529,7 +529,7 @@ export default function MessagesHubNav() {
   const { defaultQueueFor } = useInboxFolderPrefs()
   const location = useLocation()
   const activeLeaf = leafFromPath(location.pathname)
-  const { teams, loading: teamsLoading } = usePinnedTeams()
+  const { teams, loading: teamsLoading } = useSidebarTeams()
   const { folders: channelFolders, loading: channelsLoading } = useConnectedChannelFolders(t)
   const { nav, loaded: navLoaded } = useCommunicationNav()
   const sectionSensors = useSensors(
@@ -632,7 +632,7 @@ export default function MessagesHubNav() {
         {!teamsLoading && teams.length === 0 ? (
           <Link to="/team" className="nav-row border border-dashed border-border/80 text-xs">
             <Plus aria-hidden />
-            <span className="min-w-0 flex-1 truncate-fade">{t('support.teams.pinHint')}</span>
+            <span className="min-w-0 flex-1 truncate-fade">{t('support.teams.createHint')}</span>
           </Link>
         ) : null}
         {teams.map((team) => {
@@ -644,12 +644,7 @@ export default function MessagesHubNav() {
               label={team.name}
               title={team.description || team.name}
               icon={
-                <TeamAvatar
-                  {...toTeamAvatarProps(team)}
-                  size={14}
-                  decorative
-                  presence={team.presence?.status}
-                />
+                <TeamFacepile team={team} size={14} linkAgents={false} presence={team.presence?.status} />
               }
               activeLeaf={activeLeaf}
               defaultQueue={defaultQueueFor(leaf)}

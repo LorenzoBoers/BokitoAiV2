@@ -132,6 +132,7 @@ function ItemLeading({ item }: { item: ProposalItem }) {
         )}
         size={32}
         decorative
+        mode="static"
       />
     )
   }
@@ -281,15 +282,19 @@ export function CanvasShowcaseCard({
   selected?: boolean
   compact?: boolean
 }) {
-  const { t } = useTranslation('communication')
+  const { t } = useTranslation(['communication', 'nav'])
+  const pending = Boolean(item.empty || item.missing)
   const [tree, setTree] = useState<CanvasNode | null>(item.preview ?? null)
-  const [settled, setSettled] = useState(item.missing || !item.id)
+  const [emptyShell, setEmptyShell] = useState(Boolean(item.empty))
+  const [settled, setSettled] = useState(pending || !item.id)
   useEffect(() => {
     if (item.missing || !item.id) return
     let cancel = false
     getCanvasById(item.id)
       .then((canvas) => {
-        if (!cancel) setTree(canvas.tree)
+        if (cancel) return
+        setEmptyShell(Boolean(canvas.empty || isEmptyCanvasTree(canvas.tree)))
+        setTree(canvas.tree)
       })
       .catch(() => {
         /* Keep the snapshot stored on the message. */
@@ -301,21 +306,30 @@ export function CanvasShowcaseCard({
       cancel = true
     }
   }, [item.id, item.missing])
-  const preview = tree && !isEmptyCanvasTree(tree) ? tree : null
+  const preview = !emptyShell && tree && !isEmptyCanvasTree(tree) ? tree : null
+  const blocked = pending || emptyShell
   const card = (
     <div
       className={cn(
-        'overflow-hidden rounded-xl border border-border/60 bg-bg-surface text-left',
-        selected && 'ring-1 ring-ai/50 border-ai/40',
-        item.missing && 'opacity-60',
+        'overflow-hidden rounded-xl border border-border/60 bg-bg-surface text-left transition-opacity',
+        selected && !blocked && 'ring-1 ring-ai/50 border-ai/40',
+        blocked && 'opacity-55',
       )}
       data-testid="canvas-showcase"
+      data-canvas-pending={blocked ? 'true' : undefined}
+      aria-busy={blocked && !item.missing ? true : undefined}
     >
       <div className="flex items-center gap-2 px-3 py-2">
-        <IconTile icon={CANVAS_ICON} tone={item.missing ? 'neutral' : 'accent'} />
+        <IconTile icon={CANVAS_ICON} tone={blocked ? 'neutral' : 'accent'} />
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-text-primary">{item.title || t('proposal.itemType.canvas')}</p>
-          {item.subtitle ? <p className="truncate text-xs text-text-muted">{item.subtitle}</p> : null}
+          {(blocked && !item.missing) || item.subtitle ? (
+            <p className="truncate text-xs text-text-muted">
+              {blocked && !item.missing
+                ? t('projects.canvas.writing', { ns: 'nav' })
+                : item.subtitle}
+            </p>
+          ) : null}
         </div>
       </div>
       {preview ? (
@@ -334,13 +348,17 @@ export function CanvasShowcaseCard({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-bg-surface to-transparent" />
         </div>
       ) : settled ? (
-        <p className="border-t border-border/50 px-3 py-3 text-xs text-text-muted">{t('proposal.canvasEmpty')}</p>
+        <p className="border-t border-border/50 px-3 py-3 text-xs text-text-muted">
+          {blocked && !item.missing
+            ? t('projects.canvas.writing', { ns: 'nav' })
+            : t('proposal.canvasEmpty')}
+        </p>
       ) : (
-        <div className="h-16 border-t border-border/50 bg-bg-input/20" />
+        <div className="h-16 animate-pulse border-t border-border/50 bg-bg-input/20" />
       )}
     </div>
   )
-  if (item.missing) return card
+  if (blocked) return card
   if (onSelect) {
     return (
       <button type="button" className="block w-full" onClick={() => onSelect(item)}>

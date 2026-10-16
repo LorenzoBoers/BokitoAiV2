@@ -43,30 +43,16 @@ import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 const AGENTS_DEFAULT_PATH = '/agents'
 import { AgentMark } from '../components/ui/AgentMark'
-import { resolveAgentAvatarColor } from '../lib/agent-avatar'
-import { cn } from '../lib/utils'
+import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
 import { useAgentOrbDrive } from '../hooks/useBotOrbPulse'
 import { presenceOrbMotion } from '../lib/bot-orb-motion'
-import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
+import { agentStatusOf, presenceBadgeVariant, presenceLabel } from '../lib/presence'
+import { Badge } from '../components/ui/badge'
 
 /** Profile hero mark — large enough to read as identity, not a form icon. */
 const HERO_MARK_SIZE = 120
-
-/** Lift near-black orb colors so specialism text stays readable on dark surfaces. */
-function profileAccentColor(hex: string): string {
-  const raw = hex.trim().replace(/^#/, '').toLowerCase()
-  if (!/^[0-9a-f]{6}$/.test(raw)) return hex
-  const r = parseInt(raw.slice(0, 2), 16)
-  const g = parseInt(raw.slice(2, 4), 16)
-  const b = parseInt(raw.slice(4, 6), 16)
-  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-  if (lum >= 0.32) return `#${raw}`
-  const lift = (c: number) => Math.min(255, Math.round(c + (255 - c) * 0.48))
-  const to = (n: number) => n.toString(16).padStart(2, '0')
-  return `#${to(lift(r))}${to(lift(g))}${to(lift(b))}`
-}
 
 export default function AiAgentDetail() {
   const { t, i18n } = useTranslation(['nav', 'common'])
@@ -191,7 +177,7 @@ export default function AiAgentDetail() {
   const work = view ? agentStatusOf(view) : 'standby'
   const heroOrb = useAgentOrbDrive(agentId, presenceOrbMotion(work))
   const profileAccent = useMemo(
-    () => profileAccentColor(resolveAgentAvatarColor(agent?.avatar_color)),
+    () => agentProfileAccentColor(resolveAgentAvatarColor(agent?.avatar_color)),
     [agent?.avatar_color],
   )
   const workHref = agentId && work === 'working' ? openEntityPath({ type: 'agent', id: agentId, live }) : null
@@ -288,15 +274,15 @@ export default function AiAgentDetail() {
       ) : (
         <>
           <section className="relative py-4">
-            {isAdmin ? (
-              <div className="absolute right-0 top-0 z-[1]">
+            <div className="absolute right-0 top-0 z-[1] flex h-8 items-center gap-2">
+              {isAdmin ? (
                 <DropdownMenu.Root>
                   <DropdownMenu.Trigger asChild>
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-text-muted"
+                      variant="secondary"
+                      className="h-8 w-8 px-0 text-text-muted"
                       aria-label={t('workforce.agents.moreActions')}
                     >
                       <MoreHorizontal size={16} aria-hidden />
@@ -345,8 +331,20 @@ export default function AiAgentDetail() {
                     </DropdownMenu.Content>
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
-              </div>
-            ) : null}
+              ) : null}
+              <Badge
+                variant={
+                  agent.is_active === false
+                    ? presenceBadgeVariant('deactivated')
+                    : presenceBadgeVariant(work)
+                }
+                className="h-8 px-3 text-xs"
+              >
+                {agent.is_active === false
+                  ? presenceLabel('deactivated', t)
+                  : presenceLabel(work, t)}
+              </Badge>
+            </div>
 
             <div className="flex flex-col items-center text-center">
               <div
@@ -366,12 +364,13 @@ export default function AiAgentDetail() {
                     style={{ width: HERO_MARK_SIZE, height: HERO_MARK_SIZE }}
                     aria-label={t('workforce.agents.editIdentity')}
                   >
-                    {/* No presence corner here — status is the text under the name. */}
+                    {/* No presence corner — working/error/deactivated use the top-right pill. */}
                     <AgentMark
                       agent={agent}
                       size={HERO_MARK_SIZE}
                       className="overflow-visible"
                       decorative
+                      mode="live"
                       motion={heroOrb.motion}
                       pulseId={heroOrb.pulseId}
                       baseMotion={heroOrb.baseMotion}
@@ -389,6 +388,7 @@ export default function AiAgentDetail() {
                     size={HERO_MARK_SIZE}
                     className="relative z-[1]"
                     decorative
+                    mode="live"
                     motion={heroOrb.motion}
                     pulseId={heroOrb.pulseId}
                     baseMotion={heroOrb.baseMotion}
@@ -416,12 +416,12 @@ export default function AiAgentDetail() {
                     </span>
                   ) : null}
                 </div>
-                {agent.description ? (
+                {agent.job_title ? (
                   <p
                     className="mt-1.5 text-base font-medium leading-snug"
                     style={{ color: profileAccent }}
                   >
-                    {agent.description}
+                    {agent.job_title}
                   </p>
                 ) : isAdmin && agent.kind !== 'personal' ? (
                   <button
@@ -429,21 +429,22 @@ export default function AiAgentDetail() {
                     onClick={() => setIdentityOpen(true)}
                     className="mt-1.5 text-sm text-text-muted transition-colors hover:text-text-secondary"
                   >
+                    {t('workforce.agents.profileAddJobTitle')}
+                  </button>
+                ) : null}
+                {agent.description ? (
+                  <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-text-secondary">
+                    {agent.description}
+                  </p>
+                ) : isAdmin && agent.kind !== 'personal' ? (
+                  <button
+                    type="button"
+                    onClick={() => setIdentityOpen(true)}
+                    className="mt-1 text-sm text-text-muted transition-colors hover:text-text-secondary"
+                  >
                     {t('workforce.agents.profileAddDescription')}
                   </button>
                 ) : null}
-                <p
-                  className={cn(
-                    'mt-2 text-sm',
-                    agent.is_active === false
-                      ? presenceTextClass('deactivated')
-                      : presenceTextClass(work),
-                  )}
-                >
-                  {agent.is_active === false
-                    ? presenceLabel('deactivated', t)
-                    : presenceLabel(work, t)}
-                </p>
                 {work === 'working' && (view?.current_activity_summary || live?.summary) ? (
                   workHref ? (
                     <Link
@@ -568,6 +569,7 @@ export default function AiAgentDetail() {
             prefill={{
               name: t('workforce.agents.duplicateName', { name: agent.name }),
               model: agent.model ?? undefined,
+              jobTitle: agent.job_title ?? undefined,
               description: agent.description ?? undefined,
               purpose: agent.purpose ?? agent.system_prompt ?? undefined,
             }}
@@ -579,6 +581,7 @@ export default function AiAgentDetail() {
               onOpenChange={setIdentityOpen}
               agentId={agent.id}
               agentName={agent.name}
+              agentJobTitle={agent.job_title}
               agentDescription={agent.description}
               avatarKind={agent.avatar_kind}
               avatarIcon={agent.avatar_icon}

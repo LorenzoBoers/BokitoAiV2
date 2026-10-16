@@ -22,20 +22,20 @@ A folder has a **name** and a place in a free tree. Optional **labels** (AND) de
 
 ## Nest a folder under another
 
-1. On **Folders**, drag a folder over the **right half** of another row (or use **Nest** in the folder menu). The **left half** of the tree only changes order among siblings.
-2. Drop to place it. Labels do not change — only the tree position does.
+1. On **Folders**, drag a folder onto another row. The map jumps live in the tree to the closest place: same level as that row, or one level deeper when you drag a bit to the right (or use **Nest** in the folder menu).
+2. Drop when it sits where you want. Labels do not change — only the tree position does.
 3. Use **Undo** on the toast, or Ctrl/Cmd+Z, to reverse the last nest, reorder, or unnest.
 
 ## Move a folder to the top level
 
-1. On **Folders**, drag a nested folder onto a **Top level** zone (above or below the tree), or onto the left half of another root folder — the map appears in place while you drag.
+1. On **Folders**, drag a nested folder left toward the root indent, or onto a **Top level** zone (above or below the tree) — the map jumps into place while you drag.
 2. The folder sits among the other root folders. Its labels stay the same.
 3. Use **Undo** on the toast, or Ctrl/Cmd+Z, if you need to reverse it.
 
 ## Move a single label between folders
 
 1. On **Folders**, hover a label in a tree row — it gets a pill so you see it is separate from the others on that row.
-2. Drag that label onto another folder (or its **Nest** zone), or onto **Top level**. The label leaves the source set and joins the target.
+2. Drag that label onto another folder, or onto **Top level**. The label leaves the source set and joins the target.
 3. Use **Undo** on the toast, or Ctrl/Cmd+Z, if you need to reverse it.
 
 ## File a conversation in a folder
@@ -52,7 +52,7 @@ A folder has a **name** and a place in a free tree. Optional **labels** (AND) de
 
 ## See conversations in a folder
 
-1. Open the **Conversations** tab, or use **Folders** in Communication. Empty maps stay hidden in the rail until they have open work or you pin them.
+1. Open the **Conversations** tab, or use **Folders** in Communication. All maps appear in the rail, including empty ones.
 2. Each row matches this folder or a folder nested under it (by labels or by filed home). Filing a conversation into a map adds those labels.
 3. Contact labels apply automatically (shown as inherited); they are not copied onto the thread.
 
@@ -68,7 +68,7 @@ A folder has a **name** and a place in a free tree. Optional **labels** (AND) de
 ## Ask an agent to write a canvas
 
 1. Open the **Canvas** tab and choose **Add canvas**. Pick the agent who will own it.
-2. That opens a conversation: the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Keep talking in that thread to change it. Workspace canvases also live on Overview **Canvas**.
+2. That opens a conversation: the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Keep talking in that thread to change it. On the canvas toolbar the owner agent shows as avatar and name next to the last-updated time and refresh period; use the refresh icon, or delete via the **⋯** menu. Workspace canvases also live on Overview **Canvas**.
 
 ## Track documentation
 

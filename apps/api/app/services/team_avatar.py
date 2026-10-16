@@ -1,7 +1,8 @@
-"""Team visual identity: initials (default), icon, or uploaded image.
+"""Team visual identity for API fallbacks and system-team icons.
 
-Stored in ``Team.settings_json``. Surfaces share the same fields via
-``avatar_payload`` / ``serialize_team``.
+Custom teams render as member facepiles in the product UI. Operators no longer
+set a team mark. ``avatar_payload`` still supplies system-team icons (All people /
+All agents) and initials when a facepile has no resolvable members.
 """
 
 from __future__ import annotations

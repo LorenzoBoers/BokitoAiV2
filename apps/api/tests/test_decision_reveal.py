@@ -259,3 +259,178 @@ async def test_create_decision_reveal_true_still_immediate(client: AsyncClient, 
     assert "_pending_reveal" not in payload
     assert payload.get("from", {}).get("kind") == "agent"
     assert payload["from"].get("id") == str(agent.id)
+
+
+@pytest.mark.asyncio
+async def test_identical_ack_decision_blocks_second_create(
+    client: AsyncClient, session_override
+):
+    """Ja/Nee cards without action_type must not stack in one turn."""
+    _ = client
+    from app.tools.builtin import _create_decision_request
+    from app.tools.registry import ToolContext
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id).limit(1))
+    ).scalar_one()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        subject="Ack identical",
+        status="open",
+        agent_id=agent.id,
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    ctx = ToolContext(
+        session=session_override,
+        tenant_id=tenant.id,
+        user_id=None,
+        agent=agent,
+        signal_id=signal.id,
+        trust="operator",
+        turn_id="turn-ack-1",
+    )
+    payload = {
+        "title": "U10c klaar?",
+        "question": "Mag ik U10c afronden?",
+        "options": [{"id": "ja", "label": "Ja"}, {"id": "nee", "label": "Nee"}],
+    }
+    first = await _create_decision_request(ctx, dict(payload))
+    second = await _create_decision_request(ctx, dict(payload))
+    assert first.get("status") == "awaiting_human"
+    assert second.get("status") == "already_open"
+    assert second.get("decision_request_id") == first.get("decision_request_id")
+
+
+@pytest.mark.asyncio
+async def test_same_bundle_ack_blocks_different_title(
+    client: AsyncClient, session_override
+):
+    """U75: one turn must not stack Ja/Nee cards under different titles."""
+    _ = client
+    from app.tools.builtin import _create_decision_request
+    from app.tools.registry import ToolContext
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id).limit(1))
+    ).scalar_one()
+    signal = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        subject="Ack flood",
+        status="open",
+        agent_id=agent.id,
+    )
+    session_override.add(signal)
+    await session_override.flush()
+    ctx = ToolContext(
+        session=session_override,
+        tenant_id=tenant.id,
+        user_id=None,
+        agent=agent,
+        signal_id=signal.id,
+        trust="operator",
+        turn_id="turn-ack-flood",
+    )
+    first = await _create_decision_request(
+        ctx,
+        {
+            "title": "Mag ik doorgaan met s45?",
+            "options": [{"id": "ja", "label": "Ja"}, {"id": "nee", "label": "Nee"}],
+        },
+    )
+    second = await _create_decision_request(
+        ctx,
+        {
+            "title": "QA S45 bevestigen?",
+            "options": [{"id": "ja", "label": "Ja"}, {"id": "nee", "label": "Nee"}],
+        },
+    )
+    assert first.get("status") == "awaiting_human"
+    assert second.get("status") == "already_open"
+    assert second.get("decision_request_id") == first.get("decision_request_id")
+
+
+@pytest.mark.asyncio
+async def test_persist_turn_reveals_decision_on_context_host_mismatch(
+    client: AsyncClient, session_override
+):
+    """Ask session speech on assistant thread; tool attached card to context mail."""
+    _ = client
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id).limit(1))
+    ).scalar_one()
+    host = Signal(
+        tenant_id=tenant.id,
+        channel="email",
+        subject="Invoice",
+        status="open",
+        agent_id=agent.id,
+    )
+    session = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        subject="Ask about invoice",
+        status="open",
+        agent_id=agent.id,
+    )
+    session_override.add(host)
+    session_override.add(session)
+    await session_override.flush()
+    session.context_signal_id = host.id
+    await session_override.flush()
+
+    turn_id = f"turn-{uuid4()}"
+    decision, _ = await create_decision(
+        session_override,
+        tenant.id,
+        title="QA U10 afronden",
+        summary="Mag ik U10 afronden?",
+        options=[{"id": "ja", "label": "Ja"}, {"id": "nee", "label": "Nee"}],
+        agent_id=agent.id,
+        signal_id=host.id,  # wrongly attached to context host
+        bundle_id=turn_id,
+        reveal=False,
+    )
+    await session_override.flush()
+
+    messages = await persist_agent_turn(
+        session_override,
+        session,
+        segments=[
+            {
+                "id": "seg-1",
+                "text": "Mag ik U10 afronden?",
+                "activity": [
+                    {
+                        "id": "t1",
+                        "kind": "other",
+                        "tool": "create_decision_request",
+                        "proposes": True,
+                        "result": {
+                            "decision_request_id": str(decision.id),
+                            "status": "awaiting_human",
+                        },
+                    }
+                ],
+                "activity_after": [],
+            }
+        ],
+        reply_mode="chat",
+        author_agent_id=agent.id,
+        turn_id=turn_id,
+    )
+    await session_override.commit()
+    await session_override.refresh(decision)
+
+    assert messages
+    assert decision.message_id is not None
+    assert decision.signal_id == session.id
+    card = await session_override.get(SignalMessage, decision.message_id)
+    assert card is not None
+    assert card.signal_id == session.id
+    assert card.kind == "decision_request"

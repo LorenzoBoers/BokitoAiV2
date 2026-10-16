@@ -16,11 +16,17 @@ Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de
 ![Uitnodigen op Workforce](/api/docs/assets/team/invite.png)
 *Eigenaren en beheerders nodigen mensen uit bovenaan Workforce.*
 
-1. Open **Workforce**. Vul onder **Nodig een teammate uit** een volledig e-mailadres in en kies **Rol**: **Beheerder** of **Lid**. Open **Wat elke rol mag** als je de rechtenmatrix nodig hebt.
+1. Open **Workforce**. Vul onder **Personen uitnodigen** een volledig e-mailadres in en kies **Rol**: **Beheerder** of **Lid**. Kies **Wat mag welke rol** tussen de rol en **Uitnodigen** als je de rechtenmatrix nodig hebt.
 2. Kies **Uitnodigen**. Kan deze server geen mail versturen, gebruik dan **Uitnodigingslink kopiëren** en deel die zelf.
 3. Openstaande uitnodigingen staan in de directory onder **In afwachting**. Gebruik **Uitnodiging opnieuw versturen** of **Uitnodiging intrekken**. Op een actief iemand wijzig je de rol of kies je **Deactiveren**. Alleen de **Eigenaar** kan een eigenaar promoveren, degraderen of deactiveren.
 
 Leden beantwoorden gesprekken. Eigenaren en beheerders koppelen ook kanalen, wijzigen autonomie en nemen Govern-voorstellen aan. Zie [Govern](/docs/govern/govern).
+
+## Neem nieuwe agents aan
+
+1. Open op **Workforce**, onder **Personen uitnodigen**, de banner **Neem nieuwe agents aan**.
+2. Kies **Marketplace** om specialisten te bekijken die je naast je team kunt zetten.
+3. Na het aannemen van een agent verschijnt die in de directory onder **Agents** (zie [Agents](/docs/ai/agents)).
 
 ## Meld je afwezig
 
@@ -34,7 +40,7 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
 
 1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen. De kolom **Laatst actief** toont wanneer iemand voor het laatst online was en wanneer een agent voor het laatst draaide. Via Gerelateerd open je **Agents** (zelfde filter **Gedeactiveerd** daar).
 2. Elke persoon toont rol, teams, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout** — geen vraagtellers. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)).
-3. Mensen, agents en teams gebruiken dezelfde soort markering: twee letters (of een icoon/afbeelding als die is gezet). De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents beschikbaar zijn, grijs als iedereen offline is.
+3. Mensen en agents gebruiken hun eigen markering; teams gebruiken een facepile van leden. De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents beschikbaar zijn, grijs als iedereen offline is.
 
 ## Deactiveer een persoon of agent
 
@@ -44,16 +50,16 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
 
 ## Maak een team
 
-1. Scroll naar **Teams** en kies **Nieuw team**. **Alle mensen** en **Alle agents** bestaan altijd; hun leden volgen de workspace. Die systeemteams kun je niet bewerken, pinnen of qua oppakken wijzigen, en ze verschijnen nooit als map in Communicatie.
-2. Geef een eigen team een naam, eventueel een omschrijving, en kies een **Teammarkering** (initialen of icoon). Vink de mensen en agents aan. Een team mag beide mengen.
+1. Scroll naar **Teams** en kies **Nieuw team**. **Alle mensen** en **Alle agents** bestaan altijd; hun leden volgen de workspace. Die systeemteams kun je niet bewerken of qua oppakken wijzigen, en ze verschijnen nooit als map in Communicatie.
+2. Geef een eigen team een naam en eventueel een omschrijving. Vink de mensen en agents aan. Een team mag beide mengen. De teammarkering is altijd de facepile van de leden — er is geen aparte keuze voor initialen of icoon.
 3. Kies onder **Gesprekken oppakken** wat er gebeurt met nieuwe gesprekken van het team:
    - **Mensen pakken op**: het gesprek blijft bij het team; wie als eerste reageert, neemt het.
    - **Agent eerst**: een agent in het team antwoordt eerst; mensen springen bij als hij iets vraagt.
    - **Om de beurt**: elk nieuw gesprek gaat direct naar het volgende beschikbare lid.
    - **Minst open**: elk nieuw gesprek gaat naar het beschikbare lid met de minste open gesprekken.
-4. Zet **Tonen in de zijbalk van Communicatie** aan om iedereen een map voor dit team te geven met **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies **Opslaan**.
+4. Kies **Opslaan**. Elk eigen team verschijnt onder **Teams** in de Communicatie-zijbalk als map met **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**.
 5. Open in **Communicatie** die teammap en kies **Groepschat**. Bokito opent (of maakt) één vast intern gesprek van het team, zodat leden kunnen praten zonder een klantgesprek.
-6. Terug op **Workforce** openen de naam van een eigen team en de knop **Gesprekken** diezelfde teammap in Communicatie, ook als de zijbalk-optie uit staat. Links op elke teamrij staat die facepile: tot drie overlappende ledenmarkeringen (mensen en agents); bij meer staat op de vierde plek **+N**. Agentmarkeringen openen de agentpagina en komen overeen met de markering op die pagina. Op smalle plekken (toewijzen, Communicatie-mappen) blijft een enkele teammarkering (initialen of icoon). De systeemteams **Alle mensen** en **Alle agents** hebben geen map; hun naam blijft gewone tekst.
+6. Terug op **Workforce** openen de naam van een eigen team en de knop **Gesprekken** diezelfde teammap. Links op elke teamrij — en in de toewijskieser, vermeldingen en Communicatie-mappen — staat die facepile: tot drie overlappende ledenmarkeringen (mensen en agents); bij meer staat op de vierde plek **+N**. Agentmarkeringen op Workforce openen de agentpagina en komen overeen met de markering op die pagina. De systeemteams **Alle mensen** en **Alle agents** hebben geen map; hun naam blijft gewone tekst.
 
 Om de beurt en minst open geven alleen werk aan mensen die beschikbaar zijn en agents die het kanaal mogen afhandelen. Past niemand, dan blijft het gesprek bij het team. Elke toewijzing staat in de tijdlijn en in het auditlog. Maak een team eigenaar van een kanaal onder **Instellingen**, **Kanalen** (zie [Kanalen](/docs/inbox/channels)).
 

@@ -11,7 +11,6 @@ from sqlalchemy import select
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.notification import DecisionRequest
-from app.models.orchestra import WorkstreamRun
 from app.models.platform_change import PlatformChange
 from app.models.project import Project
 from app.models.signal import Signal, SignalEvent, SignalMessage, SignalTag
@@ -450,11 +449,6 @@ async def test_ticket_moves_through_playbook_stages(client: AsyncClient, session
         certainty=10, actor="agent",
     )
     assert result["ticket"]["status"] == "open"
-    # Steps retired: filing no longer starts a workstream run.
-    run = (
-        await session_override.execute(select(WorkstreamRun).where(WorkstreamRun.signal_id == signal.id))
-    ).scalar_one_or_none()
-    assert run is None
 
     ticket = (await client.get(f"/api/signals/{signal.id}/ticket", headers=headers)).json()["ticket"]
     assert ticket["status"] == "open"

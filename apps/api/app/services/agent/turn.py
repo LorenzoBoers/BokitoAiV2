@@ -110,6 +110,23 @@ def _activity_result(tool: str, result: Any) -> Any:
             if result.get("message"):
                 slim["message"] = str(result.get("message"))[:200]
         return slim
+    if tool == "fetch_url" and isinstance(result, dict):
+        slim = {
+            "url": str(result.get("url") or "")[:240],
+            "host": str(result.get("host") or "")[:120],
+            "title": str(result.get("title") or "")[:120],
+            "chars": result.get("chars") if isinstance(result.get("chars"), int) else None,
+            "truncated": bool(result.get("truncated")),
+        }
+        if result.get("error"):
+            slim["error"] = str(result.get("error"))[:120]
+            if result.get("message"):
+                slim["message"] = str(result.get("message"))[:200]
+        elif result.get("markdown"):
+            # Keep a short preview in the trail; full text stayed in the tool result for the model.
+            md = str(result.get("markdown") or "")
+            slim["markdown_preview"] = md[:400] + ("…" if len(md) > 400 else "")
+        return slim
     if isinstance(result, dict) and isinstance(result.get("items"), list):
         # Keep enough to rebuild showcase cards if the in-memory stash is lost
         # (attach_items, list_folders, list_agents, list_contacts, …).

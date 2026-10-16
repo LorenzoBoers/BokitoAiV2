@@ -5,9 +5,8 @@ import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import type { AgendaOwner } from '../../lib/agenda-layout'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { AiAvatar } from '../ui/AiAvatar'
-import { TeamAvatar } from '../ui/TeamAvatar'
+import { TeamFacepile } from '../ui/TeamFacepile'
 import { UserAvatar } from '../ui/UserAvatar'
 import { cn } from '../../lib/utils'
 
@@ -37,14 +36,13 @@ export function AgendaOwnerMark({
         )}
         size={size}
         decorative
+        mode="static"
       />
     ) : owner.kind === 'team' ? (
-      <TeamAvatar
-        {...toTeamAvatarProps(
-          teams.find((row) => row.id === owner.id) ?? { id: owner.id, name },
-        )}
+      <TeamFacepile
+        team={teams.find((row) => row.id === owner.id) ?? { id: owner.id, name }}
         size={size}
-        decorative
+        linkAgents={false}
       />
     ) : (() => {
       const member = owner.id ? members.find((row) => row.uuid === owner.id) : undefined

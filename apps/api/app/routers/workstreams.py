@@ -244,8 +244,11 @@ async def _set_playbook_tags(
     session: AsyncSession, tenant_id: UUID, ws: Workstream, tag_ids: list[UUID]
 ) -> None:
     """The flow's one action tag. Setting a tag moves it here from any other
-    flow; an empty list turns the current one back into a free hashtag. The
-    flow title follows the action tag."""
+    flow; an empty list turns the current one back into a free hashtag.
+
+    The stored ``name`` is the operator title and stays independent. Only seed
+    it from the tag when the title is still empty.
+    """
     from datetime import datetime
 
     from fastapi import HTTPException
@@ -278,17 +281,18 @@ async def _set_playbook_tags(
                 session.add(tag)
     except (ValueError, LookupError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    linked = (
-        await session.execute(
-            select(SignalTag.name)
-            .where(SignalTag.tenant_id == tenant_id, SignalTag.workstream_id == ws.id)
-            .order_by(SignalTag.name)
-        )
-    ).scalars().all()
-    if linked:
-        ws.name = str(linked[0])[:120]
-        ws.updated_at = datetime.utcnow()
-        session.add(ws)
+    if not (ws.name or "").strip():
+        linked = (
+            await session.execute(
+                select(SignalTag.name)
+                .where(SignalTag.tenant_id == tenant_id, SignalTag.workstream_id == ws.id)
+                .order_by(SignalTag.name)
+            )
+        ).scalars().all()
+        if linked:
+            ws.name = str(linked[0])[:120]
+            ws.updated_at = datetime.utcnow()
+            session.add(ws)
 
 
 @router.delete("/{workstream_id}")

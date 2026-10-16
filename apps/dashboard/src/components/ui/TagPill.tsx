@@ -26,8 +26,8 @@ type PillVisual = {
 }
 
 /**
- * Stadium pill: soft tinted fill, matching leading dot, no `#`, no hard border.
- * Fits platform tokens (elevated hover fill for free labels, accent wash for action tags).
+ * Stadium pill: soft tinted fill, matching leading mark, no `#`, no hard border.
+ * Free labels use a tinted dot; action tags use an accent play glyph.
  */
 function pillClassName({
   tone = 'free',
@@ -49,17 +49,16 @@ function pillClassName({
     isInherited
       ? 'bg-bg-elevated/70 text-text-muted'
       : isAction
-        ? 'bg-accent/18 text-accent'
+        ? 'bg-bg-hover text-accent'
         : freeTint ?? 'bg-bg-hover text-text-heading',
-    selected && !applied && !isInherited && (isAction ? 'bg-accent/28 text-accent' : 'bg-border-light/40 text-text-heading'),
+    selected && !applied && !isInherited && 'bg-border-light/40 text-text-heading',
+    selected && !applied && !isInherited && isAction && 'text-accent',
     !applied &&
       !selected &&
       interactive &&
-      (isAction
-        ? 'hover:bg-accent/28'
-        : isInherited
-          ? 'hover:bg-bg-elevated hover:text-text-secondary'
-          : 'hover:bg-border-light/35'),
+      (isInherited
+        ? 'hover:bg-bg-elevated hover:text-text-secondary'
+        : 'hover:bg-border-light/35'),
     applied && 'opacity-45',
     className,
   )
@@ -80,7 +79,18 @@ function PillLabel({
 }) {
   const isAction = tone === 'action'
   const gap = size === 'sm' ? 'gap-1' : 'gap-2'
-  const mark = size === 'sm' ? 'h-1.5 w-1.5' : size === 'lg' ? 'h-2.5 w-2.5' : 'h-2 w-2'
+  // Play glyph needs a touch more box size than the solid dot to match optically.
+  const mark = isAction
+    ? size === 'sm'
+      ? 'h-2 w-2'
+      : size === 'lg'
+        ? 'h-3 w-3'
+        : 'h-2.5 w-2.5'
+    : size === 'sm'
+      ? 'h-1.5 w-1.5'
+      : size === 'lg'
+        ? 'h-2.5 w-2.5'
+        : 'h-2 w-2'
   if (iconUrl) {
     return (
       <span className={cn('inline-flex min-w-0 items-center', gap)}>
@@ -102,7 +112,7 @@ function PillLabel({
 }
 
 /**
- * Platform label chip: stadium pill, round leading mark, no `#`.
+ * Platform label chip: stadium pill, leading mark (dot or play), no `#`.
  */
 export function TagPill({
   names,
@@ -235,7 +245,7 @@ export function TagPillInline({
       className={cn(
         'tag-pill tag-pill--inline inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[0.92em] font-medium leading-none no-underline transition-colors',
         action
-          ? 'bg-accent/18 text-accent hover:bg-accent/28'
+          ? 'bg-bg-hover text-accent hover:bg-border-light/35'
           : 'bg-bg-hover text-text-heading hover:bg-border-light/35',
         className,
       )}

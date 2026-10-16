@@ -34,18 +34,22 @@ type Props = {
   members: AvatarStackMember[]
   size?: number
   className?: string
+  /** When false (menus/pickers), agent faces are not links. */
+  linkAgents?: boolean
 }
 
 /**
  * Overlapping facepile for people and agents: up to three faces, then a
  * fourth slot with +N when there are more. Agents use AgentMark unclipped
- * (no circular ring — orbs must match the agent page mark). People stay
- * circular with a surface cutout. Agent faces link to the agent page.
+ * with a silhouette surface outline (same cutout role as the people ring).
+ * People stay circular with a surface ring. Agent faces link to the agent page
+ * unless ``linkAgents`` is false.
  */
-export function AvatarStack({ members, size = 32, className }: Props) {
+export function AvatarStack({ members, size = 32, className, linkAgents = true }: Props) {
   if (members.length === 0) return null
   const shown = members.slice(0, AVATAR_STACK_MAX)
   const overflow = members.length - shown.length
+  const overlap = Math.max(6, Math.min(STACK_OVERLAP_PX, Math.round(size * 0.4)))
 
   return (
     <span
@@ -55,10 +59,33 @@ export function AvatarStack({ members, size = 32, className }: Props) {
       {shown.map((member, index) => {
         const style = {
           zIndex: shown.length - index,
-          marginLeft: index > 0 ? -STACK_OVERLAP_PX : 0,
+          marginLeft: index > 0 ? -overlap : 0,
         } as const
 
         if (member.kind === 'agent') {
+          const mark = (
+            <AgentMark
+              agent={member.agent}
+              size={size}
+              mode="static"
+              stackOutline
+              decorative
+            />
+          )
+          if (!linkAgents) {
+            return (
+              <span
+                key={member.key}
+                className="relative inline-flex shrink-0 overflow-visible"
+                style={style}
+                title={member.name}
+                aria-hidden
+                data-testid="avatar-stack-agent"
+              >
+                {mark}
+              </span>
+            )
+          }
           return (
             <Link
               key={member.key}
@@ -69,7 +96,7 @@ export function AvatarStack({ members, size = 32, className }: Props) {
               aria-label={member.name}
               data-testid="avatar-stack-agent"
             >
-              <AgentMark agent={member.agent} size={size} paused decorative />
+              {mark}
             </Link>
           )
         }
@@ -100,7 +127,7 @@ export function AvatarStack({ members, size = 32, className }: Props) {
             width: size,
             height: size,
             zIndex: 0,
-            marginLeft: -STACK_OVERLAP_PX,
+            marginLeft: -overlap,
           }}
           title={`+${overflow}`}
           aria-label={`+${overflow}`}

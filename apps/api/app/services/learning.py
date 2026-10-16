@@ -838,51 +838,9 @@ def serialize_eval(row: EvalScore) -> dict[str, Any]:
 
 
 async def map_outcomes_to_feedback(session: AsyncSession, tenant_id: UUID, days: int = 7) -> int:
-    """Create feedback rows from operational outcomes not yet reflected in feedback."""
-    from app.models.outcome import OperationalOutcome
-    from app.services.outcomes import _sentiment_from_payload
-
-    since = datetime.utcnow() - timedelta(days=days)
-    outcomes = (
-        await session.execute(
-            select(OperationalOutcome).where(
-                OperationalOutcome.tenant_id == tenant_id,
-                OperationalOutcome.created_at >= since,
-            )
-        )
-    ).scalars().all()
-    created = 0
-    for outcome in outcomes:
-        try:
-            payload = json.loads(outcome.payload_json or "{}")
-        except json.JSONDecodeError:
-            payload = {}
-        sentiment = _sentiment_from_payload(payload)
-        if not sentiment:
-            continue
-        subject_id = str(outcome.signal_id or outcome.id)
-        existing = (
-            await session.execute(
-                select(Feedback).where(
-                    Feedback.tenant_id == tenant_id,
-                    Feedback.subject_type.in_(("signal", "run")),
-                    Feedback.subject_id == subject_id,
-                    Feedback.comment == json.dumps(payload)[:2000],
-                )
-            )
-        ).scalar_one_or_none()
-        if existing:
-            continue
-        await submit_feedback(
-            session,
-            tenant_id,
-            subject_type="signal" if outcome.signal_id else "run",
-            subject_id=subject_id,
-            sentiment=sentiment,
-            comment=json.dumps(payload)[:2000],
-        )
-        created += 1
-    return created
+    """No-op: operational_outcomes table retired; learning uses Feedback / EvalScore."""
+    del session, tenant_id, days
+    return 0
 
 
 async def _eval_trend_worsened(session: AsyncSession, tenant_id: UUID, metric: str) -> bool:

@@ -40,8 +40,8 @@ async def test_mock_trading_mcp_risk_status(session_override):
 
 @pytest.mark.asyncio
 async def test_workstream_run_stages_only_completes(session_override):
-    """Manual runs complete immediately — step engine retired."""
-    from app.models.orchestra import Workstream, WorkstreamRun
+    """Manual runs return an in-memory completed receipt — no ledger row."""
+    from app.models.orchestra import Workstream
     from app.services.workstreams import start_run
 
     tenant = Tenant(slug="orch-resume", name="Orch Resume")
@@ -61,14 +61,8 @@ async def test_workstream_run_stages_only_completes(session_override):
         triggered_by_type="system",
     )
     assert run.status == "completed"
-    assert run.current_step_id is None
-
-    refreshed = (
-        await session_override.execute(
-            select(WorkstreamRun).where(WorkstreamRun.id == run.id)
-        )
-    ).scalar_one()
-    assert refreshed.status == "completed"
+    assert run.workstream_id == workstream.id
+    assert run.completed_at is not None
 
 
 @pytest.mark.asyncio

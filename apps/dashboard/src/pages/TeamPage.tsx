@@ -15,17 +15,11 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
-import { Switch } from '../components/ui/switch'
 import { AgentMark } from '../components/ui/AgentMark'
-import { AvatarStack, type AvatarStackMember } from '../components/ui/AvatarStack'
-import { TeamAvatar } from '../components/ui/TeamAvatar'
+import { AvatarStack } from '../components/ui/AvatarStack'
+import { TeamFacepile } from '../components/ui/TeamFacepile'
 import { UserAvatar } from '../components/ui/UserAvatar'
-import {
-  TEAM_AVATAR_ICON_KEYS,
-  resolveTeamAvatarIcon,
-  toTeamAvatarProps,
-} from '../lib/team-avatar'
-import type { TeamAvatarKind } from '../lib/teams-api'
+import { resolveTeamStackMembers } from '../lib/team-facepile'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import {
   Dialog,
@@ -50,7 +44,6 @@ import {
   type TeamPickup,
 } from '../lib/teams-api'
 import { useAgentLive, agentPresenceOf } from '../hooks/useAgentPresence'
-import { cn } from '../lib/utils'
 
 const ConversationIcon = ENTITY_ICONS.conversation
 
@@ -58,34 +51,11 @@ function memberKey(ref: TeamMemberRef): string {
   return `${ref.kind}:${ref.id}`
 }
 
-function resolveTeamMembers(team: Team, overview: TeamOverview): AvatarStackMember[] {
-  const peopleById = new Map(overview.people.map((p) => [p.uuid, p]))
-  const agentsById = new Map(overview.agents.map((a) => [a.id, a]))
-  const out: AvatarStackMember[] = []
-  for (const ref of team.members) {
-    if (ref.kind === 'user') {
-      const person = peopleById.get(ref.id)
-      if (!person || person.deactivated) continue
-      out.push({
-        key: memberKey(ref),
-        kind: 'user',
-        name: person.name,
-        email: person.email,
-        avatarUrl: person.avatar_url,
-      })
-    } else {
-      const agent = agentsById.get(ref.id)
-      if (!agent || agent.deactivated) continue
-      out.push({
-        key: memberKey(ref),
-        kind: 'agent',
-        name: agent.name,
-        id: agent.id,
-        agent,
-      })
-    }
-  }
-  return out
+function resolveTeamMembers(team: Team, overview: TeamOverview) {
+  return resolveTeamStackMembers(team.members, {
+    people: overview.people,
+    agents: overview.agents,
+  })
 }
 
 function scrollToId(id: string) {
@@ -205,10 +175,10 @@ export default function TeamPage() {
                     {stack.length > 0 ? (
                       <AvatarStack members={stack} size={32} className="mt-0.5 shrink-0" />
                     ) : (
-                      <TeamAvatar
-                        {...toTeamAvatarProps(team)}
+                      <TeamFacepile
+                        team={team}
                         size={32}
-                        decorative
+                        linkAgents={false}
                         presence={team.presence?.status}
                         className="mt-0.5"
                       />
@@ -228,7 +198,6 @@ export default function TeamPage() {
                           </Link>
                         )}
                         {team.system ? <Badge variant="secondary">{t('teamPage.systemBadge')}</Badge> : null}
-                        {team.pinned ? <Badge variant="neutral">{t('teamPage.pinnedBadge')}</Badge> : null}
                       </p>
                       <p className="truncate-fade text-xs text-text-muted">
                         {team.system
@@ -321,24 +290,11 @@ function TeamDialog({
   const [name, setName] = useState(team?.name ?? '')
   const [description, setDescription] = useState(team?.description ?? '')
   const [pickup, setPickup] = useState<TeamPickup>(team?.pickup ?? 'people')
-  const [pinned, setPinned] = useState(team?.pinned ?? false)
-  const [avatarKind, setAvatarKind] = useState<TeamAvatarKind>(
-    () => (team?.avatar_kind === 'icon' || team?.avatar_kind === 'image' ? team.avatar_kind : 'initials'),
-  )
-  const [avatarIcon, setAvatarIcon] = useState(team?.avatar_icon ?? 'users')
-  const [avatarColor] = useState(team?.avatar_color ?? null)
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set((team?.members ?? []).map(memberKey)),
   )
   const [busy, setBusy] = useState(false)
   const isSystem = team?.system ?? false
-  const previewName = name.trim() || team?.name || t('teamPage.namePlaceholder')
-  const avatarPayload = {
-    avatar_kind: avatarKind === 'image' ? 'initials' : avatarKind,
-    avatar_icon: avatarKind === 'icon' ? avatarIcon : null,
-    avatar_color: avatarColor,
-    avatar_image_url: null as string | null,
-  }
 
   const toggle = (ref: TeamMemberRef) =>
     setSelected((prev) => {
@@ -364,10 +320,7 @@ function TeamDialog({
           name,
           description,
           pickup,
-          pinned,
           members: members(),
-          ...avatarPayload,
-          avatar_kind: avatarPayload.avatar_kind as TeamAvatarKind,
         })
       } else {
         if (isSystem) return
@@ -375,9 +328,6 @@ function TeamDialog({
           name,
           description,
           pickup,
-          pinned,
-          ...avatarPayload,
-          avatar_kind: avatarPayload.avatar_kind as TeamAvatarKind,
         })
         await setTeamMembers(token, team.id, members())
       }
@@ -437,69 +387,6 @@ function TeamDialog({
             </Select>
             <p className="text-xs text-text-muted">{t(`teamPage.pickupHint.${pickup}`)}</p>
           </div>
-          <label className="flex items-start justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
-            <span className="min-w-0">
-              <span className="block text-xs font-medium text-text-heading">{t('teamPage.pinLabel')}</span>
-              <span className="block text-xs text-text-muted">{t('teamPage.pinHint')}</span>
-            </span>
-            <Switch checked={pinned} onCheckedChange={setPinned} />
-          </label>
-          <div className="space-y-2 rounded-lg border border-border/60 px-3 py-2">
-            <div className="flex items-center gap-3">
-              <TeamAvatar
-                {...toTeamAvatarProps({
-                  id: team?.id,
-                  name: previewName,
-                  avatar_kind: avatarPayload.avatar_kind,
-                  avatar_icon: avatarPayload.avatar_icon,
-                  avatar_color: avatarPayload.avatar_color,
-                })}
-                size={36}
-                decorative
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-text-heading">{t('teamPage.avatarLabel')}</p>
-                <p className="text-xs text-text-muted">{t('teamPage.avatarHint')}</p>
-              </div>
-              <Select
-                value={avatarKind === 'icon' ? 'icon' : 'initials'}
-                onValueChange={(v) => setAvatarKind(v === 'icon' ? 'icon' : 'initials')}
-              >
-                <SelectTrigger className="h-8 w-[120px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="initials">{t('teamPage.avatarInitials')}</SelectItem>
-                  <SelectItem value="icon">{t('teamPage.avatarIcon')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {avatarKind === 'icon' ? (
-              <div className="flex flex-wrap gap-1.5">
-                {TEAM_AVATAR_ICON_KEYS.slice(0, 12).map((key) => {
-                  const Icon = resolveTeamAvatarIcon(key)
-                  if (!Icon) return null
-                  const active = avatarIcon === key
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setAvatarIcon(key)}
-                      className={cn(
-                        'inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors',
-                        active
-                          ? 'border-accent bg-accent/10 text-accent'
-                          : 'border-border/60 text-text-muted hover:bg-bg-hover',
-                      )}
-                      title={key}
-                    >
-                      <Icon size={14} />
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
-          </div>
           {!isSystem ? (
             <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
               {overview.people.filter((p) => !p.deactivated).map((p) => {
@@ -528,6 +415,7 @@ function TeamDialog({
                       agent={a}
                       size={20}
                       decorative={false}
+                      mode="static"
                       activity={
                         agentPresenceOf(a.id) !== 'standby'
                           ? agentPresenceOf(a.id)

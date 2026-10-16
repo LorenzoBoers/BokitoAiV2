@@ -16,9 +16,12 @@ import {
   itemsFromAttachResult,
   mergeShowcaseItems,
 } from '../../lib/marketplace-mentions'
+import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import { cn } from '../../lib/utils'
 import { AiAvatar } from '../ui/AiAvatar'
-import ActivityTrail, { ActivityIcon } from './ActivityTrail'
+import type { AgentAvatarProps } from '../../lib/agent-avatar'
+import ActivityTrail from './ActivityTrail'
+import { LiveAgentAvatarSlot, useLiveAgentSeat } from './LiveAgentSeat'
 import { THREAD_GUTTER, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
 import { BubbleHeader, ChatBubbleShell, RoleChip } from './ChatBubble'
 import ChatText from './ChatText'
@@ -194,6 +197,11 @@ export default function AgentTurnLive({
   turn,
   avatar,
   agentName,
+  agentId,
+  avatarMark,
+  orbMotion,
+  orbPulseId,
+  orbBaseMotion,
   continuesRun = false,
   onPlaybackDone,
 }: {
@@ -202,12 +210,19 @@ export default function AgentTurnLive({
   avatar?: ReactNode
   /** Author line on the first bubble; falls back to the generic AI label. */
   agentName?: string | null
+  /** When set, avatar uses the thread live-seat (spawn + FLIP). */
+  agentId?: string | null
+  avatarMark?: AgentAvatarProps | null
+  orbMotion?: BotOrbMotion | null
+  orbPulseId?: string | null
+  orbBaseMotion?: BotOrbMotion | null
   /** The last saved row is this agent's bubble: no avatar, no author line. */
   continuesRun?: boolean
   /** Saved bubbles may replace this overlay once the reveal has caught up. */
   onPlaybackDone?: (streamId: string) => void
 }) {
   const { t } = useTranslation('communication')
+  const seat = useLiveAgentSeat()
   const [revealed, setRevealed] = useState<Record<string, boolean>>({})
   const markRevealed = useCallback((key: string, done: boolean) => {
     setRevealed((prev) => (prev[key] === done ? prev : { ...prev, [key]: done }))
@@ -241,14 +256,51 @@ export default function AgentTurnLive({
   const header = lead ? (
     <BubbleHeader name={agentName || t('timeline.aiAgent')} chip={<RoleChip kind="ai" />} />
   ) : null
-  // Empty tinted circle while the parent still wires the real mark — never
-  // flash initials or a generic sparkles icon mid-turn.
-  const avatarNode = avatar ?? (
-    <AiAvatar name={agentName} kind={null} size={28} decorative />
-  )
-  // The avatar normally rides on the first speech bubble. Until one exists
-  // (thinking, tool calls), it marks the first activity row instead.
-  const avatarOnActivity = lead && firstSpeechIndex < 0
+  const streamKey = turn.streamId ?? 'live'
+  // Pre-speech seat (think / tools / waiting): always show the live orb, even
+  // when this turn continues a prior agent bubble run (continuesRun only hides
+  // the avatar on stacked speech bubbles).
+  const preSpeech = firstSpeechIndex < 0
+  const seatSlotId = preSpeech || waiting || preparingProposal
+    ? `live:${streamKey}:activity`
+    : `live:${streamKey}:speech`
+  // Always request entrance on the turn seat. LiveAgentSeat full-spawns when
+  // the agent has no prior live seat, quickspawns when relocating from idle /
+  // another slot. Do not flip this off on mount — that raced late agentId /
+  // handoff Extra and skipped the rise entirely.
+  // Nadenken / tools / preparing labels wait until the entrance finishes.
+  const entering = Boolean(agentId && seat?.isEntering(String(agentId)))
+
+  // Mount the live seat once. Reusing the same element in activity + waiting
+  // rows created two LiveAgentAvatarSlot instances (static footprint + live
+  // orb) — “2 avatars thinking / working”.
+  const avatarNode =
+    agentId && avatarMark ? (
+      <LiveAgentAvatarSlot
+        agentId={String(agentId)}
+        slotId={seatSlotId}
+        claim
+        spawn
+        size={28}
+        decorative
+        name={avatarMark.name ?? agentName}
+        kind={avatarMark.kind}
+        icon={avatarMark.icon}
+        color={avatarMark.color}
+        shape={avatarMark.shape}
+        imageUrl={avatarMark.imageUrl}
+        motion={orbMotion}
+        pulseId={orbPulseId}
+        baseMotion={orbBaseMotion}
+      />
+    ) : (
+      (avatar ?? <AiAvatar name={agentName} kind={null} size={28} decorative mode="live" />)
+    )
+  const hasActivityBlock = blocks.some((block) => block.type === 'activity')
+  // Avatar on the first activity row when tools/think already render; otherwise
+  // on waiting / preparing / entrance. Speech keeps its own lead avatar.
+  const avatarOnActivity = preSpeech && hasActivityBlock
+  const metaAvatar = avatarOnActivity ? null : avatarNode
 
   return (
     <div className="space-y-1.5">
@@ -258,9 +310,11 @@ export default function AgentTurnLive({
             <span className={THREAD_GUTTER}>
               {avatarOnActivity && index === 0 ? avatarNode : null}
             </span>
-            <div className="min-w-0 flex-1">
-              <ActivityTrail items={block.items} live={turn.active} />
-            </div>
+            {!entering ? (
+              <div className="min-w-0 flex-1">
+                <ActivityTrail items={block.items} live={turn.active} />
+              </div>
+            ) : null}
           </div>
         ) : (
           <LiveSpeech
@@ -277,21 +331,26 @@ export default function AgentTurnLive({
           />
         ),
       )}
-      {preparingProposal ? (
+      {!entering && preparingProposal ? (
         <div role="status" aria-live="polite">
-          <ThreadMetaBlock avatar={lead && blocks.length === 0 ? avatarNode : null}>
-            <ThreadMetaRow live ai icon={<ActivityIcon kind="work" live />}>
+          <ThreadMetaBlock avatar={metaAvatar}>
+            <ThreadMetaRow live ai>
               {t('proposal.preparing')}
             </ThreadMetaRow>
           </ThreadMetaBlock>
         </div>
-      ) : waiting ? (
+      ) : !entering && waiting ? (
         <div role="status" aria-live="polite">
-          <ThreadMetaBlock avatar={lead && blocks.length === 0 ? avatarNode : null}>
-            <ThreadMetaRow live ai icon={<ActivityIcon kind="think" live />}>
+          <ThreadMetaBlock avatar={metaAvatar}>
+            <ThreadMetaRow live ai>
               {t('activity.thinking')}
             </ThreadMetaRow>
           </ThreadMetaBlock>
+        </div>
+      ) : null}
+      {entering && preSpeech && !hasActivityBlock ? (
+        <div className="flex items-start gap-2" aria-hidden>
+          <span className={THREAD_GUTTER}>{avatarNode}</span>
         </div>
       ) : null}
     </div>

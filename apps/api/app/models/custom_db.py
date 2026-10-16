@@ -1,9 +1,10 @@
-"""Custom table builder models.
+"""Retired: custom_* tables dropped in Alembic 101.
 
-DEAD CODE — the router that served these is no longer mounted. The tables stay
-so existing tenant rows survive until they are migrated onto Contact, Project,
-or typed signal fields; nothing in the product reads them.
+The builder router is unmounted. Stubs remain so dead service/router modules
+still import without registering SQLAlchemy tables.
 """
+
+from __future__ import annotations
 
 import uuid
 from datetime import datetime
@@ -12,91 +13,64 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 
-class CustomTable(SQLModel, table=True):
-    __tablename__ = "custom_tables"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    organisation_id: int = Field(index=True)
-    name: str
-    slug: str = Field(index=True)
+class CustomTable(SQLModel):
+    id: Optional[int] = None
+    tenant_id: uuid.UUID | None = None
+    organisation_id: int = 0
+    name: str = ""
+    slug: str = ""
     description: str = ""
     icon: str = "Database"
     color: str = "#3b82f6"
     is_standard: bool = False
-    magic_table_config_json: str = Field(default="{}")
+    magic_table_config_json: str = "{}"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class CustomField(SQLModel, table=True):
-    __tablename__ = "custom_fields"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    custom_table_id: int = Field(foreign_key="custom_tables.id", index=True)
-    name: str
-    slug: str
-    field_type: str
-    config_json: str = Field(default="{}")
+class CustomField(SQLModel):
+    id: Optional[int] = None
+    tenant_id: uuid.UUID | None = None
+    custom_table_id: int = 0
+    name: str = ""
+    slug: str = ""
+    field_type: str = "text"
+    options_json: str = "[]"
     required: bool = False
-    position: int = 0
-    default_value_json: str = Field(default="null")
-    is_system: bool = False
+    sort_order: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class CustomRecord(SQLModel, table=True):
-    __tablename__ = "custom_records"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    custom_table_id: int = Field(foreign_key="custom_tables.id", index=True)
-    data_json: str = Field(default="{}")
-    is_deleted: bool = False
-    deleted_at: Optional[datetime] = None
-    owner_id: Optional[int] = None
+class CustomRecord(SQLModel):
+    id: Optional[int] = None
+    tenant_id: uuid.UUID | None = None
+    custom_table_id: int = 0
+    data_json: str = "{}"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class CustomView(SQLModel, table=True):
-    __tablename__ = "custom_views"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    custom_table_id: int = Field(foreign_key="custom_tables.id", index=True)
-    name: str
-    view_type: str = Field(default="grid")
-    config_json: str = Field(default="{}")
-    position: int = 0
+class CustomView(SQLModel):
+    id: Optional[int] = None
+    tenant_id: uuid.UUID | None = None
+    custom_table_id: int = 0
+    name: str = ""
+    config_json: str = "{}"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class CustomRecordActivity(SQLModel, table=True):
-    __tablename__ = "custom_record_activities"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    record_id: int = Field(foreign_key="custom_records.id", index=True)
-    user_id: int = 0
-    user_name: str = "System"
-    action: str
-    field_changes_json: str = Field(default="[]")
-    note: str = ""
+class CustomRecordActivity(SQLModel):
+    id: Optional[int] = None
+    tenant_id: uuid.UUID | None = None
+    custom_record_id: int = 0
+    kind: str = ""
+    payload_json: str = "{}"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class CustomRecordComment(SQLModel, table=True):
-    __tablename__ = "custom_record_comments"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    record_id: int = Field(foreign_key="custom_records.id", index=True)
-    user_id: int = 0
-    user_name: str = "User"
-    content: str
-    parent_id: Optional[int] = None
-    mentions_json: str = Field(default="[]")
+class CustomRecordComment(SQLModel):
+    id: Optional[int] = None
+    tenant_id: uuid.UUID | None = None
+    custom_record_id: int = 0
+    body: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)

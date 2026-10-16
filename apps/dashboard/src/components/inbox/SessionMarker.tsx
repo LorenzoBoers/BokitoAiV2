@@ -1,20 +1,16 @@
 /**
  * Inline agent session marker: one centered pill in the timeline.
  *
- * The session's own messages are ordinary rows (see `session-timeline.ts`),
- * so this row only says where a session starts and, once it is closed, what
- * came out of it. Active: "{agent} · internal". Closed: a summary pill that
- * expands in place to the transcript. Sessions start and close themselves.
+ * Session messages stay ordinary host-timeline rows (see `session-timeline.ts`
+ * and ThreadDetail). This row only marks where a session starts and, once it
+ * is closed, offers a compact summary of the outcome. Active: "{agent} ·
+ * internal". Closed: a summary pill that expands to summary + actions.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, Loader2, Wrench } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ChevronRight, Wrench } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAuth } from '../../context/AuthContext'
-import { bokitoListMessages, type ThreadSession } from '../../lib/signals-api'
-import type { InboxMessage } from '../../lib/inbox-api'
-import { sessionTimelineMessages } from '../../lib/session-timeline'
-import { assignBubbleStacks, type BubbleStack } from '../../lib/chat-layout'
+import type { ThreadSession } from '../../lib/signals-api'
 import { translateMockAgentBody } from '../../lib/activity-labels'
 import { AiMark } from '../ai/AiMark'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -27,8 +23,6 @@ type Props = {
   streaming?: boolean
   /** Refetch the thread detail (session state changed). */
   onChanged: () => void
-  /** Draw one transcript message with the shared bubble renderer. */
-  renderMessage: (message: InboxMessage, stack: BubbleStack) => ReactNode
 }
 
 function formatTime(iso: string): string {
@@ -73,78 +67,7 @@ function InternalWord() {
   )
 }
 
-function ClosedTranscript({
-  session,
-  renderMessage,
-}: {
-  session: ThreadSession
-  renderMessage: Props['renderMessage']
-}) {
-  const { t } = useTranslation('communication')
-  const { token, user } = useAuth()
-  const [messages, setMessages] = useState<InboxMessage[] | null>(null)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    if (!token) return
-    let cancelled = false
-    bokitoListMessages(token, session.id)
-      .then((rows) => {
-        if (cancelled) return
-        setMessages(sessionTimelineMessages(session, rows, [], user?.id ?? null))
-      })
-      .catch(() => {
-        if (!cancelled) setError(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [token, session, user?.id])
-
-  const stacks = useMemo(
-    () =>
-      assignBubbleStacks(
-        (messages ?? []).map((m) => ({
-          id: String(m.id),
-          key: m.kind === 'agent_message' ? 'agent' : `user:${m.authorUserId ?? 'me'}`,
-          timeMs: new Date(m.createdAt).getTime(),
-        })),
-      ),
-    [messages],
-  )
-
-  if (error) {
-    return <p className="py-2 text-center text-xs text-status-error">{t('agentSession.transcriptError')}</p>
-  }
-  if (messages === null) {
-    return (
-      <div className="flex justify-center py-3 text-text-muted">
-        <Loader2 size={14} className="animate-spin" />
-      </div>
-    )
-  }
-  if (messages.length === 0) {
-    return <p className="py-2 text-center text-xs text-text-muted">{t('agentSession.emptyTranscript')}</p>
-  }
-  return (
-    <div className="space-y-0.5 py-1">
-      {messages.map((m) => {
-        const stack = stacks.get(String(m.id)) ?? 'single'
-        const tightBelow = stack === 'start' || stack === 'middle'
-        return (
-          <div key={String(m.id)} className={tightBelow ? 'mb-0.5' : 'mb-3'}>
-            {renderMessage(m, stack)}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-export default function SessionMarker({
-  session,
-  renderMessage,
-}: Props) {
+export default function SessionMarker({ session }: Props) {
   const { t } = useTranslation('communication')
   const [expanded, setExpanded] = useState(false)
 
@@ -171,31 +94,46 @@ export default function SessionMarker({
     .filter(Boolean)
     .join(' · ')
 
+  const hasDetails = Boolean(session.summary) || session.actions.length > 0
+
   return (
     <div data-testid="session-marker-closed">
       <div className="flex justify-center py-0.5">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          className={cn(PILL_CLASS, 'hover:bg-ai/[0.14]')}
-        >
-          <AiMark size={11} />
-          <span className="truncate">
-            {t('agentSession.segmentClosed', {
-              name: session.agentName ?? t('agentSession.title'),
-            })}
+        {hasDetails ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className={cn(PILL_CLASS, 'hover:bg-ai/[0.14]')}
+          >
+            <AiMark size={11} />
+            <span className="truncate">
+              {t('agentSession.segmentClosed', {
+                name: session.agentName ?? t('agentSession.title'),
+              })}
+            </span>
+            <span aria-hidden>·</span>
+            <span className="truncate text-ai-ink/70">{summaryLine}</span>
+            {expanded ? (
+              <ChevronDown size={12} className="shrink-0 text-ai-ink/70" />
+            ) : (
+              <ChevronRight size={12} className="shrink-0 text-ai-ink/70" />
+            )}
+          </button>
+        ) : (
+          <span className={PILL_CLASS}>
+            <AiMark size={11} />
+            <span className="truncate">
+              {t('agentSession.segmentClosed', {
+                name: session.agentName ?? t('agentSession.title'),
+              })}
+            </span>
+            <span aria-hidden>·</span>
+            <span className="truncate text-ai-ink/70">{summaryLine}</span>
           </span>
-          <span aria-hidden>·</span>
-          <span className="truncate text-ai-ink/70">{summaryLine}</span>
-          {expanded ? (
-            <ChevronDown size={12} className="shrink-0 text-ai-ink/70" />
-          ) : (
-            <ChevronRight size={12} className="shrink-0 text-ai-ink/70" />
-          )}
-        </button>
+        )}
       </div>
-      {expanded ? (
+      {expanded && hasDetails ? (
         <div className="mt-2 space-y-2">
           {session.summary ? (
             <p className="whitespace-pre-wrap break-words px-1 text-xs leading-relaxed text-text-secondary">
@@ -217,7 +155,6 @@ export default function SessionMarker({
               ))}
             </ul>
           ) : null}
-          <ClosedTranscript session={session} renderMessage={renderMessage} />
         </div>
       ) : null}
     </div>

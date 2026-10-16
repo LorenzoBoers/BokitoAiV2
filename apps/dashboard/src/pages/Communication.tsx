@@ -1319,8 +1319,12 @@ export default function Communication() {
   )
 
   const handleNote = useCallback(
-    async (bodyText: string, attachments?: MessageAttachment[]) => {
-      await addNote(bodyText, attachments)
+    async (
+      bodyText: string,
+      attachments?: MessageAttachment[],
+      opts?: { asChat?: boolean },
+    ) => {
+      await addNote(bodyText, attachments, opts)
       void refreshThreads()
     },
     [addNote, refreshThreads],

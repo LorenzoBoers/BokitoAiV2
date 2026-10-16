@@ -41,7 +41,7 @@ Apply these to every feature request.
 |----|----|------|------------------|
 | Conversation | Gesprek | The chat | `signals` |
 | Action tag | Actietag | A hashtag that starts a ticket flow, shown with an accent `#`. A conversation carries at most one; filing it makes the conversation a **Ticket** that moves through the flow's stages. Free hashtags sit next to it | `signal_tags` (`workstream_id`) |
-| Flow | Flow | The stage pipeline for an action tag. The page title is always the hashtag (`#klacht`); there is no independent playbook display name | `workstreams` |
+| Flow | Flow | The stage pipeline for exactly one action tag. The list/detail show an operator **title** with the action-tag **label** (`#klacht`) beside it; the tag stays the filing identity | `workstreams` |
 | Folder | Map | A named place in a free tree (`parent_id`) with optional AND label rules (`project_tag_links`). Conversations match when they carry every label in the set (including contact labels). Nesting moves the node; labels stay independent. The internal table stays `projects` | `projects` + `project_tag_links` |
 | Contact | Contact | Person you are talking to | `contacts` |
 | Agent | Agent | AI or company agent | `agents` |
@@ -116,7 +116,7 @@ Everything important should map to a **small set of canonical entity types**. Pr
 - `Signal` / `SignalMessage` — conversation context (external and internal)
 - `SignalTag` — the hashtag registry; a hashtag with `workstream_id` is an **Action tag** (actietag). The conversation carries the ticket itself (`Signal.ticket_tag_id`, `ticket_status`, `stage_key`, `project_id`); there is no separate Case object
 - `ChannelAccount` — one entity for every channel (mailbox, Bokito relay address, website chat, WhatsApp, Slack); lifecycle **state**, **capabilities** and **checks** are derived per kind in `services/channel_registry.py`
-- `Agent`, `Workstream` (operator: Flow, titled `#hashtag`), `AgentRun` — orchestration
+- `Agent`, `Workstream` (operator: Flow, title + action-tag `#hashtag`), `AgentRun` — orchestration
 - `DecisionRequest` — human action objects **within** threads, not parallel list UIs
 - `WorkspaceDoc`, `DocChunk` — workspace knowledge
 - `Project` — shows the boards of its flows (`workstream_projects`) and the conversations filed on it; optional workbench connection for coding tools

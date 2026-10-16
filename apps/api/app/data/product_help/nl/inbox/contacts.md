@@ -59,7 +59,7 @@ De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppel
 *Een contact kan het kanaal volgen of een eigen modus hebben.*
 
 1. Open het contact onder Contacten, of open het zijpaneel in een gesprek met die persoon.
-2. Zoek **AI-afhandeling** onder de contactgegevens. Daar staat de huidige modus. Open het menu om te zien wat die volgt: de overgenomen modus draagt een badge zoals **Kanaalstandaard**.
+2. Zoek **AI-afhandeling** onder de contactgegevens in het zijpaneel of op Contacten. Daar staat de huidige modus. Open het menu om te zien wat die volgt: de overgenomen modus draagt een badge zoals **Kanaalstandaard**.
 3. Kies **Autonoom**, **Geassisteerd** of **Handmatig** om dat toe te passen op elk gesprek met deze persoon. Kies de modus met **Kanaalstandaard** om het weer weg te halen.
 4. Filter op Contacten met het menu **Elke AI-afhandeling** om contacten met **Eigen AI-afhandeling** of een specifieke modus te vinden. Rijen met een eigen modus tonen het icoon.
 
@@ -67,7 +67,7 @@ Een enkel gesprek kan nog steeds afwijken van het contact. Zie [AI-afhandeling](
 
 ## Een contact een vaste eigenaar geven
 
-1. Open het contact onder Contacten, of open het zijpaneel in een gesprek met die persoon. Zoek **Eigenaar** onder **AI-afhandeling**.
+1. Open het contact onder Contacten, of open het zijpaneel in een gesprek met die persoon. Zoek de rij **Eigenaar** onder **AI-afhandeling**.
 2. Kies een persoon of een team in het menu; **Geen vaste eigenaar** haalt het weer weg.
 3. Nieuwe gesprekken van dit contact gaan naar die eigenaar wanneer de AI stil staat (Handmatig). Bij Autonoom of Geassisteerd pakt de agent het gesprek eerst op en geeft hij het aan de contacteigenaar zodra er een persoon nodig is, voordat hij terugvalt op het kanaalteam.
 

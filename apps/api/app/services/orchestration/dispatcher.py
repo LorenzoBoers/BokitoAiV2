@@ -332,17 +332,8 @@ async def resume_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
         )
     if task.status not in ("paused", "awaiting_human", "queued"):
         raise HTTPException(status_code=400, detail=f"Cannot resume task in status {task.status}")
-    was_human_gate = task.pause_reason == "human_gate"
     task.status = "running"
     task.pause_reason = None
-    if was_human_gate and task.current_step_id:
-        # Record the approved gate so the runner advances past it instead of pausing again.
-        ctx = _parse_json(task.context_json)
-        gates = [str(g) for g in (ctx.get("passed_gates") or [])]
-        if str(task.current_step_id) not in gates:
-            gates.append(str(task.current_step_id))
-        ctx["passed_gates"] = gates
-        task.context_json = json.dumps(ctx)
     session.add(task)
     await session.commit()
     from app.services.orchestration.queue import enqueue_agent_task_segment

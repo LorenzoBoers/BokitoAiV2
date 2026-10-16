@@ -4,6 +4,8 @@ Status: `todo | fail | fix | pass`
 
 Canonical scenarios: plan `multi-party_chat_ui_tests_98ad27c8` (Suites A–H, S01–S80).
 
+UX follow-up (intuïtie / orbs / multi-agent story arcs): [`agent-multi-party-ux-testplan.md`](./agent-multi-party-ux-testplan.md) (U01–U100).
+
 ## Progress
 
 | ID | Status | Notes |

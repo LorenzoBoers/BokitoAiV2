@@ -304,13 +304,10 @@ async def test_channel_archive_records_audit(
 async def test_channel_delete_removes_referencing_rows(
     client: AsyncClient, session_override: AsyncSession
 ):
-    """Deleting an archived channel must not 500 when threads/rules/bindings
-    reference the account (Postgres enforces the FKs in production): threads,
-    per-mailbox rules and bindings go with it."""
+    """Deleting an archived channel must not 500 when threads/rules
+    reference the account (Postgres enforces the FKs in production)."""
     from uuid import UUID
 
-    from app.models.agent import Agent
-    from app.models.channel import ChannelBinding
     from app.models.learning import InboxRule
     from app.models.signal import Signal
 
@@ -324,17 +321,6 @@ async def test_channel_delete_removes_referencing_rows(
     account = await session_override.get(ChannelAccount, UUID(account_id))
     assert account is not None
     tenant_id = account.tenant_id
-
-    agent = (
-        (
-            await session_override.execute(
-                select(Agent).where(Agent.tenant_id == tenant_id).limit(1)
-            )
-        )
-        .scalars()
-        .first()
-    )
-    assert agent is not None
 
     signal = Signal(
         tenant_id=tenant_id,
@@ -351,17 +337,10 @@ async def test_channel_delete_removes_referencing_rows(
         source="routing",
         status="active",
     )
-    binding = ChannelBinding(
-        tenant_id=tenant_id,
-        channel="email",
-        channel_account_id=account.id,
-        agent_id=agent.id,
-    )
-    session_override.add_all([signal, rule, binding])
+    session_override.add_all([signal, rule])
     await session_override.commit()
     signal_id = signal.id
     rule_id = rule.id
-    binding_id = binding.id
 
     res = await client.post(f"/api/channels/accounts/{account_id}/archive", headers=headers)
     assert res.status_code == 200, res.text
@@ -369,7 +348,7 @@ async def test_channel_delete_removes_referencing_rows(
     assert res.status_code == 200, res.text
 
     session_override.expire_all()
-    for model, row_id in ((Signal, signal_id), (InboxRule, rule_id), (ChannelBinding, binding_id)):
+    for model, row_id in ((Signal, signal_id), (InboxRule, rule_id)):
         assert (
             (await session_override.execute(select(model).where(model.id == row_id)))
             .scalars()

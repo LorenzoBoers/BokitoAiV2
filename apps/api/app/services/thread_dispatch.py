@@ -357,7 +357,36 @@ async def dispatch_mentions(
     author_name: str = "",
     user_role: str = "member",
 ) -> list[dict[str, Any]]:
-    """Act on @agent and @team mentions in a note or reply."""
+    """Act on @agent and @team mentions in a note or reply.
+
+    Multi-agent (or agent+human) bodies start one nestable handoff session
+    with a single opener instead of N parallel floors.
+    """
+    from app.services.handoff_sessions import expand_invitees, start_handoff_session
+
+    invitees = await expand_invitees(session, tenant_id, signal, body_text)
+    if invitees["agents"] and invitees["total"] >= 2:
+        started = await start_handoff_session(
+            session,
+            tenant_id,
+            signal,
+            body_text=body_text,
+            author_user_id=author_user_id,
+            author_name=author_name,
+            user_role=user_role,
+            channel_agent_id=signal.agent_id,
+        )
+        if started:
+            return [
+                {
+                    "kind": "handoff",
+                    "id": started.get("handoff", {}).get("id"),
+                    "dispatched": True,
+                    "opener_id": started.get("opener_id"),
+                    "handoff": started.get("handoff"),
+                }
+            ]
+
     results = []
     for kind, target_id in entity_mentions(body_text):
         results.append(

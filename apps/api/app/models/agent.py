@@ -27,7 +27,9 @@ class Agent(SQLModel, table=True):
     is_lead: bool = Field(default=False, index=True)
     model: str = "bokito-ai-3-1"
     provider: str = Field(default="platform")
-    # Short operator-facing role blurb (library, identity). Distinct from system_prompt.
+    # Short required title (library, identity). Max 20 chars; distinct from role enum.
+    job_title: str = Field(default="", max_length=20)
+    # Optional longer blurb (library, identity). Distinct from system_prompt.
     description: str = ""
     system_prompt: str = ""
     thinking_budget: int = 0
@@ -94,9 +96,8 @@ class AgentRun(SQLModel, table=True):
     task_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_tasks.id", index=True)
     # The thread this run works in and reports to (a run is read back there).
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
-    step_id: Optional[uuid.UUID] = Field(default=None)  # legacy; step engine retired
-    workstream_run_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="workstream_runs.id", index=True
+    workstream_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="workstreams.id", index=True
     )
     ticket_tag_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="signal_tags.id", index=True

@@ -47,7 +47,7 @@ def _entity_of(obj: Any) -> str | None:
     from app.models.agent import Agent
     from app.models.calendar import CalendarEvent
     from app.models.module_source import ModuleSource
-    from app.models.orchestra import WorkstreamProject, WorkstreamRun
+    from app.models.orchestra import WorkstreamProject
     from app.models.project import Project
     from app.models.signal import Signal, SignalTag
     from app.models.team import Team, TeamMember
@@ -63,7 +63,6 @@ def _entity_of(obj: Any) -> str | None:
         (ModuleSource, "module_source"),
         (CalendarEvent, "calendar"),
         (TrashEntry, "trash"),
-        (WorkstreamRun, "workstream_run"),
         (Team, "team"),
         (TeamMember, "team"),
     )

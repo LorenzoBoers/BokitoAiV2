@@ -1054,21 +1054,29 @@ async def nav_badge_counts(
     from app.models.team import Team
     from app.services.time_items import due_for_user
 
-    pinned_teams = (
+    from app.models.team import SYSTEM_TEAM_KINDS
+    from app.services.trash import alive as team_alive
+
+    # Every custom team is a Communication folder (pin is no longer optional).
+    sidebar_teams = (
         await session.execute(
-            select(Team.id).where(Team.tenant_id == tenant_id, Team.pinned.is_(True))
+            select(Team.id).where(
+                Team.tenant_id == tenant_id,
+                Team.kind.notin_(SYSTEM_TEAM_KINDS),
+                team_alive(Team),
+            )
         )
     ).scalars().all()
     by_team: dict[str, int] = {}
-    for team_id in pinned_teams:
+    for team_id in sidebar_teams:
         by_team[str(team_id)] = await _count(
             open_status,
             hub_inbox,
             or_(
-                and_(Signal.turn_kind == "team", Signal.turn_team_id == team_id),
+                and_(Signal.turn_kind == "team", Signal.turn_ref_id == team_id),
                 and_(
                     Signal.assignee_kind == "team",
-                    Signal.assignee_team_id == team_id,
+                    Signal.assignee_id == team_id,
                     unread,
                 ),
             ),
@@ -1275,8 +1283,8 @@ async def list_threads(
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
         query = query.where(
             or_(
-                and_(Signal.assignee_kind == "team", Signal.assignee_team_id == team_uuid),
-                and_(Signal.turn_kind == "team", Signal.turn_team_id == team_uuid),
+                and_(Signal.assignee_kind == "team", Signal.assignee_id == team_uuid),
+                and_(Signal.turn_kind == "team", Signal.turn_ref_id == team_uuid),
             )
         )
 
@@ -1371,7 +1379,9 @@ async def list_threads(
         user_map = await _user_map(session, tenant_id)
         assignee_uuid = user_map.get(assignee_id)
         if assignee_uuid:
-            query = query.where(Signal.assigned_user_id == assignee_uuid)
+            query = query.where(
+                Signal.assignee_kind == "user", Signal.assignee_id == assignee_uuid
+            )
         else:
             query = query.where(Signal.id.is_(None))
 
@@ -1635,6 +1645,28 @@ async def get_thread(
         # Hidden accounts 404 for members: existence must not leak.
         return None
 
+    # Hard refresh must not resurrect a stuck “Update folder canvas” trail after
+    # a crashed Ask left ``in_progress`` with no live AgentRun.
+    try:
+        from app.models.agent import AgentRun
+        from app.services.agent.turn_persist import seal_in_progress_checkpoints
+
+        busy = (
+            await session.execute(
+                select(AgentRun.id).where(
+                    AgentRun.signal_id == signal_id,
+                    AgentRun.trigger_type == "chat",
+                    AgentRun.status == "running",
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if busy is None:
+            sealed = await seal_in_progress_checkpoints(session, signal)
+            if sealed:
+                await session.commit()
+    except Exception:  # noqa: BLE001
+        logger.debug("seal orphaned in_progress on get_thread failed", exc_info=True)
+
     page_size = max(1, min(int(limit or 80), 200))
     pinned = await _pinned_ids(session, tenant_id, user_id)
 
@@ -1862,13 +1894,14 @@ async def get_thread(
         logger.exception("serialize_participants failed for %s", signal_id)
         participants = []
     active_turn = _active_turn_payload(signal)
+    from app.services.handoff_sessions import serialize_handoff_session
+
     return {
         "thread": serialize_thread(
             signal,
             is_pinned=signal_id in pinned,
             agent=agent,
             has_open_decision=await _signal_has_open_decision(session, tenant_id, signal_id),
-            ai_handling=handling,
             ticket=await ticket_payload(session, signal),
             tags=thread_tags,
             inherited_tags=inherited_tags,
@@ -1876,6 +1909,7 @@ async def get_thread(
             schedule=schedule_payload(
                 (await rules_by_signal(session, tenant_id, [signal.id])).get(signal.id)
             ),
+            ai_handling=handling,
         ),
         # Channel routing policy for the composer (send split at "ask",
         # "Send and close" default) and the last person/team that handled it.
@@ -1883,6 +1917,7 @@ async def get_thread(
         "last_human_owner": human_owner_payload(signal),
         "participants": participants,
         "active_turn": active_turn,
+        "handoff_session": serialize_handoff_session(signal),
         "messages": serialized_messages,
         "events": [serialize_event(e, user_num_map=rev_map) for e in events],
         "sessions": sessions,
@@ -2607,7 +2642,6 @@ async def delete_thread(
     from sqlalchemy import update as sa_update
 
     from app.models.orchestration import AgentTask
-    from app.models.outcome import OperationalOutcome
     from app.models.platform_change import PlatformChange
     from app.models.trigger import Trigger
 
@@ -2626,8 +2660,8 @@ async def delete_thread(
         )
         await session.execute(sa_delete(DecisionRequest).where(DecisionRequest.id.in_(decision_ids)))  # type: ignore[attr-defined]
 
-    # Tasks, triggers, and outcomes outlive the thread; detach the reference.
-    for ref_model in (AgentTask, Trigger, OperationalOutcome):
+    # Tasks and triggers outlive the thread; detach the reference.
+    for ref_model in (AgentTask, Trigger):
         await session.execute(
             sa_update(ref_model).where(ref_model.signal_id == signal_id).values(signal_id=None)
         )
@@ -2892,12 +2926,20 @@ async def reply_to_thread(
             message_meta["subject"] = subject_override
         if quoted_html:
             message_meta["quoted_html"] = quoted_html
+    resolved_kind = kind if direction == "internal" else "user_message"
+    # Team chat (@teammate) uses direction=internal + user_message so it never
+    # hits deliver_outbound, but still renders as a normal chat bubble.
+    # Amber note chrome is reserved for kind=internal_note.
+    if direction == "internal" and resolved_kind == "internal_note":
+        resolved_role = "system"
+    else:
+        resolved_role = "user"
     message = SignalMessage(
         signal_id=signal_id,
         tenant_id=tenant_id,
-        kind=kind if direction == "internal" else "user_message",
+        kind=resolved_kind,
         direction=direction,
-        role="user" if direction != "internal" else "system",
+        role=resolved_role,
         author_user_id=user_id,
         from_address=delivered_from,
         to_addresses=delivered_to or to_override or signal.contact_email,
@@ -2913,6 +2955,19 @@ async def reply_to_thread(
         received_at=now,
     )
     session.add(message)
+    await session.flush()
+    # Operator/teammate Send interrupts an open handoff tree (not draft typing).
+    try:
+        from app.services.handoff_sessions import interrupt_handoff_session
+
+        await interrupt_handoff_session(
+            session,
+            signal,
+            by_message_id=message.id,
+            reason="user_send",
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("handoff interrupt on send failed", exc_info=True)
     signal.last_message_at = now
     signal.updated_at = now
     if direction == "outbound":
@@ -2948,7 +3003,13 @@ async def reply_to_thread(
         SignalEvent(
             signal_id=signal_id,
             tenant_id=tenant_id,
-            event_type="reply_sent" if direction == "outbound" else "note_added",
+            event_type=(
+                "reply_sent"
+                if direction == "outbound"
+                else "note_added"
+                if resolved_kind == "internal_note"
+                else "team_message"
+            ),
             actor_type="user",
             actor_id=str(user_id),
             payload_json=json.dumps({"action": action}),
@@ -2989,6 +3050,11 @@ async def reply_to_thread(
             author_name=author_name,
             user_role=actor_role,
         )
+        # Mention dispatch may set active_turn + enqueue a worker job. Persist
+        # before the request session closes (otherwise the job sees stale_nonce
+        # and @agent notes never wake anyone). notify() already commits when
+        # people are mentioned; agent-only notes skip that path.
+        await session.commit()
     # Internal agent threads are two-way chats: when an operator posts a reply
     # (not an internal note), run the thread's agent in the background so Send
     # returns immediately. Deltas stream via gateway; the final message lands

@@ -164,12 +164,11 @@ async def test_patch_assignee_agent_and_team(client: AsyncClient, session_overri
         json={"assignee": {"kind": "team", "id": str(team.id)}},
     )
     assert r.status_code == 200, r.text
-    assert r.json()["owner"] == {
-        "kind": "team",
-        "user_id": None,
-        "agent_id": None,
-        "team_id": str(team.id),
-    }
+    owner = r.json()["owner"]
+    assert owner["kind"] == "team"
+    assert owner["id"] == str(team.id)
+    assert owner["team_id"] == str(team.id)
+    assert owner["user_id"] is None
     assert r.json()["turn"]["team_id"] == str(team.id)
 
     r = await client.patch(

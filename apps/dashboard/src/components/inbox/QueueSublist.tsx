@@ -43,7 +43,7 @@ type QueueSublistProps = {
 export function QueueSublist({ baseLeaf, activeLeaf, counts, leading, children }: QueueSublistProps) {
   const { t } = useTranslation('nav')
   return (
-    <div className="ml-[15px] space-y-px border-l border-border/70 pl-2">
+    <div className="nav-tree-children">
       {leading}
       {SUB_QUEUES.map((queue) => {
         const leaf = { ...baseLeaf, queue } as HubLeaf

@@ -56,7 +56,6 @@ def serialize_work_item(
             {
                 "pause_reason": task.pause_reason,
                 "workstream_id": _sid(task.workstream_id),
-                "current_step_id": _sid(task.current_step_id),
                 "context": _json(task.context_json),
                 "success_criteria": _json(task.success_criteria_json),
                 "trigger_type": task.trigger_type,

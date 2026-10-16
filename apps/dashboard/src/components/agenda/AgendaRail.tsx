@@ -382,7 +382,12 @@ export default function AgendaRail(props: Props) {
                           data-testid="agenda-owner-toggle"
                         >
                           <ToggleBox on={on} className="bg-ai" />
-                          <AiAvatar {...toAiAvatarProps(agent, agent.name)} size={16} decorative />
+                          <AiAvatar
+                            {...toAiAvatarProps(agent, agent.name)}
+                            size={16}
+                            decorative
+                            mode="static"
+                          />
                           <span
                             className={cn(
                               'min-w-0 flex-1 truncate',

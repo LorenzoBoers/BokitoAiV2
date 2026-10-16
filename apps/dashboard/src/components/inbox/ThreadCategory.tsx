@@ -26,7 +26,7 @@ import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
-import { Hashtag } from '../ui/HashtagMark'
+import { TagPill } from '../ui/TagPill'
 import { TicketFieldControl } from './TicketFieldControl'
 import {
   DropdownMenu,
@@ -206,14 +206,14 @@ export function ThreadCategory({ signalId, version }: Props) {
   const flowLink = ticket.workstream_id ? (
     <Link
       to={workstreamPath(ticket.workstream_id)}
-      className="group inline-flex min-w-0 items-center gap-0.5 text-sm font-semibold text-text-heading hover:text-accent"
+      className="group inline-flex min-w-0 items-center gap-1 no-underline"
       title={t('tickets.openFlow')}
     >
-      <Hashtag name={ticket.name} category />
+      <TagPill names={ticket.name} tone="action" size="sm" />
       <ArrowUpRight size={12} className="shrink-0 text-text-muted opacity-0 transition group-hover:opacity-100" />
     </Link>
   ) : (
-    <Hashtag name={ticket.name} category className="text-sm font-semibold text-text-heading" />
+    <TagPill names={ticket.name} tone="action" size="sm" />
   )
 
   return (
@@ -238,7 +238,7 @@ export function ThreadCategory({ signalId, version }: Props) {
             <p className="flex items-center gap-1.5 text-xs text-text-secondary">
               <Sparkles size={12} className="text-status-warning" aria-hidden />
               {t('tickets.looksLike')}
-              <Hashtag name={ticket.name} category className="font-semibold text-text-heading" />
+              <TagPill names={ticket.name} tone="action" size="sm" />
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
               <Button

@@ -31,15 +31,23 @@ type Props = {
   onOpenChange: (open: boolean) => void
   onCreated: (agentId: string) => void
   /** Prefill when duplicating an existing agent. */
-  prefill?: { name?: string; model?: string; purpose?: string; description?: string } | null
+  prefill?: {
+    name?: string
+    model?: string
+    purpose?: string
+    jobTitle?: string
+    description?: string
+  } | null
 }
 
+const MAX_JOB_TITLE = 20
 const MAX_DESCRIPTION = 280
 
 export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }: Props) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [name, setName] = useState('')
+  const [jobTitle, setJobTitle] = useState('')
   const [description, setDescription] = useState('')
   const [model, setModel] = useState('')
   const [purpose, setPurpose] = useState('')
@@ -62,6 +70,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
   useEffect(() => {
     if (!open || !token) return
     setName(prefill?.name ?? '')
+    setJobTitle(prefill?.jobTitle ?? '')
     setDescription(prefill?.description ?? '')
     setModel(normalizeAgentChatMode(prefill?.model) || INHERIT_MODE)
     setPurpose(prefill?.purpose ?? '')
@@ -83,11 +92,17 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
       setError(t('workforce.agents.create.nameRequired'))
       return
     }
+    const trimmedTitle = jobTitle.trim()
+    if (!trimmedTitle) {
+      setError(t('workforce.agents.create.jobTitleRequired'))
+      return
+    }
     setBusy(true)
     setError(null)
     try {
       const res = await bokitoCreateAgent(token, {
         name: name.trim(),
+        job_title: trimmedTitle.slice(0, MAX_JOB_TITLE),
         description: description.trim() || undefined,
         model: normalizeAgentChatMode(model) || INHERIT_MODE,
         purpose: purpose.trim() || undefined,
@@ -123,6 +138,17 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
               onChange={(e) => setName(e.target.value)}
               placeholder={t('workforce.agents.create.namePlaceholder')}
               autoFocus
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="agent-job-title">{t('workforce.agents.create.jobTitle')}</Label>
+            <Input
+              id="agent-job-title"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value.slice(0, MAX_JOB_TITLE))}
+              placeholder={t('workforce.agents.create.jobTitlePlaceholder')}
+              maxLength={MAX_JOB_TITLE}
             />
           </div>
 

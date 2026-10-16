@@ -51,7 +51,7 @@ async def test_lead_agent_transfer_and_archive_guard(client: AsyncClient):
     r = await client.post(
         "/api/workforce/agents",
         headers=owner,
-        json={"name": "Support Agent", "role": "assistant"},
+        json={"name": "Support Agent", "job_title": "Support", "role": "assistant"},
     )
     assert r.status_code in (200, 201), r.text
     created = r.json()
@@ -179,7 +179,7 @@ async def test_project_default_agent_routes_thread(
     r = await client.post(
         "/api/workforce/agents",
         headers=owner,
-        json={"name": "Project Specialist", "role": "assistant"},
+        json={"name": "Project Specialist", "job_title": "Specialist", "role": "assistant"},
     )
     created = r.json()
     specialist_id = (created.get("agent") or created)["id"]

@@ -21,6 +21,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { Badge } from '../ui/badge'
+import { MetaLine } from '../ui/meta-line'
 import { SettingRow } from '../ui/entity-row'
 import { SectionLabel } from '../ui/section-label'
 import { useAuth } from '../../context/AuthContext'
@@ -54,7 +55,7 @@ import type {
   ThreadStatus,
 } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
-import { IdentitySeenLine } from './IdentitySeenLine'
+import { IdentitySeenLine, seenToIso } from './IdentitySeenLine'
 import { timeAgo } from '../../lib/time-ago'
 import { useMembers } from '../../hooks/useMembers'
 import { useAiHandling } from '../../hooks/useAiHandling'
@@ -174,12 +175,15 @@ export function otherConversations(
   })
 }
 
+/** Header mark — same scale as AgentContextPanel. */
+const CONTACT_MARK_SIZE = 36
+
 function FieldRow({ icon: Icon, value }: { icon: typeof Mail; value?: string | null }) {
   if (!value) return null
   return (
-    <p className="flex items-center gap-2 text-sm">
-      <Icon size={13} className="shrink-0 text-text-muted" />
-      <span className="min-w-0 truncate-fade text-text-primary">{value}</span>
+    <p className="flex items-center gap-1.5 text-xs text-text-secondary">
+      <Icon size={12} className="shrink-0 text-text-muted" />
+      <span className="min-w-0 truncate-fade">{value}</span>
     </p>
   )
 }
@@ -214,7 +218,6 @@ export default function ContactPanel({
   // The thread prop catches up through the realtime thread update; until
   // then the panel follows the link result.
   const [linked, setLinked] = useState<{ contactId: string | null; basis: string } | null>(null)
-  const { t: tc } = useTranslation('common')
   const aiHandling = useAiHandling('contact', contact?.id ?? null)
   const effectiveContactId = linked ? linked.contactId : contactId
   const basis = normalizeContactBasis(linked ? linked.basis : contactBasis)
@@ -586,6 +589,21 @@ export default function ContactPanel({
       isGenericVisitorName(contact.displayName) ||
       (fallbackName != null && isGenericVisitorName(fallbackName)))
 
+  const showEmail =
+    !isPlaceholderContactAddress(contact.address) &&
+    contact.address.trim().toLowerCase() !== String(headlineName).trim().toLowerCase()
+  const hasFacts =
+    showEmail || Boolean(contact.phone) || Boolean(contact.company) || alsoSeenAsVisitor
+
+  const kindLabel =
+    contact.status === 'blocked'
+      ? t('contactPanel.statusBlocked')
+      : anonymous
+        ? t('contactPanel.kindUnknownChatter')
+        : t('contactPanel.kindContact')
+  const seenIso = seenToIso(lastSeenAt || threadActivityAt)
+  const seenLabel = seenIso ? t('contactPanel.lastSeen', { time: timeAgo(seenIso, t) }) : null
+
   return (
     <div className="flex flex-col">
       <div className="border-b border-border/40 px-4 pb-3 pt-3">
@@ -595,88 +613,166 @@ export default function ContactPanel({
               to={`/contacts/${contact.id}`}
               className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
             >
-              <ContactAvatar name={contact.displayName} email={contact.address} size={36} />
+              <ContactAvatar name={contact.displayName} email={contact.address} size={CONTACT_MARK_SIZE} />
             </Link>
           ) : (
-            <ContactAvatar name={contact.displayName} email={contact.address} size={36} />
+            <ContactAvatar name={contact.displayName} email={contact.address} size={CONTACT_MARK_SIZE} />
           )}
           <div className="min-w-0 flex-1">
             {namedHeadline ? (
               <Link
                 to={`/contacts/${contact.id}`}
-                className="block truncate-fade text-base font-semibold text-text-heading hover:text-accent"
+                className="block truncate-fade text-sm font-semibold text-text-heading hover:text-accent"
               >
                 {headlineName}
               </Link>
             ) : (
-              <p className="truncate-fade text-base font-semibold text-text-heading">{headlineName}</p>
+              <p className="truncate-fade text-sm font-semibold text-text-heading">{headlineName}</p>
             )}
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span
-              className={`text-2xs font-semibold ${
-                contact.status === 'blocked'
-                  ? 'text-status-error'
-                  : 'text-text-muted'
-              }`}
-            >
-              {contact.status === 'blocked'
-                ? t('contactPanel.statusBlocked')
-                : anonymous
-                  ? t('contactPanel.kindUnknownChatter')
-                  : t('contactPanel.kindContact')}
-            </span>
-            {basis === 'verified' || basis === 'claimed' ? (
-              <Badge
-                data-testid="contact-basis"
-                size="sm"
-                variant={basis === 'verified' ? 'success' : 'neutral'}
-                icon={basis === 'verified' ? ShieldCheck : undefined}
-                title={t(basis === 'verified' ? 'contactPanel.basisVerifiedHint' : 'contactPanel.basisClaimedHint')}
-              >
-                {t(basis === 'verified' ? 'contactPanel.basisVerified' : 'contactPanel.basisClaimed')}
-              </Badge>
-            ) : null}
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <MetaLine>
+                <span className={contact.status === 'blocked' ? 'text-status-error' : undefined}>
+                  {kindLabel}
+                </span>
+                {seenLabel}
+              </MetaLine>
+              {basis === 'verified' || basis === 'claimed' ? (
+                <Badge
+                  data-testid="contact-basis"
+                  size="sm"
+                  variant={basis === 'verified' ? 'success' : 'neutral'}
+                  icon={basis === 'verified' ? ShieldCheck : undefined}
+                  title={t(
+                    basis === 'verified'
+                      ? 'contactPanel.basisVerifiedHint'
+                      : 'contactPanel.basisClaimedHint',
+                  )}
+                >
+                  {t(
+                    basis === 'verified'
+                      ? 'contactPanel.basisVerified'
+                      : 'contactPanel.basisClaimed',
+                  )}
+                </Badge>
+              ) : null}
             </div>
-            <IdentitySeenLine at={lastSeenAt || threadActivityAt} />
-            {contact.title || contact.company ? (
-              <p className="truncate-fade text-xs text-text-muted">
-                {[contact.title, contact.company].filter(Boolean).join(' - ')}
-              </p>
+            {contact.title ? (
+              <p className="mt-0.5 truncate-fade text-xs text-text-muted">{contact.title}</p>
             ) : null}
           </div>
           {closeAction}
         </div>
-        <div className="mt-3 space-y-1.5">
-          {!isPlaceholderContactAddress(contact.address) &&
-          contact.address.trim().toLowerCase() !== String(headlineName).trim().toLowerCase() ? (
-            <FieldRow icon={Mail} value={contact.address} />
+
+        {hasFacts ? (
+          <div className="mt-2.5 space-y-1">
+            {showEmail ? <FieldRow icon={Mail} value={contact.address} /> : null}
+            {alsoSeenAsVisitor ? (
+              <p className="flex items-center gap-1.5 text-xs text-text-muted">
+                <ChannelGlyph channel={contact.channel || 'widget'} size={12} className="shrink-0" />
+                <span className="min-w-0 truncate-fade">
+                  {t('contactPanel.alsoSeenAs', { label: t('contactPanel.widgetVisitor') })}
+                </span>
+              </p>
+            ) : null}
+            <FieldRow icon={Phone} value={contact.phone} />
+            {contact.company ? (
+              <Link
+                to={
+                  contact.companyId
+                    ? `/contacts/companies/${contact.companyId}`
+                    : `/contacts?q=${encodeURIComponent(contact.company)}`
+                }
+                className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent"
+              >
+                <Building2 size={12} className="shrink-0 text-text-muted" />
+                <span className="min-w-0 truncate-fade">{contact.company}</span>
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-3 divide-y divide-border/40">
+          <AiHandlingPicker
+            variant="row"
+            scope="contact"
+            handling={aiHandling.handling}
+            canRaise={aiHandling.canRaise}
+            saving={aiHandling.saving}
+            onChange={(mode) => void aiHandling.change(mode)}
+            label={t('aiHandling.title', { ns: 'common' })}
+            testId="contact-ai-handling"
+            className="py-1.5"
+          />
+          {!anonymous ? (
+            <SettingRow label={t('contactPanel.owner')} className="py-1.5">
+              <ContactOwnerPicker
+                variant="chip"
+                owner={contact.owner}
+                onChange={(owner) => void setOwner(owner)}
+                disabled={saving}
+              />
+            </SettingRow>
           ) : null}
-          {alsoSeenAsVisitor ? (
-            <p className="flex items-center gap-2 text-xs text-text-muted">
-              <ChannelGlyph channel={contact.channel || 'widget'} size={13} className="shrink-0" />
-              <span className="min-w-0 truncate-fade">
-                {t('contactPanel.alsoSeenAs', { label: t('contactPanel.widgetVisitor') })}
-              </span>
-            </p>
-          ) : null}
-          <FieldRow icon={Phone} value={contact.phone} />
-          {contact.company ? (
-            <Link
-              to={
-                contact.companyId
-                  ? `/contacts/companies/${contact.companyId}`
-                  : `/contacts?q=${encodeURIComponent(contact.company)}`
-              }
-              className="flex items-center gap-2 text-sm text-text-primary hover:text-accent"
-            >
-              <Building2 size={13} className="shrink-0 text-text-muted" />
-              <span className="min-w-0 truncate-fade">{contact.company}</span>
-            </Link>
+          {!anonymous ? (
+            <div data-testid="contact-panel-tags">
+              <SettingRow label={t('contactPanel.tags')} className="py-1.5">
+                <OwnerTagsField
+                  tags={contact.tags ?? []}
+                  inherited={contact.companyTags ?? []}
+                  inheritedLabel={t('contactPanel.viaCompany')}
+                  disabled={saving}
+                  compact
+                  onChange={(names) => {
+                    void (async () => {
+                      if (!token) return
+                      setSaving(true)
+                      try {
+                        const tags = await setContactTags(token, contact.id, names)
+                        setContact((prev) => (prev ? { ...prev, tags } : prev))
+                      } catch (err) {
+                        toast.error(formatApiErrorMessage(err, t('contactPanel.saveError')))
+                      } finally {
+                        setSaving(false)
+                      }
+                    })()
+                  }}
+                />
+              </SettingRow>
+            </div>
           ) : null}
         </div>
+
+        <div className="mt-2.5">
+          <textarea
+            value={notesDraft}
+            onChange={(e) => {
+              setNotesDraft(e.target.value)
+              setNotesDirty(true)
+            }}
+            rows={1}
+            placeholder={t('contactPanel.notesPlaceholder')}
+            aria-label={t('contactPanel.notes')}
+            className="min-h-7 w-full resize-y rounded-md border border-transparent bg-transparent px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted transition-colors hover:bg-bg-hover/40 focus:border-border/60 focus:bg-bg-input focus:outline-none focus:ring-1 focus:ring-accent/40"
+          />
+          {notesDirty ? (
+            <div className="mt-1 flex items-center gap-2 px-0.5">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void saveNotes()}
+                className="flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-2xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+              >
+                <Check size={10} />
+                {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
+              </button>
+              <span className="text-2xs text-status-warning">{t('contactPanel.notesUnsaved')}</span>
+            </div>
+          ) : null}
+        </div>
+
         {needsIdentity ? linkForm : null}
         {(needsIdentity && !captureOpen) || (statusPending && !anonymous) ? (
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {needsIdentity && !captureOpen ? linkButton : null}
             {statusPending && !anonymous ? (
               <button
@@ -693,90 +789,8 @@ export default function ContactPanel({
         ) : null}
       </div>
 
-      <div className="border-b border-border/40 px-4 py-2">
-        <AiHandlingPicker
-          variant="row"
-          scope="contact"
-          handling={aiHandling.handling}
-          canRaise={aiHandling.canRaise}
-          saving={aiHandling.saving}
-          onChange={(mode) => void aiHandling.change(mode)}
-          label={tc('aiHandling.title')}
-          testId="contact-ai-handling"
-        />
-      </div>
-
-      {!anonymous ? (
-        <div className="border-b border-border/40 px-4 py-2">
-          <SettingRow label={t('contactPanel.owner')}>
-            <ContactOwnerPicker
-              variant="chip"
-              owner={contact.owner}
-              onChange={(owner) => void setOwner(owner)}
-              disabled={saving}
-            />
-          </SettingRow>
-        </div>
-      ) : null}
-
-      {!anonymous ? (
-        <div className="border-b border-border/40 px-4 py-2" data-testid="contact-panel-tags">
-          <SectionLabel title={t('contactPanel.tags')} headerClassName="-mx-1 mb-1" />
-          <OwnerTagsField
-            tags={contact.tags ?? []}
-            inherited={contact.companyTags ?? []}
-            inheritedLabel={t('contactPanel.viaCompany')}
-            disabled={saving}
-            onChange={(names) => {
-              void (async () => {
-                if (!token) return
-                setSaving(true)
-                try {
-                  const tags = await setContactTags(token, contact.id, names)
-                  setContact((prev) => (prev ? { ...prev, tags } : prev))
-                } catch (err) {
-                  toast.error(formatApiErrorMessage(err, t('contactPanel.saveError')))
-                } finally {
-                  setSaving(false)
-                }
-              })()
-            }}
-          />
-        </div>
-      ) : null}
-
-      {/* Notes */}
-      <div className="border-b border-border/40 px-4 py-3">
-        <SectionLabel title={t('contactPanel.notes')} headerClassName="-mx-1 mb-1" />
-        <textarea
-          value={notesDraft}
-          onChange={(e) => {
-            setNotesDraft(e.target.value)
-            setNotesDirty(true)
-          }}
-          rows={3}
-          placeholder={t('contactPanel.notesPlaceholder')}
-          className="w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-        />
-        {notesDirty ? (
-          <div className="mt-1.5 flex items-center gap-2">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void saveNotes()}
-              className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
-              <Check size={11} />
-              {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
-            </button>
-            <span className="text-xs text-status-warning">{t('contactPanel.notesUnsaved')}</span>
-          </div>
-        ) : null}
-      </div>
-
       {children}
 
-      {/* Previous conversations (Who — history with this person) */}
       <div className="border-b border-border/40 px-4 py-3">
         <SectionLabel title={t('contactPanel.previous')} headerClassName="-mx-1 mb-1" />
         {previousThreads.length === 0 ? (

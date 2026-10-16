@@ -129,6 +129,11 @@ type ShellProps = {
   meta?: ReactNode
   /** Feedback / copy / note actions — bottom-right, beside the time. */
   actions?: ReactNode
+  /**
+   * WhatsApp-style reaction chips overlapping the bottom edge. Mounted on the
+   * bubble shell so hover is the cloud itself, not the avatar column.
+   */
+  reactions?: ReactNode
   variant: BubbleVariant
   stack?: BubbleStack
   bubbleClassName?: string
@@ -146,6 +151,7 @@ export function ChatBubbleShell({
   body,
   meta,
   actions,
+  reactions,
   variant,
   stack = 'single',
   bubbleClassName,
@@ -154,42 +160,52 @@ export function ChatBubbleShell({
   const lead = leadsRun(stack)
   const showMeta = meta != null && closesRun(stack)
   const showFooter = showMeta || Boolean(actions)
+  // Outer wraps cloud + reaction dock so placed chips can sit in normal flow
+  // (overlap via negative margin) without being covered by the next bubble.
   return (
     <div
-      data-stack={stack}
       className={cn(
-        'relative min-w-0 max-w-[85%] px-3.5 py-2 text-base leading-relaxed',
-        variant === 'self' ? 'text-accent-fg' : 'text-text-primary',
-        shapeFor(side, stack),
-        TONE[variant],
-        onClick && 'text-left transition-colors hover:brightness-[0.98]',
-        bubbleClassName,
+        'group/bubble relative flex min-w-0 max-w-[85%] flex-col',
+        side === 'right' ? 'items-end' : 'items-start',
       )}
     >
-      {lead ? header : null}
-      {body}
-      {showFooter ? (
-        <div
-          className={cn(
-            'mt-1 flex items-center justify-end gap-1.5 text-2xs leading-none tabular-nums',
-            variant === 'self' ? 'text-accent-fg/70' : 'text-text-muted',
-          )}
-        >
-          {actions ? (
-            <div
-              className={cn(
-                'flex shrink-0 items-center gap-px',
-                variant === 'self' &&
-                  '[&_button]:text-accent-fg/75 [&_button:hover]:bg-accent-fg/15 [&_button:hover]:text-accent-fg',
-              )}
-              onClick={(event) => event.stopPropagation()}
-            >
-              {actions}
-            </div>
-          ) : null}
-          {showMeta ? meta : null}
-        </div>
-      ) : null}
+      <div
+        data-stack={stack}
+        className={cn(
+          'relative w-full px-3.5 py-2 text-base leading-relaxed',
+          variant === 'self' ? 'text-accent-fg' : 'text-text-primary',
+          shapeFor(side, stack),
+          TONE[variant],
+          onClick && 'text-left transition-colors hover:brightness-[0.98]',
+          bubbleClassName,
+        )}
+      >
+        {lead ? header : null}
+        {body}
+        {showFooter ? (
+          <div
+            className={cn(
+              'mt-1 flex items-center justify-end gap-1.5 text-2xs leading-none tabular-nums',
+              variant === 'self' ? 'text-accent-fg/70' : 'text-text-muted',
+            )}
+          >
+            {actions ? (
+              <div
+                className={cn(
+                  'flex shrink-0 items-center gap-px',
+                  variant === 'self' &&
+                    '[&_button]:text-accent-fg/75 [&_button:hover]:bg-accent-fg/15 [&_button:hover]:text-accent-fg',
+                )}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {actions}
+              </div>
+            ) : null}
+            {showMeta ? meta : null}
+          </div>
+        ) : null}
+      </div>
+      {reactions}
     </div>
   )
 }
@@ -201,12 +217,14 @@ export function ChatMessageBubble({
   body,
   meta,
   actions,
+  reactions,
   variant,
   stack = 'single',
   className,
   bubbleClassName,
   onClick,
   enter = true,
+  showAvatar,
 }: ShellProps & {
   /** Shown on the left only, and only on the bubble that leads a run. */
   avatar?: ReactNode
@@ -216,9 +234,15 @@ export function ChatMessageBubble({
    * reader already watched stream in — they must land in place, not re-enter.
    */
   enter?: boolean
+  /**
+   * Override avatar visibility. Default: only the run lead. Used so a live
+   * idle seat can sit on the latest bubble in a stacked run.
+   */
+  showAvatar?: boolean
 }) {
   const isRight = side === 'right'
   const lead = leadsRun(stack)
+  const renderAvatar = showAvatar ?? lead
 
   const bubble = (
     <ChatBubbleShell
@@ -227,6 +251,7 @@ export function ChatMessageBubble({
       body={body}
       meta={meta}
       actions={actions}
+      reactions={reactions}
       variant={variant}
       stack={stack}
       bubbleClassName={bubbleClassName}
@@ -236,13 +261,13 @@ export function ChatMessageBubble({
 
   const row = cn(
     enter && (variant === 'agent' ? 'bubble-pop-enter' : 'msg-bubble-enter'),
-    'group/bubble flex items-start gap-2',
+    'flex items-start gap-2',
     isRight ? 'flex-row-reverse' : 'flex-row',
     className,
   )
 
   const avatarSlot = isRight ? null : (
-    <span className="flex w-7 shrink-0 justify-center">{lead ? avatar : null}</span>
+    <span className="flex w-7 shrink-0 justify-center">{renderAvatar ? avatar : null}</span>
   )
 
   if (onClick) {

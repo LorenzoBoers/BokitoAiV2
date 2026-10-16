@@ -4,7 +4,7 @@ from app.models.auth import Invite, Membership, Session, Tenant, User, UserPrefe
 from app.models.auth_token import AuthToken
 from app.models.oauth_state import OAuthState
 from app.models.user_identity import UserIdentity
-from app.models.channel import ChannelAccount, ChannelBinding, Company, Contact
+from app.models.channel import ChannelAccount, Company, Contact
 from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 from app.models.learning import EvalScore, Feedback, InboxRule
 from app.models.message_reaction import MessageReaction
@@ -46,10 +46,8 @@ from app.models.project_work import (
 )
 from app.models.orchestration import (
     AgentTask,
-    EvalCheckpoint,
     TaskArtifact,
 )
-from app.models.os_graph import OsCanvasEdge, OsCanvasNode
 from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetting
 from app.models.provider import ProviderConnection, TenantModel
 from app.models.module_source import ModuleSource
@@ -60,7 +58,6 @@ from app.models.user_memory import UserAssistantMemory
 from app.models.customer_verify import CustomerVerifyToken, HandoverCode
 from app.models.workbench import WorkJob
 from app.models.team import Team, TeamMember
-from app.models.outcome import OperationalOutcome
 from app.models.trash import TrashEntry
 
 __all__ = [
@@ -84,7 +81,6 @@ __all__ = [
     "IntegrationCatalogHost",
     "IntegrationCatalogProvider",
     "ChannelAccount",
-    "ChannelBinding",
     "Company",
     "Contact",
     "WebhookEndpoint",
@@ -114,8 +110,6 @@ __all__ = [
     "ProjectResource",
     "UsageLedger",
     "PushSubscription",
-    "OsCanvasNode",
-    "OsCanvasEdge",
     "Signal",
     "SignalMessage",
     "SignalEvent",
@@ -133,7 +127,6 @@ __all__ = [
     "InboxRule",
     "PlatformChange",
     "AgentTask",
-    "EvalCheckpoint",
     "TaskArtifact",
     "ModelCatalog",
     "PlatformSecret",
@@ -153,7 +146,6 @@ __all__ = [
     "WorkJob",
     "Team",
     "TeamMember",
-    "OperationalOutcome",
     "TrashEntry",
 ]
 

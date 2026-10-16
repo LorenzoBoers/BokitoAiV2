@@ -1,4 +1,4 @@
-"""Tests for operational outcomes and report webhook ingestion."""
+"""Trading report ingest now writes SignalEvent (operational_outcomes retired)."""
 
 import json
 from uuid import uuid4
@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.auth import Tenant
-from app.models.outcome import OperationalOutcome
+from app.models.signal import Signal, SignalEvent
 from app.models.trigger import Trigger
 from app.services.outcomes import ingest_trading_report, list_recent_outcomes
 from app.services.triggers import fire_trigger
@@ -17,6 +17,9 @@ from app.services.triggers import fire_trigger
 async def test_ingest_trading_report(session_override):
     tenant = Tenant(slug="outcome-test", name="Outcome Test")
     session_override.add(tenant)
+    await session_override.flush()
+    signal = Signal(tenant_id=tenant.id, channel="internal", subject="Trading")
+    session_override.add(signal)
     await session_override.commit()
 
     payload = {
@@ -26,14 +29,20 @@ async def test_ingest_trading_report(session_override):
         "pnl_r": 1.5,
         "notes": "Target hit",
     }
-    outcome = await ingest_trading_report(
-        session_override, tenant.id, payload, source="trading_webhook"
+    event = await ingest_trading_report(
+        session_override,
+        tenant.id,
+        payload,
+        source="trading_webhook",
+        signal_id=signal.id,
     )
-    assert outcome.kind == "trade_closed"
-    assert outcome.subtype == "trade_closed"
+    assert event.event_type == "trading_report"
+    body = json.loads(event.payload_json)
+    assert body["kind"] == "trade_closed"
+    assert body["subtype"] == "trade_closed"
 
     rows = await list_recent_outcomes(session_override, tenant.id, days=7)
-    assert len(rows) == 1
+    assert rows == []
 
 
 @pytest.mark.asyncio
@@ -73,7 +82,10 @@ async def test_fire_trigger_report_webhook(session_override):
 
     from unittest.mock import AsyncMock, patch
 
-    with patch("app.services.agent.loop.AgentLoop.run_chat", new=AsyncMock(return_value=("Digest posted.", 10))):
+    with patch(
+        "app.services.agent.loop.AgentLoop.run_chat",
+        new=AsyncMock(return_value=("Digest posted.", 10)),
+    ):
         result = await fire_trigger(
             session_override,
             trigger,
@@ -86,10 +98,12 @@ async def test_fire_trigger_report_webhook(session_override):
         )
 
     assert result["status"] in ("reported", "ok")
-    outcomes = (
+    events = (
         await session_override.execute(
-            select(OperationalOutcome).where(OperationalOutcome.tenant_id == tenant.id)
+            select(SignalEvent).where(
+                SignalEvent.tenant_id == tenant.id,
+                SignalEvent.event_type == "trading_report",
+            )
         )
     ).scalars().all()
-    assert len(outcomes) == 1
-    assert outcomes[0].kind == "session_summary"
+    assert len(events) == 1

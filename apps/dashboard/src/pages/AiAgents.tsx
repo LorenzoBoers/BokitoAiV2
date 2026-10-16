@@ -16,6 +16,7 @@ import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { AgentActivityTimeline } from '../components/workforce/AgentActivityTimeline'
 import { useIsAdmin } from '../hooks/useIsAdmin'
+import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import { listAgents } from '../lib/agents-api'
 import { formatAgentModelLine } from '../lib/model-label'
 import { activityTerminalPath, agentChatPath, forYouPath } from '../lib/messages-paths'
@@ -30,8 +31,13 @@ import {
   sortAgentsForLibrary,
 } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
+import { useAgentOrbDrive } from '../hooks/useBotOrbPulse'
+import { presenceOrbMotion } from '../lib/bot-orb-motion'
 import { AgentActiveLine } from '../components/inbox/IdentitySeenLine'
 import { cn } from '../lib/utils'
+
+/** Library card mark — readable face, not a dense list icon. */
+const LIBRARY_MARK_SIZE = 52
 
 type AgentStatusFilter = 'all' | 'working' | 'deactivated'
 
@@ -99,10 +105,13 @@ function AgentLibraryCard({
   const live = useAgentLive(agent.id)
   const view = withAgentLive(agent)
   const work = agentStatusOf(view)
+  const cardOrb = useAgentOrbDrive(agent.id, presenceOrbMotion(work))
   const href = work === 'working' ? openEntityPath({ type: 'agent', id: agent.id, live }) : `/agents/${agent.id}`
   const openCount = view.open_conversations ?? 0
   const decisionCount = view.awaiting_decision ?? 0
   const summary = view.current_activity_summary
+  const profileAccent = agentProfileAccentColor(resolveAgentAvatarColor(agent.avatar_color))
+  const showStatusPill = isDeactivatedAgent(agent) || work === 'working' || work === 'error'
 
   return (
     <Link to={href} className="group block h-full">
@@ -113,11 +122,12 @@ function AgentLibraryCard({
         <div className="flex items-start gap-3">
           <AgentMark
             agent={agent}
-            size={40}
-            className="mt-0.5"
-            activity={
-              work === 'working' ? 'working' : work === 'error' ? 'error' : 'standby'
-            }
+            size={LIBRARY_MARK_SIZE}
+            className="mt-0.5 shrink-0"
+            mode="live"
+            motion={cardOrb.motion}
+            pulseId={cardOrb.pulseId}
+            baseMotion={cardOrb.baseMotion}
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
@@ -137,46 +147,55 @@ function AgentLibraryCard({
                 </span>
               ) : null}
             </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {isDeactivatedAgent(agent) ? (
-                <span className="inline-flex items-center rounded-md bg-status-error/10 px-1.5 py-0.5 text-2xs font-medium text-status-error">
-                  {presenceLabel('deactivated', t)}
-                </span>
-              ) : (
-                <span
-                  className={cn(
-                    'inline-flex items-center rounded-md px-1.5 py-0.5 text-2xs font-medium',
-                    work === 'working' && 'bg-ai/12',
-                    work === 'error' && 'bg-status-error/10',
-                    work === 'standby' && 'bg-bg-hover/80',
-                    presenceTextClass(work),
-                  )}
-                >
-                  {presenceLabel(work, t)}
-                </span>
-              )}
-              {project ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    // The card itself is a link; open the folder instead.
-                    e.preventDefault()
-                    e.stopPropagation()
-                    navigate(openEntityPath({ type: 'project', id: project.id }))
-                  }}
-                  className="inline-flex min-w-0 items-center gap-1 truncate rounded text-2xs text-text-muted hover:text-accent hover:underline"
-                  title={t('workforce.agents.openProject', { name: project.name })}
-                >
-                  <FolderIcon size={11} aria-hidden className="shrink-0" />
-                  <span className="truncate">{project.name}</span>
-                </button>
-              ) : null}
-            </div>
+            {agent.job_title ? (
+              <p
+                className="mt-1 text-sm font-medium leading-snug"
+                style={{ color: profileAccent }}
+              >
+                {agent.job_title}
+              </p>
+            ) : null}
+            {showStatusPill || project ? (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {isDeactivatedAgent(agent) ? (
+                  <span className="inline-flex items-center rounded-md bg-status-error/10 px-1.5 py-0.5 text-2xs font-medium text-status-error">
+                    {presenceLabel('deactivated', t)}
+                  </span>
+                ) : work === 'working' || work === 'error' ? (
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-md px-1.5 py-0.5 text-2xs font-medium',
+                      work === 'working' && 'bg-ai/12',
+                      work === 'error' && 'bg-status-error/10',
+                      presenceTextClass(work),
+                    )}
+                  >
+                    {presenceLabel(work, t)}
+                  </span>
+                ) : null}
+                {project ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      // The card itself is a link; open the folder instead.
+                      e.preventDefault()
+                      e.stopPropagation()
+                      navigate(openEntityPath({ type: 'project', id: project.id }))
+                    }}
+                    className="inline-flex min-w-0 items-center gap-1 truncate rounded text-2xs text-text-muted hover:text-accent hover:underline"
+                    title={t('workforce.agents.openProject', { name: project.name })}
+                  >
+                    <FolderIcon size={11} aria-hidden className="shrink-0" />
+                    <span className="truncate">{project.name}</span>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {!isDeactivatedAgent(agent) ? (
               <AgentActiveLine at={view.last_active_at} working={work === 'working'} />
             ) : null}
             {agent.description ? (
-              <p className="mt-2 line-clamp-2 text-sm leading-snug text-text-secondary">{agent.description}</p>
+              <p className="mt-1 line-clamp-2 text-sm leading-snug text-text-secondary">{agent.description}</p>
             ) : null}
             {openCount > 0 || decisionCount > 0 ? (
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">

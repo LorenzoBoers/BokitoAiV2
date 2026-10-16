@@ -1,7 +1,7 @@
 ---
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
-description: Brief company agents, set chat access, deactivate them, add a signature, and set name, description or bot look.
+description: Brief company agents, set chat access, deactivate them, add a signature, and set name, job title, description or bot look.
 keywords: agents, ai workforce, deactivate, reactivate, chat access, signature, avatar, bot, color, default agent, ceiling, rules, try out, ask questions to
 sort: 10
 related: govern,knowledge,communication,agenda
@@ -17,7 +17,7 @@ Agents are the AI workers for this workspace. Every agent has one shape: name, d
 *Each agent is a card. The default agent is marked quietly as Default.*
 
 1. Open **Agents**. Company agents appear as cards. Each card can show **open** conversations (the agent's detail, **Open conversations**) and threads that **need a decision** (**For you**, filtered to that agent). Search and the pills **All** and **Working** narrow the grid. An agent that leads a project shows that project as a folder chip on its card; click it to open the folder. Above the cards, **Activity** is a now-centered timeline of even-sized points. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time, not a from–to range. Choose a point to open the run, conversation or Agenda item. The same timeline sits on each agent page for that agent alone.
-2. Choose **New agent**. Enter a **Name**, an optional **Description**, select a **Model**, add **Instructions**, then choose **Create agent**. The description is the short role others see on the card; instructions are the brief the agent follows.
+2. Choose **New agent**. Enter a **Name**, a required **Job title** (max 20 characters), an optional **Description**, select a **Model**, add **Instructions**, then choose **Create agent**. The job title sits under the name; the description is a longer optional blurb. Instructions are the brief the agent follows.
 3. Open a card for instructions, model and chat access. Use **New chat** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
@@ -33,9 +33,9 @@ New chats in Communication require a **company agent**. If none are available fo
 ![Agent detail](/api/docs/assets/agents/agent-brief.png)
 *Edit purpose, model and allowed tools.*
 
-1. Open the agent. The profile header shows the mark, **name**, and **description** in the mark color. The **Instructions** card below shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model and runtime**.
+1. Open the agent. The profile header shows the mark, **name**, required **job title** (in the mark color), and optional **description**. The **Instructions** card below shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model and runtime**.
 2. Under **Model and runtime**, pick **Workspace default** (follows [Models](/docs/govern/models)), **Automatic** (Bokito picks a tier per action), or pin **Maki**, **Bokito** or **Kong**. New agents start on Workspace default.
-3. Under **Tools & permissions**, choose the tool allowlist. Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
+3. Under **Tools & permissions**, choose the tool allowlist. Include **Web search** and **Fetch page** when the agent should look up public facts or read a public URL (workspace search stays on **search index** / docs). Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
 4. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
 5. After you create a company agent, open a chat with it and ask it to draft its own brief from the company docs. The change lands as a Govern draft; approve it under [Govern](/docs/govern/govern) **Pending reviews** or edit the brief here yourself.
 
@@ -88,11 +88,11 @@ Some agents are owned by a platform stack or module (for example Trading or a hi
 4. Save. Approvals for this agent use that default until you pick another Send as on the card.
 
 
-## Set name, description or look
+## Set name, job title, description or look
 
 1. Open a company agent.
 2. Hover or focus the large agent mark in the profile header, then choose the pencil (or open **Edit** from the ··· menu).
-3. Change the **name**, fill in the **Description** (the short role under the name, tinted with the mark color, and on the library card), then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. Instructions stay on the agent page; they are not this description.
+3. Change the **name**, fill in the required **Job title** (max 20 characters; shown under the name in the mark color), optionally add a longer **Description**, then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. Instructions stay on the agent page; they are not this description.
 4. Under **Preview motion**, try **Idle**, **Thinking**, **Typing**, **Working**, and short reactions (**Yes**, **No**, **Alert**, **Jump**). In live chats the face follows the turn: thinking while it reasons, typing while text streams, working while tools run; approving or rejecting a decision plays a short yes/no reaction.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.

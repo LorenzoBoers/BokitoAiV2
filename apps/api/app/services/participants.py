@@ -20,6 +20,7 @@ from app.models.signal_participant import (
 )
 from app.models.team import Team
 from app.services.agent_avatar import avatar_payload
+from app.services.team_avatar import avatar_payload as team_avatar_payload
 
 
 async def list_active_participants(
@@ -242,6 +243,7 @@ async def serialize_participants(
         name = ""
         email = ""
         avatar: dict[str, Any] = {}
+        avatar_url: str | None = None
         if row.kind == "user":
             u = users.get(row.ref_id)
             if u:
@@ -254,6 +256,7 @@ async def serialize_participants(
                     or ""
                 )
                 email = u.email or ""
+                avatar_url = (u.avatar_url or "").strip() or None
         elif row.kind == "agent":
             a = agents.get(row.ref_id)
             if a:
@@ -269,6 +272,7 @@ async def serialize_participants(
             t = teams.get(row.ref_id)
             if t:
                 name = t.name or ""
+                avatar = team_avatar_payload(t)
         out.append(
             {
                 "id": str(row.id),
@@ -279,6 +283,7 @@ async def serialize_participants(
                 "email": email,
                 "joined_via": row.joined_via or "",
                 "joined_at": row.joined_at.isoformat() if row.joined_at else None,
+                "avatar_url": avatar_url,
                 "avatar_kind": avatar.get("avatar_kind"),
                 "avatar_icon": avatar.get("avatar_icon"),
                 "avatar_color": avatar.get("avatar_color"),

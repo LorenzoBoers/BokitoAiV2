@@ -15,8 +15,8 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.agent import AgentRun
 from app.models.notification import DecisionRequest
-from app.models.orchestra import WorkstreamRun
 from app.models.signal import SignalEvent, SignalMessage
 from app.services.ownership import DRAFT_TITLES, NO_REPLY_TITLE
 
@@ -286,13 +286,15 @@ async def collect_action_events(
         if when is not None:
             events.append((when, "ticket_filed_by_agent"))
 
+    # Flow attribution lives on AgentRun.workstream_id (workstream_runs retired).
     flow_rows = (
         await session.execute(
-            select(WorkstreamRun.completed_at).where(
-                WorkstreamRun.tenant_id == tenant_id,
-                WorkstreamRun.status == "completed",
-                WorkstreamRun.completed_at.is_not(None),
-                WorkstreamRun.completed_at >= since,
+            select(AgentRun.completed_at).where(
+                AgentRun.tenant_id == tenant_id,
+                AgentRun.workstream_id.is_not(None),
+                AgentRun.status == "completed",
+                AgentRun.completed_at.is_not(None),
+                AgentRun.completed_at >= since,
             )
         )
     ).all()

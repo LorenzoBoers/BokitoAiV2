@@ -115,6 +115,7 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
         "slug",
         "model",
         "provider",
+        "job_title",
         "description",
         "system_prompt",
         "chat_access",
@@ -322,6 +323,8 @@ async def ensure_managed_agent(
             origin_label=label,
         )
         _apply_fields(agent, fields)
+        if not (agent.job_title or "").strip():
+            agent.job_title = (agent.name or "Agent").strip()[:20]
         agent.kind = "company"
         agent.is_active = True
         session.add(agent)

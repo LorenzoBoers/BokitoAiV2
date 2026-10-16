@@ -75,6 +75,10 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "context_signal_id": "VARCHAR",
         "schedule_json": "VARCHAR DEFAULT '{}'",
         "contact_basis": "VARCHAR DEFAULT ''",
+        "assignee_id": "VARCHAR",
+        "turn_ref_id": "VARCHAR",
+        "last_human_owner_json": "VARCHAR DEFAULT '{}'",
+        "floor_json": "VARCHAR DEFAULT '{}'",
     },
     "handover_codes": {
         "language": "VARCHAR DEFAULT 'en'",

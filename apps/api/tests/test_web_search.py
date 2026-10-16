@@ -1,4 +1,4 @@
-"""Brave web_search tool and image showcase refs."""
+"""web_search tool (SearXNG primary, Brave fallback) and image showcase refs."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.services.proposal_items import normalize_item_type, resolve_items
-from app.services.web_search import brave_search
+from app.services.web_search import brave_search, web_search
 from app.tools.registry import get_tool_spec
 
 
@@ -49,11 +49,48 @@ async def test_resolve_image_from_url(session_override):
 
 
 @pytest.mark.asyncio
-async def test_brave_search_not_configured():
+async def test_web_search_not_configured():
     with patch("app.services.web_search.get_settings") as settings:
-        settings.return_value = MagicMock(brave_search_api_key="")
-        out = await brave_search("bokito")
+        settings.return_value = MagicMock(searxng_url="", brave_search_api_key="")
+        out = await web_search("bokito")
     assert out["error"] == "web_search_not_configured"
+
+
+@pytest.mark.asyncio
+async def test_searxng_parses_web_results():
+    payload = {
+        "results": [
+            {
+                "title": "Bokito",
+                "url": "https://bokito.ai/",
+                "content": "Chat-first ops",
+            }
+        ]
+    }
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = payload
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.get.return_value = response
+
+    with (
+        patch("app.services.web_search.get_settings") as settings,
+        patch("app.services.web_search.httpx.AsyncClient", return_value=mock_client),
+    ):
+        settings.return_value = MagicMock(
+            searxng_url="http://searxng:8080",
+            brave_search_api_key="",
+        )
+        out = await web_search("bokito", count=3)
+
+    assert out["kind"] == "web"
+    assert out["count"] == 1
+    assert out["results"][0]["url"] == "https://bokito.ai/"
+    assert out["results"][0]["host"] == "bokito.ai"
+    assert out["results"][0]["favicon_url"]
+    mock_client.get.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -82,7 +119,7 @@ async def test_brave_search_parses_web_results():
         patch("app.services.web_search.get_settings") as settings,
         patch("app.services.web_search.httpx.AsyncClient", return_value=mock_client),
     ):
-        settings.return_value = MagicMock(brave_search_api_key="test-key")
+        settings.return_value = MagicMock(searxng_url="", brave_search_api_key="test-key")
         out = await brave_search("bokito", count=3)
 
     assert out["kind"] == "web"
@@ -119,7 +156,7 @@ async def test_brave_search_unwraps_nested_image_src():
         patch("app.services.web_search.get_settings") as settings,
         patch("app.services.web_search.httpx.AsyncClient", return_value=mock_client),
     ):
-        settings.return_value = MagicMock(brave_search_api_key="test-key")
+        settings.return_value = MagicMock(searxng_url="", brave_search_api_key="test-key")
         out = await brave_search("jet", count=3, kind="images")
 
     assert out["kind"] == "images"
@@ -132,4 +169,6 @@ def test_web_search_on_suggest_and_assistant_allowlists():
     from app.workers.tasks import SUGGEST_MODE_TOOLS
 
     assert "web_search" in SUGGEST_MODE_TOOLS
+    assert "fetch_url" in SUGGEST_MODE_TOOLS
     assert "web_search" in TOOL_ALLOWLIST
+    assert "fetch_url" in TOOL_ALLOWLIST

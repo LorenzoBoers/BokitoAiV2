@@ -62,11 +62,19 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file: .env.prod
+    environment:
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
+      CRAWL4AI_URL: ${CRAWL4AI_URL:-http://crawl4ai:11235}
+      CRAWL4AI_API_TOKEN: ${CRAWL4AI_API_TOKEN:?set CRAWL4AI_API_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      searxng:
+        condition: service_healthy
+      crawl4ai:
+        condition: service_started
     healthcheck:
       # Deep readiness: verifies Postgres and Redis connectivity, not just process-up.
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready').status==200 else 1)\""]
@@ -87,11 +95,18 @@ services:
     environment:
       # The worker never runs the in-process API scheduler loop; keep it off explicitly.
       TRIGGER_SCHEDULER_ENABLED: "false"
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
+      CRAWL4AI_URL: ${CRAWL4AI_URL:-http://crawl4ai:11235}
+      CRAWL4AI_API_TOKEN: ${CRAWL4AI_API_TOKEN:?set CRAWL4AI_API_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      searxng:
+        condition: service_healthy
+      crawl4ai:
+        condition: service_started
     healthcheck:
       test: ["CMD", "arq", "app.workers.tasks.WorkerSettings", "--check"]
       interval: 30s
@@ -101,6 +116,36 @@ services:
     volumes:
       - bokito_uploads:/app/data/uploads
     command: arq app.workers.tasks.WorkerSettings
+
+  # Agent web_search backend. Internal only (no host ports).
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?set SEARXNG_SECRET}
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Agent fetch_url backend (page → Markdown). Internal only; needs shm for Chromium.
+  crawl4ai:
+    image: unclecode/crawl4ai:0.9.2
+    restart: unless-stopped
+    shm_size: 1gb
+    environment:
+      CRAWL4AI_API_TOKEN: ${CRAWL4AI_API_TOKEN:?set CRAWL4AI_API_TOKEN}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:11235/health || curl -sf http://127.0.0.1:11235/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   web:
     build:

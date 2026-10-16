@@ -45,23 +45,6 @@ class ChannelAccount(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class ChannelBinding(SQLModel, table=True):
-    """Legacy routing rows retained for migration compatibility; not used."""
-    __tablename__ = "channel_bindings"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    channel: str = Field(default="widget", index=True)  # widget | email | assistant | internal | slack
-    channel_account_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="channel_accounts.id", index=True
-    )
-    contact_id: Optional[uuid.UUID] = Field(default=None, foreign_key="contacts.id", index=True)
-    agent_id: uuid.UUID = Field(foreign_key="agents.id", index=True)
-    priority: int = 0
-    enabled: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 class Company(SQLModel, table=True):
     """CRM company record; contacts auto-link by business email domain."""
 

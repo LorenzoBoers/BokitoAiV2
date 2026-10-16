@@ -99,6 +99,7 @@ async def test_create_and_update_company_agent(client: AsyncClient, session_over
         headers=headers,
         json={
             "name": "Support Specialist",
+            "job_title": "Support",
             "role": "communication",
             "system_prompt": "You help customers with billing.",
         },
@@ -106,6 +107,7 @@ async def test_create_and_update_company_agent(client: AsyncClient, session_over
     assert created.status_code == 200, created.text
     agent = created.json()["agent"]
     assert agent["name"] == "Support Specialist"
+    assert agent["job_title"] == "Support"
     assert agent["kind"] == "company"
     assert agent["system_prompt"] == "You help customers with billing."
     agent_id = agent["id"]
@@ -132,7 +134,7 @@ async def test_create_agent_rejects_empty_name(client: AsyncClient):
     res = await client.post(
         "/api/workforce/agents",
         headers=headers,
-        json={"name": "   "},
+        json={"name": "   ", "job_title": "Support"},
     )
     assert res.status_code == 400
 
@@ -143,13 +145,13 @@ async def test_create_agent_rejects_duplicate_name(client: AsyncClient):
     first = await client.post(
         "/api/workforce/agents",
         headers=headers,
-        json={"name": "Billing Twin"},
+        json={"name": "Billing Twin", "job_title": "Billing"},
     )
     assert first.status_code == 200, first.text
     dup = await client.post(
         "/api/workforce/agents",
         headers=headers,
-        json={"name": "billing twin"},
+        json={"name": "billing twin", "job_title": "Billing"},
     )
     assert dup.status_code == 409, dup.text
     body = dup.json()
@@ -163,12 +165,12 @@ async def test_rename_agent_rejects_taken_name(client: AsyncClient):
     a = await client.post(
         "/api/workforce/agents",
         headers=headers,
-        json={"name": "Alpha Desk"},
+        json={"name": "Alpha Desk", "job_title": "Desk"},
     )
     b = await client.post(
         "/api/workforce/agents",
         headers=headers,
-        json={"name": "Beta Desk"},
+        json={"name": "Beta Desk", "job_title": "Desk"},
     )
     assert a.status_code == 200 and b.status_code == 200
     renamed = await client.patch(

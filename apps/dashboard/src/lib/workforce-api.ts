@@ -34,7 +34,9 @@ export type AgentStatus = AgentPresenceStatus
 export interface AgentSummary {
   id: string
   name: string
-  /** Short operator-facing role blurb (not the system prompt). */
+  /** Required short title (max 20); shown between name and description. */
+  job_title?: string
+  /** Optional longer operator-facing blurb (not the system prompt). */
   description?: string
   slug: string
   role: string

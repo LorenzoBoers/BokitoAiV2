@@ -1349,6 +1349,7 @@ async def hire_module_agent(
         "name": template.name,
         "slug": f"module-{slug}",
         "role": "assistant",
+        "job_title": (template.role_blurb or template.name or "Agent").strip()[:20],
         "description": template.role_blurb[:280],
         "system_prompt": template.system_prompt,
         "tools": tools,
@@ -1363,6 +1364,7 @@ async def hire_module_agent(
         display_label=module.name,
         create_fields=fields,
         patch_fields={
+            "job_title": fields["job_title"],
             "description": fields["description"],
             "system_prompt": fields["system_prompt"],
             "tools": tools,
@@ -1372,6 +1374,9 @@ async def hire_module_agent(
     agent = result.agent
     if "description" in fields:
         agent.description = fields["description"]
+        session.add(agent)
+    if fields.get("job_title") and not (agent.job_title or "").strip():
+        agent.job_title = fields["job_title"]
         session.add(agent)
     await session.flush()
 

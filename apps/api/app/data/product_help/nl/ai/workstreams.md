@@ -1,6 +1,6 @@
 ---
 title: Hoe Flows werken
-intro: Een flow is de fasenpijplijn van precies één actietag. De pagina heet naar die hashtag (`#klacht`) en toont een live bord met de tickets, met een baan per project.
+intro: Een flow is de fasenpijplijn van precies één actietag. De lijst en pagina tonen een titel met die actietag-label (`#klacht`) ernaast, en een live bord met de tickets, met een baan per project.
 description: Maak een flow voor een actietag, volg de tickets per fase en project, bewerk de fasen in de bewerkmodus, en deactiveer of verwijder hem.
 keywords: flows, workstreams, draaiboeken, fasen, eigenaar, check-up, pijplijn, tickets, hashtags, actietags, projecten, bord, banen, bewerkmodus
 sort: 45
@@ -9,13 +9,13 @@ related: categories,folders,agenda,agents,knowledge
 
 # Hoe Flows werken
 
-Een flow is de pijplijn voor werk dat onder één actietag terugkomt: een klacht, een reparatie, een aangifte. Elke flow heeft precies één actietag en heet naar die hashtag (`#klacht`); de flowpagina toont de tickets per fase, en projecten tonen dezelfde fasen als bord.
+Een flow is de pijplijn voor werk dat onder één actietag terugkomt: een klacht, een reparatie, een aangifte. Elke flow heeft precies één actietag. De Flows-lijst en de flowpagina tonen een operator-titel met rechts daarvan het actietag-label (`#klacht`); het bord toont tickets per fase, en projecten tonen dezelfde fasen als bord.
 
 ## Een flow aanmaken
 
 1. Open **Flows** (groep Werk) en kies **Nieuwe flow**. Kies in de dialoog een vrije tag uit de pillen, of typ in het zoekveld om ze te filteren.
 2. Als geen tag meer overeenkomt met wat je typt, kies **Tag aanmaken** met die hashtag. Die wordt de actietag van de flow; een bestaande vrije hashtag wordt hergebruikt. Een hashtag die al bij een andere flow hoort, verschijnt niet en kan geen tweede flow starten.
-3. De lijst **Flows** toont per flow de fasen, het aantal open tickets per fase, de projecten waarin hij gebruikt wordt en de laatste activiteit.
+3. De lijst **Flows** toont per flow de titel met rechts het actietag-label, plus de fasen, open tickets per fase, projecten waarin hij gebruikt wordt en de laatste activiteit.
 
 ## Tickets volgen op het flowbord
 
@@ -29,12 +29,12 @@ Een flow is de pijplijn voor werk dat onder één actietag terugkomt: een klacht
 
 ## De fasen bewerken in de bewerkmodus
 
-1. Beheerders kiezen rechtsboven **Bewerken**. Het bord verdwijnt en de balk **Bewerkmodus** verschijnt; titel, beschrijving en fasen zijn dan bewerkbaar. Een andere titel hernoemt de actietag op elk gesprek; de balk toont de oude en nieuwe hashtag voordat je opslaat.
+1. Beheerders kiezen rechtsboven **Bewerken**. Het bord verdwijnt en de balk **Bewerkmodus** verschijnt; titel, beschrijving en fasen zijn dan bewerkbaar. De titel is alleen de flownaam; hernoem de actietag onder **Labels** als de hashtag zelf moet wijzigen.
 2. Kies in **Ticketfases** voor elke stap **Nieuwe fase toevoegen** (bijvoorbeeld Nieuw, Wacht op onderdelen, Gerepareerd). Zet elk **Soort fase** op open, waiting, done of closed, en houd minstens één klaar-fase. Sleep fasen om te herordenen. Elke flow start met Open, Wachtend en Klaar; **Opslaan** blijft uit zolang de pipeline leeg is of geen klaar-fase heeft, zodat een bord nooit zonder kolommen komt te staan.
 3. Op een klaar-fase zet je **Gesprek automatisch sluiten** aan als binnenkomen in die fase de thread moet sluiten.
 4. Open **Invoervelden** op een fase om tekst-, lange-tekst-, getal- of keuzelijstvelden toe te voegen. Velden op de eerste fase worden gevraagd bij het vastleggen van de actietag. Verplichte velden op een latere fase moeten ingevuld zijn voordat een ticket die fase in kan.
 5. Kies per fase een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme. Tickets in die fase krijgen een check-up op [Agenda](/docs/ai/agenda) voor hun eigenaar; klaar-fasen checken nooit.
-6. Er wordt niets opgeslagen tot je **Opslaan** kiest; intussen toont de balk **Niet-opgeslagen wijzigingen**. **Annuleren** vraagt of je wilt **Weggooien** en brengt je ongewijzigd terug naar het bord. Een hashtag die een andere tag al gebruikt, kun je niet opslaan.
+6. Er wordt niets opgeslagen tot je **Opslaan** kiest; intussen toont de balk **Niet-opgeslagen wijzigingen**. **Annuleren** vraagt of je wilt **Weggooien** en brengt je ongewijzigd terug naar het bord.
 
 ## De flow op een project tonen
 

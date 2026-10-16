@@ -1,8 +1,8 @@
 import { cn } from '../../lib/utils'
 
 /**
- * Custom tag glyph only. Prefer `TagPill` / `HashtagMark` (round leading mark) for the
- * default `#` mark — this component is for registry `iconUrl` images.
+ * Custom tag glyph only. Prefer `TagPill` / `HashtagMark` for the default mark —
+ * this component is for registry `iconUrl` images.
  */
 export function TagIcon({
   iconUrl,
@@ -15,7 +15,7 @@ export function TagIcon({
   size?: number
   className?: string
   title?: string
-  /** @deprecated Ignored — use HashtagMark for accent `#`. */
+  /** @deprecated Ignored — use HashtagMark for action-tag play marks. */
   action?: boolean
 }) {
   if (!iconUrl) return null

@@ -4,14 +4,15 @@
 be done — an orchestration job, a project queue item, a delegated chore, a
 planned human action — is one row here, discriminated by `kind` and `origin`:
 
-- `kind="job"`      — internal execution unit (workstream step run, trigger job)
+- `kind="job"`      — explicit orchestration job (dispatcher); chat promotion
+                      no longer mints these (work lives on AgentRun)
 - workflow kinds    — `feature | bug | task | idea | risk`: project queue items
                       that move through the proposed -> completed workflow
 - `assignee_kind`   — `agent` (default) or `human`; human tasks surface in
                       Decisions/Agenda instead of waking an agent
 
-Plain chat Q&A never creates a Task; a Task appears when real work starts or
-is planned (see services/orchestration and services/project_work).
+Plain chat Q&A never creates a Task; queue/orchestration create Tasks when
+work is planned (see services/orchestration and services/project_work).
 """
 
 import uuid
@@ -76,7 +77,6 @@ class AgentTask(SQLModel, table=True):
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     message_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signal_messages.id")
     workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
-    current_step_id: Optional[uuid.UUID] = Field(default=None)  # legacy; step engine retired
 
     kind: str = Field(default="job", index=True)  # job | feature | bug | task | idea | risk
     title: str
@@ -116,28 +116,6 @@ class AgentTask(SQLModel, table=True):
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
-
-
-class EvalCheckpoint(SQLModel, table=True):
-    """Deprecated evaluation side table.
-
-    Retained for Alembic/history compatibility. New evaluations are emitted as
-    ``RunEvent`` entries and are not written here.
-    """
-
-    __tablename__ = "eval_checkpoints"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    agent_task_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agent_tasks.id", index=True)
-    run_id: uuid.UUID = Field(foreign_key="agent_runs.id", index=True)
-    step_id: Optional[uuid.UUID] = Field(default=None)  # legacy; step engine retired
-    eval_kind: str = Field(default="rubric")  # rubric | tool_assert | llm_judge
-    criteria_json: str = Field(default="{}")
-    result_json: str = Field(default="{}")
-    passed: bool = False
-    retry_count: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class TaskArtifact(SQLModel, table=True):

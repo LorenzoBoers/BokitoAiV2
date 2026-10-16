@@ -6,9 +6,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from uuid import uuid4
+
+from app.models.agent import Agent, AgentRun
 from app.models.auth import Tenant, User
 from app.models.notification import DecisionRequest
-from app.models.orchestra import WorkstreamRun
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.time_saved import (
     DEFAULT_ACTION_MINUTES,
@@ -154,15 +156,27 @@ async def test_compute_time_saved_sums_action_credits(client: AsyncClient, sessi
                 actor_type="system",
                 created_at=now,
             ),
-            WorkstreamRun(
+        ]
+    )
+    agent = Agent(tenant_id=tenant.id, name="Flow worker", kind="company")
+    session.add(agent)
+    await session.flush()
+    flow_id = uuid4()
+    session.add_all(
+        [
+            AgentRun(
                 tenant_id=tenant.id,
+                agent_id=agent.id,
+                workstream_id=flow_id,
                 status="completed",
                 completed_at=now,
             ),
-            WorkstreamRun(
+            AgentRun(
                 tenant_id=tenant.id,
-                status="awaiting_gate",
-                completed_at=None,
+                agent_id=agent.id,
+                workstream_id=None,
+                status="completed",
+                completed_at=now,
             ),
         ]
     )

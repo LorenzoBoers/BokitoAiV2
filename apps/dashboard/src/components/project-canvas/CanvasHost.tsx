@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Code2, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Code2, MoreHorizontal, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { CANVAS_ICON, ENTITY_ICONS } from '../../lib/entity-icons'
+import { AgentMark } from '../ui/AgentMark'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -262,12 +269,26 @@ export function CanvasHost({
       >
         {items.length > 0 ? (
           <TabsList className="h-auto min-h-9 w-full flex-wrap justify-start overflow-visible">
-            {items.map((row) => (
-              <TabsTrigger key={row.id} value={row.id}>
-                <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
-                {row.title}
-              </TabsTrigger>
-            ))}
+            {items.map((row) => {
+              const pending = Boolean(row.empty || isEmptyCanvasTree(row.tree))
+              return (
+                <TabsTrigger
+                  key={row.id}
+                  value={row.id}
+                  className={pending ? 'opacity-50' : undefined}
+                  title={pending ? t('projects.canvas.writing') : undefined}
+                  data-canvas-pending={pending ? 'true' : undefined}
+                >
+                  <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
+                  <span className="truncate">{row.title}</span>
+                  {pending ? (
+                    <span className="ml-1 truncate text-[10px] font-normal text-text-muted">
+                      {t('projects.canvas.buildingBadge')}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              )
+            })}
             {canEdit ? (
               <button
                 type="button"
@@ -303,17 +324,26 @@ export function CanvasHost({
             {row.id === canvas?.id ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {row.managing_agent ? (
+                      <Link
+                        to={row.managing_agent.path}
+                        className="inline-flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        title={t('projects.canvas.ownerAgent')}
+                      >
+                        <AgentMark agent={row.managing_agent} size={28} mode="static" />
+                        <span className="truncate text-sm font-medium text-text-primary">
+                          {row.managing_agent.name}
+                        </span>
+                      </Link>
+                    ) : null}
                     {row.updated_at ? (
-                      <p className="text-xs text-text-muted">
+                      <p className="min-w-0 truncate text-xs text-text-muted">
                         {t('projects.canvas.lastUpdated', {
                           time: formatAppDateTime(new Date(row.updated_at), i18n.language),
-                          who: row.updated_by_type ? ` · ${row.updated_by_type}` : '',
                         })}
                       </p>
                     ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
                     {canEdit ? (
                       <Select
                         value={shownCadence(row)}
@@ -343,14 +373,19 @@ export function CanvasHost({
                         disabled={busy}
                       />
                     ) : null}
-                    {row.managing_agent?.name ? (
-                      <Button type="button" size="sm" variant="ghost" asChild>
-                        <Link to={row.managing_agent.path} title={t('projects.canvas.ownerAgent')}>
-                          <ENTITY_ICONS.agent size={14} className="mr-1.5 shrink-0" aria-hidden />
-                          {row.managing_agent.name}
-                        </Link>
-                      </Button>
-                    ) : null}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 px-0 text-text-muted"
+                      onClick={() => void load()}
+                      aria-label={t('projects.detail.refresh')}
+                      title={t('projects.detail.refresh')}
+                    >
+                      <RotateCcw size={14} aria-hidden />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" size="sm" variant="outline" asChild>
                       <Link to={threadHref(row)}>
                         <ENTITY_ICONS.conversation size={14} className="mr-1.5 shrink-0" aria-hidden />
@@ -363,15 +398,31 @@ export function CanvasHost({
                         {showSource ? t('projects.canvas.hideSource') : t('projects.canvas.showSource')}
                       </Button>
                     ) : null}
-                    <Button type="button" size="sm" variant="ghost" onClick={() => void load()}>
-                      <RotateCcw size={14} className="mr-1.5" />
-                      {t('projects.detail.refresh')}
-                    </Button>
                     {canEdit ? (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => void onDelete(row.id)} disabled={busy}>
-                        <Trash2 size={14} className="mr-1.5" />
-                        {t('projects.canvas.delete')}
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="h-8 w-8 px-0 text-text-muted"
+                            aria-label={t('projects.canvas.moreActions')}
+                            disabled={busy}
+                          >
+                            <MoreHorizontal size={16} aria-hidden />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[180px]">
+                          <DropdownMenuItem
+                            className="gap-2 text-status-error"
+                            disabled={busy}
+                            onClick={() => void onDelete(row.id)}
+                          >
+                            <Trash2 size={14} />
+                            {t('projects.canvas.delete')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : null}
                   </div>
                 </div>

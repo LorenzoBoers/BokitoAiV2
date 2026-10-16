@@ -133,7 +133,7 @@ async def test_agent_crud_is_audited(client: AsyncClient, session_override):
 
     r = await client.post(
         "/api/workforce/agents",
-        json={"name": "Audit Agent", "role": "communication"},
+        json={"name": "Audit Agent", "job_title": "Auditor", "role": "communication"},
         headers=headers,
     )
     assert r.status_code == 200, r.text

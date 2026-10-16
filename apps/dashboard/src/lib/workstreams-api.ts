@@ -15,7 +15,7 @@ export type WorkstreamInputKind = 'manual' | 'queue_item' | 'signal' | 'trigger'
 export type WorkstreamRow = {
   id: string
   signal_id?: string | null
-  /** Display name: first linked action tag when present, else stored name. */
+  /** Operator title (independent of the action-tag hashtag). */
   name: string
   description: string
   enabled: boolean

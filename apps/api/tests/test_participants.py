@@ -77,7 +77,10 @@ async def test_ensure_and_serialize_participants(client, session_override):
 
     payload = await serialize_participants(session_override, tenant.id, signal.id)
     assert any(p["kind"] == "agent" and p["ref_id"] == str(agent.id) for p in payload)
-    assert any(p["role"] == "owner" for p in payload)
+    owner = next(p for p in payload if p["role"] == "owner")
+    assert owner["kind"] == "user"
+    assert "avatar_url" in owner
+    assert owner["email"]
 
     left = await leave_participant(
         session_override, signal, kind="agent", ref_id=agent.id

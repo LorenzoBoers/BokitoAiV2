@@ -305,38 +305,14 @@ async def resolve_decision(
 
                 await resume_agent_task(session, tenant_id, UUID(str(task_id_raw)))
 
-        if action_type in ("workstream_continue", "workstream_retry"):
-            run_id_raw = payload.get("run_id")
-            if run_id_raw:
-                from app.services.workstreams import resume_run
-
-                next_step_raw = payload.get("next_step_id")
-                await resume_run(
-                    session,
-                    tenant_id,
-                    UUID(str(run_id_raw)),
-                    next_step_id=UUID(str(next_step_raw)) if next_step_raw else None,
-                    next_step_name=str(payload.get("next_step_name") or ""),
-                    next_step_position=(
-                        int(payload["next_step_position"])
-                        if payload.get("next_step_position") is not None
-                        else None
-                    ),
-                )
-
-        if action_type == "workstream_skip_step":
-            run_id_raw = payload.get("run_id")
-            if run_id_raw:
-                from app.services.workstreams import skip_step_run
-
-                await skip_step_run(session, tenant_id, UUID(str(run_id_raw)))
-
-        if action_type == "workstream_cancel":
-            run_id_raw = payload.get("run_id")
-            if run_id_raw:
-                from app.services.workstreams import cancel_run
-
-                await cancel_run(session, tenant_id, UUID(str(run_id_raw)))
+        # workstream_continue / retry / skip / cancel: step-run ledger retired.
+        if action_type in (
+            "workstream_continue",
+            "workstream_retry",
+            "workstream_skip_step",
+            "workstream_cancel",
+        ):
+            pass
 
         if action_type in ("reset_ai_breaker", "keep_ai_assisted"):
             account_raw = payload.get("channel_account_id")

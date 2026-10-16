@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -46,7 +46,7 @@ async def build_tenant_digest(
         select(func.count()).select_from(Signal).where(
             Signal.tenant_id == tenant_id,
             Signal.status == "open",
-            Signal.assigned_user_id.is_(None),
+            or_(Signal.assignee_kind != "user", Signal.assignee_id.is_(None)),
             Signal.channel.not_in(("internal", "assistant")),
         )
     )

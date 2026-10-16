@@ -126,9 +126,40 @@ async def test_agent_request_defers_peer_until_flush(client, session_override, m
     flushed = await flush_deferred_participant_turn(session_override, signal)
     assert flushed is not None
     assert flushed.get("outcome") == "queued"
+    # Flush starts an immediate job; safety net already queued one — workers
+    # use claim_active_turn so only one executes.
     assert len(enqueued) == 2
+    assert enqueued[0] == enqueued[1]
     floor = json.loads(signal.active_turn_json or "{}")
     assert floor.get("deferred") is False
+    assert floor.get("enqueued") is True
+
+
+@pytest.mark.asyncio
+async def test_claim_active_turn_is_single_winner(client, session_override):
+    _ = client
+    from app.services.participant_turns import claim_active_turn, clear_active_turn
+
+    agent, signal = await _seed_agent_signal(session_override)
+    result = await request_participant_turn(
+        session_override,
+        signal,
+        member_kind="agent",
+        member_ref_id=agent.id,
+        prompt="claim race",
+        requested_by_kind="user",
+        requested_by_id=uuid4(),
+        run=False,
+    )
+    nonce = str(result.get("active_turn", {}).get("nonce") or "")
+    assert nonce
+    first = claim_active_turn(signal, nonce=nonce)
+    assert first is not None
+    assert first.get("claimed_at")
+    second = claim_active_turn(signal, nonce=nonce)
+    assert second is None
+    clear_active_turn(signal)
+    assert claim_active_turn(signal, nonce=nonce) is None
 
 
 @pytest.mark.asyncio
@@ -179,6 +210,55 @@ async def test_max_consecutive_turns_blocks_chain(client, session_override):
     assert blocked.get("ok") is False
     assert blocked.get("error") == "max_consecutive_turns"
     assert blocked.get("outcome") == "timeout"
+
+
+@pytest.mark.asyncio
+async def test_clear_ask_floor_chip_drops_unclaimed_ui_floor(client, session_override):
+    _ = client
+    from app.services.participant_turns import clear_ask_floor_chip
+
+    agent, signal = await _seed_agent_signal(session_override)
+    await request_participant_turn(
+        session_override,
+        signal,
+        member_kind="agent",
+        member_ref_id=agent.id,
+        prompt="hi",
+        run=False,
+    )
+    await session_override.commit()
+
+    cleared = await clear_ask_floor_chip(session_override, signal, agent_id=agent.id)
+    assert cleared is True
+    remnant = json.loads(signal.active_turn_json or "{}")
+    assert not remnant.get("nonce")
+    assert not remnant.get("ref_id")
+
+    # Second clear is a no-op.
+    assert await clear_ask_floor_chip(session_override, signal, agent_id=agent.id) is False
+
+
+@pytest.mark.asyncio
+async def test_clear_ask_floor_chip_keeps_deferred_peer(client, session_override):
+    _ = client
+    from app.services.participant_turns import clear_ask_floor_chip
+
+    agent, signal = await _seed_agent_signal(session_override)
+    result = await request_participant_turn(
+        session_override,
+        signal,
+        member_kind="agent",
+        member_ref_id=agent.id,
+        prompt="peer",
+        run=False,
+    )
+    floor = dict(result.get("active_turn") or {})
+    floor["deferred"] = True
+    signal.active_turn_json = json.dumps(floor)
+    await session_override.flush()
+
+    assert await clear_ask_floor_chip(session_override, signal, agent_id=agent.id) is False
+    assert "nonce" in json.loads(signal.active_turn_json or "{}")
 
 
 @pytest.mark.asyncio

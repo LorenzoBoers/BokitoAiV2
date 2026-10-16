@@ -24,6 +24,7 @@ type PendingPart = {
   text: string
   attachments?: unknown[]
   continuePending?: boolean
+  agentId?: string | null
 }
 
 const SETTLE_MS = 400
@@ -56,6 +57,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       text: string,
       attachments?: unknown[],
       continuePending?: boolean,
+      agentId?: string | null,
     ) => Promise<void>
   >(async () => {})
 
@@ -147,6 +149,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     text: string
     attachments?: unknown[]
     continuePending?: boolean
+    agentId?: string | null
   } | null => {
     const parts = pendingPartsRef.current
     if (!parts.length) return null
@@ -157,8 +160,10 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       .filter(Boolean)
       .join('\n\n')
     const attachments = [...parts].reverse().find((p) => p.attachments?.length)?.attachments
+    // Latest focused agent wins when the operator queued several Sends.
+    const agentId = [...parts].reverse().find((p) => p.agentId)?.agentId ?? null
     if (!continuePending && !text && !attachments?.length) return null
-    return { text: text || ' ', attachments, continuePending }
+    return { text: text || ' ', attachments, continuePending, agentId }
   }
 
   const scheduleFlush = useCallback((sessionId: string) => {
@@ -171,7 +176,13 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       }
       const next = takePending()
       if (!next) return
-      void runStreamRef.current(sessionId, next.text, next.attachments, next.continuePending)
+      void runStreamRef.current(
+        sessionId,
+        next.text,
+        next.attachments,
+        next.continuePending,
+        next.agentId,
+      )
     }, SETTLE_MS)
   }, [])
 
@@ -181,6 +192,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       text: string,
       attachments?: unknown[],
       continuePending?: boolean,
+      agentId?: string | null,
     ) => {
       if (!token || (!continuePending && !text.trim() && !attachments?.length)) return
       sessionIdRef.current = sessionId
@@ -212,6 +224,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           {
             ...(attachments?.length ? { attachments } : {}),
             ...(continuePending ? { continuePending: true } : {}),
+            ...(agentId ? { agentId } : {}),
           },
         )
       } catch (err) {
@@ -282,6 +295,8 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         attachments?: unknown[]
         /** Kick the agent on an opener already stored with the thread. */
         continuePending?: boolean
+        /** Focused / @-tagged agent for internal-thread Ask. */
+        agentId?: string | null
       },
     ) => {
       const trimmed = text.trim()
@@ -312,6 +327,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         text: trimmed || ' ',
         attachments,
         continuePending,
+        agentId: opts?.agentId ?? null,
       })
 
       if (streamingRef.current) {
@@ -324,7 +340,13 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       clearFlushTimer()
       const next = takePending()
       if (!next) return false
-      await runStream(sessionId, next.text, next.attachments, next.continuePending)
+      await runStream(
+        sessionId,
+        next.text,
+        next.attachments,
+        next.continuePending,
+        next.agentId,
+      )
       return true
     },
     [token, scheduleFlush, runStream],

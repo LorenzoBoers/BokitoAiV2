@@ -25,7 +25,7 @@ from sqlalchemy import false as sa_false
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orchestra import Workstream, WorkstreamProject, WorkstreamRun
+from app.models.orchestra import Workstream, WorkstreamProject
 from app.models.project import Project
 from app.models.signal import (
     CATEGORY_CREATE_MODES,
@@ -655,26 +655,10 @@ async def _signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> Si
     return row
 
 
-async def ticket_run(session: AsyncSession, signal: Signal, workstream_id: UUID | None) -> WorkstreamRun | None:
-    if workstream_id is None:
-        return None
-    return (
-        await session.execute(
-            select(WorkstreamRun)
-            .where(
-                WorkstreamRun.tenant_id == signal.tenant_id,
-                WorkstreamRun.signal_id == signal.id,
-                WorkstreamRun.workstream_id == workstream_id,
-            )
-            .order_by(WorkstreamRun.started_at.desc())
-        )
-    ).scalars().first()
-
-
 async def ticket_payload(
     session: AsyncSession, signal: Signal, *, tag: SignalTag | None = None
 ) -> dict[str, Any] | None:
-    """The conversation's ticket with its pipeline, project choices and current step."""
+    """The conversation's ticket with its pipeline, project choices and current stage."""
     if signal.ticket_tag_id is None:
         return None
     tag = tag or await session.get(SignalTag, signal.ticket_tag_id)
@@ -682,7 +666,6 @@ async def ticket_payload(
         return None
     ws = await session.get(Workstream, tag.workstream_id) if tag.workstream_id else None
     stages = workstream_stages(ws)
-    run = await ticket_run(session, signal, tag.workstream_id)
     field_defs = all_stage_fields(stages)
     return {
         "signal_id": str(signal.id),
@@ -698,8 +681,6 @@ async def ticket_payload(
         "folder_path": await folder_path_payload(session, signal),
         "workstream_id": str(ws.id) if ws else None,
         "workstream_name": ws.name if ws else None,
-        "workstream_run_id": str(run.id) if run else None,
-        "current_step_name": None,
         "filed_at": signal.ticket_filed_at.isoformat() if signal.ticket_filed_at else None,
         "field_defs": field_defs,
         "fields": parse_ticket_fields(signal.ticket_fields_json),
@@ -918,18 +899,10 @@ def _log_filed(
 
 
 async def clear_ticket(session: AsyncSession, signal: Signal) -> str | None:
-    """Take the category off a conversation and cancel its playbook run. Flushes."""
+    """Take the category off a conversation. Flushes."""
     if signal.ticket_tag_id is None:
         return None
     tag = await session.get(SignalTag, signal.ticket_tag_id)
-    run = await ticket_run(session, signal, tag.workstream_id if tag else None)
-    if run is not None and run.status not in ("completed", "cancelled", "failed"):
-        now = datetime.utcnow()
-        run.status = "cancelled"
-        run.wait_until = None
-        run.completed_at = now
-        run.updated_at = now
-        session.add(run)
     from app.services.stage_checkups import remove_checkup
 
     await remove_checkup(session, signal)
@@ -1248,31 +1221,14 @@ async def update_ticket(
 async def set_ticket_status_for_run(
     session: AsyncSession,
     tenant_id: UUID,
-    run: WorkstreamRun,
+    run: Any,
     *,
     status: str | None = None,
     stage_key: str | None = None,
 ) -> None:
-    """Move the run's ticket when the run enters a staged step or changes state."""
-    if run.input_kind != "ticket" or run.signal_id is None:
-        return
-    signal = await session.get(Signal, run.signal_id)
-    if signal is None or signal.tenant_id != tenant_id or signal.ticket_tag_id is None:
-        return
-    tag = await session.get(SignalTag, signal.ticket_tag_id)
-    if tag is None or tag.workstream_id != run.workstream_id:
-        return
-    if signal.ticket_status == "proposed":
-        return
-    await move_ticket_stage(
-        session,
-        signal,
-        stage_key=stage_key,
-        status=status,
-        actor_type="workstream_run",
-        actor_id=str(run.id),
-    )
-
+    """Retired step-run hook — ticket stages are moved from the conversation."""
+    del session, tenant_id, run, status, stage_key
+    return
 
 # ---------------------------------------------------------------------------
 # Project board

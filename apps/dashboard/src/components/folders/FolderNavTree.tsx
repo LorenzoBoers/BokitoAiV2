@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -20,37 +19,42 @@ import {
   useSensors,
   type CollisionDetection,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragOverEvent,
   type DragStartEvent,
   type UniqueIdentifier,
 } from '@dnd-kit/core'
 import {
   SortableContext,
-  arrayMove,
   defaultAnimateLayoutChanges,
   useSortable,
   verticalListSortingStrategy,
   type AnimateLayoutChanges,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowUpToLine, ChevronRight, CornerDownRight } from 'lucide-react'
+import { ArrowUpToLine, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import {
   deriveFolderTree,
   filtersetLocalNames,
   filtersetPlainLabel,
   folderAncestorChain,
+  folderFilterRows,
   folderFilterSiblings,
-  optimisticNestSources,
+  optimisticApplyFolderPlacement,
   optimisticUnnestToRootAt,
-  resolveSiblingReorderTarget,
-  rootFolderIdFor,
+  placementFromAnchor,
+  resolveFolderDepthIntent,
+  type FolderDragPlacement,
   type FolderFilterNode,
   type FolderFilterSource,
   type RootPlace,
 } from '../../lib/folder-filter-tree'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { TagPill } from '../ui/TagPill'
+
+const FolderIcon = ENTITY_ICONS.project
 import {
   clearFolderMoveUndo,
   hasFolderMoveUndo,
@@ -65,7 +69,6 @@ import {
   optimisticMoveTag,
   optimisticRemoveTag,
   parseTagDragId,
-  tagDragId,
 } from '../../lib/folder-tag-move'
 import { createProject, deleteProject, nestFolder, patchProject } from '../../lib/projects-api'
 import { cn } from '../../lib/utils'
@@ -84,64 +87,14 @@ function bareTag(name: string): string {
   return name.replace(/^#/, '').trim()
 }
 
-function applySiblingOrder(sources: FolderNavSource[], siblingIds: string[]): FolderNavSource[] {
-  const order = new Map(siblingIds.map((id, index) => [id, index]))
-  let changed = false
-  const next = sources.map((source) => {
-    const sortOrder = order.get(source.id)
-    if (sortOrder == null || source.sort_order === sortOrder) return source
-    changed = true
-    return { ...source, sort_order: sortOrder }
-  })
-  return changed ? next : sources
-}
-
-/** Reorder same-parent siblings in a flat source list; returns null if unchanged. */
-function reorderSiblingSources(
-  sources: FolderNavSource[],
-  activeId: string,
-  overId: string,
-): { sources: FolderNavSource[]; siblingIds: string[] } | null {
-  if (activeId === overId) return null
-  const tree = deriveFolderTree(sources)
-  const activeSiblings = folderFilterSiblings(tree, activeId)
-  const overSiblings = folderFilterSiblings(tree, overId)
-  if (
-    !activeSiblings ||
-    !overSiblings ||
-    activeSiblings.parentId !== overSiblings.parentId ||
-    !activeSiblings.siblings.some((sibling) => sibling.id === overId)
-  ) {
-    return null
-  }
-  const ids = activeSiblings.siblings.map((sibling) => sibling.id)
-  const oldIndex = ids.indexOf(activeId)
-  const newIndex = ids.indexOf(overId)
-  if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return null
-  const siblingIds = arrayMove(ids, oldIndex, newIndex)
-  return { sources: applySiblingOrder(sources, siblingIds), siblingIds }
-}
-
-const NEST_PREFIX = 'nest:'
 /** Droppable ids for unnest / tag-to-root (top and bottom of the tree). */
 const ROOT_DROP_ID = 'folder-root-drop'
 const ROOT_DROP_END_ID = 'folder-root-drop-end'
 
-/** Active tree rail while dragging — collision uses its midpoint (left=reorder, right=nest). */
+/** Active tree rail while dragging — used for indent-depth placement. */
 let activeFolderTreeRail: HTMLElement | null = null
-/** Last half under the pointer; collision detection updates this each move. */
-let lastFolderDragHalf: 'left' | 'right' = 'left'
-/** Last pointer Y — used to place before/after a root while unnesting. */
-let lastFolderPointerY = 0
-
-function nestDropId(folderId: string): string {
-  return `${NEST_PREFIX}${folderId}`
-}
-
-function parseNestDropId(id: UniqueIdentifier | null | undefined): string | null {
-  const raw = id == null ? '' : String(id)
-  return raw.startsWith(NEST_PREFIX) ? raw.slice(NEST_PREFIX.length) : null
-}
+/** Last pointer — Y for before/after, X for nest vs sibling depth. */
+let lastFolderPointer = { x: 0, y: 0 }
 
 function isRootDropId(id: UniqueIdentifier | null | undefined): boolean {
   if (id == null) return false
@@ -157,21 +110,62 @@ function rootPlaceFromDropId(id: UniqueIdentifier | null | undefined): RootPlace
   return null
 }
 
-function pointerDragHalf(pointer: { x: number; y: number } | null | undefined): 'left' | 'right' {
-  if (!pointer || !activeFolderTreeRail) return 'left'
-  const rect = activeFolderTreeRail.getBoundingClientRect()
-  if (rect.width <= 0) return 'left'
-  return pointer.x >= rect.left + rect.width / 2 ? 'right' : 'left'
-}
-
 function resolveFolderDropTarget(overId: string | null, nestOverId: string | null): string | null {
   if (!overId) return null
-  const nest = parseNestDropId(overId)
-  if (nest) return nest
   const overTag = parseTagDragId(overId)
   if (overTag) return overTag.folderId
   if (nestOverId && overId === nestOverId) return nestOverId
   return overId
+}
+
+/**
+ * Resolve nest / sibling / unnest from pointer X (depth) and Y (row + edge).
+ * The live tree jumps to this placement — no right-half nest strip.
+ */
+function resolvePointerFolderPlacement(
+  pointer: { x: number; y: number },
+  rail: HTMLElement,
+  snapshot: FolderNavSource[],
+  activeId: string,
+  nestBlocked: Set<string>,
+): FolderDragPlacement | null {
+  const tree = deriveFolderTree(snapshot)
+  const depthById = new Map(folderFilterRows(tree).map((row) => [row.id, row.depth]))
+  const els = Array.from(rail.querySelectorAll<HTMLElement>('[data-folder-id]'))
+  type Hit = { id: string; depth: number; rect: DOMRect }
+  const hits: Hit[] = []
+  for (const el of els) {
+    const id = el.dataset.folderId
+    if (!id || id === activeId || nestBlocked.has(id)) continue
+    const depth = depthById.get(id)
+    if (depth == null) continue
+    hits.push({ id, depth, rect: el.getBoundingClientRect() })
+  }
+  if (hits.length === 0) return null
+
+  let anchor = hits.find((hit) => pointer.y >= hit.rect.top && pointer.y <= hit.rect.bottom)
+  if (!anchor) {
+    anchor = hits.reduce((best, hit) => {
+      const mid = hit.rect.top + hit.rect.height / 2
+      const dist = Math.abs(pointer.y - mid)
+      const bestMid = best.rect.top + best.rect.height / 2
+      return dist < Math.abs(pointer.y - bestMid) ? hit : best
+    })
+  }
+
+  const edge: 'before' | 'after' =
+    pointer.y < anchor.rect.top + anchor.rect.height / 2 ? 'before' : 'after'
+  const railLeft = rail.getBoundingClientRect().left
+  const intendedDepth = resolveFolderDepthIntent(pointer.x, railLeft, anchor.depth)
+  const ancestorIds = folderAncestorChain(tree, anchor.id).map((node) => node.id)
+  return placementFromAnchor(
+    intendedDepth,
+    anchor.id,
+    anchor.depth,
+    ancestorIds,
+    edge,
+    nestBlocked,
+  )
 }
 
 function findNode(nodes: FolderFilterNode[], id: string): FolderFilterNode | null {
@@ -208,15 +202,20 @@ function labelFor(node: FolderFilterNode, _parentTagNames?: string[] | null): st
 }
 
 /**
- * Nest = drop on the right strip of a row (nest: droppables win when the
- * pointer is in that strip). Left / rest of the rail = sibling reorder.
- * Rail-half is a fallback when the pointer is not inside a nest strip.
+ * Prefer explicit root drop zones, else the folder row under the pointer.
+ * Nest vs sibling is resolved from pointer X in onDragOver (indent depth).
  */
 const folderCollision: CollisionDetection = (args) => {
+  if (args.pointerCoordinates) {
+    lastFolderPointer = {
+      x: args.pointerCoordinates.x,
+      y: args.pointerCoordinates.y,
+    }
+  }
+
   const rootContainers = args.droppableContainers.filter((container) =>
     isRootDropId(container.id),
   )
-  // Prefer end zone when both could hit; otherwise any root zone.
   const rootHits = pointerWithin({ ...args, droppableContainers: rootContainers })
   if (rootHits.length > 0) {
     const endHit = rootHits.find((hit) => String(hit.id) === ROOT_DROP_END_ID)
@@ -225,60 +224,20 @@ const folderCollision: CollisionDetection = (args) => {
 
   const folderContainers = args.droppableContainers.filter((container) => {
     const id = String(container.id)
-    return !id.startsWith(NEST_PREFIX) && !isTagDragId(id) && !isRootDropId(id)
+    return !isTagDragId(id) && !isRootDropId(id)
   })
-  const nestContainers = args.droppableContainers.filter((container) =>
-    String(container.id).startsWith(NEST_PREFIX),
-  )
-
-  if (args.pointerCoordinates) lastFolderPointerY = args.pointerCoordinates.y
-
-  // Nest strips win whenever the pointer is actually over them (drag right onto a row).
-  const nestHits = pointerWithin({ ...args, droppableContainers: nestContainers })
-  if (nestHits.length > 0) {
-    lastFolderDragHalf = 'right'
-    return nestHits
-  }
-
-  if (isTagDragId(String(args.active.id))) {
-    lastFolderDragHalf = 'right'
-    const pointerHits = pointerWithin({ ...args, droppableContainers: folderContainers })
-    if (pointerHits.length > 0) return pointerHits
-    return closestCenter({ ...args, droppableContainers: folderContainers })
-  }
-
-  const half = pointerDragHalf(args.pointerCoordinates)
-  lastFolderDragHalf = half
-
-  if (half === 'right') {
-    // Pointer on the right side of the rail but not exactly on a nest strip —
-    // map the closest folder row to its nest target.
-    const folderPointerHits = pointerWithin({ ...args, droppableContainers: folderContainers })
-    const folderHits =
-      folderPointerHits.length > 0
-        ? folderPointerHits
-        : closestCenter({ ...args, droppableContainers: folderContainers })
-    if (folderHits.length > 0) {
-      const folderId = String(folderHits[0]!.id)
-      const nestHit = nestContainers.find((container) => String(container.id) === nestDropId(folderId))
-      if (nestHit) return [{ id: nestHit.id }]
-      return folderHits
-    }
-    return closestCenter({ ...args, droppableContainers: nestContainers })
-  }
-
-  // Left half: reorder only.
-  const folderPointerHits = pointerWithin({ ...args, droppableContainers: folderContainers })
-  if (folderPointerHits.length > 0) return folderPointerHits
+  const pointerHits = pointerWithin({ ...args, droppableContainers: folderContainers })
+  if (pointerHits.length > 0) return pointerHits
   return closestCenter({ ...args, droppableContainers: folderContainers })
 }
 
 /**
- * Shared folder tree chrome: typographic `#` labels, optional whole-row
- * drag (no grip). Used on /folders; rail surfaces reuse the same row look.
+ * Shared folder tree chrome for /folders: same nav-row + folder mark as
+ * Communication, with expand chevrons and optional whole-row drag (no grip).
  *
- * Drag: left half of the rail reorders siblings; right half nests under the
- * map under the pointer. Multi-tag rows can drag a tag chip onto another map.
+ * Drag: pointer Y picks the nearest row; pointer X (indent) picks sibling vs
+ * nest-under. The tree jumps live to that placement. Multi-tag rows can drag
+ * a tag chip onto another map.
  */
 export function FolderNavTree({
   sources,
@@ -310,11 +269,10 @@ export function FolderNavTree({
   /** Snapshot at drag start — restore when leaving a root-unnest preview. */
   const dragSnapshotRef = useRef<FolderNavSource[] | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  /** Tag-move highlight (folder rows). Folder drags use the live tree jump instead. */
   const [nestOverId, setNestOverId] = useState<string | null>(null)
   /** Auto-expand nest targets while dragging so the live nest preview is visible. */
   const [dragExpandIds, setDragExpandIds] = useState<Set<string>>(() => new Set())
-  /** Sibling insert line while reordering (before / after the hovered row). */
-  const [dropLine, setDropLine] = useState<{ id: string; edge: 'before' | 'after' } | null>(null)
 
   useEffect(() => {
     if (draggingRef.current) return
@@ -352,12 +310,10 @@ export function FolderNavTree({
   const clearDrag = () => {
     draggingRef.current = false
     activeFolderTreeRail = null
-    lastFolderDragHalf = 'left'
     dragSnapshotRef.current = null
     setDraggingId(null)
     setNestOverId(null)
     setDragExpandIds(new Set())
-    setDropLine(null)
   }
 
   const previewUnnestToRoot = (folderId: string, place: RootPlace) => {
@@ -438,12 +394,10 @@ export function FolderNavTree({
   const onDragStart = (event: DragStartEvent) => {
     draggingRef.current = true
     activeFolderTreeRail = treeRailRef.current
-    lastFolderDragHalf = 'left'
     dragSnapshotRef.current = localSourcesRef.current
     setDraggingId(String(event.active.id))
     setNestOverId(null)
     setDragExpandIds(new Set())
-    setDropLine(null)
   }
 
   const expandWhileDragging = (folderId: string) => {
@@ -455,6 +409,52 @@ export function FolderNavTree({
     })
   }
 
+  /** Indent-aware live jump; runs on move (X) and over (Y / target) changes. */
+  const previewFolderFromPointer = (activeId: string, overRaw: string | null) => {
+    const rail = activeFolderTreeRail
+    const snap = dragSnapshotRef.current ?? localSourcesRef.current
+    if (!rail) return
+
+    const coords = {
+      x: lastFolderPointer.x,
+      y: lastFolderPointer.y,
+    }
+    if (coords.x === 0 && coords.y === 0 && overRaw) {
+      const overEl = rail.querySelector(
+        `[data-folder-id="${overRaw.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`,
+      )
+      const rect = overEl?.getBoundingClientRect()
+      if (rect) {
+        coords.x = rect.left + 12
+        coords.y = rect.top + rect.height / 2
+      }
+    }
+
+    const blocked = blockedNestTargets(deriveFolderTree(snap), activeId)
+    const placement = resolvePointerFolderPlacement(
+      coords,
+      rail,
+      snap,
+      activeId,
+      blocked,
+    )
+    if (!placement) return
+
+    if (placement.mode === 'nest') {
+      expandWhileDragging(placement.parentId)
+    }
+
+    const preview = optimisticApplyFolderPlacement(snap, activeId, placement)
+    if (preview) setSourcesOptimistic(preview)
+  }
+
+  const onDragMove = (event: DragMoveEvent) => {
+    const activeId = String(event.active.id)
+    if (parseTagDragId(activeId)) return
+    if (rootPlaceFromDropId(event.over?.id)) return
+    previewFolderFromPointer(activeId, event.over ? String(event.over.id) : null)
+  }
+
   const onDragOver = (event: DragOverEvent) => {
     const activeId = String(event.active.id)
     const activeTagDrag = parseTagDragId(activeId)
@@ -462,18 +462,14 @@ export function FolderNavTree({
     const rootPlace = rootPlaceFromDropId(overId)
     if (rootPlace) {
       setNestOverId(String(overId))
-      setDropLine(null)
       if (!activeTagDrag) previewUnnestToRoot(activeId, rootPlace)
       return
     }
 
     const overRaw = event.over ? String(event.over.id) : null
-    const nestId = parseNestDropId(event.over?.id)
-    const half = lastFolderDragHalf
 
     // Tag chip → highlight the folder under the pointer (move target).
     if (activeTagDrag) {
-      setDropLine(null)
       if (!overRaw) {
         setNestOverId(null)
         return
@@ -488,82 +484,8 @@ export function FolderNavTree({
       return
     }
 
-    // Right half of the rail: live nest preview (indent under target).
-    if (half === 'right') {
-      setDropLine(null)
-      const nestTarget =
-        nestId ??
-        (overRaw && !isRootDropId(overRaw) && !parseTagDragId(overRaw) ? overRaw : null) ??
-        null
-      if (nestTarget && !nestBlocked.has(nestTarget)) {
-        setNestOverId(nestTarget)
-        expandWhileDragging(nestTarget)
-        const base = dragSnapshotRef.current ?? localSourcesRef.current
-        const preview = optimisticNestSources(base, activeId, nestTarget)
-        if (preview) setSourcesOptimistic(preview)
-        return
-      }
-      if (dragSnapshotRef.current) setSourcesOptimistic(dragSnapshotRef.current)
-      setNestOverId(null)
-      return
-    }
-
-    // Left half: leave nest preview, then reorder or unnest-to-root.
     setNestOverId(null)
-    if (!overRaw || nestId || isRootDropId(overRaw) || parseTagDragId(overRaw)) {
-      setDropLine(null)
-      return
-    }
-
-    const snap = dragSnapshotRef.current
-    if (snap) {
-      const live = localSourcesRef.current.find((source) => source.id === activeId)
-      const orig = snap.find((source) => source.id === activeId)
-      if (live && orig && live.parent_id !== orig.parent_id) {
-        setSourcesOptimistic(snap)
-      }
-    }
-
-    const base = dragSnapshotRef.current ?? localSourcesRef.current
-    const treeBase = deriveFolderTree(base)
-    const nested = folderAncestorChain(treeBase, activeId).length > 0
-    if (nested) {
-      const hitRoot = rootFolderIdFor(treeBase, overRaw)
-      if (hitRoot && hitRoot !== activeId) {
-        const rootEl = activeFolderTreeRail?.querySelector(
-          `[data-folder-id="${hitRoot.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`,
-        )
-        const rect = rootEl?.getBoundingClientRect()
-        const place: RootPlace =
-          rect && lastFolderPointerY < rect.top + rect.height / 2
-            ? { at: 'before', rootId: hitRoot }
-            : { at: 'after', rootId: hitRoot }
-        setDropLine(null)
-        previewUnnestToRoot(activeId, place)
-        return
-      }
-    }
-
-    // Same-parent sibling reorder from the live tree (or snapshot if still nested).
-    const treeNow = deriveFolderTree(localSourcesRef.current)
-    const reorderOverId = resolveSiblingReorderTarget(treeNow, activeId, overRaw)
-    if (reorderOverId) {
-      const overEl = activeFolderTreeRail?.querySelector(
-        `[data-folder-id="${reorderOverId.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`,
-      )
-      const rect = overEl?.getBoundingClientRect()
-      const edge: 'before' | 'after' =
-        rect && lastFolderPointerY < rect.top + rect.height / 2 ? 'before' : 'after'
-      setDropLine({ id: reorderOverId, edge })
-      const moved = reorderSiblingSources(localSourcesRef.current, activeId, reorderOverId)
-      if (moved) setSourcesOptimistic(moved.sources)
-      return
-    }
-    setDropLine(null)
-    // Left over a non-sibling without a root lift — restore snapshot.
-    if (dragSnapshotRef.current && nested) {
-      setSourcesOptimistic(dragSnapshotRef.current)
-    }
+    previewFolderFromPointer(activeId, overRaw)
   }
 
   const runMoveTag = async (fromId: string, toId: string, tag: string) => {
@@ -721,62 +643,36 @@ export function FolderNavTree({
     }
   }
 
-  const runNest = async (activeId: string, parentId: string, blocked: Set<string>) => {
-    if (blocked.has(parentId) || activeId === parentId) return
-    const before = localSourcesRef.current.find((source) => source.id === activeId)
-    const parent = localSourcesRef.current.find((source) => source.id === parentId)
-    if (!before || !parent) return
-    if (before.parent_id === parentId) return
-    const previousParent = before.parent_id ?? null
-
-    const snapshot = localSourcesRef.current
-    const optimistic = optimisticNestSources(snapshot, activeId, parentId)
-    if (optimistic) setSourcesOptimistic(optimistic)
-    if (!open.has(parentId)) onToggle(parentId)
-    try {
-      await nestFolder(activeId, parentId)
-      offerUndo(
-        t('projects.detail.nested', {
-          defaultValue: 'Folder nested',
-        }),
-        async () => {
-          await nestFolder(activeId, previousParent)
-          onChanged?.()
-        },
-      )
-      onChanged?.()
-    } catch (err) {
-      setSourcesOptimistic(snapshot)
-      toast.error(formatApiErrorMessage(err, t('projects.detail.saveError')))
-    }
-  }
-
-  const persistUnnestPreview = async (folderId: string, preDrag: FolderNavSource[]) => {
+  const persistParentMove = async (
+    folderId: string,
+    nextParent: string | null,
+    preDrag: FolderNavSource[],
+  ) => {
     const before = preDrag.find((source) => source.id === folderId)
-    const current = localSourcesRef.current.find((source) => source.id === folderId)
-    if (!before || !current) return
-    if ((before.parent_id ?? null) === (current.parent_id ?? null)) return
+    if (!before) return
     const previousParent = before.parent_id ?? null
+    if ((previousParent ?? null) === (nextParent ?? null)) return
     const previousOrders = preDrag.map((source) => ({
       id: source.id,
       sort_order: source.sort_order ?? 0,
     }))
-    const rootIds = deriveFolderTree(localSourcesRef.current).map((node) => node.id)
+    const current = localSourcesRef.current
+    const sibs = folderFilterSiblings(deriveFolderTree(current), folderId)
+    const siblingIds = sibs ? sibs.siblings.map((node) => node.id) : [folderId]
     try {
-      await nestFolder(folderId, null)
-      await Promise.all(rootIds.map((id, index) => patchProject(id, { sort_order: index })))
-      offerUndo(
-        t('projects.detail.unnested', {
-          defaultValue: 'Map moved to the top level',
-        }),
-        async () => {
-          await nestFolder(folderId, previousParent)
-          await Promise.all(
-            previousOrders.map((row) => patchProject(row.id, { sort_order: row.sort_order })),
-          )
-          onChanged?.()
-        },
-      )
+      await nestFolder(folderId, nextParent)
+      await Promise.all(siblingIds.map((id, index) => patchProject(id, { sort_order: index })))
+      const label =
+        nextParent == null
+          ? t('projects.detail.unnested', { defaultValue: 'Map moved to the top level' })
+          : t('projects.detail.nested', { defaultValue: 'Folder nested' })
+      offerUndo(label, async () => {
+        await nestFolder(folderId, previousParent)
+        await Promise.all(
+          previousOrders.map((row) => patchProject(row.id, { sort_order: row.sort_order })),
+        )
+        onChanged?.()
+      })
       onChanged?.()
     } catch (err) {
       setSourcesOptimistic(preDrag)
@@ -820,68 +716,47 @@ export function FolderNavTree({
       return
     }
 
-    const treeAtDrop = deriveFolderTree(localSourcesRef.current)
-    const half = lastFolderDragHalf
-    const wasNested = folderAncestorChain(deriveFolderTree(preDrag), activeId).length > 0
-    const nowRoot = treeAtDrop.some((node) => node.id === activeId)
-    const nestParentId =
-      parseNestDropId(overRaw) ??
-      (nestOverId && !isRootDropId(nestOverId) ? nestOverId : null) ??
-      (half === 'right' && overRaw && !parseTagDragId(overRaw) && !isRootDropId(overRaw)
-        ? overRaw
-        : null)
-    const nestBlockedAtDrop = blockedNestTargets(deriveFolderTree(preDrag), activeId)
-
-    // Nest when the pointer hit a nest strip, a sticky nest highlight, or the right rail half.
-    if (
-      nestParentId &&
-      nestParentId !== activeId &&
-      !nestBlockedAtDrop.has(nestParentId) &&
-      (half === 'right' || Boolean(parseNestDropId(overRaw)) || nestOverId === nestParentId)
-    ) {
+    // Persist whatever the live indent preview already shows — no snap-back.
+    const before = preDrag.find((source) => source.id === activeId)
+    const after = localSourcesRef.current.find((source) => source.id === activeId)
+    if (!before || !after) {
       if (preDrag) setSourcesOptimistic(preDrag)
       clearDrag()
-      void runNest(activeId, nestParentId, nestBlockedAtDrop)
       return
     }
 
-    // Left half after a live unnest preview: persist tags + root order.
-    if (wasNested && nowRoot) {
+    const prevParent = before.parent_id ?? null
+    const nextParent = after.parent_id ?? null
+    const nestBlockedAtDrop = blockedNestTargets(deriveFolderTree(preDrag), activeId)
+
+    if (nextParent != null && nestBlockedAtDrop.has(nextParent)) {
+      setSourcesOptimistic(preDrag)
       clearDrag()
-      void persistUnnestPreview(activeId, preDrag)
       return
     }
 
-    // Left half: reorder siblings only.
-    const overId = overRaw
-    const reorderOverId = resolveSiblingReorderTarget(treeAtDrop, activeId, overId)
-    const moved = reorderOverId
-      ? reorderSiblingSources(localSourcesRef.current, activeId, reorderOverId)
-      : null
-    if (moved) {
-      setSourcesOptimistic(moved.sources)
+    if (prevParent !== nextParent) {
+      if (nextParent && !open.has(nextParent)) onToggle(nextParent)
       clearDrag()
-      void persistSiblingOrder(moved.siblingIds, preDrag)
+      void persistParentMove(activeId, nextParent, preDrag)
+      return
+    }
+
+    const treeAtDrop = deriveFolderTree(localSourcesRef.current)
+    const sibs = folderFilterSiblings(treeAtDrop, activeId)
+    if (sibs) {
+      const siblingIds = sibs.siblings.map((sibling) => sibling.id)
+      const orderChanged = siblingIds.some((id, index) => {
+        const row = preDrag.find((source) => source.id === id)
+        return (row?.sort_order ?? 0) !== index
+      })
+      clearDrag()
+      if (orderChanged) void persistSiblingOrder(siblingIds, preDrag)
       return
     }
 
     clearDrag()
-    if (reorderOverId) {
-      const sibs = folderFilterSiblings(treeAtDrop, activeId)
-      if (sibs) {
-        void persistSiblingOrder(
-          sibs.siblings.map((sibling) => sibling.id),
-          preDrag,
-        )
-      }
-    }
   }
-
-  const draggingTagNames = useMemo(() => {
-    if (!draggingFolderId) return null
-    const row = localSources.find((source) => source.id === draggingFolderId)
-    return (row?.tag_names ?? []).map(bareTag).filter(Boolean)
-  }, [draggingFolderId, localSources])
 
   if (tree.length === 0) {
     return <>{empty ?? null}</>
@@ -914,12 +789,8 @@ export function FolderNavTree({
           enableDrag={enableDrag}
           href={href}
           parentTagNames={null}
-          draggingId={draggingId}
           draggingTag={draggingTag}
-          draggingTagNames={draggingTagNames}
           nestOverId={nestOverId}
-          nestBlocked={nestBlocked}
-          dropLine={dropLine}
         />
       ))}
       {enableDrag ? (
@@ -951,6 +822,7 @@ export function FolderNavTree({
       sensors={sensors}
       collisionDetection={folderCollision}
       onDragStart={onDragStart}
+      onDragMove={onDragMove}
       onDragOver={onDragOver}
       onDragEnd={(e) => void onDragEnd(e)}
       onDragCancel={() => {
@@ -971,7 +843,7 @@ export function FolderNavTree({
             <TagPill names={draggingTag.tag} tone="free" size="sm" selected />
           </div>
         ) : dragNode ? (
-          <div className="pointer-events-none flex h-[28px] items-center gap-2 rounded-lg border border-accent/40 bg-bg-surface/95 px-2.5 text-xs shadow-overlay ring-1 ring-accent/20 backdrop-blur-sm">
+          <div className="pointer-events-none flex h-[26px] items-center gap-2 rounded-md border border-accent/30 bg-bg-surface/80 px-2 text-xs opacity-70 shadow-overlay backdrop-blur-sm">
             <FolderRowChrome node={dragNode} />
           </div>
         ) : null}
@@ -1034,27 +906,21 @@ function RootDropZone({
   )
 }
 
-/** Folder tree row: plain folder name (labels live on the folder detail / cards). */
+/** Folder tree row: Communication-style mark + name (labels live on detail / cards). */
 function FolderRowChrome({
   node,
-  isActive = false,
   trailing,
 }: {
   node: FolderFilterNode
-  isActive?: boolean
   trailing?: ReactNode
 }) {
   const name = node.name.replace(/^#/, '').trim() || labelFor(node)
   return (
     <>
-      <span
-        className={cn(
-          'min-w-0 flex-1 truncate text-xs',
-          isActive ? 'font-medium text-accent' : 'text-text-heading',
-        )}
-      >
-        {name}
+      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted" aria-hidden>
+        <FolderIcon size={12} />
       </span>
+      <span className="min-w-0 flex-1 truncate-fade text-xs">{name}</span>
       {trailing}
     </>
   )
@@ -1068,12 +934,8 @@ function FolderNavRow({
   enableDrag,
   href,
   parentTagNames,
-  draggingId,
   draggingTag,
-  draggingTagNames,
   nestOverId,
-  nestBlocked,
-  dropLine,
 }: {
   node: FolderFilterNode
   open: Set<string>
@@ -1082,12 +944,8 @@ function FolderNavRow({
   enableDrag: boolean
   href: (id: string) => string
   parentTagNames?: string[] | null
-  draggingId: string | null
   draggingTag: { folderId: string; tag: string } | null
-  draggingTagNames: string[] | null
   nestOverId: string | null
-  nestBlocked: Set<string>
-  dropLine: { id: string; edge: 'before' | 'after' } | null
 }) {
   const { t } = useTranslation('nav')
   const expanded = open.has(node.id)
@@ -1095,75 +953,44 @@ function FolderNavRow({
   const isActive = activeId === node.id
   const rowLabel = labelFor(node, parentTagNames)
   const rowTitle = rowLabel
-  const showDropBefore = dropLine?.id === node.id && dropLine.edge === 'before'
-  const showDropAfter = dropLine?.id === node.id && dropLine.edge === 'after'
 
   const sortable = useSortable({
     id: node.id,
     disabled: !enableDrag,
     animateLayoutChanges,
   })
-  // Nest strip is active for every other folder while dragging (right-drop target).
-  const showNestZone = Boolean(
-    enableDrag && draggingId && draggingId !== node.id && !nestBlocked.has(node.id),
-  )
-  const nestHighlight = nestOverId === node.id
-  const movingTag = Boolean(draggingTag)
-  const { setNodeRef: nestRef, isOver: nestIsOver } = useDroppable({
-    id: nestDropId(node.id),
-    disabled: !showNestZone,
-  })
+  // Tag chip drop target: whole-row highlight (folders jump in-tree instead).
+  const tagTargetLit = Boolean(draggingTag && nestOverId === node.id)
 
+  // Stay slotted in the live tree while dragging — no floating transform chase.
   const style: CSSProperties = enableDrag
     ? {
-        transform: CSS.Transform.toString(sortable.transform),
-        transition: sortable.isDragging ? undefined : sortable.transition,
+        transform: sortable.isDragging ? undefined : CSS.Transform.toString(sortable.transform),
+        transition: sortable.isDragging
+          ? 'none'
+          : sortable.transition,
       }
     : {}
 
+  // Shared .nav-tree-children: border sits under the parent folder mark.
   const childList = (
-    <div className="relative ml-3.5 space-y-px border-l border-border/55 pl-2.5">
-      {node.children.map((child, index) => (
-        <div key={child.id} className="relative">
-          <span
-            className="pointer-events-none absolute -left-2.5 top-[14px] h-px w-2 bg-border/70"
-            aria-hidden
-          />
-          {index === node.children.length - 1 ? (
-            <span
-              className="pointer-events-none absolute -left-px top-0 h-[14px] w-px bg-bg"
-              aria-hidden
-            />
-          ) : null}
-          <FolderNavRow
-            node={child}
-            open={open}
-            onToggle={onToggle}
-            activeId={activeId}
-            enableDrag={enableDrag}
-            href={href}
-            parentTagNames={node.tag_names}
-            draggingId={draggingId}
-            draggingTag={draggingTag}
-            draggingTagNames={draggingTagNames}
-            nestOverId={nestOverId}
-            nestBlocked={nestBlocked}
-            dropLine={dropLine}
-          />
-        </div>
+    <div className="nav-tree-children">
+      {node.children.map((child) => (
+        <FolderNavRow
+          key={child.id}
+          node={child}
+          open={open}
+          onToggle={onToggle}
+          activeId={activeId}
+          enableDrag={enableDrag}
+          href={href}
+          parentTagNames={node.tag_names}
+          draggingTag={draggingTag}
+          nestOverId={nestOverId}
+        />
       ))}
     </div>
   )
-
-  const nestLit = nestHighlight || nestIsOver
-  const nestHint = movingTag && draggingTag
-    ? t('projects.detail.tagMoveHint', {
-        defaultValue: 'Drop to move {{tag}} into this folder',
-        tag: draggingTag.tag,
-      })
-    : t('projects.detail.nestDropHint', {
-        defaultValue: 'Drop here to nest under this folder',
-      })
 
   return (
     <div
@@ -1172,23 +999,36 @@ function FolderNavRow({
       data-folder-id={node.id}
       className={cn(
         'relative block shrink-0 space-y-px',
-        sortable.isDragging && 'opacity-0',
+        sortable.isDragging && 'z-10',
       )}
     >
-      {showDropBefore ? (
-        <div
-          className="pointer-events-none absolute inset-x-1 -top-px z-20 h-0.5 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--color-accent)/0.55)]"
-          aria-hidden
-        />
-      ) : null}
       <div
         className={cn(
-          'group/row relative flex h-[28px] items-center gap-0.5 rounded-md transition-[background-color,box-shadow,opacity] duration-150',
-          nestLit && 'bg-accent/14 ring-1 ring-inset ring-accent/45',
+          'group/row relative flex h-[26px] items-center rounded-md transition-[background-color,box-shadow,opacity] duration-150',
+          tagTargetLit && 'bg-accent/14 ring-1 ring-inset ring-accent/45',
+          sortable.isDragging && 'bg-accent/12 ring-1 ring-inset ring-accent/50 shadow-sm',
           enableDrag && 'cursor-grab active:cursor-grabbing',
         )}
         {...(enableDrag ? { ...sortable.attributes, ...sortable.listeners } : {})}
       >
+        {/*
+          Icon sits in the same slot as Communication (.nav-row px-2 + 14px mark)
+          so .nav-tree-children' border lines up under it. Expand chevron trails
+          on the right so it does not shift that mark.
+        */}
+        <NavLink
+          to={href(node.id)}
+          draggable={false}
+          className={cn(
+            'nav-row group h-[26px] min-w-0 flex-1 overflow-hidden text-left text-xs',
+            hasChildren ? 'pr-7' : 'pr-2',
+            sortable.isDragging && 'pointer-events-none',
+          )}
+          title={rowTitle}
+          data-active={isActive ? 'true' : undefined}
+        >
+          <FolderRowChrome node={node} />
+        </NavLink>
         {hasChildren ? (
           <button
             type="button"
@@ -1202,7 +1042,7 @@ function FolderNavRow({
               e.stopPropagation()
               onToggle(node.id)
             }}
-            className="inline-flex h-[28px] w-4 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover/80 hover:text-text-secondary"
+            className="absolute right-0.5 z-10 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover/80 hover:text-text-secondary"
           >
             <ChevronRight
               size={12}
@@ -1210,57 +1050,8 @@ function FolderNavRow({
               aria-hidden
             />
           </button>
-        ) : (
-          <span className="inline-flex h-[28px] w-4 shrink-0" aria-hidden />
-        )}
-        <NavLink
-          to={href(node.id)}
-          draggable={false}
-          className={cn(
-            'nav-row group h-[28px] min-w-0 flex-1 overflow-hidden pr-8 text-left text-xs',
-            isActive && 'text-accent',
-          )}
-          title={rowTitle}
-          data-active={isActive ? 'true' : undefined}
-        >
-          <FolderRowChrome node={node} isActive={isActive} />
-        </NavLink>
-
-        {showNestZone ? (
-          <div
-            ref={nestRef}
-            title={nestHint}
-            className={cn(
-              // Right half of the row = nest target (drag right onto a folder).
-              'absolute inset-y-0 right-0 z-20 flex w-1/2 items-center justify-end rounded-md px-1.5 transition-[background-color,box-shadow,opacity] duration-150',
-              nestLit
-                ? 'bg-accent/35 shadow-[-12px_0_20px_-8px_rgba(52,211,153,0.8)]'
-                : 'bg-gradient-to-l from-accent/[0.2] via-accent/[0.08] to-transparent',
-            )}
-            aria-label={nestHint}
-          >
-            <span
-              className={cn(
-                'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold text-accent transition-opacity',
-                nestLit ? 'bg-accent/25 opacity-100' : 'opacity-70',
-              )}
-            >
-              <CornerDownRight size={12} className="shrink-0" aria-hidden />
-              <span className="truncate">
-                {movingTag
-                  ? t('projects.detail.tagMoveLabel', { defaultValue: 'Move label' })
-                  : t('projects.detail.nestDropLabel', { defaultValue: 'Nest' })}
-              </span>
-            </span>
-          </div>
         ) : null}
       </div>
-      {showDropAfter ? (
-        <div
-          className="pointer-events-none absolute inset-x-1 -bottom-px z-20 h-0.5 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--color-accent)/0.55)]"
-          aria-hidden
-        />
-      ) : null}
       {hasChildren && expanded ? (
         enableDrag ? (
           <SortableContext items={node.children.map((c) => c.id)} strategy={verticalListSortingStrategy}>
