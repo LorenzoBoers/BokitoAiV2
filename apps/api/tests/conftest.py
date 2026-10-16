@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import signal
 from typing import AsyncGenerator
 from uuid import uuid4
 
@@ -23,6 +24,26 @@ from app.models import *  # noqa: E402, F401, F403
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD  # noqa: E402
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+# CI once stalled for two hours on a single test with no name in the log.
+# Alarm the main thread so the node id is in the failure instead of a silent hang.
+_CI_TEST_TIMEOUT_S = int(os.environ.get("BOKITO_TEST_TIMEOUT_S", "120"))
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    if not os.environ.get("CI") or not hasattr(signal, "SIGALRM"):
+        return
+
+    def _on_timeout(_signum: int, _frame: object) -> None:
+        raise TimeoutError(f"CI test exceeded {_CI_TEST_TIMEOUT_S}s: {item.nodeid}")
+
+    signal.signal(signal.SIGALRM, _on_timeout)
+    signal.alarm(_CI_TEST_TIMEOUT_S)
+
+
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
+    if os.environ.get("CI") and hasattr(signal, "SIGALRM"):
+        signal.alarm(0)
 
 
 @pytest.fixture(scope="session")
