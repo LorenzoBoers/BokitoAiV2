@@ -52,6 +52,14 @@ def _parse_json(raw: str | None) -> dict[str, Any]:
         return {}
 
 
+def _parse_ids(raw: str | None) -> list[str]:
+    try:
+        data = json.loads(raw or "[]")
+        return [str(v) for v in data] if isinstance(data, list) else []
+    except json.JSONDecodeError:
+        return []
+
+
 # ---------------------------------------------------------------------------
 # Serialization
 

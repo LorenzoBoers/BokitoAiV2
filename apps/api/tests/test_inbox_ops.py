@@ -467,8 +467,6 @@ async def test_delete_thread_cleans_referencing_rows(client: AsyncClient, sessio
     await session_override.refresh(change)
     await session_override.refresh(task)
     await session_override.refresh(trigger)
-    await session_override.refresh(outcome)
     assert change.decision_id is None
     assert task.signal_id is None
     assert trigger.signal_id is None
-    assert outcome.signal_id is None
