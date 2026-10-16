@@ -10,7 +10,6 @@ from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
 from app.services.language import platform_default_ui_language
-from app.services.onboarding_setup import SETUP_SOP as ONBOARDING_SYSTEM_PROMPT
 from app.services.personal_assistant import ensure_personal_assistant
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE

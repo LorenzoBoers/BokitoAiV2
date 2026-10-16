@@ -12,7 +12,6 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.signal import Signal
 ONBOARDING_KEY = "onboarding"
