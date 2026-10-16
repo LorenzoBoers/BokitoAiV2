@@ -671,7 +671,12 @@ async def test_wait_for_ok_card_sits_after_the_tool_bubble(client: AsyncClient, 
         body_text="Zet dat item terug",
         received_at=early,
     )
-    decision = DecisionRequest(tenant_id=tenant.id, title="Restore trash item", summary="Wait")
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        signal_id=signal.id,
+        title="Restore trash item",
+        summary="Wait",
+    )
     session_override.add(decision)
     await session_override.flush()
     card = SignalMessage(
@@ -684,6 +689,10 @@ async def test_wait_for_ok_card_sits_after_the_tool_bubble(client: AsyncClient, 
         received_at=early + timedelta(seconds=1),
     )
     session_override.add_all([user, card])
+    await session_override.flush()
+    # Card already revealed mid-turn; link message_id so place_turn_decisions
+    # repositions this row instead of revealing a duplicate.
+    decision.message_id = card.id
     await session_override.commit()
 
     bubbles = await persist_agent_turn(
