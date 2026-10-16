@@ -10,9 +10,12 @@ from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
 from app.services.language import platform_default_ui_language
+from app.services.onboarding_setup import SETUP_SOP as ONBOARDING_SYSTEM_PROMPT
 from app.services.personal_assistant import ensure_personal_assistant
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
+
+__all__ = ["ONBOARDING_SYSTEM_PROMPT"]
 
 DEFAULT_BRAND_COLOR = "#32BF8E"
 _LEGACY_DEFAULT_BRAND_COLORS = frozenset({"#00FF99", "#00D986", "#0D9488"})
