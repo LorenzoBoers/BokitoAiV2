@@ -11,6 +11,7 @@ import {
   isKnowledgeTool,
   isVisibleActivity,
   itemDurationMs,
+  inviteTarget,
   itemLabel,
   webSearchFavicon,
   webSearchHost,
@@ -19,7 +20,9 @@ import {
   type ActivityKind,
 } from '../../lib/agentActivity'
 import { cn } from '../../lib/utils'
+import { useAgents } from '../../hooks/useAgents'
 import { KnowledgeMark } from '../knowledge/KnowledgeMark'
+import { AgentMark } from '../ui/AgentMark'
 import { LiveEllipsis, THREAD_ICON, THREAD_META, ThreadMetaRow } from './ThreadMeta'
 
 function ProviderLogo({ provider, size }: { provider: string; size: number }) {
@@ -111,6 +114,7 @@ function GroupIconStrip({
             kind={item.kind}
             tool={item.tool}
             provider={item.provider}
+            item={item}
             size={size}
             live={live}
           />
@@ -123,22 +127,42 @@ function GroupIconStrip({
   )
 }
 
+/** Face of the agent (or person) being invited, instead of a generic wrench. */
+function InviteMark({ item, size }: { item: ActivityItem; size: number; live?: boolean }) {
+  const { agents } = useAgents()
+  const target = inviteTarget(item)
+  const agent = target?.id ? agents.find((row) => String(row.id) === target.id) : undefined
+  const name = agent?.name || target?.name || ''
+  if (!agent && !name) return <UserRound size={size} className="shrink-0" />
+  return (
+    <AgentMark
+        agent={agent ?? { name, id: target?.id }}
+      size={size}
+      mode="static"
+      decorative
+    />
+  )
+}
+
 /** Kind icon: Brain for thinking, the integration logo or a wrench for work. */
 export function ActivityIcon({
   kind,
   tool = '',
   provider = '',
+  item,
   size = THREAD_ICON,
   live = false,
 }: {
   kind: ActivityKind
   tool?: string
   provider?: string
+  item?: ActivityItem
   size?: number
   live?: boolean
 }) {
   let icon
-  if (kind === 'think') icon = <Brain size={size} className="shrink-0" />
+  if (item && inviteTarget(item)) icon = <InviteMark item={item} size={size} live={live} />
+  else if (kind === 'think') icon = <Brain size={size} className="shrink-0" />
   else if (tool === 'web_search' || tool === 'fetch_url') icon = <Globe size={size} className="shrink-0" />
   else if (kind === 'other') {
     icon = isHandoffTool(tool) ? (
@@ -169,8 +193,18 @@ function detailText(value: unknown): string {
   }
 }
 
+function inviteLine(item: ActivityItem, t: (key: string, opts?: Record<string, unknown>) => string, name: string): string | null {
+  if (!inviteTarget(item)) return null
+  if (!name) return t('activity.invitingSomeone')
+  return t('activity.inviting', { name })
+}
+
 function ItemRow({ item }: { item: ActivityItem }) {
   const { t } = useTranslation('communication')
+  const { agents } = useAgents()
+  const target = inviteTarget(item)
+  const invited = target?.id ? agents.find((row) => String(row.id) === target.id) : undefined
+  const line = inviteLine(item, t, invited?.name || target?.name || '') ?? itemLabel(item, t)
   const [open, setOpen] = useState(false)
   const detail =
     item.kind === 'think'
@@ -193,9 +227,9 @@ function ItemRow({ item }: { item: ActivityItem }) {
         {item.tool === 'web_search' || item.tool === 'fetch_url' ? (
           <WebSearchLead item={item} />
         ) : (
-          <ActivityIcon kind={item.kind} tool={item.tool} provider={item.provider} />
+          <ActivityIcon kind={item.kind} tool={item.tool} provider={item.provider} item={item} />
         )}
-        <span className="min-w-0 truncate-fade">{itemLabel(item, t)}</span>
+        <span className="min-w-0 truncate-fade">{line}</span>
         {item.status === 'error' ? (
           <AlertCircle size={THREAD_ICON} className="shrink-0 text-status-error" aria-label={t('activity.failed')} />
         ) : null}
@@ -305,16 +339,20 @@ export function ActivityGroupLine({
   onExpand?: () => void
 }) {
   const { t } = useTranslation('communication')
+  const { agents } = useAgents()
   const [expanded, setExpanded] = useState(false)
   const current = group.items[group.items.length - 1]
   const hasError = group.items.some((i) => i.status === 'error')
+  const invited = current ? inviteTarget(current) : null
+  const invitedAgent = invited?.id ? agents.find((row) => String(row.id) === invited.id) : undefined
+  const liveInvite = current ? inviteLine(current, t, invitedAgent?.name || invited?.name || '') : null
 
   if (live && group.kind === 'think') {
     return <LiveThinkLine group={group} />
   }
 
   if (live) {
-    const label = groupLiveLabel(group, t)
+    const label = liveInvite || groupLiveLabel(group, t)
     return (
       <div key={current?.id} role="status" aria-live="polite">
         <ThreadMetaRow

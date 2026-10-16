@@ -284,10 +284,20 @@ export function useThreadDetail(
         if (threadRow && String(threadRow.id) === String(threadId)) {
           const before = detailRef.current?.thread.ticket
           const after = threadRow.ticket
+          const prevLast = detailRef.current?.thread.lastMessageAt
           setRawDetail((prev) => {
             if (!prev || String(prev.thread.id) !== String(threadId)) return prev
             return { ...prev, thread: mergeThreadRow(prev.thread, threadRow) }
           })
+          // Worker participant turns publish a thread row when they finish.
+          // That used to patch metadata only, so the new bubble stayed invisible
+          // until a full refresh.
+          if (
+            threadRow.lastMessageAt &&
+            threadRow.lastMessageAt !== prevLast
+          ) {
+            scheduleQuietRefetch()
+          }
           // A category or stage change also wrote a timeline event.
           if (
             after !== undefined &&
@@ -370,6 +380,19 @@ export function useThreadDetail(
       if (quietTimer != null) window.clearTimeout(quietTimer)
     }
   }, [token, threadId, fetchDetail, restoreUnread])
+
+  // Participant turns run on the worker. The open tab only gets the floor
+  // chip from the API; if the worker's message frames never arrive, keep
+  // pulling the thread so Nadenken is replaced by the real trail and bubble.
+  useEffect(() => {
+    if (!token || !threadId) return
+    const floor = rawDetail?.activeTurn
+    if (!floor || floor.kind !== 'agent' || !floor.ref_id) return
+    const timer = window.setInterval(() => {
+      void fetchDetail(true)
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [token, threadId, fetchDetail, rawDetail?.activeTurn?.kind, rawDetail?.activeTurn?.ref_id])
 
   // Quiet reconcile after tab focus and gateway reconnect (same pattern as useThreads).
   useEffect(() => {

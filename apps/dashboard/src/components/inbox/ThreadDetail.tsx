@@ -56,7 +56,6 @@ import {
 } from '../../lib/signals-api'
 import {
   decisionCardOpen,
-  isOpenNoReplyCard,
   proposalBasedOnMessageId,
   replyProposalFromMessage,
 } from './DecisionRequestMessage'
@@ -91,6 +90,7 @@ import { ClaimIdleAgentSeat, LiveAgentSeatProvider, SyncLiveAgentFocus } from '.
 import { answeredDecisionIds } from './ThreadTimeline'
 import { preferLiveAgentAvatar, toAiAvatarProps } from '../../lib/agent-avatar'
 import {
+  composerLanding,
   composerModeForFocus,
   emptyClientFocus,
   focusFromMentionBody,
@@ -1176,13 +1176,23 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     if (threadChanged) {
       // An automated mail the agent judged "no reply needed" has nobody to
       // write to: start on a note instead of a reply to the no-reply sender.
-      const noReplyOpen = Boolean(
-        detail && detail.messages.some((m) => isOpenNoReplyCard(m, detail.events)),
-      )
       const surface = resolveComposerSurface(thread)
-      setComposerMode(
-        noReplyOpen && surface.modes.includes('note') ? 'note' : surface.defaultMode,
+      const hasCustomerDraft = Boolean(
+        detail &&
+          detail.messages.some((m) => {
+            const proposal = replyProposalFromMessage(m, detail.events)
+            return Boolean(proposal && !outdatedDecisionMessageIds.includes(proposal.decisionMessageId))
+          }),
       )
+      if (hasCustomerDraft && surface.modes.includes('reply')) {
+        setComposerMode('reply')
+        return
+      }
+      const land = composerLanding(detail?.messages ?? [], {
+        selfUserId: user?.id ?? null,
+        allowReply: surface.modes.includes('reply'),
+      })
+      setComposerMode(surface.modes.includes(land.mode) ? land.mode : surface.defaultMode)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- detail.messages only matter on thread change
   }, [threadId, activeSessionId, handlingEffective, detail?.thread, messageLayout])
@@ -1320,10 +1330,27 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     [agents, mentionExtras, membersById],
   )
 
-  // Default Ask focus: last agent author → active_turn → thread agent.
+  // Default Ask focus from the last received sender: teammate, then agent,
+  // then the thread agent. Skipped once the operator has picked someone.
   useEffect(() => {
     if (!detail || askAgentId || focusTargets.length > 0) return
     if (composerDraft) return
+    const surface = resolveComposerSurface(detail.thread)
+    const land = composerLanding(detail.messages ?? [], {
+      selfUserId: user?.id ?? null,
+      allowReply: surface.modes.includes('reply'),
+    })
+    if (land.userId) {
+      setFocusTargets([resolveFocusTarget('user', land.userId, 'Teammate')])
+      return
+    }
+    if (land.agentId) {
+      const name =
+        agents.find((row) => String(row.id) === land.agentId)?.name || 'Agent'
+      setAskAgentId(land.agentId)
+      setFocusTargets([resolveFocusTarget('agent', land.agentId, name)])
+      return
+    }
     const msgs = detail.messages ?? []
     for (let i = msgs.length - 1; i >= 0; i -= 1) {
       const m = msgs[i]
@@ -1364,6 +1391,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     agentCandidates,
     agents,
     resolveFocusTarget,
+    user?.id,
   ])
 
   const replyFocus: ComposerReplyFocus = useMemo(() => {
@@ -1435,13 +1463,12 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         if (mode !== 'reply') setComposerMode(mode)
         return
       }
-      if (item.type === 'team') {
-        setComposerMode((prev) => (prev === 'reply' ? 'note' : prev))
-        return
-      }
-      if (item.type === 'user') {
-        setFocusTargets([resolveFocusTarget('user', item.id, item.name)])
-        setComposerMode('note')
+      if (item.type === 'team' || item.type === 'user') {
+        if (item.type === 'user') {
+          setFocusTargets([resolveFocusTarget('user', item.id, item.name)])
+          setAskAgentId(null)
+        }
+        setComposerMode('ask')
         return
       }
       if (item.type !== 'agent') return
@@ -1530,8 +1557,12 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         agentCandidates[0]?.id ??
         null
       const wantedAgentId = preferredAsk
+      const audienceAgentIds = focusTargets
+        .filter((target) => target.type === 'agent')
+        .map((target) => target.id)
       const multiAgentAsk =
-        mentionedFocus.targets.filter((t) => t.type === 'agent').length >= 2
+        mentionedFocus.targets.filter((t) => t.type === 'agent').length >= 2 ||
+        audienceAgentIds.length >= 2
       // Internal threads: floor chip only (run=false). SSE Ask owns the turn —
       // run=true here stacked a second worker turn beside the stream.
       // Skip the floor chip when ≥2 agents are tagged: the stream starts a
@@ -1573,6 +1604,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           // Internal Ask: drive the focused / @-tagged agent, not only the
           // thread's channel default (Orchestrator on agent chats).
           agentId: talksDirect ? wantedAgentId : undefined,
+          audienceAgentIds: talksDirect ? audienceAgentIds : undefined,
           onFinished: async () => {
             setStreamingAskAgentId(null)
             if (!talksDirect) await loadSessionMessages(sessionId)
@@ -2034,7 +2066,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
 
   // User's turn: park idle live orb on the latest agent bubble until the user
   // replies or leaves. Mid-turn / rejoin-while-busy uses threadLiveTurn instead.
-  const idleSeatMessageId = useMemo(() => {
+  const idleSeat = useMemo(() => {
     if (threadLiveTurn) return null
     const agentId = liveOrbAgentId
     if (!agentId || !detail?.messages?.length) return null
@@ -2049,8 +2081,12 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         ? last.payload.agent_id
         : detail.thread.agentId
     if (!aid || String(aid) !== String(agentId)) return null
-    return String(last.id)
+    return {
+      messageId: String(last.id),
+      activityAt: last.receivedAt || last.createdAt || null,
+    }
   }, [threadLiveTurn, liveOrbAgentId, detail?.messages, detail?.thread.agentId])
+  const idleSeatMessageId = idleSeat?.messageId ?? null
   const releaseIdleSeat = useMemo(() => {
     if (threadLiveTurn || idleSeatMessageId || !detail?.messages?.length) return false
     const last = detail.messages[detail.messages.length - 1]!
@@ -2397,6 +2433,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       <ClaimIdleAgentSeat
         agentId={liveOrbAgentId}
         messageId={idleSeatMessageId}
+        activityAt={idleSeat?.activityAt}
         release={releaseIdleSeat}
       />
       <SyncLiveAgentFocus
@@ -2525,7 +2562,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
               <AgentTurnLive
                 // Remount when the speaking agent changes so Extra (and the
                 // first Ask agent) always get a fresh seat entrance.
-                key={`${liveSeatAgentId ?? 'na'}:${threadLiveTurn.streamId ?? 'live'}`}
+                key={liveSeatAgentId ?? 'live'}
                 turn={threadLiveTurn}
                 continuesRun={liveContinuesRun}
                 onPlaybackDone={handleLivePlaybackDone}

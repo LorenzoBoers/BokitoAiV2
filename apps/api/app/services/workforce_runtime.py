@@ -28,7 +28,7 @@ ROLE_SLUG_MAP = {
 }
 
 MAX_AGENT_DESCRIPTION = 280
-MAX_AGENT_JOB_TITLE = 20
+MAX_AGENT_JOB_TITLE = 32
 
 ROLE_NAME_MAP = {
     "po": "Orchestrator",
@@ -1256,14 +1256,43 @@ async def clear_stale_runtime(
             AgentRun.started_at < cutoff,
         )
     )
+    stale_threads: list[tuple[UUID, UUID]] = []
     for run in run_result.scalars().all():
         run.status = "failed"
         run.completed_at = now
         run.pause_reason = "cleared_stale"
         session.add(run)
         runs_cleared += 1
+        if run.signal_id is not None:
+            stale_threads.append((run.tenant_id, run.signal_id))
+
+    if stale_threads:
+        from app.models.signal import Signal
+        from app.services.agent.turn_persist import seal_in_progress_checkpoints
+
+        for signal_id in dict.fromkeys(signal_id for _, signal_id in stale_threads):
+            signal = await session.get(Signal, signal_id)
+            if signal is None:
+                continue
+            await seal_in_progress_checkpoints(session, signal)
 
     await session.commit()
+    if stale_threads:
+        from app.gateway.publish import publish_thread_presence
+
+        for tenant_id, signal_id in dict.fromkeys(stale_threads):
+            try:
+                await publish_thread_presence(
+                    tenant_id,
+                    signal_id,
+                    phase="idle",
+                    actor_kind="system",
+                    actor_id="",
+                    actor_name="",
+                    item={"active_turn": None},
+                )
+            except Exception:  # noqa: BLE001
+                logger.debug("idle after stale clear failed", exc_info=True)
     for agent in cleared:
         try:
             await broadcast_agent_live(agent)

@@ -15,7 +15,13 @@ from app.models.signal import Signal
 from app.services.participant_turns import (
     flush_deferred_participant_turn,
     request_participant_turn,
+    wake_requester_after_peer,
 )
+
+
+def test_sent_peer_reply_does_not_wake_the_requester():
+    assert wake_requester_after_peer("sent") is False
+    assert wake_requester_after_peer("pass") is True
 
 
 async def _seed_agent_signal(session_override):

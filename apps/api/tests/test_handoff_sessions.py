@@ -13,6 +13,7 @@ from app.models.auth import Tenant
 from app.models.signal import Signal
 from app.services.handoff_sessions import (
     MAX_HANDOFF_DEPTH,
+    choose_speaker,
     expand_invitees,
     get_handoff_session,
     interrupt_handoff_session,
@@ -103,6 +104,29 @@ async def test_pick_opener_uses_hierarchy(client, session_override):
     assert opener.id == lead.id
 
 
+def test_choose_speaker_drops_a_refused_name():
+    extra = Agent(id=uuid4(), name="Extra test agent", role="assistant")
+    bokito = Agent(id=uuid4(), name="Bokito assistant", role="assistant")
+    text = "Ik wil eigenlijk even geen test agent spreken, kan iemand anders mij helpen"
+    opener = choose_speaker([extra, bokito], text, mention_order=[extra.id, bokito.id])
+    assert opener is not None
+    assert opener.id == bokito.id
+
+
+def test_choose_speaker_keeps_the_agent_who_was_asked_to_act():
+    extra = Agent(id=uuid4(), name="Extra", role="assistant")
+    bokito = Agent(id=uuid4(), name="Bokito", role="assistant")
+    text = "Extra, tell Bokito thanks"
+    opener = choose_speaker(
+        [bokito, extra],
+        text,
+        mention_order=[extra.id, bokito.id],
+        channel_agent_id=bokito.id,
+    )
+    assert opener is not None
+    assert opener.id == extra.id
+
+
 @pytest.mark.asyncio
 async def test_single_agent_mention_skips_handoff(client, session_override, monkeypatch):
     _ = client
@@ -163,6 +187,40 @@ async def test_two_agents_start_handoff_with_opener(client, session_override, mo
     assert state is not None
     assert state["status"] == "open"
     assert set(state["agent_ids"]) == {str(a.id), str(b.id)}
+
+
+@pytest.mark.asyncio
+async def test_audience_without_mentions_opens_the_other_agent(client, session_override, monkeypatch):
+    _ = client
+    tenant = await _tenant(session_override)
+    extra = await _agent(session_override, tenant.id, name="Extra test agent")
+    bokito = await _agent(session_override, tenant.id, name="Bokito assistant")
+    signal = await _signal(session_override, tenant.id, agent_id=extra.id)
+    called: list[str] = []
+
+    async def _fake_turn(session, signal, **kwargs):
+        called.append(str(kwargs.get("member_ref_id")))
+        prompt = str(kwargs.get("prompt") or "")
+        assert "geen test agent" in prompt
+        assert "Bokito assistant" in prompt
+        return {"ok": True, "outcome": "queued"}
+
+    monkeypatch.setattr(
+        "app.services.participant_turns.request_participant_turn",
+        _fake_turn,
+    )
+    started = await start_handoff_session(
+        session_override,
+        tenant.id,
+        signal,
+        body_text="Ik wil eigenlijk even geen test agent spreken, kan iemand anders mij helpen",
+        author_user_id=uuid4(),
+        channel_agent_id=extra.id,
+        extra_agent_ids=[extra.id, bokito.id],
+    )
+    assert started is not None
+    assert started["opener_id"] == str(bokito.id)
+    assert called == [str(bokito.id)]
 
 
 @pytest.mark.asyncio

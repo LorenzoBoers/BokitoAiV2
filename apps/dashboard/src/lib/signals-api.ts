@@ -1889,6 +1889,8 @@ export async function bokitoStreamMessage(
     continuePending?: boolean
     /** Focused / @-tagged agent on an internal thread (not always the channel default). */
     agentId?: string | null
+    /** Ask-tab agents. The server unions these with @mentions in the body. */
+    audienceAgentIds?: string[]
   },
 ): Promise<string> {
   const payload: Record<string, unknown> = { content }
@@ -1896,6 +1898,7 @@ export async function bokitoStreamMessage(
   if (options?.attachments?.length) payload.attachments = options.attachments
   if (options?.continuePending) payload.continue_pending = true
   if (options?.agentId) payload.agent_id = options.agentId
+  if (options?.audienceAgentIds?.length) payload.audience_agent_ids = options.audienceAgentIds
   const res = await fetch(
     `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
     {

@@ -81,9 +81,15 @@
   },
   "agent": {
     "title": "Geef je eerste agent een naam",
-    "subtitle": "Dit is de lead-assistent van je werkruimte. Kies een naam en icoon.",
+    "subtitle": "Dit is de lead-assistent van je werkruimte. Pas naam, functie en bot aan.",
     "nameLabel": "Naam",
-    "namePlaceholder": "bijv. Alex",
+    "namePlaceholder": "bijv. test-onboarding assistant",
+    "nameRequired": "Geef je eerste agent een naam.",
+    "jobTitleLabel": "Functie",
+    "jobTitlePlaceholder": "Onboarding specialist",
+    "jobTitleRequired": "Geef een functie op.",
+    "descriptionLabel": "Functieomschrijving",
+    "descriptionPlaceholder": "Wat deze agent voor het team doet",
     "iconLabel": "Icoon",
     "initials": "Initialen",
     "icon": "Icoon"

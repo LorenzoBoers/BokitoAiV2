@@ -10,7 +10,6 @@ from app.models.project import Project
 from app.models.signal import Signal
 from app.models.trigger import Trigger
 from app.services.auth import decode_access_token
-from app.services.thread_schedule import SCHEDULE_SOURCE
 
 
 @pytest.mark.asyncio
@@ -42,19 +41,12 @@ async def test_signup_creates_empty_tenant(client: AsyncClient, session_override
     signals = (
         await session_override.execute(select(Signal).where(Signal.tenant_id == tenant.id))
     ).scalars().all()
-    # The only seeded thread is the paused check-in's own thread.
-    assert len(signals) == 1, "fresh tenant has one check-in conversation"
-    assert signals[0].channel == "internal"
-    assert signals[0].source == SCHEDULE_SOURCE
-    assert signals[0].owner_user_id is None
+    assert signals == [], "fresh tenant has no check-in conversation"
 
     triggers = (
         await session_override.execute(select(Trigger).where(Trigger.tenant_id == tenant.id))
     ).scalars().all()
-    assert len(triggers) == 1
-    assert triggers[0].kind == "heartbeat"
-    assert triggers[0].enabled is False
-    assert triggers[0].signal_id == signals[0].id
+    assert triggers == []
 
     user = (
         await session_override.execute(select(User).where(User.email == "fresh@example.com"))
@@ -206,7 +198,7 @@ async def test_onboarding_status_endpoint(client: AsyncClient):
     ]
     assert data["completed"] is False
     by_id = {step["id"]: step["done"] for step in data["steps"]}
-    # Check-in is seeded paused; wizard is required for new workspaces.
+    # No check-in until the operator opts in; wizard is required for new workspaces.
     assert by_id["watching"] is False
     assert by_id["wizard"] is False
     assert all(

@@ -63,6 +63,7 @@ class OnboardingWizardPatch(BaseModel):
     intake: dict[str, Any] | None = None
     ai_workspace_language: str | None = None
     autonomy_posture: str | None = None
+    lead_agent: dict[str, Any] | None = None
     complete: bool | None = None
 
 
@@ -96,9 +97,25 @@ async def patch_onboarding_wizard(
         intake=body.intake,
         ai_workspace_language=body.ai_workspace_language,
         autonomy_posture=body.autonomy_posture,
+        lead_agent=body.lead_agent,
         complete=body.complete,
         user_settings_json=auth.user.settings_json,
     )
+
+
+@router.post("/onboarding/setup-thread")
+async def post_onboarding_setup_thread(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """After the tour: the lead assistant opens one setup conversation."""
+    from app.services.onboarding_setup import open_lead_setup_thread
+
+    if auth.role not in ("owner", "admin"):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=403, detail="Only owners can start workspace setup")
+    return await open_lead_setup_thread(session, auth.tenant, user_id=auth.user.id)
 
 
 @router.post("/onboarding/demo-thread")

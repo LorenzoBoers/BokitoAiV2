@@ -9,7 +9,13 @@ related: welcome,cockpit,communication
 
 # Producttour
 
-Na het aanmaken van een workspace ronden owners eerst een korte **eerste-setupwizard** af (`/onboarding`) — **Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal** — vóór deze tour. Uitgenodigde leden zetten alleen hun eigen taal en meldingen. De rail-tour start niet automatisch tot die wizard klaar is; na de wizard begint de tour.
+Na het aanmaken van een workspace ronden owners eerst een korte **eerste-setupwizard** af (`/onboarding`) — **Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal** — vóór deze tour. **Je agent** maakt de lead van de workspace en gebruikt dezelfde levende bot als de rest van het platform: vorm, kleur en beweging. Die stap hernoemt Bokito niet, de helper in de app. Uitgenodigde leden zetten alleen hun eigen taal en meldingen. De rail-tour start niet automatisch tot die wizard klaar is; na de wizard begint de tour.
+
+## Na de tour
+
+1. Sluit de tour af met **Start de setupchat**, **Open Communicatie** of **Ik verken het zelf**.
+2. Je nieuwe lead opent één gesprek in Communicatie en vraagt of de naam klopt, daarna naar het bedrijf en hoe het werk moet lopen.
+3. Voorstellen wachten in Govern. Een dagelijkse check-in start alleen als je in dat gesprek ja zegt.
 
 Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere vraag. Gebruik het commandopalet (`Ctrl+K` of `Cmd+K`) om te springen zonder de rail af te zoeken.
 

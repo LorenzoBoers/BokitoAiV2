@@ -9,6 +9,7 @@ export const appRoutes = {
     status: '/onboarding',
     demoThread: '/onboarding/demo-thread',
     wizard: '/onboarding/wizard',
+    setupThread: '/onboarding/setup-thread',
   },
   me: {
     preferences: '/me/preferences',

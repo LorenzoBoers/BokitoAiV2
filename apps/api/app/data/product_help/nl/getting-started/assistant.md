@@ -11,6 +11,12 @@ related: tour,agents,govern,categories,widget
 
 Bokito is je eigen assistent binnen het platform. Hij is geen agent van de workspace die klanten beantwoordt: zijn taak is jou effectief maken in Bokito.
 
+## Start vanaf het beginscherm
+
+1. Open Bokito via **Hulp** in de topbalk, of de knop rechtsonder.
+2. Onder **Nieuw gesprek starten** kies je **Wat kan ik hier doen?**, **Geef werk door** of **Richt iets in**. Bokito start een gesprek en stelt die vraag voor je.
+3. Kies **Eerdere gesprekken** om je privé-gesprekslijst te openen.
+
 ## Vraag iets over de pagina waar je bent
 
 1. Kies **Hulp** in de topbalk, of de Bokito-knop rechtsonder op pagina's waar de launcher zichtbaar is — ook op de Workspaces-hub en Account in het Bokito-portal. Op Communicatie met een open gesprek blijft de hoek-launcher verborgen; gebruik dan topbalk **Hulp**. Bokito draagt altijd zijn eigen merkteken; je profielfoto staat rechtsboven in de chat, zodat je ziet vanuit welk account je chat.

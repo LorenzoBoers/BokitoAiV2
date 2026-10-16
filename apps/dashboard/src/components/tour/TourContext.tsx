@@ -26,9 +26,8 @@ import { useAuth } from '../../context/AuthContext'
 import { appScopedGet } from '../../lib/api'
 import { appRoutes } from '../../api/routes/app.routes'
 import { getTourState, patchTourState } from '../../lib/tour-api'
-import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { consumeTourPendingAfterWizard } from '../../lib/tour-handoff'
-import { getOnboardingWizard } from '../../lib/onboarding-wizard-api'
+import { getOnboardingWizard, startOnboardingSetupThread } from '../../lib/onboarding-wizard-api'
 import { TOUR_STEPS, TOUR_VERSION, WELCOME_PILLARS } from './tour-steps'
 
 type TourPhase = 'idle' | 'welcome' | 'steps' | 'finish'
@@ -69,7 +68,7 @@ function measureTarget(target: string): Rect | null {
 export function TourProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth()
   const navigate = useNavigate()
-  const { t, i18n } = useTranslation('tour')
+  const { t } = useTranslation('tour')
   const [phase, setPhase] = useState<TourPhase>('idle')
   const [stepIndex, setStepIndex] = useState(0)
   const autoChecked = useRef(false)
@@ -151,25 +150,23 @@ export function TourProvider({ children }: { children: ReactNode }) {
     [navigate],
   )
 
-  const finishExplore = useCallback(() => {
+  const finishToSetup = useCallback(() => {
     persist({ completed: true })
     setPhase('idle')
-    navigate('/communication/inbox/for_you')
-  }, [persist, navigate])
-
-  const finishWithAssistant = useCallback(() => {
-    persist({ completed: true })
-    setPhase('idle')
-    const prompt = t('setupPrompt', { lng: i18n.resolvedLanguage })
-    const dest = talkToAssistantPath(prompt)
-    navigate(`${dest}${dest.includes('?') ? '&' : '?'}autosend=1`)
-  }, [persist, navigate, t, i18n.resolvedLanguage])
-
-  const finishWithCommunication = useCallback(() => {
-    persist({ completed: true })
-    setPhase('idle')
-    navigate('/communication/inbox/for_you')
-  }, [persist, navigate])
+    const go = async () => {
+      if (!token) {
+        navigate('/communication/inbox/for_you')
+        return
+      }
+      try {
+        const opened = await startOnboardingSetupThread(token)
+        navigate(`/communication/inbox/all/t/${opened.signal_id}`)
+      } catch {
+        navigate('/communication/inbox/for_you')
+      }
+    }
+    void go()
+  }, [persist, navigate, token])
 
   const value = useMemo<TourContextValue>(
     () => ({ start, active: phase !== 'idle' }),
@@ -192,9 +189,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
       ) : null}
       {phase === 'finish' ? (
         <FinishScreen
-          onAssistant={finishWithAssistant}
-          onCommunication={finishWithCommunication}
-          onExplore={finishExplore}
+          onAssistant={finishToSetup}
+          onCommunication={finishToSetup}
+          onExplore={finishToSetup}
         />
       ) : null}
     </TourContext.Provider>

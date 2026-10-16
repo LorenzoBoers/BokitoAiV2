@@ -192,9 +192,9 @@ export function resolveComposerSurface(
     const teamRoom = thread.owner?.kind === 'team'
     return {
       channel,
-      // No customer sits on the other side: every line is either for the AI
-      // or for the team. Team rooms start on a note so members talk to each other.
-      defaultMode: teamRoom ? 'note' : 'ask',
+      // No customer sits on the other side. Team chat is Ask; a note is
+      // only what the operator opens by hand.
+      defaultMode: 'ask',
       modes: ['ask', 'note'],
       replyLabel: channel === 'assistant' ? 'Chat' : 'Message',
       replyTargetName: name,
@@ -215,8 +215,9 @@ export function resolveComposerSurface(
     return {
       channel: 'email',
       // Mail threads open on the mail surface (Reply → MailComposer). Ask is
-      // an explicit switch; noreply senders land on an internal note.
-      defaultMode: nonReceiving ? 'note' : 'reply',
+      // an explicit switch. A noreply sender still opens on Reply so the
+      // blocked-send notice can offer a note; Note is never the landing tab.
+      defaultMode: 'reply',
       modes: ['reply', 'ask', 'note'],
       replyLabel: 'Email',
       replyTargetName: name || email,

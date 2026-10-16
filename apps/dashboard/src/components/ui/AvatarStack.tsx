@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import type { AgentAvatarSource } from '../../lib/agent-avatar'
+import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { openEntityPath } from '../../lib/open-entity'
 import { cn } from '../../lib/utils'
 import { AgentMark } from './AgentMark'
+import { TeamAvatar } from './TeamAvatar'
 import { UserAvatar } from './UserAvatar'
 
 /** Faces shown before the overflow chip. */
@@ -17,6 +19,8 @@ export type AvatarStackUser = {
   name: string
   email: string
   avatarUrl?: string | null
+  /** Tooltip when it should say more than the name (owner, floor). */
+  title?: string
 }
 
 export type AvatarStackAgent = {
@@ -26,9 +30,19 @@ export type AvatarStackAgent = {
   id: string
   /** Full agent row — pass through so orb shape/color are not dropped. */
   agent: AgentAvatarSource
+  title?: string
 }
 
-export type AvatarStackMember = AvatarStackUser | AvatarStackAgent
+/** Empty-team fallback inside a pile. A team with members expands to faces instead. */
+export type AvatarStackTeam = {
+  key: string
+  kind: 'team'
+  name: string
+  team: Parameters<typeof toTeamAvatarProps>[0]
+  title?: string
+}
+
+export type AvatarStackMember = AvatarStackUser | AvatarStackAgent | AvatarStackTeam
 
 type Props = {
   members: AvatarStackMember[]
@@ -36,6 +50,15 @@ type Props = {
   className?: string
   /** When false (menus/pickers), agent faces are not links. */
   linkAgents?: boolean
+  /** Member key that wears the accent cutout (thread floor). */
+  activeKey?: string | null
+  /** Faces before the +N chip. Defaults to three, same as workforce teams. */
+  max?: number
+  /**
+   * Color of the overlap cutout. `surface` matches cards; `bg` matches the
+   * thread header (`bg-bg`).
+   */
+  cutout?: 'surface' | 'bg'
 }
 
 /**
@@ -45,11 +68,20 @@ type Props = {
  * People stay circular with a surface ring. Agent faces link to the agent page
  * unless ``linkAgents`` is false.
  */
-export function AvatarStack({ members, size = 32, className, linkAgents = true }: Props) {
+export function AvatarStack({
+  members,
+  size = 32,
+  className,
+  linkAgents = true,
+  activeKey = null,
+  max = AVATAR_STACK_MAX,
+  cutout = 'surface',
+}: Props) {
   if (members.length === 0) return null
-  const shown = members.slice(0, AVATAR_STACK_MAX)
+  const shown = members.slice(0, max)
   const overflow = members.length - shown.length
   const overlap = Math.max(6, Math.min(STACK_OVERLAP_PX, Math.round(size * 0.4)))
+  const ring = cutout === 'bg' ? 'ring-bg' : 'ring-bg-surface'
 
   return (
     <span
@@ -57,10 +89,12 @@ export function AvatarStack({ members, size = 32, className, linkAgents = true }
       data-testid="avatar-stack"
     >
       {shown.map((member, index) => {
+        const active = Boolean(activeKey && member.key === activeKey)
         const style = {
-          zIndex: shown.length - index,
+          zIndex: active ? 30 : shown.length - index,
           marginLeft: index > 0 ? -overlap : 0,
         } as const
+        const tip = member.title || member.name
 
         if (member.kind === 'agent') {
           const mark = (
@@ -70,6 +104,7 @@ export function AvatarStack({ members, size = 32, className, linkAgents = true }
               mode="static"
               stackOutline
               decorative
+              className={cn(cutout === 'bg' && 'bot-orb--on-bg', active && 'bot-orb--floor')}
             />
           )
           if (!linkAgents) {
@@ -78,9 +113,10 @@ export function AvatarStack({ members, size = 32, className, linkAgents = true }
                 key={member.key}
                 className="relative inline-flex shrink-0 overflow-visible"
                 style={style}
-                title={member.name}
+                title={tip}
                 aria-hidden
                 data-testid="avatar-stack-agent"
+                data-active={active || undefined}
               >
                 {mark}
               </span>
@@ -92,23 +128,47 @@ export function AvatarStack({ members, size = 32, className, linkAgents = true }
               to={openEntityPath({ type: 'agent', id: member.id })}
               className="relative inline-flex shrink-0 overflow-visible transition hover:z-20"
               style={style}
-              title={member.name}
+              title={tip}
               aria-label={member.name}
               data-testid="avatar-stack-agent"
+              data-active={active || undefined}
             >
               {mark}
             </Link>
           )
         }
 
+        if (member.kind === 'team') {
+          return (
+            <span
+              key={member.key}
+              className={cn(
+                'relative inline-flex shrink-0 overflow-hidden rounded-full ring-2',
+                active ? 'ring-accent' : ring,
+              )}
+              style={style}
+              title={tip}
+              aria-hidden
+              data-testid="avatar-stack-team"
+              data-active={active || undefined}
+            >
+              <TeamAvatar {...toTeamAvatarProps(member.team, member.name)} size={size} decorative />
+            </span>
+          )
+        }
+
         return (
           <span
             key={member.key}
-            className="relative inline-flex shrink-0 overflow-hidden rounded-full ring-2 ring-bg-surface"
+            className={cn(
+              'relative inline-flex shrink-0 overflow-hidden rounded-full ring-2',
+              active ? 'ring-accent' : ring,
+            )}
             style={style}
-            title={member.name}
+            title={tip}
             aria-hidden
             data-testid="avatar-stack-user"
+            data-active={active || undefined}
           >
             <UserAvatar
               name={member.name}
@@ -122,7 +182,10 @@ export function AvatarStack({ members, size = 32, className, linkAgents = true }
       })}
       {overflow > 0 ? (
         <span
-          className="relative inline-flex shrink-0 items-center justify-center rounded-full bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted ring-2 ring-bg-surface"
+          className={cn(
+            'relative inline-flex shrink-0 items-center justify-center rounded-full bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted ring-2',
+            ring,
+          )}
           style={{
             width: size,
             height: size,

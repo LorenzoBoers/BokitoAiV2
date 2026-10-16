@@ -26,7 +26,7 @@ from app.tools.registry import get_tool_spec
 
 
 @pytest.mark.asyncio
-async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_override):
+async def test_signup_does_not_seed_platform_watch(client: AsyncClient, session_override):
     signup = await client.post(
         "/api/auth/signup",
         json={
@@ -44,24 +44,18 @@ async def test_signup_seeds_paused_platform_watch(client: AsyncClient, session_o
     # A fresh workspace never carries the pre-migration ops-thread key.
     assert OPERATIONS_SETTINGS_KEY not in settings
 
-    from app.services.personal_assistant import get_personal_assistant
-
-    assistant = await get_personal_assistant(session_override, tenant.id)
     trigger = (
         await session_override.execute(
             select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.kind == "heartbeat")
         )
-    ).scalar_one()
-    assert trigger.enabled is False
-    assert trigger.name in (checkin_trigger_name(assistant), "Check-in")
-    assert trigger.interval_minutes == 24 * 60
-
-    thread = await session_override.get(Signal, trigger.signal_id)
-    assert thread is not None
-    # The check-in works in its own thread; the assistant chat stays a chat.
-    assert thread.channel == "internal"
-    assert thread.source == SCHEDULE_SOURCE
-    assert thread.owner_user_id is None
+    ).scalar_one_or_none()
+    assert trigger is None
+    threads = (
+        await session_override.execute(
+            select(Signal).where(Signal.tenant_id == tenant.id, Signal.source == SCHEDULE_SOURCE)
+        )
+    ).scalars().all()
+    assert threads == []
 
 
 @pytest.mark.asyncio
@@ -70,11 +64,6 @@ async def test_ensure_does_not_enable_existing_heartbeat(
 ):
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
-    ).scalar_one()
-    assistant = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
-        )
     ).scalar_one()
     existing = Trigger(
         tenant_id=tenant.id,
@@ -94,8 +83,9 @@ async def test_ensure_does_not_enable_existing_heartbeat(
         )
     ).scalar_one()
     assert row.enabled is False
-    assert row.name == checkin_trigger_name(assistant)
-    assert row.signal_id is not None
+    assert row.name == "Heartbeat"
+    assert row.signal_id is None
+    assert row.id == existing.id
 
 
 @pytest.mark.asyncio
@@ -160,9 +150,8 @@ async def test_backfill_migrates_legacy_operations_thread(
         await session_override.execute(
             select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.kind == "heartbeat")
         )
-    ).scalar_one()
-    assert trigger.signal_id is not None
-    assert trigger.signal_id != legacy.id
+    ).scalar_one_or_none()
+    assert trigger is None
 
     # Running both twice creates no second channel.
     await ensure_platform_watch(session_override)

@@ -1653,13 +1653,22 @@ async def get_thread(
 
         busy = (
             await session.execute(
-                select(AgentRun.id).where(
+                select(AgentRun).where(
                     AgentRun.signal_id == signal_id,
                     AgentRun.trigger_type == "chat",
                     AgentRun.status == "running",
                 ).limit(1)
             )
         ).scalar_one_or_none()
+        # A run left "running" across a reload still blocks sealing. After the
+        # stale window, the checkpoint is abandoned — do not keep Nadenken up.
+        if busy is not None and busy.started_at is not None:
+            if busy.started_at < datetime.utcnow() - timedelta(minutes=15):
+                busy.status = "failed"
+                busy.completed_at = datetime.utcnow()
+                busy.pause_reason = "cleared_stale"
+                session.add(busy)
+                busy = None
         if busy is None:
             sealed = await seal_in_progress_checkpoints(session, signal)
             if sealed:

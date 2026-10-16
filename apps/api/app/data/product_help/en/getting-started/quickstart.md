@@ -46,4 +46,4 @@ This is the shortest path from a fresh workspace to real work happening. After s
 
 ## What you have now
 
-Mail flows in, the assistant drafts grounded replies, and you approve them. The daily platform check-in starts paused; turn it on from the [setup guide](/docs/getting-started/setup-guide) when you want watching. Continue with that guide for branding, team and modules.
+Mail flows in, the assistant drafts grounded replies, and you approve them. After the tour your lead opens a setup conversation. A daily check-in starts only if you say yes there, or later from the [setup guide](/docs/getting-started/setup-guide). Continue with that guide for branding, team and modules.

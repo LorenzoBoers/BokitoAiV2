@@ -616,7 +616,7 @@ const WIDGET_CSS = `
 @keyframes bk-scale-in{from{transform:scale(0)}to{transform:scale(1)}}
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking,.agent-live-dot,.thinking-shimmer-text{animation:none!important;}.thinking-shimmer-text{color:var(--bk-ai-ink);-webkit-text-fill-color:var(--bk-ai-ink);background:none;}}
+@media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link,.bk-msg,.bk-thinking,.agent-live-dot,.thinking-shimmer-text{animation:none!important;}.thinking-shimmer-text{color:var(--bk-ai-ink);-webkit-text-fill-color:var(--bk-ai-ink);background:none;}}
 .bk-launcher{position:fixed;bottom:16px;right:16px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:transparent;border:none;cursor:grab;box-shadow:none;display:flex;align-items:center;justify-content:center;overflow:visible;transition:transform var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
 /* Soft brand aura — not a hard bubble. */
 .bk-launcher::before{content:'';position:absolute;inset:-18%;border-radius:50%;background:var(--bk-launcher-halo);opacity:.9;transform:scale(.92);filter:blur(1px);transition:opacity var(--bk-launcher-transition),transform var(--bk-launcher-transition),background var(--bk-launcher-transition);pointer-events:none;z-index:0;}
@@ -682,10 +682,14 @@ const WIDGET_CSS = `
 :host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-avatar{animation-delay:.09s;}
 :host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-info{animation-delay:.14s;}
 :host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-actions{animation-delay:.19s;}
-:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
 :host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title{animation-delay:.24s;}
 :host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
 :host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(2){animation-delay:.5s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(3){animation-delay:.56s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(4){animation-delay:.62s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(5){animation-delay:.68s;}
 .bk-header-info{flex:1;min-width:0;}
 .bk-header-name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
@@ -771,7 +775,26 @@ const WIDGET_CSS = `
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title{animation-delay:.24s;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(2){animation-delay:.5s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(3){animation-delay:.56s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(4){animation-delay:.62s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(5){animation-delay:.68s;}
 .bk-home-new-btn-icon svg{width:18px;height:18px;color:var(--bk-primary);}
+:host([data-surface="in_app"]) .bk-home-new-btn{margin-bottom:8px;}
+.bk-home-links{display:none;flex-direction:column;gap:8px;margin:0 24px 28px;}
+:host([data-surface="in_app"]) .bk-home-links{display:flex;}
+.bk-home-links-title{margin:8px 2px 2px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--bk-header-text);opacity:.62;}
+.bk-home-link{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;padding:11px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:var(--bk-header-text);font:600 14px var(--bk-font);text-align:left;cursor:pointer;transition:background var(--bk-transition),border-color var(--bk-transition),transform var(--bk-transition);}
+.bk-home-link:hover{background:rgba(255,255,255,.11);border-color:color-mix(in srgb,var(--bk-primary) 42%,rgba(255,255,255,.22));transform:translateY(-1px);}
+.bk-home-link:focus-visible{outline:2px solid var(--bk-primary);outline-offset:2px;}
+.bk-home-link-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--bk-primary) 18%,transparent);color:var(--bk-primary);}
+.bk-home-link-icon svg,.bk-home-link-chevron svg{width:16px;height:16px;display:block;}
+.bk-home-link-chevron{margin-left:auto;display:flex;opacity:.55;}
+.bk-home-link-chevron svg{transform:scaleX(-1);}
+:host([data-theme="light"]) .bk-home-links-title{color:var(--bk-text-muted);opacity:1;}
+:host([data-theme="light"]) .bk-home-link{color:var(--bk-text);background:rgba(255,255,255,.78);border-color:rgba(15,23,42,.12);}
+:host([data-theme="light"]) .bk-home-link:hover{background:#fff;border-color:color-mix(in srgb,var(--bk-primary) 36%,rgba(15,23,42,.16));}
 .bk-home-tab[data-tab="help"]{overflow:hidden;min-height:0;}
 .bk-home-tab[data-tab="help"] .bk-home-section{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .bk-help-search{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--bk-border);border-radius:10px;background:var(--bk-bg-surface);color:var(--bk-text);font:500 13px var(--bk-font);outline:none;margin-bottom:10px;}
@@ -1023,6 +1046,14 @@ const WIDGET_CHROME = {
   en: {
     openChat: 'Open chat',
     startNew: 'Start new conversation',
+    quickStart: 'Quick start',
+    linkPage: 'What can I do here?',
+    linkPagePrompt: 'What can I do on this page?',
+    linkHandoff: 'Hand work over',
+    linkHandoffPrompt: 'I want to hand work to an agent.',
+    linkSetup: 'Set something up',
+    linkSetupPrompt: 'Help me set something up in this workspace.',
+    linkHistory: 'Earlier chats',
     home: 'Home',
     messages: 'Messages',
     help: 'Help',
@@ -1108,6 +1139,14 @@ const WIDGET_CHROME = {
   nl: {
     openChat: 'Chat openen',
     startNew: 'Nieuw gesprek starten',
+    quickStart: 'Snel starten',
+    linkPage: 'Wat kan ik hier doen?',
+    linkPagePrompt: 'Wat kan ik op deze pagina doen?',
+    linkHandoff: 'Geef werk door',
+    linkHandoffPrompt: 'Ik wil werk doorgeven aan een agent.',
+    linkSetup: 'Richt iets in',
+    linkSetupPrompt: 'Help me iets in te richten in deze workspace.',
+    linkHistory: 'Eerdere gesprekken',
     home: 'Home',
     messages: 'Berichten',
     help: 'Help',
@@ -1715,6 +1754,7 @@ class BokitoChatWidget extends HTMLElement {
     // agent answers and whose branding the chrome shows.
     this.#surface = (this.dataset.surface || 'site').trim().toLowerCase().replace(/-/g, '_');
     if (!['site', 'in_app'].includes(this.#surface)) this.#surface = 'site';
+    this.setAttribute('data-surface', this.#surface);
     // Explicit tenant wins over host-based resolution (needed on customer domains).
     this.#tenantSubdomain = (this.dataset.tenant || '').trim() || null;
     this.#channelAccountId = (this.dataset.channelId || '').trim() || null;
@@ -1796,6 +1836,15 @@ class BokitoChatWidget extends HTMLElement {
     if (launcher) launcher.setAttribute('aria-label', this.#chrome('openChat'));
     const start = root.querySelector('.bk-home-new-btn span');
     if (start) start.textContent = this.#chrome('startNew');
+    const linksTitle = root.querySelector('.bk-home-links-title');
+    if (linksTitle) linksTitle.textContent = this.#chrome('quickStart');
+    root.querySelectorAll('.bk-home-link').forEach((btn) => {
+      const label = btn.querySelector('.bk-home-link-label');
+      const key = label?.getAttribute('data-chrome');
+      if (label && key) label.textContent = this.#chrome(key);
+      const visible = label?.textContent || '';
+      if (visible) btn.setAttribute('aria-label', visible);
+    });
     const back = root.querySelector('.bk-btn-back');
     if (back) {
       const backLabel = this.#chrome('back');
@@ -1930,6 +1979,29 @@ class BokitoChatWidget extends HTMLElement {
                 </div>
                 <span>Start new conversation</span>
               </button>
+              <div class="bk-home-links">
+                <div class="bk-home-links-title"></div>
+                <button type="button" class="bk-home-link" data-prompt="linkPagePrompt">
+                  <span class="bk-home-link-icon">${ICONS.help}</span>
+                  <span class="bk-home-link-label" data-chrome="linkPage"></span>
+                  <span class="bk-home-link-chevron">${ICONS.back}</span>
+                </button>
+                <button type="button" class="bk-home-link" data-prompt="linkHandoffPrompt">
+                  <span class="bk-home-link-icon">${ICONS.user}</span>
+                  <span class="bk-home-link-label" data-chrome="linkHandoff"></span>
+                  <span class="bk-home-link-chevron">${ICONS.back}</span>
+                </button>
+                <button type="button" class="bk-home-link" data-prompt="linkSetupPrompt">
+                  <span class="bk-home-link-icon">${ICONS.tools}</span>
+                  <span class="bk-home-link-label" data-chrome="linkSetup"></span>
+                  <span class="bk-home-link-chevron">${ICONS.back}</span>
+                </button>
+                <button type="button" class="bk-home-link" data-tab="messages">
+                  <span class="bk-home-link-icon">${ICONS.clock}</span>
+                  <span class="bk-home-link-label" data-chrome="linkHistory"></span>
+                  <span class="bk-home-link-chevron">${ICONS.back}</span>
+                </button>
+              </div>
             </div>
             <div class="bk-home-tab" data-tab="messages" hidden>
               <div class="bk-home-section">
@@ -2240,6 +2312,17 @@ class BokitoChatWidget extends HTMLElement {
       this.#setUserSoundNotifications(e.target.checked);
     });
     this.#root.querySelector('.bk-home-new-btn').addEventListener('click', () => this.#startNewConversation());
+    this.#root.querySelector('.bk-home-links')?.addEventListener('click', (e) => {
+      const btn = e.target?.closest?.('.bk-home-link');
+      if (!btn) return;
+      const tab = btn.dataset.tab;
+      if (tab) {
+        this.#switchHomeTab(tab);
+        return;
+      }
+      const promptKey = btn.dataset.prompt;
+      if (promptKey) void this.#startWithPrompt(this.#chrome(promptKey));
+    });
     this.#root.querySelectorAll('.bk-tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.tab;
@@ -3321,7 +3404,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#isResponding = false;
     this.#sendQueue = [];
     this.#updateQueueTelemetry();
-    this.  this.#streamingMsgEl = null;
+    this.#streamingMsgEl = null;
     this.#streamingMsgId = null;
     this.#deltaQueue = [];
     this.#pendingFinalMsg = null;
@@ -3333,6 +3416,15 @@ class BokitoChatWidget extends HTMLElement {
     this.#sm.transition('active');
     this.#maybeShowPreChatForm();
     this.#loadSuggestions();
+  }
+
+  /** Home shortcut: open a fresh chat and ask one of the assistant's jobs. */
+  async #startWithPrompt(text) {
+    await this.#startNewConversation();
+    if (this.#sm.state !== 'active') return;
+    const trimmed = (text || '').trim();
+    if (!trimmed) return;
+    await this.#sendMessageWithContent(trimmed, []);
   }
 
   /** Create (or reuse) the persisted thread right before the first send. */

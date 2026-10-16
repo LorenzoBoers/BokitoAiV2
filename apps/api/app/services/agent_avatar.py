@@ -54,6 +54,7 @@ ALLOWED_SHAPES = frozenset(
     {
         "bokito",
         "blob",
+        "square",
         "pebble",
         "egg",
         "squircle",

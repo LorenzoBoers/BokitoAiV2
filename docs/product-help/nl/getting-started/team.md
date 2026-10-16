@@ -25,8 +25,7 @@ Leden beantwoorden gesprekken. Eigenaren en beheerders koppelen ook kanalen, wij
 ## Neem nieuwe agents aan
 
 1. Open op **Workforce**, onder **Personen uitnodigen**, de banner **Neem nieuwe agents aan**.
-2. Kies **Marketplace** om specialisten te bekijken die je naast je team kunt zetten.
-3. Na het aannemen van een agent verschijnt die in de directory onder **Agents** (zie [Agents](/docs/ai/agents)).
+2. Naast de titel staat **binnenkort**. De knop **Marketplace** is uitgeschakeld tot de Marketplace open is.
 
 ## Meld je afwezig
 

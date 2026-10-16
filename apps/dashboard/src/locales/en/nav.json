@@ -3907,10 +3907,10 @@
       "renameAgent": "Edit name",
       "editIdentity": "Edit",
       "identityDialogTitle": "Name, job title and look",
-      "identityDialogBody": "How this agent appears in the library, Messages, and webchat. Job title is required (max 20 characters). Description is optional. Pick initials or a bot mark (shape + color).",
+      "identityDialogBody": "How this agent appears in the library, Messages, and webchat. Job title is required (max 32 characters). Description is optional. Pick initials or a bot mark (shape + color).",
       "identityJobTitle": "Job title",
       "identityJobTitlePlaceholder": "e.g. Support lead",
-      "identityJobTitleHint": "Short title under the name. Max 20 characters.",
+      "identityJobTitleHint": "Short title under the name. Max 32 characters.",
       "identityJobTitleRequired": "Job title is required",
       "identityDescription": "Description (optional)",
       "identityDescriptionPlaceholder": "e.g. Handles inbound support and hands off billing questions",
@@ -4177,6 +4177,7 @@
       "visualPickIcon": "Icon",
       "visualPickColor": "Color",
       "visualMoreColors": "More colors",
+      "visualMoreShapes": "More shapes",
       "visualShapes": {
         "bokito": "Bokito",
         "monkey": "Monkey",
@@ -6247,6 +6248,7 @@
       "memberNo": "No"
     },
     "hireAgentsTitle": "Hire new agents",
+    "hireAgentsSoon": "Coming soon",
     "hireAgentsBody": "Pick specialists from the Marketplace and put them next to your team.",
     "hireAgentsCta": "Marketplace",
     "emailPlaceholder": "name@company.com",

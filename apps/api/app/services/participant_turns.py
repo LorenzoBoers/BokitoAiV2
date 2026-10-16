@@ -133,6 +133,39 @@ def _same_open_floor(
     return not _deadline_expired(active)
 
 
+# Opener must persist before the peer runs. The safety job waits this long
+# so it does not start the peer mid-sentence (and race the flush job).
+PEER_DEFER_SAFETY_S = 20
+
+
+def wake_requester_after_peer(outcome: str) -> bool:
+    """A sent reply is already in the thread. Only a silent pass needs a follow-up line."""
+    return outcome == "pass"
+
+
+def deferred_job_block(active: dict[str, Any]) -> str | None:
+    """Return an error when a worker job must not start this floor yet.
+
+    A deferred peer waits for the opener to persist. After
+    ``PEER_DEFER_SAFETY_S`` the same job may run anyway, in case flush never
+    happened.
+    """
+    if not active.get("deferred"):
+        return None
+    raw = str(active.get("streak_at") or "").strip()
+    started: datetime | None = None
+    if raw:
+        try:
+            started = datetime.fromisoformat(raw)
+        except ValueError:
+            started = None
+    # Safety job is queued at PEER_DEFER_SAFETY_S. A slightly early tick
+    # must still run; an immediate tick while the opener is writing must not.
+    if started is not None and datetime.utcnow() - started < timedelta(seconds=PEER_DEFER_SAFETY_S - 1):
+        return "still_deferred"
+    return None
+
+
 def claim_active_turn(
     signal: Signal,
     *,
@@ -323,7 +356,7 @@ async def request_participant_turn(
             peers=peers,
             enqueue=enqueue,
             floor=floor,
-            defer_by_s=3,
+            defer_by_s=PEER_DEFER_SAFETY_S,
         )
         if started.get("outcome") in ("queued", "deferred"):
             started = {
@@ -331,9 +364,8 @@ async def request_participant_turn(
                 "outcome": "deferred",
                 "note": (
                     f"{agent.name} will take the floor after you finish this message. "
-                    "Write one short handoff now (what you asked them). "
-                    "Do not say you are still waiting after they reply — you will be "
-                    "woken to summarize for the human."
+                    "Write one short handoff that includes what the human asked, then stop. "
+                    "They answer the human. Do not wait to summarize their reply."
                 ),
             }
         return started
@@ -785,9 +817,8 @@ async def execute_participant_turn(
         except Exception:  # noqa: BLE001
             logger.debug("nest handoff after participant turn failed", exc_info=True)
 
-    # Hand the floor back so the requester can report to the operator
-    # (including after a peer pass — otherwise Ask/Nadenken lingers with no wake).
-    # Dual jobs cannot both reach here: claim_active_turn is single-winner.
+    # A posted reply is already in the thread. Only a silent pass wakes the
+    # requester, in one line, so a skipped handoff does not stall.
     if (
         outcome in ("sent", "pass")
         and requested_by_kind == "agent"
@@ -797,37 +828,27 @@ async def execute_participant_turn(
         try:
             from app.services.handoff_sessions import complete_handoff_session
 
-            # Close the tree before the report turn so @peer in the summary
-            # cannot start depth N+1 and burn the streak cap.
-            complete_handoff_session(signal, reason="wake_requester")
-            session.add(signal)
-            if outcome == "pass":
-                wake_prompt = (
-                    f"{agent.name} passed on their turn (they skipped). "
-                    "Tell the human in one short sentence that they skipped. "
-                    "Do not pass. Do not say you are still waiting."
-                )
-            else:
-                snippet = (text or "").strip().replace("\n", " ")[:220]
-                wake_prompt = (
-                    f"{agent.name} finished their turn. Their reply was: "
-                    f"\"{snippet or 'Done.'}\" "
-                    "Tell the human in one short sentence what they did "
-                    "(use that reply; do not invent other work). "
-                    "Do not @mention other agents. Do not pass. "
-                    "Do not say you are still waiting."
-                )
-            await request_participant_turn(
-                session,
+            complete_handoff_session(
                 signal,
-                member_kind="agent",
-                member_ref_id=requested_by_id,
-                prompt=wake_prompt,
-                requested_by_kind="system",
-                requested_by_id=None,
-                run=True,
-                enqueue=True,
+                reason="peer_passed" if outcome == "pass" else "peer_replied",
             )
+            session.add(signal)
+            if wake_requester_after_peer(outcome):
+                await request_participant_turn(
+                    session,
+                    signal,
+                    member_kind="agent",
+                    member_ref_id=requested_by_id,
+                    prompt=(
+                        f"{agent.name} passed on their turn (they skipped). "
+                        "Tell the human in one short sentence that they skipped. "
+                        "Do not pass. Do not say you are still waiting."
+                    ),
+                    requested_by_kind="system",
+                    requested_by_id=None,
+                    run=True,
+                    enqueue=True,
+                )
         except Exception:  # noqa: BLE001
             logger.debug("wake requester after participant turn failed", exc_info=True)
 

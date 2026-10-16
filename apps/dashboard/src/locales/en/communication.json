@@ -420,9 +420,6 @@
       "addSource": "Add source",
       "addToQueue": "Add to queue"
     },
-    "feedbackGood": "Looks right",
-    "feedbackPoor": "Not helpful",
-    "feedbackError": "Could not save feedback.",
     "knownSubjects": {
       "replyToCustomer": "Reply to customer message",
       "dailyPlatformScan": "Daily platform scan",
@@ -475,7 +472,9 @@
     "note": "Note",
     "action": "Action",
     "failed": "Failed",
-    "webSearch": "Searching for {{query}}"
+    "webSearch": "Searching for {{query}}",
+    "inviting": "Inviting {{name}} to the conversation",
+    "invitingSomeone": "Inviting to the conversation"
   },
   "mockAgent": {
     "replyBody": "Placeholder reply about {{topic}}."
@@ -1168,6 +1167,25 @@
     "trash": "Move to Bin",
     "trashConfirm": "Move {{count}} conversations to the Bin? You can restore them later from Settings → Bin.",
     "trashDone": "{{count}} moved to the Bin",
+    "closed_one": "{{count}} conversation closed",
+    "closed_other": "{{count}} conversations closed",
+    "reopened_one": "{{count}} conversation reopened",
+    "reopened_other": "{{count}} conversations reopened",
+    "spam_one": "{{count}} conversation marked as spam",
+    "spam_other": "{{count}} conversations marked as spam",
+    "read_one": "{{count}} conversation marked read",
+    "read_other": "{{count}} conversations marked read",
+    "unread_one": "{{count}} conversation marked unread",
+    "unread_other": "{{count}} conversations marked unread",
+    "assigned_one": "{{count}} conversation assigned",
+    "assigned_other": "{{count}} conversations assigned",
+    "filed_one": "{{count}} conversation filed",
+    "filed_other": "{{count}} conversations filed",
+    "pinned_one": "{{count}} conversation pinned",
+    "pinned_other": "{{count}} conversations pinned",
+    "unpinned_one": "{{count}} conversation unpinned",
+    "unpinned_other": "{{count}} conversations unpinned",
+    "failed": "Could not update these conversations.",
     "noMembers": "No members",
     "clear": "Clear",
     "clearSelection": "Clear selection",

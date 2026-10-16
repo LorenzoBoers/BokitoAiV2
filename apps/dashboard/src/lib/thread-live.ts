@@ -199,12 +199,23 @@ function applyAndFlags(thread: InboxThread, filters: ThreadFilters, viewMatch: b
  * their previous values when the incoming row has none.
  */
 export function mergeThreadRow(existing: InboxThread, row: InboxThread): InboxThread {
+  const agentId = row.agentId ?? existing.agentId
+  // A live row often omits avatar fields. Keep the known mark unless the
+  // assigned agent actually changed.
+  const sameAgent = String(agentId ?? '') === String(existing.agentId ?? '')
+  const keepAvatar = <T,>(incoming: T | null | undefined, previous: T | null | undefined): T | null | undefined =>
+    incoming ?? (sameAgent ? previous : null)
   return {
     ...existing,
     ...row,
-    agentId: row.agentId ?? existing.agentId,
+    agentId,
     agentName: row.agentName ?? existing.agentName,
     agentKind: row.agentKind ?? existing.agentKind,
+    agentAvatarKind: keepAvatar(row.agentAvatarKind, existing.agentAvatarKind),
+    agentAvatarIcon: keepAvatar(row.agentAvatarIcon, existing.agentAvatarIcon),
+    agentAvatarColor: keepAvatar(row.agentAvatarColor, existing.agentAvatarColor),
+    agentAvatarShape: keepAvatar(row.agentAvatarShape, existing.agentAvatarShape),
+    agentAvatarImageUrl: keepAvatar(row.agentAvatarImageUrl, existing.agentAvatarImageUrl),
     aiHandling: row.aiHandling ?? existing.aiHandling,
     ticket: row.ticket === undefined ? existing.ticket : row.ticket,
     tags: row.tags ?? existing.tags,

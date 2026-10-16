@@ -74,8 +74,13 @@ async def expand_invitees(
     tenant_id: UUID,
     signal: Signal,
     body_text: str,
+    extra_agent_ids: list[UUID] | None = None,
 ) -> dict[str, Any]:
-    """Expand agent/team mentions into ordered agent + human invitee lists."""
+    """Expand agent/team mentions into ordered agent + human invitee lists.
+
+    ``extra_agent_ids`` are the Ask-tab audience. They join the mention list
+    without being written into the message body.
+    """
     from app.models.team import TEAM_KIND_AGENTS
     from app.services.teams import get_team, team_agent_ids, team_user_ids
     from app.services.thread_dispatch import entity_mentions
@@ -126,6 +131,19 @@ async def expand_invitees(
         human_ids.append(key)
         humans.append({"kind": "user", "id": key, "name": match.group(1)})
 
+    for raw_id in extra_agent_ids or []:
+        try:
+            target_id = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id))
+        except ValueError:
+            continue
+        if target_id in agent_ids:
+            continue
+        agent = await session.get(Agent, target_id)
+        if agent is None or agent.tenant_id != tenant_id or not agent.is_active:
+            continue
+        agent_ids.append(agent.id)
+        agents.append(agent)
+
     return {
         "agents": agents,
         "agent_ids": agent_ids,
@@ -151,38 +169,193 @@ def _hierarchy_score(agent: Agent) -> int:
     return score
 
 
+_NEGATION = re.compile(
+    r"\b(geen|niet|no|not|don't|dont|without|zonder|niet\s+met)\b",
+    re.IGNORECASE,
+)
+
+
+def _name_needles(name: str) -> list[str]:
+    parts = [part for part in re.split(r"\s+", (name or "").strip()) if part]
+    if not parts:
+        return []
+    needles = [" ".join(parts).lower()]
+    needles.extend(part.lower() for part in parts if len(part) > 3)
+    if len(parts) >= 2:
+        needles.append(f"{parts[-2]} {parts[-1]}".lower())
+    # Longer needles first so "test agent" wins over a short token.
+    return sorted(set(needles), key=len, reverse=True)
+
+
+def _refused(text: str, agent: Agent) -> bool:
+    low = (text or "").lower()
+    if not low:
+        return False
+    for needle in _name_needles(agent.name or ""):
+        start = 0
+        while True:
+            at = low.find(needle, start)
+            if at < 0:
+                break
+            window = low[max(0, at - 32) : at]
+            if _NEGATION.search(window):
+                return True
+            start = at + len(needle)
+    return False
+
+
+def _named_in_order(agents: list[Agent], text: str) -> list[Agent]:
+    low = (text or "").lower()
+    hits: list[tuple[int, Agent]] = []
+    for agent in agents:
+        if _refused(text, agent):
+            continue
+        best: int | None = None
+        for needle in _name_needles(agent.name or ""):
+            at = low.find(needle)
+            if at >= 0 and (best is None or at < best):
+                best = at
+        if best is not None:
+            hits.append((best, agent))
+    hits.sort(key=lambda item: item[0])
+    return [agent for _, agent in hits]
+
+
+def _fallback_speaker(
+    agents: list[Agent],
+    *,
+    mention_order: list[UUID] | None,
+    channel_agent_id: UUID | None,
+) -> Agent | None:
+    if not agents:
+        return None
+    by_id = {agent.id: agent for agent in agents}
+    for mid in mention_order or []:
+        picked = by_id.get(mid)
+        if picked is not None:
+            return picked
+    if channel_agent_id is not None:
+        picked = by_id.get(channel_agent_id)
+        if picked is not None:
+            return picked
+    return sorted(agents, key=lambda agent: (-_hierarchy_score(agent), agent.name or ""))[0]
+
+
+def choose_speaker(
+    agents: list[Agent],
+    text: str,
+    *,
+    mention_order: list[UUID] | None = None,
+    channel_agent_id: UUID | None = None,
+) -> Agent | None:
+    """Who should answer. None when several candidates remain and none is named.
+
+    A refused name drops out ("geen test agent"). One remaining name is asked
+    to act, so "@Extra tell @Bokito" still opens as Extra. An unnamed tie is
+    left for a short model pick, then mention order and the thread agent.
+    """
+    if not agents:
+        return None
+    pool = [agent for agent in agents if not _refused(text, agent)] or list(agents)
+    if len(pool) == 1:
+        return pool[0]
+    named = _named_in_order(pool, text)
+    if named:
+        return named[0]
+    return None
+
+
 def pick_opener(
     agents: list[Agent],
     *,
     channel_agent_id: UUID | None = None,
     mention_order: list[UUID] | None = None,
+    text: str = "",
 ) -> Agent | None:
-    """Choose the single opener. Never returns a human.
-
-    First @agent mention wins — that is who the human asked to act
-    (``@Extra … tell @Bokito`` must open as Extra, not the channel default).
-    Channel agent / hierarchy are fallbacks when mention order is empty.
-    """
-    if not agents:
-        return None
-    by_id = {a.id: a for a in agents}
-    if mention_order:
-        for mid in mention_order:
-            picked = by_id.get(mid)
-            if picked is not None:
-                return picked
-    if channel_agent_id:
-        picked = by_id.get(channel_agent_id)
-        if picked is not None:
-            return picked
-    ranked = sorted(
+    """Sync opener choice. Ambiguous text falls back without a model call."""
+    picked = choose_speaker(
         agents,
-        key=lambda a: (
-            -_hierarchy_score(a),
-            a.name or "",
-        ),
+        text,
+        mention_order=mention_order,
+        channel_agent_id=channel_agent_id,
     )
-    return ranked[0]
+    if picked is not None:
+        return picked
+    return _fallback_speaker(
+        agents,
+        mention_order=mention_order,
+        channel_agent_id=channel_agent_id,
+    )
+
+
+def _choice_text(result: dict[str, Any]) -> str:
+    content = result.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") in (None, "text"):
+                parts.append(str(block.get("text") or ""))
+        return " ".join(parts)
+    return ""
+
+
+async def resolve_speaker(
+    agents: list[Agent],
+    text: str,
+    *,
+    mention_order: list[UUID] | None = None,
+    channel_agent_id: UUID | None = None,
+) -> Agent | None:
+    """choose_speaker, then one no-tool completion, then mention order / thread agent."""
+    picked = choose_speaker(
+        agents,
+        text,
+        mention_order=mention_order,
+        channel_agent_id=channel_agent_id,
+    )
+    if picked is not None or len(agents) < 2:
+        return picked or _fallback_speaker(
+            agents,
+            mention_order=mention_order,
+            channel_agent_id=channel_agent_id,
+        )
+    pool = [agent for agent in agents if not _refused(text, agent)] or list(agents)
+    try:
+        from app.services.agent.llm import get_llm_provider
+
+        lines = "\n".join(
+            f"{agent.id} | {agent.name} | {(getattr(agent, 'job_title', None) or agent.role or '').strip()}"
+            for agent in pool
+        )
+        result = await get_llm_provider().chat(
+            [
+                {
+                    "role": "user",
+                    "content": (
+                        "Pick who should answer the human. Reply with only the id.\n"
+                        f"Candidates:\n{lines}\n\nHuman:\n{(text or '')[:1500]}"
+                    ),
+                }
+            ],
+            tools=None,
+            max_tokens=40,
+        )
+        raw = _choice_text(result)
+        by_id = {str(agent.id): agent for agent in pool}
+        for agent_id, agent in by_id.items():
+            if agent_id in raw:
+                return agent
+    except Exception:  # noqa: BLE001
+        logger.debug("speaker route failed", exc_info=True)
+    return _fallback_speaker(
+        pool,
+        mention_order=mention_order,
+        channel_agent_id=channel_agent_id,
+    )
 
 
 def _opener_context(
@@ -192,6 +365,7 @@ def _opener_context(
     humans: list[dict[str, Any]],
     depth: int,
     prompt: str,
+    original_request: str = "",
 ) -> str:
     peers = []
     for a in co_agents:
@@ -213,14 +387,34 @@ def _opener_context(
             "**last** action (tag them and stop). Do not hand off mid-tool chain."
         )
     )
+    request = (prompt or "").strip()[:2000]
+    original = (original_request or "").strip()[:2000]
+    if original and original not in request:
+        request = (
+            f"{request}\n\n"
+            "Original request from the human (answer this; do not ask them to repeat it):\n"
+            f"{original}"
+        )
+    if depth > 1:
+        role = (
+            f"You are {opener.name}. Another agent brought you into this conversation. "
+            "The human tagged you or asked for you. Answer them directly."
+        )
+    else:
+        role = (
+            f"You are {opener.name}. You speak first. Answer the human directly.\n"
+            "The others below were included in this message. Involve one only when "
+            "they should answer instead of you."
+        )
     return (
-        f"## Handoff session — you are the opener\n"
-        f"You are {opener.name}. The human addressed you first — you act.\n"
-        f"Co-awake invitees (tag one only when you hand work to them):\n{peer_block}\n\n"
+        f"## Handoff\n"
+        f"{role}\n"
+        f"Others in this message:\n{peer_block}\n\n"
         f"{depth_note}\n"
-        f"Do the request yourself. If you must tell a co-invitee something, "
-        f"tag them and say it in one short message, then stop.\n"
-        f"Request: {(prompt or '').strip()[:2000]}\n"
+        "If you hand off, one short line that includes the human's actual request, "
+        "tag them, then stop. Do not ask them to ask the human what the question was. "
+        "You will not be asked to summarize their reply.\n"
+        f"Request: {request}\n"
     )
 
 
@@ -239,6 +433,8 @@ async def start_handoff_session(
     requested_by_kind: str | None = None,
     requested_by_id: UUID | None = None,
     defer_peer: bool | None = None,
+    extra_agent_ids: list[UUID] | None = None,
+    original_request: str = "",
 ) -> dict[str, Any] | None:
     """Start a handoff when ≥1 agent and ≥2 invitees; else return None (caller falls through).
 
@@ -247,7 +443,13 @@ async def start_handoff_session(
     """
     from app.services.participant_turns import request_participant_turn
 
-    invitees = await expand_invitees(session, tenant_id, signal, body_text)
+    invitees = await expand_invitees(
+        session,
+        tenant_id,
+        signal,
+        body_text,
+        extra_agent_ids=extra_agent_ids,
+    )
     agents: list[Agent] = invitees["agents"]
     humans: list[dict[str, Any]] = invitees["humans"]
     if not agents:
@@ -256,8 +458,9 @@ async def start_handoff_session(
         # Single agent mention — keep classic one-floor path.
         return None
 
-    opener = pick_opener(
+    opener = await resolve_speaker(
         agents,
+        body_text,
         channel_agent_id=channel_agent_id or signal.agent_id,
         mention_order=invitees["agent_ids"],
     )
@@ -278,7 +481,7 @@ async def start_handoff_session(
         "agent_ids": [str(a.id) for a in agents],
         "human_ids": [h["id"] for h in humans],
         "started_at": datetime.utcnow().isoformat(),
-        "prompt": (body_text or "")[:2000],
+        "prompt": ((original_request or body_text) or "")[:2000],
     }
     _write_handoff(signal, state)
     session.add(signal)
@@ -319,6 +522,7 @@ async def start_handoff_session(
         humans=humans,
         depth=depth,
         prompt=body_text,
+        original_request=original_request,
     )
     turn = await request_participant_turn(
         session,
@@ -384,6 +588,7 @@ async def nest_handoff(
         requested_by_kind="agent",
         requested_by_id=from_agent_id,
         defer_peer=False,
+        original_request=str((current or {}).get("prompt") or ""),
     )
     if started is None:
         return {"ok": False, "error": "no_session"}

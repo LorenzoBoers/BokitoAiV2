@@ -11,6 +11,12 @@ related: tour,agents,govern,categories,widget
 
 Bokito is your own assistant inside the platform. It is not one of the workspace agents that answer customers: its job is to make you effective in Bokito.
 
+## Start from the home screen
+
+1. Open Bokito from **Help** in the top bar, or the button in the bottom-right.
+2. Under **Start new conversation**, choose **What can I do here?**, **Hand work over**, or **Set something up**. Bokito starts a chat and asks that for you.
+3. Choose **Earlier chats** to open your private conversation list.
+
 ## Ask about the page you are on
 
 1. Choose **Help** in the top bar, or the Bokito button in the bottom-right on pages where the launcher is shown — including the Workspaces hub and Account on the Bokito portal. On Communication with an open thread the corner launcher stays hidden; use top-bar **Help** to open the panel. Bokito always carries its own mark; your profile photo sits top right in the chat, so you can see which account you are chatting from.

@@ -54,7 +54,7 @@ Heeft een agent in dezelfde beurt jouw OK nodig voor meer dan één wijziging (b
 1. Lees het voorstel in de context van het gesprek. Conceptantwoorden in klantgesprekken, check-ins en geplande wake-ups houden hun eigen kaart in het gesprek.
 2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Plannen** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
 3. Een voorgesteld chatantwoord kan uit meerdere korte berichten bestaan. De kaart toont ze als **Bericht 1**, **Bericht 2** enzovoort. Kies **Bericht verwijderen** bij een bericht dat je niet wilt, of **Bewerken** om ze als één tekst te herschrijven; een lege regel start een nieuw bericht. **Versturen** levert ze op volgorde af.
-4. Reageer op een agentbericht met Leuk, Niet behulpzaam, Mee eens, Gefrustreerd of Denk na — die reacties voeden learning. Escaleren zet het gesprek op Handmatig en wijst jou toe.
+4. Hover de beslissingskaart, of een agentbericht, en reageer met Leuk, Niet behulpzaam, Mee eens, Gefrustreerd of Denk na. Die reacties voeden learning. Escaleren zet het gesprek op Handmatig en wijst jou toe.
 
 ## Wijs dezelfde vraag in bulk af
 

@@ -3907,10 +3907,10 @@
       "renameAgent": "Naam bewerken",
       "editIdentity": "Bewerken",
       "identityDialogTitle": "Naam, functie en uiterlijk",
-      "identityDialogBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie en webchat. Functie is verplicht (max. 20 tekens). Omschrijving is optioneel. Kies initialen of een bot (vorm + kleur).",
+      "identityDialogBody": "Hoe deze agent verschijnt in de bibliotheek, Communicatie en webchat. Functie is verplicht (max. 32 tekens). Omschrijving is optioneel. Kies initialen of een bot (vorm + kleur).",
       "identityJobTitle": "Functie",
       "identityJobTitlePlaceholder": "bijv. Support lead",
-      "identityJobTitleHint": "Korte titel onder de naam. Max. 20 tekens.",
+      "identityJobTitleHint": "Korte titel onder de naam. Max. 32 tekens.",
       "identityJobTitleRequired": "Functie is verplicht",
       "identityDescription": "Omschrijving (optioneel)",
       "identityDescriptionPlaceholder": "bijv. Behandelt inbound support en geeft factuurvragen door",
@@ -4177,6 +4177,7 @@
       "visualPickIcon": "Icoon",
       "visualPickColor": "Kleur",
       "visualMoreColors": "Meer kleuren",
+      "visualMoreShapes": "Meer vormen",
       "visualShapes": {
         "bokito": "Bokito",
         "monkey": "Aap",
@@ -6247,6 +6248,7 @@
       "memberNo": "Nee"
     },
     "hireAgentsTitle": "Neem nieuwe agents aan",
+    "hireAgentsSoon": "binnenkort",
     "hireAgentsBody": "Kies specialisten uit de Marketplace en zet ze naast je team.",
     "hireAgentsCta": "Marketplace",
     "emailPlaceholder": "naam@bedrijf.com",

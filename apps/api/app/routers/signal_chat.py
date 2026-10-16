@@ -166,6 +166,9 @@ class MessageCreate(BaseModel):
     # Ask target when the operator @-tagged (or focused) a peer on an internal
     # thread. Without this, SSE always drove signal.agent_id (channel default).
     agent_id: UUID | None = None
+    # Agents selected on the Ask tab. Unioned with @mentions in the body.
+    # The bubble stays the typed text; the button does not have to write chips.
+    audience_agent_ids: list[UUID] = []
 
 
 async def _resolve_turn_content(
@@ -955,7 +958,13 @@ async def stream_message(
         # instead of a solo SSE drive — same opener path as Note @mentions.
         from app.services.handoff_sessions import expand_invitees, start_handoff_session
 
-        invitees = await expand_invitees(session, auth.tenant.id, signal, turn_content)
+        invitees = await expand_invitees(
+            session,
+            auth.tenant.id,
+            signal,
+            turn_content,
+            extra_agent_ids=body.audience_agent_ids,
+        )
         if invitees["agents"] and invitees["total"] >= 2:
             author_name = (
                 (auth.user.display_name or auth.user.email) if auth.user else ""
@@ -969,6 +978,7 @@ async def stream_message(
                 author_name=author_name or "",
                 user_role=auth.role,
                 channel_agent_id=signal.agent_id,
+                extra_agent_ids=body.audience_agent_ids,
             )
             await session.commit()
             opener_id = (started or {}).get("opener_id")

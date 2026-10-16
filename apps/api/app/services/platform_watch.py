@@ -3,8 +3,9 @@
 Like every recurring task, the check-in runs in its own internal thread
 (`thread_schedule.ensure_trigger_thread`): each wake works live there and only
 reopens the thread when it has something new. The agent's shared channel
-(`ensure_agent_channel`) stays a chat. Existing disabled heartbeats are never
-flipped on automatically.
+(`ensure_agent_channel`) stays a chat. The rule and its thread are created
+only when someone turns watching on (`set_platform_watch`). Existing disabled
+heartbeats are never flipped on automatically.
 """
 
 from __future__ import annotations
@@ -245,34 +246,67 @@ def serialize_watch_status(trigger: Trigger, channel_signal_id: UUID | None) -> 
     }
 
 
+def absent_watch_status() -> dict[str, Any]:
+    """No check-in yet. Reading status must not create the Agenda thread."""
+    return {
+        "enabled": False,
+        "trigger_id": None,
+        "name": "",
+        "interval_minutes": PLATFORM_CHECKIN_INTERVAL_MINUTES,
+        "next_run_at": None,
+        "last_status": "",
+        "signal_id": None,
+        "trigger": None,
+    }
+
+
 async def watch_status(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    trigger = await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=False)
+    trigger = await get_heartbeat_trigger(session, tenant_id)
+    if trigger is None:
+        return absent_watch_status()
     return serialize_watch_status(trigger, trigger.signal_id)
 
 
 async def set_platform_watch(
     session: AsyncSession, tenant_id: UUID, enabled: bool
 ) -> dict[str, Any]:
-    """Enable or pause only the seeded platform check-in."""
-    trigger = await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=False)
-    trigger.enabled = bool(enabled)
-    trigger.next_run_at = compute_next_run(trigger) if trigger.enabled else None
+    """Turn the daily check-in on or off.
+
+    Enabling is what creates the rule and its Agenda thread. Turning it off
+    when none exists does not leave a paused conversation behind.
+    """
+    trigger = await get_heartbeat_trigger(session, tenant_id)
+    if not enabled:
+        if trigger is None:
+            return absent_watch_status()
+        trigger.enabled = False
+        trigger.next_run_at = None
+        session.add(trigger)
+        await session.flush()
+        return serialize_watch_status(trigger, trigger.signal_id)
+    if trigger is None:
+        trigger = await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=True)
+    trigger.enabled = True
+    trigger.next_run_at = compute_next_run(trigger)
     session.add(trigger)
     await session.flush()
+    from app.services.thread_schedule import ensure_trigger_thread, mirror_next_at
+
+    signal = await ensure_trigger_thread(session, trigger)
+    mirror_next_at(signal, trigger)
+    session.add(signal)
     return serialize_watch_status(trigger, trigger.signal_id)
 
 
-async def bootstrap_new_tenant(session: AsyncSession, tenant_id: UUID) -> Trigger:
-    """New workspace: the daily check-in rule and its thread (paused until enabled)."""
-    return await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=False)
+async def bootstrap_new_tenant(session: AsyncSession, tenant_id: UUID) -> Trigger | None:
+    """Obsolete seed. New workspaces opt in through set_platform_watch."""
+    del session, tenant_id
+    return None
 
 
 async def ensure_platform_watch(session: AsyncSession) -> None:
-    """Startup backfill: every tenant has the check-in rule and its thread.
+    """Startup no longer seeds a check-in.
 
-    Never enables an existing rule. Idempotent.
+    Existing rules stay as they are: not enabled, not renamed, no new thread.
     """
-    tenants = (await session.execute(select(Tenant))).scalars().all()
-    for tenant in tenants:
-        await ensure_heartbeat_trigger(session, tenant.id, enable_if_created=False)
-    await session.commit()
+    del session

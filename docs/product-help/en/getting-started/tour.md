@@ -9,7 +9,13 @@ related: welcome,cockpit,communication
 
 # Product tour
 
-After you create a workspace, owners finish a short **first-run wizard** (`/onboarding`) — **About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel** — before this tour. Invited members only set personal language and notifications. The rail tour does not auto-start until that wizard is done; finishing the wizard starts the tour.
+After you create a workspace, owners finish a short **first-run wizard** (`/onboarding`) — **About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel** — before this tour. **Your agent** creates the workspace lead and uses the same living bot mark as the rest of the platform: shape, color, and motion. It does not rename Bokito, the in-app helper. Invited members only set personal language and notifications. The rail tour does not auto-start until that wizard is done; finishing the wizard starts the tour.
+
+## After the tour
+
+1. End the tour with **Start the setup chat**, **Open Communication**, or **I will explore on my own**.
+2. Your new lead opens one conversation in Communication and asks if the name is right, then about the company and how work should run.
+3. Proposals wait in Govern. A daily check-in starts only if you say yes in that conversation.
 
 Bokito has one sidebar with seven areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
 

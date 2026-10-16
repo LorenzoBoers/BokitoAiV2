@@ -62,7 +62,7 @@ class EventBus:
                     f"(REDIS_URL unreachable: {get_settings().redis_url!r})."
                 )
             return
-        self._reader_task = asyncio.create_task(self._reader_loop())
+        self._reader_task = asyncio.create_task(self._reader_supervise())
 
     async def stop(self) -> None:
         if self._reader_task:
@@ -134,6 +134,17 @@ class EventBus:
             await redis.publish(REDIS_CHANNEL, json.dumps(envelope, default=str))
         except Exception:
             logger.warning("gateway: redis publish failed", exc_info=True)
+
+    async def _reader_supervise(self) -> None:
+        """Keep the Redis subscription up. A dead reader drops every worker event."""
+        while True:
+            try:
+                await self._reader_loop()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning("gateway: redis reader stopped; reconnecting", exc_info=True)
+            await asyncio.sleep(1)
 
     async def _reader_loop(self) -> None:
         redis = await self._get_redis()

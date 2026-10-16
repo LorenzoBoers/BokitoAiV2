@@ -110,6 +110,14 @@ def _activity_result(tool: str, result: Any) -> Any:
             if result.get("message"):
                 slim["message"] = str(result.get("message"))[:200]
         return slim
+    if tool == "invite_to_thread" and isinstance(result, dict):
+        turn = result.get("turn") if isinstance(result.get("turn"), dict) else {}
+        return {
+            "ok": bool(result.get("ok")),
+            "kind": str(result.get("kind") or "")[:20],
+            "ref_id": str(result.get("ref_id") or "")[:80],
+            "name": str(result.get("name") or turn.get("agent_name") or "")[:80],
+        }
     if tool == "fetch_url" and isinstance(result, dict):
         slim = {
             "url": str(result.get("url") or "")[:240],

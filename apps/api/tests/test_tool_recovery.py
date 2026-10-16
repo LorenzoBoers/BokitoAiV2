@@ -46,6 +46,28 @@ async def test_invoke_handler_returns_http_and_crash_to_model(session_override):
     assert "db locked" in failed["error"]
 
 
+@pytest.mark.asyncio
+async def test_audit_failure_still_returns_tool_error(client, session_override, monkeypatch):
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+
+    async def _boom(*_args, **_kwargs):
+        raise RuntimeError("greenlet_spawn has not been called")
+
+    monkeypatch.setattr("app.tools.executor.record_audit", _boom)
+    result = await execute_tool(
+        session_override,
+        tenant.id,
+        None,
+        "update_folder_canvas",
+        {},
+    )
+    assert "canvas_id" in result["error"]
+
+
 def test_timeout_and_invalid_mark_activity_error():
     assert _is_error({"error": "took too long", "status": "timeout"})
     assert _is_error({"status": "timeout"})

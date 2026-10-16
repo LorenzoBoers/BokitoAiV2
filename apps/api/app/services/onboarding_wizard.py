@@ -50,13 +50,13 @@ def serialize_intake(block: dict[str, Any]) -> dict[str, str]:
 
 
 async def lead_assistant_row(session: AsyncSession, tenant_id: UUID) -> Agent | None:
+    """The company lead. The personal Bokito helper is not this agent."""
     from app.services.lead_agent import get_lead_agent
-    from app.services.personal_assistant import get_personal_assistant
 
     lead = await get_lead_agent(session, tenant_id)
-    if lead is not None:
-        return lead
-    return await get_personal_assistant(session, tenant_id)
+    if lead is None or lead.acts_for_user:
+        return None
+    return lead
 
 
 async def get_wizard_state(
@@ -106,9 +106,15 @@ async def get_wizard_state(
                 "avatar_kind": avatar.get("avatar_kind"),
                 "avatar_icon": avatar.get("avatar_icon"),
                 "avatar_color": avatar.get("avatar_color"),
+                "avatar_shape": avatar.get("avatar_shape"),
+                "job_title": agent.job_title or "",
+                "description": agent.description or "",
             }
             if agent
             else None
+        ),
+        "suggested_agent_name": (
+            f"{(tenant.name or '').strip()} assistant".strip()[:120] or "assistant"
         ),
         "scope": "owner" if role in ("owner", "admin") else "member",
     }
@@ -122,6 +128,7 @@ async def patch_wizard_state(
     intake: dict[str, Any] | None = None,
     ai_workspace_language: str | None = None,
     autonomy_posture: str | None = None,
+    lead_agent: dict[str, Any] | None = None,
     complete: bool | None = None,
     user_settings_json: str | None = None,
 ) -> dict[str, Any]:
@@ -175,11 +182,22 @@ async def patch_wizard_state(
             raise HTTPException(status_code=400, detail="Invalid autonomy_posture")
         settings["autonomy_posture"] = autonomy_posture
 
+    if lead_agent is not None:
+        if role not in ("owner", "admin"):
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=403, detail="Only owners can create the first agent")
+        await _upsert_first_agent(session, tenant, settings, block, lead_agent)
+
     if complete:
         if role not in ("owner", "admin"):
             from fastapi import HTTPException
 
             raise HTTPException(status_code=403, detail="Only owners can complete the wizard")
+        if await lead_assistant_row(session, tenant.id) is None:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=400, detail="Create your first agent before finishing")
         block["wizard_completed_at"] = datetime.now(timezone.utc).isoformat()
         block["wizard_required"] = False
         await _append_intake_to_lead_prompt(session, tenant.id, serialize_intake(block))
@@ -192,6 +210,82 @@ async def patch_wizard_state(
     return await get_wizard_state(
         session, tenant, role=role, user_settings_json=user_settings_json
     )
+
+
+async def _upsert_first_agent(
+    session: AsyncSession,
+    tenant: Tenant,
+    settings: dict[str, Any],
+    block: dict[str, Any],
+    payload: dict[str, Any],
+) -> None:
+    """Create the company lead, or rename the one this wizard already made."""
+    from fastapi import HTTPException
+
+    from app.services.lead_agent import set_lead_agent
+    from app.services.onboarding_setup import starter_system_prompt
+    from app.services.workforce_runtime import create_agent, update_agent
+    from app.tools.policy import AUTONOMY_POSTURES
+
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Agent name is required")
+    avatar_kind = str(payload.get("avatar_kind") or "orb").strip().lower()
+    if avatar_kind not in ("orb", "initials", "icon"):
+        avatar_kind = "orb"
+    avatar_color = str(payload.get("avatar_color") or "").strip() or None
+    avatar_shape = str(payload.get("avatar_shape") or "").strip() or None
+    avatar_icon = str(payload.get("avatar_icon") or "").strip() or None
+    language = str(settings.get("ai_workspace_language") or "nl")
+    posture = str(settings.get("autonomy_posture") or "assisted")
+    if posture not in AUTONOMY_POSTURES:
+        posture = "assisted"
+    prompt = starter_system_prompt(
+        name=name,
+        company=(tenant.name or "").strip() or name,
+        language=language,
+        intake=serialize_intake(block),
+    )
+    job_title = str(payload.get("job_title") or "Onboarding specialist").strip()[:32]
+    if not job_title:
+        raise HTTPException(status_code=400, detail="Agent job title is required")
+    description = str(payload.get("description") or "").strip()[:280]
+    existing = await lead_assistant_row(session, tenant.id)
+    if existing is None:
+        created = await create_agent(
+            session,
+            tenant.id,
+            name=name,
+            role="assistant",
+            job_title=job_title,
+            description=description,
+            system_prompt=prompt,
+            chat_access="everyone",
+        )
+        agent_id = UUID(str(created["agent"]["id"]))
+        await set_lead_agent(session, tenant.id, agent_id, commit=False)
+    else:
+        agent_id = existing.id
+    await update_agent(
+        session,
+        tenant.id,
+        agent_id,
+        name=name,
+        job_title=job_title,
+        description=description,
+        system_prompt=prompt,
+        avatar_kind=avatar_kind,
+        avatar_icon="" if avatar_kind != "icon" else (avatar_icon or "bot"),
+        avatar_color=avatar_color or "" if avatar_kind == "orb" else "",
+        avatar_shape=avatar_shape or "" if avatar_kind == "orb" else "",
+        avatar_image_url="",
+    )
+    agent = await session.get(Agent, agent_id)
+    if agent is not None:
+        agent.autonomy_level = posture
+        agent.is_lead = True
+        session.add(agent)
+    await session.refresh(tenant)
 
 
 async def _append_intake_to_lead_prompt(

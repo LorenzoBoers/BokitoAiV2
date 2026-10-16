@@ -109,6 +109,30 @@ import type { AiHandlingMode } from '../lib/ai-handling'
 /** Soft-undo window for outbound email replies (server caps at 600s). */
 const UNDO_SEND_SECONDS = 15
 
+/** How long a bulk-close toast stays so Undo is reachable. */
+const BULK_UNDO_TOAST_MS = 12_000
+
+function bulkDoneKey(action: BulkThreadAction): string {
+  switch (action) {
+    case 'close':
+      return 'bulkActions.closed'
+    case 'reopen':
+      return 'bulkActions.reopened'
+    case 'spam':
+      return 'bulkActions.spam'
+    case 'read':
+      return 'bulkActions.read'
+    case 'unread':
+      return 'bulkActions.unread'
+    case 'assign':
+      return 'bulkActions.assigned'
+    case 'trash':
+      return 'bulkActions.trashDone'
+    case 'file':
+      return 'bulkActions.filed'
+  }
+}
+
 function applyQuickFilter(threads: InboxThread[], quickFilter: InboxListQuickFilter): InboxThread[] {
   switch (quickFilter) {
     case 'unread':
@@ -636,12 +660,12 @@ export default function Communication() {
         unread.map((thread) => String(thread.id)),
         'read',
       )
-      toast.success(t('actions.bulkUpdated', { count: updated }))
+      toast.success(t('bulkActions.read', { count: updated }))
       void refreshNavBadges()
     } catch (err) {
       for (const thread of unread) setThreadReadState(thread.id, true)
       void refreshThreads()
-      toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
+      toast.error(err instanceof Error ? err.message : t('bulkActions.failed'))
     }
   }, [filteredThreads, token, setThreadReadState, refreshNavBadges, refreshThreads, t])
 
@@ -1103,7 +1127,7 @@ export default function Communication() {
           const groups = await Promise.all([...bulkSelectedIds].map((id) => loadOpenTickets(String(id))))
           openTickets = groups.flat()
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
+          toast.error(err instanceof Error ? err.message : t('bulkActions.failed'))
           return
         }
         if (openTickets.length > 0) {
@@ -1136,20 +1160,38 @@ export default function Communication() {
       if (action === 'read') {
         for (const thread of unreadBeforeRead) setThreadReadState(thread.id, false)
       }
+      const ids = [...bulkSelectedIds]
       setBulkBusy(true)
       try {
         const updated = await bulkUpdateSignalThreads(
           token,
-          [...bulkSelectedIds],
+          ids,
           action,
           assigneeId,
           projectId,
         )
-        toast.success(
-          action === 'trash'
-            ? t('bulkActions.trashDone', { count: updated })
-            : t('actions.bulkUpdated', { count: updated }),
-        )
+        const message = t(bulkDoneKey(action), { count: updated })
+        if (action === 'close' && updated > 0) {
+          toast.success(message, {
+            duration: BULK_UNDO_TOAST_MS,
+            action: {
+              label: t('undoSend.undo'),
+              onClick: () => {
+                void bulkUpdateSignalThreads(token, ids, 'reopen')
+                  .then((reopened) => {
+                    toast.success(t('bulkActions.reopened', { count: reopened || ids.length }))
+                    void refreshThreads()
+                    void refreshNavBadges()
+                  })
+                  .catch((undoErr) => {
+                    toast.error(undoErr instanceof Error ? undoErr.message : t('bulkActions.failed'))
+                  })
+              },
+            },
+          })
+        } else {
+          toast.success(message)
+        }
         setBulkSelectedIds(new Set())
         void refreshThreads()
         void refreshNavBadges()
@@ -1157,7 +1199,7 @@ export default function Communication() {
         if (action === 'read') {
           for (const thread of unreadBeforeRead) setThreadReadState(thread.id, true)
         }
-        toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
+        toast.error(err instanceof Error ? err.message : t('bulkActions.failed'))
       } finally {
         setBulkBusy(false)
       }
@@ -1186,7 +1228,7 @@ export default function Communication() {
       }
       try {
         await Promise.all(ids.map((id) => (nextPinned ? apiPinThread(token, id) : apiUnpinThread(token, id))))
-        toast.success(t('actions.bulkUpdated', { count: ids.length }))
+        toast.success(t(nextPinned ? 'bulkActions.pinned' : 'bulkActions.unpinned', { count: ids.length }))
         setBulkSelectedIds(new Set())
         void refreshThreads()
       } catch (err) {
@@ -1194,7 +1236,7 @@ export default function Communication() {
           if (nextPinned) removePin(id)
           else addPin(id)
         }
-        toast.error(err instanceof Error ? err.message : t('actions.bulkFailed'))
+        toast.error(err instanceof Error ? err.message : t('bulkActions.failed'))
       } finally {
         setBulkBusy(false)
       }

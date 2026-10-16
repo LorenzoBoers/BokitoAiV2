@@ -692,12 +692,29 @@ async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         invited_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
         joined_via="invite",
     )
+    name = ""
+    if kind == "agent":
+        from app.models.agent import Agent
+
+        invited = await ctx.session.get(Agent, ref_id)
+        name = (invited.name if invited else "") or ""
+    elif kind == "team":
+        from app.services.teams import get_team
+
+        team = await get_team(ctx.session, ctx.tenant_id, ref_id)
+        name = (team.name if team else "") or ""
+    elif kind == "user":
+        from app.models.auth import User
+
+        user = await ctx.session.get(User, ref_id)
+        name = ((user.display_name or user.email) if user else "") or ""
     wake = bool(tool_input.get("wake"))
     out: dict[str, Any] = {
         "ok": True,
         "signal_id": str(signal.id),
         "kind": kind,
         "ref_id": str(ref_id),
+        "name": name,
         "role": role,
     }
     if wake and kind == "agent":
@@ -4300,8 +4317,8 @@ register_tool(
                 "name": {"type": "string"},
                 "job_title": {
                     "type": "string",
-                    "description": "Short job title under the name (max 20 characters, required)",
-                    "maxLength": 20,
+                    "description": "Short job title under the name (max 32 characters, required)",
+                    "maxLength": 32,
                 },
                 "role": {"type": "string"},
                 "description": {
@@ -4330,8 +4347,8 @@ register_tool(
                 "name": {"type": "string"},
                 "job_title": {
                     "type": "string",
-                    "description": "Short job title under the name (max 20 characters)",
-                    "maxLength": 20,
+                    "description": "Short job title under the name (max 32 characters)",
+                    "maxLength": 32,
                 },
                 "description": {
                     "type": "string",

@@ -81,9 +81,15 @@
   },
   "agent": {
     "title": "Name your first agent",
-    "subtitle": "This is the lead assistant for your workspace. Pick a name and icon.",
+    "subtitle": "This is the lead assistant for your workspace. Edit the name, job title, and bot.",
     "nameLabel": "Name",
-    "namePlaceholder": "e.g. Alex",
+    "namePlaceholder": "e.g. Northwind assistant",
+    "nameRequired": "Name your first agent.",
+    "jobTitleLabel": "Job title",
+    "jobTitlePlaceholder": "Onboarding specialist",
+    "jobTitleRequired": "Add a job title.",
+    "descriptionLabel": "Job description",
+    "descriptionPlaceholder": "What this agent does for the team",
     "iconLabel": "Icon",
     "initials": "Initials",
     "icon": "Icon"

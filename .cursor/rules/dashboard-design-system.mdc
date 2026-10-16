@@ -43,7 +43,8 @@ Rare one-off styles fold into the nearest catalog component.
 | | `CapBar` | Usage against a cap |
 | | `Table` family | Tabular data |
 | Identity | `IconTile` | Square icon or logo tile |
-| | `UserAvatar`, `AiAvatar`, `ContactAvatar`, `TeamAvatar` | People, agents, contacts, teams |
+| | `UserAvatar`, `AiAvatar`, `ContactAvatar`, `TeamAvatar` | One person, agent, contact, or empty-team mark |
+| | `AvatarStack`, `TeamFacepile` | Overlapping pile of people and agents. A team is `TeamFacepile`. |
 | | `ChoiceSelect`, `ChoiceOption`, `AgentSelect` | Named rows in selects and menus: always a mark, then the name |
 
 ## Tokens

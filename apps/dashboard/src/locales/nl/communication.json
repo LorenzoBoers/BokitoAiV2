@@ -420,9 +420,6 @@
       "addSource": "Bron toevoegen",
       "addToQueue": "Aan queue toevoegen"
     },
-    "feedbackGood": "Goed",
-    "feedbackPoor": "Niet behulpzaam",
-    "feedbackError": "Kon feedback niet opslaan.",
     "knownSubjects": {
       "replyToCustomer": "Antwoord op klantbericht",
       "dailyPlatformScan": "Dagelijkse platformscan",
@@ -475,7 +472,9 @@
     "note": "Notitie",
     "action": "Actie",
     "failed": "Mislukt",
-    "webSearch": "Zoekt op {{query}}"
+    "webSearch": "Zoekt op {{query}}",
+    "inviting": "{{name}} uitnodigen voor het gesprek",
+    "invitingSomeone": "Iemand uitnodigen voor het gesprek"
   },
   "mockAgent": {
     "replyBody": "Tijdelijk antwoord over {{topic}}."
@@ -1168,6 +1167,25 @@
     "trash": "Naar prullenbak verplaatsen",
     "trashConfirm": "{{count}} gesprekken naar de prullenbak verplaatsen? Je kunt ze later herstellen via Instellingen → Prullenbak.",
     "trashDone": "{{count}} naar de prullenbak verplaatst",
+    "closed_one": "{{count}} gesprek gesloten",
+    "closed_other": "{{count}} gesprekken gesloten",
+    "reopened_one": "{{count}} gesprek heropend",
+    "reopened_other": "{{count}} gesprekken heropend",
+    "spam_one": "{{count}} gesprek als spam gemarkeerd",
+    "spam_other": "{{count}} gesprekken als spam gemarkeerd",
+    "read_one": "{{count}} gesprek als gelezen gemarkeerd",
+    "read_other": "{{count}} gesprekken als gelezen gemarkeerd",
+    "unread_one": "{{count}} gesprek als ongelezen gemarkeerd",
+    "unread_other": "{{count}} gesprekken als ongelezen gemarkeerd",
+    "assigned_one": "{{count}} gesprek toegewezen",
+    "assigned_other": "{{count}} gesprekken toegewezen",
+    "filed_one": "{{count}} gesprek opgeborgen",
+    "filed_other": "{{count}} gesprekken opgeborgen",
+    "pinned_one": "{{count}} gesprek vastgezet",
+    "pinned_other": "{{count}} gesprekken vastgezet",
+    "unpinned_one": "{{count}} gesprek losgemaakt",
+    "unpinned_other": "{{count}} gesprekken losgemaakt",
+    "failed": "Kon de gesprekken niet bijwerken.",
     "noMembers": "Geen leden",
     "clear": "Wissen",
     "clearSelection": "Selectie wissen",

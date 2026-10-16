@@ -130,9 +130,13 @@ coloring a pill locally.
 ## Identity
 
 `IconTile` (`neutral`, `accent`, `ai`, `success`, `warning`, `error`; sizes
-`sm`, `md`, `lg`) holds one icon or logo. Avatars: `UserAvatar` (members),
+`sm`, `md`, `lg`) holds one icon or logo. One face: `UserAvatar` (members),
 `AiAvatar` (agents), `ContactAvatar` (external people and companies),
-`TeamAvatar` (teams).
+`TeamAvatar` (empty-team fallback). A group of people and agents is
+`AvatarStack`: up to three overlapping faces, then +N. Agent orbs use a
+silhouette cutout; people use a surface ring. `TeamFacepile` is that pile
+for a team (member faces, otherwise `TeamAvatar`). The thread participant
+row uses the same pile.
 
 Named things in a menu always wear that same mark. Use `ChoiceSelect` for a
 select of agents, people, teams, flows, projects, tags, calendars, or

@@ -26,8 +26,8 @@ type Props = {
 }
 
 /**
- * Central face for a conversation participant.
- * Agents → AgentMark, teams → TeamAvatar, people/contacts → UserAvatar.
+ * One conversation face. Agents → AgentMark, teams → TeamAvatar,
+ * people/contacts → UserAvatar. A group of faces uses AvatarStack.
  */
 export function ParticipantMark({ participant, size = 18, decorative = true }: Props) {
   const name = (participant.name || '').trim() || participant.kind

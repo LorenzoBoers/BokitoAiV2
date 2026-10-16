@@ -156,11 +156,61 @@ export function focusToAvatarStack(
   })
 }
 
-/** Mode implied by focus when mentions drive the tab. */
+/** Mode implied by focus when mentions drive the tab. Teammates share Ask with agents; Note stays manual. */
 export function composerModeForFocus(focus: ComposerReplyFocus): 'ask' | 'note' | 'reply' {
   if (focus.kind === 'client') return 'reply'
-  if (focus.kind === 'humans') return 'note'
   return 'ask'
+}
+
+export type ComposerLandMessage = {
+  kind?: string | null
+  direction?: string | null
+  authorUserId?: number | string | null
+  payload?: { agent_id?: unknown } | null
+}
+
+export type ComposerLanding = {
+  mode: 'reply' | 'ask'
+  agentId: string | null
+  userId: string | null
+}
+
+function payloadAgentId(message: ComposerLandMessage): string | null {
+  const raw = message.payload?.agent_id
+  return typeof raw === 'string' && raw ? raw : null
+}
+
+/**
+ * Tab to open from the last message the operator received.
+ * Own lines and internal notes are skipped. Note is never chosen here.
+ */
+export function composerLanding(
+  messages: ComposerLandMessage[],
+  opts: { selfUserId?: number | string | null; allowReply: boolean },
+): ComposerLanding {
+  const self = opts.selfUserId == null ? null : String(opts.selfUserId)
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]
+    if (!message) continue
+    if (message.kind === 'system_event' || message.kind === 'internal_note') continue
+    const agentId = payloadAgentId(message)
+    if (message.kind === 'agent_message' || agentId) {
+      return { mode: 'ask', agentId, userId: null }
+    }
+    if (message.authorUserId != null) {
+      const author = String(message.authorUserId)
+      if (self != null && author === self) continue
+      return { mode: 'ask', agentId: null, userId: author }
+    }
+    if (message.direction === 'inbound' && opts.allowReply) {
+      return { mode: 'reply', agentId: null, userId: null }
+    }
+  }
+  return {
+    mode: opts.allowReply ? 'reply' : 'ask',
+    agentId: null,
+    userId: null,
+  }
 }
 
 function escapeRegExp(value: string): string {

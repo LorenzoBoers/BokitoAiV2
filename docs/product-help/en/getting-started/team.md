@@ -25,8 +25,7 @@ Members answer conversations. Owners and admins also connect channels, change au
 ## Hire new agents
 
 1. On **Workforce**, below **Invite people**, open the **Hire new agents** banner.
-2. Choose **Marketplace** to browse specialists you can add next to your team.
-3. After you hire an agent, it appears in the directory under **Agents** (see [Agents](/docs/ai/agents)).
+2. **Coming soon** sits next to the title. The **Marketplace** button stays off until the Marketplace is open.
 
 ## Mark yourself away
 

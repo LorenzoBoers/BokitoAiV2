@@ -455,12 +455,21 @@ async def _execute_tool(
     result = await _invoke_handler(session, spec, ctx, tool_input)
     if spec.mutating and not (isinstance(result, dict) and result.get("change_id")):
         outcome = "error" if isinstance(result, dict) and result.get("error") else "executed"
-        await record_audit(
-            session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
-            agent_id=agent_id, run_id=run_id, outcome=outcome,
-            summary=f"{tool_name} {outcome}", payload=tool_input,
-            after=result if isinstance(result, dict) else None,
-        )
+        try:
+            await record_audit(
+                session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+                agent_id=agent_id, run_id=run_id, outcome=outcome,
+                summary=f"{tool_name} {outcome}", payload=tool_input,
+                after=result if isinstance(result, dict) else None,
+            )
+        except Exception:
+            # A poisoned session after a compile failure must not replace the
+            # tool result. The model needs that error to rewrite and retry.
+            logger.exception("audit after %s failed", tool_name)
+            try:
+                await session.rollback()
+            except Exception:
+                logger.exception("rollback after audit failure failed")
     return result
 
 

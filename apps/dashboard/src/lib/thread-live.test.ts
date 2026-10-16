@@ -214,6 +214,28 @@ describe('upsertThreadRow', () => {
     expect(next[0].agentKind).toBe('company')
   })
 
+  it('keeps the agent mark when a live row omits avatar fields', () => {
+    const existing = thread({
+      agentId: 'a-1',
+      agentName: 'Extra test agent',
+      agentAvatarKind: 'orb',
+      agentAvatarColor: '#ff263c',
+      agentAvatarShape: 'wedge',
+    })
+    const incoming = thread({
+      emailSubject: 'Hoe gaat het?',
+      agentId: null,
+      agentName: null,
+      agentAvatarKind: null,
+      agentAvatarColor: null,
+      agentAvatarShape: null,
+    })
+    const next = upsertThreadRow([existing], incoming)
+    expect(next[0].agentAvatarColor).toBe('#ff263c')
+    expect(next[0].agentAvatarShape).toBe('wedge')
+    expect(next[0].emailSubject).toBe('Hoe gaat het?')
+  })
+
   it('keeps AI handling when the live row carries none', () => {
     const handling = {
       effective: 'manual',

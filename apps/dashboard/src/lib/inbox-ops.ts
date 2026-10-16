@@ -142,7 +142,13 @@ export function serializeComposerDraft(draft: StoredComposerDraft): string {
   return JSON.stringify(out)
 }
 
-export const composerDraftStorageKey = (threadId: string) => `inbox.draft.${threadId}`
+/** Client send, team/ask, and note each keep their own unsent text. */
+export type ComposerDraftSlot = 'reply' | 'ask' | 'note'
+
+export const COMPOSER_DRAFT_SLOTS: ComposerDraftSlot[] = ['reply', 'ask', 'note']
+
+export const composerDraftStorageKey = (threadId: string, slot?: ComposerDraftSlot) =>
+  slot ? `inbox.draft.${threadId}.${slot}` : `inbox.draft.${threadId}`
 
 /**
  * Drop the unsent drafts of a conversation (close, spam, handled elsewhere) —
@@ -152,6 +158,9 @@ export function clearStoredComposerDraft(threadId: string | null | undefined): v
   if (!threadId || typeof window === 'undefined') return
   try {
     window.localStorage.removeItem(composerDraftStorageKey(threadId))
+    for (const slot of COMPOSER_DRAFT_SLOTS) {
+      window.localStorage.removeItem(composerDraftStorageKey(threadId, slot))
+    }
   } catch {
     // Private mode / quota: nothing to clear.
   }

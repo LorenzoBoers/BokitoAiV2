@@ -1341,10 +1341,12 @@ async def run_participant_turn_job(
     async with async_session_factory() as session:
         signal = (
             await session.execute(
-                select(Signal).where(
+                select(Signal)
+                .where(
                     Signal.id == UUID(signal_id),
                     Signal.tenant_id == UUID(tenant_id),
                 )
+                .with_for_update()
             )
         ).scalar_one_or_none()
         agent = (
@@ -1357,10 +1359,15 @@ async def run_participant_turn_job(
         ).scalar_one_or_none()
         if signal is None or agent is None:
             return {"ok": False, "error": "not_found"}
+        from app.services.participant_turns import deferred_job_block
+
         active = _parse_active(signal)
         # Floor cleared (timeout/pass/sent) or replaced — do not revive a stale job.
         if not active.get("nonce") or (nonce and active.get("nonce") != nonce):
             return {"ok": False, "error": "stale_nonce"}
+        blocked = deferred_job_block(active)
+        if blocked:
+            return {"ok": False, "error": blocked}
         if _deadline_expired(active):
             return {"ok": False, "error": "expired"}
         job_nonce = nonce or active.get("nonce") or ""

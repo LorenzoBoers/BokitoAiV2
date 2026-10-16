@@ -1,5 +1,5 @@
 import { appRoutes } from '../api/routes/app.routes'
-import { appScopedGet, appScopedPatch } from './api'
+import { appScopedGet, appScopedPatch, appScopedPost } from './api'
 
 export type WizardIntake = {
   source: string
@@ -13,6 +13,9 @@ export type WizardLeadAgent = {
   avatar_kind: string | null
   avatar_icon: string | null
   avatar_color: string | null
+  avatar_shape: string | null
+  job_title: string | null
+  description: string | null
 }
 
 export type OnboardingWizardState = {
@@ -25,6 +28,7 @@ export type OnboardingWizardState = {
   ai_workspace_language: string
   autonomy_posture: string
   lead_agent: WizardLeadAgent | null
+  suggested_agent_name: string
   scope: 'owner' | 'member'
 }
 
@@ -32,7 +36,24 @@ export type OnboardingWizardPatch = {
   intake?: Partial<WizardIntake>
   ai_workspace_language?: string
   autonomy_posture?: string
+  lead_agent?: {
+    name: string
+    job_title?: string
+    description?: string
+    avatar_kind?: string
+    avatar_icon?: string | null
+    avatar_color?: string | null
+    avatar_shape?: string | null
+  }
   complete?: boolean
+}
+
+export function startOnboardingSetupThread(token: string) {
+  return appScopedPost<{ signal_id: string; created: string }>(
+    appRoutes.onboarding.setupThread,
+    {},
+    token,
+  )
 }
 
 export function getOnboardingWizard(token: string) {

@@ -817,6 +817,30 @@
       drop-shadow(0.7px -0.7px 0 rgb(var(--color-bg-surface)))
       drop-shadow(-0.7px -0.7px 0 rgb(var(--color-bg-surface)));
   }
+  /* Cutout that matches the page background (thread header), not a card. */
+  .bot-orb--stack.bot-orb--on-bg {
+    filter:
+      drop-shadow(1px 0 0 rgb(var(--color-bg)))
+      drop-shadow(-1px 0 0 rgb(var(--color-bg)))
+      drop-shadow(0 1px 0 rgb(var(--color-bg)))
+      drop-shadow(0 -1px 0 rgb(var(--color-bg)))
+      drop-shadow(0.7px 0.7px 0 rgb(var(--color-bg)))
+      drop-shadow(-0.7px 0.7px 0 rgb(var(--color-bg)))
+      drop-shadow(0.7px -0.7px 0 rgb(var(--color-bg)))
+      drop-shadow(-0.7px -0.7px 0 rgb(var(--color-bg)));
+  }
+  /* Same silhouette cutout, in accent, for whoever holds the thread floor. */
+  .bot-orb--stack.bot-orb--floor {
+    filter:
+      drop-shadow(1px 0 0 rgb(var(--color-accent)))
+      drop-shadow(-1px 0 0 rgb(var(--color-accent)))
+      drop-shadow(0 1px 0 rgb(var(--color-accent)))
+      drop-shadow(0 -1px 0 rgb(var(--color-accent)))
+      drop-shadow(0.7px 0.7px 0 rgb(var(--color-accent)))
+      drop-shadow(-0.7px 0.7px 0 rgb(var(--color-accent)))
+      drop-shadow(0.7px -0.7px 0 rgb(var(--color-accent)))
+      drop-shadow(-0.7px -0.7px 0 rgb(var(--color-accent)));
+  }
   .bot-orb > svg,
   .bot-orb__svg {
     display: block;

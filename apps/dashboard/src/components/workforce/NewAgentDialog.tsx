@@ -40,7 +40,7 @@ type Props = {
   } | null
 }
 
-const MAX_JOB_TITLE = 20
+const MAX_JOB_TITLE = 32
 const MAX_DESCRIPTION = 280
 
 export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }: Props) {

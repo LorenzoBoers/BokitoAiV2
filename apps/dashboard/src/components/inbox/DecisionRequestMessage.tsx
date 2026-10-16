@@ -8,8 +8,6 @@ import {
   ChevronDown,
   Copy,
   StickyNote,
-  ThumbsDown,
-  ThumbsUp,
   UserRound,
   X,
   Zap,
@@ -55,8 +53,7 @@ import { ProposalChoiceRest } from './ProposalChoiceRest'
 import { cn } from '../../lib/utils'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { resolveProviderBrand } from '../../lib/integration-brand'
-import { apiPost } from '../../lib/api'
-import { appRoutes } from '../../api/routes'
+import { MessageReactions } from './MessageReactions'
 import {
   patchThread,
   type InboxEvent,
@@ -327,28 +324,10 @@ export default function DecisionRequestMessage({
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { token, user } = useAuth()
-  const [sentiment, setSentiment] = useState<'up' | 'down' | null>(null)
   const [compactOpen, setCompactOpen] = useState(false)
   const [agentSignatureHtml, setAgentSignatureHtml] = useState('')
   const [agentDisplayName, setAgentDisplayName] = useState('')
 
-  const decisionSubjectId = message.decisionId ? String(message.decisionId) : String(message.id)
-
-  async function voteOnDecision(value: 'up' | 'down') {
-    if (sentiment === value) return
-    const previous = sentiment
-    setSentiment(value)
-    try {
-      await apiPost(appRoutes.learning.feedback, {
-        subject_type: 'decision',
-        subject_id: decisionSubjectId,
-        sentiment: value,
-      })
-    } catch {
-      setSentiment(previous)
-      toast.error(t('decisionCard.feedbackError'))
-    }
-  }
   const resolved = isDecisionResolved(message, events)
   const {
     busy,
@@ -703,6 +682,15 @@ export default function DecisionRequestMessage({
     activityBefore.length > 0 ? (
       <ActivityTrail items={activityBefore} className={THREAD_INDENT} />
     ) : null
+  const reactions =
+    typeof message.id === 'string' ? (
+      <MessageReactions
+        messageId={message.id}
+        initial={message.reactions ?? null}
+        side="left"
+        canReact
+      />
+    ) : null
 
   if (asCompactProposal && !ruleSuggestion) {
     const takeOver = () => {
@@ -724,6 +712,7 @@ export default function DecisionRequestMessage({
           side="left"
           avatar={agentAvatar}
           variant="agent"
+          reactions={reactions}
           body={
             <div className="flex min-w-0 flex-col gap-1.5">
               <div className="flex min-w-0 items-center gap-2">
@@ -840,6 +829,7 @@ export default function DecisionRequestMessage({
           side="left"
           avatar={agentAvatar}
           variant="external"
+          reactions={reactions}
           body={
             <div className="flex min-w-0 flex-col gap-1">
               <div className="flex min-w-0 items-center gap-2">
@@ -879,6 +869,7 @@ export default function DecisionRequestMessage({
       side="left"
       avatar={agentAvatar}
       variant="agent"
+      reactions={reactions}
       body={
         <>
         {!isChatAsk ? (
@@ -1287,38 +1278,6 @@ export default function DecisionRequestMessage({
           </div>
         ) : null}
         {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
-        {/* Learning loop: thumbs feed decision feedback. Hide on leftover
-            resolved cards so dismissed drafts do not keep asking for a vote. */}
-        {!resolved ? (
-        <div className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2">
-          <button
-            type="button"
-            aria-label={t('decisionCard.feedbackGood')}
-            className={cn(
-              'flex h-5 w-5 items-center justify-center rounded transition-colors',
-              sentiment === 'up'
-                ? 'text-ai-ink bg-ai/10'
-                : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
-            )}
-            onClick={() => void voteOnDecision('up')}
-          >
-            <ThumbsUp size={11} />
-          </button>
-          <button
-            type="button"
-            aria-label={t('decisionCard.feedbackPoor')}
-            className={cn(
-              'flex h-5 w-5 items-center justify-center rounded transition-colors',
-              sentiment === 'down'
-                ? 'text-ai-ink bg-ai/10'
-                : 'text-text-muted/60 hover:text-text-body hover:bg-bg-hover/60',
-            )}
-            onClick={() => void voteOnDecision('down')}
-          >
-            <ThumbsDown size={11} />
-          </button>
-        </div>
-        ) : null}
         </>
       }
     />

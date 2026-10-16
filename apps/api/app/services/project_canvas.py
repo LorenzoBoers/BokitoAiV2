@@ -1079,20 +1079,27 @@ async def delete_canvas(
 _COMPILE_TIMEOUT_SECONDS = 15
 
 
-def _compile_payload(*, source: Any = None, tree: Any = None) -> tuple[str, dict[str, Any]]:
+def _compile_payload(*, source: Any = None, tree: Any = None) -> tuple[str, dict[str, Any]] | str:
+    """Return ``(source, tree)``, or an error string.
+
+    Compile failures stay values. Raising from ``asyncio.to_thread`` while an
+    AsyncSession holds a connection makes the next ``await`` on that session
+    raise MissingGreenlet and ends the agent turn instead of returning a
+    tool error.
+    """
     try:
         return compile_canvas(
             source=str(source) if source is not None else None,
             tree=tree,
         )
     except CanvasCompileError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return str(exc) or "Canvas source is not valid."
 
 
 async def _compile_payload_async(*, source: Any = None, tree: Any = None) -> tuple[str, dict[str, Any]]:
     """Compile off the event loop so a stuck parser cannot freeze the API."""
     try:
-        return await asyncio.wait_for(
+        compiled = await asyncio.wait_for(
             asyncio.to_thread(_compile_payload, source=source, tree=tree),
             timeout=_COMPILE_TIMEOUT_SECONDS,
         )
@@ -1104,6 +1111,9 @@ async def _compile_payload_async(*, source: Any = None, tree: Any = None) -> tup
                 "Use a smaller document with fewer nodes."
             ),
         ) from exc
+    if isinstance(compiled, str):
+        raise HTTPException(status_code=400, detail=compiled)
+    return compiled
 
 
 async def put_canvas_source(

@@ -43,7 +43,7 @@ The quickstart gets you running. This guide gets you configured. The settings si
 
 ## Schedule recurring work
 
-New workspaces seed a daily **platform check-in** that starts **paused**. When you turn it on, the assistant wakes once a day, reads the Daily check-in note in Knowledge and what it wrote last time, and writes in its own channel in Communication only when something new needs you. It does not repeat a question it already asked, and it only raises a decision card when the question is about a conversation or has an action you can approve. Change the rhythm on the wake in [Agenda](/docs/ai/agenda). That is the same conversation you open under **Agents** in the Communication sidebar, so findings sit next to the questions you already ask that assistant. Turn it on from the setup guide, from Overview, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Overview](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Overview **Usage**.
+A daily **platform check-in** does not exist until you say yes. The lead asks in the setup conversation after the tour. When you turn it on, the assistant wakes once a day, reads the Daily check-in note in Knowledge and what it wrote last time, and writes in its own channel in Communication only when something new needs you. It does not repeat a question it already asked, and it only raises a decision card when the question is about a conversation or has an action you can approve. Change the rhythm on the wake in [Agenda](/docs/ai/agenda). That is the same conversation you open under **Agents** in the Communication sidebar, so findings sit next to the questions you already ask that assistant. Turn it on from the setup guide, from Overview, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Overview](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Overview **Usage**.
 
 ## Follow the live checklist
 
@@ -53,7 +53,7 @@ On first login, owners complete the **first-run wizard**, then the product tour.
 2. **Connect a channel** — create a Bokito address or connect Gmail/Outlook under **Channels**, not from a module card on Connections. See [Channels](/docs/inbox/channels).
 3. **Talk with the assistant** — a short chat fills company knowledge. See [Knowledge](/docs/ai/knowledge).
 4. **Resolve your first decision** — the checklist card (and **Try the demo** where offered) starts a sample thread so you can approve a card.
-5. **Turn on check-in** — the daily check-in is seeded paused; turn it on when you want watching.
+5. **Turn on check-in** — say yes in the setup conversation, or turn it on from the setup guide, when you want watching.
 
 **Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), projects, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Data & privacy](/docs/govern/privacy-security) (retention, data region, and data subject requests).
 

@@ -42,14 +42,18 @@ _MAX_NODES = 200
 _MAX_DEPTH = 12
 _MAX_STRING = 8_000
 
+# Prose must stay valid ("AM window", "the document."). Only code-shaped uses
+# are rejected: a call, or a property read such as window.location.
 _FORBIDDEN = re.compile(
-    r"\b(fetch|eval|require|process|window|document|localStorage)\b"
+    r"\b(?:fetch|eval|require)\s*\("
+    r"|\b(?:window|document|process|localStorage)\.[A-Za-z_$]"
+    r"|\b(?:window|document|process|localStorage)\s*\["
     r"|<script\b"
     r"|javascript:"
     r"|import\s*\(",
     re.IGNORECASE,
 )
-_FORBIDDEN_FUNCTION = re.compile(r"\bFunction\b")
+_FORBIDDEN_FUNCTION = re.compile(r"\bFunction\s*\(")
 _FORBIDDEN_HANDLERS = re.compile(r"\bon[A-Z][A-Za-z]+\s*=")
 _IMPORT_RE = re.compile(
     r"""import\s+(?:\{[^}]*\}|[\w*]+(?:\s+as\s+\w+)?)\s+from\s+['"]([^'"]+)['"]"""

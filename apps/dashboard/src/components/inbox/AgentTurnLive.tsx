@@ -22,7 +22,7 @@ import { AiAvatar } from '../ui/AiAvatar'
 import type { AgentAvatarProps } from '../../lib/agent-avatar'
 import ActivityTrail from './ActivityTrail'
 import { LiveAgentAvatarSlot, useLiveAgentSeat } from './LiveAgentSeat'
-import { THREAD_GUTTER, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
+import { THREAD_GUTTER, ThreadMetaRow } from './ThreadMeta'
 import { BubbleHeader, ChatBubbleShell, RoleChip } from './ChatBubble'
 import ChatText from './ChatText'
 import { ProposalItemList } from './ProposalItemPreview'
@@ -59,6 +59,7 @@ function LiveBubble({
   avatar,
   items,
   enterClass,
+  hideGutter = false,
 }: {
   text: string
   writing: boolean
@@ -68,6 +69,7 @@ function LiveBubble({
   items?: ProposalItem[]
   /** First growing bubble fades in; later segments pop in as they open. */
   enterClass: string
+  hideGutter?: boolean
 }) {
   const { t } = useTranslation('communication')
   const lead = stack === 'single' || stack === 'start'
@@ -81,7 +83,7 @@ function LiveBubble({
   // when the reveal finishes.
   return (
     <div className={cn(enterClass, 'flex items-start gap-2')}>
-      <span className={THREAD_GUTTER}>{lead ? avatar : null}</span>
+      {hideGutter ? null : <span className={THREAD_GUTTER}>{lead ? avatar : null}</span>}
       <ChatBubbleShell
         side="left"
         variant="agent"
@@ -125,6 +127,7 @@ function LiveSpeech({
   avatar,
   attached,
   onRevealed,
+  hideGutter = false,
 }: {
   text: string
   /** False once the gateway closed the turn — drain faster and stop the cursor. */
@@ -137,6 +140,8 @@ function LiveSpeech({
   closes: boolean
   header: ReactNode
   avatar: ReactNode
+  /** Parent already shows the live orb; skip this bubble's gutter. */
+  hideGutter?: boolean
   attached?: ProposalItem[]
   onRevealed?: (done: boolean) => void
 }) {
@@ -176,6 +181,7 @@ function LiveSpeech({
             stack={stackFor(leads && index === 0, closes && isLast)}
             header={leads && index === 0 ? header : null}
             avatar={avatar}
+            hideGutter={hideGutter}
             items={isLast ? items : undefined}
             enterClass={index === 0 ? 'msg-bubble-enter-live' : 'bubble-pop-enter'}
           />
@@ -256,24 +262,13 @@ export default function AgentTurnLive({
   const header = lead ? (
     <BubbleHeader name={agentName || t('timeline.aiAgent')} chip={<RoleChip kind="ai" />} />
   ) : null
-  const streamKey = turn.streamId ?? 'live'
-  // Pre-speech seat (think / tools / waiting): always show the live orb, even
-  // when this turn continues a prior agent bubble run (continuesRun only hides
-  // the avatar on stacked speech bubbles).
-  const preSpeech = firstSpeechIndex < 0
-  const seatSlotId = preSpeech || waiting || preparingProposal
-    ? `live:${streamKey}:activity`
-    : `live:${streamKey}:speech`
-  // Always request entrance on the turn seat. LiveAgentSeat full-spawns when
-  // the agent has no prior live seat, quickspawns when relocating from idle /
-  // another slot. Do not flip this off on mount — that raced late agentId /
-  // handoff Extra and skipped the rise entirely.
-  // Nadenken / tools / preparing labels wait until the entrance finishes.
+  // One seat for the whole turn. Slot id must not follow activity/speech/
+  // stream id — each change remounted the orb and restarted the rise.
+  const seatSlotId = `live:${agentId ?? 'turn'}`
+  // Nadenken / tools wait until the entrance finishes, then the face takes
+  // the real mood (thinking, working, …).
   const entering = Boolean(agentId && seat?.isEntering(String(agentId)))
 
-  // Mount the live seat once. Reusing the same element in activity + waiting
-  // rows created two LiveAgentAvatarSlot instances (static footprint + live
-  // orb) — “2 avatars thinking / working”.
   const avatarNode =
     agentId && avatarMark ? (
       <LiveAgentAvatarSlot
@@ -289,70 +284,56 @@ export default function AgentTurnLive({
         color={avatarMark.color}
         shape={avatarMark.shape}
         imageUrl={avatarMark.imageUrl}
-        motion={orbMotion}
-        pulseId={orbPulseId}
+        motion={entering ? 'idle' : orbMotion}
+        pulseId={entering ? null : orbPulseId}
         baseMotion={orbBaseMotion}
       />
     ) : (
       (avatar ?? <AiAvatar name={agentName} kind={null} size={28} decorative mode="live" />)
     )
   const hasActivityBlock = blocks.some((block) => block.type === 'activity')
-  // Avatar on the first activity row when tools/think already render; otherwise
-  // on waiting / preparing / entrance. Speech keeps its own lead avatar.
-  const avatarOnActivity = preSpeech && hasActivityBlock
-  const metaAvatar = avatarOnActivity ? null : avatarNode
+  const showStatus =
+    !entering && (hasActivityBlock || preparingProposal || waiting || firstSpeechIndex >= 0)
 
   return (
-    <div className="space-y-1.5">
-      {blocks.map((block, index) =>
-        block.type === 'activity' ? (
-          <div key={block.key} className="flex items-start gap-2">
-            <span className={THREAD_GUTTER}>
-              {avatarOnActivity && index === 0 ? avatarNode : null}
-            </span>
-            {!entering ? (
-              <div className="min-w-0 flex-1">
-                <ActivityTrail items={block.items} live={turn.active} />
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <LiveSpeech
-            key={block.key}
-            text={block.text}
-            streamActive={turn.active}
-            holdReserve={turn.active && index === blocks.length - 1}
-            leads={lead && index === firstSpeechIndex}
-            closes={index === blocks.length - 1}
-            header={header}
-            avatar={avatarNode}
-            attached={index === lastSpeechIndex ? attached : undefined}
-            onRevealed={(done) => markRevealed(block.key, done)}
-          />
-        ),
-      )}
-      {!entering && preparingProposal ? (
-        <div role="status" aria-live="polite">
-          <ThreadMetaBlock avatar={metaAvatar}>
+    <div className="flex items-start gap-2">
+      <span className={THREAD_GUTTER}>{avatarNode}</span>
+      <div className="min-w-0 flex-1 space-y-1.5">
+        {showStatus
+          ? blocks.map((block, index) =>
+              block.type === 'activity' ? (
+                <ActivityTrail key={block.key} items={block.items} live={turn.active} />
+              ) : (
+                <LiveSpeech
+                  key={block.key}
+                  text={block.text}
+                  streamActive={turn.active}
+                  holdReserve={turn.active && index === blocks.length - 1}
+                  leads={lead && index === firstSpeechIndex}
+                  closes={index === blocks.length - 1}
+                  header={header}
+                  avatar={null}
+                  hideGutter
+                  attached={index === lastSpeechIndex ? attached : undefined}
+                  onRevealed={(done) => markRevealed(block.key, done)}
+                />
+              ),
+            )
+          : null}
+        {!entering && preparingProposal ? (
+          <div role="status" aria-live="polite">
             <ThreadMetaRow live ai>
               {t('proposal.preparing')}
             </ThreadMetaRow>
-          </ThreadMetaBlock>
-        </div>
-      ) : !entering && waiting ? (
-        <div role="status" aria-live="polite">
-          <ThreadMetaBlock avatar={metaAvatar}>
+          </div>
+        ) : !entering && waiting ? (
+          <div role="status" aria-live="polite">
             <ThreadMetaRow live ai>
               {t('activity.thinking')}
             </ThreadMetaRow>
-          </ThreadMetaBlock>
-        </div>
-      ) : null}
-      {entering && preSpeech && !hasActivityBlock ? (
-        <div className="flex items-start gap-2" aria-hidden>
-          <span className={THREAD_GUTTER}>{avatarNode}</span>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

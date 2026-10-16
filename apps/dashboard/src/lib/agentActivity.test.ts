@@ -334,6 +334,26 @@ describe('saved messages', () => {
     expect(turnSaved(live, [{ turnId: 'other' }])).toBe(false)
   })
 
+  it('ignores an in-progress checkpoint older than the live-turn window', () => {
+    const stale = liveTurnFromMessage({
+      turnId: 'turn-stale',
+      inProgress: true,
+      createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+      activity: [
+        { id: 't1', kind: 'think', label: '', tool: '', provider: '', startedAt: null, endedAt: null, durationMs: 2000, status: 'ok' },
+      ],
+    })
+    expect(stale).toBeNull()
+    const fresh = liveTurnFromMessage({
+      turnId: 'turn-fresh',
+      inProgress: true,
+      createdAt: new Date().toISOString(),
+      bodyText: 'Working on this.',
+    })
+    expect(fresh?.active).toBe(true)
+    expect(fresh?.streamId).toBe('turn-fresh')
+  })
+
   it('hydrates an in-progress checkpoint into a live turn', () => {
     const turn = liveTurnFromMessage({
       turnId: 'turn-live',

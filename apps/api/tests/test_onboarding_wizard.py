@@ -28,7 +28,8 @@ async def test_wizard_get_and_complete(client: AsyncClient):
     assert body["needs_wizard"] is True
     assert body["wizard_required"] is True
     assert body["wizard_completed_at"] is None
-    assert body["lead_agent"] is not None
+    assert body["lead_agent"] is None
+    assert body["suggested_agent_name"] == "Wizard-Co assistant"
     assert body["scope"] == "owner"
 
     patched = await client.patch(
@@ -48,6 +49,22 @@ async def test_wizard_get_and_complete(client: AsyncClient):
     assert mid["autonomy_posture"] == "manual"
     assert mid["needs_wizard"] is True
 
+    missing = await client.patch(
+        "/api/app/onboarding/wizard",
+        headers=headers,
+        json={"complete": True},
+    )
+    assert missing.status_code == 400
+
+    created = await client.patch(
+        "/api/app/onboarding/wizard",
+        headers=headers,
+        json={"lead_agent": {"name": "Ada", "avatar_kind": "icon", "avatar_icon": "bot"}},
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["lead_agent"]["name"] == "Ada"
+    assert created.json()["lead_agent"]["id"]
+
     done = await client.patch(
         "/api/app/onboarding/wizard",
         headers=headers,
@@ -63,3 +80,11 @@ async def test_wizard_get_and_complete(client: AsyncClient):
     steps = {s["id"]: s["done"] for s in status.json()["steps"]}
     assert steps["wizard"] is True
     assert steps["watching"] is False
+
+    opened = await client.post("/api/app/onboarding/setup-thread", headers=headers)
+    assert opened.status_code == 200, opened.text
+    signal_id = opened.json()["signal_id"]
+    again = await client.post("/api/app/onboarding/setup-thread", headers=headers)
+    assert again.status_code == 200
+    assert again.json()["signal_id"] == signal_id
+    assert again.json()["created"] == "false"

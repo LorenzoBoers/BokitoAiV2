@@ -147,12 +147,12 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.defaultMode).toBe('reply')
   })
 
-  it('defaults noreply addresses to an internal note, not Reply to', () => {
+  it('keeps noreply addresses on Reply so Note stays a manual tab', () => {
     const surface = resolveComposerSurface(
       thread({ channel: 'email', contactEmail: 'donotreply@broker.example', contactName: 'Broker' }),
     )
     expect(surface.channel).toBe('email')
-    expect(surface.defaultMode).toBe('note')
+    expect(surface.defaultMode).toBe('reply')
     expect(surface.showRecipient).toBe(false)
   })
 
@@ -197,7 +197,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.includeSignature).toBe(false)
   })
 
-  it('defaults a team room to an internal note, not ask-agent', () => {
+  it('defaults a team room to Ask, not a note', () => {
     const surface = resolveComposerSurface(
       thread({
         channel: 'internal',
@@ -207,7 +207,7 @@ describe('resolveComposerSurface (whatsapp)', () => {
         agentName: 'Platform PO',
       }),
     )
-    expect(surface.defaultMode).toBe('note')
+    expect(surface.defaultMode).toBe('ask')
     expect(surface.showRecipient).toBe(false)
     expect(threadCounterpartyName(thread({
       channel: 'internal',

@@ -628,11 +628,16 @@ async def ensure_rule_threads(session: AsyncSession) -> int:
             )
         )
     ).scalars().all()
+    touched = 0
     for trigger in rows:
+        # A check-in the operator never turned on must not appear in the inbox.
+        if trigger.kind == "heartbeat" and not trigger.enabled and trigger.signal_id is None:
+            continue
         if trigger.kind == "event":
             await convert_event_trigger(session, trigger)
         else:
             await ensure_trigger_thread(session, trigger)
-    if rows:
+        touched += 1
+    if touched:
         await session.commit()
-    return len(rows)
+    return touched

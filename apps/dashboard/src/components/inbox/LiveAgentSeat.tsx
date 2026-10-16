@@ -25,10 +25,14 @@ export type AgentSpawnStyle = 'full' | 'quick'
 
 const FULL_SPAWN_MS = 1100
 const QUICK_SPAWN_MS = 220
+/** No thread activity for this long → last sender's orb goes static. */
+export const IDLE_ORB_MS = 2 * 60 * 1000
 
 type LiveAgentSeatContextValue = {
   claimSeat: (agentId: string, slotId: string, opts?: { spawn?: boolean }) => void
   releaseSeat: (agentId: string) => void
+  /** Drop the claim after a short beat so a same-agent remount can keep the spawn. */
+  scheduleReleaseSeat: (agentId: string) => void
   /** Release only when this slot still owns the claim (safe unmount cleanup). */
   releaseSeatIfSlot: (agentId: string, slotId: string) => void
   /** Drop a parked `msg:` seat only (never a live turn `live:` seat). */
@@ -63,12 +67,15 @@ function slotKey(agentId: string, slotId: string) {
 export function LiveAgentSeatProvider({ children }: { children: ReactNode }) {
   const [claims, setClaims] = useState<Record<string, SeatClaim>>({})
   const [enteringUntil, setEnteringUntil] = useState<Record<string, number>>({})
+  const enteringUntilRef = useRef(enteringUntil)
+  enteringUntilRef.current = enteringUntil
   const [focusedAgentId, setFocusedAgentId] = useState<string | null>(null)
   const claimsRef = useRef(claims)
   claimsRef.current = claims
   const slotsRef = useRef(new Map<string, HTMLElement>())
   const spawnSeq = useRef(0)
   const enterTimersRef = useRef(new Map<string, number>())
+  const releaseTimersRef = useRef(new Map<string, number>())
 
   useEffect(() => {
     return () => {
@@ -124,6 +131,11 @@ export function LiveAgentSeatProvider({ children }: { children: ReactNode }) {
   const claimSeat = useCallback(
     (agentId: string, slotId: string, opts?: { spawn?: boolean }) => {
       if (!agentId || !slotId) return
+      const pendingRelease = releaseTimersRef.current.get(agentId)
+      if (pendingRelease) {
+        window.clearTimeout(pendingRelease)
+        releaseTimersRef.current.delete(agentId)
+      }
       const existing = claimsRef.current[agentId]
       // Same seat: never re-bump spawnKey (effect re-runs used to infinite-loop),
       // except upgrade a silent claim when an entrance is now requested.
@@ -139,11 +151,23 @@ export function LiveAgentSeatProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // Entrance already playing: only move the seat. A new spawnKey restarts
+      // the rise (activity/speech/stream id used to do that ~10 times).
+      const stillEntering = (enteringUntilRef.current[agentId] ?? 0) > Date.now()
+      if (existing && stillEntering) {
+        const nextClaim = { slotId, spawnKey: existing.spawnKey }
+        claimsRef.current = { ...claimsRef.current, [agentId]: nextClaim }
+        setClaims((prev) => ({ ...prev, [agentId]: nextClaim }))
+        return
+      }
+
       let nextSpawnKey = existing?.spawnKey ?? null
       let spawnedStyle: AgentSpawnStyle | null = null
 
       if (opts?.spawn === false) {
         // Silent relocate / idle park — keep prior key so remounts do not re-animate.
+      } else if (existing?.spawnKey) {
+        // Already rose this visit — later seats stay put (no second grow).
       } else if (existing) {
         // Living avatar already in this thread → grow in at the new seat.
         spawnedStyle = 'quick'
@@ -169,6 +193,11 @@ export function LiveAgentSeatProvider({ children }: { children: ReactNode }) {
 
   const releaseSeat = useCallback(
     (agentId: string) => {
+      const pendingRelease = releaseTimersRef.current.get(agentId)
+      if (pendingRelease) {
+        window.clearTimeout(pendingRelease)
+        releaseTimersRef.current.delete(agentId)
+      }
       if (!(agentId in claimsRef.current)) {
         clearEntering(agentId)
         return
@@ -180,6 +209,21 @@ export function LiveAgentSeatProvider({ children }: { children: ReactNode }) {
       clearEntering(agentId)
     },
     [clearEntering],
+  )
+
+  /** Unmount often remounts the same agent one frame later (row swap). */
+  const scheduleReleaseSeat = useCallback(
+    (agentId: string) => {
+      if (!agentId) return
+      const prev = releaseTimersRef.current.get(agentId)
+      if (prev) window.clearTimeout(prev)
+      const timer = window.setTimeout(() => {
+        releaseTimersRef.current.delete(agentId)
+        releaseSeat(agentId)
+      }, 64)
+      releaseTimersRef.current.set(agentId, timer)
+    },
+    [releaseSeat],
   )
 
   const releaseSeatIfSlot = useCallback(
@@ -245,6 +289,7 @@ export function LiveAgentSeatProvider({ children }: { children: ReactNode }) {
     () => ({
       claimSeat,
       releaseSeat,
+      scheduleReleaseSeat,
       releaseSeatIfSlot,
       releaseMessageSeat,
       setFocusAgent,
@@ -258,6 +303,7 @@ export function LiveAgentSeatProvider({ children }: { children: ReactNode }) {
     [
       claimSeat,
       releaseSeat,
+      scheduleReleaseSeat,
       releaseSeatIfSlot,
       releaseMessageSeat,
       setFocusAgent,
@@ -293,16 +339,21 @@ export function useLiveAgentSeat(): LiveAgentSeatContextValue | null {
 
 /**
  * Park the live idle orb on the latest agent bubble while it is the user's
- * turn. Silent claim (no spawn). Releases only when the user takes the floor.
- * Does not release when a live turn steals the seat (so Ask can quickspawn).
+ * turn. Silent claim (no spawn). After {@link IDLE_ORB_MS} without a newer
+ * message the seat drops and the mark goes static. The next live turn then
+ * full-spawns because there is no prior seat. A user reply also releases
+ * the park. Does not release when a live turn steals the seat.
  */
 export function ClaimIdleAgentSeat({
   agentId,
   messageId,
+  activityAt,
   release = false,
 }: {
   agentId: string | null | undefined
   messageId: string | null | undefined
+  /** When that bubble was sent. Already-stale threads stay static. */
+  activityAt?: string | null
   /** True when the latest message is the user's — drop the parked idle seat. */
   release?: boolean
 }) {
@@ -311,12 +362,23 @@ export function ClaimIdleAgentSeat({
   const releaseMessageSeat = seat?.releaseMessageSeat
   useEffect(() => {
     if (!agentId) return
-    if (messageId) {
-      claimSeat?.(String(agentId), `msg:${messageId}`, { spawn: false })
+    const id = String(agentId)
+    if (!messageId) {
+      if (release) releaseMessageSeat?.(id)
       return
     }
-    if (release) releaseMessageSeat?.(String(agentId))
-  }, [claimSeat, releaseMessageSeat, agentId, messageId, release])
+    const at = activityAt ? Date.parse(activityAt) : Date.now()
+    const elapsed = Date.now() - (Number.isFinite(at) ? at : Date.now())
+    if (elapsed >= IDLE_ORB_MS) {
+      releaseMessageSeat?.(id)
+      return
+    }
+    claimSeat?.(id, `msg:${messageId}`, { spawn: false })
+    const timer = window.setTimeout(() => {
+      releaseMessageSeat?.(id)
+    }, IDLE_ORB_MS - elapsed)
+    return () => window.clearTimeout(timer)
+  }, [claimSeat, releaseMessageSeat, agentId, messageId, activityAt, release])
   return null
 }
 
@@ -400,7 +462,7 @@ export function LiveAgentAvatarSlot({
     return () => registerSlotEl(agentId, slotId, null)
   }, [registerSlotEl, agentId, slotId])
 
-  const releaseSeat = seat?.releaseSeat
+  const scheduleReleaseSeat = seat?.scheduleReleaseSeat
   // Capture spawn for this claim tick without putting it in effect deps (a
   // true→false flip on the same slot used to cleanup-release then no-op
   // reclaim and left a static checkmark mid-tool).
@@ -437,13 +499,13 @@ export function LiveAgentAvatarSlot({
   // so claimSeat quickspawns instead of a second full rise / silent blank key).
   const claimingLiveSeat = Boolean(claim && agentId && slotId.startsWith('live:'))
   useEffect(() => {
-    if (!claimingLiveSeat || !agentId || !releaseSeat) return
+    if (!claimingLiveSeat || !agentId || !scheduleReleaseSeat) return
     const tracked = agentId
     return () => {
-      releaseSeat(tracked)
+      scheduleReleaseSeat(tracked)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- omit slotId on purpose
-  }, [claimingLiveSeat, agentId, releaseSeat])
+  }, [claimingLiveSeat, agentId, scheduleReleaseSeat])
 
   // Saved message footprints always show done when static. Relying only on
   // wasLive→static missed agents whose live seat lived on `live:` (Ask) and

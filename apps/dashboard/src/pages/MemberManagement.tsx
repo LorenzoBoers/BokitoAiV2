@@ -658,10 +658,13 @@ export default function MemberManagement({
             ))}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-text-heading">{t('membersPage.hireAgentsTitle')}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-text-heading">{t('membersPage.hireAgentsTitle')}</p>
+              <Badge size="sm" variant="neutral">{t('membersPage.hireAgentsSoon')}</Badge>
+            </div>
             <p className="mt-0.5 text-xs text-text-muted">{t('membersPage.hireAgentsBody')}</p>
           </div>
-          <Button type="button" variant="ai" className="shrink-0">
+          <Button type="button" variant="ai" className="shrink-0" disabled>
             <Store size={14} />
             {t('membersPage.hireAgentsCta')}
           </Button>

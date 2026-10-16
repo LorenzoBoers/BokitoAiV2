@@ -375,9 +375,43 @@ export function webSearchFavicon(item: ActivityItem): string {
   return host ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32` : ''
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+/** Who an invite / floor handoff is aimed at, when the payload says. */
+export function inviteTarget(item: ActivityItem): { id: string; name: string; kind: string } | null {
+  if (item.tool !== 'invite_to_thread' && item.tool !== 'request_participant_turn') return null
+  const input = asRecord(item.input)
+  const result = asRecord(item.result)
+  const turn = asRecord(result?.turn)
+  const id = String(
+    result?.ref_id || input?.id || input?.agent_id || turn?.agent_id || '',
+  ).trim()
+  const name = String(result?.name || turn?.agent_name || input?.name || '').trim()
+  const kind = String(result?.kind || input?.kind || (item.tool === 'request_participant_turn' ? 'agent' : '')).trim()
+  if (!id && !name) return null
+  return { id, name, kind }
+}
+
 /** Line for one action: its label, or a kind fallback. */
 export function itemLabel(item: ActivityItem, t: TFunction): string {
   if (item.kind === 'think') return t('activity.thinking', { ns: 'communication' })
+  const invited = inviteTarget(item)
+  if (invited) {
+    if (invited.name) {
+      return t('activity.inviting', {
+        ns: 'communication',
+        name: invited.name,
+        defaultValue: `Inviting ${invited.name} to the conversation`,
+      })
+    }
+    return t('activity.invitingSomeone', {
+      ns: 'communication',
+      defaultValue: 'Inviting to the conversation',
+    })
+  }
   if (item.label === 'note') return item.text?.trim() || t('activity.note', { ns: 'communication' })
   if (item.tool === 'web_search') {
     const host = webSearchHost(item)
@@ -631,6 +665,9 @@ export function turnHasContent(turn: LiveTurn): boolean {
 
 const CHECKPOINT_PLACEHOLDERS = new Set(['Working on this.', 'Done.'])
 
+/** Drop a live overlay that has not moved for this long (crashed worker, reload). */
+export const LIVE_TURN_STALE_MS = 120_000
+
 /** Resume a live overlay from an in-progress thread row after a reload. */
 export function liveTurnFromMessage(message: {
   turnId?: string | null
@@ -638,8 +675,13 @@ export function liveTurnFromMessage(message: {
   activity?: ActivityItem[]
   activityAfter?: ActivityItem[]
   bodyText?: string
+  createdAt?: string | null
 }): LiveTurn | null {
   if (!message.inProgress || !message.turnId) return null
+  if (message.createdAt) {
+    const at = Date.parse(message.createdAt)
+    if (!Number.isNaN(at) && Date.now() - at > LIVE_TURN_STALE_MS) return null
+  }
   const items = [...(message.activity ?? []), ...(message.activityAfter ?? [])].filter(
     isVisibleActivity,
   )
@@ -666,6 +708,7 @@ export function liveTurnFromLatestInProgress(
     activity?: ActivityItem[]
     activityAfter?: ActivityItem[]
     bodyText?: string
+    createdAt?: string | null
   }> | null | undefined,
 ): LiveTurn | null {
   if (!messages?.length) return null

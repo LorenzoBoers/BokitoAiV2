@@ -331,7 +331,14 @@ function ThreadListItem({
 
         {isDirect || isAgentThread ? (
           <AiAvatar
-            {...toAiAvatarProps(thread)}
+            {...toAiAvatarProps(
+              preferLiveAgentAvatar(
+                thread.agentId
+                  ? agents.find((row) => String(row.id) === String(thread.agentId))
+                  : undefined,
+                thread,
+              ),
+            )}
             size={28}
             className="mt-0.5"
             decorative

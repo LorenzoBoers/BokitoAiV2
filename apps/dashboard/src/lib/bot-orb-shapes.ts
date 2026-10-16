@@ -6,6 +6,7 @@
 export const BOT_ORB_SHAPE_KEYS = [
   'bokito',
   'blob',
+  'square',
   'pebble',
   'egg',
   'squircle',
@@ -85,6 +86,10 @@ export const BOT_ORB_SHAPES: Record<BotOrbShapeKey, BotOrbShapeDef> = {
   },
   blob: {
     path: 'M32 5C19 5 7 17 7 32s12 27 25 27 25-12 25-27S45 5 32 5Z',
+  },
+  /** Square with short corners so the face still sits inside the body. */
+  square: {
+    path: 'M18 10h28a8 8 0 0 1 8 8v28a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8V18a8 8 0 0 1 8-8Z',
   },
   pebble: {
     path: 'M32 7C21 7 11 17 10 29c-1 13 7 26 22 27 13 1 24-8 25-21 1-12-7-28-25-28Z',

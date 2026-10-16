@@ -9,10 +9,11 @@ import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { Switch } from '../components/ui/switch'
 import {
-  AGENT_AVATAR_ICON_KEYS,
-  AGENT_AVATAR_ICONS,
+  resolveAgentAvatarColor,
+  resolveAgentAvatarShape,
 } from '../lib/agent-avatar'
-import { bokitoUpdateAgent } from '../lib/bokito-api'
+import { DEFAULT_BOT_ORB_COLOR } from '../lib/bot-orb-shapes'
+import { AgentVisualEditor } from '../components/workforce/AgentVisualEditor'
 import { applyUiLanguageLocally, persistUiLanguage } from '../lib/language-preference'
 import {
   defaultNotificationPrefs,
@@ -37,6 +38,13 @@ import { policyRoutes } from '../api/routes/policy.routes'
 import { appRoutes } from '../api/routes/app.routes'
 import { cn } from '../lib/utils'
 import { markTourPendingAfterWizard } from '../lib/tour-handoff'
+
+const DEFAULT_LEAD_SHAPE = 'blob'
+const DEFAULT_LEAD_JOB_TITLE = 'Onboarding specialist'
+
+function visualKind(value: string | null | undefined): 'initials' | 'orb' {
+  return (value || '').trim().toLowerCase() === 'initials' ? 'initials' : 'orb'
+}
 
 type OwnerStep = 'intake' | 'languages' | 'notifications' | 'govern' | 'agent' | 'channel'
 type MemberStep = 'languages' | 'notifications'
@@ -124,8 +132,11 @@ export default function OnboardingWizardPage() {
   const [workspaceLang, setWorkspaceLang] = useState('nl')
   const [posture, setPostureLocal] = useState<AutonomyPostureId>('assisted')
   const [agentName, setAgentName] = useState('')
-  const [avatarKind, setAvatarKind] = useState<'initials' | 'icon'>('icon')
-  const [avatarIcon, setAvatarIcon] = useState('bot')
+  const [agentJobTitle, setAgentJobTitle] = useState(DEFAULT_LEAD_JOB_TITLE)
+  const [agentDescription, setAgentDescription] = useState('')
+  const [avatarKind, setAvatarKind] = useState<'initials' | 'orb'>('orb')
+  const [avatarColor, setAvatarColor] = useState(DEFAULT_BOT_ORB_COLOR)
+  const [avatarShape, setAvatarShape] = useState(DEFAULT_LEAD_SHAPE)
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(defaultNotificationPrefs)
 
   const steps = isOwnerScope ? OWNER_STEPS : MEMBER_STEPS
@@ -143,10 +154,30 @@ export default function OnboardingWizardPage() {
         setWorkspaceLang(res.ai_workspace_language || 'nl')
         setPostureLocal((res.autonomy_posture as AutonomyPostureId) || 'assisted')
         if (res.lead_agent) {
-          setAgentName(res.lead_agent.name || '')
-          const kind = (res.lead_agent.avatar_kind || '').toLowerCase()
-          setAvatarKind(kind === 'icon' ? 'icon' : 'initials')
-          setAvatarIcon(res.lead_agent.avatar_icon || 'bot')
+          const suggested = res.suggested_agent_name || ''
+          const company = suggested.replace(/ assistant$/, '')
+          const storedName = res.lead_agent.name || ''
+          setAgentName(!storedName || storedName === company ? suggested : storedName)
+          const storedTitle = (res.lead_agent.job_title || '').trim()
+          setAgentJobTitle(
+            !storedTitle || storedTitle === 'Assistent' || storedTitle === 'Assistant'
+              ? DEFAULT_LEAD_JOB_TITLE
+              : storedTitle,
+          )
+          setAgentDescription(res.lead_agent.description || '')
+          setAvatarKind(visualKind(res.lead_agent.avatar_kind))
+          setAvatarColor(resolveAgentAvatarColor(res.lead_agent.avatar_color))
+          const storedShape = res.lead_agent.avatar_shape
+          setAvatarShape(
+            !storedShape || storedShape === 'bokito' ? DEFAULT_LEAD_SHAPE : resolveAgentAvatarShape(storedShape),
+          )
+        } else {
+          setAgentName(res.suggested_agent_name || '')
+          setAgentJobTitle(DEFAULT_LEAD_JOB_TITLE)
+          setAgentDescription('')
+          setAvatarKind('orb')
+          setAvatarColor(DEFAULT_BOT_ORB_COLOR)
+          setAvatarShape(DEFAULT_LEAD_SHAPE)
         }
         const currentUi = i18n.resolvedLanguage === 'en' ? 'en' : 'nl'
         setUiLang(currentUi)
@@ -223,16 +254,27 @@ export default function OnboardingWizardPage() {
         const next = await patchOnboardingWizard(token, { autonomy_posture: posture })
         setState(next)
       } else if (step === 'agent') {
-        const agentId = state?.lead_agent?.id
-        if (agentId) {
-          const name = agentName.trim() || state.lead_agent?.name || 'Assistant'
-          await bokitoUpdateAgent(token, agentId, {
-            name,
-            avatar_kind: avatarKind,
-            avatar_icon: avatarKind === 'icon' ? avatarIcon : null,
-            avatar_image_url: null,
-          })
+        const name = agentName.trim()
+        const jobTitle = agentJobTitle.trim()
+        if (!name) {
+          toast.error(t('agent.nameRequired'))
+          return false
         }
+        if (!jobTitle) {
+          toast.error(t('agent.jobTitleRequired'))
+          return false
+        }
+        const next = await patchOnboardingWizard(token, {
+          lead_agent: {
+            name,
+            job_title: jobTitle,
+            description: agentDescription.trim(),
+            avatar_kind: avatarKind,
+            avatar_color: avatarKind === 'orb' ? avatarColor : null,
+            avatar_shape: avatarKind === 'orb' ? avatarShape : null,
+          },
+        })
+        setState(next)
       }
       return true
     } catch {
@@ -465,59 +507,57 @@ export default function OnboardingWizardPage() {
               <h2 className="text-lg font-semibold text-text-heading">{t('agent.title')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('agent.subtitle')}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center pt-2">
               <AiAvatar
                 name={agentName || 'A'}
                 seed={state.lead_agent?.id || 'agent'}
-                size={48}
+                size={104}
                 kind={avatarKind}
-                icon={avatarKind === 'icon' ? avatarIcon : null}
+                icon={null}
+                color={avatarKind === 'orb' ? avatarColor : null}
+                shape={avatarKind === 'orb' ? avatarShape : null}
+                imageUrl={null}
                 mode="live"
+                baseMotion="idle"
               />
-              <label className="flex-1">
-                <span className="text-xs font-medium text-text-secondary">{t('agent.nameLabel')}</span>
-                <input
-                  value={agentName}
-                  onChange={(e) => setAgentName(e.target.value)}
-                  placeholder={t('agent.namePlaceholder')}
-                  className="mt-1 w-full rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-heading outline-none focus:border-accent/50"
-                />
-              </label>
+              <input
+                value={agentName}
+                onChange={(e) => setAgentName(e.target.value)}
+                aria-label={t('agent.nameLabel')}
+                placeholder={t('agent.namePlaceholder')}
+                className="mt-4 w-full max-w-sm bg-transparent text-center text-lg font-semibold text-text-heading outline-none border-b border-transparent focus:border-accent/50"
+              />
+              <input
+                value={agentJobTitle}
+                onChange={(e) => setAgentJobTitle(e.target.value.slice(0, 32))}
+                aria-label={t('agent.jobTitleLabel')}
+                placeholder={t('agent.jobTitlePlaceholder')}
+                maxLength={32}
+                className="mt-1 w-full max-w-sm bg-transparent text-center text-sm text-text-secondary outline-none border-b border-transparent focus:border-accent/40"
+              />
             </div>
-            <SegmentedControl
-              size="sm"
-              value={avatarKind}
-              onChange={setAvatarKind}
-              options={(['initials', 'icon'] as const).map((kind) => ({
-                value: kind,
-                label: kind === 'icon' ? t('agent.icon') : t('agent.initials'),
-              }))}
+            <label className="block">
+              <span className="text-xs font-medium text-text-secondary">{t('agent.descriptionLabel')}</span>
+              <textarea
+                value={agentDescription}
+                onChange={(e) => setAgentDescription(e.target.value.slice(0, 280))}
+                placeholder={t('agent.descriptionPlaceholder')}
+                rows={3}
+                maxLength={280}
+                className="mt-1 w-full resize-none rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-heading outline-none focus:border-accent/50"
+              />
+            </label>
+            <AgentVisualEditor
+              kind={avatarKind}
+              color={avatarColor}
+              shape={avatarShape}
+              busy={busy}
+              compactShapes
+              showMotion={false}
+              onKindChange={setAvatarKind}
+              onColorChange={setAvatarColor}
+              onShapeChange={setAvatarShape}
             />
-            {avatarKind === 'icon' ? (
-              <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
-                {AGENT_AVATAR_ICON_KEYS.map((key) => {
-                  const Icon = AGENT_AVATAR_ICONS[key]
-                  const selected = avatarIcon === key
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      title={key}
-                      aria-pressed={selected}
-                      onClick={() => setAvatarIcon(key)}
-                      className={cn(
-                        'inline-flex h-9 w-9 items-center justify-center rounded-lg border',
-                        selected
-                          ? 'border-ai/40 bg-ai/10 text-ai-ink'
-                          : 'border-border/60 text-text-secondary hover:text-text-heading',
-                      )}
-                    >
-                      <Icon size={16} aria-hidden />
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
           </section>
         ) : null}
 

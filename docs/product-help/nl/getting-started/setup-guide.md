@@ -43,7 +43,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Het instelling
 
 ## Plan terugkerend werk
 
-Nieuwe workspaces krijgen een dagelijkse **platform-check-in** die **gepauzeerd** start. Als je die aanzet, wordt de assistent één keer per dag wakker, leest de dagelijkse check-in in Kennis en wat hij de vorige keer schreef, en schrijft alleen in zijn eigen kanaal in Communicatie wanneer iets nieuws jou nodig heeft. Hij herhaalt geen vraag die hij al stelde, en maakt alleen een beslissingskaart wanneer de vraag over een gesprek gaat of een actie heeft die je kunt goedkeuren. Pas het ritme aan op de wake in [Agenda](/docs/ai/agenda). Dat is hetzelfde gesprek dat je opent onder **Agents** in de zijbalk, zodat bevindingen naast je eigen vragen aan die assistent staan. Zet die aan vanuit de setupgids, Overview, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Overview](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Overview **Verbruik**.
+Een dagelijkse **platform-check-in** bestaat pas nadat je ja zegt. De lead vraagt dat in het setup-gesprek na de tour. Als je die aanzet, wordt de assistent één keer per dag wakker, leest de dagelijkse check-in in Kennis en wat hij de vorige keer schreef, en schrijft alleen in zijn eigen kanaal in Communicatie wanneer iets nieuws jou nodig heeft. Hij herhaalt geen vraag die hij al stelde, en maakt alleen een beslissingskaart wanneer de vraag over een gesprek gaat of een actie heeft die je kunt goedkeuren. Pas het ritme aan op de wake in [Agenda](/docs/ai/agenda). Dat is hetzelfde gesprek dat je opent onder **Agents** in de zijbalk, zodat bevindingen naast je eigen vragen aan die assistent staan. Zet die aan vanuit de setupgids, Overview, of door het de assistent te vragen. Extra terugkerend werk blijft op de [Agenda](/docs/ai/agenda). Houd [Overview](/docs/getting-started/cockpit) als dagelijkse scan. Verbruikplafonds staan op Overview **Verbruik**.
 
 ## Volg de live checklist
 
@@ -53,7 +53,7 @@ Bij de eerste login ronden owners de **eerste-setupwizard** af, daarna de produc
 2. **Koppel een kanaal** — maak een Bokito-adres of koppel Gmail/Outlook onder **Kanalen**, niet via een modulekaart op Koppelingen. Zie [Kanalen](/docs/inbox/channels).
 3. **Praat met de assistent** — een kort gesprek vult de bedrijfskennis. Zie [Kennis](/docs/ai/knowledge).
 4. **Los je eerste beslissing op** — de checklistkaart (en **Probeer de demo** waar die staat) start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
-5. **Zet check-in aan** — de dagelijkse check-in start gepauzeerd; zet hem aan wanneer je wilt dat de assistent waakt.
+5. **Zet check-in aan** — zeg ja in het setup-gesprek, of zet hem aan vanuit de setupgids, wanneer je wilt dat de assistent waakt.
 
 **Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Connections](/docs/integrations/integrations), projecten, [Govern](/docs/govern/govern), **Cijfers op Overview** (eigen KPI's), en [Data en privacy](/docs/govern/privacy-security) (bewaartermijn, dataregio en verzoeken van betrokkenen).
 

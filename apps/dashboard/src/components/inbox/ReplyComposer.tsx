@@ -58,6 +58,7 @@ import {
 import { applyDisplayEdit, applyMentionAtDisplay, displayFromRaw } from '../../lib/mention-editor'
 import {
   composerDraftStorageKey,
+  type ComposerDraftSlot,
   isStoredDraftStale,
   parseComposerDraft,
   serializeComposerDraft,
@@ -170,22 +171,34 @@ type Props = {
   onPromoteEmailEdit?: (body: string) => void
 }
 
-const draftStorageKey = composerDraftStorageKey
+function draftSlot(mode: ComposerMode): ComposerDraftSlot {
+  if (mode === 'note') return 'note'
+  if (mode === 'ask') return 'ask'
+  return 'reply'
+}
 
-function readStoredDraft(persistKey: string | null | undefined): string {
+function readStoredDraft(
+  persistKey: string | null | undefined,
+  slot?: ComposerDraftSlot,
+): string {
   if (!persistKey || typeof window === 'undefined') return ''
   try {
-    return window.localStorage.getItem(draftStorageKey(persistKey)) ?? ''
+    return window.localStorage.getItem(composerDraftStorageKey(persistKey, slot)) ?? ''
   } catch {
     return ''
   }
 }
 
-function writeStoredDraft(persistKey: string | null | undefined, value: string) {
+function writeStoredDraft(
+  persistKey: string | null | undefined,
+  value: string,
+  slot?: ComposerDraftSlot,
+) {
   if (!persistKey || typeof window === 'undefined') return
   try {
-    if (value.trim()) window.localStorage.setItem(draftStorageKey(persistKey), value)
-    else window.localStorage.removeItem(draftStorageKey(persistKey))
+    const key = composerDraftStorageKey(persistKey, slot)
+    if (value.trim()) window.localStorage.setItem(key, value)
+    else window.localStorage.removeItem(key)
   } catch {
     // Quota/private mode failures just mean the draft is not persisted.
   }
@@ -454,16 +467,42 @@ export default function ReplyComposer({
   const draftRef = useRef({ body, cc, bcc })
   draftRef.current = { body, cc, bcc }
 
+  const modeSlot = draftSlot(mode)
+  const slotRef = useRef<{ key: string | null; slot: ComposerDraftSlot }>({
+    key: null,
+    slot: modeSlot,
+  })
+
   useEffect(() => {
-    // Reload the stored draft when the thread identity changes — not when
-    // the operator switches Reply/Ask/Note (that used to wipe a just-inserted
-    // @agent mention and leave a bare "@").
-    const stored = parseComposerDraft(readStoredDraft(persistKey))
+    // Reply, Ask, and Note each keep their own text. Switching tabs saves the
+    // one you leave and loads the one you open. A legacy single-key draft is
+    // adopted once into the tab that is open.
+    const prev = slotRef.current
+    const sameThread = prev.key != null && prev.key === persistKey
+    if (sameThread && prev.slot !== modeSlot && persistKey) {
+      if (!isUntouchedPrefill(draftRef.current.body)) {
+        writeStoredDraft(
+          persistKey,
+          serializeComposerDraft(storedDraftOf(draftRef.current)),
+          prev.slot,
+        )
+      }
+    }
+    slotRef.current = { key: persistKey ?? null, slot: modeSlot }
+    if (!persistKey) return
+    if (sameThread && prev.slot === modeSlot) return
+    let raw = readStoredDraft(persistKey, modeSlot)
+    if (!raw.trim()) {
+      const legacy = readStoredDraft(persistKey)
+      if (legacy.trim()) {
+        raw = legacy
+        writeStoredDraft(persistKey, '')
+        writeStoredDraft(persistKey, legacy, modeSlot)
+      }
+    }
+    const stored = parseComposerDraft(raw)
     untouchedPrefillRef.current = null
     restoredDraftRef.current = stored
-    // Keep the flush ref in step right away: a cleanup that runs before the
-    // restored values have rendered (StrictMode, fast thread switch) must
-    // write the restored draft back, not an empty one.
     draftRef.current = { body: stored.body, cc: stored.cc, bcc: stored.bcc }
     setBody(stored.body)
     setQuoteIncluded(false)
@@ -472,30 +511,32 @@ export default function ReplyComposer({
     setCcBccOpen(Boolean(stored.cc || stored.bcc))
     setDraftRestored(Boolean(stored.body || stored.cc || stored.bcc))
     setAttachments([])
-  }, [persistKey, surface.channel, surface.recipientValue])
+  }, [persistKey, modeSlot])
 
   // Persist the draft (debounced) so switching threads or reloading keeps it.
   useEffect(() => {
     if (!persistKey) return
     if (isUntouchedPrefill(body)) return
+    const slot = modeSlot
     const timer = window.setTimeout(
-      () => writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf({ body, cc, bcc }))),
+      () => writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf({ body, cc, bcc })), slot),
       400,
     )
     return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- anchors are read from refs
-  }, [persistKey, body, cc, bcc])
+  }, [persistKey, modeSlot, body, cc, bcc])
 
   // Flush the draft synchronously when leaving the thread or unmounting, so
   // the debounce above cannot drop the last keystrokes.
   useEffect(() => {
     if (!persistKey) return
+    const slot = modeSlot
     return () => {
       if (isUntouchedPrefill(draftRef.current.body)) return
-      writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf(draftRef.current)))
+      writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf(draftRef.current)), slot)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- anchors are read from refs
-  }, [persistKey])
+  }, [persistKey, modeSlot])
 
   // Collision guard: while a person types a customer reply the server keeps
   // an autonomous agent at drafting. Refresh the lock every 45s of typing
@@ -787,6 +828,15 @@ export default function ReplyComposer({
     const payload = attachments.length ? attachments : undefined
     try {
       if (isAsk) {
+        // Teammates share this tab with agents. A person gets a chat bubble;
+        // an agent gets a turn. A note is only the Note button.
+        if (focusHumansOnly) {
+          await onNote(text, payload, { asChat: true })
+          clearDraft()
+          setAttachments([])
+          requestAnimationFrame(() => textareaRef.current?.focus())
+          return
+        }
         if (!onAgentMessage) return
         // Clear immediately so Enter cannot triple-submit the same body.
         clearDraft()
@@ -804,7 +854,7 @@ export default function ReplyComposer({
         return
       } else if (isNote) {
         // @teammate focus posts a real chat bubble; bare Note tab stays a note.
-        await onNote(text, payload, focusHumansOnly ? { asChat: true } : undefined)
+        await onNote(text, payload)
         clearDraft()
         setAttachments([])
       } else {
@@ -1033,7 +1083,7 @@ export default function ReplyComposer({
               ) : null}
             </div>
           ) : null}
-          {showAskTab && !focusHumansOnly ? (
+          {showAskTab ? (
             <div
               className={cn(
                 'inline-flex h-7 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
@@ -1071,12 +1121,14 @@ export default function ReplyComposer({
                 ) : (
                   <AiMark size={11} />
                 )}
-                {t('composer.tabAsk', { name: focusName })}
+                {focusHumansOnly
+                  ? t('composer.tabTo', { name: focusName, defaultValue: 'To {{name}}' })
+                  : t('composer.tabAsk', { name: focusName })}
               </button>
               {focusPickerMenu}
             </div>
           ) : null}
-          {showNoteTab || focusHumansOnly ? (
+          {showNoteTab ? (
             <div
               className={cn(
                 'inline-flex h-7 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
@@ -1091,27 +1143,9 @@ export default function ReplyComposer({
                 title={noteTooltip}
                 className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
               >
-                {focusHumansOnly && focusStack.length > 0 ? (
-                  focusStack.length > 1 ? (
-                    <AvatarStack members={focusStack} size={14} linkAgents={false} />
-                  ) : focusStack[0].kind === 'user' ? (
-                    <UserAvatar
-                      name={focusStack[0].name}
-                      email={focusStack[0].email || focusStack[0].name}
-                      avatarUrl={focusStack[0].avatarUrl}
-                      size={14}
-                    />
-                  ) : (
-                    <Send size={11} />
-                  )
-                ) : (
-                  <StickyNote size={11} />
-                )}
-                {focusHumansOnly
-                  ? t('composer.tabTo', { name: focusName, defaultValue: 'To {{name}}' })
-                  : t('composer.tabNote')}
+                <StickyNote size={11} />
+                {t('composer.tabNote')}
               </button>
-              {focusHumansOnly ? focusPickerMenu : null}
             </div>
           ) : null}
           {extraActions ? (
@@ -1322,15 +1356,15 @@ export default function ReplyComposer({
           placeholder={
             dictation.listening
               ? t('composer.dictationListening')
-              : isAsk
+              : isAsk && focusHumansOnly
+                ? t('composer.teamMessagePlaceholder', {
+                    name: focusName,
+                    defaultValue: 'Message {{name}}...',
+                  })
+                : isAsk
                 ? t('composer.askPlaceholder', {
                     name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
                   })
-                : isNote && focusHumansOnly
-                  ? t('composer.teamMessagePlaceholder', {
-                      name: focusName,
-                      defaultValue: 'Message {{name}}...',
-                    })
                   : isNote
                     ? t('composer.notePlaceholder')
                     : t(surface.replyPlaceholderKey, {
@@ -1409,13 +1443,13 @@ export default function ReplyComposer({
               }
               data-testid="composer-send"
               title={
-                isAsk
+                isAsk && focusHumansOnly
+                  ? t('composer.sendTo', {
+                      name: focusName,
+                      defaultValue: 'Send to {{name}}',
+                    })
+                  : isAsk
                   ? t('composer.sendAsk', { name: focusName })
-                  : isNote && focusHumansOnly
-                    ? t('composer.sendTo', {
-                        name: focusName,
-                        defaultValue: 'Send to {{name}}',
-                      })
                     : isNote
                       ? t('composer.sendIntern')
                       : closesByPolicy

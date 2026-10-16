@@ -206,7 +206,80 @@ def test_compile_rejects_fetch_and_foreign_import():
             "export default function C() { fetch('/x'); return <Stack /> }"
         )
     with pytest.raises(CanvasCompileError):
+        parse_source(
+            'import { Stack } from "bokito/canvas"\n'
+            "export default function C() { const x = window.location; return <Stack /> }"
+        )
+    with pytest.raises(CanvasCompileError):
         parse_source("<NotAThing />")
+
+
+def test_compile_allows_window_in_prose():
+    """Trading copy like 'AM window' is text, not the browser window global."""
+    tree = parse_source(
+        'import { Stack, Callout } from "bokito/canvas"\n'
+        "export default function Canvas() {\n"
+        '  const nextAction = "AM window opent om 09:45 ET";\n'
+        "  return (\n"
+        "    <Stack>\n"
+        "      <Callout>Markt gesloten. AM window nog niet actief.</Callout>\n"
+        "    </Stack>\n"
+        "  )\n"
+        "}\n"
+    )
+    callout = tree["children"][0]
+    assert callout["type"] == "Callout"
+    assert "AM window" in callout["props"]["text"]
+
+
+@pytest.mark.asyncio
+async def test_window_prose_applies_and_session_stays_usable(client: AsyncClient, session_override):
+    """The compile runs in a worker thread. A prose 'window' must save, and a
+    real compile error must come back as HTTP 400 without breaking the session."""
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.services.project_canvas import apply_canvas_document
+
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    created = await client.post(
+        "/api/workforce/canvases",
+        headers=headers,
+        json={"owner_kind": "tenant", "owner_id": str(tenant.id), "title": "AM desk"},
+    )
+    assert created.status_code == 200, created.text
+    source = (
+        'import { Stack, Callout } from "bokito/canvas"\n'
+        "export default function Canvas() {\n"
+        '  const nextAction = "AM window opent om 09:45 ET";\n'
+        "  return <Stack><Callout>AM window nog niet actief.</Callout></Stack>\n"
+        "}\n"
+    )
+    applied = await apply_canvas_document(
+        session_override,
+        tenant.id,
+        {"canvas_id": created.json()["id"], "source": source},
+    )
+    assert "window" in applied["canvas"]["source"]
+    still = (await session_override.execute(select(Tenant))).scalar_one()
+    assert still.id == tenant.id
+
+    with pytest.raises(HTTPException) as bad:
+        await apply_canvas_document(
+            session_override,
+            tenant.id,
+            {
+                "canvas_id": created.json()["id"],
+                "source": (
+                    'import { Stack } from "bokito/canvas"\n'
+                    "export default function C() { fetch('/x'); return <Stack /> }"
+                ),
+            },
+        )
+    assert bad.value.status_code == 400
+    again = (await session_override.execute(select(Tenant))).scalar_one()
+    assert again.id == tenant.id
 
 
 async def _make_project(client: AsyncClient, headers: dict[str, str], slug: str) -> str:

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  composerLanding,
   composerModeForFocus,
   emptyClientFocus,
   ensureFocusMentionsInBody,
@@ -33,8 +34,37 @@ describe('composer-reply-focus', () => {
   it('builds humans-only focus on the teammate message tab', () => {
     const focus = focusFromTargets([{ type: 'user', id: 'u1', name: 'Sam' }])
     expect(focus.kind).toBe('humans')
-    // Still uses the note mode slot in the composer; send posts as_chat.
-    expect(composerModeForFocus(focus)).toBe('note')
+    // Teammates share the Ask tab. Note is only the Note button.
+    expect(composerModeForFocus(focus)).toBe('ask')
+  })
+
+  it('lands on the last received sender and never on a note', () => {
+    const messages = [
+      { direction: 'inbound', kind: 'message' },
+      { kind: 'agent_message', payload: { agent_id: 'agent-1' } },
+      { kind: 'internal_note', authorUserId: 7 },
+      { direction: 'outbound', authorUserId: 7 },
+    ]
+    expect(composerLanding(messages, { selfUserId: 7, allowReply: true })).toEqual({
+      mode: 'ask',
+      agentId: 'agent-1',
+      userId: null,
+    })
+    expect(
+      composerLanding(
+        [{ direction: 'inbound', kind: 'email' }, { kind: 'agent_message', payload: { agent_id: 'a' } }],
+        { selfUserId: 7, allowReply: true },
+      ).mode,
+    ).toBe('ask')
+    expect(
+      composerLanding([{ direction: 'inbound', kind: 'chat' }], { selfUserId: 7, allowReply: true }).mode,
+    ).toBe('reply')
+    expect(
+      composerLanding(
+        [{ authorUserId: 3, direction: 'outbound', kind: 'message' }],
+        { selfUserId: 7, allowReply: true },
+      ),
+    ).toEqual({ mode: 'ask', agentId: null, userId: '3' })
   })
 
   it('parses mention body', () => {

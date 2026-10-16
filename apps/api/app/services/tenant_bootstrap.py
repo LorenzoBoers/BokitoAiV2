@@ -10,6 +10,7 @@ from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
 from app.services.language import platform_default_ui_language
+from app.services.onboarding_setup import SETUP_SOP as ONBOARDING_SYSTEM_PROMPT
 from app.services.personal_assistant import ensure_personal_assistant
 from app.services.workspace import upsert_doc
 from app.tools.policy import DEFAULT_AUTONOMY_POSTURE
@@ -40,51 +41,6 @@ def resolve_brand_color(value: str | None) -> str:
         return DEFAULT_BRAND_COLOR
     return hex_value
 
-
-ONBOARDING_SYSTEM_PROMPT = """You are the Bokito onboarding assistant. Interview the user about their organization:
-what they do, who their customers are, how they operate, and their tone of voice.
-Use write_doc to document findings in workspace docs (company.md, memory.md, persona.md).
-Use suggest_integration when relevant integrations would help.
-Ask clarifying questions before writing docs. Be concise and friendly.
-
-The operator may already have filled a short intake (how they found Bokito, org size,
-primary use) during the first-run wizard. Do not re-ask those facts; use them as context
-and deepen from there.
-
-You can set the workspace up from this chat. Use your tools instead of sending
-people to settings pages unless they ask to click themselves.
-
-When the user asks for help setting up the workspace, guide them through
-these steps one at a time:
-1. Channel - connect where customers reach them (Bokito address or mailbox
-   first). Point them to Email & messages, not the module marketplace.
-2. Talk - interview them and document the organization (company.md) in this
-   chat.
-3. Brief - once company.md says what the business does, draft your own
-   working brief from it with update_agent on yourself (use list_agents to
-   find your id): a one-line description (who you serve, what you handle,
-   what you leave to people) and a system prompt in the company's language
-   and tone that names their services, customers and house rules. Do the
-   same for any other agent they ask for. The change lands in Govern for
-   approval; tell them it is waiting there and do not apply it yourself.
-4. One decision - make sure they have seen and approved a decision card
-   (the brief from step 3 counts).
-5. Check-in / watching - use get_platform_watch and set_platform_watch
-   (enabled true) so you watch the workspace. The check-in starts paused;
-   turn it on when they want watching. Findings land in your own channel in
-   Communication. Keep heartbeat.md as the checklist you work through when
-   you wake.
-After those, offer later work without numbering it as setup: branding
-and widget, inviting the team, a business module when the work fits,
-projects, and Govern.
-Ask what they want to tackle first, keep each step small, and confirm before
-creating agents. Prefer turning watching on yourself when they
-want the platform to keep an eye on things.
-
-After Communication, if the work touches bookkeeping, invoices, VAT, or
-bank balances, call list_modules and recommend_module so the operator can
-turn that module on. Do not push every module — only the one that matches
-the work. Connecting a package is a second step after the module is on."""
 
 DEFAULT_DOCS: list[tuple[str, str, str]] = [
     (
@@ -311,13 +267,13 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
             created_by_type="system",
             commit=False,
         )
-    # Fresh tenants stay empty: no demo project, orchestrator or workstream.
-    # Only the assistant, docs, the assistant's own channel conversation, and
-    # a paused hourly check-in (operator or setup turns watching on). The Agent
-    # row is the single runtime passport.
+    # Fresh tenants stay empty: no demo project, orchestrator, workstream, or
+    # check-in. The personal Bokito helper and workspace docs are platform
+    # furniture. The first company agent comes from the wizard. A daily
+    # check-in appears only after an explicit yes (set_platform_watch).
     # Email and website chat stay empty until someone connects/creates them
     # under Settings → Channels (website chat via "Add channel").
-    await seed_default_triggers(session, tenant_id)
+    # No seeded check-in: see platform_watch.set_platform_watch.
     from app.services.tickets import ensure_platform_tags
 
     await ensure_platform_tags(session, tenant_id, commit=False)
@@ -374,10 +330,8 @@ async def ensure_widget_channel(
 
 
 async def seed_default_triggers(session: AsyncSession, tenant_id: UUID) -> None:
-    """Assistant channel thread + hourly platform check-in for a new workspace."""
-    from app.services.platform_watch import bootstrap_new_tenant
-
-    await bootstrap_new_tenant(session, tenant_id)
+    """Kept so older callers stay valid. New workspaces do not get a check-in."""
+    del session, tenant_id
 
 
 def default_tenant_settings() -> dict:
