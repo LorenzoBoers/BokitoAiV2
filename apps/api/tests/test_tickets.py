@@ -182,13 +182,14 @@ async def test_folder_follows_from_tags(client: AsyncClient, session_override):
     other_board = (await client.get(f"/api/folders/{other.id}/board", headers=headers)).json()["playbooks"]
     assert repair["workstream_id"] not in {lane["workstream_id"] for lane in other_board}
 
-    # Out of the folder: the folder's tag goes, the ticket stays a ticket.
+    # Out of the folder: the folder's tag goes, the ticket stays a ticket,
+    # and the flow leaves the board (boards list only matching tickets).
     moved = await client.patch(
         f"/api/signals/{signal.id}/ticket", headers=headers, json={"project_id": None}
     )
     assert moved.json()["ticket"]["project_id"] is None
     board = (await client.get(f"/api/folders/{acme.id}/board", headers=headers)).json()["playbooks"]
-    assert _lane(board)["tickets"] == []
+    assert repair["workstream_id"] not in {lane["workstream_id"] for lane in board}
     thread = (await client.get(f"/api/signals/{signal.id}", headers=headers)).json()["thread"]
     assert "acme" not in thread["tags"]
     assert thread["ticket"]["name"] == "reparatie"

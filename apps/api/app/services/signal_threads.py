@@ -2933,7 +2933,6 @@ async def reply_to_thread(
         # inboxes). Close-after-reply only applies while the thread is open;
         # an explicit send-and-close still stays closed.
         was_closed = signal.status == "closed"
-        from app.models.auth import User
         from app.services.operator_prefs import close_email_on_send
 
         sender = await session.get(User, user_id)
