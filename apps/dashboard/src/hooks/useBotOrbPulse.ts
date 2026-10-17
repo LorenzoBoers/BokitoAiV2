@@ -9,6 +9,7 @@ import { isBotOrbOneShot } from '../lib/bot-orb-motion'
 type PulseMap = Record<string, BotOrbDrive>
 
 let pulses: PulseMap = {}
+const EMPTY_PULSES: PulseMap = {}
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -50,7 +51,7 @@ export function publishBotOrbPulse(agentId: string | null | undefined, drive: Bo
 }
 
 export function useBotOrbPulse(agentId: string | null | undefined): BotOrbDrive | null {
-  const map = useSyncExternalStore(subscribe, getSnapshot, () => ({} as PulseMap))
+  const map = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_PULSES)
   if (!agentId) return null
   return map[agentId] ?? null
 }

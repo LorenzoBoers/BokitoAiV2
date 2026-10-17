@@ -33,9 +33,8 @@ export function rememberTagMarks(
 /** The stored mark for a label name. Stable until that name changes. */
 export function useTagMark(name: string): TagMark | undefined {
   const key = name.replace(/^#/, '').trim()
-  return useSyncExternalStore(
-    subscribe,
-    () => byName.get(key),
-    () => undefined,
-  )
+  const getSnapshot = () => (key ? byName.get(key) : undefined)
+  // Same snapshot on the client and during hydration. A server snapshot of
+  // `undefined` while the catalog already has this label retriggers forever.
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }

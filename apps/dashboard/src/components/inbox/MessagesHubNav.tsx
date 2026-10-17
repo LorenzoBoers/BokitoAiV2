@@ -416,8 +416,23 @@ function AgentsSection({
   activeLeaf: HubLeaf | null
   t: TFn
 }) {
+  // The rail re-renders whenever live presence changes. Seeding from a fresh
+  // array each time put a stale "working" row back on top of the standby the
+  // open thread had just written, and the two updates looped until React
+  // stopped the page (maximum update depth on an agent chat).
+  const presenceSeed = agents
+    .map((agent) =>
+      [
+        agent.id,
+        agent.status ?? '',
+        agent.current_activity_summary ?? '',
+        agent.current_thread_id ?? '',
+        String(agent.last_active_at ?? ''),
+      ].join('\u001f'),
+    )
+    .join('\u001e')
   useEffect(() => {
-    if (agents.length === 0) return
+    if (!presenceSeed) return
     seedAgentPresence(
       agents.map((agent) => ({
         id: agent.id,
@@ -427,7 +442,9 @@ function AgentsSection({
         last_active_at: agent.last_active_at,
       })),
     )
-  }, [agents])
+    // presenceSeed is the content of `agents`; the array itself is new every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presenceSeed])
 
   return (
     <div className="space-y-px">

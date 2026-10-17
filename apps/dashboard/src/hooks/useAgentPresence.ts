@@ -106,6 +106,17 @@ export function seedAgentPresence(entries: Iterable<AgentLiveSeed>) {
     const next = snapshotFromSeed(row)
     applyLive<AgentLiveSnapshot>(TABLE, row.id, (prev) => {
       if (prev?.source === 'ws' && prev.status === 'working' && next.status === 'standby') return prev
+      // The open thread clears a finished turn to standby. A chat-target
+      // refetch can still say "working" with an older timestamp. Putting that
+      // back makes the thread clear it again (maximum update depth).
+      if (
+        prev?.source === 'ws' &&
+        prev.status === 'standby' &&
+        next.status === 'working' &&
+        (next.lastActiveAt ?? 0) <= (prev.lastActiveAt ?? 0)
+      ) {
+        return prev
+      }
       const merged: AgentLiveSnapshot = {
         status: next.status,
         summary: next.summary ?? (next.status === 'working' ? prev?.summary ?? null : null),
