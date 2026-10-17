@@ -7,7 +7,6 @@ import {
   FolderInput,
   MessageSquare,
   MoreHorizontal,
-  Plus,
   Trash2,
 } from 'lucide-react'
 import { CANVAS_ICON } from '../lib/entity-icons'
@@ -37,13 +36,9 @@ import { ProjectCanvasBoard } from '../components/projects/ProjectCanvasBoard'
 import { ProjectFlowBoards } from '../components/projects/ProjectFlowBoards'
 import { ProjectFolderGrid } from '../components/projects/ProjectFolderCards'
 import { ProjectHome } from '../components/projects/ProjectHome'
-import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { useAuth } from '../context/AuthContext'
 import { projectHubPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
-import { runThreadPath } from '../lib/open-entity'
-import { listThreads, type InboxThread } from '../lib/inbox-api'
 import {
   deleteProject,
   getProject,
@@ -52,7 +47,6 @@ import {
   type ProjectRow,
 } from '../lib/projects-api'
 import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
-import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import { filtersetPlainLabel } from '../lib/folder-filter-tree'
 import { notifyFoldersChanged } from '../lib/folders-bus'
 import { FiltersetHeading } from '../components/folders/FiltersetHeading'
@@ -81,14 +75,9 @@ export default function ProjectDetail() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = parseProjectTab(searchParams.get('tab'))
   const isAdmin = useIsAdmin()
-  const { token } = useAuth()
   const confirm = useConfirm()
 
   const [project, setProject] = useState<ProjectRow | null>(null)
-  const [runs, setRuns] = useState<WorkLogRow[]>([])
-  const [runsMore, setRunsMore] = useState(false)
-  const [loadingMoreRuns, setLoadingMoreRuns] = useState(false)
-  const [internalThreads, setInternalThreads] = useState<InboxThread[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshCount, setRefreshCount] = useState(0)
@@ -117,44 +106,22 @@ export default function ProjectDetail() {
     try {
       const row = await getProject(projectId)
       setProject(row)
-      const [runsResult, threadsResult, filesResult] = await Promise.allSettled([
-        listWorkLogs({ project_id: projectId, limit: 10 }),
-        token ? listThreads(token, { folder: 'internal', perPage: 80 }) : Promise.reject(new Error('signed out')),
-        listFolderFiles(projectId),
-      ])
-      const runRows = runsResult.status === 'fulfilled' ? runsResult.value : []
-      setRuns(runRows)
-      setRunsMore(runRows.length === 10)
-      setInternalThreads(threadsResult.status === 'fulfilled' ? threadsResult.value.items : [])
-      setFiles(filesResult.status === 'fulfilled' ? filesResult.value : [])
+      try {
+        setFiles(await listFolderFiles(projectId))
+      } catch {
+        setFiles([])
+      }
       setRefreshCount((count) => count + 1)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.detail.loadError')))
     } finally {
       setLoading(false)
     }
-  }, [projectId, t, token])
+  }, [projectId, t])
 
   useEffect(() => {
     void load()
   }, [load])
-
-  const loadMoreRuns = useCallback(async () => {
-    if (!projectId || loadingMoreRuns) return
-    setLoadingMoreRuns(true)
-    try {
-      const page = await listWorkLogs({ project_id: projectId, limit: 10, offset: runs.length })
-      setRuns((prev) => {
-        const seen = new Set(prev.map((row) => row.id))
-        return [...prev, ...page.filter((row) => !seen.has(row.id))]
-      })
-      setRunsMore(page.length === 10)
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('projects.detail.loadError')))
-    } finally {
-      setLoadingMoreRuns(false)
-    }
-  }, [loadingMoreRuns, projectId, runs.length, t])
 
   const confirmDelete = async () => {
     if (!project) return
@@ -231,12 +198,6 @@ export default function ProjectDetail() {
                 onChanged={() => load({ silent: true })}
                 size="lg"
               />
-              <p className="text-xs text-text-muted">
-                {t('projects.detail.filtersetTitleHint', {
-                  defaultValue:
-                    'Conversations match when they carry every label. Edit the name or labels above.',
-                })}
-              </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
                 <span className="tabular-nums">
                   {t('projects.detail.folderCounts', {
@@ -256,12 +217,6 @@ export default function ProjectDetail() {
                   {t('projects.detail.openInCommunication')}
                 </Link>
               </Button>
-              {isAdmin ? (
-                <Button type="button" size="sm" variant="outline" onClick={() => setFolderOpen(true)}>
-                  <Plus size={14} className="mr-1" aria-hidden />
-                  {t('projects.detail.newFolder')}
-                </Button>
-              ) : null}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -336,9 +291,7 @@ export default function ProjectDetail() {
                   </span>
                 ) : null}
               </TabsTrigger>
-              {(project.open_tickets_count ?? 0) > 0 || tab === 'tickets' ? (
-                <TabsTrigger value="tickets">{t('projects.detail.tabTickets')}</TabsTrigger>
-              ) : null}
+              <TabsTrigger value="tickets">{t('projects.detail.tabTickets')}</TabsTrigger>
               {(project.doc_sections_total ?? 0) > 0 || tab === 'docs' ? (
                 <TabsTrigger value="docs">{t('projects.detail.tabDocs')}</TabsTrigger>
               ) : null}
@@ -375,6 +328,17 @@ export default function ProjectDetail() {
                 </section>
               ) : null}
 
+              <section className="space-y-2" aria-labelledby="project-flows" data-testid="project-folder-flows">
+                <h2 id="project-flows" className="text-sm font-semibold text-text-heading">
+                  {t('projects.detail.flows', { defaultValue: 'Flows' })}
+                </h2>
+                <ProjectFlowBoards
+                  projectId={project.id}
+                  canEdit={isAdmin}
+                  onFlowsChanged={() => void load({ silent: true })}
+                />
+              </section>
+
               <ProjectHome project={project} canEdit={isAdmin} onChanged={() => load({ silent: true })} />
 
               <ProjectConversations
@@ -383,44 +347,6 @@ export default function ProjectDetail() {
                 refreshKey={refreshCount}
                 onShowAll={() => setTab('conversations')}
               />
-
-              <section className="space-y-2" aria-labelledby="project-activity">
-                <h2 id="project-activity" className="text-sm font-semibold text-text-heading">
-                  {t('projects.detail.activity')}
-                </h2>
-                {runs.length === 0 ? (
-                  <Card className="p-4">
-                    <p className="text-sm text-text-muted">{t('projects.detail.noRuns')}</p>
-                  </Card>
-                ) : (
-                  <WorkLogsTable
-                    runs={runs}
-                    projects={[project]}
-                    runTo={(run) =>
-                      runThreadPath(
-                        run,
-                        internalThreads.map((row) => ({
-                          id: String(row.id),
-                          emailSubject: row.emailSubject,
-                          lastMessageAt: row.lastMessageAt,
-                        })),
-                      )
-                    }
-                    showProjectColumn={false}
-                  />
-                )}
-                {runsMore ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={loadingMoreRuns}
-                    onClick={() => void loadMoreRuns()}
-                  >
-                    {loadingMoreRuns ? t('projects.detail.loadingMoreRuns') : t('projects.detail.loadMoreRuns')}
-                  </Button>
-                ) : null}
-              </section>
             </TabsContent>
 
             <TabsContent value="conversations">

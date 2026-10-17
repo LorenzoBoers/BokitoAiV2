@@ -511,6 +511,83 @@ MODULES: list[ModuleSpec] = [
             "Later: search and read external files into Knowledge."
         ),
     ),
+    ModuleSpec(
+        slug="accountant",
+        name="Accountant",
+        description=(
+            "Reviews the books already connected on Accounting: trial balance, "
+            "statements, VAT, aged items, and exceptions. Closing the period "
+            "stays a proposal you approve. No separate package login."
+        ),
+        status="coming_soon",
+        provider_slugs=(),
+        planned_provider_slugs=(
+            "king_accountancy",
+            "bjorn_lunden_mcp",
+            "moneybird",
+            "exact_online",
+            "snelstart",
+            "moneybird_mcp",
+            "twinfield_mcp",
+            "exact_online_mcp",
+            "yuki_mcp",
+            "pmb_exact_mcp",
+        ),
+        tool_cards=(
+            ModuleToolCard(
+                "trial_balance",
+                "Trial balance",
+                "Trial balance for a period, compared with the previous period.",
+            ),
+            ModuleToolCard(
+                "statements",
+                "Profit and balance",
+                "Profit and loss and balance sheet for a period.",
+            ),
+            ModuleToolCard(
+                "vat_position",
+                "VAT position",
+                "VAT to pay or reclaim, with the lines that still do not tie out.",
+            ),
+            ModuleToolCard(
+                "aged_balances",
+                "Aged balances",
+                "Open receivables and payables in age buckets.",
+            ),
+            ModuleToolCard(
+                "anomalies",
+                "Exceptions",
+                "Bookings without a document, duplicates, and accounts far from last month.",
+            ),
+            ModuleToolCard(
+                "unmatched_bank",
+                "Unmatched bank",
+                "Bank lines the books have not matched yet.",
+            ),
+            ModuleToolCard(
+                "propose_close",
+                "Propose period close",
+                "Propose closing the period after the checklist is done. Waits for your approval.",
+                kind="propose",
+            ),
+            ModuleToolCard(
+                "request_documents",
+                "Request missing documents",
+                "Ask in the conversation for the documents that are still missing.",
+                kind="propose",
+            ),
+        ),
+        needs_when="period close, VAT review, or exceptions in the books",
+        setup_steps=(
+            "This module is an idea and is not connectable yet.",
+            "It will read the same packages as Accounting. It does not add a login.",
+            "Writes stay on Accounting and still wait for approval.",
+        ),
+        capability_summary=(
+            "Later: review trial balance, VAT, aged items, and exceptions "
+            "on the packages Accounting already uses."
+        ),
+    ),
 ]
 
 MODULE_BY_SLUG: dict[str, ModuleSpec] = {m.slug: m for m in MODULES}
@@ -534,12 +611,14 @@ class WorkstreamTemplate:
     requires_module_connection: bool = False
 
     def serialize(self) -> dict[str, Any]:
+        """Public template row. Step goals stay on the server and are copied at install."""
+        steps = [{k: v for k, v in step.items() if k != "goal"} for step in self.steps]
         return {
             "slug": self.slug,
             "module_slug": self.module_slug,
             "name": self.name,
             "description": self.description,
-            "steps": [dict(s) for s in self.steps],
+            "steps": steps,
             "steps_count": len(self.steps),
             "required_agent_roles": list(self.required_agent_roles),
             "requires_module_connection": self.requires_module_connection,
@@ -781,17 +860,24 @@ class ModuleAgentTemplate:
     """Managed specialist hired when a module is set up (not a new Set-C noun)."""
 
     name: str
+    # Short function label (Agent.job_title is 20 characters).
+    job_title: str
+    # Operator-facing job description. Not the system prompt.
     role_blurb: str
     system_prompt: str = ""
+    avatar_color: str = "#9159fe"
+    avatar_shape: str = "bokito"
     # Extra passport tools beyond module verbs + minimal messaging.
     extra_tools: tuple[str, ...] = ()
 
     def serialize(self) -> dict[str, Any]:
+        """Public marketplace row. The prompt and extra tools stay on the server."""
         return {
             "name": self.name,
+            "job_title": self.job_title[:20],
             "role_blurb": self.role_blurb,
-            "system_prompt": self.system_prompt,
-            "extra_tools": list(self.extra_tools),
+            "avatar_color": self.avatar_color,
+            "avatar_shape": self.avatar_shape,
         }
 
 
@@ -817,25 +903,128 @@ class ModulePackage:
         }
 
 
-def _default_agent_template(module: ModuleSpec) -> ModuleAgentTemplate:
+def _module_persona(module: ModuleSpec) -> ModuleAgentTemplate:
+    """Named expert shipped with the module. Hire copies this onto the agent."""
+    persona = _MODULE_PERSONAS.get(module.slug)
+    if persona is not None:
+        return persona
     return ModuleAgentTemplate(
         name=f"{module.name} specialist",
+        job_title="Specialist",
         role_blurb=(
-            f"Specialist for the {module.name} module. Owns package setup, "
-            f"module tools, and related tags/flows. Keep work inside this module; "
-            f"hand other topics back to the lead with request_participant_turn or pass."
+            f"Owns {module.name}: its tools, hashtags and flows. "
+            f"Hands anything outside this module back to the lead."
         ),
-        system_prompt=(
-            f"You are the {module.name} specialist for this workspace. "
-            f"Use only this module's tools and minimal messaging "
-            f"(invite_to_thread, post_thread_message, create_decision_request). "
-            f"Do not send external customer replies unless asked. "
-            f"When setup is incomplete, guide the operator through connecting "
-            f"the package and finishing install."
+        system_prompt=_specialist_prompt(module, f"{module.name} specialist", "Specialist"),
+    )
+
+
+def _specialist_prompt(module: ModuleSpec, name: str, job_title: str) -> str:
+    return (
+        f"You are {name}, {job_title}, the expert hired for the {module.name} module. "
+        f"You can use every tool, hashtag and flow that shipped with this module. "
+        f"Read tools you may call directly. Propose and apply tools only through a "
+        f"decision the operator approves. Stay inside this module; hand other topics "
+        f"back to the lead with request_participant_turn or pass. "
+        f"Do not send external customer replies unless asked. "
+        f"When setup is incomplete, guide the operator through connecting the "
+        f"package and finishing install."
+    )
+
+
+# Proper names stay the same in every language. Job title and blurb on the
+# card are translated in the dashboard; hire stores these English fields.
+_MODULE_PERSONAS: dict[str, ModuleAgentTemplate] = {
+    "accounting": ModuleAgentTemplate(
+        name="Boekito",
+        job_title="Controller",
+        role_blurb=(
+            "Keeps the books for this workspace: administrations, contacts, "
+            "invoices, ledger lines and open balances. Bookings and payment "
+            "matches wait for your approval."
         ),
-        # Messaging passport comes from ROLE_TOOL_TEMPLATES["module_specialist"]
-        # at hire time; module verb tools are appended there.
-        extra_tools=(),
+        avatar_color="#00bca6",
+        avatar_shape="shield",
+        system_prompt="",
+    ),
+    "banking": ModuleAgentTemplate(
+        name="Finito",
+        job_title="Treasurer",
+        role_blurb=(
+            "Watches linked accounts, balances and transactions. "
+            "Outgoing payments only leave as a proposal you approve."
+        ),
+        avatar_color="#1084fe",
+        avatar_shape="capsule",
+        system_prompt="",
+    ),
+    "investing": ModuleAgentTemplate(
+        name="Investo",
+        job_title="Markets lead",
+        role_blurb=(
+            "Follows positions, quotes and watchlists. "
+            "Trade orders wait for your approval."
+        ),
+        avatar_color="#ff9800",
+        avatar_shape="crystal",
+        system_prompt="",
+    ),
+    "documents": ModuleAgentTemplate(
+        name="Documento",
+        job_title="Archivist",
+        role_blurb=(
+            "Finds and reads files in connected storage so the team can cite them. "
+            "Uploads wait for your approval."
+        ),
+        avatar_color="#9159fe",
+        avatar_shape="squircle",
+        system_prompt="",
+    ),
+    "accountant": ModuleAgentTemplate(
+        name="Accounto",
+        job_title="Accountant",
+        role_blurb=(
+            "Reviews the period on the packages Accounting already connected: "
+            "trial balance, VAT, aged items, and exceptions. "
+            "A close waits for your approval. Bookings stay with Accounting."
+        ),
+        avatar_color="#c4a35a",
+        avatar_shape="hex",
+        system_prompt="",
+    ),
+}
+
+
+def _apply_persona_avatar(agent: Any, template: ModuleAgentTemplate) -> None:
+    """Give a hired specialist the module orb when they do not have a mark yet."""
+    import json
+
+    from app.services.agent_avatar import _settings, apply_avatar_settings
+
+    stored = _settings(agent.settings_json)
+    if str(stored.get("avatar_kind") or "").strip():
+        return
+    merged = apply_avatar_settings(
+        stored,
+        avatar_kind="orb",
+        avatar_color=template.avatar_color,
+        avatar_shape=template.avatar_shape,
+    )
+    agent.settings_json = json.dumps(merged)
+
+
+def _persona_with_prompt(module: ModuleSpec) -> ModuleAgentTemplate:
+    persona = _module_persona(module)
+    if persona.system_prompt:
+        return persona
+    return ModuleAgentTemplate(
+        name=persona.name,
+        job_title=persona.job_title,
+        role_blurb=persona.role_blurb,
+        system_prompt=_specialist_prompt(module, persona.name, persona.job_title),
+        avatar_color=persona.avatar_color,
+        avatar_shape=persona.avatar_shape,
+        extra_tools=persona.extra_tools,
     )
 
 
@@ -844,7 +1033,7 @@ MODULE_PACKAGES: dict[str, ModulePackage] = {
         module_slug=module.slug,
         tags=TAG_TEMPLATES.get(module.slug, ()),
         playbooks=WORKSTREAM_TEMPLATES.get(module.slug, ()),
-        agent_template=_default_agent_template(module),
+        agent_template=_persona_with_prompt(module),
     )
     for module in MODULES
 }
@@ -1322,7 +1511,7 @@ async def hire_module_agent(
         raise ValueError(f"Unknown module: {slug}")
     module = MODULE_BY_SLUG[slug]
     package = get_module_package(slug)
-    template = package.agent_template if package else _default_agent_template(module)
+    template = package.agent_template if package else _persona_with_prompt(module)
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise ValueError("Tenant not found")
@@ -1349,7 +1538,7 @@ async def hire_module_agent(
         "name": template.name,
         "slug": f"module-{slug}",
         "role": "assistant",
-        "job_title": (template.role_blurb or template.name or "Agent").strip()[:20],
+        "job_title": (template.job_title or template.name or "Agent").strip()[:20],
         "description": template.role_blurb[:280],
         "system_prompt": template.system_prompt,
         "tools": tools,
@@ -1372,12 +1561,30 @@ async def hire_module_agent(
         match_slugs=[f"module-{slug}"],
     )
     agent = result.agent
+    previous = (agent.name or "").strip()
+    if previous in (
+        "",
+        f"{module.name} specialist",
+        "Noor Vale",
+        "Kas Lind",
+        "Jules Hart",
+        "Ada Quill",
+        "Vale",
+        "Kas",
+        "Vega",
+        "Finny",
+        "Stocko",
+        "Quill",
+        "Audito",
+        "Bookito",
+    ):
+        agent.name = template.name
     if "description" in fields:
         agent.description = fields["description"]
-        session.add(agent)
-    if fields.get("job_title") and not (agent.job_title or "").strip():
+    if fields.get("job_title"):
         agent.job_title = fields["job_title"]
-        session.add(agent)
+    _apply_persona_avatar(agent, template)
+    session.add(agent)
     await session.flush()
 
     roster = await list_module_agents(session, tenant_id, slug)

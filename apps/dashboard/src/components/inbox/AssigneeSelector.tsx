@@ -8,8 +8,10 @@ import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { agentPresenceOf, seedAgentPresence, useAgentPresence } from '../../hooks/useAgentPresence'
 import { AgentMark } from '../ui/AgentMark'
+import { TeamAvatar } from '../ui/TeamAvatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
 import { UserAvatar } from '../ui/UserAvatar'
+import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { cn } from '../../lib/utils'
@@ -138,7 +140,15 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
       decorative
     />
   ) : owner?.kind === 'team' && currentTeam ? (
-    <TeamFacepile team={currentTeam} size={18} linkAgents={false} presence={currentTeam.presence?.status} />
+    <TeamAvatar
+      {...toTeamAvatarProps({
+        ...currentTeam,
+        name: currentTeam.system ? tn(`teamPage.system.${currentTeam.kind}`) : currentTeam.name,
+      })}
+      size={18}
+      decorative
+      presence={currentTeam.presence?.status}
+    />
   ) : owner?.kind === 'agent' && owner.agentId ? (
     <AgentMark
       agent={currentAgent}
@@ -164,7 +174,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                 disabled={disabled}
                 aria-label={tooltip}
                 className={cn(
-                  'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors',
+                  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors',
                   'hover:bg-bg-hover hover:text-text-primary',
                   'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
                   'disabled:pointer-events-none disabled:opacity-40',

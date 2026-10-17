@@ -541,7 +541,6 @@ async def create_project(
 
     from app.services.folders import refile_tagged, set_folder_tags
     from app.services.signal_tags import normalize_tag
-    from app.services.workstreams import ensure_default_workstream
 
     resolved = await _resolve_tag_ids(session, tenant_id, tag_ids=tag_ids, tags=tags, user_id=user_id)
     clean_name = (name or "").strip()
@@ -570,7 +569,6 @@ async def create_project(
     await session.flush()
     if resolved:
         await set_folder_tags(session, tenant_id, project.id, resolved)
-    await ensure_default_workstream(session, tenant_id, project.id, commit=False)
     if resolved:
         await refile_tagged(session, tenant_id, await _refile_tags_for(session, tenant_id, project.id))
     await session.commit()

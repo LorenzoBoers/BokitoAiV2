@@ -7,7 +7,12 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from app.services.tickets import missing_required_stage_fields, parse_stages, validate_stages
+from app.services.tickets import (
+    missing_required_stage_fields,
+    parse_stages,
+    validate_stages,
+    waiting_stage_progress,
+)
 
 
 def test_validate_stages_persists_auto_close_only_on_done():
@@ -30,6 +35,44 @@ def test_validate_stages_persists_auto_close_only_on_done():
 def test_parse_stages_defaults_auto_close_false():
     stages = parse_stages('[{"key":"done","name":"Done","kind":"done"}]')
     assert stages[0]["auto_close_conversation"] is False
+
+
+def test_validate_stages_rejects_not_started_after_active():
+    with pytest.raises(HTTPException) as exc:
+        validate_stages(
+            [
+                {"name": "Busy", "kind": "waiting"},
+                {"name": "Later", "kind": "open"},
+                {"name": "Klaar", "kind": "done"},
+            ]
+        )
+    assert exc.value.status_code == 400
+
+
+def test_validate_stages_rejects_done_before_active():
+    with pytest.raises(HTTPException) as exc:
+        validate_stages(
+            [
+                {"name": "Klaar", "kind": "done"},
+                {"name": "Busy", "kind": "waiting"},
+            ]
+        )
+    assert exc.value.status_code == 400
+
+
+def test_waiting_stage_progress_splits_the_ring():
+    stages = [
+        {"kind": "open"},
+        {"kind": "waiting"},
+        {"kind": "waiting"},
+        {"kind": "waiting"},
+        {"kind": "done"},
+    ]
+    assert waiting_stage_progress(stages, 0) is None
+    assert waiting_stage_progress(stages, 1) == 0.25
+    assert waiting_stage_progress(stages, 2) == 0.5
+    assert waiting_stage_progress(stages, 3) == 0.75
+    assert waiting_stage_progress([{"kind": "waiting"}], 0) == 0.5
 
 
 def test_validate_stages_requires_done():

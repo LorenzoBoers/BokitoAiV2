@@ -21,7 +21,7 @@ import { useAgents } from '../../hooks/useAgents';
 import { useMembers } from '../../hooks/useMembers';
 import {
   composeAvatarSignatureTemplateHtml,
-  composeDefaultSignatureHtml,
+  composeAvatarSignatureHtml,
   editorHtmlFromSignature,
   renderSignatureTemplate,
   signatureClosingText,
@@ -248,7 +248,7 @@ export default function SignatureEditor({
   const previewHtml = useMemo(() => {
     const custom = signature.trim();
     if (!custom) {
-      return composeDefaultSignatureHtml(previewIdentity);
+      return composeAvatarSignatureHtml(previewIdentity);
     }
     return renderSignatureTemplate(custom, previewIdentity);
   }, [signature, previewIdentity]);

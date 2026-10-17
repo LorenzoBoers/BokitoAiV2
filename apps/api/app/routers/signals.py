@@ -189,7 +189,7 @@ async def _start_ticket(session: AsyncSession, auth: AuthContext, body: StartThr
     if not subject:
         raise HTTPException(status_code=400, detail="A subject is required")
     if body.tag_id is None:
-        raise HTTPException(status_code=400, detail="An action tag is required")
+        raise HTTPException(status_code=400, detail="A label with a flow is required")
 
     now = datetime.utcnow()
     signal = Signal(
@@ -287,6 +287,24 @@ class BulkBody(BaseModel):
     action: str  # close | reopen | spam | read | unread | assign | trash | file
     assignee_id: int | None = None
     project_id: UUID | None = None
+
+
+class CloseBody(BaseModel):
+    """Close a conversation. ``resolve_ticket`` moves an open ticket to done first."""
+
+    resolve_ticket: bool = True
+    fields: dict[str, str] | None = None
+    project_id: UUID | None = None
+
+
+class AskBody(BaseModel):
+    """One Ask. The server resolves a soft yes/no or names the session to stream."""
+
+    text: str = ""
+    agent_id: UUID | None = None
+    addressed_agent_ids: list[UUID] = []
+    continue_pending: bool = False
+    has_attachments: bool = False
 
 
 class RecipientRef(BaseModel):
@@ -736,6 +754,9 @@ async def list_signal_threads(
     Folder filters: ``project_id`` (the folder and everything inside it),
     ``path`` (comma-separated tag ids of a virtual child the conversation must
     also carry), ``category_id``, ``tag`` and ``stage`` (a stage key or kind).
+    When ``search`` is set, page 1 also returns ``outside_items``: matches the
+    current queue and filters leave out (other folders, read rows, closed
+    threads). Spam stays in that list only while the spam queue is open.
     """
     from app.services.thread_schedule import naive_utc
 
@@ -873,6 +894,69 @@ async def patch_signal(
     if not thread:
         raise HTTPException(status_code=404, detail="Signal not found")
     return thread
+
+
+@router.post("/{signal_id}/close")
+async def close_signal(
+    signal_id: UUID,
+    body: CloseBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Close the conversation. Resolving an open ticket happens here, not in the client."""
+    from app.services.tickets import resolve_open_ticket_for_close
+
+    await _require_handle(session, auth, signal_id)
+    if body.resolve_ticket:
+        signal = await session.get(Signal, signal_id)
+        if signal is None or signal.tenant_id != auth.tenant.id:
+            raise HTTPException(status_code=404, detail="Signal not found")
+        await resolve_open_ticket_for_close(
+            session,
+            signal,
+            fields=body.fields,
+            actor_id=str(auth.user.id),
+        )
+    project_set = body.project_id is not None
+    thread = await svc.patch_thread(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        _num(auth),
+        signal_id,
+        status="closed",
+        project_id=body.project_id,
+        project_id_set=project_set,
+        actor_role=auth.role,
+    )
+    if not thread:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return thread
+
+
+@router.post("/{signal_id}/ask")
+async def ask_signal(
+    signal_id: UUID,
+    body: AskBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Soft yes/no, floor chip and session choice for one Ask."""
+    from app.services.thread_ask import prepare_ask
+
+    await _require_handle(session, auth, signal_id)
+    return await prepare_ask(
+        session,
+        auth.tenant.id,
+        auth.user,
+        signal_id,
+        text=body.text,
+        agent_id=body.agent_id,
+        addressed_agent_ids=body.addressed_agent_ids,
+        continue_pending=body.continue_pending,
+        has_attachments=body.has_attachments,
+        is_admin=auth.role in ("owner", "admin"),
+    )
 
 
 @router.post("/bulk")
@@ -1054,10 +1138,14 @@ async def delete_signal(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    ok = await svc.delete_thread(session, auth.tenant.id, signal_id, user_id=auth.user.id)
-    if not ok:
+    result = await svc.delete_thread(session, auth.tenant.id, signal_id, user_id=auth.user.id)
+    if not result:
         raise HTTPException(status_code=404, detail="Signal not found")
-    return {"ok": True}
+    trash_id = getattr(result, "id", None)
+    body: dict[str, object] = {"ok": True}
+    if trash_id is not None:
+        body["trash_id"] = str(trash_id)
+    return body
 
 
 @router.patch("/{signal_id}/mark-read")

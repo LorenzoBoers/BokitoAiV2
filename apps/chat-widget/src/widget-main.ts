@@ -616,7 +616,7 @@ const WIDGET_CSS = `
 @keyframes bk-scale-in{from{transform:scale(0)}to{transform:scale(1)}}
 @keyframes bk-blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes bk-header-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-@media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link,.bk-msg,.bk-thinking,.agent-live-dot,.thinking-shimmer-text{animation:none!important;}.thinking-shimmer-text{color:var(--bk-ai-ink);-webkit-text-fill-color:var(--bk-ai-ink);background:none;}}
+@media (prefers-reduced-motion:reduce){.bk-launcher.is-open~.bk-window .bk-header>*,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-header>*,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,.bk-msg,.bk-thinking,.agent-live-dot,.thinking-shimmer-text{animation:none!important;}.thinking-shimmer-text{color:var(--bk-ai-ink);-webkit-text-fill-color:var(--bk-ai-ink);background:none;}}
 .bk-launcher{position:fixed;bottom:16px;right:16px;width:var(--bk-bubble-size);height:var(--bk-bubble-size);border-radius:var(--bk-radius-full);background:transparent;border:none;cursor:grab;box-shadow:none;display:flex;align-items:center;justify-content:center;overflow:visible;transition:transform var(--bk-launcher-transition);z-index:var(--bk-z-widget);animation:bk-spring-in .5s var(--bk-spring);outline:none;touch-action:none;user-select:none;-webkit-user-select:none;}
 /* Soft brand aura — not a hard bubble. */
 .bk-launcher::before{content:'';position:absolute;inset:-18%;border-radius:50%;background:var(--bk-launcher-halo);opacity:.9;transform:scale(.92);filter:blur(1px);transition:opacity var(--bk-launcher-transition),transform var(--bk-launcher-transition),background var(--bk-launcher-transition);pointer-events:none;z-index:0;}
@@ -682,14 +682,12 @@ const WIDGET_CSS = `
 :host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-avatar{animation-delay:.09s;}
 :host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-info{animation-delay:.14s;}
 :host([data-preview-mode="true"]) .bk-window .bk-header>.bk-header-actions{animation-delay:.19s;}
-:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
 :host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title{animation-delay:.24s;}
 :host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
-:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
-:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(2){animation-delay:.5s;}
-:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(3){animation-delay:.56s;}
-:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(4){animation-delay:.62s;}
-:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(5){animation-delay:.68s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn:not(.bk-home-nav-btn){animation-delay:.42s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-nav-btn[data-tab="messages"]{animation-delay:.5s;}
+:host([data-preview-mode="true"]) .bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-nav-btn[data-tab="help"]{animation-delay:.58s;}
 .bk-header-info{flex:1;min-width:0;}
 .bk-header-name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bk-header-actions{display:flex;gap:4px;margin-left:auto;}
@@ -768,37 +766,27 @@ const WIDGET_CSS = `
 .bk-home-hero{background:transparent;padding:28px 24px 24px;color:var(--bk-header-text);position:relative;z-index:1;}
 .bk-home-hero-title{font-size:28px;font-weight:700;line-height:1.18;letter-spacing:-.03em;margin-bottom:12px;}
 .bk-home-hero-sub{font-size:15.5px;line-height:1.6;opacity:.9;max-width:22em;font-weight:500;}
-.bk-home-new-btn{display:flex;align-items:center;gap:14px;width:calc(100% - 48px);max-width:100%;box-sizing:border-box;margin:20px 24px 22px;padding:18px 21px;background:rgba(46,54,74,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:16px;border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 38px rgba(0,0,0,.42),0 0 28px color-mix(in srgb,var(--bk-primary) 10%,transparent),0 0 0 1px rgba(255,255,255,.1) inset;cursor:pointer;color:#fff;font-size:15px;font-weight:600;font-family:var(--bk-font);transition:transform var(--bk-transition),box-shadow var(--bk-transition),border-color var(--bk-transition);text-align:left;}
+.bk-home-actions{display:flex;flex-direction:column;gap:10px;margin:20px 24px 28px;}
+.bk-home-new-btn{display:flex;align-items:center;gap:14px;width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:18px 21px;background:rgba(46,54,74,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:16px;border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 38px rgba(0,0,0,.42),0 0 28px color-mix(in srgb,var(--bk-primary) 10%,transparent),0 0 0 1px rgba(255,255,255,.1) inset;cursor:pointer;color:#fff;font-size:15px;font-weight:600;font-family:var(--bk-font);transition:transform var(--bk-transition),box-shadow var(--bk-transition),border-color var(--bk-transition);text-align:left;}
 .bk-home-new-btn:hover{transform:translateY(-2px);box-shadow:0 16px 46px rgba(0,0,0,.48),0 0 38px color-mix(in srgb,var(--bk-primary) 16%,transparent),0 0 0 1px color-mix(in srgb,var(--bk-primary) 20%,transparent) inset;border-color:color-mix(in srgb,var(--bk-primary) 40%,rgba(255,255,255,.22));}
+.bk-home-new-btn:focus-visible{outline:2px solid var(--bk-primary);outline-offset:2px;}
 .bk-home-new-btn-icon{width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--bk-primary) 20%,transparent);border:1px solid color-mix(in srgb,var(--bk-primary) 35%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.bk-home-nav-btn{display:none;}
+:host([data-surface="in_app"]) .bk-home-nav-btn{display:flex;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub,.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-title{animation-delay:.24s;}
 .bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-hero-sub{animation-delay:.32s;}
-.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn{animation-delay:.42s;}
-.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link{animation:bk-header-in .55s cubic-bezier(.22,1,.36,1) both;}
-.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(2){animation-delay:.5s;}
-.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(3){animation-delay:.56s;}
-.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(4){animation-delay:.62s;}
-.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-link:nth-child(5){animation-delay:.68s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-new-btn:not(.bk-home-nav-btn){animation-delay:.42s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-nav-btn[data-tab="messages"]{animation-delay:.5s;}
+.bk-launcher.is-open~.bk-window .bk-home-tab[data-tab="home"]:not([hidden]) .bk-home-nav-btn[data-tab="help"]{animation-delay:.58s;}
 .bk-home-new-btn-icon svg{width:18px;height:18px;color:var(--bk-primary);}
-:host([data-surface="in_app"]) .bk-home-new-btn{margin-bottom:8px;}
-.bk-home-links{display:none;flex-direction:column;gap:8px;margin:0 24px 28px;}
-:host([data-surface="in_app"]) .bk-home-links{display:flex;}
-.bk-home-links-title{margin:8px 2px 2px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--bk-header-text);opacity:.62;}
-.bk-home-link{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;padding:11px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:var(--bk-header-text);font:600 14px var(--bk-font);text-align:left;cursor:pointer;transition:background var(--bk-transition),border-color var(--bk-transition),transform var(--bk-transition);}
-.bk-home-link:hover{background:rgba(255,255,255,.11);border-color:color-mix(in srgb,var(--bk-primary) 42%,rgba(255,255,255,.22));transform:translateY(-1px);}
-.bk-home-link:focus-visible{outline:2px solid var(--bk-primary);outline-offset:2px;}
-.bk-home-link-icon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--bk-primary) 18%,transparent);color:var(--bk-primary);}
-.bk-home-link-icon svg,.bk-home-link-chevron svg{width:16px;height:16px;display:block;}
-.bk-home-link-chevron{margin-left:auto;display:flex;opacity:.55;}
-.bk-home-link-chevron svg{transform:scaleX(-1);}
-:host([data-theme="light"]) .bk-home-links-title{color:var(--bk-text-muted);opacity:1;}
-:host([data-theme="light"]) .bk-home-link{color:var(--bk-text);background:rgba(255,255,255,.78);border-color:rgba(15,23,42,.12);}
-:host([data-theme="light"]) .bk-home-link:hover{background:#fff;border-color:color-mix(in srgb,var(--bk-primary) 36%,rgba(15,23,42,.16));}
 .bk-home-tab[data-tab="help"]{overflow:hidden;min-height:0;}
 .bk-home-tab[data-tab="help"] .bk-home-section{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .bk-help-search{width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--bk-border);border-radius:10px;background:var(--bk-bg-surface);color:var(--bk-text);font:500 13px var(--bk-font);outline:none;margin-bottom:10px;}
 .bk-help-search:focus{border-color:var(--bk-primary);}
+.bk-help-section{margin:16px 2px 6px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--bk-text-muted);}
+.bk-help-docs-link{display:block;width:100%;box-sizing:border-box;margin:0 0 8px;padding:10px 14px;border:none;border-radius:12px;background:transparent;color:var(--bk-primary);font:600 13px var(--bk-font);text-align:left;cursor:pointer;}
+.bk-help-docs-link:hover{background:var(--bk-bg-hover);}
 .bk-help-item{display:block;width:100%;box-sizing:border-box;padding:12px 14px;margin-bottom:6px;border:1px solid var(--bk-border-light);border-radius:12px;background:var(--bk-bg-surface);cursor:pointer;text-align:left;color:var(--bk-text);font-family:var(--bk-font);transition:background var(--bk-transition),border-color var(--bk-transition);animation:bk-slide-up .25s ease both;}
 .bk-help-item:hover{background:var(--bk-bg-hover);border-color:var(--bk-border);}
 .bk-help-item-title{font-size:14px;font-weight:600;margin-bottom:2px;}
@@ -1046,14 +1034,8 @@ const WIDGET_CHROME = {
   en: {
     openChat: 'Open chat',
     startNew: 'Start new conversation',
-    quickStart: 'Quick start',
-    linkPage: 'What can I do here?',
-    linkPagePrompt: 'What can I do on this page?',
-    linkHandoff: 'Hand work over',
-    linkHandoffPrompt: 'I want to hand work to an agent.',
-    linkSetup: 'Set something up',
-    linkSetupPrompt: 'Help me set something up in this workspace.',
     linkHistory: 'Earlier chats',
+    helpArticles: 'Help articles',
     home: 'Home',
     messages: 'Messages',
     help: 'Help',
@@ -1091,6 +1073,7 @@ const WIDGET_CHROME = {
     toolsEmpty: 'No tools available yet.',
     helpSearch: 'Search articles',
     helpAllArticles: 'All articles',
+    helpBrowseDocs: 'All articles on Docs',
     signInRequired: 'Sign in required',
     signInSub: 'Sign in on this website to chat with the assistant.',
     signIn: 'Sign in',
@@ -1139,14 +1122,8 @@ const WIDGET_CHROME = {
   nl: {
     openChat: 'Chat openen',
     startNew: 'Nieuw gesprek starten',
-    quickStart: 'Snel starten',
-    linkPage: 'Wat kan ik hier doen?',
-    linkPagePrompt: 'Wat kan ik op deze pagina doen?',
-    linkHandoff: 'Geef werk door',
-    linkHandoffPrompt: 'Ik wil werk doorgeven aan een agent.',
-    linkSetup: 'Richt iets in',
-    linkSetupPrompt: 'Help me iets in te richten in deze workspace.',
     linkHistory: 'Eerdere gesprekken',
+    helpArticles: 'Hulpartikelen',
     home: 'Home',
     messages: 'Berichten',
     help: 'Help',
@@ -1184,6 +1161,7 @@ const WIDGET_CHROME = {
     toolsEmpty: 'Nog geen tools beschikbaar.',
     helpSearch: 'Zoek artikelen',
     helpAllArticles: 'Alle artikelen',
+    helpBrowseDocs: 'Alle artikelen in Docs',
     signInRequired: 'Inloggen vereist',
     signInSub: 'Log in op deze website om met de assistent te chatten.',
     signIn: 'Inloggen',
@@ -1254,6 +1232,7 @@ class BokitoChatWidget extends HTMLElement {
   #chatActionsWrap; #chatActionsBtn; #chatActionsMenu; #settingsBtn;
   #backBtn; #settingsView; #headerUser; #userPopover; #preSettingsView = null; #activeHomeTab = 'home';
   #helpArticles = null; // null = not fetched yet, [] = none published (tab stays hidden)
+  #helpSections = null;
   #toolsAvailable = false; // Tools tab stays hidden until the session exposes tools
   #soundEffectsEnabled = true; #soundNotificationsEnabled = true;
   #themeSchemeMedia = null; #themeSchemeListenerBound = false;
@@ -1470,6 +1449,8 @@ class BokitoChatWidget extends HTMLElement {
       } else {
         btn.hidden = !enabled;
       }
+      const nav = this.#root?.querySelector(`.bk-home-nav-btn[data-tab="${tab}"]`);
+      if (nav) nav.hidden = btn.hidden;
     }
     const activeBtn = this.#root?.querySelector(`.bk-tab-btn[data-tab="${this.#activeHomeTab}"]`);
     if (activeBtn?.hidden) {
@@ -1733,6 +1714,14 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   connectedCallback() {
+    // The dashboard helper is one launcher. A second in-app mount (Strict
+    // Mode, hot reload, overlapping effects) drops the older node.
+    const surfaceHint = (this.dataset.surface || '').trim().toLowerCase().replace(/-/g, '_');
+    if (surfaceHint === 'in_app') {
+      document.querySelectorAll('bokito-chat[data-surface="in_app"]').forEach((node) => {
+        if (node !== this) node.remove();
+      });
+    }
     const isPreview = this.dataset.previewMode === 'true';
     this.#storNs = isPreview
       ? `bkpw_${
@@ -1834,12 +1823,8 @@ class BokitoChatWidget extends HTMLElement {
     if (!root) return;
     const launcher = root.querySelector('.bk-launcher');
     if (launcher) launcher.setAttribute('aria-label', this.#chrome('openChat'));
-    const start = root.querySelector('.bk-home-new-btn span');
-    if (start) start.textContent = this.#chrome('startNew');
-    const linksTitle = root.querySelector('.bk-home-links-title');
-    if (linksTitle) linksTitle.textContent = this.#chrome('quickStart');
-    root.querySelectorAll('.bk-home-link').forEach((btn) => {
-      const label = btn.querySelector('.bk-home-link-label');
+    root.querySelectorAll('.bk-home-new-btn').forEach((btn) => {
+      const label = btn.querySelector('[data-chrome]');
       const key = label?.getAttribute('data-chrome');
       if (label && key) label.textContent = this.#chrome(key);
       const visible = label?.textContent || '';
@@ -1973,33 +1958,24 @@ class BokitoChatWidget extends HTMLElement {
                 <div class="bk-home-hero-title"></div>
                 <div class="bk-home-hero-sub"></div>
               </div>
-              <button class="bk-home-new-btn">
-                <div class="bk-home-new-btn-icon">
-                  ${ICONS.chat}
-                </div>
-                <span>Start new conversation</span>
-              </button>
-              <div class="bk-home-links">
-                <div class="bk-home-links-title"></div>
-                <button type="button" class="bk-home-link" data-prompt="linkPagePrompt">
-                  <span class="bk-home-link-icon">${ICONS.help}</span>
-                  <span class="bk-home-link-label" data-chrome="linkPage"></span>
-                  <span class="bk-home-link-chevron">${ICONS.back}</span>
+              <div class="bk-home-actions">
+                <button type="button" class="bk-home-new-btn">
+                  <div class="bk-home-new-btn-icon">
+                    ${ICONS.chat}
+                  </div>
+                  <span data-chrome="startNew">Start new conversation</span>
                 </button>
-                <button type="button" class="bk-home-link" data-prompt="linkHandoffPrompt">
-                  <span class="bk-home-link-icon">${ICONS.user}</span>
-                  <span class="bk-home-link-label" data-chrome="linkHandoff"></span>
-                  <span class="bk-home-link-chevron">${ICONS.back}</span>
+                <button type="button" class="bk-home-new-btn bk-home-nav-btn" data-tab="messages">
+                  <div class="bk-home-new-btn-icon">
+                    ${ICONS.clock}
+                  </div>
+                  <span data-chrome="linkHistory"></span>
                 </button>
-                <button type="button" class="bk-home-link" data-prompt="linkSetupPrompt">
-                  <span class="bk-home-link-icon">${ICONS.tools}</span>
-                  <span class="bk-home-link-label" data-chrome="linkSetup"></span>
-                  <span class="bk-home-link-chevron">${ICONS.back}</span>
-                </button>
-                <button type="button" class="bk-home-link" data-tab="messages">
-                  <span class="bk-home-link-icon">${ICONS.clock}</span>
-                  <span class="bk-home-link-label" data-chrome="linkHistory"></span>
-                  <span class="bk-home-link-chevron">${ICONS.back}</span>
+                <button type="button" class="bk-home-new-btn bk-home-nav-btn" data-tab="help" hidden>
+                  <div class="bk-home-new-btn-icon">
+                    ${ICONS.help}
+                  </div>
+                  <span data-chrome="helpArticles"></span>
                 </button>
               </div>
             </div>
@@ -2311,17 +2287,15 @@ class BokitoChatWidget extends HTMLElement {
     this.#root.querySelector('#bk-sound-notifications-pref')?.addEventListener('change', (e) => {
       this.#setUserSoundNotifications(e.target.checked);
     });
-    this.#root.querySelector('.bk-home-new-btn').addEventListener('click', () => this.#startNewConversation());
-    this.#root.querySelector('.bk-home-links')?.addEventListener('click', (e) => {
-      const btn = e.target?.closest?.('.bk-home-link');
-      if (!btn) return;
-      const tab = btn.dataset.tab;
-      if (tab) {
-        this.#switchHomeTab(tab);
-        return;
-      }
-      const promptKey = btn.dataset.prompt;
-      if (promptKey) void this.#startWithPrompt(this.#chrome(promptKey));
+    this.#root.querySelectorAll('.bk-home-new-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        if (tab) {
+          this.#switchHomeTab(tab);
+          return;
+        }
+        void this.#startNewConversation();
+      });
     });
     this.#root.querySelectorAll('.bk-tab-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -3416,15 +3390,6 @@ class BokitoChatWidget extends HTMLElement {
     this.#sm.transition('active');
     this.#maybeShowPreChatForm();
     this.#loadSuggestions();
-  }
-
-  /** Home shortcut: open a fresh chat and ask one of the assistant's jobs. */
-  async #startWithPrompt(text) {
-    await this.#startNewConversation();
-    if (this.#sm.state !== 'active') return;
-    const trimmed = (text || '').trim();
-    if (!trimmed) return;
-    await this.#sendMessageWithContent(trimmed, []);
   }
 
   /** Create (or reuse) the persisted thread right before the first send. */
@@ -5993,11 +5958,16 @@ class BokitoChatWidget extends HTMLElement {
       const r = await fetch(url);
       const data = r.ok ? await r.json() : null;
       this.#helpArticles = Array.isArray(data?.articles) ? data.articles : [];
+      this.#helpSections = Array.isArray(data?.sections) ? data.sections : null;
     } catch {
       this.#helpArticles = [];
+      this.#helpSections = null;
     }
+    const show = this.#helpModuleEnabled && this.#helpArticles.length > 0;
     const btn = this.#root.querySelector('.bk-tab-btn[data-tab="help"]');
-    if (btn) btn.hidden = !this.#helpModuleEnabled || this.#helpArticles.length === 0;
+    if (btn) btn.hidden = !show;
+    const nav = this.#root.querySelector('.bk-home-nav-btn[data-tab="help"]');
+    if (nav) nav.hidden = !show;
   }
 
   #renderHelpList() {
@@ -6008,20 +5978,23 @@ class BokitoChatWidget extends HTMLElement {
     listView.hidden = false;
     articleView.hidden = true;
     const query = (this.#root.querySelector('.bk-help-search')?.value || '').trim().toLowerCase();
-    const articles = (this.#helpArticles || []).filter((a) => {
+    const matches = (article) => {
       if (!query) return true;
-      return (a.title || '').toLowerCase().includes(query)
-        || (a.description || '').toLowerCase().includes(query);
-    });
+      return (article.title || '').toLowerCase().includes(query)
+        || (article.description || '').toLowerCase().includes(query);
+    };
+    const productHelp = this.#helpUsesProductHelp();
+    const sections = productHelp && Array.isArray(this.#helpSections) ? this.#helpSections : null;
     list.innerHTML = '';
-    if (!articles.length) {
-      const empty = document.createElement('div');
-      empty.className = 'bk-help-empty';
-      empty.textContent = query ? 'No articles match your search.' : 'No articles yet.';
-      list.appendChild(empty);
-      return;
+    if (productHelp && !query) {
+      const browse = document.createElement('button');
+      browse.type = 'button';
+      browse.className = 'bk-help-docs-link';
+      browse.textContent = this.#chrome('helpBrowseDocs');
+      browse.addEventListener('click', () => this.#openDocsPage(''));
+      list.appendChild(browse);
     }
-    articles.forEach((article) => {
+    const appendArticle = (article) => {
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'bk-help-item';
@@ -6037,7 +6010,43 @@ class BokitoChatWidget extends HTMLElement {
       }
       el.addEventListener('click', () => { void this.#openHelpArticle(article.slug); });
       list.appendChild(el);
-    });
+    };
+    if (sections) {
+      let shown = 0;
+      sections.forEach((section) => {
+        const articles = (section.articles || []).filter(matches);
+        if (!articles.length) return;
+        shown += articles.length;
+        const heading = document.createElement('div');
+        heading.className = 'bk-help-section';
+        heading.textContent = section.title || section.id || '';
+        list.appendChild(heading);
+        articles.forEach(appendArticle);
+      });
+      if (!shown) {
+        const empty = document.createElement('div');
+        empty.className = 'bk-help-empty';
+        empty.textContent = query ? 'No articles match your search.' : 'No articles yet.';
+        list.appendChild(empty);
+      }
+      return;
+    }
+    const articles = (this.#helpArticles || []).filter(matches);
+    if (!articles.length) {
+      const empty = document.createElement('div');
+      empty.className = 'bk-help-empty';
+      empty.textContent = query ? 'No articles match your search.' : 'No articles yet.';
+      list.appendChild(empty);
+      return;
+    }
+    articles.forEach(appendArticle);
+  }
+
+  /** In-app help is the public docs site (`/docs`, same catalog as app.bokito.ai/docs). */
+  #openDocsPage(path) {
+    const clean = String(path || '').replace(/^\/+/, '').replace(/\/+$/, '');
+    const url = clean ? `/docs/${clean}` : '/docs';
+    (window.top || window).location.assign(url);
   }
 
   async #openHelpArticle(slug) {

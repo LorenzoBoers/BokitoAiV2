@@ -179,6 +179,8 @@ async def test_product_help_index_and_article_are_public(client: AsyncClient):
     section_ids = [s["id"] for s in body["sections"]]
     assert section_ids == [s for s in SECTIONS if s in section_ids]
     assert "getting-started" in section_ids
+    started = next(s for s in body["sections"] if s["id"] == "getting-started")
+    assert started["title"] == "Getting started"
     assert "developers" in section_ids
     slugs = [a["slug"] for a in body["articles"]]
     assert "welcome" in slugs

@@ -510,6 +510,81 @@ async def test_reply_api_applies_policy_and_close_after_human_reply(
 
 
 @pytest.mark.asyncio
+async def test_reply_on_closed_thread_reopens(
+    client: AsyncClient, session_override, monkeypatch
+):
+    tenant, _user, _agent, account = await _setup(
+        session_override, monkeypatch, routing={"close_after_human_reply": True}
+    )
+    signal = await _thread(session_override, tenant, account)
+    signal.status = "closed"
+    await session_override.commit()
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    r = await client.post(
+        f"/api/signals/{signal.id}/reply",
+        headers=headers,
+        json={"body_text": "One more thing.", "action": "send"},
+    )
+    assert r.status_code in (200, 201), r.text
+    await session_override.refresh(signal)
+    assert signal.status == "open"
+    events = await _events(session_override, signal, "reply_sent")
+    assert events[-1].get("reopened") is True
+
+    signal.status = "closed"
+    await session_override.commit()
+    r = await client.post(
+        f"/api/signals/{signal.id}/reply",
+        headers=headers,
+        json={"body_text": "Stays filed.", "action": "send_and_close"},
+    )
+    assert r.status_code in (200, 201), r.text
+    await session_override.refresh(signal)
+    assert signal.status == "closed"
+
+
+@pytest.mark.asyncio
+async def test_close_email_on_send_is_personal(
+    client: AsyncClient, session_override, monkeypatch
+):
+    tenant, user, _agent, account = await _setup(session_override, monkeypatch)
+    user.settings_json = json.dumps({"close_email_on_send": True})
+    signal = await _thread(session_override, tenant, account)
+    session_override.add(user)
+    await session_override.commit()
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    prefs = await client.get("/api/me/preferences", headers=headers)
+    assert prefs.status_code == 200
+    assert prefs.json()["close_email_on_send"] is True
+
+    r = await client.post(
+        f"/api/signals/{signal.id}/reply",
+        headers=headers,
+        json={"body_text": "Sent and filed.", "action": "send"},
+    )
+    assert r.status_code in (200, 201), r.text
+    await session_override.refresh(signal)
+    assert signal.status == "closed"
+
+    signal.status = "open"
+    await session_override.commit()
+    r = await client.post(
+        f"/api/signals/{signal.id}/reply",
+        headers=headers,
+        json={"body_text": "Leave it open.", "action": "send", "keep_open": True},
+    )
+    assert r.status_code in (200, 201), r.text
+    await session_override.refresh(signal)
+    assert signal.status == "open"
+
+
+@pytest.mark.asyncio
 async def test_composing_lock_endpoint(client: AsyncClient, session_override, monkeypatch):
     tenant, _user, agent, account = await _setup(session_override, monkeypatch)
     signal = await _thread(session_override, tenant, account)

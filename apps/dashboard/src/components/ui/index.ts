@@ -5,6 +5,7 @@
  */
 
 // Surfaces
+export { AmbientSpotlights } from './ambient-spotlights'
 export { Card, CardHeader, CardHeaderActions, CardTitle, CardDescription, CardContent } from './card'
 export { InsetPanel } from './inset-panel'
 export { SectionHeading } from './section-heading'

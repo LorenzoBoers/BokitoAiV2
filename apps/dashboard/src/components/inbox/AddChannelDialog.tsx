@@ -32,7 +32,18 @@ import type { Provider } from '../../lib/email-oauth'
 
 type Choice = 'menu' | 'email' | 'oauth_history' | 'relay' | 'whatsapp' | 'slack' | 'smtp_imap'
 
-const EMAIL_LOGOS = ['outlook', 'gmail', 'smtp_imap'] as const
+const EMAIL_MARKS = ['gmail', 'outlook', 'smtp_imap', 'bokito'] as const
+
+/** Brand marks for the ways an email channel can be connected. */
+function EmailOptionMarks() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5">
+      {EMAIL_MARKS.map((logo) => (
+        <ProviderLogo key={logo} provider={logo} className="h-5 w-5 object-contain" />
+      ))}
+    </span>
+  )
+}
 
 export type AddChannelDialogProps = {
   open: boolean
@@ -54,31 +65,12 @@ function IconTile({ children, className }: { children: ReactNode; className?: st
   )
 }
 
-/** Overlapping brand chips so Email reads as “many providers” at a glance. */
-function EmailLogoStack() {
-  return (
-    <span className="flex h-10 shrink-0 items-center pl-0.5">
-      {EMAIL_LOGOS.map((logo, index) => (
-        <span
-          key={logo}
-          className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg-surface bg-bg-elevated ',
-            index > 0 && '-ml-2.5',
-          )}
-          style={{ zIndex: EMAIL_LOGOS.length - index }}
-        >
-          <ProviderLogo provider={logo} className="h-[15px] w-[15px] object-contain" />
-        </span>
-      ))}
-    </span>
-  )
-}
-
 function ChoiceRow({
   onClick,
   disabled,
   icon,
   title,
+  titleAddon,
   hint,
   trailing,
   className,
@@ -87,6 +79,7 @@ function ChoiceRow({
   disabled?: boolean
   icon: ReactNode
   title: string
+  titleAddon?: ReactNode
   hint: string
   trailing?: ReactNode
   className?: string
@@ -106,7 +99,10 @@ function ChoiceRow({
     >
       {icon}
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-medium text-text-heading">{title}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium text-text-heading">{title}</span>
+          {titleAddon}
+        </span>
         <span className="mt-0.5 block text-xs leading-snug text-text-secondary">{hint}</span>
       </span>
       {trailing ?? (
@@ -347,8 +343,13 @@ export default function AddChannelDialog({
               <div className="space-y-2">
                 <ChoiceRow
                   onClick={() => setChoice('email')}
-                  icon={<EmailLogoStack />}
+                  icon={
+                    <IconTile className="text-text-secondary">
+                      <Mail size={16} />
+                    </IconTile>
+                  }
                   title={t('channelsPage.option.email')}
+                  titleAddon={<EmailOptionMarks />}
                   hint={t('channelsPage.option.emailHint')}
                 />
                 <ChoiceRow

@@ -38,9 +38,9 @@ from app.models.workspace import DocSection, WorkspaceDoc
 from app.services.work_items import serialize_work_item
 
 # Legal workflow transitions on the unified status machine; "rejected" is
-# reachable from any non-terminal state. Accepted items execute through a
-# workstream run ("analyzing" while the run is live), so the run outcome may
-# complete an item from analyzing/planned directly.
+# reachable from any non-terminal state. Accepted items wake the project
+# agent for doc analysis ("analyzing"); the agent may complete from
+# analyzing/planned directly via tools.
 QUEUE_TRANSITIONS: dict[str, set[str]] = {
     "proposed": {"queued", "rejected"},
     "queued": {"analyzing", "planned", "rejected"},
@@ -1047,11 +1047,12 @@ async def conversation_project_context(
     else:
         lines.append("- Tenant projects: " + ", ".join(f"{p.name} (slug: {p.slug})" for p in projects))
     lines.append(
-        "- When the conversation reveals a bug, feature request, or actionable "
-        "idea for a project, call create_queue_item (kind: feature|bug|task|"
-        "idea|risk) with a clear title and context. Check the active items "
-        "first to avoid duplicates. Under 'ask' policy this becomes a proposal "
-        "card for the human — prefer proposing over ignoring an opportunity."
+        "- The folder is a cache of the conversation's labels, not proof that "
+        "the message is that kind of work. Queue a bug, feature, or task only "
+        "when the message itself is that work. If the folder does not fit, "
+        "correct the conversation's own free labels first; do not add a receipt "
+        "or newsletter to that project's queue. Check active items first to "
+        "avoid duplicates."
     )
     return "\n".join(lines)
 
@@ -1123,6 +1124,16 @@ async def _project_work_context(
     return "\n".join(lines)
 
 
+ANALYZE_INSTRUCTIONS = (
+    "You are analyzing a newly accepted queue task against the project documentation.\n"
+    "1. Read the task and the project docs context below.\n"
+    "2. Link the task to the sections it touches with link_queue_item_to_doc.\n"
+    "3. Summarize impact and next steps; move the task to 'planned' with "
+    "update_queue_item_status when analysis is done (or 'completed' if nothing "
+    "needs doing).\n"
+    "4. Doc edits use write_doc on the affected sections."
+)
+
 VERIFY_INSTRUCTIONS = (
     "You are verifying that reality matches the documentation for a queue task.\n"
     "1. Re-read the linked doc sections and their acceptance checklists.\n"
@@ -1132,8 +1143,8 @@ VERIFY_INSTRUCTIONS = (
     "set_doc_section_status (only with direct evidence; otherwise leave "
     "'review') and move the task to 'completed' with update_queue_item_status.\n"
     "4. If something does not match: describe the gap and move the task back "
-    "to 'planned' with your findings. Doc fixes run through a workstream run, "
-    "not through direct writes from this verification."
+    "to 'planned' with your findings. Fix docs with write_doc only when the "
+    "gap is clear; otherwise leave the sections for a follow-up task."
 )
 
 
@@ -1180,67 +1191,31 @@ async def _wake_task_agent(
 async def start_queue_item_analysis(
     session: AsyncSession, tenant_id: UUID, item: AgentTask
 ) -> dict[str, Any] | None:
-    """Route an accepted queue item into a workstream run.
-
-    The project agent (PO) picks the best-matching project workstream (the
-    default as fallback) and a run starts with the item as input. The item
-    status follows the run from there: completed run -> completed item,
-    failed/cancelled run -> back to planned.
-    """
-    from app.services import workstreams as ws_engine
-
+    """Wake the project agent to analyze an accepted queue item against docs."""
     if not item.project_id:
         return None
+    if item.status != "analyzing":
+        item = await transition_queue_item(
+            session,
+            tenant_id,
+            item.id,
+            "analyzing",
+            actor_type="system",
+            actor_id="queue_routing",
+        )
     agent = await resolve_project_agent(session, tenant_id, item.project_id)
-    item = await transition_queue_item(
-        session,
-        tenant_id,
-        item.id,
-        "analyzing",
-        actor_type="system",
-        actor_id="queue_routing",
+    if agent is None:
+        return None
+    context = await _project_work_context(session, tenant_id, item.project_id)
+    instructions = (
+        f"{ANALYZE_INSTRUCTIONS}\n\n"
+        f"## Queue task\n"
+        f"- id: {item.id}\n- kind: {item.kind}\n- priority: {item.priority}\n"
+        f"- title: {item.title}\n\n{item.description}\n\n{context}"
     )
-    ws = await ws_engine.choose_workstream_for_input(
-        session,
-        tenant_id,
-        item.project_id,
-        f"{item.kind} {item.title} {item.description}",
+    return await _wake_task_agent(
+        session, tenant_id, item, agent, instructions=instructions, fallback_status="analyzing"
     )
-    input_text = (
-        f"Queue task (id: {item.id})\n"
-        f"- kind: {item.kind}\n- priority: {item.priority}\n- title: {item.title}\n\n"
-        f"{item.description}"
-    )
-    if agent is not None:
-        item.assignee_agent_id = agent.id
-        session.add(item)
-        await session.commit()
-    run = await ws_engine.start_run(
-        session,
-        tenant_id,
-        ws.id,
-        input_kind="queue_item",
-        input_text=input_text,
-        input_ref=str(item.id),
-        project_id=item.project_id,
-        triggered_by_type="agent" if agent else "system",
-        triggered_by_id=str(agent.id) if agent else "queue_routing",
-    )
-    item = await get_queue_item(session, tenant_id, item.id)
-    try:
-        ctx = json.loads(item.context_json or "{}")
-        if not isinstance(ctx, dict):
-            ctx = {}
-    except json.JSONDecodeError:
-        ctx = {}
-    ctx["workstream_id"] = str(run.workstream_id) if run.workstream_id else None
-    item.context_json = json.dumps(ctx)
-    session.add(item)
-    await session.commit()
-    return {
-        "task_id": str(item.id),
-        "workstream_id": str(run.workstream_id) if run.workstream_id else None,
-    }
 
 
 async def start_queue_item_verification(

@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  Check,
   ChevronDown,
   Paperclip,
+  Phone,
   PhoneOff,
   Quote,
   Send,
@@ -19,8 +22,11 @@ import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { AiMark } from '../ai/AiMark'
 import { AvatarStack } from '../ui/AvatarStack'
 import { AgentMark } from '../ui/AgentMark'
+import type { AgentAvatarSource } from '../../lib/agent-avatar'
 import { UserAvatar } from '../ui/UserAvatar'
-import ProviderLogo from '../email/ProviderLogo'
+import { getContact, getContactThreadPage } from '../../lib/contacts-api'
+import { inboxPath } from '../../lib/messages-paths'
+import { buildReplyDestinations, type ReplyDestination } from '../../lib/reply-destinations'
 import {
   focusFromTargets,
   focusLabelName,
@@ -44,10 +50,8 @@ import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
 import type { MessageAttachment, ThreadRoutingPolicy } from '../../lib/inbox-api'
 import { setThreadComposing } from '../../lib/signals-api'
-import { channelCanSend, listChannels, type ChannelRow } from '../../lib/channels-api'
-import type { Provider } from '../../lib/email-oauth'
+import { channelCanSend, listChannels } from '../../lib/channels-api'
 import { readLastMailboxChannelAccountId, writeLastMailboxChannelAccountId } from '../../lib/last-mailbox'
-import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import {
   activeMentionQuery,
   filterMentionItems,
@@ -87,6 +91,7 @@ type Props = {
       cc?: string
       bcc?: string
       channelAccountId?: string
+      to?: string
       handback?: boolean
       keepOpen?: boolean
       quotedHtml?: string
@@ -99,6 +104,8 @@ type Props = {
   ) => Promise<void>
   /** Channel routing policy; drives the default send label and the ask split. */
   routingPolicy?: ThreadRoutingPolicy | null
+  /** Personal preference: email Send closes the conversation. */
+  closeEmailOnSend?: boolean
   /**
    * True when the policy is "ask" and the agent could take the next turn:
    * the send menu offers "hand back to agent" and "keep with me".
@@ -131,6 +138,8 @@ type Props = {
   onVerb?: (verb: import('../../lib/composer-verbs').ParsedComposerVerb) => Promise<boolean> | boolean
   /** Active AI label for the Ask chip. */
   agentModeName?: string | null
+  /** Agent face for the Ask chip when Reply is selected and focus targets are empty. */
+  askAgent?: AgentAvatarSource | null
   /** Who Ask/Note is addressing (facepile + quick @ set). */
   replyFocus?: ComposerReplyFocus | null
   /** Manual overwrite of Ask/Note recipients from the tab chevron. */
@@ -149,8 +158,11 @@ type Props = {
   lastInboundText?: string | null
   /** Bound mailbox UUID for email threads (default From). */
   channelAccountId?: string | null
-  /** Operator picked another From mailbox; persist + rebind the thread. */
-  onChannelAccountChange?: (channelAccountId: string) => void
+  /** Contact whose other addresses and numbers can switch the reply channel. */
+  contactId?: string | null
+  customerEmail?: string | null
+  customerPhone?: string | null
+  customerName?: string | null
   /** Open AI reply proposal loaded into the composer. Discarding the draft rejects it. */
   proposal?: {
     decisionMessageId: string
@@ -168,7 +180,7 @@ type Props = {
    * Email reply with text already in the small composer: focusing that text
    * opens the mail client with the same body. Notes and Ask stay here.
    */
-  onPromoteEmailEdit?: (body: string) => void
+  onPromoteEmailEdit?: (body: string) => void | boolean
 }
 
 function draftSlot(mode: ComposerMode): ComposerDraftSlot {
@@ -204,6 +216,13 @@ function writeStoredDraft(
   }
 }
 
+function DestinationGlyph({ channel }: { channel: string }) {
+  if (channel === 'phone') {
+    return <Phone size={12} className="shrink-0 text-text-muted" aria-hidden />
+  }
+  return <ChannelGlyph channel={channel} size={12} />
+}
+
 export default function ReplyComposer({
   surface,
   onReply,
@@ -222,6 +241,7 @@ export default function ReplyComposer({
   onModeChange,
   onVerb,
   agentModeName,
+  askAgent = null,
   replyFocus = null,
   onReplyFocusChange,
   onAskTabFocus,
@@ -230,7 +250,10 @@ export default function ReplyComposer({
   suggestedCc,
   lastInboundText,
   channelAccountId: boundChannelAccountId,
-  onChannelAccountChange,
+  contactId = null,
+  customerEmail = null,
+  customerPhone = null,
+  customerName = null,
   proposal = null,
   latestInboundMessageId = null,
   isProposalOpen,
@@ -238,10 +261,11 @@ export default function ReplyComposer({
   onPromoteEmailEdit,
   routingPolicy = null,
   handbackChoice = false,
+  closeEmailOnSend = false,
 }: Props) {
   const { t } = useTranslation('communication')
+  const navigate = useNavigate()
   const { token } = useAuth()
-  const [emailChannels, setEmailChannels] = useState<ChannelRow[]>([])
   const [selectedChannelAccountId, setSelectedChannelAccountId] = useState<string | null>(
     boundChannelAccountId ?? null,
   )
@@ -317,10 +341,7 @@ export default function ReplyComposer({
   }, [boundChannelAccountId])
 
   useEffect(() => {
-    if (!token || surface.channel !== 'email') {
-      setEmailChannels([])
-      return
-    }
+    if (!token || surface.channel !== 'email') return
     let cancelled = false
     void listChannels(token)
       .then((rows) => {
@@ -334,7 +355,6 @@ export default function ReplyComposer({
             // (Bokito Support can advertise send while still in setup).
             channelCanSend(row),
         )
-        setEmailChannels(mailboxes)
         setSelectedChannelAccountId((prev) => {
           if (prev && mailboxes.some((row) => row.id === prev)) return prev
           if (boundChannelAccountId && mailboxes.some((row) => row.id === boundChannelAccountId)) {
@@ -346,40 +366,89 @@ export default function ReplyComposer({
         })
       })
       .catch(() => {
-        if (!cancelled) setEmailChannels([])
+        if (!cancelled) setSelectedChannelAccountId(boundChannelAccountId ?? null)
       })
     return () => {
       cancelled = true
     }
   }, [token, surface.channel, boundChannelAccountId])
 
-  const selectedMailbox = useMemo(
-    () => emailChannels.find((row) => row.id === selectedChannelAccountId) ?? null,
-    [emailChannels, selectedChannelAccountId],
+  const [reachContact, setReachContact] = useState<Awaited<ReturnType<typeof getContact>>>(null)
+  const [siblingThreads, setSiblingThreads] = useState<Awaited<ReturnType<typeof getContactThreadPage>>['threads']>([])
+  const [toOverride, setToOverride] = useState<string | null>(null)
+  useEffect(() => {
+    setToOverride(null)
+  }, [persistKey])
+  useEffect(() => {
+    if (!token || !contactId || surface.channel === 'internal' || surface.channel === 'assistant') {
+      setReachContact(null)
+      setSiblingThreads([])
+      return
+    }
+    let cancelled = false
+    void Promise.all([
+      getContact(token, contactId).catch(() => null),
+      getContactThreadPage(token, contactId).catch(() => ({ threads: [], total: 0 })),
+    ]).then(([contact, page]) => {
+      if (cancelled) return
+      setReachContact(contact)
+      setSiblingThreads(page.threads)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [token, contactId, surface.channel])
+  const replyDestinations = useMemo(
+    () =>
+      buildReplyDestinations({
+        threadId: persistKey || 'current',
+        channel: surface.channel,
+        email: customerEmail,
+        phone: customerPhone,
+        name: customerName || surface.replyTargetName,
+        identities: reachContact?.identities,
+        contactPhone: reachContact?.phone,
+        contactAddress: reachContact?.address,
+        contactChannel: reachContact?.channel,
+        threads: siblingThreads,
+        fallback: t(`composer.channel.${surface.channel === 'chat' ? 'widget' : surface.channel}`, {
+          defaultValue: surface.replyLabel,
+        }),
+      }),
+    [
+      persistKey,
+      surface.channel,
+      surface.replyTargetName,
+      surface.replyLabel,
+      customerEmail,
+      customerPhone,
+      customerName,
+      reachContact,
+      siblingThreads,
+      t,
+    ],
   )
-  const canPickMailbox = surface.channel === 'email' && emailChannels.length > 1
-  const pickMailbox = (channelAccountId: string) => {
-    setSelectedChannelAccountId(channelAccountId)
-    writeLastMailboxChannelAccountId(channelAccountId)
-    onChannelAccountChange?.(channelAccountId)
+  const activeDestination =
+    replyDestinations.find((row) => toOverride && row.to === toOverride) ?? replyDestinations[0]
+  const canPickDestination = replyDestinations.length > 1
+  const replyTabLabel = activeDestination?.label || t('composer.tabReply')
+  const replyTooltip = activeDestination?.label
+    ? `${t('composer.sendToCustomer')} · ${activeDestination.label}`
+    : t('composer.tabHintReply')
+  const pickDestination = (row: ReplyDestination) => {
+    if (row.threadId && persistKey && row.threadId !== persistKey) {
+      navigate(inboxPath('open', row.threadId))
+      return
+    }
+    if (row.to) {
+      setToOverride(row.to)
+      setMode('reply')
+      return
+    }
+    setToOverride(null)
     setMode('reply')
+    if (!row.threadId) toast.message(t('composer.noConversationOnChannel'))
   }
-  // Email chip shows the mailbox/channel name; chevron switches when there are several.
-  const replyTabLabel =
-    surface.channel === 'email'
-      ? selectedMailbox
-        ? mailboxDisplayLabel(
-            selectedMailbox.displayName || selectedMailbox.label,
-            selectedMailbox.address,
-          )
-        : t('composer.tabReplyEmail', { defaultValue: surface.replyLabel })
-      : surface.replyTargetName
-        ? t('composer.tabReplyTo', {
-            name: surface.replyTargetName,
-            defaultValue: `Reply to ${surface.replyTargetName}`,
-          })
-        : t('composer.tabReply')
-  const replyTooltip = t('composer.tabHintReply')
   const askTooltip = t('composer.tabHintAsk')
 
   const refreshMentionState = (value: string, caret: number) => {
@@ -665,6 +734,33 @@ export default function ReplyComposer({
   const showNoteTab = surface.modes.includes('note')
   // Ask AI: first send starts the session (parent), not the chip click.
   const focusStack = replyFocus ? focusToAvatarStack(replyFocus) : []
+  const askFace = (size: number) => {
+    if (focusStack.length > 1) {
+      return <AvatarStack members={focusStack} size={size} linkAgents={false} />
+    }
+    if (focusStack.length === 1 && focusStack[0].kind === 'agent') {
+      return <AgentMark agent={focusStack[0].agent} size={size} mode="static" decorative />
+    }
+    if (focusStack.length === 1 && focusStack[0].kind === 'user') {
+      return (
+        <UserAvatar
+          name={focusStack[0].name}
+          email={focusStack[0].email || focusStack[0].name}
+          avatarUrl={focusStack[0].avatarUrl}
+          size={size}
+        />
+      )
+    }
+    return (
+      <AgentMark
+        agent={askAgent}
+        size={size}
+        mode="static"
+        decorative
+        fallbackName={agentModeName || undefined}
+      />
+    )
+  }
   const focusName = focusLabelName(
     replyFocus ?? { kind: 'client', targets: [], primaryAgentId: null },
     agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
@@ -796,7 +892,10 @@ export default function ReplyComposer({
 
   // Channel policy: a plain send closes the conversation. The primary button
   // then reads "Send and close" and the menu offers "Send and keep open".
-  const closesByPolicy = isReply && Boolean(routingPolicy?.closeAfterHumanReply)
+  const closesByPolicy =
+    isReply &&
+    (Boolean(routingPolicy?.closeAfterHumanReply) ||
+      (surface.channel === 'email' && closeEmailOnSend))
   const showHandbackChoice = isReply && handbackChoice
 
   const handleSubmit = async (
@@ -867,12 +966,15 @@ export default function ReplyComposer({
                 cc: cc.trim() || undefined,
                 bcc: bcc.trim() || undefined,
                 channelAccountId: selectedChannelAccountId || undefined,
+                to: toOverride || undefined,
                 quotedHtml:
                   quoteIncluded && quotedSource
                     ? plainTextToQuotedHtml(quotedSource)
                     : undefined,
               }
-            : {}
+            : surface.channel === 'whatsapp' && toOverride
+              ? { to: toOverride }
+              : {}
         const extras =
           surface.channel === 'email' || routing
             ? {
@@ -922,18 +1024,36 @@ export default function ReplyComposer({
   }
 
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items
-    if (!items?.length || !token) return
+    if (!token) return
     const images: File[] = []
-    for (const item of Array.from(items)) {
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
-        const file = item.getAsFile()
-        if (file) images.push(file)
+    const items = e.clipboardData?.items
+    if (items?.length) {
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file && file.size > 0) images.push(file)
+        }
+      }
+    }
+    if (!images.length && e.clipboardData?.files?.length) {
+      for (const file of Array.from(e.clipboardData.files)) {
+        if (file.type.startsWith('image/') && file.size > 0) images.push(file)
       }
     }
     if (!images.length) return
-    // Keep pasted text; only consume image files from the clipboard.
-    void onPickFiles(images)
+    // A screenshot paste also carries HTML. Leave the typed text; drop the image payload.
+    e.preventDefault()
+    const named = images.map((file, index) => {
+      const type = file.type || 'image/png'
+      const ext = type.split('/')[1]?.replace('jpeg', 'jpg') || 'png'
+      const generic = !file.name || file.name === 'image.png' || file.name === 'blob'
+      if (!generic) return file
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      return new File([file], `pasted-${stamp}${images.length > 1 ? `-${index + 1}` : ''}.${ext}`, {
+        type,
+      })
+    })
+    void onPickFiles(named)
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -958,6 +1078,20 @@ export default function ReplyComposer({
         setMentionQuery(null)
         return
       }
+    }
+    if (
+      onPromoteEmailEdit &&
+      isReply &&
+      !replyBlocked &&
+      !dictation.listening &&
+      surface.channel === 'email' &&
+      e.key.length === 1 &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.altKey
+    ) {
+      const opened = onPromoteEmailEdit(body + e.key)
+      if (opened) e.preventDefault()
     }
     // Email replies are consequential (real customer mail): plain Enter adds a
     // newline and Cmd/Ctrl+Enter sends. Chat, intern, and agent keep Enter-to-send.
@@ -997,82 +1131,65 @@ export default function ReplyComposer({
         className="pointer-events-none absolute inset-x-0 bottom-full z-10 h-12 bg-gradient-to-t from-bg from-20% to-transparent"
       />
       <div className={CHAT_COLUMN_CLASS}>
-        <div className="relative z-10 mb-1.5 flex items-center gap-1">
+        <div className="relative z-10 mb-1.5 flex items-stretch gap-1">
           {showReplyTab ? (
             <div
-              className={`flex items-stretch overflow-hidden rounded-md ${
-                isReply ? 'bg-bg-hover' : ''
-              }`}
+              className={cn(
+                'inline-flex h-8 max-h-8 min-h-8 items-stretch overflow-hidden rounded-md text-xs leading-none',
+                isReply ? 'bg-bg-hover' : '',
+              )}
             >
               <button
                 type="button"
                 onClick={() => setMode('reply')}
-                title={
-                  surface.channel === 'email' && selectedMailbox
-                    ? t('composer.sendFromHint', {
-                        defaultValue: 'Send from this mailbox. Switching moves the conversation here.',
-                      }) +
-                      ` · ${mailboxDisplayLabel(
-                        selectedMailbox.displayName || selectedMailbox.label,
-                        selectedMailbox.address,
-                      )}`
-                    : replyTooltip
-                }
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors ${
+                title={replyTooltip}
+                className={cn(
+                  'inline-flex h-full items-center gap-1.5 px-2.5 leading-none transition-colors',
                   isReply
                     ? 'font-medium text-text-heading'
-                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-                }`}
-              >
-                {surface.channel === 'email' && selectedMailbox ? (
-                  <ProviderLogo
-                    provider={selectedMailbox.provider as Provider}
-                    className="h-3 w-3 shrink-0 object-contain"
-                  />
-                ) : (
-                  <ChannelGlyph channel={surface.channel} size={12} />
+                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
                 )}
+              >
+                <DestinationGlyph channel={activeDestination?.channel || surface.channel} />
                 <span className="max-w-[12rem] truncate-fade">{replyTabLabel}</span>
               </button>
-              {canPickMailbox ? (
+              {canPickDestination ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      title={t('composer.sendFrom', { defaultValue: 'Send from' })}
-                      aria-label={t('composer.sendFrom', { defaultValue: 'Send from' })}
-                      className={`flex items-center border-l border-border/50 px-1.5 text-xs transition-colors ${
+                      title={t('composer.pickChannel')}
+                      aria-label={t('composer.pickChannel')}
+                      className={cn(
+                        'inline-flex h-full items-center border-l border-border/50 px-1.5 leading-none transition-colors',
                         isReply
                           ? 'text-text-heading hover:bg-bg-muted/60'
-                          : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-                      }`}
-                      data-testid="composer-mailbox-chevron"
+                          : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
+                      )}
+                      data-testid="composer-destination-chevron"
                     >
                       <ChevronDown size={11} className="shrink-0 opacity-70" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64">
                     <p className="px-2 py-1.5 text-2xs font-semibold text-text-muted">
-                      {t('composer.sendFrom', { defaultValue: 'Send from' })}
+                      {t('composer.pickChannel')}
                     </p>
-                    {emailChannels.map((row) => {
-                      const label = mailboxDisplayLabel(row.displayName || row.label, row.address)
-                      const active = row.id === selectedChannelAccountId
+                    {replyDestinations.map((row) => {
+                      const active = row.key === activeDestination?.key
+                      const channelKey = row.channel
                       return (
                         <DropdownMenuItem
-                          key={row.id}
+                          key={row.key}
                           className="gap-2 text-xs"
-                          onSelect={() => pickMailbox(row.id)}
+                          onSelect={() => pickDestination(row)}
                         >
-                          <ProviderLogo
-                            provider={row.provider as Provider}
-                            className="h-3.5 w-3.5 shrink-0 object-contain"
-                          />
+                          <DestinationGlyph channel={row.channel} />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate-fade font-medium text-text-heading">{label}</span>
-                            {row.address && label !== row.address ? (
-                              <span className="block truncate-fade text-2xs text-text-muted">{row.address}</span>
-                            ) : null}
+                            <span className="block truncate-fade font-medium text-text-heading">{row.label}</span>
+                            <span className="block truncate-fade text-2xs text-text-muted">
+                              {t(`composer.channel.${channelKey}`, { defaultValue: row.channel })}
+                            </span>
                           </span>
                           {active ? <Check size={12} className="shrink-0 text-accent" /> : null}
                         </DropdownMenuItem>
@@ -1086,10 +1203,14 @@ export default function ReplyComposer({
           {showAskTab ? (
             <div
               className={cn(
-                'inline-flex h-7 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
-                isAsk
-                  ? 'bg-bg-hover font-medium text-ai-ink'
-                  : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink',
+                'inline-flex h-8 max-h-8 min-h-8 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
+                focusHumansOnly
+                  ? isAsk
+                    ? 'bg-bg-hover font-medium text-text-heading'
+                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                  : isAsk
+                    ? 'bg-bg-hover font-medium text-ai-ink'
+                    : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink',
               )}
             >
               <button
@@ -1107,20 +1228,7 @@ export default function ReplyComposer({
                 title={askTooltip}
                 className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
               >
-                {focusStack.length > 1 ? (
-                  <AvatarStack members={focusStack} size={14} linkAgents={false} />
-                ) : focusStack.length === 1 && focusStack[0].kind === 'agent' ? (
-                  <AgentMark agent={focusStack[0].agent} size={14} mode="static" decorative />
-                ) : focusStack.length === 1 && focusStack[0].kind === 'user' ? (
-                  <UserAvatar
-                    name={focusStack[0].name}
-                    email={focusStack[0].email || focusStack[0].name}
-                    avatarUrl={focusStack[0].avatarUrl}
-                    size={14}
-                  />
-                ) : (
-                  <AiMark size={11} />
-                )}
+                {askFace(14)}
                 {focusHumansOnly
                   ? t('composer.tabTo', { name: focusName, defaultValue: 'To {{name}}' })
                   : t('composer.tabAsk', { name: focusName })}
@@ -1131,7 +1239,7 @@ export default function ReplyComposer({
           {showNoteTab ? (
             <div
               className={cn(
-                'inline-flex h-7 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
+                'inline-flex h-8 max-h-8 min-h-8 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
                 isNote
                   ? 'bg-bg-hover font-medium text-text-heading'
                   : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -1244,11 +1352,6 @@ export default function ReplyComposer({
             ) : null}
           </div>
         ) : null}
-
-        <MessageAttachments
-          attachments={attachments}
-          onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
-        />
 
         {draftRestored && !isNote ? (
           <div
@@ -1373,6 +1476,16 @@ export default function ReplyComposer({
                       })
           }
           className={isAsk || (isNote && !focusHumansOnly) ? undefined : 'bg-bg-surface'}
+          header={
+            attachments.length || uploading ? (
+              <MessageAttachments
+                placement="composer"
+                attachments={attachments}
+                pending={uploading}
+                onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
+              />
+            ) : null
+          }
           overlay={
             mentionOpen ? (
               <MentionPopover
@@ -1423,7 +1536,7 @@ export default function ReplyComposer({
           >
             <Paperclip size={14} />
           </button>
-          <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-lg">
+          <div className="flex h-8 shrink-0 items-center gap-1.5">
             {isAsk && agentStreaming ? (
               <button
                 type="button"
@@ -1435,6 +1548,16 @@ export default function ReplyComposer({
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
               </button>
             ) : null}
+            <div
+              className={cn(
+                'flex h-8 overflow-hidden rounded-lg border',
+                isAsk && !focusHumansOnly
+                  ? 'border-ai'
+                  : focusHumansOnly || isReply
+                    ? 'border-border'
+                    : 'border-text-muted',
+              )}
+            >
             <button
               type="button"
               disabled={!canSend || busy || disabled || uploading}
@@ -1458,20 +1581,19 @@ export default function ReplyComposer({
                           ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
                           : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
               }
-              className={`flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40 ${
-                isAsk && focusHasAgents
+              className={cn(
+                'flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40',
+                isAsk && !focusHumansOnly
                   ? 'bg-ai text-ai-fg hover:opacity-90'
-                  : isAsk || (isNote && !focusHumansOnly)
-                    ? 'bg-bg-elevated text-text-primary ring-1 ring-border/70 hover:bg-bg-hover'
-                    : 'bg-accent text-accent-fg hover:bg-accent-hover'
-              } ${isReply && showCustomerActions ? 'rounded-none' : 'rounded-lg'}`}
+                  : focusHumansOnly
+                    ? 'bg-bg-elevated text-text-heading hover:bg-bg-hover'
+                    : isReply
+                      ? 'bg-accent text-accent-fg hover:bg-accent-hover'
+                      : 'bg-bg-elevated text-text-primary hover:bg-bg-hover',
+              )}
             >
-              {isAsk && focusStack.length > 1 ? (
-                <AvatarStack members={focusStack} size={16} linkAgents={false} />
-              ) : isAsk && focusStack.length === 1 && focusStack[0].kind === 'agent' ? (
-                <AgentMark agent={focusStack[0].agent} size={16} mode="static" decorative />
-              ) : isAsk ? (
-                <AiMark size={13} />
+              {isAsk ? (
+                askFace(16)
               ) : isNote && focusHumansOnly && focusStack.length === 1 && focusStack[0].kind === 'user' ? (
                 <UserAvatar
                   name={focusStack[0].name}
@@ -1563,6 +1685,7 @@ export default function ReplyComposer({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
+            </div>
           </div>
         </ComposerCard>
         )}

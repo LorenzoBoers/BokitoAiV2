@@ -18,6 +18,9 @@ class WorkstreamCreateBody(BaseModel):
     description: str = ""
     project_ids: list[UUID] = []
     stages: list[dict[str, Any]] | None = None
+    # Omitted values use the flow-label default (blue + route). Empty string clears the mark.
+    color: str | None = None
+    icon: str | None = None
 
 
 class WorkstreamPatchBody(BaseModel):
@@ -62,7 +65,13 @@ async def create_workstream(
     from sqlalchemy import select
 
     from app.models.signal import SignalTag
-    from app.services.signal_tags import normalize_tag
+    from app.services.signal_tags import (
+        FLOW_LABEL_COLOR,
+        FLOW_LABEL_ICON,
+        flow_label_color,
+        flow_label_icon,
+        normalize_tag,
+    )
     from app.services.tickets import validate_stages
 
     tag_name = normalize_tag(body.name)
@@ -98,6 +107,8 @@ async def create_workstream(
         ws.stages_json = default_stages_json()
     session.add(ws)
     await session.flush()
+    label_color = flow_label_color(body.color if body.color is not None else FLOW_LABEL_COLOR)
+    label_icon = flow_label_icon(body.icon if body.icon is not None else FLOW_LABEL_ICON)
     if tag is None:
         tag = SignalTag(
             tenant_id=auth.tenant.id,
@@ -105,6 +116,8 @@ async def create_workstream(
             description=body.description,
             created_by_user_id=auth.user.id,
         )
+    tag.color = label_color
+    tag.icon = label_icon
     tag.workstream_id = ws.id
     tag.show_in_nav = True
     session.add(tag)

@@ -634,6 +634,24 @@ class AnthropicLLMProvider:
             }
 
 
+def _openai_image_part(block: dict[str, Any]) -> dict[str, Any] | None:
+    """Anthropic image block → OpenAI / Mistral image_url part."""
+    source = block.get("source") if isinstance(block.get("source"), dict) else {}
+    if source.get("type") != "base64":
+        return None
+    data = str(source.get("data") or "")
+    if not data:
+        return None
+    media = str(source.get("media_type") or "image/png")
+    return {"type": "image_url", "image_url": {"url": f"data:{media};base64,{data}"}}
+
+
+def _openai_user_parts(parts: list[dict[str, Any]]) -> dict[str, Any]:
+    if len(parts) == 1 and parts[0].get("type") == "text":
+        return {"role": "user", "content": parts[0].get("text", "")}
+    return {"role": "user", "content": parts}
+
+
 class OpenAILLMProvider:
     """OpenAI chat provider that speaks the Anthropic-shaped message protocol.
 
@@ -698,9 +716,13 @@ class OpenAILLMProvider:
                 if tool_calls:
                     msg["tool_calls"] = tool_calls
                 out.append(msg)
-            else:  # user with tool_result blocks
+            else:  # user with tool results and/or images
+                parts: list[dict[str, Any]] = []
                 for block in content:
                     if block.get("type") == "tool_result":
+                        if parts:
+                            out.append(_openai_user_parts(parts))
+                            parts = []
                         out.append(
                             {
                                 "role": "tool",
@@ -709,7 +731,13 @@ class OpenAILLMProvider:
                             }
                         )
                     elif block.get("type") == "text":
-                        out.append({"role": "user", "content": block.get("text", "")})
+                        parts.append({"type": "text", "text": block.get("text", "")})
+                    elif block.get("type") == "image":
+                        image = _openai_image_part(block)
+                        if image is not None:
+                            parts.append(image)
+                if parts:
+                    out.append(_openai_user_parts(parts))
         return out
 
     async def chat(

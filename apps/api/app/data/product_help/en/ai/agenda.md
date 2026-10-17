@@ -33,7 +33,7 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 1. Open a Flow and choose **Edit**. Each stage has an **Owner** (a person, agent or team, or **Keep current owner**) and a **Check-up** rhythm (**Off**, hours, days or a week).
 2. When a ticket enters that stage, Agenda creates a recurring task for whoever owns the conversation. Agents pick it up as a wake; people see it in their agenda and get the conversation marked unread when it is due.
 3. The ticket panel in Communication shows when the next follow-up is due. A Flow with check-ups links to **Check-ups on Agenda** under its title. See [Flows](/docs/ai/workstreams).
-4. On a contact page, each conversation shows its action tag, stage and next planned task.
+4. On a contact page, each conversation shows its label, stage and next planned task.
 
 ## Plan an agenda item or a recurring task
 

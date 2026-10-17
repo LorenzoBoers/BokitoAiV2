@@ -161,6 +161,15 @@ describe('default queue resolution', () => {
     const prefs = parseInboxFolderPrefs({ default_queue: 'open', channel_defaults: { 'team:tm-1': 'for_you' } })
     expect(resolveDefaultQueue(prefs, { type: 'team', teamId: 'tm-1' })).toBe('for_you')
     expect(resolveDefaultQueue(prefs, { type: 'inbox' })).toBe('open')
+    expect(
+      resolveDefaultQueue(prefs, { type: 'agent', agentId: 'a1' }),
+    ).toBe('open')
+    expect(
+      resolveDefaultQueue(prefs, { type: 'channel', channelKey: 'email', connectionId: '12' }),
+    ).toBe('open')
+    expect(
+      resolveDefaultQueue(prefs, { type: 'project', projectId: 'p1' }),
+    ).toBe('open')
   })
 
   it('scope keys ignore the sub-queue', () => {

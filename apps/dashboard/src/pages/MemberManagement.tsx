@@ -47,6 +47,7 @@ import {
 } from '../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { seenToIso } from '../components/inbox/IdentitySeenLine'
+import { connectionsPathWithKind } from '../lib/integration-kind-url'
 import { timeAgo } from '../lib/time-ago'
 
 // Canonical roles: backend memberships are owner | admin | member.
@@ -664,9 +665,11 @@ export default function MemberManagement({
             </div>
             <p className="mt-0.5 text-xs text-text-muted">{t('membersPage.hireAgentsBody')}</p>
           </div>
-          <Button type="button" variant="ai" className="shrink-0" disabled>
-            <Store size={14} />
-            {t('membersPage.hireAgentsCta')}
+          <Button asChild variant="ai" className="shrink-0">
+            <Link to={connectionsPathWithKind('modules')}>
+              <Store size={14} />
+              {t('membersPage.hireAgentsCta')}
+            </Link>
           </Button>
         </div>
       </Card>

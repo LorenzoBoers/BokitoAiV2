@@ -10,6 +10,7 @@ import { MicrosoftSignInButton } from '../components/auth/MicrosoftSignInButton'
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton';
 import { describeSsoError } from '../components/auth/sso-errors';
 import { readLastLoginEmail, writeLastLoginEmail } from '../lib/last-login-email';
+import { AmbientSpotlights } from '../components/ui/ambient-spotlights';
 
 function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
   if (!rawReturnTo) return '/';
@@ -226,11 +227,8 @@ export default function Login() {
   }
 
   return (
-    <div className="app-atmosphere relative min-h-screen flex items-center justify-center px-4">
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-      </div>
+    <div className="app-atmosphere relative min-h-screen flex items-center justify-center overflow-hidden px-4">
+      <AmbientSpotlights />
 
       <div className="relative w-full max-w-sm">
         {/* Logo */}

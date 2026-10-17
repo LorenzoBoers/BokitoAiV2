@@ -43,6 +43,25 @@ describe('default-signature', () => {
     expect(html).not.toContain('data:image')
   })
 
+  it('uses the photo layout as the empty personal default', () => {
+    const html = previewSignatureHtml('', {
+      name: 'Lorenzo Boers',
+      email: 'lorenzo@bokito.ai',
+      jobTitle: 'Owner',
+      company: 'Bokito',
+      avatarUrl: 'https://cdn.example.com/lorenzo.jpg',
+      language: 'nl',
+    })
+    expect(html).toContain('https://cdn.example.com/lorenzo.jpg')
+    expect(html).toContain('border-left:2px solid')
+    const initials = previewSignatureHtml(null, {
+      name: 'Lorenzo Boers',
+      language: 'nl',
+    })
+    expect(initials).toContain('LB')
+    expect(initials).not.toContain('<img')
+  })
+
   it('renders {{avatar}} as a photo or initials', () => {
     const withPhoto = renderSignatureTemplate('<p>{{avatar}}</p><p>{{name}}</p>', {
       name: 'Ada',

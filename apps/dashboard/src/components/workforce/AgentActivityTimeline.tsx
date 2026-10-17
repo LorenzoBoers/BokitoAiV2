@@ -8,8 +8,8 @@ import {
   MessageSquare,
   RefreshCw,
   Sparkles,
+  Route,
   Webhook,
-  Workflow,
 } from 'lucide-react'
 import { AgentMark } from '../ui/AgentMark'
 import { Card } from '../ui/card'
@@ -54,7 +54,7 @@ const ICON_BY_KIND: Record<ActivityIconKind, ComponentType<{ size?: number; stro
   schedule: AlarmClock,
   heartbeat: RefreshCw,
   webhook: Webhook,
-  workstream: Workflow,
+  workstream: Route,
   queue: ListChecks,
   coding: Code2,
   session: Sparkles,

@@ -68,8 +68,7 @@ class WorkstreamProject(SQLModel, table=True):
     workstream_id: uuid.UUID = Field(foreign_key="workstreams.id", primary_key=True)
     project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    # Per project one default playbook handles queue items without an explicit
-    # routing choice by the PO agent.
+    # Optional preferred Flow when a folder links several playbooks.
     is_default: bool = False
     position: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)

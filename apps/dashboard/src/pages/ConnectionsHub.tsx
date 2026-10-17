@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { MessageSquare, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { CalendarAccountsSection } from '../components/integrations/CalendarAccountsSection'
 import { ConnectionSections } from '../components/integrations/ConnectionSections'
 import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
@@ -64,7 +64,6 @@ import { parseOAuthCallback, describeOAuthCallbackSummary } from '../lib/email-o
 import { SLUG_TO_STATIC_ID } from '../lib/integrations/registry'
 import { revokeMcpConnection } from '../lib/mcp-integrations'
 import { attachModuleConnection } from '../lib/module-api'
-import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { aiToolCardRows, filterAiToolRows, type AiToolCardRow } from '../lib/ai-tool-providers'
 import type { IntegrationModuleRow } from '../lib/integrations-api'
 
@@ -417,9 +416,6 @@ export default function ConnectionsHub() {
     kindFilter === 'all' && !query.trim() && (connectedOffers.length > 0 || installedModules.length > 0)
   const hasActiveFilter = Boolean(query.trim()) || kindFilter !== 'all'
   const catalogLoading = loading && applications.length === 0
-  const askPrefill = t('integrations.ask.prefill', {
-    defaultValue: 'Which connection or module fits my work? Show me what you recommend.',
-  })
 
   return (
     <PageContent width="xl" className="space-y-8">
@@ -428,14 +424,6 @@ export default function ConnectionsHub() {
         title={t('tabs.modules.title', { defaultValue: 'Connections' })}
         subtitle={t('integrations.pageMeta.connected.description')}
         className="mb-0"
-        meta={
-          <Button size="sm" variant="secondary" asChild>
-            <Link to={talkToAssistantPath(askPrefill)} className="gap-1.5">
-              <MessageSquare size={14} />
-              {t('integrations.ask.cta', { defaultValue: 'Ask which connection fits' })}
-            </Link>
-          </Button>
-        }
       />
 
       {loadError || catalogError ? (

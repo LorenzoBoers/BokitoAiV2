@@ -18,7 +18,7 @@ Everyone who writes in with a real name or address lands here. Open Contacts to 
 
 1. Open a thread in [Communication](/docs/inbox/communication).
 2. For a known person, click their name in the side panel or the thread header to open their contact.
-3. Read their history, last-seen and other conversations, then jump back to the open work. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
+3. Read their history and other conversations, then jump back to the open work. In the side panel the company sits on the same line as **Contact**. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
 4. On the contact, **Tags** label the person. Those tags apply to every conversation of this contact (dashed **via contact** chips on the thread). Company tags show as dashed **via company** chips. Changing them refiles every conversation. Above the conversations, **In folders** lists every folder those conversations land in. Click a folder to open it. Companies show the same row for all their people together.
 
 Unknown website visitors stay in the conversation as **Website visitor**. They have no **Profile** and are not listed under Contacts until they fill the widget [pre-chat form](/docs/inbox/widget) or you [link the conversation](#link-a-conversation-to-a-contact).
@@ -38,7 +38,7 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 ## Add a person or start mail
 
 1. Open **Contacts**. Search by name, address or company. Filter status with **All**, **Approved**, **Pending** or **Blocked**.
-2. Choose **New contact**. **Email address** is required. Add **Full name**, optional **Company**, then **Create contact**.
+2. Choose **New contact**. A dialog opens. **Email address** is required. Add **Full name**, optional **Company**, then **Create contact**.
 3. On the **Profile**, add **Title**, **Phone** and **Notes**, then **Save changes**. **Open conversation** jumps to the latest thread. Start **Write email** so outbound mail is already addressed. **Delete** unlinks the person; conversations stay.
 
 ## Group people and companies

@@ -10,7 +10,7 @@ import {
 } from '../../lib/chatText'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { openEntityPath } from '../../lib/open-entity'
-import { HashtagMark } from '../ui/HashtagMark'
+import { TagPill } from '../ui/TagPill'
 import { WebPageLinkIcon } from '../ui/DomainFavicon'
 import { cn } from '../../lib/utils'
 
@@ -106,11 +106,10 @@ function TagChip({ name, action }: { name: string; action: boolean }) {
   return (
     <Link
       to={openEntityPath({ type: 'tag', name: bare })}
-      className="chat-tag-chip inline-flex items-center gap-1"
+      className="chat-tag-chip inline-flex items-center no-underline"
       data-tag-kind={action ? 'action_tag' : 'tag'}
     >
-      <HashtagMark category={action} />
-      <span>{bare}</span>
+      <TagPill names={bare} tone={action ? 'action' : 'free'} size="sm" />
     </Link>
   )
 }

@@ -1,4 +1,5 @@
-import { memo, type CSSProperties } from 'react'
+import { memo, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Archive,
@@ -29,6 +30,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { THREAD_ROW_AI_CLASS, THREAD_ROW_SELECTED_CLASS } from '../../lib/chat-chrome'
@@ -45,7 +47,7 @@ import { formatAppDate, formatAppDateTime } from '../../lib/app-locale'
 import type { InboxThread, ThreadId } from '../../lib/inbox-api'
 import { parseServerTime, scheduleChipLabel, scheduleLongLabel } from '../../lib/thread-schedule'
 import { stageLabel } from '../../lib/tickets-api'
-import { HashtagMark } from '../ui/HashtagMark'
+import type { LabelColor } from '../../lib/signals-api'
 import { TagPill } from '../ui/TagPill'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
@@ -124,6 +126,7 @@ const PRIORITY_DOT: Record<string, string> = {
 const ROW_ICON_BUTTON = cn(
   'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted transition-opacity',
   'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
+  'group-data-[menu-open]/thread:opacity-100 group-data-[menu-open]/thread:pointer-events-auto',
   'data-[state=open]:opacity-100 data-[state=open]:pointer-events-auto',
   'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
 )
@@ -173,6 +176,8 @@ function ThreadListItem({
 }: Props) {
   const { t, i18n } = useTranslation('communication')
   const { t: tc } = useTranslation('common')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState({ x: 0, y: 0 })
   const { teams } = useTeams()
   const { agents } = useAgents()
   const priorityDot = PRIORITY_DOT[thread.priority] ?? ''
@@ -248,6 +253,10 @@ function ThreadListItem({
   const selectable = Boolean(onToggleChecked)
   const checkboxVisible = selectable && (selectionActive || Boolean(checked))
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+  const openRowMenu = (x: number, y: number) => {
+    setMenuAnchor({ x, y })
+    setMenuOpen(true)
+  }
   const ticketNameLower = ticket?.name.trim().toLowerCase() ?? ''
   const freeTags = (thread.tags ?? []).filter((tag) => tag.trim().toLowerCase() !== ticketNameLower)
   const hasMeta = Boolean((assigneeName && !isDirect) || ticket || freeTags.length > 0 || folder)
@@ -266,18 +275,28 @@ function ThreadListItem({
         setThreadDragData(event.dataTransfer, dragIds)
       }}
       onClick={() => onSelect(thread.id)}
+      onContextMenu={
+        showActions
+          ? (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openRowMenu(event.clientX, event.clientY)
+            }
+          : undefined
+      }
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onSelect(thread.id)
         }
       }}
+      data-menu-open={menuOpen ? '' : undefined}
       data-active={isSelected || undefined}
       data-ai-managed={aiActive || undefined}
       className={cn(
         'row-interactive group/thread w-full cursor-pointer rounded-md border border-transparent px-2.5 text-left',
         compact ? 'py-1.5' : 'py-2',
-        isSelected ? THREAD_ROW_SELECTED_CLASS : 'hover:bg-bg-hover/45',
+        isSelected ? THREAD_ROW_SELECTED_CLASS : 'hover:bg-bg-hover/45 data-[menu-open]:bg-bg-hover/45',
         aiActive && THREAD_ROW_AI_CLASS,
         enterIndex != null && enterIndex < 12 && 'list-row-enter',
       )}
@@ -296,7 +315,7 @@ function ThreadListItem({
             className={cn(
               'absolute inset-0 flex items-center justify-center transition-opacity',
               checkboxVisible && 'opacity-0',
-              selectable && !checkboxVisible && 'group-hover/thread:opacity-0',
+              selectable && !checkboxVisible && 'group-hover/thread:opacity-0 group-data-[menu-open]/thread:opacity-0',
             )}
           >
             {thread.isPinned ? (
@@ -323,7 +342,7 @@ function ThreadListItem({
                 'absolute h-3.5 w-3.5 cursor-pointer rounded border-border accent-[rgb(var(--color-accent))] transition-opacity',
                 checkboxVisible
                   ? 'opacity-100'
-                  : 'opacity-0 group-hover/thread:opacity-100 focus-visible:opacity-100',
+                  : 'opacity-0 group-hover/thread:opacity-100 group-data-[menu-open]/thread:opacity-100 focus-visible:opacity-100',
               )}
             />
           ) : null}
@@ -396,23 +415,51 @@ function ThreadListItem({
                 </button>
               ) : null}
               {showActions ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={stop}
-                    onPointerDown={stop}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') stop(e)
-                    }}
-                    aria-label={t('threadChrome.threadActions')}
-                    title={t('threadChrome.threadActions')}
-                    className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
-                  >
-                    <MoreHorizontal size={13} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={4} onClick={stop}>
+              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                {createPortal(
+                  <DropdownMenuTrigger asChild>
+                    <span
+                      aria-hidden
+                      className="pointer-events-none fixed z-50 h-px w-px"
+                      style={{ left: menuAnchor.x, top: menuAnchor.y }}
+                    />
+                  </DropdownMenuTrigger>,
+                  document.body,
+                )}
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    stop(event)
+                    if (menuOpen) {
+                      setMenuOpen(false)
+                      return
+                    }
+                    const rect = event.currentTarget.getBoundingClientRect()
+                    openRowMenu(rect.right, rect.bottom)
+                  }}
+                  onPointerDown={stop}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    stop(event)
+                    event.preventDefault()
+                    const rect = event.currentTarget.getBoundingClientRect()
+                    openRowMenu(rect.right, rect.bottom)
+                  }}
+                  aria-label={t('threadChrome.threadActions')}
+                  aria-expanded={menuOpen}
+                  aria-haspopup="menu"
+                  title={t('threadChrome.threadActions')}
+                  className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
+                >
+                  <MoreHorizontal size={13} />
+                </button>
+                <DropdownMenuContent
+                  key={`${menuAnchor.x}:${menuAnchor.y}`}
+                  align="end"
+                  side="bottom"
+                  sideOffset={4}
+                  onClick={stop}
+                >
                   {thread.hasUnread ? (
                     <DropdownMenuItem className="gap-2" onSelect={() => onMarkRead?.(thread.id)}>
                       <MailOpen size={13} className="text-text-muted" />
@@ -435,6 +482,19 @@ function ThreadListItem({
                     )}
                     {thread.isPinned ? t('threadChrome.unpin') : t('threadChrome.pin')}
                   </DropdownMenuItem>
+                  {onDelete ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="gap-2 text-status-error focus:text-status-error"
+                        disabled={deleting}
+                        onSelect={() => onDelete(thread.id)}
+                      >
+                        <Trash2 size={13} />
+                        {t('threadList.deleteThread')}
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
               ) : null}
@@ -521,12 +581,12 @@ function ThreadListItem({
                 'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
                 // Keep rows open while bulk-selecting so hover never shifts checkbox targets.
                 compact && !isSelected && !selectionActive
-                  ? 'grid-rows-[0fr] group-hover/thread:grid-rows-[1fr] group-focus-within/thread:grid-rows-[1fr]'
+                  ? 'grid-rows-[0fr] group-hover/thread:grid-rows-[1fr] group-focus-within/thread:grid-rows-[1fr] group-data-[menu-open]/thread:grid-rows-[1fr]'
                   : 'grid-rows-[1fr]',
               )}
             >
               <div className="min-h-0 overflow-hidden">
-                <div className="mt-1 flex min-w-0 items-center gap-2">
+                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
                   {assigneeName && !isDirect ? (
                     <div className="flex min-w-0 shrink items-center gap-1">
                       {assigneeKind === 'team' ? (
@@ -586,26 +646,27 @@ function ThreadListItem({
                       </span>
                     </div>
                   ) : null}
-                  <div className="flex min-w-0 flex-wrap items-center gap-1">
+                  <div className="contents">
                     {ticket ? (
-                      <span data-testid="thread-row-ticket">
+                      <span data-testid="thread-row-ticket" className="inline-flex items-center">
                         <TagPill
                           names={ticket.name}
                           tone="action"
                           size="sm"
+                          color={(ticket.color || '') as LabelColor}
+                          icon={ticket.icon}
                           title={ticket.stage ? `${ticket.name} · ${stageLabel(ticket.stage, t)}` : ticket.name}
-                        >
-                          <span className="inline-flex min-w-0 items-center gap-1">
-                            <HashtagMark category className="h-2 w-2" />
-                            <span className="truncate">{ticket.name}</span>
-                            {ticket.stage ? (
-                              <>
-                                <StageProgressIcon kind={ticket.stage.kind} className="size-3" />
-                                <span className="truncate">{stageLabel(ticket.stage, t)}</span>
-                              </>
-                            ) : null}
-                          </span>
-                        </TagPill>
+                          trailing={
+                            ticket.stage ? (
+                              <StageProgressIcon
+                                kind={ticket.stage.kind}
+                                fill={ticket.stage.progress}
+                                size={11}
+                                title={stageLabel(ticket.stage, t)}
+                              />
+                            ) : null
+                          }
+                        />
                       </span>
                     ) : null}
                     {freeTags.map((tag) => (

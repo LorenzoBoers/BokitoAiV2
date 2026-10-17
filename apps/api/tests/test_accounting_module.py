@@ -102,7 +102,7 @@ def test_module_catalog_has_prepared_modules():
     assert package["project"] is None
     assert modules["banking"]["status"] == "available"
     assert modules["banking"]["provider_slugs"] == ["gocardless_bank"]
-    for slug in ("investing", "documents"):
+    for slug in ("investing", "documents", "accountant"):
         assert modules[slug]["status"] == "coming_soon"
         assert modules[slug]["tenant_status"] == "coming_soon"
         assert modules[slug]["provider_slugs"] == []
@@ -644,7 +644,8 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     tenant = await _tenant(session_override)
     listed = await execute_tool(session_override, tenant.id, None, "list_modules", {})
     slugs = {row["slug"] for row in listed["modules"]}
-    assert slugs == {"accounting", "banking", "investing", "documents"}
+    assert slugs == {"accounting", "banking", "investing", "documents", "accountant"}
+    assert module_for_provider("moneybird") == "accounting"
     accounting = next(row for row in listed["modules"] if row["slug"] == "accounting")
     assert accounting["setup_path"] == "/connections/accounting"
     assert accounting["tenant_status"] == "not_installed"

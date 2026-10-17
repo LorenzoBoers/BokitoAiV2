@@ -6,6 +6,10 @@ import { cn } from '../../lib/utils'
 export const controlChipClass =
   'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border/60 bg-transparent px-1.5 text-[11px] font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/60 disabled:opacity-50'
 
+/** Side-panel value without a chip border or fill — icon + label only. */
+export const controlTextClass =
+  'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-end gap-1 border-0 bg-transparent p-0 text-[11px] font-medium leading-none text-text-heading outline-none shadow-none transition-colors hover:bg-transparent hover:text-accent focus:border-0 disabled:opacity-50'
+
 function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root {...props} />
 }

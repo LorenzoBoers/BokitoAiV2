@@ -60,6 +60,7 @@ export function useThreads(
   ])
 
   const [rawThreads, setRawThreads] = useState<InboxThread[]>([])
+  const [rawOutside, setRawOutside] = useState<InboxThread[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,6 +76,7 @@ export function useThreads(
   // never auto-select from the previous folder while the new fetch is in flight.
   useLayoutEffect(() => {
     setRawThreads([])
+    setRawOutside([])
     setSyncedFilterKey(null)
     setLoading(true)
     setError(null)
@@ -85,6 +87,7 @@ export function useThreads(
   const fetchThreads = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!token) {
       setRawThreads([])
+      setRawOutside([])
       setSyncedFilterKey(null)
       setLoading(false)
       return
@@ -99,6 +102,7 @@ export function useThreads(
       const result = await listThreads(token, { ...filters, page: 1, perPage: PAGE_SIZE })
       if (keyAtStart !== filterKeyRef.current) return
       setTotal(result.itemsTotal)
+      setRawOutside(result.outsideItems)
       setSyncedFilterKey(keyAtStart)
       if (pagesLoadedRef.current <= 1) {
         setRawThreads(result.items)
@@ -116,6 +120,7 @@ export function useThreads(
       if (!quiet) {
         setError(err instanceof Error ? err.message : 'Could not load threads.')
         setRawThreads([])
+        setRawOutside([])
         setSyncedFilterKey(keyAtStart)
       }
     } finally {
@@ -281,6 +286,14 @@ export function useThreads(
     })
   }, [rawThreads, pinnedIds])
 
+  const outsideThreads = useMemo<InboxThread[]>(() => {
+    const pinSet = new Set(pinnedIds.map((id) => String(id)))
+    const inList = new Set(rawThreads.map((t) => String(t.id)))
+    return rawOutside
+      .filter((t) => !inList.has(String(t.id)))
+      .map((t) => ({ ...t, isPinned: pinSet.has(String(t.id)) }))
+  }, [rawOutside, rawThreads, pinnedIds])
+
   const threadsReady = syncedFilterKey === filterKey && !loading
 
   // Optimistic read/unread state update for the in-memory list. Lets the UI
@@ -293,12 +306,16 @@ export function useThreads(
   }, [])
 
   const removeThread = useCallback((threadId: ThreadId) => {
-    setRawThreads((prev) => prev.filter((t) => String(t.id) !== String(threadId)))
-    setTotal((prev) => (prev != null && prev > 0 ? prev - 1 : prev))
+    const id = String(threadId)
+    const wasListed = rawThreadsRef.current.some((t) => String(t.id) === id)
+    setRawThreads((prev) => prev.filter((t) => String(t.id) !== id))
+    setRawOutside((prev) => prev.filter((t) => String(t.id) !== id))
+    if (wasListed) setTotal((prev) => (prev != null && prev > 0 ? prev - 1 : prev))
   }, [])
 
   return {
     threads,
+    outsideThreads,
     loading,
     loadingMore,
     threadsReady,

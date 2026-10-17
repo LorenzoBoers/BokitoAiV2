@@ -58,6 +58,16 @@ sizes (`text-[13px]`) are not allowed.
 `className="panel"` is the CSS form of `Card` for elements that must stay a
 `<section>`, `<li>` or `<button>`.
 
+```tsx
+<div className="relative overflow-hidden">
+  <AmbientSpotlights />
+  <div className="relative">{/* content sits above the wash */}</div>
+</div>
+```
+
+`AmbientSpotlights` is a corner wash (brand, violet, blue) for a large canvas.
+The parent is `relative`. Content that should stay crisp uses `relative`.
+
 ## Controls
 
 ```tsx

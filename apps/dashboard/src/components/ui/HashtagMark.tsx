@@ -1,8 +1,14 @@
-import { Play } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { LabelColor } from '../../lib/signals-api'
+import { useTagMark } from '../../lib/tag-marks'
+import {
+  FLOW_LABEL_COLOR,
+  FLOW_LABEL_ICON,
+  labelMarkIcon,
+  labelMarkInk,
+} from './label-marks'
 
-const MARK_COLOR: Record<Exclude<LabelColor, ''>, string> = {
+const MARK_COLOR: Partial<Record<Exclude<LabelColor, ''>, string>> = {
   neutral: 'bg-text-muted',
   accent: 'bg-accent',
   ai: 'bg-ai',
@@ -12,11 +18,11 @@ const MARK_COLOR: Record<Exclude<LabelColor, ''>, string> = {
 }
 
 /**
- * Leading mark for a label (free) or action tag (flow).
- * Free labels use a soft muted/tinted dot; action tags use an accent play glyph.
+ * Leading mark for a free label (soft muted/tinted dot).
+ * Action tags use TagPill with a Lucide mark; `category` is ignored.
  */
 export function HashtagMark({
-  category = false,
+  category: _category = false,
   color = '',
   className,
 }: {
@@ -24,19 +30,6 @@ export function HashtagMark({
   color?: LabelColor
   className?: string
 }) {
-  if (category) {
-    // Lucide Play has viewBox padding; slightly larger than the free-label dot
-    // so the filled triangle matches the bolletje optically.
-    return (
-      <Play
-        aria-hidden
-        className={cn(
-          'inline-block h-2 w-2 shrink-0 fill-current text-accent',
-          className,
-        )}
-      />
-    )
-  }
   const tint = color ? MARK_COLOR[color] : null
   return (
     <span
@@ -50,6 +43,45 @@ export function HashtagMark({
   )
 }
 
+function MarkedPill({
+  name,
+  category,
+  size,
+  className,
+}: {
+  name: string
+  category: boolean
+  size: 'sm' | 'md'
+  className?: string
+}) {
+  const bare = name.replace(/^#/, '')
+  const stored = useTagMark(bare)
+  const iconId = category ? stored?.icon || FLOW_LABEL_ICON : stored?.icon
+  const colorId = category ? stored?.color || FLOW_LABEL_COLOR : stored?.color
+  const Icon = labelMarkIcon(iconId)
+  const ink = (Icon ? labelMarkInk(colorId) : null) ?? (category ? labelMarkInk(FLOW_LABEL_COLOR) : null)
+  const glyph = size === 'sm' ? 11 : 13
+  return (
+    <span
+      className={cn(
+        'tag-pill inline-flex max-w-full items-center font-medium leading-none',
+        size === 'sm' ? 'h-5 gap-1 rounded-full px-2 text-2xs' : 'h-7 gap-2 rounded-full px-3.5 text-xs',
+        !ink && 'bg-bg-hover text-text-heading',
+        className,
+      )}
+      style={ink ? { backgroundColor: ink.wash, color: ink.ink } : undefined}
+      data-tag-tone={category ? 'action' : 'free'}
+    >
+      {Icon ? (
+        <Icon size={glyph} className="block shrink-0" aria-hidden />
+      ) : (
+        <HashtagMark className={size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2'} />
+      )}
+      <span className="min-w-0 truncate">{bare}</span>
+    </span>
+  )
+}
+
 /** Label name as a stadium pill (no `#`). Prefer TagPill when you need remove/click. */
 export function Hashtag({
   name,
@@ -60,20 +92,7 @@ export function Hashtag({
   category?: boolean
   className?: string
 }) {
-  const bare = name.replace(/^#/, '')
-  return (
-    <span
-      className={cn(
-        'tag-pill inline-flex h-5 max-w-full items-center gap-1 rounded-full bg-bg-hover px-2 text-2xs font-medium leading-none',
-        category ? 'text-accent' : 'text-text-heading',
-        className,
-      )}
-      data-tag-tone={category ? 'action' : 'free'}
-    >
-      <HashtagMark category={category} className={category ? 'h-2 w-2' : 'h-1.5 w-1.5'} />
-      <span className="min-w-0 truncate">{bare}</span>
-    </span>
-  )
+  return <MarkedPill name={name} category={category} size="sm" className={className} />
 }
 
 /** One stadium pill per label (mark + text). */
@@ -100,18 +119,7 @@ export function HashtagSet({
       )}
     >
       {list.map((name) => (
-        <span
-          key={name}
-          className={cn(
-            'tag-pill inline-flex h-7 max-w-full items-center gap-2 rounded-full px-3.5 text-xs font-medium leading-none',
-            'bg-bg-hover',
-            category ? 'text-accent' : 'text-text-heading',
-          )}
-          data-tag-tone={category ? 'action' : 'free'}
-        >
-          <HashtagMark category={category} />
-          <span className="min-w-0 truncate">{name}</span>
-        </span>
+        <MarkedPill key={name} name={name} category={category} size="md" />
       ))}
     </span>
   )

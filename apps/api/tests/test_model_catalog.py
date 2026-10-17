@@ -548,6 +548,34 @@ def test_openai_translation():
     assert tool_msg["role"] == "tool"
     assert tool_msg["tool_call_id"] == "t1"
 
+    with_image = OpenAILLMProvider._messages_to_openai(
+        [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is this?"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": "aaaa",
+                        },
+                    },
+                ],
+            }
+        ]
+    )
+    assert with_image == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What is this?"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,aaaa"}},
+            ],
+        }
+    ]
+
 
 @pytest.mark.asyncio
 async def test_tenant_models_api_and_agent_patch(client: AsyncClient):

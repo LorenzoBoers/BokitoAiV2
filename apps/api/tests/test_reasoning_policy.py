@@ -1,5 +1,6 @@
 from app.services.agent.reasoning_policy import (
     KONG_MIN_BUDGET,
+    turn_is_action_request,
     turn_needs_reasoning,
     turn_thinking_budget,
 )
@@ -31,6 +32,15 @@ def test_slim_think_item_reports_text_presence():
     assert empty["has_text"] is False and "text" not in empty
     assert full["has_text"] is True and "text" not in full
     assert "has_text" not in slim_activity_item({"id": "w", "kind": "work", "text": "x"})
+
+
+def test_action_requests_skip_the_opening_think():
+    assert turn_is_action_request("Kun je deze agent even inschakelen?")
+    assert turn_is_action_request("Can you turn that agent on for me?")
+    assert turn_is_action_request("Maak een flow voor retouren")
+    assert not turn_is_action_request("Waarom krijgt deze klant geen antwoord?")
+    assert not turn_is_action_request("Hoe kan ik WhatsApp koppelen?")
+    assert not turn_is_action_request("Hoi")
 
 
 def test_budget_by_tier_and_pin():

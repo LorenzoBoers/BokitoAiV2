@@ -25,7 +25,7 @@ Members answer conversations. Owners and admins also connect channels, change au
 ## Hire new agents
 
 1. On **Workforce**, below **Invite people**, open the **Hire new agents** banner.
-2. **Coming soon** sits next to the title. The **Marketplace** button stays off until the Marketplace is open.
+2. Choose **Marketplace**. It opens Connections filtered to modules (`/connections?kind=modules`), where you install specialists next to the team. **Coming soon** stays next to the title until the agent market itself is open.
 
 ## Mark yourself away
 
@@ -57,8 +57,7 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
    - **Round robin**: each new conversation goes straight to the next available member in turn.
    - **Least open**: each new conversation goes to the available member with the fewest open conversations.
 4. Choose **Save**. Every custom team appears under **Teams** in the Communication sidebar as a folder with **For you**, **Open**, **Unassigned** and **Closed**.
-5. In **Communication**, expand that team folder and choose **Group chat**. Bokito opens (or creates) one standing internal conversation owned by the team so members can talk without a customer thread.
-6. Back on **Workforce**, the name of a custom team and its **Conversations** button open the same team folder. The mark on the left of each team row — and in the assign picker, mentions and Communication folders — is that facepile: up to three member marks (people and agents) overlapping; when there are more, a fourth circle shows **+N**. Agent marks on Workforce open the agent page and match the mark on the agent page. The system teams **All people** and **All agents** have no folder, so their names stay plain text.
+5. Back on **Workforce**, the name of a custom team and its **Conversations** button open the same team folder. The mark on the left of each team row — and in the assign picker, mentions and Communication folders — is that facepile: up to three member marks (people and agents) overlapping; when there are more, a fourth circle shows **+N**. Agent marks on Workforce open the agent page and match the mark on the agent page. The system teams **All people** and **All agents** have no folder, so their names stay plain text.
 
 Round robin and least open only hand work to people who are available and agents that may handle the channel. When nobody fits, the conversation stays with the team. Each hand-out appears in the timeline and in the audit log. Make a team the owner of a channel under **Settings**, **Channels** (see [Channels](/docs/inbox/channels)).
 

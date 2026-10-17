@@ -1,20 +1,30 @@
 import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
-import type { ThreadActiveTurn, ThreadParticipant } from '../../lib/inbox-api'
+import type { ThreadActiveTurn, ThreadOwner, ThreadParticipant } from '../../lib/inbox-api'
 import { floorKey, participantsToAvatarStack } from '../../lib/participant-stack'
 import { AVATAR_STACK_MAX, AvatarStack } from '../ui/AvatarStack'
 
 type Props = {
   participants: ThreadParticipant[]
+  /** Current owner. Shown on the assign control, so the strip skips them. */
+  owner?: ThreadOwner | null
   activeTurn?: ThreadActiveTurn
   waitingLabel?: string
   max?: number
 }
 
-/** Compact facepile for everyone on a conversation (hub header / panels). */
+function isOwner(participant: ThreadParticipant, owner: ThreadOwner): boolean {
+  const kind = (participant.kind || '').trim().toLowerCase()
+  if (owner.kind === 'user') return kind === 'user' && participant.ref_id === owner.userId
+  if (owner.kind === 'agent') return kind === 'agent' && participant.ref_id === owner.agentId
+  return kind === 'team' && participant.ref_id === owner.teamId
+}
+
+/** Extra people on the thread. The owner stays on the assign control. */
 export function ParticipantStrip({
   participants,
+  owner = null,
   activeTurn = null,
   waitingLabel,
   max = AVATAR_STACK_MAX,
@@ -22,11 +32,18 @@ export function ParticipantStrip({
   const { members: people } = useMembers()
   const { agents } = useAgents()
   const { teams } = useTeams()
-  const stack = participantsToAvatarStack(participants, {
+  const roster = participants.filter((participant) => {
+    const kind = (participant.kind || '').trim().toLowerCase()
+    if (kind === 'contact') return false
+    if (owner && isOwner(participant, owner)) return false
+    return true
+  })
+  const stack = participantsToAvatarStack(roster, {
     people,
     agents,
     teams,
     activeTurn,
+    expandTeams: false,
   })
   const waitingOn =
     activeTurn?.name ||

@@ -7,7 +7,6 @@ import ScrollFade from '../ui/ScrollFade'
 import { SearchField } from '../ui/search-field'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
-import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
 import { cn } from '../../lib/utils'
 
 type SettingsLink = { labelKey: string; to: string; match?: string | string[]; hintKey?: string }
@@ -18,8 +17,8 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     labelKey: 'settings.groups.personal',
     links: [
       { labelKey: 'settings.links.profileSecurity', to: '/settings/profile', hintKey: 'settings.hints.profileSecurity' },
-      { labelKey: 'settings.links.myAssistant', to: MY_ASSISTANT_SETTINGS_PATH, hintKey: 'settings.hints.myAssistant' },
       { labelKey: 'settings.links.notifications', to: '/settings/notifications', hintKey: 'settings.hints.notifications' },
+      { labelKey: 'settings.links.myAssistant', to: MY_ASSISTANT_SETTINGS_PATH, hintKey: 'settings.hints.myAssistant' },
     ],
   },
   {
@@ -100,12 +99,9 @@ function linkIsActive(pathname: string, link: SettingsLink): boolean {
   return pathname === link.to || pathname.startsWith(`${link.to}/`)
 }
 
-/** Rail and `/settings` land on the setup guide until onboarding is complete. */
+/** `/settings` opens Profile and security. The setup guide stays under Help. */
 export function SettingsHomeRedirect() {
-  const { status, loading } = useOnboardingStatus()
-  if (loading) return null
-  if (status && !status.completed) return <Navigate to="/settings/setup" replace />
-  return <Navigate to="/settings/general" replace />
+  return <Navigate to="/settings/profile" replace />
 }
 
 /** Settings pages that render their own `ContentHeader` (title + controls). */

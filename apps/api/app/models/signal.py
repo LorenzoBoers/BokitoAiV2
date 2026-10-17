@@ -469,27 +469,6 @@ class SavedReply(SQLModel, table=True):
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
 
-class TagGroup(SQLModel, table=True):
-    """A dimension of tags the operator names (Relatie, Documenttype, Periode).
-
-    Groups order the catalog for people and agents and, when ``exclusive``,
-    allow at most one tag of the group per conversation.
-    """
-
-    __tablename__ = "tag_groups"
-    __table_args__ = (UniqueConstraint("tenant_id", "slug", name="uq_tag_groups_tenant_slug"),)
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    name: str = ""
-    slug: str = Field(default="", index=True)
-    description: str = ""
-    exclusive: bool = False
-    sort_order: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 class SignalTag(SQLModel, table=True):
     """A hashtag: the one label people learn. Roles are orthogonal:
 
@@ -512,10 +491,11 @@ class SignalTag(SQLModel, table=True):
     name: str = Field(default="", index=True)
     # When to use this tag. Shown in settings and fed to AI tagging.
     description: str = ""
-    # Design-system preset for free labels: neutral|accent|ai|success|warning|info|"" (default).
+    # Flow-label hue. Free labels stay empty.
     color: str = ""
+    # Lucide kebab name inside a flow-label pill. Empty uses the route mark.
+    icon: str = ""
     workstream_id: Optional[uuid.UUID] = Field(default=None, foreign_key="workstreams.id", index=True)
-    group_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tag_groups.id", index=True)
     # Workspace default: a row in the Folders and tags rail for everyone.
     show_in_nav: bool = False
     # When false, triage does not offer or apply this tag automatically.

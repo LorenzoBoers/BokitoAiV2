@@ -250,6 +250,92 @@ async def test_set_thread_tags_falls_back_when_signal_id_missing(
 
 
 @pytest.mark.asyncio
+async def test_set_thread_tags_removes_own_free_label(client: AsyncClient, session_override):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from app.models.auth import Tenant, User
+    from app.models.channel import Contact
+    from app.models.signal import ContactTagLink, Signal, SignalEvent, SignalTag
+    from app.tools.registry import ToolContext, get_tool_spec
+
+    headers = await _auth_headers(client)
+    seed = await _ingest(client, headers, "Catalog seed")
+    await client.patch(f"/api/signals/{seed}", headers=headers, json={"tags": ["bug", "vip"]})
+    target = await _ingest(client, headers, "Payment receipt")
+    tagged = await client.patch(f"/api/signals/{target}", headers=headers, json={"tags": ["bug"]})
+    assert tagged.status_code == 200, tagged.text
+
+    folder = await client.post(
+        "/api/folders",
+        headers=headers,
+        json={"name": "Bugs", "slug": "bugs", "tags": ["bug"]},
+    )
+    assert folder.status_code == 200, folder.text
+    filed = await client.get(f"/api/signals/{target}", headers=headers)
+    assert filed.json()["thread"]["project_id"] == folder.json()["id"]
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    user = (await session_override.execute(select(User))).scalars().first()
+    contact = Contact(tenant_id=tenant.id, channel="email", address="vip@acme.test", display_name="Vip")
+    session_override.add(contact)
+    await session_override.flush()
+    vip = (
+        await session_override.execute(
+            select(SignalTag).where(SignalTag.tenant_id == tenant.id, SignalTag.name == "vip")
+        )
+    ).scalar_one()
+    session_override.add(ContactTagLink(contact_id=contact.id, tag_id=vip.id, tenant_id=tenant.id))
+    signal = await session_override.get(Signal, UUID(target))
+    signal.contact_id = contact.id
+    session_override.add(signal)
+    await session_override.commit()
+
+    category = await client.post("/api/categories", headers=headers, json={"name": "repair"})
+    assert category.status_code == 200, category.text
+    filed_ticket = await client.put(
+        f"/api/signals/{target}/ticket",
+        headers=headers,
+        json={"tag_id": category.json()["id"]},
+    )
+    assert filed_ticket.status_code == 200, filed_ticket.text
+
+    spec = get_tool_spec("set_thread_tags")
+    agent = SimpleNamespace(id=uuid4(), name="Orchestrator")
+    ctx = ToolContext(session=session_override, tenant_id=tenant.id, user_id=user.id, agent=agent)
+
+    removed = await spec.handler(ctx, {"signal_id": target, "remove": ["bug"]})
+    assert removed["ok"] is True
+    assert removed["removed"] == ["bug"]
+    assert "bug" not in await signal_tag_names(session_override, UUID(target))
+    await session_override.refresh(signal)
+    assert signal.project_id is None
+    event = (
+        await session_override.execute(
+            select(SignalEvent)
+            .where(SignalEvent.signal_id == UUID(target), SignalEvent.event_type == "thread_updated")
+            .order_by(SignalEvent.created_at.desc())
+        )
+    ).scalars().first()
+    assert event is not None
+    assert event.actor_type == "agent"
+    assert "bug" in (event.payload_json or "")
+
+    action = await spec.handler(ctx, {"signal_id": target, "remove": ["repair"]})
+    assert action["removed"] == []
+    assert action["refused"][0]["reason"] == "action_tag"
+    still = await session_override.get(Signal, UUID(target))
+    await session_override.refresh(still)
+    assert still.ticket_tag_id is not None
+
+    inherited = await spec.handler(ctx, {"signal_id": target, "remove": ["vip"]})
+    assert inherited["removed"] == []
+    assert inherited["refused"][0]["reason"] == "inherited"
+    catalog = await session_override.get(SignalTag, vip.id)
+    assert catalog is not None
+
+
+@pytest.mark.asyncio
 async def test_inbox_folder_preferences_roundtrip(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
 

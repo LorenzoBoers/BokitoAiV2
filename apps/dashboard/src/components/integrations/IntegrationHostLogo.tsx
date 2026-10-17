@@ -124,7 +124,7 @@ export function IntegrationHostLogo({
     // Never force a white disc — that breaks dark UI vs BrandMark / WhatsApp.
     const invertOnDark =
       Boolean(hostSlug) &&
-      ['github', 'notion', 'linear', 'custom', 'smtp'].includes(hostSlug!) &&
+      ['github', 'notion', 'linear', 'custom'].includes(hostSlug!) &&
       !hasDarkLogo
     return (
       <span

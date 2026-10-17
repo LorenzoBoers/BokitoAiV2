@@ -20,7 +20,6 @@ from app.models.signal import (
     SignalTag,
     SignalTagLink,
     SignalThreadPin,
-    TagGroup,
 )
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.models.integration_catalog import IntegrationCatalogHost, IntegrationCatalogProvider
@@ -116,7 +115,6 @@ __all__ = [
     "SignalTag",
     "SignalTagLink",
     "SignalThreadPin",
-    "TagGroup",
     "ContactTagLink",
     "CompanyTagLink",
     "SavedReply",

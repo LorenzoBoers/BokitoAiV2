@@ -2,8 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
+import { SettingsSection } from '../components/layout/SettingsSection'
+import { BotOrbAvatar } from '../components/ui/BotOrbAvatar'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
+import { Card, CardContent } from '../components/ui/card'
+import { SearchField } from '../components/ui/search-field'
+import { DEFAULT_BOT_ORB_COLOR, DEFAULT_BOT_ORB_SHAPE } from '../lib/bot-orb-shapes'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { useAuth } from '../context/AuthContext'
 import { appRoutes } from '../api/routes'
@@ -76,30 +80,43 @@ export default function MyAssistantSettings() {
   }
 
   return (
-    <PageContent width="lg" className="space-y-6 py-1">
-      <p className="text-sm text-text-secondary">{t('assistantSettings.body')}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => startAssistantThread()}>
-          {t('assistantSettings.talkCta')}
-        </Button>
-      </div>
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-medium text-text-heading">{t('assistantSettings.memoryTitle')}</h3>
-          {entries && entries.length > 0 ? (
+    <PageContent width="lg" className="space-y-4 py-1">
+      <Card>
+        <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <BotOrbAvatar
+            shape={DEFAULT_BOT_ORB_SHAPE}
+            color={DEFAULT_BOT_ORB_COLOR}
+            size={72}
+            decorative
+            label={t('assistantSettings.title')}
+          />
+          <div className="min-w-0 flex-1 space-y-3">
+            <p className="text-sm leading-5 text-text-secondary">{t('assistantSettings.body')}</p>
+            <Button size="sm" onClick={() => startAssistantThread()}>
+              {t('assistantSettings.talkCta')}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      <SettingsSection
+        title={t('assistantSettings.memoryTitle')}
+        description={t('assistantSettings.memoryHint')}
+        actions={
+          entries && entries.length > 0 ? (
             <Button size="sm" variant="secondary" disabled={clearing} onClick={() => void clearAll()}>
               {t('assistantSettings.clearMemory')}
             </Button>
-          ) : null}
-        </div>
-        <p className="text-xs text-text-muted">{t('assistantSettings.memoryHint')}</p>
+          ) : null
+        }
+      >
         {entries && entries.length > 3 ? (
-          <Input
+          <SearchField
             value={memoryQuery}
-            onChange={(event) => setMemoryQuery(event.target.value)}
+            onChange={setMemoryQuery}
+            size="sm"
             placeholder={t('assistantSettings.memorySearch')}
             aria-label={t('assistantSettings.memorySearch')}
-            className="h-8 max-w-sm"
+            className="mb-3 max-w-sm"
           />
         ) : null}
         {loading ? (
@@ -113,7 +130,7 @@ export default function MyAssistantSettings() {
             {visibleEntries.map((entry) => (
               <li
                 key={entry.key}
-                className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5"
+                className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-bg-elevated px-3 py-2.5"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-heading">{entry.key}</p>
@@ -133,7 +150,7 @@ export default function MyAssistantSettings() {
             ))}
           </ul>
         )}
-      </section>
+      </SettingsSection>
     </PageContent>
   )
 }

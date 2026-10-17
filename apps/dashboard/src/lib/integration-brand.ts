@@ -74,7 +74,7 @@ const CORE_HOST_META: Record<string, { initials: string; color: string; name: st
   snelstart: { initials: 'SS', color: '#f39200', name: 'SnelStart' },
   gocardless: { initials: 'GC', color: '#f1f252', name: 'GoCardless' },
   custom: { initials: 'MC', color: '#475569', name: 'Custom MCP' },
-  smtp: { initials: 'SM', color: '#64748b', name: 'SMTP / IMAP' },
+  smtp: { initials: 'SM', color: '#71717a', name: 'SMTP / IMAP' },
   shopify: { initials: 'SH', color: '#96bf48', name: 'Shopify' },
   whatsapp: { initials: 'WA', color: '#25d366', name: 'WhatsApp' },
   tink: { initials: 'TI', color: '#161616', name: 'Tink' },

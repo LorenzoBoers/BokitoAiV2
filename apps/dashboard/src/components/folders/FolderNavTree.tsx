@@ -3,7 +3,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -26,16 +25,15 @@ import {
 } from '@dnd-kit/core'
 import {
   SortableContext,
-  defaultAnimateLayoutChanges,
   useSortable,
   verticalListSortingStrategy,
-  type AnimateLayoutChanges,
 } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { ArrowUpToLine, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import {
+  FOLDER_TREE_BASE_PAD_PX,
+  FOLDER_TREE_INDENT_PX,
   deriveFolderTree,
   filtersetLocalNames,
   filtersetPlainLabel,
@@ -79,9 +77,7 @@ export type FolderNavSource = FolderFilterSource & {
 
 const UNDO_TOAST_MS = 12_000
 
-/** Animate siblings sliding aside while sorting; skip only the post-drop tween. */
-const animateLayoutChanges: AnimateLayoutChanges = (args) =>
-  args.wasDragging ? false : defaultAnimateLayoutChanges(args)
+type DropLine = { top: number; left: number }
 
 function bareTag(name: string): string {
   return name.replace(/^#/, '').trim()
@@ -95,6 +91,8 @@ const ROOT_DROP_END_ID = 'folder-root-drop-end'
 let activeFolderTreeRail: HTMLElement | null = null
 /** Last pointer — Y for before/after, X for nest vs sibling depth. */
 let lastFolderPointer = { x: 0, y: 0 }
+/** Pointer X minus the row's left edge at grab, so depth follows how far you move. */
+let folderGrabOffsetX = 12
 
 function isRootDropId(id: UniqueIdentifier | null | undefined): boolean {
   if (id == null) return false
@@ -120,7 +118,7 @@ function resolveFolderDropTarget(overId: string | null, nestOverId: string | nul
 
 /**
  * Resolve nest / sibling / unnest from pointer X (depth) and Y (row + edge).
- * The live tree jumps to this placement — no right-half nest strip.
+ * The tree stays put; a drop line shows this placement.
  */
 function resolvePointerFolderPlacement(
   pointer: { x: number; y: number },
@@ -131,7 +129,7 @@ function resolvePointerFolderPlacement(
 ): FolderDragPlacement | null {
   const tree = deriveFolderTree(snapshot)
   const depthById = new Map(folderFilterRows(tree).map((row) => [row.id, row.depth]))
-  const els = Array.from(rail.querySelectorAll<HTMLElement>('[data-folder-id]'))
+  const els = Array.from(rail.querySelectorAll<HTMLElement>('[data-folder-row]'))
   type Hit = { id: string; depth: number; rect: DOMRect }
   const hits: Hit[] = []
   for (const el of els) {
@@ -156,7 +154,8 @@ function resolvePointerFolderPlacement(
   const edge: 'before' | 'after' =
     pointer.y < anchor.rect.top + anchor.rect.height / 2 ? 'before' : 'after'
   const railLeft = rail.getBoundingClientRect().left
-  const intendedDepth = resolveFolderDepthIntent(pointer.x, railLeft, anchor.depth)
+  const itemLeft = pointer.x - folderGrabOffsetX
+  const intendedDepth = resolveFolderDepthIntent(itemLeft, railLeft, anchor.depth)
   const ancestorIds = folderAncestorChain(tree, anchor.id).map((node) => node.id)
   return placementFromAnchor(
     intendedDepth,
@@ -235,9 +234,9 @@ const folderCollision: CollisionDetection = (args) => {
  * Shared folder tree chrome for /folders: same nav-row + folder mark as
  * Communication, with expand chevrons and optional whole-row drag (no grip).
  *
- * Drag: pointer Y picks the nearest row; pointer X (indent) picks sibling vs
- * nest-under. The tree jumps live to that placement. Multi-tag rows can drag
- * a tag chip onto another map.
+ * Drag: the tree stays put. A line shows where the folder will land.
+ * Pointer Y picks the row, pointer X picks the indent. Multi-tag rows can
+ * drag a tag chip onto another map.
  */
 export function FolderNavTree({
   sources,
@@ -268,8 +267,10 @@ export function FolderNavTree({
   const treeRailRef = useRef<HTMLDivElement | null>(null)
   /** Snapshot at drag start — restore when leaving a root-unnest preview. */
   const dragSnapshotRef = useRef<FolderNavSource[] | null>(null)
+  const dropPlacementRef = useRef<FolderDragPlacement | null>(null)
+  const [dropLine, setDropLine] = useState<DropLine | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  /** Tag-move highlight (folder rows). Folder drags use the live tree jump instead. */
+  /** Tag-move highlight (folder rows). Folder drags use the insertion line. */
   const [nestOverId, setNestOverId] = useState<string | null>(null)
   /** Auto-expand nest targets while dragging so the live nest preview is visible. */
   const [dragExpandIds, setDragExpandIds] = useState<Set<string>>(() => new Set())
@@ -311,6 +312,8 @@ export function FolderNavTree({
     draggingRef.current = false
     activeFolderTreeRail = null
     dragSnapshotRef.current = null
+    dropPlacementRef.current = null
+    setDropLine(null)
     setDraggingId(null)
     setNestOverId(null)
     setDragExpandIds(new Set())
@@ -395,9 +398,27 @@ export function FolderNavTree({
     draggingRef.current = true
     activeFolderTreeRail = treeRailRef.current
     dragSnapshotRef.current = localSourcesRef.current
-    setDraggingId(String(event.active.id))
+    const activeId = String(event.active.id)
+    setDraggingId(activeId)
     setNestOverId(null)
     setDragExpandIds(new Set())
+    folderGrabOffsetX = 12
+    dropPlacementRef.current = null
+    setDropLine(null)
+    const pointer = event.activatorEvent
+    const rail = treeRailRef.current
+    if (
+      rail &&
+      pointer &&
+      'clientX' in pointer &&
+      typeof pointer.clientX === 'number'
+    ) {
+      const row = rail.querySelector<HTMLElement>(
+        `[data-folder-id="${activeId.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`,
+      )
+      const rect = row?.getBoundingClientRect()
+      if (rect) folderGrabOffsetX = pointer.clientX - rect.left
+    }
   }
 
   const expandWhileDragging = (folderId: string) => {
@@ -440,18 +461,36 @@ export function FolderNavTree({
     )
     if (!placement) return
 
-    if (placement.mode === 'nest') {
-      expandWhileDragging(placement.parentId)
+    dropPlacementRef.current = placement
+    const tree = deriveFolderTree(snap)
+    const depthById = new Map(folderFilterRows(tree).map((row) => [row.id, row.depth]))
+    const targetId = placement.mode === 'nest' ? placement.parentId : placement.overId
+    const row = rail.querySelector<HTMLElement>(
+      `[data-folder-row][data-folder-id="${targetId.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`,
+    )
+    if (!row) {
+      setDropLine(null)
+      return
     }
-
-    const preview = optimisticApplyFolderPlacement(snap, activeId, placement)
-    if (preview) setSourcesOptimistic(preview)
+    const rect = row.getBoundingClientRect()
+    const railRect = rail.getBoundingClientRect()
+    const depth =
+      placement.mode === 'nest'
+        ? (depthById.get(placement.parentId) ?? 0) + 1
+        : placement.parentId == null
+          ? 0
+          : (depthById.get(placement.overId) ?? 0)
+    const edgeTop =
+      placement.mode === 'nest' || placement.edge === 'after' ? rect.bottom : rect.top
+    setDropLine({
+      top: edgeTop - railRect.top,
+      left: FOLDER_TREE_BASE_PAD_PX + depth * FOLDER_TREE_INDENT_PX,
+    })
   }
 
   const onDragMove = (event: DragMoveEvent) => {
     const activeId = String(event.active.id)
     if (parseTagDragId(activeId)) return
-    if (rootPlaceFromDropId(event.over?.id)) return
     previewFolderFromPointer(activeId, event.over ? String(event.over.id) : null)
   }
 
@@ -692,7 +731,7 @@ export function FolderNavTree({
     const dropFolderId = dropOnRoot ? null : resolveFolderDropTarget(overRaw, nestOverId)
     const preDrag = dragSnapshotRef.current ?? sources
 
-    if (!enableDrag || !overRaw) {
+    if (!enableDrag || (!overRaw && (tagDrag || !dropPlacementRef.current))) {
       if (preDrag) setSourcesOptimistic(preDrag)
       clearDrag()
       return
@@ -716,7 +755,10 @@ export function FolderNavTree({
       return
     }
 
-    // Persist whatever the live indent preview already shows — no snap-back.
+    const placement = dropPlacementRef.current
+    const next = placement ? optimisticApplyFolderPlacement(preDrag, activeId, placement) : null
+    if (next) setSourcesOptimistic(next)
+
     const before = preDrag.find((source) => source.id === activeId)
     const after = localSourcesRef.current.find((source) => source.id === activeId)
     if (!before || !after) {
@@ -762,13 +804,10 @@ export function FolderNavTree({
     return <>{empty ?? null}</>
   }
 
-  const nestedDragFolder =
-    Boolean(draggingFolderId) &&
-    folderAncestorChain(tree, draggingFolderId!).length > 0
-  const showRootDrop = Boolean(draggingId && (draggingTag || nestedDragFolder))
+  const showRootDrop = Boolean(draggingTag)
 
   const rows = (
-    <div ref={treeRailRef} className={cn('space-y-px', className)}>
+    <div ref={treeRailRef} className={cn('relative space-y-px', className)}>
       {enableDrag ? (
         <RootDropZone
           id={ROOT_DROP_ID}
@@ -803,6 +842,15 @@ export function FolderNavTree({
           placement="end"
         />
       ) : null}
+      {dropLine ? (
+        <div
+          className="pointer-events-none absolute z-30 h-0.5 bg-text-heading"
+          style={{ top: dropLine.top - 1, left: dropLine.left, right: 8 }}
+          aria-hidden
+        >
+          <span className="absolute -left-1 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-text-heading" />
+        </div>
+      ) : null}
     </div>
   )
   const body = enableDrag ? (
@@ -814,8 +862,6 @@ export function FolderNavTree({
   )
 
   if (!enableDrag) return body
-
-  const dragNode = draggingFolderId ? findNode(tree, draggingFolderId) : null
 
   return (
     <DndContext
@@ -832,22 +878,18 @@ export function FolderNavTree({
       }}
     >
       {body}
-      <DragOverlay
-        dropAnimation={{
-          duration: 160,
-          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-        }}
-      >
-        {draggingTag ? (
+      {draggingTag ? (
+        <DragOverlay
+          dropAnimation={{
+            duration: 160,
+            easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
+        >
           <div className="pointer-events-none scale-[1.03] shadow-overlay">
             <TagPill names={draggingTag.tag} tone="free" size="sm" selected />
           </div>
-        ) : dragNode ? (
-          <div className="pointer-events-none flex h-[26px] items-center gap-2 rounded-md border border-accent/30 bg-bg-surface/80 px-2 text-xs opacity-70 shadow-overlay backdrop-blur-sm">
-            <FolderRowChrome node={dragNode} />
-          </div>
-        ) : null}
-      </DragOverlay>
+        </DragOverlay>
+      ) : null}
     </DndContext>
   )
 }
@@ -896,7 +938,7 @@ function RootDropZone({
         'flex h-[26px] items-center gap-1.5 rounded-md border border-dashed px-2 text-2xs font-medium transition-[background-color,border-color,color] duration-150',
         placement === 'start' ? 'mb-0.5' : 'mt-0.5',
         lit
-          ? 'border-accent/55 bg-accent/16 text-accent shadow-[0_0_0_1px_rgb(var(--color-accent)/0.2)]'
+          ? 'border-border bg-bg-hover text-text-secondary'
           : 'border-border/55 bg-bg-hover/30 text-text-muted',
       )}
     >
@@ -917,10 +959,10 @@ function FolderRowChrome({
   const name = node.name.replace(/^#/, '').trim() || labelFor(node)
   return (
     <>
-      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted" aria-hidden>
-        <FolderIcon size={12} />
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center text-text-muted" aria-hidden>
+        <FolderIcon size={15} />
       </span>
-      <span className="min-w-0 flex-1 truncate-fade text-xs">{name}</span>
+      <span className="min-w-0 flex-1 truncate-fade text-sm">{name}</span>
       {trailing}
     </>
   )
@@ -957,24 +999,12 @@ function FolderNavRow({
   const sortable = useSortable({
     id: node.id,
     disabled: !enableDrag,
-    animateLayoutChanges,
   })
-  // Tag chip drop target: whole-row highlight (folders jump in-tree instead).
   const tagTargetLit = Boolean(draggingTag && nestOverId === node.id)
-
-  // Stay slotted in the live tree while dragging — no floating transform chase.
-  const style: CSSProperties = enableDrag
-    ? {
-        transform: sortable.isDragging ? undefined : CSS.Transform.toString(sortable.transform),
-        transition: sortable.isDragging
-          ? 'none'
-          : sortable.transition,
-      }
-    : {}
 
   // Shared .nav-tree-children: border sits under the parent folder mark.
   const childList = (
-    <div className="nav-tree-children">
+    <div className="nav-tree-children !ml-4">
       {node.children.map((child) => (
         <FolderNavRow
           key={child.id}
@@ -995,32 +1025,31 @@ function FolderNavRow({
   return (
     <div
       ref={enableDrag ? sortable.setNodeRef : undefined}
-      style={style}
       data-folder-id={node.id}
       className={cn(
         'relative block shrink-0 space-y-px',
-        sortable.isDragging && 'z-10',
+        sortable.isDragging && 'z-10 opacity-40',
       )}
     >
       <div
         className={cn(
-          'group/row relative flex h-[26px] items-center rounded-md transition-[background-color,box-shadow,opacity] duration-150',
-          tagTargetLit && 'bg-accent/14 ring-1 ring-inset ring-accent/45',
-          sortable.isDragging && 'bg-accent/12 ring-1 ring-inset ring-accent/50 shadow-sm',
+          'group/row relative flex !h-8 items-center rounded-md transition-[background-color,box-shadow,opacity] duration-150',
+          tagTargetLit && 'bg-bg-hover',
           enableDrag && 'cursor-grab active:cursor-grabbing',
         )}
+        data-folder-row=""
+        data-folder-id={node.id}
         {...(enableDrag ? { ...sortable.attributes, ...sortable.listeners } : {})}
       >
         {/*
-          Icon sits in the same slot as Communication (.nav-row px-2 + 14px mark)
-          so .nav-tree-children' border lines up under it. Expand chevron trails
-          on the right so it does not shift that mark.
+          Leading mark is 16px (px-2 + half the box = 16px). The child border
+          uses ml-4 so it stays under that mark. Chevron trails on the right.
         */}
         <NavLink
           to={href(node.id)}
           draggable={false}
           className={cn(
-            'nav-row group h-[26px] min-w-0 flex-1 overflow-hidden text-left text-xs',
+            'nav-row group !h-8 min-w-0 flex-1 overflow-hidden text-left text-sm',
             hasChildren ? 'pr-7' : 'pr-2',
             sortable.isDragging && 'pointer-events-none',
           )}
@@ -1042,10 +1071,10 @@ function FolderNavRow({
               e.stopPropagation()
               onToggle(node.id)
             }}
-            className="absolute right-0.5 z-10 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover/80 hover:text-text-secondary"
+            className="absolute right-0.5 z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover/80 hover:text-text-secondary"
           >
             <ChevronRight
-              size={12}
+              size={14}
               className={cn('transition-transform duration-150', expanded && 'rotate-90')}
               aria-hidden
             />

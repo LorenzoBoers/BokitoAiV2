@@ -22,10 +22,12 @@ import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
 import { useShellLiveBus } from '../../hooks/useShellLiveBus'
 import { setNotificationSoundEnabled, unlockNotificationAudio } from '../../lib/notification-sound'
 import { useAuth } from '../../context/AuthContext'
+import { listSignalTags } from '../../lib/signals-api'
 import { policyRoutes } from '../../api/routes/policy.routes'
 import { APP_API_BASE } from '../../lib/api.config'
 import { normalizeNotificationPrefs } from '../../lib/notification-prefs'
 import { cn } from '../../lib/utils'
+import { AmbientSpotlights } from '../ui/ambient-spotlights'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -99,6 +101,10 @@ export default function AppShell() {
   useEffect(() => {
     unlockNotificationAudio()
   }, [])
+  useEffect(() => {
+    if (!token) return
+    void listSignalTags(token).catch(() => [])
+  }, [token])
   useEffect(() => {
     if (!token) return
     let cancelled = false
@@ -214,16 +220,19 @@ export default function AppShell() {
               <TwoFactorBanner />
               <MockAiBanner />
               <PushSoftPrompt />
-              <main className="min-h-0 flex-1">
+              <main className="relative min-h-0 flex-1 overflow-hidden">
+                {pathname.startsWith('/cockpit') || pathname.startsWith('/connections') ? (
+                  <AmbientSpotlights />
+                ) : null}
                 {fullBleed ? (
                   <div
                     key={contentEnterKey(pathname)}
-                    className="h-full min-h-0 animate-content-enter overflow-hidden"
+                    className="relative z-[1] h-full min-h-0 animate-content-enter overflow-hidden"
                   >
                     <Outlet />
                   </div>
                 ) : (
-                  <div className="h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-4">
+                  <div className="relative z-[1] h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-4">
                     <div className={cn('mx-auto w-full', isWide(pathname) ? 'max-w-[1800px]' : 'max-w-[1240px]')}>
                       <Outlet />
                     </div>

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
-import { ArrowLeft, Check, Loader2, MoreHorizontal, PauseCircle, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, MoreHorizontal, PauseCircle, RotateCcw, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
@@ -13,30 +13,19 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
-import { Hashtag } from '../components/ui/HashtagMark'
+import { NameEdit } from '../components/ui/NameEdit'
+import { LabelMarkDialog } from '../components/ui/LabelMark'
 import { TagPill } from '../components/ui/TagPill'
 import { Tip } from '../components/ui/Tip'
 import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/workstreams/FlowTicketBoard'
 import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
-import { WorkstreamStagesCard, type StagesDraft } from '../components/workstreams/WorkstreamStagesCard'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog'
 import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { flowActionTag, flowTitle } from '../lib/flow-title'
 import { useEntityRefresh } from '../lib/live-store'
-import { inboxPath, tagPath } from '../lib/messages-paths'
-import { withNavReveal } from '../lib/nav-reveal'
-import { listProjects, type ProjectRow } from '../lib/projects-api'
-import { listSignalTags, type SignalTag } from '../lib/signals-api'
-import { cn } from '../lib/utils'
-import type { FlowBoard, TicketStageKind } from '../lib/tickets-api'
+import { inboxPath } from '../lib/messages-paths'
+import { listSignalTags, updateSignalTag, type LabelColor, type SignalTag } from '../lib/signals-api'
+import type { FlowBoard, TicketStage, TicketStageKind } from '../lib/tickets-api'
 import { timeAgo } from '../lib/time-ago'
 import {
   deleteWorkstream,
@@ -47,14 +36,14 @@ import {
 } from '../lib/workstreams-api'
 
 const CalendarClock = ENTITY_ICONS.agenda
-const FolderKanban = ENTITY_ICONS.project
+const FlowIcon = ENTITY_ICONS.flow
 const MessageSquare = ENTITY_ICONS.conversation
 
 const KIND_ORDER: TicketStageKind[] = ['open', 'waiting', 'done', 'closed']
 
 /**
- * A flow: the stage pipeline of one action tag. View mode is the live ticket
- * board (stages x projects); edit mode (admins) unlocks the definition.
+ * A flow: the stage pipeline of one action tag. The live ticket board is the
+ * page; admins rename stages and add one from the column row.
  * Projects attach flows from the project page; here they are only shown.
  */
 export default function WorkstreamDetail() {
@@ -67,22 +56,22 @@ export default function WorkstreamDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [workstream, setWorkstream] = useState<WorkstreamDetailPayload | null>(null)
-  const [projects, setProjects] = useState<ProjectRow[]>([])
   const [board, setBoard] = useState<FlowBoard | null>(null)
   const [boardError, setBoardError] = useState<string | null>(null)
 
-  const [searchParams] = useSearchParams()
-  const [editing, setEditing] = useState(() => searchParams.get('edit') === '1')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [editStageKey, setEditStageKey] = useState<string | null>(null)
+  const [titleEditing, setTitleEditing] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [savingMeta, setSavingMeta] = useState(false)
+  const [markOpen, setMarkOpen] = useState(false)
+  const [savingMark, setSavingMark] = useState(false)
   const [togglingEnabled, setTogglingEnabled] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [freeTags, setFreeTags] = useState<SignalTag[]>([])
   const [bindingTag, setBindingTag] = useState(false)
-  const [stagesDraft, setStagesDraft] = useState<StagesDraft | null>(null)
-  const [discardOpen, setDiscardOpen] = useState(false)
 
   const loadBoard = useCallback(async () => {
     if (!workstreamId) return
@@ -99,12 +88,8 @@ export default function WorkstreamDetail() {
     setLoading(true)
     setError(null)
     try {
-      const [detail, projectRows] = await Promise.all([
-        getWorkstream(workstreamId),
-        listProjects().catch(() => [] as ProjectRow[]),
-      ])
+      const detail = await getWorkstream(workstreamId)
       setWorkstream(detail)
-      setProjects(projectRows)
       setName(flowTitle(detail))
       setDescription(detail.description ?? '')
     } catch (err) {
@@ -124,77 +109,77 @@ export default function WorkstreamDetail() {
   const tag = workstream?.tags?.[0] ?? null
   const titleName = workstream ? flowTitle(workstream) : name
   const actionTag = workstream ? flowActionTag(workstream) : ''
-  const canEdit = isAdmin && editing
 
   useEffect(() => {
-    if (!canEdit || tag || !token) return
+    if (!isAdmin || tag || !token) return
     void listSignalTags(token)
       .then((rows) => setFreeTags(rows.filter((row) => !row.workstreamId)))
       .catch(() => setFreeTags([]))
-  }, [canEdit, tag, token])
-
-  const linkedProjects = useMemo(() => {
-    const ids = new Set(workstream?.project_ids ?? [])
-    return projects.filter((p) => ids.has(p.id))
-  }, [projects, workstream?.project_ids])
-
-  const nextName = name.trim()
-  const nameDirty = Boolean(workstream) && nextName !== titleName
-  const descriptionDirty = Boolean(workstream) && description.trim() !== (workstream?.description ?? '')
-  const dirty = nameDirty || descriptionDirty || Boolean(stagesDraft?.dirty)
-  const valid = Boolean(nextName) && (stagesDraft?.valid ?? true)
+  }, [isAdmin, tag, token])
 
   useEffect(() => {
-    if (!canEdit || !dirty) return
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-    }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [canEdit, dirty])
-
-  const startEditing = () => {
     if (!workstream) return
-    setName(titleName)
-    setDescription(workstream.description ?? '')
-    setStagesDraft(null)
-    setEditing(true)
-  }
-
-  const leaveEditing = () => {
-    setDiscardOpen(false)
-    setEditing(false)
-    setStagesDraft(null)
-    if (workstream) {
-      setName(flowTitle(workstream))
-      setDescription(workstream.description ?? '')
+    const wantsFields = searchParams.get('fields') === '1'
+    const legacyEdit = searchParams.get('edit') === '1'
+    if (!wantsFields && !legacyEdit) return
+    if (wantsFields) {
+      const first = workstream.stages.find((stage) => stage.kind === 'open') ?? workstream.stages[0]
+      if (first) setEditStageKey(first.key)
     }
-  }
+    const next = new URLSearchParams(searchParams)
+    next.delete('fields')
+    next.delete('edit')
+    setSearchParams(next, { replace: true })
+  }, [workstream, searchParams, setSearchParams])
 
-  const cancelEditing = () => {
-    if (dirty) setDiscardOpen(true)
-    else leaveEditing()
-  }
-
-  const saveEdits = async () => {
-    if (!workstream || !dirty || !valid) return
+  const saveName = async () => {
+    if (!workstream) return
+    const next = name.trim()
+    if (!next || next === titleName) {
+      setName(titleName)
+      setTitleEditing(false)
+      return
+    }
     setSavingMeta(true)
     try {
-      await patchWorkstream(workstream.id, {
-        ...(nameDirty ? { name: nextName.slice(0, 120) } : {}),
-        ...(descriptionDirty ? { description: description.trim() } : {}),
-        ...(stagesDraft?.dirty ? { stages: stagesDraft.stages } : {}),
-      })
+      await patchWorkstream(workstream.id, { name: next.slice(0, 120) })
       const fresh = await getWorkstream(workstream.id)
       setWorkstream(fresh)
       setName(flowTitle(fresh))
-      setDescription(fresh.description ?? '')
-      setStagesDraft(null)
-      setEditing(false)
-      toast.success(t('workstreamsPage.editBar.saved'))
-      void loadBoard()
+      setTitleEditing(false)
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
+    } finally {
+      setSavingMeta(false)
+    }
+  }
+
+  const saveDescription = async () => {
+    if (!workstream) return
+    const next = description.trim()
+    if (next === (workstream.description ?? '')) return
+    setSavingMeta(true)
+    try {
+      const updated = await patchWorkstream(workstream.id, { description: next })
+      setWorkstream((prev) => (prev ? { ...prev, ...updated, description: next } : prev))
+    } catch (err) {
+      setDescription(workstream.description ?? '')
+      toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
+    } finally {
+      setSavingMeta(false)
+    }
+  }
+
+  const saveStages = async (stages: TicketStage[]) => {
+    if (!workstream) return
+    setSavingMeta(true)
+    try {
+      await patchWorkstream(workstream.id, { stages })
+      const fresh = await getWorkstream(workstream.id)
+      setWorkstream(fresh)
+      void loadBoard()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('workstreamsPage.stages.saveError')))
     } finally {
       setSavingMeta(false)
     }
@@ -261,50 +246,38 @@ export default function WorkstreamDetail() {
           <header className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
-                {canEdit ? (
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void saveEdits()
-                      if (e.key === 'Escape') cancelEditing()
-                    }}
-                    placeholder={t('workstreamsPage.nameLabel')}
-                    aria-label={t('workstreamsPage.nameLabel')}
+                <FlowIcon size={24} className="shrink-0 text-text-muted" aria-hidden />
+                <Tip label={isAdmin ? t('workstreamsPage.editNameHint') : undefined}>
+                  <NameEdit
+                    value={titleEditing ? name : titleName}
+                    canEdit={isAdmin}
+                    editing={titleEditing}
                     disabled={savingMeta}
-                    className={cn(
-                      'max-w-md rounded-md border bg-bg-input/60 px-2 py-0.5 text-xl font-semibold tracking-[-0.01em] text-text-heading outline-none focus:ring-1',
-                      nextName
-                        ? 'border-border/70 focus:border-border focus:ring-border/60'
-                        : 'border-status-error/60 focus:ring-status-error/30',
-                    )}
+                    invalid={titleEditing && !name.trim()}
+                    label={t('workstreamsPage.editNameHint')}
+                    onStart={() => {
+                      setName(titleName)
+                      setTitleEditing(true)
+                    }}
+                    onChange={setName}
+                    onCommit={() => void saveName()}
+                    onCancel={() => {
+                      setName(titleName)
+                      setTitleEditing(false)
+                    }}
                   />
-                ) : isAdmin ? (
-                  <Tip label={t('workstreamsPage.editNameHint')}>
-                    <button
-                      type="button"
-                      onClick={startEditing}
-                      className="group/title inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md text-left transition-colors hover:bg-bg-hover/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                      aria-label={t('workstreamsPage.editNameHint')}
-                    >
-                      <h1 className="min-w-0 truncate text-xl font-semibold tracking-[-0.01em] text-text-heading">
-                        {titleName}
-                      </h1>
-                      <Pencil
-                        size={14}
-                        className="shrink-0 text-text-muted opacity-0 transition-opacity group-hover/title:opacity-100 group-focus-visible/title:opacity-100"
-                        aria-hidden
-                      />
-                    </button>
-                  </Tip>
-                ) : (
-                  <h1 className="min-w-0 truncate text-xl font-semibold tracking-[-0.01em] text-text-heading">
-                    {titleName}
-                  </h1>
-                )}
+                </Tip>
                 {/* Action tag that files tickets into this flow — not the display title. */}
                 {tag ? (
-                  <TagPill names={tag.name} tone="action" size="sm" title={`#${tag.name.replace(/^#/, '')}`} />
+                  <TagPill
+                    names={tag.name}
+                    tone="action"
+                    size="md"
+                    color={(tag.color || '') as LabelColor}
+                    icon={tag.icon}
+                    title={isAdmin ? t('workstreamsPage.mark.title', { defaultValue: 'Label' }) : `#${tag.name.replace(/^#/, '')}`}
+                    onClick={isAdmin ? () => setMarkOpen(true) : undefined}
+                  />
                 ) : null}
                 {savingMeta ? <Loader2 size={14} className="shrink-0 animate-spin text-text-muted" /> : null}
               </div>
@@ -333,16 +306,6 @@ export default function WorkstreamDetail() {
                         sideOffset={4}
                         className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
                       >
-                        {editing ? null : (
-                          <DropdownMenu.Item
-                            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                            onSelect={() => startEditing()}
-                          >
-                            <Pencil size={14} />
-                            {t('workstreamsPage.edit')}
-                          </DropdownMenu.Item>
-                        )}
-                        {editing ? null : <DropdownMenu.Separator className="my-1 h-px bg-border/60" />}
                         {workstream.enabled ? (
                           <DropdownMenu.Item
                             className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
@@ -383,15 +346,16 @@ export default function WorkstreamDetail() {
               </div>
             </div>
 
-            {canEdit ? (
+            {isAdmin ? (
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onBlur={() => void saveDescription()}
                 placeholder={t('workstreamsPage.descriptionPlaceholder')}
                 aria-label={t('workstreamsPage.descriptionLabel')}
                 disabled={savingMeta}
-                rows={2}
-                className="w-full max-w-2xl resize-none rounded-md border border-border/70 bg-bg-input/60 px-2 py-1.5 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted/45 focus:border-border focus:ring-1 focus:ring-border/60"
+                rows={workstream.description || description ? 2 : 1}
+                className="w-full max-w-2xl resize-none rounded-md border border-transparent bg-transparent px-2 py-1 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted/45 hover:border-border/60 focus:border-border focus:bg-bg-input/60 focus:ring-1 focus:ring-border/60"
               />
             ) : workstream.description ? (
               <p className="max-w-3xl truncate text-sm text-text-muted" title={workstream.description}>
@@ -399,17 +363,9 @@ export default function WorkstreamDetail() {
               </p>
             ) : null}
 
+            {!tag || workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 text-text-muted">
-                {t('workstreamsPage.meta.actionTag')}
-                {tag ? (
-                  <Link
-                    to={withNavReveal(tagPath(tag.name, 'open'))}
-                    className="inline-flex items-center no-underline"
-                  >
-                    <Hashtag name={tag.name} category />
-                  </Link>
-                ) : canEdit ? (
+              {!tag && isAdmin ? (
                   <ChoiceSelect
                     aria-label={t('workstreamsPage.meta.bindTag')}
                     placeholder={t('workstreamsPage.meta.bindTag')}
@@ -437,27 +393,9 @@ export default function WorkstreamDetail() {
                       },
                     ]}
                   />
-                ) : (
-                  <span className="italic">{t('workstreamsPage.meta.noActionTag')}</span>
-                )}
-              </span>
-              <span className="inline-flex flex-wrap items-center gap-1.5 text-text-muted">
-                {t('workstreamsPage.meta.usedIn')}
-                {linkedProjects.length === 0 ? (
-                  <span className="italic">{t('workstreamsPage.meta.noProjects')}</span>
-                ) : (
-                  linkedProjects.map((project) => (
-                    <Link
-                      key={project.id}
-                      to={`/folders/${encodeURIComponent(project.id)}`}
-                      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-muted/40 px-1.5 py-0.5 text-text-heading hover:border-border"
-                    >
-                      <FolderKanban size={12} className="text-text-muted" aria-hidden />
-                      {project.name}
-                    </Link>
-                  ))
-                )}
-              </span>
+              ) : !tag ? (
+                <span className="italic text-text-muted">{t('workstreamsPage.meta.noActionTag')}</span>
+              ) : null}
               {workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
                 <Link
                   to="/agenda?view=list&layers=tasks"
@@ -468,59 +406,43 @@ export default function WorkstreamDetail() {
                 </Link>
               ) : null}
             </div>
+            ) : null}
           </header>
 
-          {canEdit ? (
-            <>
-              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/30 bg-bg-surface/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-accent/5">
-                <div className="min-w-0 space-y-0.5">
-                  <p className="flex items-center gap-2 text-sm text-text-primary">
-                    <Pencil size={14} className="text-accent" aria-hidden />
-                    {t('workstreamsPage.editBar.title')}
-                    {dirty ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-status-warning">
-                        <span className="h-1.5 w-1.5 rounded-full bg-status-warning" aria-hidden />
-                        {t('workstreamsPage.editBar.unsaved')}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-text-muted">{t('workstreamsPage.editBar.hint')}</span>
-                    )}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button type="button" size="sm" variant="ghost" disabled={savingMeta} onClick={cancelEditing}>
-                    {t('workstreamsPage.editBar.cancel')}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={savingMeta || !dirty || !valid}
-                    onClick={() => void saveEdits()}
-                  >
-                    {savingMeta ? (
-                      <Loader2 size={13} className="mr-1 animate-spin" />
-                    ) : (
-                      <Check size={13} className="mr-1" />
-                    )}
-                    {t('workstreamsPage.editBar.save')}
-                  </Button>
-                </div>
-              </div>
-              <WorkstreamStagesCard
-                stages={workstream.stages}
-                canEdit={canEdit}
-                onDraftChange={setStagesDraft}
-              />
-            </>
-          ) : (
-            <FlowViewBody
-              board={board}
-              boardError={boardError}
-              onRetry={() => void loadBoard()}
-              onChange={setBoard}
-              tagName={tag?.name ?? titleName}
+          <FlowViewBody
+            board={board}
+            boardError={boardError}
+            onRetry={() => void loadBoard()}
+            onChange={setBoard}
+            tagName={tag?.name ?? titleName}
+            canEditStages={isAdmin}
+            editStageKey={editStageKey}
+            onSaveStages={saveStages}
+          />
+
+          {tag ? (
+            <LabelMarkDialog
+              open={markOpen}
+              onOpenChange={setMarkOpen}
+              name={tag.name}
+              color={(tag.color || '') as LabelColor}
+              icon={tag.icon || ''}
+              saving={savingMark}
+              onSave={(next) => {
+                if (!token) return
+                setSavingMark(true)
+                void updateSignalTag(token, tag.id, next)
+                  .then(() => {
+                    setMarkOpen(false)
+                    return load()
+                  })
+                  .catch((err) => {
+                    toast.error(formatApiErrorMessage(err, t('workstreamsPage.mark.saveError', { defaultValue: 'Could not save the label' })))
+                  })
+                  .finally(() => setSavingMark(false))
+              }}
             />
-          )}
+          ) : null}
 
           {deleteOpen ? (
             <ConfirmDeleteDialog
@@ -534,22 +456,6 @@ export default function WorkstreamDetail() {
             />
           ) : null}
 
-          <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle>{t('workstreamsPage.editBar.discardTitle')}</DialogTitle>
-                <DialogDescription>{t('workstreamsPage.editBar.discardBody')}</DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setDiscardOpen(false)}>
-                  {t('workstreamsPage.editBar.keepEditing')}
-                </Button>
-                <Button type="button" variant="destructive" onClick={leaveEditing}>
-                  {t('workstreamsPage.editBar.discard')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </>
       )}
     </PageContent>
@@ -562,12 +468,18 @@ function FlowViewBody({
   onRetry,
   onChange,
   tagName,
+  canEditStages,
+  editStageKey,
+  onSaveStages,
 }: {
   board: FlowBoard | null
   boardError: string | null
   onRetry: () => void
   onChange: (board: FlowBoard) => void
   tagName: string
+  canEditStages: boolean
+  editStageKey: string | null
+  onSaveStages: (stages: TicketStage[]) => Promise<void>
 }) {
   const { t } = useTranslation('nav')
   if (boardError) return <ApiErrorBanner message={boardError} onRetry={onRetry} />
@@ -604,7 +516,14 @@ function FlowViewBody({
           </Link>
         </p>
       ) : null}
-      <FlowTicketBoard board={board} canMove onChange={onChange} />
+      <FlowTicketBoard
+        board={board}
+        canMove
+        onChange={onChange}
+        canEditStages={canEditStages}
+        editStageKey={editStageKey}
+        onSaveStages={onSaveStages}
+      />
     </section>
   )
 }

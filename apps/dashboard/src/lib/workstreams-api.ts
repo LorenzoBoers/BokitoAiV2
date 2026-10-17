@@ -22,7 +22,7 @@ export type WorkstreamRow = {
   /** Projects this flow is on; its tickets can be filed on one of them or on none. */
   project_ids: string[]
   /** Action tags linked to this flow (hashtags with workstream_id). */
-  tags?: Array<{ id: string; name: string }>
+  tags?: Array<{ id: string; name: string; color?: string; icon?: string }>
   stages: TicketStage[]
   stages_count?: number
   /** List only: live tickets per stage key. */
@@ -105,6 +105,10 @@ export async function createWorkstream(body: {
   description?: string
   project_ids?: string[]
   stages?: TicketStage[]
+  /** Flow-label hue. Omitted uses the server default (blue). */
+  color?: string
+  /** Lucide kebab id. Omitted uses the server default (route). */
+  icon?: string
 }): Promise<WorkstreamRow> {
   return apiPost<WorkstreamRow>(workstreamsRoutes.list, body)
 }

@@ -20,6 +20,8 @@ import ThreadListQuickFilters from './ThreadListQuickFilters'
 
 type Props = {
   threads: InboxThread[]
+  /** Search hits outside the current queue or filters, shown dimmed under the list. */
+  outsideThreads?: InboxThread[]
   allThreads: InboxThread[]
   loading: boolean
   error: string | null
@@ -71,6 +73,15 @@ type Props = {
   lastMailboxSyncAt?: string | null
 }
 
+function OutsideFiltersMarker({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 px-2.5 pb-1 pt-2">
+      <span className="shrink-0 text-2xs font-medium text-text-muted">{label}</span>
+      <span className="h-px min-w-4 flex-1 bg-border/70" aria-hidden />
+    </div>
+  )
+}
+
 function buildFilterCounts(threads: InboxThread[]) {
   return {
     all: threads.length,
@@ -81,6 +92,7 @@ function buildFilterCounts(threads: InboxThread[]) {
 
 export default function ThreadList({
   threads,
+  outsideThreads = [],
   allThreads,
   loading,
   error,
@@ -182,7 +194,7 @@ export default function ThreadList({
   }, [scrollKey])
 
   const renderItem = useCallback(
-    (index: number, thread: InboxThread) => {
+    (index: number, thread: InboxThread, muted = false) => {
       const owner = thread.owner
       let assigneeName: string | null = null
       let assigneePresence: InboxMember['presence'] | import('../../lib/teams-api').PresenceStatus | undefined
@@ -232,12 +244,13 @@ export default function ThreadList({
           ? (foldersById.get(thread.projectId) ?? null)
           : null
 
+      const isSelected = String(thread.id) === String(selectedId)
       return (
-      <div className={cn(compactRows ? 'pb-0' : 'pb-0.5')}>
+      <div className={cn(compactRows ? 'pb-0' : 'pb-0.5', muted && !isSelected && 'opacity-60 transition-opacity hover:opacity-100')}>
         <ThreadListItem
           thread={thread}
           folder={folder}
-          isSelected={String(thread.id) === String(selectedId)}
+          isSelected={isSelected}
           onSelect={onSelectThread}
           onMarkRead={onMarkRead}
           onMarkUnread={onMarkUnread}
@@ -297,27 +310,49 @@ export default function ThreadList({
   )
 
   const footer = useCallback(() => {
-    if (!hasMore || !onLoadMore || threads.length === 0) return null
+    const loadMore =
+      hasMore && onLoadMore && threads.length > 0 ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={loadingMore}
+          className="mt-1 mb-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+        >
+          {loadingMore ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border border-border border-t-accent" />
+              {t('threadList.loadingMore')}
+            </span>
+          ) : total != null ? (
+            t('threadList.loadMoreOf', { loaded: allThreads.length, total })
+          ) : (
+            t('threadList.loadMore')
+          )}
+        </button>
+      ) : null
+    if (!loadMore && outsideThreads.length === 0) return null
     return (
-      <button
-        type="button"
-        onClick={onLoadMore}
-        disabled={loadingMore}
-        className="mt-1 mb-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
-      >
-        {loadingMore ? (
-          <span className="inline-flex items-center justify-center gap-2">
-            <span className="inline-block h-3 w-3 animate-spin rounded-full border border-border border-t-accent" />
-            {t('threadList.loadingMore')}
-          </span>
-        ) : total != null ? (
-          t('threadList.loadMoreOf', { loaded: allThreads.length, total })
-        ) : (
-          t('threadList.loadMore')
-        )}
-      </button>
+      <div>
+        {loadMore}
+        {outsideThreads.length > 0 ? (
+          <section aria-label={t('threadList.outsideFilters')}>
+            <OutsideFiltersMarker label={t('threadList.outsideFilters')} />
+            {outsideThreads.map((thread, index) => renderItem(index, thread, true))}
+          </section>
+        ) : null}
+      </div>
     )
-  }, [hasMore, onLoadMore, threads.length, loadingMore, t, total, allThreads.length])
+  }, [
+    hasMore,
+    onLoadMore,
+    threads.length,
+    loadingMore,
+    t,
+    total,
+    allThreads.length,
+    outsideThreads,
+    renderItem,
+  ])
 
   return (
     <div
@@ -391,6 +426,16 @@ export default function ThreadList({
                   {t('onboarding.retry')}
                 </button>
               ) : null}
+            </div>
+          ) : outsideThreads.length > 0 ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <p className="px-3 py-3 text-center text-xs text-text-muted">
+                {t('threadList.emptyInFilters')}
+              </p>
+              <section aria-label={t('threadList.outsideFilters')}>
+                <OutsideFiltersMarker label={t('threadList.outsideFilters')} />
+                {outsideThreads.map((thread, index) => renderItem(index, thread, true))}
+              </section>
             </div>
           ) : (
             <div className="px-3 py-8 text-center text-xs text-text-muted">

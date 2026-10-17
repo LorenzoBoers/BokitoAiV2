@@ -148,11 +148,11 @@
     "learningIntro": "Recent automatic tightenings (allow to ask first). Loosening stays a manual edit here."
   },
   "scopes": {
-    "openTag": "Open the conversations with this action tag",
+    "openTag": "Open the conversations with this label",
     "openFlow": "Open the flow",
-    "title": "Autonomy per action tag and flow",
+    "title": "Autonomy per label and flow",
     "intro": "Company default follows the conversation's AI handling. A chosen mode is a ceiling.",
-    "types": "Action tags",
+    "types": "Labels with a flow",
     "playbooks": "Flows",
     "empty": "No active items.",
     "saved": "Autonomy level updated.",
@@ -203,7 +203,7 @@
     },
     "tickets": {
       "label": "Tickets",
-      "hint": "Filing a conversation on an action tag, and moving its ticket through stages."
+      "hint": "Filing a conversation on a label with a flow, and moving its ticket through stages."
     }
   },
   "tokens": {

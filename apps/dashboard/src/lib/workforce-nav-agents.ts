@@ -6,7 +6,7 @@ export const PLATFORM_ROLE_SLUGS = new Set(['communication'])
 const ORCHESTRATOR_ROLE_SLUGS = new Set(['orchestrator', 'po', 'manager'])
 
 export function normalizeRoleSlug(agent: RuntimeAgent): string {
-  return (agent.role_slug ?? '').toLowerCase()
+  return (agent.role_slug || agent.role || '').toLowerCase()
 }
 
 export type AgentType = 'orchestrator' | 'worker'

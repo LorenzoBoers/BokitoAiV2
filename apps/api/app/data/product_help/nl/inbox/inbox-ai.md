@@ -42,10 +42,10 @@ Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op k
 5. Stel onder **Noodrem** **Autonome antwoorden per uur per kanaal** en **Negatieve signalen per uur per kanaal** in. Een geactiveerd kanaal draait Geassisteerd tot iemand het hervat via Uitzonderingen of het kanaal.
 6. Wijzigingen worden automatisch opgeslagen. **Laatst gewijzigd** in de paginakop toont wanneer de laatste opslag klaar was.
 
-## Actietags die altijd controle nodig hebben
+## Labels die altijd controle nodig hebben
 
-1. Open op dezelfde pagina **Actietags die altijd controle nodig hebben**.
-2. Zet **Altijd controleren** aan voor een actietag. Antwoorden op een ticket met die tag worden een concept, ook als het gesprek Autonoom is.
+1. Open op dezelfde pagina **Labels die altijd controle nodig hebben**.
+2. Zet **Altijd controleren** aan voor een label met een flow. Antwoorden op een ticket met die tag worden een concept, ook als het gesprek Autonoom is.
 3. Zet het uit (**Mag versturen**) wanneer autonoom versturen voor die tag goed is.
 
 De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de reden wanneer een waarborg ingrijpt. Dezelfde regel verschijnt met **de agent is geen eigenaar van dit gesprek** wanneer een medewerker of team het gesprek bezit (de agent maakt dan een concept voor hen) en met **een collega typt een antwoord** wanneer iemand op dat moment in de composer schrijft.

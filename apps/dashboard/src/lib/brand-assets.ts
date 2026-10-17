@@ -13,7 +13,7 @@ export const BRAND_ASSET_PATHS: Record<string, { logoUrl: string; logoDarkUrl?: 
   google: { logoUrl: '/brands/logo-gmail.svg' },
   google_calendar: { logoUrl: '/brands/logo-gmail.svg' },
   'google-calendar': { logoUrl: '/brands/logo-gmail.svg' },
-  smtp: { logoUrl: '/brands/logo-smtp-imap.svg' },
+  smtp: { logoUrl: '/brands/logo-smtp-imap.svg?v=3' },
   bjorn_lunden: { logoUrl: '/brands/logo-bjorn-lunden.svg' },
   king: { logoUrl: '/brands/logo-bjorn-lunden.svg' },
   custom: { logoUrl: '/brands/logo-custom.svg' },

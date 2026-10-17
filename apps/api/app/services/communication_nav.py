@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.orchestra import Workstream
 from app.models.project import ProjectTagLink
 from app.models.signal import TICKET_STAGE_KINDS, Signal, SignalTag
 from app.services.folders import DerivedNode, FolderCatalog, derive_tree, load_catalog
@@ -93,8 +94,13 @@ async def list_predicates(
     filters: dict[str, Any],
     tree: FolderCatalog | None = None,
 ) -> list[Any] | None:
-    """Resolve ``project_id`` to subtree membership (labels OR home project)."""
-    from sqlalchemy import or_
+    """Resolve ``project_id`` to subtree membership.
+
+    A folder's own labels are OR: one of them on the thread is enough.
+    Extra ``path`` tags still narrow (AND). Home ``project_id`` in the
+    subtree is included when there is no extra path.
+    """
+    from sqlalchemy import and_, or_
 
     from app.services.folders import folder_subtree_ids, folder_tag_ids
     from app.services.signal_tags import signals_with_tag_ids
@@ -117,19 +123,20 @@ async def list_predicates(
         any_labels = False
         for fid in subtree:
             folder = catalog.by_id.get(fid)
-            tag_ids = list(folder.tag_ids) if folder else await folder_tag_ids(session, fid)
-            if extra:
-                tag_ids = [*tag_ids, *extra]
-            if not tag_ids:
+            own = list(folder.tag_ids) if folder else await folder_tag_ids(session, fid)
+            if not own and not extra:
                 continue
             any_labels = True
-            and_parts = [Signal.id.in_(signals_with_tag_ids(tenant_id, [tid])) for tid in tag_ids]
-            if len(and_parts) == 1:
-                clauses.append(and_parts[0])
-            else:
-                from sqlalchemy import and_
-
-                clauses.append(and_(*and_parts))
+            folder_match = None
+            if own:
+                parts = [Signal.id.in_(signals_with_tag_ids(tenant_id, [tid])) for tid in own]
+                folder_match = parts[0] if len(parts) == 1 else or_(*parts)
+            if extra:
+                extra_parts = [Signal.id.in_(signals_with_tag_ids(tenant_id, [tid])) for tid in extra]
+                narrowed = extra_parts[0] if len(extra_parts) == 1 else and_(*extra_parts)
+                clauses.append(narrowed if folder_match is None else and_(folder_match, narrowed))
+            elif folder_match is not None:
+                clauses.append(folder_match)
         if not any_labels and not extra:
             # Structural folder with no labels: only cached home project_id.
             return [Signal.project_id.in_(subtree)]
@@ -233,6 +240,16 @@ async def nav(
             )
         ).scalars()
     )
+    live_flows = set(
+        (
+            await session.execute(
+                select(Workstream.id).where(
+                    Workstream.tenant_id == tenant_id,
+                    Workstream.deleted_at.is_(None),
+                )
+            )
+        ).scalars()
+    )
     ticket_tags: list[dict[str, Any]] = []
     free_tags: list[dict[str, Any]] = []
     for tag in tags:
@@ -242,14 +259,13 @@ async def nav(
             "id": str(tag.id),
             "name": tag.name,
             "tag_id": str(tag.id),
-            "group_id": str(tag.group_id) if tag.group_id else None,
             "count": await _open_count(
                 session,
                 scope,
                 await list_predicates(session, tenant_id, {"tag": tag.name}) or [],
             ),
         }
-        (ticket_tags if tag.workstream_id is not None else free_tags).append(row)
+        (ticket_tags if tag.workstream_id in live_flows else free_tags).append(row)
     return {
         "ticket_tags": ticket_tags,
         "tags": free_tags,

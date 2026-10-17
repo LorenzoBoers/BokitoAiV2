@@ -33,7 +33,7 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 1. Open een Flow en kies **Bewerken**. Elke fase heeft een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme (**Uit**, uren, dagen of een week).
 2. Komt een ticket in die fase, dan maakt Agenda een terugkerende taak voor wie het gesprek bezit. Agents pakken hem op als wake; mensen zien hem in hun agenda en krijgen het gesprek ongelezen wanneer hij due is.
 3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Flow met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Flows](/docs/ai/workstreams).
-4. Op een contactpagina toont elk gesprek zijn actietag, fase en volgende geplande taak.
+4. Op een contactpagina toont elk gesprek zijn label, fase en volgende geplande taak.
 
 ## Plan een agenda-item of terugkerende taak
 

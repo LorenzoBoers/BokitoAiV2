@@ -39,7 +39,7 @@
     },
     "workstreams": {
       "title": "Flows",
-      "subtitle": "Ticketflows met de actietag als titel"
+      "subtitle": "Ticketflows met het label als titel"
     },
     "folders": {
       "title": "Mappen",
@@ -84,11 +84,17 @@
         "closed": "Gesloten"
       },
       "add": "Nieuwe fase toevoegen",
+      "addButton": "Fase toevoegen",
+      "newName": "Nieuwe fase",
+      "editTitle": "Fase",
       "remove": "Fase verwijderen",
       "menu": "Fase-opties",
       "moveLeft": "Naar links",
       "moveRight": "Naar rechts",
       "needDone": "Voeg minstens een klaar-fase toe",
+      "kindOrder": "Niet gestart staat voor Actief, en Klaar staat erna",
+      "kindOrderNamed": "{{name}} staat als {{kind}} op een plek die niet past. Niet gestart blijft voor Actief, Klaar erna.",
+      "insertBetween": "{{kind}} invoegen",
       "saved": "Fases opgeslagen",
       "saveError": "Fases opslaan mislukt",
       "autoClose": "Gesprek automatisch sluiten",
@@ -99,7 +105,7 @@
       "editNameHint": "Klik om de fasenaam te bewerken",
       "dragAria": "Sleep om {{name}} te herordenen",
       "fields": "Invoervelden",
-      "fieldsHint": "Optionele velden bij het vastleggen van een actietag (getoond vanaf de eerste niet-gestart fase).",
+      "fieldsHint": "Optionele velden bij het vastleggen van een label met een flow (getoond vanaf de eerste niet-gestart fase).",
       "fieldName": "Veldnaam",
       "fieldType": "Type",
       "fieldRequired": "Verplicht",
@@ -134,7 +140,7 @@
       "checkupWeeks_other": "Elke {{count}} weken"
     },
     "title": "Flows",
-    "subtitle": "Elke flow hoort bij één actietag. De fases zijn de kolommen van een live ticketbord.",
+    "subtitle": "Elke flow hoort bij één label. De fases zijn de kolommen van een live ticketbord.",
     "loadError": "Kon flows niet laden.",
     "notFound": "Flow niet gevonden.",
     "new": "Nieuwe flow",
@@ -144,17 +150,22 @@
     "created": "Flow aangemaakt.",
     "createError": "Kon de flow niet aanmaken.",
     "allWorkstreams": "Alle flows",
-    "empty": "Nog geen flows. Kies Nieuwe flow om een actietag te kiezen of aan te maken.",
+    "empty": "Nog geen flows. Kies Nieuwe flow om een label te kiezen of aan te maken.",
     "emptyTitle": "Nog geen flows",
-    "emptyBody": "Een flow is het fasebord van één actietag. Maak een flow om van een hashtag een live ticketpipeline te maken.",
+    "emptyBody": "Een flow is het fasebord van één label. Maak een flow om van een hashtag een live ticketpipeline te maken.",
     "dialogTitle": "Nieuwe flow",
-    "dialogBody": "Kies een tag die nog geen flow heeft, of typ een nieuwe hashtag om er een aan te maken.",
+    "dialogBody": "Bestaande flowlabels staan uitgeschakeld. Typ om een vrije tag te kiezen of een nieuwe hashtag te maken.",
+    "dialogTakenAria": "Bestaande flowlabels",
+    "dialogTakenTitle": "Deze tag heeft al een flow",
+    "dialogAlreadyFlow": "#{{name}} hoort al bij een flow.",
+    "dialogChooseOther": "Andere tag",
+    "dialogNoFlows": "Nog geen flows. Typ een hashtag om een vrije tag te kiezen of een nieuwe te maken.",
     "dialogSearchPlaceholder": "Zoek of typ een hashtag",
     "dialogTagsAria": "Beschikbare tags",
     "dialogLoadingTags": "Tags laden…",
     "dialogNoMatch": "Geen tag komt overeen met die naam.",
     "dialogCreateTag": "Tag #{{name}} aanmaken",
-    "dialogNoTags": "Nog geen vrije tags. Typ hierboven een hashtag om die als actietag voor deze flow aan te maken.",
+    "dialogNoTags": "Nog geen vrije tags. Typ hierboven een hashtag om die als label voor deze flow aan te maken.",
     "dialogTypeToFilter": "Typ om de tags hierboven te filteren.",
     "stepCount": "{{count}} stappen",
     "stepCount_one": "{{count}} stap",
@@ -183,7 +194,7 @@
     "deleteError": "Kon de flow niet verwijderen.",
     "deleteTitle": "Flow verwijderen",
     "deleteItem": "flow",
-    "deleteImpact": "Actietags blijven; eerdere runs blijven in de geschiedenis.",
+    "deleteImpact": "Labels blijven; eerdere runs blijven in de geschiedenis.",
     "stepsTitle": "Stappen",
     "addStep": "Stap toevoegen",
     "saveSteps": "Stappen opslaan",
@@ -268,20 +279,37 @@
     "agentFallback": "Agent",
     "startedAt": "Gestart {{time}}",
     "completedAt": "afgerond {{time}}",
-    "categoriesHint": "Een flow voert de tickets van zijn ene actietag uit.",
-    "openCategories": "Open actietags",
+    "categoriesHint": "Een flow voert de tickets van zijn ene label uit.",
+    "openCategories": "Open labels",
     "stageCount": "{{count}} fases",
     "stageCount_one": "{{count}} fase",
     "editNameHint": "Titel bewerken",
+    "mark": {
+      "title": "Label",
+      "body": "Kies een kleur en een icoon. Het label blijft een pil.",
+      "colorDefault": "Standaard",
+      "search": "Zoek iconen",
+      "save": "Opslaan",
+      "saveError": "Kon het label niet opslaan.",
+      "color": {
+        "rose": "Rood",
+        "teal": "Teal",
+        "violet": "Paars",
+        "orange": "Oranje",
+        "emerald": "Groen",
+        "pink": "Roze",
+        "sky": "Blauw"
+      }
+    },
     "editDescriptionHint": "Klik om de omschrijving te bewerken",
     "deactivated": "Gedeactiveerd",
     "edit": "Bewerken",
     "moreActions": "Meer acties",
     "meta": {
-      "actionTag": "Actietag",
-      "bindTag": "Actietag koppelen",
+      "actionTag": "Label",
+      "bindTag": "Label koppelen",
       "noFreeTags": "Geen vrije hashtags",
-      "noActionTag": "Nog geen actietag",
+      "noActionTag": "Nog geen label met een flow",
       "usedIn": "Gebruikt in",
       "noProjects": "Nog geen project",
       "openProject": "Project {{name}} openen",
@@ -294,7 +322,7 @@
       "save": "Opslaan",
       "cancel": "Annuleren",
       "saved": "Flow opgeslagen.",
-      "renameTag": "Actietag hernoemen",
+      "renameTag": "Label hernoemen",
       "renameHint": "Opslaan hernoemt #{{from}} naar #{{to}} op elk gesprek.",
       "discardTitle": "Wijzigingen weggooien?",
       "discardBody": "Je wijzigingen aan titel, beschrijving en fases zijn nog niet opgeslagen.",
@@ -673,14 +701,14 @@
       "intro": "Bepaal hoeveel agents zelf mogen doen, van volledig toezicht tot alleen uitzonderingen."
     },
     "categories": {
-      "bannerTitle": "Actietags zijn hashtags die een flow starten",
-      "bannerBody": "Elk gesprek kan één actietag hebben. Vastleggen maakt van het gesprek een ticket dat door de fasen van de flow gaat, op een van zijn projecten of op geen.",
-      "pageTitle": "Hoe actietags werken",
-      "intro": "Een actietag maakt van een gesprek een ticket, zoals een klacht of een terugbetalingsverzoek. Eén lijst, gelezen door mensen en agents.",
+      "bannerTitle": "Labels zijn hashtags die een flow starten",
+      "bannerBody": "Elk gesprek kan één label hebben. Vastleggen maakt van het gesprek een ticket dat door de fasen van de flow gaat, op een van zijn projecten of op geen.",
+      "pageTitle": "Hoe een label met een flow werkt",
+      "intro": "Een label met een flow maakt van een gesprek een ticket, zoals een klacht of een terugbetalingsverzoek. Eén lijst, gelezen door mensen en agents.",
       "sections": [
         {
           "title": "Eén per gesprek",
-          "body": "Een gesprek heeft hooguit één actietag. Vrije hashtags staan ernaast en starten nooit een flow."
+          "body": "Een gesprek heeft hooguit één label met een flow. Vrije hashtags staan ernaast en starten nooit een flow."
         },
         {
           "title": "Eerst lezen, bevestigen bij twijfel",
@@ -692,7 +720,7 @@
         },
         {
           "title": "Backlog",
-          "body": "Verzoeken die zonder match blijven binnenkomen landen in de backlog. Maak er een actietag van als het waard is om te volgen."
+          "body": "Verzoeken die zonder match blijven binnenkomen landen in de backlog. Koppel er een flow aan als het waard is om te volgen."
         }
       ]
     }
@@ -1493,7 +1521,7 @@
       "title": "Laat een agent je verder helpen",
       "body": "Een vaste thread waarin een agent je geregeld schrijft: wat open staat en welke stap je workspace verder brengt.",
       "cta": "Taak instellen",
-      "promptDefault": "Bekijk kort hoe de workspace ervoor staat: kanalen, integraties, flows en actietags, projecten, agents en wat er in gesprekken steeds terugkomt. Noem wat er open staat dat op mij wacht. Stel daarna hooguit drie concrete stappen voor die de workspace verder brengen, bijvoorbeeld een flow voor een vraag die vaak terugkomt, een project voor werk dat nu los in gesprekken zit, of een integratie uit de marketplace die past bij wat we doen. Zeg per stap waarom, en bied aan het voor me in te stellen nadat ik akkoord geef. Herhaal geen voorstel dat nog openstaat of dat ik heb afgewezen.",
+      "promptDefault": "Bekijk kort hoe de workspace ervoor staat: kanalen, integraties, flows en labels, projecten, agents en wat er in gesprekken steeds terugkomt. Noem wat er open staat dat op mij wacht. Stel daarna hooguit drie concrete stappen voor die de workspace verder brengen, bijvoorbeeld een flow voor een vraag die vaak terugkomt, een project voor werk dat nu los in gesprekken zit, of een integratie uit de marketplace die past bij wat we doen. Zeg per stap waarom, en bied aan het voor me in te stellen nadat ik akkoord geef. Herhaal geen voorstel dat nog openstaat of dat ik heb afgewezen.",
       "taskName": "Workspace verder brengen",
       "dismiss": "Verbergen"
     },
@@ -2756,8 +2784,6 @@
     "teams": {
       "settingsAria": "Teams beheren",
       "pinHint": "Maak een team op Workforce om het hier te tonen",
-      "groupChat": "Groepschat",
-      "groupChatHint": "Open de groepschat van dit team",
       "createHint": "Maak een team op Workforce om het hier te tonen"
     },
     "hashtags": {
@@ -2780,7 +2806,7 @@
       "showEmptyLabel": "Lege mappen"
     },
     "flows": {
-      "empty": "Maak een flow vanaf een actietag",
+      "empty": "Maak een flow vanaf een label",
       "settingsAria": "Flows beheren"
     },
     "newConversation": "Nieuw gesprek"
@@ -2848,9 +2874,9 @@
         "workspace": "Workspace"
       },
       "exceptionClear": "Weer de standaard volgen",
-      "reviewedTypesTitle": "Actietags die altijd controle nodig hebben",
-      "reviewedTypesHint": "Antwoorden op een ticket met een van deze actietags worden een concept, ook als het gesprek autonoom is.",
-      "noTypes": "Nog geen actietags.",
+      "reviewedTypesTitle": "Labels die altijd controle nodig hebben",
+      "reviewedTypesHint": "Antwoorden op een ticket met een van deze labels worden een concept, ook als het gesprek autonoom is.",
+      "noTypes": "Nog geen labels met een flow.",
       "alwaysReview": "Altijd controleren",
       "mayAutoSend": "Mag versturen",
       "breakerTitle": "Noodrem",
@@ -2988,10 +3014,6 @@
       "connections_one": "{{count}} koppeling",
       "connections_other": "{{count}} koppelingen",
       "specialistMeta": "Specialist · {{name}}"
-    },
-    "ask": {
-      "cta": "Vraag welke koppeling past",
-      "prefill": "Welke koppeling of module past bij mijn werk? Laat zien wat je aanraadt en waarom."
     },
     "group": {
       "nav": "Integraties"
@@ -3355,8 +3377,10 @@
       "kindBadge": "Module",
       "showcase": {
         "subtitle": "Preset voor een werkveld: tools, partners en setup op één plek.",
-        "partners": "Draait op",
+        "partners": "Werkt met",
         "tools": "Wat agents kunnen doen",
+        "toolsMore": "Toon details",
+        "toolsLess": "Verberg details",
         "setup": "Zo richt je het in",
         "openModule": "Module openen",
         "installedBadge": "Geïnstalleerd",
@@ -3370,13 +3394,66 @@
         "talkSpecialist": "Praat met {{name}}",
         "talkSpecialistShort": "Praat met specialist",
         "talkAfterInstall": "Praten na installeren",
+        "hireEyebrow": "Expert die je aanneemt",
+        "onYourTeam": "In je team",
+        "personas": {
+          "accounting": {
+            "name": "Boekito",
+            "title": "Controller",
+            "blurb": "Houdt de administratie bij: administraties, relaties, facturen, grootboek en openstaande posten. Boekingen en betaalmatches legt ze voor ter goedkeuring.",
+            "usps": [
+              "Facturen en open posten in één oogopslag",
+              "Boekingen pas na jouw goedkeuring",
+              "Klaar voor Moneybird, KING en Bjorn Lunden"
+            ]
+          },
+          "banking": {
+            "name": "Finito",
+            "title": "Kassier",
+            "blurb": "Bewaakt gekoppelde rekeningen, saldi en transacties. Uitgaande betalingen vertrekken alleen als voorstel dat jij goedkeurt.",
+            "usps": [
+              "Saldi en transacties zonder export",
+              "Betalingen alleen als voorstel",
+              "Eén plek voor al je rekeningen"
+            ]
+          },
+          "investing": {
+            "name": "Investo",
+            "title": "Marktanalist",
+            "blurb": "Volgt posities, koersen en volglijsten. Orders wachten op jouw goedkeuring.",
+            "usps": [
+              "Posities en koersen bij de hand",
+              "Orders wachten op jou",
+              "Signalen landen in het gesprek"
+            ]
+          },
+          "documents": {
+            "name": "Documento",
+            "title": "Archivaris",
+            "blurb": "Zoekt en leest bestanden in gekoppelde opslag zodat het team ze kan citeren. Uploads wachten op jouw goedkeuring.",
+            "usps": [
+              "Het juiste bestand zonder zoeken",
+              "Inhoud komt in de kennisbank",
+              "Uploads pas na goedkeuring"
+            ]
+          },
+          "accountant": {
+            "name": "Accounto",
+            "title": "Accountant",
+            "blurb": "Beoordeelt de periode op de pakketten die Boekhouding al gekoppeld heeft: balans, btw, ouderdom en afwijkingen. Afsluiten wacht op jouw goedkeuring. Boeken blijft bij Boekhouding.",
+            "usps": [
+              "Kolommenbalans en btw in één oogopslag",
+              "Afwijkingen voordat de periode dichtgaat",
+              "Dezelfde koppelingen als Boekhouding"
+            ]
+          }
+        },
         "talkPrefill": "Help me {{name}} te gebruiken. Wat kun je, en wat richten we hierna in?",
         "labelsFlows": "Labels en flows",
         "labelsFlowsIntro": "Hashtags en flows waarop de specialist werk kan vastleggen. Installeren kan de standaard-hashtag al toevoegen.",
         "openLabels": "Labels openen",
         "webchatNote": "{{count}} tools kunnen ook in websitechat wanneer je ze aanzet onder Overzicht van de module.",
-        "cardTools": "{{count}} agenttools",
-        "cardTags": "{{count}} hashtags"
+        "cardTools": "{{count}} agenttools"
       },
       "openCatalog": "Koppelingen openen",
       "helpLink": "Hoe modules werken",
@@ -3543,6 +3620,16 @@
         "setup": [
           "Deze module is voorbereid maar nog niet koppelbaar.",
           "Als een opslagkoppeling live gaat, vullen reads Kennis en blijven uploads beslissingen."
+        ]
+      },
+      "accountant": {
+        "name": "Accountant",
+        "description": "Beoordeelt de boekhouding die Boekhouding al gekoppeld heeft: kolommenbalans, btw, ouderdom en afwijkingen. Afsluiten blijft een voorstel dat jij goedkeurt.",
+        "capability": "Later: balans, btw, ouderdom en afwijkingen lezen op de pakketten van Boekhouding. Geen eigen koppeling. Boeken blijft daar.",
+        "setup": [
+          "Dit is een idee en nog niet koppelbaar.",
+          "De module leest dezelfde pakketten als Boekhouding en voegt geen login toe.",
+          "Schrijven blijft bij Boekhouding en wacht op goedkeuring."
         ]
       },
       "tools": {
@@ -3900,6 +3987,9 @@
       "emptyDeactivated": "Geen gedeactiveerde agents.",
       "relatedWorkforce": "Workforce",
       "readonlyBanner": "Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.",
+      "openSettings": "Agentinstellingen",
+      "settingsTitle": "Instellingen",
+      "settingsHint": "Model, instructies, regels, handtekening en tools voor deze agent.",
       "moreActions": "Meer acties",
       "duplicate": "Dupliceren",
       "duplicateName": "{{name}} (kopie)",
@@ -3963,6 +4053,7 @@
       "types": {
         "orchestrator": "Coördinator",
         "po": "Projectagent",
+        "assistant": "Assistent",
         "worker": "Agent"
       },
       "roleUnknown": "Onbekende rol",
@@ -4588,16 +4679,22 @@
       "nestBody": "Plaatst deze map onder de gekozen map. Labels blijven gelijk — alleen de plek in de boom verandert.",
       "folderRowTooltip": "{{set}} · Onder: {{under}}",
       "noNarrowerMaps": "Nog geen geneste mappen — sleep een map hierheen, of maak hier een nieuwe map.",
-      "editFiltersetBodyNested": "Bewerk de labels van deze map. Nesten is los van lidmaatschap."
+      "editFiltersetBodyNested": "Bewerk de labels van deze map. Nesten is los van lidmaatschap.",
+      "labelsField": "Maplabels",
+      "addTags": "Labels toevoegen",
+      "editFiltersetTitle": "Maplabels bewerken",
+      "editFiltersetBody": "Kies elk label dat deze map vereist. Nesten is apart.",
+      "saveFilterset": "Labels opslaan",
+      "filtersetSaved": "Labels bijgewerkt"
     },
     "home": {
       "noAgent": "Nog geen projectagent.",
       "noRepo": "Geen repository gekoppeld.",
       "resourcesHint": "Omgevingen waar dit project aan hangt. Beheer ze onder Instellingen.",
-      "boardsEmpty": "Nog geen flow op dit project. Gebruik Flow toevoegen om de tickets hier te tonen.",
+      "boardsEmpty": "Nog geen tickets in deze map. Zodra een gesprek hier een label met een flow krijgt, verschijnt die flow.",
       "boardsOpenPlaybooks": "Flows openen",
       "ticketsBoard": "Tickets",
-      "ticketsHint": "Elke flow op dit project is een bord. Een ticket schuift van links naar rechts door de fasen van de flow.",
+      "ticketsHint": "Elke flow met een ticket in deze map is een bord. Een ticket schuift van links naar rechts door de fasen van de flow.",
       "boardLoadError": "Kon de borden van dit project niet laden.",
       "ticketMoveError": "Kon dat ticket niet verplaatsen.",
       "ticketUntitled": "Naamloos gesprek",
@@ -5180,7 +5277,7 @@
       "reports": "Dagelijkse scan, aandacht en verbruik",
       "developers": "AI-tools, API-tokens en webhooks",
       "models": "Bokito-standaard en optioneel eigen modellen",
-      "categories": "Labels om te groeperen; open de flow om een actietag in te richten"
+      "categories": "Labels om te groeperen; open de flow om een label met een flow in te richten"
     }
   },
   "helpHub": {
@@ -6546,12 +6643,12 @@
     "title": "Wanneer deze agent zelf handelt",
     "hint": "Het plafond begrenst alles wat deze agent doet. Regels maken uitzonderingen voor bepaalde acties of situaties.",
     "workspaceTitle": "Regels voor alle agents",
-    "workspaceHint": "Uitzonderingen die elke agent in deze workspace volgt, naast zijn eigen regels. AI-afhandeling, de actietag en tools die altijd vragen bepalen of er een concept komt.",
+    "workspaceHint": "Uitzonderingen die elke agent in deze workspace volgt, naast zijn eigen regels. AI-afhandeling, het label en tools die altijd vragen bepalen of er een concept komt.",
     "ceiling": "Plafond",
     "ceilingHint": {
       "manual": "Deze agent wacht op jou voordat hij iets verstuurt of wijzigt.",
       "assisted": "Deze agent bereidt het werk voor en vraagt voor acties die goedkeuring nodig hebben.",
-      "autonomous": "Deze agent handelt zelf binnen AI-afhandeling, de actietag en tools die altijd vragen."
+      "autonomous": "Deze agent handelt zelf binnen AI-afhandeling, het label en tools die altijd vragen."
     },
     "rulesTitle": "Regels",
     "empty": "Nog geen regels. De agent volgt zijn plafond en de instellingen in Govern.",
@@ -6599,11 +6696,9 @@
   "tagRegistry": {
     "title": "Labels",
     "openConversations": "Gesprekken met {{name}} openen in Communicatie",
-    "description": "Voeg een label toe en maak er een flow bij om het tot actietag te maken. Bewerk een rij voor kleur, groep, vastzetten en AI-autolabel.",
+    "description": "Flow-labels zijn gekleurd en openen hun flow. Andere labels blijven neutraal. Voeg een naam toe, maak daarna een flow of sla het op als map.",
     "newTag": "Nieuw label",
-    "editTitle": "Label bewerken",
-    "createHint": "Geef het label een naam en optioneel kleur, groep en vastzetten in Communicatie.",
-    "editHint": "Hernoem, kies kleur, groep, vastzetten en AI-autolabel. Maak een flow om er een actietag van te maken.",
+    "createHint": "Geef het label een naam. Agents lezen de beschrijving als ze labels kiezen.",
     "nameLabel": "Naam",
     "namePlaceholder": "label",
     "descriptionLabel": "Beschrijving",
@@ -6655,11 +6750,11 @@
     "promote": "Flow aanmaken",
     "openFlow": "Flow openen",
     "promoteTitle": "Flow aanmaken voor",
-    "promoteHint": "Een actietag is een label met een flow. Gesprekken met dit label worden tickets die door de fasen van de flow gaan.",
+    "promoteHint": "Gesprekken met dit label worden tickets die door de fasen van de flow gaan.",
     "playbook": "Flow",
     "newPlaybook": "Nieuwe flow {{name}}",
     "promoteAfter": "Stel daarna de regels en projecten in.",
-    "promoted": "{{name}} is nu een actietag.",
+    "promoted": "{{name}} heeft nu een flow.",
     "promoteFailed": "Kon geen flow aanmaken voor dit label.",
     "saveAsMap": "Opslaan als map",
     "saveAsMapTitle": "Opslaan als map",
@@ -6670,7 +6765,7 @@
     "title": "Ticket",
     "file": "Vastleggen",
     "change": "Wijzigen",
-    "setUp": "Nog geen actietags. Maak er een bij Labels of Instellingen.",
+    "setUp": "Nog geen label met een flow. Maak er een bij Labels.",
     "looksLike": "Lijkt op",
     "confirm": "Bevestigen",
     "confirmOn": "Bevestigen op",
@@ -6679,7 +6774,7 @@
     "noProject": "Geen project",
     "chooseProject": "Bij welk project hoort dit?",
     "chooseProjectInPanel": "#{{name}} heeft een project nodig. Kies er een in het Ticket-paneel.",
-    "unknownCategory": "Geen actietag #{{name}}.",
+    "unknownCategory": "Geen label met een flow #{{name}}.",
     "stage": "Fase",
     "playbook": "Flow",
     "awaitingVerify": "Wacht op bevestiging van de klant.",
@@ -6723,29 +6818,29 @@
     "saveFailed": "Kon de Communicatie-instellingen niet opslaan."
   },
   "categoriesPage": {
-    "intro": "Labels groeperen gesprekken. Voeg een label toe en maak er een flow bij om een actietag te maken. Elk inkomend bericht wordt gelezen tegen labels met AI-autolabel aan — een zekere match legt een ticket vast, een onzekere vraagt om bevestiging, en alles wat nieuw is landt in de backlog hieronder.",
+    "intro": "Een platte lijst. Flow-labels zijn gekleurd en openen hun flow; andere labels blijven neutraal. Voeg een label toe en koppel er een flow aan. Een zekere lezing legt een ticket vast, een onzekere vraagt om bevestiging, en alles wat nieuw is landt in de backlog hieronder.",
     "loading": "Laden...",
     "loadError": "Kon de labels niet laden.",
     "saveError": "Kon het label niet bijwerken.",
-    "createError": "Kon de actietag niet aanmaken.",
+    "createError": "Kon het label niet aanmaken.",
     "policyError": "Kon de instelling niet opslaan.",
     "policySaved": "Instelling opgeslagen.",
     "backlogError": "Kon de backlog niet bijwerken.",
     "policyTitle": "Wie mag tickets bevestigen",
-    "policyDescription": "Bevestigen maakt van een voorgestelde actietag op een gesprek een ticket. Owners en admins mogen altijd bevestigen.",
+    "policyDescription": "Bevestigen maakt van een voorgesteld label met een flow op een gesprek een ticket. Owners en admins mogen altijd bevestigen.",
     "acceptRolesLabel": "Een ticket bevestigen",
     "acceptRolesHint": "Leden kunnen altijd zelf een ticket vastleggen; dit bepaalt wie een voorstel van de AI mag bevestigen.",
     "acceptAdmins": "Alleen owners en admins",
     "acceptMembers": "Iedereen in de workspace",
-    "thresholdLabel": "Stel een nieuwe actietag voor na",
-    "thresholdHint": "Hoe vaak hetzelfde onbekende patroon moet binnenkomen voordat Bokito het als nieuwe actietag voorstelt.",
+    "thresholdLabel": "Stel een nieuw label met een flow voor na",
+    "thresholdHint": "Hoe vaak hetzelfde onbekende patroon moet binnenkomen voordat Bokito het als label met een flow voorstelt.",
     "thresholdOption": "{{count}} keer gezien",
-    "catalogTitle": "Actietags",
+    "catalogTitle": "Labels",
     "catalogDescription": "Wat het is, welke flow het uitvoert en op welke projecten het kan worden vastgelegd.",
-    "newCategory": "Nieuwe actietag",
+    "newCategory": "Nieuwe label",
     "newCategoryHint": "Kies een tag en de flow die hem uitvoert. Een nieuwe flow begint met Open, Wachtend en Klaar.",
-    "emptyTitle": "Nog geen actietags",
-    "emptyBody": "Maak een flow op een tag, of maak een actietag voor elk soort werk dat in gesprekken binnenkomt, zoals een klacht of een terugbetalingsverzoek.",
+    "emptyTitle": "Nog geen labels met een flow",
+    "emptyBody": "Maak een flow op een tag, of maak een label met een flow voor elk soort werk dat in gesprekken binnenkomt, zoals een klacht of een terugbetalingsverzoek.",
     "noDescription": "Nog geen omschrijving",
     "needsVerify": "bevestiging nodig",
     "showInNav": "Tonen in Communicatie",
@@ -6773,15 +6868,15 @@
     "save": "Opslaan",
     "saving": "Opslaan...",
     "cancel": "Annuleren",
-    "create": "Actietag aanmaken",
+    "create": "Label aanmaken",
     "newPlaybook": "Nieuwe flow {{name}}",
     "backlogTitle": "Wat we misten",
-    "backlogDescription": "Verzoeken die bleven binnenkomen zonder passende actietag. Er wordt niets automatisch aangemaakt; maak er een actietag van als het waard is om te volgen.",
-    "backlogEmpty": "Nog niets zonder match. Je actietags dekken wat er binnenkomt.",
+    "backlogDescription": "Verzoeken die bleven binnenkomen zonder passend label. Er wordt niets automatisch aangemaakt; maak er een label met een flow van als het waard is om te volgen.",
+    "backlogEmpty": "Nog niets zonder match. Je labels dekken wat er binnenkomt.",
     "backlogCount": "{{count}}x gezien",
-    "backlogPromote": "Maak er een actietag van",
-    "backlogPromoted": "Actietag aangemaakt.",
-    "backlogDismiss": "Geen actietag",
+    "backlogPromote": "Koppel er een flow aan",
+    "backlogPromoted": "Label aangemaakt.",
+    "backlogDismiss": "Geen label met een flow",
     "backlogDismissed": "Uit de backlog gehaald.",
     "crossLinks": {
       "communicationHub": "Communicatie",

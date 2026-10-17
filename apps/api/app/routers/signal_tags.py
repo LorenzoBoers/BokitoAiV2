@@ -23,12 +23,11 @@ class TagRow(BaseModel):
     name: str
     description: str
     color: str = ""
+    icon: str = ""
     count: int
     is_category: bool = False
     workstream_id: str | None = None
     workstream_name: str | None = None
-    group_id: str | None = None
-    group_name: str | None = None
     show_in_nav: bool = False
     ai_auto_tag: bool = True
     send_mode: str = "send"
@@ -39,136 +38,22 @@ class TagCreate(BaseModel):
     name: str
     description: str = ""
     color: str = ""
+    icon: str = ""
     show_in_nav: bool = False
-    group_id: UUID | None = None
 
 
 class TagUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     color: str | None = None
+    icon: str | None = None
     show_in_nav: bool | None = None
     ai_auto_tag: bool | None = None
-    group_id: UUID | None = None
-    clear_group: bool = False
 
 
 class TagPromote(BaseModel):
     workstream_id: UUID | None = None
     playbook_name: str = ""
-
-
-class TagGroupRow(BaseModel):
-    id: str
-    name: str
-    slug: str
-    description: str = ""
-    exclusive: bool = False
-    sort_order: int = 0
-    tag_count: int = 0
-
-
-class TagGroupCreate(BaseModel):
-    name: str
-    description: str = ""
-    exclusive: bool = False
-
-
-class TagGroupUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    exclusive: bool | None = None
-    sort_order: int | None = None
-
-
-class ExclusiveViolation(BaseModel):
-    signal_id: str
-    subject: str
-    count: int
-
-
-# ---------------------------------------------------------------------------
-# Groups (declared before ``/{tag_id}`` so ``/groups`` is not read as a tag id)
-
-
-@router.get("/groups", response_model=list[TagGroupRow])
-async def list_groups(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Tag groups: the dimensions tags belong to (Relatie, Documenttype, ...).
-
-    An ``exclusive`` group allows one tag of the group per conversation. A
-    folder with a child group shows one virtual child per tag in it.
-    """
-    return await tag_svc.list_groups(session, auth.tenant.id)
-
-
-@router.post("/groups", response_model=TagGroupRow)
-async def create_group(
-    body: TagGroupCreate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Create a tag group."""
-    auth.require_role("owner", "admin")
-    try:
-        row = await tag_svc.create_group(
-            session, auth.tenant.id, body.name, description=body.description, exclusive=body.exclusive
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return tag_svc.serialize_group(row)
-
-
-@router.patch("/groups/{group_id}", response_model=TagGroupRow)
-async def update_group(
-    group_id: UUID,
-    body: TagGroupUpdate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Rename a group, change its description, order or exclusivity."""
-    auth.require_role("owner", "admin")
-    try:
-        row = await tag_svc.update_group(
-            session,
-            auth.tenant.id,
-            group_id,
-            name=body.name,
-            description=body.description,
-            exclusive=body.exclusive,
-            sort_order=body.sort_order,
-        )
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return tag_svc.serialize_group(row)
-
-
-@router.get("/groups/{group_id}/violations", response_model=list[ExclusiveViolation])
-async def group_violations(
-    group_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Conversations that carry more than one tag of this group (to resolve after turning it exclusive)."""
-    return await tag_svc.exclusive_violations(session, auth.tenant.id, group_id)
-
-
-@router.delete("/groups/{group_id}", status_code=204)
-async def delete_group(
-    group_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Remove a group. Its tags stay (ungrouped); group folders lose their virtual children."""
-    auth.require_role("owner", "admin")
-    try:
-        await tag_svc.delete_group(session, auth.tenant.id, group_id)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -202,8 +87,8 @@ async def create_tag(
             body.name,
             description=body.description,
             color=body.color,
+            icon=body.icon,
             show_in_nav=body.show_in_nav,
-            group_id=body.group_id,
             user_id=auth.user.id,
         )
     except LookupError as exc:
@@ -220,8 +105,8 @@ async def update_tag(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Rename, describe, group, show in the rail, or toggle AI auto-tag. Renaming onto an existing free tag merges them."""
-    if body.show_in_nav is not None or body.ai_auto_tag is not None or body.group_id is not None or body.clear_group:
+    """Rename, describe, show in the rail, or toggle AI auto-tag. Renaming onto an existing free tag merges them."""
+    if body.show_in_nav is not None or body.ai_auto_tag is not None:
         auth.require_role("owner", "admin")
     try:
         row = await tag_svc.update_tag(
@@ -231,10 +116,9 @@ async def update_tag(
             name=body.name,
             description=body.description,
             color=body.color,
+            icon=body.icon,
             show_in_nav=body.show_in_nav,
             ai_auto_tag=body.ai_auto_tag,
-            group_id=body.group_id,
-            clear_group=body.clear_group,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

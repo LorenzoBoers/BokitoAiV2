@@ -14,8 +14,8 @@ Bokito is je eigen assistent binnen het platform. Hij is geen agent van de works
 ## Start vanaf het beginscherm
 
 1. Open Bokito via **Hulp** in de topbalk, of de knop rechtsonder.
-2. Onder **Nieuw gesprek starten** kies je **Wat kan ik hier doen?**, **Geef werk door** of **Richt iets in**. Bokito start een gesprek en stelt die vraag voor je.
-3. Kies **Eerdere gesprekken** om je privé-gesprekslijst te openen.
+2. Kies **Nieuw gesprek starten** en stel je vraag. Werk doorgeven of iets inrichten doe je in dat gesprek.
+3. Kies **Eerdere gesprekken** voor je privé-gesprekslijst, of **Hulpartikelen** voor de producthelp.
 
 ## Vraag iets over de pagina waar je bent
 
@@ -59,7 +59,7 @@ Elk gesprek blijft in de workspace waar je het voerde. Wat Bokito over *jou* ont
 
 ## Bekijk wat Bokito onthoudt
 
-1. Open **Instellingen**, daarna **Mijn assistent**.
+1. Open **Instellingen**, daarna **Mijn assistent** onder **Persoonlijk** (na **Notificaties**). De pagina toont de Bokito-mark van de helper rechtsonder.
 2. Lees de feiten die Bokito over jou bewaarde. Kies **Vergeten** bij één regel of **Alles wissen**.
 3. Open de helper opnieuw met **Praat met assistent** als je iets nieuws wilt laten onthouden. Bedrijfsagents en de websitewidget zijn apart — zie [Agents](/docs/ai/agents) en [Chatwidget](/docs/inbox/widget).
 

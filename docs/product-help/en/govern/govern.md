@@ -30,7 +30,7 @@ Govern has two sections: **Ledger** records workspace changes and audit events, 
 3. Under **Allowance sliders**, set each category to **Deny**, **Ask first** or **Allow**. Override one tool when the category is too broad.
 4. Categories include Messaging, Workspace, Agents, Channels, Triggers, Integrations, Govern and Handoff. External visitor sessions never auto-mutate. Messaging **Ask first** or **Deny** also caps AI handling on conversations.
 5. When learning sees many escalated tool gates or rejected tool decisions on a category that was **Allow**, Bokito can tighten that slider to **Ask first** automatically. A short note appears under the sliders. Loosening a slider stays a manual edit here.
-6. Under **Autonomy per action tag and flow**, set each active action tag and flow to **Manual**, **Assisted**, or **Autonomous**.
+6. Under **Autonomy per label and flow**, set each active label and flow to **Manual**, **Assisted**, or **Autonomous**.
 
 Per-agent overrides live on the agent page under Tools and permissions.
 
@@ -44,7 +44,7 @@ Per-agent overrides live on the agent page under Tools and permissions.
 
 Sending to customers always asks. See [Agents](/docs/ai/agents) for rules on one agent.
 
-Pause autonomous replies, the circuit breaker, and action tags that always need review live under [AI handling](/docs/inbox/inbox-ai), not on this page.
+Pause autonomous replies, the circuit breaker, and labels with a flow that always need review live under [AI handling](/docs/inbox/inbox-ai), not on this page.
 
 ## Undo and audit
 

@@ -6,7 +6,13 @@
     "uploadPhoto": "Upload photo",
     "removePhoto": "Remove",
     "removingPhoto": "Removing...",
-    "photoHint": "Any photo — we crop and resize it automatically (JPG, PNG, GIF, WebP)",
+    "photoHint": "JPG, PNG, GIF or WebP. You crop it before the photo is saved.",
+    "cropTitle": "Crop photo",
+    "cropHint": "Drag the photo and zoom until you sit inside the circle. Any shape is fine; only the circle is kept.",
+    "cropZoom": "Zoom",
+    "cropZoomIn": "Zoom in",
+    "cropZoomOut": "Zoom out",
+    "cropUse": "Use photo",
     "photoUpdated": "Profile photo updated",
     "photoRemoved": "Profile photo removed",
     "email": "Email address",
@@ -28,15 +34,15 @@
     "cancelEdit": "Cancel"
   },
   "signature": {
-    "title": "Email signature",
-    "description": "Used when a mailbox is set to each person's signature, or when that mailbox has no shared template. Placeholders such as {{name}}, {{first_name}}, {{last_name}} and {{company}} fill from your profile at send time.",
-    "empty": "Using the Bokito text default: closing, your name, role and contact details.",
+    "title": "Email",
+    "description": "Your signature, and whether sending an email closes the conversation.",
+    "empty": "Bokito default: your photo beside your name, role and contact details. Without a photo, a circle with your initials.",
     "usingDefault": "Bokito default",
     "add": "Customize signature",
     "edit": "Edit signature",
     "saved": "Signature saved",
     "saveError": "Could not save the signature.",
-    "editorContext": "Your personal signature. Used when the mailbox source is “each person's signature”, or when the mailbox template is empty. Leave empty for the Bokito text default."
+    "editorContext": "Your personal signature. Used when the mailbox source is “each person's signature”, or when the mailbox template is empty. Leave empty for the Bokito default with your photo."
   },
   "language": {
     "title": "Language",
@@ -45,6 +51,11 @@
     "dutch": "Dutch",
     "english": "English",
     "saveError": "Language changed for this session, but could not be saved to your account."
+  },
+  "emailClose": {
+    "label": "Close email when I send",
+    "hint": "Send closes the email conversation. The menu next to Send still offers Send and keep open. Chat and WhatsApp stay open.",
+    "saveError": "Could not save this email setting."
   },
   "landing": {
     "title": "Start page",

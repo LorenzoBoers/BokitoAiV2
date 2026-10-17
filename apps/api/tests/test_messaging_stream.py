@@ -91,13 +91,15 @@ async def test_turn_recorder_publishes_segments_and_activity():
     await turn.speech("Ik kijk even.")
     item = await turn.tool_start("search_index", {"q": "x"}, label="Search index")
     await turn.tool_end(item, {"hits": []})
+    await turn.thinking("still weighing")
     await turn.speech("Gevonden.")
     await turn.finish()
 
     events = [e for e, _ in published]
     assert events[0] == "agent.turn" and published[0][1]["phase"] == "start"
     assert events[-1] == "agent.turn" and published[-1][1]["phase"] == "end"
-    assert "agent.thinking" in events and "message.delta" in events
+    assert events.count("agent.thinking") == 1
+    assert "message.delta" in events
     activity = [d for e, d in published if e == "agent.activity"]
     assert [a["phase"] for a in activity] == ["start", "end", "start", "end"]
     assert activity[2]["item"]["kind"] == "work"
@@ -126,14 +128,38 @@ async def test_publish_turn_event_rejects_unknown():
         tid = __import__("uuid").uuid4()
         sid = __import__("uuid").uuid4()
         await publish_turn_event(tid, sid, "message.delta", {"delta": "Hi", "stream_id": "s1"})
+        await publish_turn_event(
+            tid, sid, "agent.thinking", {"delta": "secret plan", "stream_id": "s1", "item_id": "i1"}
+        )
+        await publish_turn_event(
+            tid,
+            sid,
+            "agent.activity",
+            {"item": {"kind": "tool", "name": "lookup"}, "stream_id": "s1"},
+        )
         with pytest.raises(ValueError):
             await publish_turn_event(tid, sid, "agent.step", {})
 
     assert published[0][0] == "message.delta"
+    assert published[0][1]["audience"] == "all"
     assert published[0][1]["signal_id"] == str(sid)
     assert published[1][0] == "thread.presence"
+    assert published[1][1]["audience"] == "operator"
     assert published[1][1]["phase"] == "writing"
-    assert "delta" not in published[1][1] or not published[1][1].get("delta")
+    visitor_writing = published[2][1]
+    assert visitor_writing["audience"] == "visitor"
+    assert visitor_writing["phase"] == "writing"
+    assert "item" not in visitor_writing
+    assert "delta" not in visitor_writing
+    assert "name" not in visitor_writing["actor"]
+    thinking = next(data for event, data in published if event == "agent.thinking")
+    activity = next(data for event, data in published if event == "agent.activity")
+    assert thinking["audience"] == "operator"
+    assert activity["audience"] == "operator"
+    assert activity["item"]["name"] == "lookup"
+    for data in (row for event, row in published if row.get("audience") == "visitor"):
+        assert "item" not in data
+        assert "delta" not in data
 
 
 @pytest.mark.asyncio

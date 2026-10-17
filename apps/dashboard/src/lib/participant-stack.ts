@@ -31,9 +31,8 @@ type TeamSource = {
 }
 
 /**
- * Thread roster as one facepile: people and agents overlap the same way as a
- * workforce team. A team participant expands to its members; an empty team
- * stays one mark inside the pile.
+ * Thread roster as one facepile. A team expands to its members unless
+ * `expandTeams` is false (header: a team is one owner, not every colleague).
  */
 export function participantsToAvatarStack(
   participants: ThreadParticipant[],
@@ -42,6 +41,7 @@ export function participantsToAvatarStack(
     agents?: AgentSource[]
     teams?: TeamSource[]
     activeTurn?: ThreadActiveTurn
+    expandTeams?: boolean
   } = {},
 ): AvatarStackMember[] {
   const activeKey = floorKey(opts.activeTurn)
@@ -58,10 +58,13 @@ export function participantsToAvatarStack(
     const kind = (participant.kind || '').trim().toLowerCase()
     if (kind === 'team') {
       const team = opts.teams?.find((row) => row.id === participant.ref_id)
-      const faces = resolveTeamStackMembers(team?.members, {
-        people: opts.people,
-        agents: opts.agents,
-      }).map((member) => withFloor(member, activeKey))
+      const faces =
+        opts.expandTeams === false
+          ? []
+          : resolveTeamStackMembers(team?.members, {
+              people: opts.people,
+              agents: opts.agents,
+            }).map((member) => withFloor(member, activeKey))
       if (faces.length > 0) {
         for (const face of faces) push(face)
         continue

@@ -178,6 +178,7 @@ def serialize_agent(
     if view in ("passport", "runtime"):
         from app.services.agent_rules import normalize_autonomy
 
+        rslug = role_slug(agent)
         payload.update(
             {
                 "model": agent.model,
@@ -187,6 +188,11 @@ def serialize_agent(
                 "autonomy_level": normalize_autonomy(agent.autonomy_level),
                 "tools": _parse_json_list(agent.tools_json),
                 "permission_scopes": _parse_json_list(agent.permission_scopes_json),
+                "organisation_id": str(tenant_numeric_id(agent.tenant_id)),
+                "role_id": rslug,
+                "role_name": ROLE_NAME_MAP.get(agent.role, agent.name),
+                "role_slug": rslug,
+                "updated_at": _ms(agent.updated_at or agent.created_at),
             }
         )
     if view != "runtime":
@@ -200,13 +206,8 @@ def serialize_agent(
         agent_signature_text,
     )
 
-    rslug = role_slug(agent)
     payload.update(
         {
-            "organisation_id": str(tenant_numeric_id(agent.tenant_id)),
-            "role_id": rslug,
-            "role_name": ROLE_NAME_MAP.get(agent.role, agent.name),
-            "role_slug": rslug,
             "parent_agent_id": str(agent.parent_agent_id) if agent.parent_agent_id else None,
             "purpose": agent.system_prompt or "",
             "system_prompt": agent.system_prompt or "",
@@ -221,7 +222,6 @@ def serialize_agent(
             "current_activity_id": str(live_run.id) if live_run else None,
             "open_conversations": int(open_conversations),
             "awaiting_decision": int(awaiting_decision),
-            "updated_at": _ms(agent.updated_at or agent.created_at),
             "ask_target": agent_ask_target(agent),
         }
     )
@@ -373,8 +373,13 @@ async def list_runtime_agents(
     tenant_id: UUID,
     *,
     include_inactive: bool = False,
+    view: AgentView = "passport",
 ) -> list[dict[str, Any]]:
-    """List company agents. Deactivated (archived) rows are omitted unless requested."""
+    """List company agents. Deactivated (archived) rows are omitted unless requested.
+
+    The list is the passport view: identity, model and tools, no system prompt.
+    The edit screen loads one agent with ``get_runtime_agent``.
+    """
     kinds = ("company", "archived") if include_inactive else ("company",)
     filters = [
         Agent.tenant_id == tenant_id,
@@ -408,13 +413,47 @@ async def list_runtime_agents(
     return [
         serialize_agent(
             agent,
-            view="runtime",
+            view=view,
             latest_run=latest_by_agent.get(agent.id),
             open_conversations=open_by.get(agent.id, 0),
             awaiting_decision=decision_by.get(agent.id, 0),
         )
         for agent in agents
     ]
+
+
+async def get_runtime_agent(
+    session: AsyncSession,
+    tenant_id: UUID,
+    agent_id: UUID,
+) -> dict[str, Any]:
+    """One company agent for the edit screen, including its system prompt."""
+    result = await session.execute(
+        select(Agent).where(
+            Agent.id == agent_id,
+            Agent.tenant_id == tenant_id,
+            Agent.acts_for_user.is_(False),
+            Agent.kind.in_(("company", "archived")),
+        )
+    )
+    agent = result.scalar_one_or_none()
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    runs_result = await session.execute(
+        select(AgentRun)
+        .where(AgentRun.tenant_id == tenant_id, AgentRun.agent_id == agent.id)
+        .order_by(AgentRun.started_at.desc())
+        .limit(1)
+    )
+    latest = runs_result.scalar_one_or_none()
+    open_by, decision_by = await _conversation_counts_by_agent(session, tenant_id, [agent.id])
+    return serialize_agent(
+        agent,
+        view="runtime",
+        latest_run=latest,
+        open_conversations=open_by.get(agent.id, 0),
+        awaiting_decision=decision_by.get(agent.id, 0),
+    )
 
 
 def apply_agent_runtime(

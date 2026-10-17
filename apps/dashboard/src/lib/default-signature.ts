@@ -277,7 +277,28 @@ function signatureDetailBits(vars: Record<string, string>): string {
   return detailBits.join('')
 }
 
-/** Text-only default: closing + name / role / company / contacts (no avatar image). */
+/**
+ * Personal default: photo (or initials) on the left, name and contacts on the right.
+ * Mirrors `compose_avatar_signature_html`.
+ */
+export function composeAvatarSignatureHtml(opts: SignatureIdentityVars): string {
+  const vars = signatureIdentityMap(opts)
+  const closing = signatureClosingText(opts.language)
+  const avatar = avatarMarkHtml(opts.avatarUrl, vars.name, 48)
+  return (
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` +
+    `font-size:14px;line-height:1.45;color:#1f2937">` +
+    `<p style="margin:0 0 14px 0">${escapeHtml(closing)},</p>` +
+    `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse">` +
+    `<tr>` +
+    `<td style="vertical-align:top;padding:0 14px 0 0">${avatar}</td>` +
+    `<td style="vertical-align:top;padding:0 0 0 14px;border-left:2px solid #e5e7eb">` +
+    `${signatureDetailBits(vars)}</td>` +
+    `</tr></table></div>`
+  )
+}
+
+/** Text-only layout kept for agent defaults and the plain template. */
 export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string {
   const vars = signatureIdentityMap(opts)
   const closing = signatureClosingText(opts.language)
@@ -336,7 +357,7 @@ export function previewSignatureHtml(
 ): string {
   const custom = (templateHtml || '').trim()
   if (custom) return renderSignatureTemplate(custom, identity)
-  return composeDefaultSignatureHtml(identity)
+  return composeAvatarSignatureHtml(identity)
 }
 
 /** Preview matching server resolve for human sends from a mailbox. */

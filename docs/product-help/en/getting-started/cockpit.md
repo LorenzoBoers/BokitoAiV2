@@ -43,7 +43,7 @@ Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-
 
 ## Read agent activity
 
-1. Open **Agents** (or an agent's **Activity** row in Communication) for the Activity swimlane. Overview itself keeps **Needs you** first, then the secondary context blocks.
+1. Open **Agents** for the Activity swimlane. Overview itself keeps **Needs you** first, then the secondary context blocks.
 2. Scan outcomes, not every thinking step.
 3. Jump into a thread or agent when a row needs follow-up. See [Follow agent activity](/docs/inbox/agent-runs).
 

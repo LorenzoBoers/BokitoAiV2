@@ -37,15 +37,24 @@ type QueueSublistProps = {
   leading?: ReactNode
   /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
   children?: ReactNode
+  /** Sub-views to list. Defaults to every queue. */
+  queues?: readonly SubQueue[]
 }
 
 /** The uniform For you / Open / Unassigned / Closed rows under a folder. */
-export function QueueSublist({ baseLeaf, activeLeaf, counts, leading, children }: QueueSublistProps) {
+export function QueueSublist({
+  baseLeaf,
+  activeLeaf,
+  counts,
+  leading,
+  children,
+  queues = SUB_QUEUES,
+}: QueueSublistProps) {
   const { t } = useTranslation('nav')
   return (
     <div className="nav-tree-children">
       {leading}
-      {SUB_QUEUES.map((queue) => {
+      {queues.map((queue) => {
         const leaf = { ...baseLeaf, queue } as HubLeaf
         const isActive = activeLeaf != null && leafKey(activeLeaf) === leafKey(leaf)
         return (
@@ -69,7 +78,9 @@ type SidebarFolderProps = {
   /** Inbox or team leaf without a queue. */
   baseLeaf: HubLeaf
   label: string
-  icon: ReactNode
+  /** Replaces the text label. `label` stays the tooltip. */
+  labelNode?: ReactNode
+  icon?: ReactNode
   activeLeaf: HubLeaf | null
   /** The sub-view a first expand opens (from folder prefs). */
   defaultQueue: SubQueue
@@ -80,6 +91,8 @@ type SidebarFolderProps = {
   leading?: ReactNode
   /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
   extra?: ReactNode
+  /** Sub-views under this folder. Defaults to every queue. */
+  queues?: readonly SubQueue[]
   /** Optional trailing control on the folder header (e.g. compose +). */
   headerAction?: ReactNode
   /** Project scope keys that stay open when this folder opens (its parents). */
@@ -101,6 +114,7 @@ type SidebarFolderProps = {
 export function SidebarFolder({
   baseLeaf,
   label,
+  labelNode,
   icon,
   activeLeaf,
   defaultQueue,
@@ -109,6 +123,7 @@ export function SidebarFolder({
   title,
   leading,
   extra,
+  queues,
   headerAction,
   retainOnExpand,
   closeOnCollapse,
@@ -183,10 +198,14 @@ export function SidebarFolder({
             dropLit && 'bg-accent/15 ring-1 ring-inset ring-accent/40',
           )}
         >
-          <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted">
-            {icon}
+          {icon ? (
+            <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted">
+              {icon}
+            </span>
+          ) : null}
+          <span className={cn('min-w-0 flex-1', labelNode ? 'flex items-center' : 'truncate-fade')}>
+            {labelNode ?? label}
           </span>
-          <span className="min-w-0 flex-1 truncate-fade">{label}</span>
           {headerAction ? (
             <span
               className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
@@ -206,6 +225,7 @@ export function SidebarFolder({
             activeLeaf={activeLeaf}
             counts={queueCounts}
             leading={leading}
+            queues={queues}
           >
             {extra}
           </QueueSublist>

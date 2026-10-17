@@ -16,7 +16,6 @@ import {
   ShieldBan,
   ShieldCheck,
   Trash2,
-  X,
 } from 'lucide-react'
 
 const Building2 = ENTITY_ICONS.company
@@ -33,6 +32,16 @@ import { useConfirm } from '../components/ui/confirm-dialog'
 import { SearchField } from '../components/ui/search-field'
 import { FilterChip } from '../components/ui/filter-chip'
 import { SegmentedControl } from '../components/ui/segmented-control'
+import { Button } from '../components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { useAuth } from '../context/AuthContext'
 import ContentHeader from '../components/shell/ContentHeader'
@@ -49,7 +58,6 @@ import {
   findThreadsForContact,
   getContact,
   getContactThreadPage,
-  latestThreadActivityAt,
   bulkUpdatePendingContacts,
   listCompaniesPage,
   listContactsPage,
@@ -303,8 +311,6 @@ function ContactDetail({ contactId }: { contactId: string }) {
     )
   }
 
-  const lastSeenAt = contact.lastSeenAt || latestThreadActivityAt(threads)
-
   const field = (label: string, key: keyof typeof draft, placeholder: string) => (
     <label className="block">
       <span className="text-xs font-semibold text-text-muted">{label}</span>
@@ -442,11 +448,6 @@ function ContactDetail({ contactId }: { contactId: string }) {
                   size={11}
                 />
               </span>
-            </p>
-            <p className="text-xs text-text-muted">
-              {lastSeenAt
-                ? t('contactsPage.lastSeen', { time: timeAgo(lastSeenAt, t) })
-                : t('contactsPage.neverSeen')}
             </p>
             {contact.identities.length > 0 ? (
               <div data-testid="contact-identities">
@@ -1378,76 +1379,92 @@ export default function ContactsPage() {
         </div>
       ) : null}
 
-      {createOpen ? (
-        <div className="panel mb-4 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.newContact')}</h2>
-            <button
-              type="button"
-              aria-label={t('contactsPage.closeAria')}
-              onClick={() => setCreateOpen(false)}
-              className="rounded p-1 text-text-muted hover:bg-bg-hover hover:text-text-primary"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Select
-              value={createDraft.channel}
-              onValueChange={(value) => setCreateDraft((p) => ({ ...p, channel: value }))}
-            >
-              <SelectTrigger aria-label={t('contactsPage.channelLabel')} className="h-auto rounded-md px-2.5 py-1.5">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {withoutParkedChannels(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
-                  <SelectItem key={channel} value={channel}>
-                    {t(`contactsPage.channels.${channel}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <input
-              value={createDraft.address}
-              onChange={(e) => setCreateDraft((p) => ({ ...p, address: e.target.value }))}
-              placeholder={t(
-                createDraft.channel === 'whatsapp'
-                  ? 'contactsPage.whatsappPlaceholder'
-                  : createDraft.channel === 'widget'
-                    ? 'contactsPage.widgetPlaceholder'
-                    : createDraft.channel === 'slack'
-                      ? 'contactsPage.slackPlaceholder'
-                      : 'contactsPage.emailPlaceholder',
-              )}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-            />
-            <input
-              value={createDraft.displayName}
-              onChange={(e) => setCreateDraft((p) => ({ ...p, displayName: e.target.value }))}
-              placeholder={t('contactsPage.namePlaceholder')}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-            />
-            <input
-              value={createDraft.company}
-              onChange={(e) => setCreateDraft((p) => ({ ...p, company: e.target.value }))}
-              placeholder={t('contactsPage.companyPlaceholder')}
-              className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-            />
-          </div>
-          {createError ? <p className="mt-2 text-xs text-status-error">{createError}</p> : null}
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              disabled={creating || !createDraft.address.trim()}
-              onClick={() => void handleCreate()}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
-            >
-              {creating ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-              {creating ? t('contactsPage.creating') : t('contactsPage.create')}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (creating) return
+          setCreateOpen(open)
+          if (!open) setCreateError(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('contactsPage.newContact')}</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void handleCreate()
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="new-contact-channel">{t('contactsPage.channelLabel')}</Label>
+              <Select
+                value={createDraft.channel}
+                onValueChange={(value) => setCreateDraft((p) => ({ ...p, channel: value }))}
+              >
+                <SelectTrigger id="new-contact-channel" aria-label={t('contactsPage.channelLabel')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {withoutParkedChannels(['email', 'whatsapp', 'widget', 'slack'] as const).map((channel) => (
+                    <SelectItem key={channel} value={channel}>
+                      {t(`contactsPage.channels.${channel}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-contact-address">
+                {t(
+                  createDraft.channel === 'whatsapp'
+                    ? 'contactsPage.whatsappPlaceholder'
+                    : createDraft.channel === 'widget'
+                      ? 'contactsPage.widgetPlaceholder'
+                      : createDraft.channel === 'slack'
+                        ? 'contactsPage.slackPlaceholder'
+                        : 'contactsPage.emailPlaceholder',
+                )}
+              </Label>
+              <Input
+                id="new-contact-address"
+                value={createDraft.address}
+                onChange={(e) => setCreateDraft((p) => ({ ...p, address: e.target.value }))}
+                autoFocus
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-contact-name">{t('contactsPage.namePlaceholder')}</Label>
+              <Input
+                id="new-contact-name"
+                value={createDraft.displayName}
+                onChange={(e) => setCreateDraft((p) => ({ ...p, displayName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-contact-company">{t('contactsPage.companyPlaceholder')}</Label>
+              <Input
+                id="new-contact-company"
+                value={createDraft.company}
+                onChange={(e) => setCreateDraft((p) => ({ ...p, company: e.target.value }))}
+              />
+            </div>
+            {createError ? <p className="text-xs text-status-error">{createError}</p> : null}
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)} disabled={creating}>
+                {tc('actions.cancel')}
+              </Button>
+              <Button type="submit" disabled={creating || !createDraft.address.trim()}>
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                {creating ? t('contactsPage.creating') : t('contactsPage.create')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {loading && (view === 'companies' ? companies.length === 0 : contacts.length === 0) ? (
         <TableRowsSkeleton rows={8} />
@@ -1590,7 +1607,6 @@ export default function ContactsPage() {
                 <th className="px-4 py-2.5">{t('contactsPage.colName')}</th>
                 <th className="hidden px-4 py-2.5 sm:table-cell">{t('contactsPage.colChannel')}</th>
                 <th className="hidden px-4 py-2.5 md:table-cell">{t('contactsPage.colCompany')}</th>
-                <th className="hidden px-4 py-2.5 lg:table-cell">{t('contactsPage.colLastSeen')}</th>
                 <th className="px-4 py-2.5 text-right">{t('contactsPage.colThreads')}</th>
                 <th className="px-4 py-2.5 text-right">{t('contactsPage.colStatus')}</th>
               </tr>
@@ -1686,9 +1702,6 @@ export default function ContactsPage() {
                     ) : (
                       <span className="text-xs text-text-muted">-</span>
                     )}
-                  </td>
-                  <td className="hidden px-4 py-2.5 text-sm text-text-secondary lg:table-cell">
-                    {timeAgo(contact.lastSeenAt, t) || '-'}
                   </td>
                   <td className="px-4 py-2.5 text-right text-sm text-text-secondary">
                     {contact.threadCount > 0 ? (

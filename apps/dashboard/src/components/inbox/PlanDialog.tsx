@@ -16,7 +16,13 @@ import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import type { InboxThread, ScheduleRecipient } from '../../lib/inbox-api'
-import { createScheduledThread, setThreadSchedule } from '../../lib/signals-api'
+import {
+  clearThreadSchedule,
+  createScheduledThread,
+  runThreadSchedule,
+  setThreadSchedule,
+  setThreadScheduleEnabled,
+} from '../../lib/signals-api'
 import {
   DEFAULT_REPEAT,
   defaultMoment,
@@ -85,6 +91,7 @@ export default function PlanDialog({ open, onOpenChange, thread = null, seed, on
   const [agentId, setAgentId] = useState(NO_AGENT)
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [acting, setActing] = useState<'run' | 'toggle' | 'clear' | null>(null)
 
   const isNew = thread == null
   const showTitle = isNew || thread?.source === 'schedule'
@@ -166,6 +173,31 @@ export default function PlanDialog({ open, onOpenChange, thread = null, seed, on
       toast.error(formatApiErrorMessage(err, t('plan.saveError')))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const runScheduleAction = async (kind: 'run' | 'toggle' | 'clear') => {
+    if (!token || !thread || acting) return
+    setActing(kind)
+    try {
+      if (kind === 'run') {
+        await runThreadSchedule(token, String(thread.id))
+        toast.success(t('schedule.runStarted'))
+        onOpenChange(false)
+        onSaved?.(null)
+      } else if (kind === 'toggle' && thread.schedule) {
+        const saved = await setThreadScheduleEnabled(token, String(thread.id), !thread.schedule.enabled)
+        onSaved?.(saved)
+      } else if (kind === 'clear') {
+        const saved = await clearThreadSchedule(token, String(thread.id))
+        toast.success(t('schedule.cleared'))
+        onOpenChange(false)
+        onSaved?.(saved)
+      }
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('schedule.actionError')))
+    } finally {
+      setActing(null)
     }
   }
 
@@ -343,13 +375,52 @@ export default function PlanDialog({ open, onOpenChange, thread = null, seed, on
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            {t('plan.cancel')}
-          </Button>
-          <Button type="button" onClick={() => void save()} disabled={!canSave}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : t('plan.save')}
-          </Button>
+        <DialogFooter className="gap-2 sm:justify-between">
+          {thread?.schedule && token ? (
+            <div className="flex flex-wrap gap-2">
+              {thread.schedule.agentId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={saving || acting != null}
+                  onClick={() => void runScheduleAction('run')}
+                >
+                  {t('schedule.runNow')}
+                </Button>
+              ) : null}
+              {thread.schedule.repeat ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={saving || acting != null}
+                  onClick={() => void runScheduleAction('toggle')}
+                >
+                  {thread.schedule.enabled ? t('schedule.pause') : t('schedule.resume')}
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={saving || acting != null}
+                onClick={() => void runScheduleAction('clear')}
+              >
+                {thread.schedule.repeat ? t('schedule.stop') : t('schedule.clear')}
+              </Button>
+            </div>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving || acting != null}>
+              {t('plan.cancel')}
+            </Button>
+            <Button type="button" onClick={() => void save()} disabled={!canSave || acting != null}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : t('plan.save')}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

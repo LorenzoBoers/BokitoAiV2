@@ -18,12 +18,12 @@ Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/
 
 1. Open **Settings**, then **Govern**, then **Policy**. The card is **Workspace ceiling for agents**.
 2. Choose **Manual** (agents draft, you apply), **Assisted** (low-risk actions go through, the rest asks), or **Autonomous** (agents act within allowances). Choosing **Autonomous** asks **Switch to Autonomous?** before it applies. **Autonomous** stays unavailable until the workspace has a live model under **Providers & models** and at least one send-ready channel — the UI shows **Connect a live model under Models before Autonomous.** or **Connect a send-ready channel before Autonomous.** when a gate is missing.
-3. The setting saves as you pick it. A per action tag or flow policy may be stricter, never broader. Without a live model, AI replies are placeholders and are never labeled as sent to the customer.
+3. The setting saves as you pick it. A per label or flow policy may be stricter, never broader. Without a live model, AI replies are placeholders and are never labeled as sent to the customer.
 
 ## Set the three layers
 
 1. Stay on Govern, then **Policy**.
-2. Set the workspace posture first, then a stricter policy on a category or playbook where needed. The scope name on each policy row is a link: an action tag opens its conversations in Communication, a flow opens the flow page. Agent names in the passport table open the agent.
+2. Set the workspace posture first, then a stricter policy on a category or playbook where needed. The scope name on each policy row is a link: a label with a flow opens its conversations in Communication, a flow opens the flow page. Agent names in the passport table open the agent.
 3. On each agent, set **Autonomy level** (**Manual — always ask**, **Approval — gated actions**, **Auto — act independently**, or **Workspace default**) and the tool allowlist. There are no per-tool autonomy overrides.
 4. **Ask first** creates a [decision](/docs/ai/decisions) card in the thread.
 
@@ -44,7 +44,7 @@ AI handling on conversations (Autonomous, Assisted, Manual) sits under the Messa
 1. When Messaging is on **Ask first**, every conversation is capped at **Assisted**: replies wait for approval.
 2. When Messaging is on **Deny**, every conversation is **Manual**.
 3. When Messaging is on **Allow**, the most specific AI handling setting applies.
-4. Pause autonomous replies, the circuit breaker, and action tags that always need review live under [AI handling](/docs/inbox/inbox-ai).
+4. Pause autonomous replies, the circuit breaker, and labels with a flow that always need review live under [AI handling](/docs/inbox/inbox-ai).
 
 ## What to do next
 

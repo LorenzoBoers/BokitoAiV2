@@ -16,8 +16,8 @@ import {
   MessageSquare,
   Plug,
   Settings,
+  Route,
   Users,
-  Workflow,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -69,7 +69,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   agenda: CalendarDays,
   team: Users,
   agents: Bot,
-  workstreams: Workflow,
+  workstreams: Route,
   knowledge: Brain,
   folders: FolderOpen,
   modules: Plug,

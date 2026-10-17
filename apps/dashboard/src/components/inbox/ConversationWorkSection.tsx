@@ -1,12 +1,16 @@
-import { ChevronDown, Sparkles } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, Sparkles } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
+import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import type { InboxThread, PatchThreadInput, ProposalItem } from '../../lib/inbox-api'
+import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { isInternalThread } from '../../lib/message-composer'
+import { openEntityPath } from '../../lib/open-entity'
 import { listCanvasesForThread, type ProjectCanvas } from '../../lib/project-canvas-api'
-import { queueThreadTriage } from '../../lib/signals-api'
+import { findNavRowPath, queueThreadTriage, type NavRow } from '../../lib/signals-api'
 import { CanvasShowcaseCard } from './ProposalItemPreview'
 import {
   DropdownMenu,
@@ -16,7 +20,7 @@ import {
 } from '../ui/dropdown-menu'
 import { SettingRow } from '../ui/entity-row'
 import { SectionLabel } from '../ui/section-label'
-import { controlChipClass } from '../ui/select'
+import { controlTextClass } from '../ui/select'
 import { ScheduleSection } from './ScheduleSection'
 import { ThreadCategory } from './ThreadCategory'
 import { ThreadTags } from './ThreadTags'
@@ -45,7 +49,16 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-const VALUE_BUTTON = controlChipClass
+const VALUE_BUTTON = controlTextClass
+const FolderIcon = ENTITY_ICONS.project
+
+type FolderChoice = { id: string; name: string; depth: number }
+
+function flattenFolders(rows: NavRow[], depth = 0): FolderChoice[] {
+  return rows.flatMap((row) =>
+    row.virtual ? [] : [{ id: row.id, name: row.name, depth }, ...flattenFolders(row.children ?? [], depth + 1)],
+  )
+}
 
 function canvasItem(row: ProjectCanvas, cadence: string, writingLabel: string): ProposalItem {
   const empty = Boolean(row.empty)
@@ -73,12 +86,20 @@ function canvasItem(row: ProjectCanvas, cadence: string, writingLabel: string): 
 export function ConversationWorkSection({ thread, saving = false, onPatch, onPlan, onScheduleChanged }: Props) {
   const { t } = useTranslation(['communication', 'nav'])
   const { token } = useAuth()
+  const { nav } = useCommunicationNav()
   const [ticketBump, setTicketBump] = useState(0)
   const [rereading, setRereading] = useState(false)
   const [canvases, setCanvases] = useState<ProjectCanvas[]>([])
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
   const internal = isInternalThread(thread)
+  const folders = flattenFolders(nav.projects)
+  const projectId = thread.projectId ?? null
+  const projectName = projectId
+    ? thread.folderPaths?.find((path) => path.projectId === projectId)?.label ||
+      findNavRowPath(nav.projects, projectId)?.map((row) => row.name).join(' / ') ||
+      t('tickets.project', { ns: 'nav' })
+    : t('tickets.noProject', { ns: 'nav' })
 
   useEffect(() => {
     let cancel = false
@@ -157,6 +178,68 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
       ) : null}
 
       <div className="divide-y divide-border/40">
+        <Row label={t('tickets.project', { ns: 'nav' })}>
+          <span className="inline-flex min-w-0 items-center gap-0.5">
+            {folders.length > 0 && onPatch ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    aria-label={t('tickets.project', { ns: 'nav' })}
+                    className={VALUE_BUTTON}
+                  >
+                    <FolderIcon size={12} className="shrink-0 text-text-muted" />
+                    <span className="truncate">{projectName}</span>
+                    <ChevronDown size={10} className="text-text-muted" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-72 w-56 overflow-y-auto">
+                  {folders.map((choice) => (
+                    <DropdownMenuItem
+                      key={choice.id}
+                      className="gap-2 text-xs"
+                      style={{ paddingLeft: 8 + choice.depth * 12 }}
+                      disabled={saving || projectId === choice.id}
+                      onSelect={() => {
+                        void onPatch({ projectId: choice.id })
+                        setTicketBump((n) => n + 1)
+                      }}
+                    >
+                      <FolderIcon size={12} className="text-text-muted" />
+                      {choice.name}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuItem
+                    className="text-xs text-text-secondary"
+                    disabled={saving || projectId === null}
+                    onSelect={() => {
+                      void onPatch({ projectId: null })
+                      setTicketBump((n) => n + 1)
+                    }}
+                  >
+                    {t('tickets.noProject', { ns: 'nav' })}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-text-heading">
+                <FolderIcon size={12} className="shrink-0 text-text-muted" />
+                <span className="truncate">{projectName}</span>
+              </span>
+            )}
+            {projectId ? (
+              <Link
+                to={openEntityPath({ type: 'project', id: projectId })}
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-accent"
+                aria-label={t('tickets.openProject', { ns: 'nav' })}
+                title={t('tickets.openProject', { ns: 'nav' })}
+              >
+                <ArrowUpRight size={12} />
+              </Link>
+            ) : null}
+          </span>
+        </Row>
         {internal ? null : (
           <>
             <Row label={t('sidePanel.priority', { defaultValue: 'Priority' })}>
@@ -214,7 +297,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
 
       <ThreadCategory
         signalId={String(thread.id)}
-        version={`${thread.ticket?.tagId ?? ''}|${thread.ticket?.status ?? ''}|${thread.ticket?.stage?.key ?? ''}|${thread.ticket?.projectId ?? ''}|${ticketBump}`}
+        version={`${thread.ticket?.tagId ?? ''}|${thread.ticket?.status ?? ''}|${thread.ticket?.stage?.key ?? ''}|${thread.projectId ?? ''}|${ticketBump}`}
       />
     </div>
   )

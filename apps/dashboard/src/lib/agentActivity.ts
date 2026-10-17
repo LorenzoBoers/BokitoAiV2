@@ -168,22 +168,31 @@ export {
   wakeOrbPulse,
 } from './bot-orb-motion'
 
+/** A tool has started, so the rest of the turn is work rather than a fresh think. */
+export function turnHasWork(turn: LiveTurn | null | undefined): boolean {
+  if (!turn) return false
+  return turn.entries.some((entry) => entry.type === 'activity' && entry.item.kind === 'work')
+}
+
 /** Derive orb face motion from the live turn (thinking / typing / working). */
 export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMotion {
   if (!turn?.active) return 'idle'
+  // Preparing-proposal uses its own meta line — keep idle there.
+  if (turnPreparesProposal(turn)) return 'idle'
   const blocks = liveBlocks(turn)
   const last = blocks[blocks.length - 1]
   if (last?.type === 'speech') return 'typing'
   if (last?.type === 'activity') {
     const running = last.items.filter((item) => item.status === 'running')
     if (running.some((item) => item.label === 'typing')) return 'typing'
-    if (running.some((item) => item.kind === 'think')) return 'thinking'
-    if (running.length > 0) return 'working'
+    if (running.some((item) => item.kind === 'work')) return 'working'
+  }
+  // Tools already ran: the next model call is still the job, not a new think.
+  if (turnHasWork(turn)) return 'working'
+  if (last?.type === 'activity' && last.items.some((item) => item.kind === 'think' && item.status === 'running')) {
+    return 'thinking'
   }
   if (Object.values(turn.thinking).some((text) => text.trim().length > 0)) return 'thinking'
-  // Match the “Nadenken” waiting label: face thinks while the model decides.
-  // Preparing-proposal uses its own meta line — keep idle there.
-  if (turnPreparesProposal(turn)) return 'idle'
   return 'thinking'
 }
 

@@ -50,8 +50,9 @@ export function folderScopeKey(leaf: HubLeaf): string {
   }
 }
 
-/** The sub-queue a folder opens on when clicked. */
+/** The sub-queue a folder opens on when clicked. Agents and channels always open Open. */
 export function resolveDefaultQueue(prefs: InboxFolderPrefs, leaf: HubLeaf): SubQueue {
+  if (leaf.type === 'agent' || leaf.type === 'channel' || leaf.type === 'project') return 'open'
   return prefs.channelDefaults[folderScopeKey(leaf)] ?? prefs.defaultQueue
 }
 

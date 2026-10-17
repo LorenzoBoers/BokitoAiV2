@@ -12,7 +12,7 @@ import {
   type AiHandlingScope,
 } from '../../lib/ai-handling'
 import { cn } from '../../lib/utils'
-import { controlChipClass } from '../ui/select'
+import { controlChipClass, controlTextClass } from '../ui/select'
 import { SettingRow } from '../ui/entity-row'
 import {
   DropdownMenu,
@@ -46,6 +46,8 @@ type Props = {
   /** Hide the settings link in the menu (already on the settings page). */
   hideSettingsLink?: boolean
   className?: string
+  /** Style of the closed chip control (`chip` bordered, `text` bare). */
+  triggerAppearance?: 'chip' | 'text'
   testId?: string
 }
 
@@ -168,6 +170,7 @@ function Chip({
   className,
   compact = false,
   title,
+  appearance = 'chip',
 }: {
   handling: AiHandling | null
   saving?: boolean
@@ -176,6 +179,7 @@ function Chip({
   className?: string
   compact?: boolean
   title?: string
+  appearance?: 'chip' | 'text'
 }) {
   const { t } = useTranslation('common')
   const mode = handling?.effective ?? 'assisted'
@@ -190,8 +194,8 @@ function Chip({
         data-testid={testId ?? 'ai-handling-chip'}
         data-mode={mode}
         className={cn(
-          controlChipClass,
-          handling?.own && AI_HANDLING_META[mode].tone === 'ai' && 'border-ai/30',
+          appearance === 'text' ? controlTextClass : controlChipClass,
+          appearance === 'chip' && handling?.own && AI_HANDLING_META[mode].tone === 'ai' && 'border-ai/30',
           className,
         )}
       >
@@ -226,6 +230,7 @@ export default function AiHandlingPicker({
   extraItems,
   hideSettingsLink,
   className,
+  triggerAppearance = 'chip',
   testId,
 }: Props) {
   const { t } = useTranslation('common')
@@ -270,6 +275,7 @@ export default function AiHandlingPicker({
         disabled={disabled}
         testId={testId}
         className={variant === 'chip' ? className : undefined}
+        appearance={triggerAppearance}
         title={sourceLine}
       />
       <ModeMenu

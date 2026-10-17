@@ -12,6 +12,7 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import UserPreference
 from app.services.language import platform_default_ui_language
+from app.services.operator_prefs import close_email_on_send
 from app.services.personal_agents import allowed_company_agents, get_user_preference
 from app.services.user_memory import clear_user_memory, delete_user_memory, list_user_memory
 
@@ -44,6 +45,8 @@ class PreferencesPatch(BaseModel):
     rail_hidden_defaults: list[str] | None = None
     # Communication sidebar: section order, hidden, collapsed, expanded leaves.
     sidebar: dict | None = None
+    # Personal: sending an email reply closes that conversation.
+    close_email_on_send: bool | None = None
 
 
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
@@ -208,6 +211,7 @@ async def get_my_preferences(
         "rail_pins": _rail_pins_state(stored),
         "rail_hidden_defaults": _rail_hidden_defaults_state(stored),
         "sidebar": _sidebar_state(stored),
+        "close_email_on_send": close_email_on_send(stored),
     }
 
 
@@ -284,6 +288,8 @@ async def patch_my_preferences(
         )
     if body.sidebar is not None:
         stored["sidebar"] = _sidebar_state({"sidebar": body.sidebar})
+    if body.close_email_on_send is not None:
+        stored["close_email_on_send"] = bool(body.close_email_on_send)
     auth.user.settings_json = json.dumps(stored)
     session.add(auth.user)
 
@@ -322,6 +328,7 @@ async def patch_my_preferences(
         "rail_pins": _rail_pins_state(stored),
         "rail_hidden_defaults": _rail_hidden_defaults_state(stored),
         "sidebar": _sidebar_state(stored),
+        "close_email_on_send": close_email_on_send(stored),
         "default_chat_agent_id": default_chat_agent_id,
     }
 

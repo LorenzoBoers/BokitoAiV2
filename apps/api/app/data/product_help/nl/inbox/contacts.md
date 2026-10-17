@@ -18,7 +18,7 @@ Iedereen die binnenkomt met een echte naam of adres landt hier. Open Contacten o
 
 1. Open een gesprek in [Communicatie](/docs/inbox/communication).
 2. Bij een bekende persoon klik je hun naam in het zijpaneel of de gespreksheader om hun contact te openen.
-3. Lees geschiedenis, laatst gezien en andere gesprekken, en spring terug naar het open werk. De lijst omvat alle kanalen: iemand die op de website chat en ook mailt vanaf hetzelfde adres toont één gecombineerde geschiedenis, elke rij met een kanaalicoon.
+3. Lees geschiedenis en andere gesprekken, en spring terug naar het open werk. In het zijpaneel staat het bedrijf op dezelfde regel als **Contact**. De lijst omvat alle kanalen: iemand die op de website chat en ook mailt vanaf hetzelfde adres toont één gecombineerde geschiedenis, elke rij met een kanaalicoon.
 4. Op het contact labelt **Tags** de persoon. Die tags gelden voor elk gesprek van dit contact (gestippelde chips **via contact** op het gesprek). Bedrijfstags tonen als gestippelde chips **via bedrijf**. Wijzigen herborgt elk gesprek. Boven de gesprekken toont **In mappen** elke map waarin die gesprekken landen. Klik op een map om die te openen. Bedrijven tonen dezelfde rij voor al hun mensen samen.
 
 Onbekende websitebezoekers blijven in het gesprek als **Websitebezoeker**. Ze hebben geen **Profiel** en staan niet onder Contacten tot ze het [vooraf-formulier](/docs/inbox/widget) van de widget invullen of je [het gesprek koppelt](#een-gesprek-aan-een-contact-koppelen).
@@ -38,7 +38,7 @@ De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppel
 ## Voeg iemand toe of start mail
 
 1. Open **Contacten**. Zoek op naam, adres of bedrijf. Filter status met **Alles**, **Goedgekeurd**, **In afwachting** of **Geblokkeerd**.
-2. Kies **Nieuw contact**. **E-mailadres** is verplicht. Vul **Volledige naam** in, optioneel **Bedrijf**, en daarna **Contact aanmaken**.
+2. Kies **Nieuw contact**. Er opent een dialoog. **E-mailadres** is verplicht. Vul **Volledige naam** in, optioneel **Bedrijf**, en daarna **Contact aanmaken**.
 3. Op **Profiel** vul je **Functie**, **Telefoon** en **Notities** in, en kies **Wijzigingen opslaan**. **Gesprek openen** springt naar het laatste thread. Start **E-mail schrijven** zodat uitgaande mail al geadresseerd is. **Verwijderen** ontkoppelt de persoon; gesprekken blijven.
 
 ## Groepeer mensen en bedrijven

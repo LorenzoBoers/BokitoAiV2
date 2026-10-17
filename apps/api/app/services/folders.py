@@ -27,7 +27,6 @@ from app.models.signal import (
     SignalEvent,
     SignalTag,
     SignalTagLink,
-    TagGroup,
 )
 
 FOLDER_DECISION_SOURCE = "folder"
@@ -125,7 +124,6 @@ class FolderCatalog:
     tenant_id: UUID
     folders: list[FilterSet]
     tags: dict[UUID, SignalTag]
-    groups: dict[UUID, TagGroup]
 
     def __post_init__(self) -> None:
         self.by_id: dict[UUID, FilterSet] = {f.id: f for f in self.folders}
@@ -137,30 +135,10 @@ class FolderCatalog:
         return tag.name if tag else ""
 
     def sorted_tag_ids(self, tag_ids: Iterable[UUID]) -> list[UUID]:
-        """Stable display order: exclusive group tags first (name desc for years), then alpha."""
-
-        def key(tid: UUID) -> tuple:
-            tag = self.tags.get(tid)
-            name = (tag.name if tag else "").lower()
-            group = self.groups.get(tag.group_id) if tag and tag.group_id else None
-            exclusive = 0 if group and group.exclusive else 1
-            # Years / exclusive dimensions: reverse alpha so 2026 before 2025.
-            direction = -1 if exclusive == 0 else 1
-            return (exclusive, direction * hash(name) if False else name if exclusive else "".join(reversed(name)), name)
-
-        # Simpler: exclusive groups first sorted by name descending, then rest ascending.
-        exclusive_ids: list[UUID] = []
-        other: list[UUID] = []
-        for tid in tag_ids:
-            tag = self.tags.get(tid)
-            group = self.groups.get(tag.group_id) if tag and tag.group_id else None
-            if group and group.exclusive:
-                exclusive_ids.append(tid)
-            else:
-                other.append(tid)
-        exclusive_ids.sort(key=lambda t: self.tag_name(t).lower(), reverse=True)
-        other.sort(key=lambda t: self.tag_name(t).lower())
-        return exclusive_ids + other
+        """Stable display order: label name, ascending."""
+        unique = list(dict.fromkeys(tag_ids))
+        unique.sort(key=lambda tid: self.tag_name(tid).lower())
+        return unique
 
 
 def matches(folder: FilterSet, effective: Iterable[UUID]) -> bool:
@@ -328,18 +306,12 @@ async def load_catalog(session: AsyncSession, tenant_id: UUID) -> FolderCatalog:
             await session.execute(select(SignalTag).where(SignalTag.tenant_id == tenant_id))
         ).scalars()
     }
-    groups = {
-        g.id: g
-        for g in (
-            await session.execute(select(TagGroup).where(TagGroup.tenant_id == tenant_id))
-        ).scalars()
-    }
     by_project: dict[UUID, list[ProjectTagLink]] = {}
     for link in links:
         by_project.setdefault(link.project_id, []).append(link)
 
     folders: list[FilterSet] = []
-    catalog_proto = FolderCatalog(tenant_id=tenant_id, folders=[], tags=tags, groups=groups)
+    catalog_proto = FolderCatalog(tenant_id=tenant_id, folders=[], tags=tags)
     for project in projects:
         rows = sorted(by_project.get(project.id, []), key=lambda r: (r.sort_order, str(r.tag_id)))
         tag_ids = catalog_proto.sorted_tag_ids([r.tag_id for r in rows])
@@ -355,7 +327,7 @@ async def load_catalog(session: AsyncSession, tenant_id: UUID) -> FolderCatalog:
             )
         )
     folders.sort(key=lambda f: (f.sort_order, f.name.lower()))
-    return FolderCatalog(tenant_id=tenant_id, folders=folders, tags=tags, groups=groups)
+    return FolderCatalog(tenant_id=tenant_id, folders=folders, tags=tags)
 
 
 # Back-compat alias used by older call sites during the transition.

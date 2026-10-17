@@ -26,7 +26,7 @@ import type { GovernToolRow } from '../../lib/govern-api'
 import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import { threadStatusLabel } from '../../lib/status-labels'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { agentProfileAccentColor, resolveAgentAvatarColor, toAiAvatarProps } from '../../lib/agent-avatar'
 import { formatAgentModelLine } from '../../lib/model-label'
 import { agentChatPath } from '../../lib/messages-paths'
 import { withNavReveal } from '../../lib/nav-reveal'
@@ -38,7 +38,6 @@ import { ModelIcon } from '../ui/ModelIcon'
 import { SectionLabel } from '../ui/section-label'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { ConversationWorkSection } from './ConversationWorkSection'
-import { AgentActiveLine } from './IdentitySeenLine'
 import { timeAgo } from '../../lib/time-ago'
 import { useAgentLive, withAgentLive } from '../../hooks/useAgentPresence'
 
@@ -179,6 +178,8 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
   const workHref =
     agentId && presence === 'working' ? openEntityPath({ type: 'agent', id: agentId, live }) : agentId ? openEntityPath({ type: 'agent', id: agentId }) : null
   const summary = view?.current_activity_summary || live?.summary || null
+  const jobTitle = (view?.job_title || agent?.job_title || '').trim()
+  const jobColor = agentProfileAccentColor(resolveAgentAvatarColor(view?.avatar_color ?? agent?.avatar_color))
 
   return (
     <div className="flex flex-col">
@@ -215,8 +216,11 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
                 {view?.name || agent?.name || t('agentContext.workspaceAssistant')}
               </p>
             )}
-            <p className="mt-0.5 text-xs text-text-secondary">{t('agentContext.kindAiAgent')}</p>
-            <AgentActiveLine at={view?.last_active_at ?? agent?.last_active_at} working={presence === 'working'} />
+            {jobTitle ? (
+              <p className="mt-0.5 truncate-fade text-xs font-medium" style={{ color: jobColor }}>
+                {jobTitle}
+              </p>
+            ) : null}
             {summary ? (
               workHref && presence === 'working' ? (
                 <Link

@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { MessageSquare } from 'lucide-react'
+import { useTranslation, type TFunction } from 'react-i18next'
+import { Check } from 'lucide-react'
 import { AgentOptionRow } from '../ui/AgentOptionRow'
-import { Badge } from '../ui/badge'
-import { Button } from '../ui/button'
-import { talkToAssistantPath } from '../../lib/talk-to-assistant'
+import { AiAvatar } from '../ui/AiAvatar'
+import { agentProfileAccentColor, toAiAvatarProps } from '../../lib/agent-avatar'
 import type { IntegrationModuleRow } from '../../lib/integrations-api'
 import { cn } from '../../lib/utils'
 
@@ -15,6 +14,47 @@ type Props = {
   compact?: boolean
   className?: string
   onNavigate?: () => void
+  /** Changes when the showcase opens so the orb plays its entrance. */
+  spawnKey?: string | null
+}
+
+/** Persona shown on a module card and in the showcase. Unmarked hired orbs fall back to the template. */
+export function moduleSpecialistVisual(module: IntegrationModuleRow, moduleName: string, t: TFunction) {
+  const agentId = module.specialist_agent_id
+  const template = module.package?.agent_template
+  const hiredName = (module.specialist_agent_name || '').trim()
+  const genericHired =
+    !hiredName ||
+    / specialist$/i.test(hiredName) ||
+    ['Noor Vale', 'Kas Lind', 'Jules Hart', 'Ada Quill', 'Vale', 'Kas', 'Vega', 'Finny', 'Stocko', 'Quill', 'Audito'].includes(hiredName)
+  const agentName = genericHired
+    ? t(`integrations.modules.showcase.personas.${module.slug}.name`, {
+        defaultValue: template?.name || `${moduleName} specialist`,
+      })
+    : hiredName
+  const jobTitle = t(`integrations.modules.showcase.personas.${module.slug}.title`, {
+    defaultValue: template?.job_title || t('integrations.modules.showcase.specialistBadge', { defaultValue: 'Specialist' }),
+  })
+  const uspRaw = t(`integrations.modules.showcase.personas.${module.slug}.usps`, {
+    returnObjects: true,
+    defaultValue: [],
+  })
+  const usps = Array.isArray(uspRaw) ? uspRaw.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : []
+  const unmarkedDefault =
+    !module.specialist_avatar_image_url &&
+    (module.specialist_avatar_shape || 'bokito') === 'bokito' &&
+    (module.specialist_avatar_color || '#9159fe').toLowerCase() === '#9159fe'
+  const avatar = {
+    id: agentId || module.slug,
+    name: agentName,
+    avatar_kind: unmarkedDefault ? 'orb' : module.specialist_avatar_kind || 'orb',
+    avatar_icon: unmarkedDefault ? null : module.specialist_avatar_icon,
+    avatar_color: unmarkedDefault ? template?.avatar_color : module.specialist_avatar_color || template?.avatar_color,
+    avatar_shape: unmarkedDefault ? template?.avatar_shape : module.specialist_avatar_shape || template?.avatar_shape,
+    avatar_image_url: module.specialist_avatar_image_url,
+  }
+  const titleColor = agentProfileAccentColor(avatar.avatar_color || '#9159fe')
+  return { agentId, agentName, jobTitle, usps, avatar, titleColor }
 }
 
 /** Shared specialist ownership strip for Connections cards and showcase modal. */
@@ -24,120 +64,71 @@ export function ModuleSpecialistCallout({
   compact = false,
   className,
   onNavigate,
+  spawnKey = null,
 }: Props) {
   const { t } = useTranslation('nav')
-  const agentId = module.specialist_agent_id
-  const agentName =
-    module.specialist_agent_name ||
-    module.package?.agent_template?.name ||
-    t('integrations.modules.showcase.specialistFallback', {
-      defaultValue: '{{name}} specialist',
-      name: moduleName,
-    })
-  const blurb =
-    module.package?.agent_template?.role_blurb ||
-    t('integrations.modules.showcase.specialistBlurb', {
-      defaultValue:
-        'Owns this module tools, packaged hashtags and setup. Invite them into a conversation with @.',
-    })
-  const talkPrefill = t('integrations.modules.showcase.talkPrefill', {
-    defaultValue: 'Help me use {{name}}. What can you do, and what should we set up next?',
-    name: moduleName,
-  })
-  const talkPath = agentId
-    ? talkToAssistantPath(talkPrefill, agentId)
-    : talkToAssistantPath(talkPrefill)
+  const { agentId, agentName, jobTitle, usps, avatar, titleColor } = moduleSpecialistVisual(module, moduleName, t)
 
   if (compact) {
-    if (!agentId && !module.has_managed_specialist) {
-      return (
-        <p className={cn('text-xs text-text-muted', className)}>
-          {t('integrations.modules.showcase.specialistOnInstall', {
-            defaultValue: 'Install hires a specialist for this module',
-          })}
-        </p>
-      )
-    }
     return (
       <div className={cn('flex min-w-0 items-center gap-2', className)}>
-        <AgentOptionRow
-          agent={{
-            id: agentId || module.slug,
-            name: agentName,
-            avatar_kind: module.specialist_avatar_kind,
-            avatar_icon: module.specialist_avatar_icon,
-            avatar_color: module.specialist_avatar_color,
-            avatar_shape: module.specialist_avatar_shape,
-            avatar_image_url: module.specialist_avatar_image_url,
-          }}
-          size={18}
-        />
-        <Badge variant="neutral" className="shrink-0 px-1.5 py-0 text-2xs">
-          {t('integrations.modules.showcase.specialistBadge', { defaultValue: 'Specialist' })}
-        </Badge>
+        <AgentOptionRow agent={avatar} size={18} />
+        <span className="shrink-0 text-2xs" style={{ color: titleColor }}>
+          {jobTitle}
+        </span>
       </div>
     )
   }
 
-  return (
-    <section
-      className={cn(
-        'space-y-3 rounded-lg border border-border/60 bg-bg-muted/15 px-3 py-3',
-        className,
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="text-2xs font-semibold uppercase tracking-wide text-text-muted">
-            {t('integrations.modules.showcase.specialist', {
-              defaultValue: 'Module specialist',
-            })}
-          </h3>
-          {agentId ? (
-            <Link
-              to={`/agents/${agentId}`}
-              onClick={onNavigate}
-              className="block min-w-0 hover:opacity-90"
-            >
-              <AgentOptionRow
-                agent={{
-                  id: agentId,
-                  name: agentName,
-                  avatar_kind: module.specialist_avatar_kind,
-                  avatar_icon: module.specialist_avatar_icon,
-                  avatar_color: module.specialist_avatar_color,
-                  avatar_shape: module.specialist_avatar_shape,
-                  avatar_image_url: module.specialist_avatar_image_url,
-                }}
-                size={22}
-                trailing={
-                  <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
-                    {t('integrations.modules.showcase.specialistBadge', {
-                      defaultValue: 'Specialist',
-                    })}
-                  </Badge>
-                }
-              />
-            </Link>
-          ) : (
-            <p className="text-sm font-medium text-text-heading">{agentName}</p>
-          )}
-          <p className="text-xs leading-snug text-text-secondary">{blurb}</p>
-        </div>
-        <Button asChild size="sm" variant={agentId ? 'secondary' : 'outline'}>
-          <Link to={talkPath} onClick={onNavigate} className="gap-1.5">
-            <MessageSquare size={13} aria-hidden />
-            {agentId
-              ? t('integrations.modules.showcase.talkSpecialist', {
-                  defaultValue: 'Talk to {{name}}',
-                  name: agentName,
-                })
-              : t('integrations.modules.showcase.talkAfterInstall', {
-                  defaultValue: 'Talk after install',
-                })}
-          </Link>
-        </Button>
+  const identity = (
+    <div className="min-w-0 space-y-1 pt-1">
+      <p className="truncate-fade text-2xl font-semibold tracking-tight text-text-heading">{agentName}</p>
+      <p className="text-sm font-medium" style={{ color: titleColor }}>
+        {jobTitle}
+      </p>
+    </div>
+  )
+
+  const portrait = (
+    <div className="flex min-w-0 items-center justify-center gap-4">
+      <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
+        <span
+          aria-hidden
+          className="specialist-glow pointer-events-none absolute inset-[-22%] rounded-full blur-2xl"
+          style={{ backgroundColor: titleColor }}
+        />
+        <AiAvatar
+          {...toAiAvatarProps(avatar)}
+          size={120}
+          mode="live"
+          decorative
+          spawnKey={spawnKey}
+          className="relative z-[1]"
+        />
       </div>
+      {agentId ? (
+        <Link to={`/agents/${agentId}`} onClick={onNavigate} className="min-w-0 hover:opacity-90">
+          {identity}
+        </Link>
+      ) : (
+        identity
+      )}
+    </div>
+  )
+
+  return (
+    <section className={cn('grid items-center gap-x-6 gap-y-4 sm:grid-cols-2', className)}>
+      {portrait}
+      {usps.length > 0 ? (
+        <ul className="space-y-2">
+          {usps.map((item) => (
+            <li key={item} className="flex items-start gap-2 text-sm text-text-secondary">
+              <Check size={15} className="mt-0.5 shrink-0" style={{ color: titleColor }} aria-hidden />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   )
 }

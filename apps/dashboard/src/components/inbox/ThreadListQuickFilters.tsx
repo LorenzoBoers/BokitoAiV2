@@ -172,6 +172,7 @@ export default function ThreadListQuickFilters({
               'h-8 w-full rounded-md border border-border/70 bg-bg-surface pl-8 pr-8 text-sm text-text-primary',
               'placeholder:text-text-muted/80',
               'outline-none transition-colors focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',
+              '[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:[-webkit-appearance:none] [&::-webkit-search-decoration]:hidden',
               !setSearch && 'opacity-60',
             )}
           />

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
 import { normalizeHashtag } from '../../lib/hashtag'
-import { listSignalTags, type SignalTag } from '../../lib/signals-api'
+import { listSignalTags, type LabelColor, type SignalTag } from '../../lib/signals-api'
 import {
   createCategory,
   fileTicket,
@@ -25,6 +25,7 @@ import {
 } from '../ui/dialog'
 import { Hashtag } from '../ui/HashtagMark'
 import { TagSetPicker } from '../ui/TagSetPicker'
+import { TagPill } from '../ui/TagPill'
 import { TicketFieldControl } from './TicketFieldControl'
 
 type Phase = 'pick' | 'create' | 'intake' | 'replace'
@@ -165,8 +166,8 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
           workstreamId: created.workstream_id,
           workstreamName: created.workstream_name ?? created.name,
           showInNav: created.show_in_nav,
-          groupId: created.group_id ?? null,
-          groupName: created.group_name ?? null,
+          color: '',
+          icon: '',
           folders: created.folders ?? [],
           aiAutoTag: true,
           sendMode: created.send_mode,
@@ -185,6 +186,11 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
     pending.intakeFields.every(
       (field) => !field.required || Boolean((fieldValues[field.key] || '').trim()),
     )
+
+  const markFor = (match: { name?: string; id?: string }) => {
+    const row = registry.find((tag) => (match.id ? tag.id === match.id : tag.name === match.name))
+    return { color: (row?.color ?? '') as LabelColor, icon: row?.icon }
+  }
 
   if (phase === 'pick') {
     return (
@@ -219,13 +225,28 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
           <>
             <DialogHeader>
               <DialogTitle>{t('tags.replaceTitle')}</DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="sr-only">
                 {t('tags.replaceBody', {
                   current: currentTicket?.name ?? '',
                   next: replaceNext.name,
                 })}
               </DialogDescription>
             </DialogHeader>
+            <div className="flex items-center justify-center gap-3 py-2">
+              <TagPill
+                names={currentTicket?.name ?? ''}
+                tone="action"
+                size="md"
+                {...markFor({ name: currentTicket?.name })}
+              />
+              <ArrowRight size={16} className="shrink-0 text-text-muted" aria-hidden />
+              <TagPill
+                names={replaceNext.name}
+                tone="action"
+                size="md"
+                {...markFor({ id: replaceNext.tagId })}
+              />
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setPhase('pick')}>
                 {t('tags.cancel')}

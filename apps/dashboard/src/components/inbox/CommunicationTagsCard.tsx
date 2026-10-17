@@ -48,7 +48,6 @@ export default function CommunicationTagsCard() {
       leaf: { type: 'tag', tag: row.name } as HubLeaf,
       label: `#${row.name}`,
     })),
-    ...nav.projects.map((row) => ({ leaf: { type: 'project', projectId: row.id } as HubLeaf, label: row.name })),
   ]
 
   const setGlobalDefault = useCallback(

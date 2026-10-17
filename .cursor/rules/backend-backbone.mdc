@@ -1,0 +1,43 @@
+---
+description: Keep product value in the API; dashboard, widget and mobile stay thin clients
+alwaysApply: true
+---
+
+# Backend is the backbone
+
+The dashboard, chat widget and mobile app render, collect input and navigate. Product behavior lives in `apps/api`. A competitor who reads the JS bundle or a list response should see outcomes and labels, not the recipe.
+
+## Value stays server-side
+
+Prompts, playbook step goals, scoring, routing, autonomy resolution, model backing, tool policy, ticket transitions, inbox view membership and inbox-rule promotion. Clients receive the result and the fields a screen needs to draw it.
+
+## Do
+
+- One API operation per operator action (close, ask, assign, file a ticket). The server owns the order of steps.
+- Add the service in `apps/api` first, then a thin call from the client.
+- List and visitor surfaces return display fields. `system_prompt`, step goals, tool input/output and thinking traces belong on an explicit edit screen or an operator-only channel.
+- Duplicate a rule in the client only as immediate feedback, and only when the server enforces the same rule and rejects the invalid state.
+- Streaming is transport. The client attaches to the session the server named; it does not decide floor, session start or soft yes/no.
+
+## Do not
+
+- Chain several API calls in a page or hook to encode a business process.
+- Copy thresholds, channel sets, stage graphs, slug tables or policy defaults into the bundle so they stay in sync with the API.
+- Return edit-only fields on a list, picker, marketplace or widget payload.
+- Put proprietary logic in `apps/dashboard/src/lib` (or the widget) that the API must mirror.
+
+## Allowed in the client
+
+- Layout, formatting, i18n, local preferences, accessibility.
+- Optimistic UI the server can reject.
+- Input checks that match a server rule, for instant feedback only.
+
+## Anti-patterns
+
+- Comments such as "Mirrors the API" next to a second copy of a predicate.
+- Hardcoded policy numbers used when the API omits a field.
+- A GET list that includes `system_prompt` or step goals because one edit screen also reads that endpoint.
+
+## Still client-side (do not extend)
+
+`thread-live.ts` list predicates, AI-handling default thresholds, managed model slug aliases, and composer `/ticket` / `/assign` matching. Move these to the API when you touch them. Do not add a third copy.

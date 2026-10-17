@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { toast } from 'sonner'
-import { toastMovedToBin } from '../lib/bin-toast'
+import { Plus, Search } from 'lucide-react'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { filtersetLocalNames, filtersetPlainLabel } from '../lib/folder-filter-tree'
 import { PageContent } from '../components/layout/PageContent'
@@ -16,21 +13,15 @@ import { Badge } from '../components/ui/badge'
 import { TagPill } from '../components/ui/TagPill'
 import { CreateFolderDialog } from '../components/folders/CreateFolderDialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { useWorkspace } from '../context/WorkspaceContext'
-import { projectHubPath } from '../lib/messages-paths'
-import { withNavReveal } from '../lib/nav-reveal'
-import { notifyFoldersChanged } from '../lib/folders-bus'
-import { deleteProject, listProjects, type ProjectRow } from '../lib/projects-api'
-import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
+import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { workspaceBrandName } from '../lib/tenant-branding'
 
 const FolderKanban = ENTITY_ICONS.project
-const MessageSquare = ENTITY_ICONS.conversation
 
 function stopCard(event: { stopPropagation: () => void }) {
   event.stopPropagation()
@@ -48,18 +39,9 @@ function displayName(project: ProjectRow): string {
   return 'Folder'
 }
 
-function ProjectCard({
-  project,
-  onDelete,
-  canManage,
-}: {
-  project: ProjectRow
-  onDelete: () => void
-  canManage: boolean
-}) {
+function ProjectCard({ project }: { project: ProjectRow }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
-  const threadsHref = withNavReveal(projectHubPath(project.id, 'open'))
   const openCount = project.open_count ?? 0
   const title = displayName(project)
 
@@ -116,47 +98,6 @@ function ProjectCard({
             </div>
           ) : null}
         </div>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              aria-label={t('projects.page.actionsFor', { name: title })}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal size={15} />
-            </Button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              align="end"
-              sideOffset={4}
-              className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <DropdownMenu.Item
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-secondary outline-none data-[highlighted]:bg-bg-hover"
-                onSelect={() => navigate(threadsHref)}
-              >
-                <MessageSquare size={14} />
-                {t('projects.page.openInCommunication')}
-              </DropdownMenu.Item>
-              {canManage ? (
-                <>
-                  <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                  <DropdownMenu.Item
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                    onSelect={onDelete}
-                  >
-                    <Trash2 size={14} />
-                    {t('projects.page.delete')}
-                  </DropdownMenu.Item>
-                </>
-              ) : null}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
       </div>
 
       <div className="mt-auto space-y-2 border-t border-border/50 pt-3">
@@ -173,13 +114,6 @@ function ProjectCard({
             </Badge>
           ) : null}
         </div>
-        <Link
-          to={threadsHref}
-          onClick={(event) => event.stopPropagation()}
-          className="text-xs text-text-muted hover:text-text-primary hover:underline"
-        >
-          {t('projects.page.openInCommunication')}
-        </Link>
       </div>
     </Card>
   )
@@ -197,10 +131,6 @@ export default function ProjectsPage() {
 
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
-
-  const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const widenedConnections = useProjectDeleteConnectionImpact(deleteTarget?.id ?? null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -246,22 +176,6 @@ export default function ProjectsPage() {
     next.delete('new')
     setSearchParams(next, { replace: true })
   }, [isAdmin, searchParams, setSearchParams])
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return
-    setDeleting(true)
-    try {
-      await deleteProject(deleteTarget.id, deleteTarget.name)
-      notifyFoldersChanged({ folderId: deleteTarget.id })
-      toastMovedToBin(t('projects.page.deleted'), navigate)
-      setDeleteTarget(null)
-      await load()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('projects.page.deleteError')))
-    } finally {
-      setDeleting(false)
-    }
-  }
 
   const visibleProjects = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -348,7 +262,7 @@ export default function ProjectsPage() {
               className="stagger-in"
               style={{ '--stagger': Math.min(index, 11) } as CSSProperties}
             >
-              <ProjectCard project={project} canManage={isAdmin} onDelete={() => setDeleteTarget(project)} />
+              <ProjectCard project={project} />
             </div>
           ))}
         </div>
@@ -359,24 +273,6 @@ export default function ProjectsPage() {
         onOpenChange={setCreateOpen}
         onCreated={(folderId) => navigate(`/folders/${folderId}`)}
       />
-
-      {deleteTarget ? (
-        <ConfirmDeleteDialog
-          title={t('projects.page.deleteTitle')}
-          itemLabel={t('projects.page.deleteItem')}
-          itemName={displayName(deleteTarget)}
-          impactText={
-            widenedConnections.length > 0
-              ? `${t('projects.page.deleteImpact')} ${t('projects.work.deleteWidensConnections', {
-                  names: widenedConnections.join(', '),
-                })}`
-              : t('projects.page.deleteImpact')
-          }
-          isDeleting={deleting}
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={confirmDelete}
-        />
-      ) : null}
 
       <PageRelatedLinks
         links={[

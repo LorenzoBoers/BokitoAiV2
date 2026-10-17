@@ -6,7 +6,13 @@
     "uploadPhoto": "Foto uploaden",
     "removePhoto": "Verwijderen",
     "removingPhoto": "Verwijderen...",
-    "photoHint": "Elke foto — we bijsnijden en verkleinen automatisch (JPG, PNG, GIF, WebP)",
+    "photoHint": "JPG, PNG, GIF of WebP. Je snijdt zelf bij voordat de foto wordt opgeslagen.",
+    "cropTitle": "Foto bijsnijden",
+    "cropHint": "Sleep de foto en zoom tot je in de cirkel staat. Losse formaten mogen; alleen de cirkel wordt bewaard.",
+    "cropZoom": "Zoom",
+    "cropZoomIn": "Inzoomen",
+    "cropZoomOut": "Uitzoomen",
+    "cropUse": "Foto gebruiken",
     "photoUpdated": "Profielfoto bijgewerkt",
     "photoRemoved": "Profielfoto verwijderd",
     "email": "E-mailadres",
@@ -28,15 +34,15 @@
     "cancelEdit": "Annuleren"
   },
   "signature": {
-    "title": "E-mailhandtekening",
-    "description": "Gebruikt wanneer een mailbox op ieders eigen handtekening staat, of wanneer die mailbox geen gedeelde template heeft. Placeholders zoals {{name}}, {{first_name}}, {{last_name}} en {{company}} worden bij verzenden vanuit je profiel ingevuld.",
-    "empty": "Bokito-tekststandaard: afsluiting, je naam, rol en contactgegevens.",
+    "title": "E-mail",
+    "description": "Je handtekening, en of een e-mailgesprek sluit als je verstuurt.",
+    "empty": "Bokito-standaard: je foto naast je naam, rol en contactgegevens. Zonder foto een cirkel met initialen.",
     "usingDefault": "Bokito-standaard",
     "add": "Handtekening aanpassen",
     "edit": "Handtekening bewerken",
     "saved": "Handtekening opgeslagen",
     "saveError": "Handtekening opslaan is niet gelukt.",
-    "editorContext": "Je persoonlijke handtekening. Gebruikt als de mailboxbron ieders eigen handtekening is, of als de mailbox-template leeg is. Laat leeg voor de Bokito-tekststandaard."
+    "editorContext": "Je persoonlijke handtekening. Gebruikt als de mailboxbron ieders eigen handtekening is, of als de mailbox-template leeg is. Laat leeg voor de Bokito-standaard met foto."
   },
   "language": {
     "title": "Taal",
@@ -45,6 +51,11 @@
     "dutch": "Nederlands",
     "english": "Engels",
     "saveError": "Taal is voor deze sessie gewijzigd, maar kon niet op je account worden opgeslagen."
+  },
+  "emailClose": {
+    "label": "Sluit e-mail bij versturen",
+    "hint": "Versturen sluit het e-mailgesprek. Het menu naast Versturen biedt nog Versturen en open laten. Chat en WhatsApp blijven open.",
+    "saveError": "Deze e-mailinstelling opslaan is niet gelukt."
   },
   "landing": {
     "title": "Startpagina",

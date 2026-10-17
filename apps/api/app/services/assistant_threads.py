@@ -266,10 +266,14 @@ async def context_thread_transcript(
         .order_by(SignalMessage.created_at)
     )
     lines: list[str] = []
+    from app.services.assistant_context import conversation_filing_brief
+
+    filing = await conversation_filing_brief(session, signal)
     header = (
         f"Thread: {signal.subject or '(no subject)'} | channel: {signal.channel} | "
         f"contact: {signal.contact_name or signal.contact_email or 'unknown'} | "
-        f"status: {signal.status}"
+        f"status: {signal.status}\n"
+        f"{filing}"
     )
     from app.services.signals import message_plain_text
 
@@ -323,8 +327,15 @@ async def signal_chat_history(
             continue
         role = m.role if m.role in ("user", "assistant") else "user"
         body = message_plain_text(m)
-        if not body:
+        try:
+            parsed_attachments = json.loads(m.attachments_json or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            parsed_attachments = []
+        attachments = [a for a in parsed_attachments if isinstance(a, dict)] if isinstance(parsed_attachments, list) else []
+        if not body and not attachments:
             continue
+        if not body:
+            body = "The operator attached an image."
         # Operator Ja/Nee bubbles: tell the model the choice already applied so
         # the continue-after-decision wake confirms instead of re-doing the work.
         try:
@@ -348,7 +359,7 @@ async def signal_chat_history(
                     "tool already ran. Confirm the outcome in one short message — do not "
                     "re-run the tool or ask again which item to change."
                 )
-        history.append({"role": role, "content": body})
+        history.append({"role": role, "content": body, **({"attachments": attachments} if role == "user" and attachments else {})})
 
     signal = await session.get(Signal, signal_id)
     if signal is None:
@@ -392,12 +403,18 @@ async def signal_chat_history(
         if transcript:
             intro = (
                 "[Context] The teammate brought you into this customer "
-                "conversation. Use it to ground your answers, and act on it "
-                "when that helps: look things up; propose the next customer "
-                "reply with suggest_thread_reply (teammate approves); leave a "
-                "team-only observation with post_internal_note (never as a "
-                "draft); or continue with the contact yourself via "
-                "take_over_conversation. Your chat here stays internal — do "
+                "conversation. The filing block lists this conversation's own "
+                "labels, labels inherited from the contact, the label that has a flow, and "
+                "the folder those tags resolve to. If a label or folder does not "
+                "fit the message, say so and correct this conversation's own free "
+                "labels with set_thread_tags before anything else. The folder name "
+                "is not proof of what the mail is. Look things up; propose a "
+                "customer reply with suggest_thread_reply when one is needed; "
+                "leave one team note with post_internal_note when colleagues need "
+                "context. When the teammate asks to tidy, reconcile the filing, "
+                "then close with close_thread or leave that one note. Do not file "
+                "a second no-reply card, and do not narrate the same message in a "
+                "card, a note, and a chat line. Your chat here stays internal — do "
                 "not use suggest_thread_reply for notes meant only for the team.\n"
             )
             if signal.session_state == "active":
@@ -411,14 +428,11 @@ async def signal_chat_history(
                     "draft it with suggest_thread_reply right away instead of "
                     "asking whether you should. When you only need to leave "
                     "context for colleagues, call post_internal_note with no "
-                    "signal_id (never pass this session's id). If the teammate "
-                    "only asked for a team note — especially on noreply or "
-                    "system mail — post the note and confirm briefly; do not "
-                    "also offer a customer draft. Never narrate tool errors; "
-                    "retry correctly in the same turn. When the work is done, "
-                    "call propose_session_checkout with a short summary of "
-                    "what you did and what you recommend — that closes the "
-                    "session. Do not ask the teammate to close it.\n"
+                    "signal_id (never pass this session's id). Never narrate "
+                    "tool errors; retry correctly in the same turn. When the "
+                    "work is done, call propose_session_checkout with a short "
+                    "summary of what you did and what you recommend — that "
+                    "closes the session. Do not ask the teammate to close it.\n"
                 )
             remaining = [
                 {"role": "user", "content": intro + transcript},

@@ -28,6 +28,8 @@ type Props = {
   className?: string
   textareaClassName?: string
   overlay?: React.ReactNode
+  /** Sits inside the border, above the text. Used for pasted images. */
+  header?: React.ReactNode
   /**
    * Optional styled mirror of `value` rendered behind the textarea (mention
    * pills etc.). Must produce the exact same text layout as the textarea:
@@ -90,7 +92,7 @@ function measureTextareaContentHeight(el: HTMLTextAreaElement): number {
 }
 
 export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function ComposerCard(
-  { mode, tone = 'default', value, className, textareaClassName, overlay, highlighter, children, aiFlashNonce, ...textareaProps },
+  { mode, tone = 'default', value, className, textareaClassName, overlay, header, highlighter, children, aiFlashNonce, ...textareaProps },
   forwardedRef,
 ) {
   const { t } = useTranslation('communication')
@@ -261,17 +263,20 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
             />
           </div>
         </Tip>
-        <Tip label={expanded ? t('composer.collapse') : t('composer.expand')}>
-          <button
-            type="button"
-            onClick={toggleExpand}
-            aria-label={expanded ? t('composer.collapse') : t('composer.expand')}
-            className="absolute right-2 top-1 rounded-md p-1 text-text-muted/50 opacity-0 transition-all group-hover/composer:opacity-100 group-focus-within/composer:opacity-100 hover:bg-bg-hover hover:text-text-primary"
-          >
-            {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
-          </button>
-        </Tip>
+        {mode === 'email' ? null : (
+          <Tip label={expanded ? t('composer.collapse') : t('composer.expand')}>
+            <button
+              type="button"
+              onClick={toggleExpand}
+              aria-label={expanded ? t('composer.collapse') : t('composer.expand')}
+              className="absolute right-2 top-1 rounded-md p-1 text-text-muted/50 opacity-0 transition-all group-hover/composer:opacity-100 group-focus-within/composer:opacity-100 hover:bg-bg-hover hover:text-text-primary"
+            >
+              {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+            </button>
+          </Tip>
+        )}
       </div>
+      {header ? <div className="mb-2">{header}</div> : null}
       <div className={cn(stacked ? 'flex flex-col gap-2' : 'flex items-end gap-2')}>
         <div className="relative min-w-0 w-full flex-1">
           {highlighter ? (

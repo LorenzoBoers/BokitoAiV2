@@ -190,7 +190,7 @@ async def test_resolve_default_uses_modern_layout(client, session_override):
         session_override, tenant.id, send_as="user", user_id=user.id, agent_id=agent.id
     )
     assert resolved is not None
-    assert "<img" not in resolved
+    assert 'role="presentation"' in resolved
     assert "border-left:2px solid" in resolved
     identity = (user.display_name or user.email).strip()
     assert identity in resolved

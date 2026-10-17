@@ -43,7 +43,7 @@ Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview sta
 
 ## Lees agentactiviteit
 
-1. Open **Agents** (of de rij **Activiteit** van een agent in Communicatie) voor de Activiteit-swimlane. Overview zelf houdt **Jij bent nodig** vooraan, daarna de secundaire contextblokken.
+1. Open **Agents** voor de Activiteit-swimlane. Overview zelf houdt **Jij bent nodig** vooraan, daarna de secundaire contextblokken.
 2. Scan resultaten, niet elke denkstap.
 3. Spring naar een gesprek of agent wanneer een rij follow-up vraagt. Zie [Agentactiviteit volgen](/docs/inbox/agent-runs).
 

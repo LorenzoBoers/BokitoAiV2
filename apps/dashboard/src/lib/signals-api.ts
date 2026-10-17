@@ -30,6 +30,7 @@ import type {
   ThreadParticipant,
   ThreadRoutingPolicy,
 } from './inbox-api'
+import { rememberTagMarks } from './tag-marks'
 import { parsePresenceStatus, type PresenceStatus } from './teams-api'
 
 // Signal is the only thread model (Phase 1 of the Bokito OS restructure);
@@ -172,8 +173,10 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   const payload = await apiGet<unknown>(appRoutes.signals.threadsQuery(params), token)
   const data = payload as Record<string, unknown>
   const itemsSource = Array.isArray(data.items) ? data.items : []
+  const outsideSource = Array.isArray(data.outside_items) ? data.outside_items : []
   return {
     items: itemsSource.map(normalizeThreadRow).filter((t): t is InboxThread => t !== null),
+    outsideItems: outsideSource.map(normalizeThreadRow).filter((t): t is InboxThread => t !== null),
     curPage: asNumber(data.curPage, filters.page ?? 1),
     itemsTotal: Number.isFinite(asNumber(data.itemsTotal, NaN)) ? asNumber(data.itemsTotal) : null,
     nextPage: data.nextPage != null ? asNumber(data.nextPage) : null,
@@ -294,6 +297,55 @@ export async function requestParticipantTurn(
     { agent_id: agentId, prompt, run },
     token,
   )
+}
+
+export type AskPrepareResult =
+  | { kind: 'decision'; messageId: string; action: string }
+  | {
+      kind: 'stream'
+      sessionId: string
+      talksDirect: boolean
+      agentId: string | null
+      session: ThreadSession | null
+    }
+
+/** Server decides soft yes/no, the floor chip and which session to stream. */
+export async function prepareThreadAsk(
+  token: string,
+  threadId: string,
+  body: {
+    text: string
+    agentId?: string | null
+    addressedAgentIds?: string[]
+    continuePending?: boolean
+    hasAttachments?: boolean
+  },
+): Promise<AskPrepareResult | null> {
+  const payload = await apiPost<Record<string, unknown>>(
+    appRoutes.signals.threadAsk(threadId),
+    {
+      text: body.text,
+      ...(body.agentId ? { agent_id: body.agentId } : {}),
+      addressed_agent_ids: body.addressedAgentIds ?? [],
+      continue_pending: Boolean(body.continuePending),
+      has_attachments: Boolean(body.hasAttachments),
+    },
+    token,
+  )
+  if (payload.kind === 'decision') {
+    const messageId = asString(payload.message_id)
+    if (!messageId) return null
+    return { kind: 'decision', messageId, action: asString(payload.action) || 'approve' }
+  }
+  const sessionId = asString(payload.session_id)
+  if (!sessionId) return null
+  return {
+    kind: 'stream',
+    sessionId,
+    talksDirect: payload.talks_direct === true,
+    agentId: asString(payload.agent_id) || null,
+    session: normalizeThreadSession(payload.session),
+  }
 }
 
 export async function startAgentSession(
@@ -665,8 +717,10 @@ export async function deleteSavedReply(token: string, replyId: string): Promise<
   await apiDelete<unknown>(appRoutes.signals.savedReply(replyId), token)
 }
 
-export async function deleteSignalThread(token: string, threadId: string): Promise<void> {
-  await apiDelete<unknown>(appRoutes.signals.threadDelete(threadId), token)
+export async function deleteSignalThread(token: string, threadId: string): Promise<string | null> {
+  const payload = await apiDelete<{ trash_id?: string }>(appRoutes.signals.threadDelete(threadId), token)
+  const id = payload && typeof payload === 'object' ? payload.trash_id : null
+  return typeof id === 'string' && id ? id : null
 }
 
 export async function markSignalThreadRead(token: string, threadId: string): Promise<InboxThread | null> {
@@ -960,7 +1014,21 @@ export async function deleteInboxRule(token: string, ruleId: string): Promise<vo
 }
 
 /** Design-system presets for free labels; empty uses the default free tone. */
-export type LabelColor = '' | 'neutral' | 'accent' | 'ai' | 'success' | 'warning' | 'info'
+export type LabelColor =
+  | ''
+  | 'neutral'
+  | 'accent'
+  | 'ai'
+  | 'success'
+  | 'warning'
+  | 'info'
+  | 'rose'
+  | 'teal'
+  | 'violet'
+  | 'orange'
+  | 'emerald'
+  | 'pink'
+  | 'sky'
 
 export const LABEL_COLORS: LabelColor[] = [
   '',
@@ -970,14 +1038,23 @@ export const LABEL_COLORS: LabelColor[] = [
   'success',
   'warning',
   'info',
+  'rose',
+  'teal',
+  'violet',
+  'orange',
+  'emerald',
+  'pink',
+  'sky',
 ]
 
 export type SignalTag = {
   id: string
   name: string
   description: string
-  /** Design-system color preset for free labels. */
+  /** Flow-label hue. Free labels stay empty. */
   color: LabelColor
+  /** Lucide kebab id on a flow label. Empty uses the route mark. */
+  icon: string
   /** Conversations carrying the tag (as a link or as their category). */
   count: number
   /** Has a playbook: filing it makes the conversation a ticket. */
@@ -986,9 +1063,6 @@ export type SignalTag = {
   workstreamName: string | null
   /** Shown as a row in the Communication rail (workspace default). */
   showInNav: boolean
-  /** Tag group (a dimension such as Client or Region); null for loose tags. */
-  groupId: string | null
-  groupName: string | null
   /** Folders that carry this tag. Non-empty: the tag is a folder. */
   folders: TagFolderRef[]
   /** When false, triage does not offer or apply this tag. */
@@ -1004,16 +1078,6 @@ function normalizeLabelColor(raw: unknown): LabelColor {
 }
 
 export type TagFolderRef = { id: string; name: string; path: string; tagNames: string[] }
-
-export type TagGroup = {
-  id: string
-  name: string
-  slug: string
-  description: string
-  /** One tag of this group per conversation; the newest wins. */
-  exclusive: boolean
-  tagCount: number
-}
 
 function normalizeTagFolders(raw: unknown): TagFolderRef[] {
   if (!Array.isArray(raw)) return []
@@ -1043,38 +1107,31 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     name: row.name,
     description: typeof row.description === 'string' ? row.description : '',
     color: normalizeLabelColor(row.color),
+    icon: typeof row.icon === 'string' ? row.icon : '',
     count: typeof row.count === 'number' ? row.count : 0,
     isCategory: row.is_category === true,
     workstreamId: typeof row.workstream_id === 'string' ? row.workstream_id : null,
     workstreamName: typeof row.workstream_name === 'string' ? row.workstream_name : null,
     showInNav: row.show_in_nav === true,
-    groupId: typeof row.group_id === 'string' ? row.group_id : null,
-    groupName: typeof row.group_name === 'string' ? row.group_name : null,
     folders: normalizeTagFolders(row.folders),
     aiAutoTag: row.ai_auto_tag !== false,
     sendMode: row.send_mode === 'draft' || row.send_mode === 'ask' ? row.send_mode : 'send',
   }
 }
 
-function normalizeTagGroup(raw: unknown): TagGroup | null {
-  if (!raw || typeof raw !== 'object') return null
-  const row = raw as Record<string, unknown>
-  if (typeof row.id !== 'string' || typeof row.name !== 'string') return null
-  return {
-    id: row.id,
-    name: row.name,
-    slug: typeof row.slug === 'string' ? row.slug : '',
-    description: typeof row.description === 'string' ? row.description : '',
-    exclusive: row.exclusive === true,
-    tagCount: typeof row.tag_count === 'number' ? row.tag_count : 0,
-  }
-}
-
 export async function listSignalTags(token: string): Promise<SignalTag[]> {
   const payload = await apiGet<unknown>(appRoutes.signals.tags, token)
-  return (Array.isArray(payload) ? payload : [])
+  const tags = (Array.isArray(payload) ? payload : [])
     .map(normalizeSignalTag)
     .filter((tag): tag is SignalTag => tag !== null)
+  rememberTagMarks(
+    tags.map((tag) => ({
+      name: tag.name,
+      color: tag.isCategory ? tag.color : '',
+      icon: tag.isCategory ? tag.icon : '',
+    })),
+  )
+  return tags
 }
 
 export async function createSignalTag(
@@ -1083,8 +1140,8 @@ export async function createSignalTag(
     name: string
     description?: string
     color?: LabelColor
+    icon?: string
     showInNav?: boolean
-    groupId?: string | null
   },
 ): Promise<SignalTag | null> {
   const payload = await apiPost<unknown>(
@@ -1093,15 +1150,21 @@ export async function createSignalTag(
       name: input.name,
       description: input.description ?? '',
       color: input.color ?? '',
+      icon: input.icon ?? '',
       show_in_nav: input.showInNav ?? false,
-      group_id: input.groupId ?? null,
     },
     token,
   )
-  return normalizeSignalTag(payload)
+  const tag = normalizeSignalTag(payload)
+  if (tag) {
+    rememberTagMarks([
+      { name: tag.name, color: tag.isCategory ? tag.color : '', icon: tag.isCategory ? tag.icon : '' },
+    ])
+  }
+  return tag
 }
 
-/** Rename, describe, show or regroup a tag. Renaming onto an existing tag merges the two. */
+/** Rename, describe or show a tag. Renaming onto an existing tag merges the two. */
 export async function updateSignalTag(
   token: string,
   tagId: string,
@@ -1109,50 +1172,23 @@ export async function updateSignalTag(
     name?: string
     description?: string
     color?: LabelColor
+    icon?: string
     show_in_nav?: boolean
     ai_auto_tag?: boolean
-    group_id?: string | null
-    clear_group?: boolean
   },
 ): Promise<SignalTag | null> {
   const payload = await apiPatch<unknown>(appRoutes.signals.tag(tagId), patch, token)
-  return normalizeSignalTag(payload)
+  const tag = normalizeSignalTag(payload)
+  if (tag) {
+    rememberTagMarks([
+      { name: tag.name, color: tag.isCategory ? tag.color : '', icon: tag.isCategory ? tag.icon : '' },
+    ])
+  }
+  return tag
 }
 
 export async function deleteSignalTag(token: string, tagId: string): Promise<void> {
   await apiDelete(appRoutes.signals.tag(tagId), token)
-}
-
-export async function listTagGroups(token: string): Promise<TagGroup[]> {
-  const payload = await apiGet<unknown>(appRoutes.signals.tagGroups, token)
-  return (Array.isArray(payload) ? payload : [])
-    .map(normalizeTagGroup)
-    .filter((group): group is TagGroup => group !== null)
-}
-
-export async function createTagGroup(
-  token: string,
-  input: { name: string; description?: string; exclusive?: boolean },
-): Promise<TagGroup | null> {
-  const payload = await apiPost<unknown>(
-    appRoutes.signals.tagGroups,
-    { name: input.name, description: input.description ?? '', exclusive: input.exclusive ?? false },
-    token,
-  )
-  return normalizeTagGroup(payload)
-}
-
-export async function updateTagGroup(
-  token: string,
-  groupId: string,
-  patch: { name?: string; description?: string; exclusive?: boolean },
-): Promise<TagGroup | null> {
-  const payload = await apiPatch<unknown>(appRoutes.signals.tagGroup(groupId), patch, token)
-  return normalizeTagGroup(payload)
-}
-
-export async function deleteTagGroup(token: string, groupId: string): Promise<void> {
-  await apiDelete(appRoutes.signals.tagGroup(groupId), token)
 }
 
 /** Conversation list filters a rail row or deep link may set. */
@@ -1191,9 +1227,7 @@ export type NavRow = {
   tag_names?: string[]
   /** The tag the row stands for (a tag row, or a folder's tag). */
   tagId?: string | null
-  /** Group folder: one virtual child per tag in this group. */
-  groupId?: string | null
-  /** A group child without a pinned folder row: open with `project_id` + `path`. */
+  /** A cluster row without its own folder: open with `project_id` + `path`. */
   virtual?: boolean
   /** For virtual rows: the group folder that lists them. */
   projectId?: string | null
@@ -1253,7 +1287,6 @@ function normalizeNavRows(raw: unknown): NavRow[] {
           ? row.tag_names.filter((name): name is string => typeof name === 'string')
           : undefined,
         tagId: typeof row.tag_id === 'string' ? row.tag_id : null,
-        groupId: typeof row.group_id === 'string' ? row.group_id : null,
         virtual: row.virtual === true,
         projectId: typeof row.project_id === 'string' ? row.project_id : null,
       },

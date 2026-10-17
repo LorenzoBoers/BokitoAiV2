@@ -5,6 +5,7 @@ import {
   liveAttachResults,
   liveBlocks,
   shouldShowWaitingTurn,
+  turnHasWork,
   turnPreparesProposal,
   type LiveTurn,
 } from '../../lib/agentActivity'
@@ -329,7 +330,7 @@ export default function AgentTurnLive({
         ) : !entering && waiting ? (
           <div role="status" aria-live="polite">
             <ThreadMetaRow live ai>
-              {t('activity.thinking')}
+              {t(turnHasWork(turn) ? 'activity.working' : 'activity.thinking')}
             </ThreadMetaRow>
           </div>
         ) : null}

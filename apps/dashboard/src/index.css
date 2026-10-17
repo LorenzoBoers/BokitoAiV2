@@ -166,6 +166,35 @@
     background-color: rgb(var(--color-bg));
   }
 
+  /*
+   * Corner wash (Chrome profile screen). Large ellipses sit off the edges so
+   * the middle stays the page color. Tokens only: accent, ai, status-info.
+   */
+  .ambient-spotlights {
+    background-image:
+      radial-gradient(ellipse 92% 74% at -2% -4%, rgb(var(--color-accent) / 0.15), transparent 62%),
+      radial-gradient(ellipse 86% 68% at 104% -2%, rgb(var(--color-ai) / 0.12), transparent 64%),
+      radial-gradient(ellipse 80% 64% at 0% 104%, rgb(var(--color-status-info) / 0.11), transparent 62%),
+      radial-gradient(ellipse 72% 58% at 106% 106%, rgb(var(--color-ai) / 0.07), transparent 66%);
+  }
+
+  :root[data-theme='light'] .ambient-spotlights {
+    background-image:
+      radial-gradient(ellipse 92% 74% at -2% -4%, rgb(var(--color-accent) / 0.09), transparent 62%),
+      radial-gradient(ellipse 86% 68% at 104% -2%, rgb(var(--color-ai) / 0.07), transparent 64%),
+      radial-gradient(ellipse 80% 64% at 0% 104%, rgb(var(--color-status-info) / 0.06), transparent 62%),
+      radial-gradient(ellipse 72% 58% at 106% 106%, rgb(var(--color-ai) / 0.04), transparent 66%);
+  }
+
+  /* Specialist wash on a module card. Light paper makes the same color much louder. */
+  .specialist-glow {
+    opacity: 0.2;
+  }
+
+  :root[data-theme='light'] .specialist-glow {
+    opacity: 0.08;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -1415,12 +1444,14 @@
   .chat-tag-chip:hover {
     background: rgb(var(--color-bg-elevated));
   }
+  /* Action tags keep their TagPill wash; do not force accent green. */
   .chat-tag-chip[data-tag-kind='action_tag'] {
-    color: rgb(var(--color-text-heading));
-    background: rgb(var(--color-accent) / 0.12);
+    color: inherit;
+    background: transparent;
+    box-shadow: none;
   }
   .chat-tag-chip[data-tag-kind='action_tag']:hover {
-    background: rgb(var(--color-accent) / 0.18);
+    background: transparent;
   }
 
   /* Chips inside the operator's own (accent-filled) bubble. */
@@ -1509,6 +1540,25 @@
     color: rgb(var(--color-ai-ink));
     background: rgb(var(--color-ai) / 0.12);
     box-shadow: inset 0 0 0 1px rgb(var(--color-ai) / 0.3);
+  }
+
+  @keyframes composer-thumb-in {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .composer-thumb-in {
+    animation: composer-thumb-in 180ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .composer-thumb-in {
+      animation: none;
+    }
   }
 
   /* Brief cue when an AI draft lands in the composer (proposal or write-assist). */

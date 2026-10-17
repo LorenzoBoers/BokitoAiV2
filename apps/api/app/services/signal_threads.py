@@ -930,6 +930,65 @@ async def _signal_has_open_decision(
     return result.scalar_one_or_none() is not None
 
 
+# Peek size for search hits that miss the current queue or filters.
+_OUTSIDE_SEARCH_LIMIT = 12
+
+
+def _search_predicate(
+    session: AsyncSession,
+    tenant_id: UUID,
+    search: str,
+    *,
+    fts_param: str = "fts_query",
+):
+    """Match subject, contact, company, attachment name, or message text."""
+    like = f"%{search}%"
+    bind = getattr(session, "bind", None)
+    if bind is not None and bind.dialect.name == "postgresql":
+        body_pred = sa_text(
+            "to_tsvector('simple', coalesce(signal_messages.subject, '') || ' ' "
+            "|| coalesce(signal_messages.body_text, '')) "
+            f"@@ plainto_tsquery('simple', :{fts_param})"
+        ).bindparams(**{fts_param: search})
+    else:
+        body_pred = SignalMessage.body_text.ilike(like)
+    body_match = (
+        select(SignalMessage.id)
+        .where(
+            SignalMessage.signal_id == Signal.id,
+            SignalMessage.tenant_id == tenant_id,
+            body_pred,
+        )
+        .exists()
+    )
+    company_match = (
+        select(Contact.id)
+        .where(
+            Contact.id == Signal.contact_id,
+            Contact.tenant_id == tenant_id,
+            Contact.company.ilike(like),
+        )
+        .exists()
+    )
+    attachment_match = (
+        select(SignalMessage.id)
+        .where(
+            SignalMessage.signal_id == Signal.id,
+            SignalMessage.tenant_id == tenant_id,
+            SignalMessage.attachments_json.ilike(like),
+        )
+        .exists()
+    )
+    return (
+        Signal.subject.ilike(like)
+        | Signal.contact_email.ilike(like)
+        | Signal.contact_name.ilike(like)
+        | body_match
+        | company_match
+        | attachment_match
+    )
+
+
 def _visibility_predicate(visible_account_ids: set[UUID] | None):
     """Signal-level ACL clause; threads without an account stay visible."""
     if visible_account_ids is None:
@@ -1450,56 +1509,15 @@ async def list_threads(
         query = query.where(_exists_open_decision())
 
     if search:
-        like = f"%{search}%"
         # Message-body predicate: on Postgres use full-text search backed by
         # the expression GIN index from schema_patch (`ix_signal_messages_fts`,
         # expression must match verbatim); SQLite (tests) falls back to ILIKE.
-        bind = getattr(session, "bind", None)
-        if bind is not None and bind.dialect.name == "postgresql":
-            body_pred = sa_text(
-                "to_tsvector('simple', coalesce(signal_messages.subject, '') || ' ' "
-                "|| coalesce(signal_messages.body_text, '')) "
-                "@@ plainto_tsquery('simple', :fts_query)"
-            ).bindparams(fts_query=search)
-        else:
-            body_pred = SignalMessage.body_text.ilike(like)
         # EXISTS keeps the row set deduplicated and the planner free to use
         # the signal indexes.
-        body_match = (
-            select(SignalMessage.id)
-            .where(
-                SignalMessage.signal_id == Signal.id,
-                SignalMessage.tenant_id == tenant_id,
-                body_pred,
-            )
-            .exists()
-        )
-        company_match = (
-            select(Contact.id)
-            .where(
-                Contact.id == Signal.contact_id,
-                Contact.tenant_id == tenant_id,
-                Contact.company.ilike(like),
-            )
-            .exists()
-        )
-        attachment_match = (
-            select(SignalMessage.id)
-            .where(
-                SignalMessage.signal_id == Signal.id,
-                SignalMessage.tenant_id == tenant_id,
-                SignalMessage.attachments_json.ilike(like),
-            )
-            .exists()
-        )
-        query = query.where(
-            Signal.subject.ilike(like)
-            | Signal.contact_email.ilike(like)
-            | Signal.contact_name.ilike(like)
-            | body_match
-            | company_match
-            | attachment_match
-        )
+        query = query.where(_search_predicate(session, tenant_id, search))
+
+    # Snapshot before sort/page so a search can also peek past this scope.
+    scoped_query = query
 
     count_result = await session.execute(select(func.count()).select_from(query.subquery()))
     items_total = count_result.scalar_one()
@@ -1524,7 +1542,74 @@ async def list_threads(
     result = await session.execute(query)
     threads = list(result.scalars().all())
     threads.sort(key=lambda t: t.id not in pinned)
+    items = await _present_thread_rows(session, tenant_id, user_num, threads, pinned)
 
+    outside_items: list[dict[str, Any]] = []
+    if search and search.strip() and page == 1:
+        outside_rows = await _threads_outside_current_filters(
+            session,
+            tenant_id,
+            search,
+            scoped_query=scoped_query,
+            view=view,
+            visible_account_ids=visible_account_ids,
+        )
+        outside_items = await _present_thread_rows(
+            session, tenant_id, user_num, outside_rows, pinned
+        )
+
+    next_page = page + 1 if page * per_page < items_total else None
+    return {
+        "items": items,
+        "outside_items": outside_items,
+        "curPage": page,
+        "itemsTotal": items_total,
+        "nextPage": next_page,
+    }
+
+
+async def _threads_outside_current_filters(
+    session: AsyncSession,
+    tenant_id: UUID,
+    search: str,
+    *,
+    scoped_query,
+    view: str,
+    visible_account_ids: set[UUID] | None,
+) -> list[Signal]:
+    """Search hits that the current queue or filters leave out.
+
+    Same tenant and mailbox visibility as the list. Spam stays out unless
+    that queue is already open. The scoped query is everything the list
+    itself would return, so these rows are the wider peek.
+    """
+    from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
+    from app.services.trash import alive
+
+    wide = select(Signal).where(
+        Signal.tenant_id == tenant_id,
+        alive(Signal),
+        Signal.source != PERSONAL_THREAD_SOURCE,
+        _search_predicate(session, tenant_id, search, fts_param="fts_outside"),
+        ~Signal.id.in_(scoped_query.with_only_columns(Signal.id)),
+    )
+    acl = _visibility_predicate(visible_account_ids)
+    if acl is not None:
+        wide = wide.where(acl)
+    if view != "spam":
+        wide = wide.where(Signal.status != "spam")
+    wide = wide.order_by(Signal.last_message_at.desc()).limit(_OUTSIDE_SEARCH_LIMIT)
+    result = await session.execute(wide)
+    return list(result.scalars().all())
+
+
+async def _present_thread_rows(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_num: int,
+    threads: list[Signal],
+    pinned: set,
+) -> list[dict[str, Any]]:
     agent_ids = {t.agent_id for t in threads if t.agent_id}
     agents_by_id: dict[UUID, Agent] = {}
     if agent_ids:
@@ -1611,8 +1696,7 @@ async def list_threads(
                 schedule=schedule_payload(rules.get(t.id)),
             )
         )
-    next_page = page + 1 if page * per_page < items_total else None
-    return {"items": items, "curPage": page, "itemsTotal": items_total, "nextPage": next_page}
+    return items
 
 
 async def get_thread(
@@ -2630,7 +2714,7 @@ async def delete_thread(
         from app.services.trash import load_tenant, move_to_bin
 
         tenant = await load_tenant(session, tenant_id)
-        await move_to_bin(
+        return await move_to_bin(
             session,
             tenant,
             resource_type="conversation",
@@ -2639,7 +2723,6 @@ async def delete_thread(
             title=signal.subject,
             commit=commit,
         )
-        return True
     subject = signal.subject
     for model in (SignalMessage, SignalEvent, SignalThreadPin):
         rows = await session.execute(select(model).where(model.signal_id == signal_id))
@@ -2839,16 +2922,29 @@ async def reply_to_thread(
         return None
 
     routing_policy = None
+    was_closed = False
     if direction == "outbound":
         from app.models.auth import Tenant
         from app.services import ai_handling as handling_svc
 
         tenant = await session.get(Tenant, tenant_id)
         routing_policy = await handling_svc.routing_for_signal(session, tenant, signal)
+        # A reply on a closed conversation is the reopen (same as other
+        # inboxes). Close-after-reply only applies while the thread is open;
+        # an explicit send-and-close still stays closed.
+        was_closed = signal.status == "closed"
+        from app.models.auth import User
+        from app.services.operator_prefs import close_email_on_send
+
+        sender = await session.get(User, user_id)
+        personal_close = signal.channel == "email" and close_email_on_send(
+            sender.settings_json if sender else None
+        )
         if (
             action == "send"
             and not keep_open
-            and routing_policy.effective["close_after_human_reply"]
+            and not was_closed
+            and (routing_policy.effective["close_after_human_reply"] or personal_close)
         ):
             # Channel policy: a plain send closes the conversation; a new
             # customer message reopens it. The dashboard composer passes
@@ -3007,6 +3103,10 @@ async def reply_to_thread(
         signal.has_unread = True
         if snooze_minutes and snooze_minutes > 0:
             signal.next_at = datetime.utcnow() + timedelta(minutes=int(snooze_minutes))
+    reopened_by_reply = False
+    if direction == "outbound" and was_closed and action != "send_and_close" and signal.status == "closed":
+        signal.status = "open"
+        reopened_by_reply = True
     session.add(signal)
     session.add(
         SignalEvent(
@@ -3021,13 +3121,15 @@ async def reply_to_thread(
             ),
             actor_type="user",
             actor_id=str(user_id),
-            payload_json=json.dumps({"action": action}),
+            payload_json=json.dumps(
+                {"action": action, **({"reopened": True} if reopened_by_reply else {})}
+            ),
         )
     )
     await session.commit()
     await session.refresh(message)
     await publish_signal_message(signal, message)
-    if picked or action in ("send_and_close", "send_and_pending"):
+    if picked or reopened_by_reply or action in ("send_and_close", "send_and_pending"):
         # Status or owner changed alongside the reply; widget conversations also need
         # the visitor-safe status event (e.g. to show the CSAT prompt).
         await publish_thread_update(signal)

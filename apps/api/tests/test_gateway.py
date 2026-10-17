@@ -137,7 +137,7 @@ async def test_signal_message_publish_reaches_thread_subscribers(client, session
     assert frame["data"]["message"]["body_text"] == "hello"
     # Events carry the canonical REST thread row so clients can upsert directly.
     assert frame["data"]["thread"]["id"] == str(signal.id)
-    assert frame["data"]["audience"] == "all"
+    assert frame["data"]["audience"] == "operator"
 
 
 async def _seed_thread(session, *, kind: str, body: str):
@@ -202,13 +202,17 @@ async def test_message_event_carries_canonical_payloads(client, session_override
     assert list_frame["data"]["audience"] == "operator"
     assert list_frame["data"]["thread"] == serialize_thread(signal)
     assert "body_text" not in list_frame["data"]["message"]  # preview only
-    assert full_frame["data"]["audience"] == "all"
+    assert full_frame["data"]["audience"] == "operator"
     assert full_frame["data"]["message"] == serialize_message(message)
 
-    # Widget: only the customer-visible full message frame; the operator list
-    # feed never reaches visitor connections.
+    # Widget: visitor body only. No trace, html or operator list row.
     assert len(widget_ws.frames) == 1
-    assert widget_ws.frames[0]["data"]["message"]["body_text"] == "Waar blijft mijn order?"
+    visitor = widget_ws.frames[0]["data"]
+    assert visitor["audience"] == "visitor"
+    assert visitor["message"]["body_text"] == "Waar blijft mijn order?"
+    assert "body_html" not in visitor["message"]
+    assert "activity" not in visitor["message"]
+    assert "thread" not in visitor
 
 
 async def test_internal_notes_never_reach_widget_connections(client, session_override):

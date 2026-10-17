@@ -6,6 +6,7 @@ import type { TeamMemberRef } from '../../lib/teams-api'
 import { BrandMark } from '../integrations/BrandMark'
 import { AiAvatar } from './AiAvatar'
 import { HashtagMark } from './HashtagMark'
+import { FLOW_LABEL_COLOR, FLOW_LABEL_ICON, labelMarkIcon, labelMarkInk } from './label-marks'
 import { TeamFacepile } from './TeamFacepile'
 import { UserAvatar } from './UserAvatar'
 import { cn } from '../../lib/utils'
@@ -83,13 +84,26 @@ export function ChoiceMark({ item, size = 18 }: { item: ChoiceItem; size?: numbe
     return <TeamFacepile team={{ ...team, name: team.name ?? item.label }} size={size} linkAgents={false} />
   }
   if (item.kind === 'tag') {
+    if (item.category) {
+      const Mark = labelMarkIcon(FLOW_LABEL_ICON)
+      const ink = labelMarkInk(FLOW_LABEL_COLOR)
+      return (
+        <span
+          className="inline-flex shrink-0 items-center justify-center"
+          style={{ width: size, height: size, color: ink?.ink }}
+          aria-hidden
+        >
+          {Mark ? <Mark size={Math.max(10, Math.round(size * 0.7))} /> : null}
+        </span>
+      )
+    }
     return (
       <span
         className="inline-flex shrink-0 items-center justify-center"
         style={{ width: size, height: size }}
         aria-hidden
       >
-        <HashtagMark category={item.category} />
+        <HashtagMark />
       </span>
     )
   }

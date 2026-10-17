@@ -2,9 +2,14 @@ import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
 import { filtersetLabel } from '../../lib/folder-filter-tree'
 import { openEntityPath } from '../../lib/open-entity'
+import type { LabelColor } from '../../lib/signals-api'
+import { clearTicket } from '../../lib/tickets-api'
+import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { useConfirm } from '../ui/confirm-dialog'
 import { TagPill } from '../ui/TagPill'
 import { HashtagPickerModal } from './HashtagPickerModal'
 
@@ -25,6 +30,7 @@ const VISIBLE_CAP = 4
 export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }: Props) {
   const { t } = useTranslation('communication')
   const navigate = useNavigate()
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const tags = thread.tags ?? []
@@ -37,6 +43,36 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
 
   const save = (next: string[]) => (onPatch ? onPatch({ tags: next }) : Promise.resolve())
 
+  const dropActionTag = async () => {
+    if (!actionTag) return
+    const name = actionTag.name
+    const ok = await confirm({
+      title: t('tags.unlinkActionTitle'),
+      description: (
+        <span className="flex flex-col items-start gap-3">
+          <span>{t('tags.unlinkActionBody')}</span>
+          <TagPill
+            names={name}
+            tone="action"
+            size="md"
+            color={(actionTag.color || '') as LabelColor}
+            icon={actionTag.icon}
+          />
+        </span>
+      ),
+      confirmLabel: t('tags.unlinkActionConfirmLabel'),
+      destructive: true,
+    })
+    if (!ok) return
+    try {
+      await clearTicket(String(thread.id))
+      if (tags.includes(name)) await save(tags.filter((other) => other !== name))
+      onTicketChanged?.()
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('tags.unlinkActionFailed')))
+    }
+  }
+
   type Slot = { key: string; node: ReactNode }
   const slots: Slot[] = []
 
@@ -44,13 +80,20 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
     slots.push({
       key: `action-${actionTag.name}`,
       node: (
-        <Link
-          to={openEntityPath({ type: 'tag', name: actionTag.name })}
-          title={t('tags.categoryLocked')}
-          className="no-underline"
-        >
-          <TagPill names={actionTag.name} tone="action" size="sm" />
-        </Link>
+        <span className="inline-flex">
+          <TagPill
+            names={actionTag.name}
+            tone="action"
+            size="sm"
+            color={(actionTag.color || '') as LabelColor}
+            icon={actionTag.icon}
+            disabled={saving}
+            title={t('tags.unlinkAction', { tag: actionTag.name })}
+            removeLabel={t('tags.unlinkAction', { tag: actionTag.name })}
+            onClick={() => navigate(openEntityPath({ type: 'tag', name: actionTag.name }))}
+            onRemove={onPatch ? () => void dropActionTag() : undefined}
+          />
+        </span>
       ),
     })
   }
@@ -65,7 +108,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
               : openEntityPath({ type: 'tag', name: path.tags[path.tags.length - 1] ?? '' })
           }
           title={filtersetLabel(path.tags)}
-          className="no-underline"
+          className="inline-flex items-center no-underline"
         >
           <TagPill names={path.tags} tone="set" size="sm" />
         </Link>
@@ -95,7 +138,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
         <Link
           to={openEntityPath({ type: 'tag', name: tag })}
           title={t('tags.viaContact')}
-          className="no-underline"
+          className="inline-flex items-center no-underline"
         >
           <TagPill names={tag} tone="inherited" size="sm" />
         </Link>
@@ -108,9 +151,9 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
 
   return (
     <>
-      <div className="flex min-w-0 flex-wrap items-center justify-start gap-1.5">
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5">
         {visible.map((slot) => (
-          <span key={slot.key}>{slot.node}</span>
+          <span key={slot.key} className="inline-flex items-center">{slot.node}</span>
         ))}
         {hiddenCount > 0 ? (
           <button
@@ -129,7 +172,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             onClick={() => setOpen(true)}
             aria-label={t('tags.add')}
             title={t('tags.add')}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-secondary ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-elevated hover:text-text-heading disabled:opacity-40"
+            className="inline-flex h-6 w-6 items-center justify-center text-text-muted transition-colors hover:text-accent disabled:opacity-40"
           >
             <Plus size={11} />
           </button>

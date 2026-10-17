@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
@@ -58,7 +59,7 @@ function partnerRows(applications: IntegrationApplication[], extraHostSlugs: str
 
 /**
  * Showcase modal for one business module from the Connections grid: what it
- * does, which partners it runs on, specialist ownership, tools, labels, setup.
+ * does, which partners it runs on, specialist ownership, tools and labels.
  */
 export function ModuleShowcaseModal({
   open,
@@ -68,6 +69,14 @@ export function ModuleShowcaseModal({
   onAction,
 }: Props) {
   const { t } = useTranslation('nav')
+  const [spawnKey, setSpawnKey] = useState<string | null>(null)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const moduleSlug = module?.slug ?? null
+  useEffect(() => {
+    if (!open || !moduleSlug) return
+    setSpawnKey(`full-${moduleSlug}-${Date.now()}`)
+    setToolsOpen(false)
+  }, [open, moduleSlug])
   if (!module) return null
 
   const name = t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })
@@ -84,9 +93,6 @@ export function ModuleShowcaseModal({
   const installed = moduleIsOn(module)
   const planned = module.planned_provider_slugs ?? []
   const partners = partnerRows(applications, planned)
-  const setupSteps = (module.setup_steps ?? []).map((step, index) =>
-    t(`integrations.modules.${module.slug}.setup.${index}`, { defaultValue: step }),
-  )
   const toolCards = resolveModuleToolCards(module)
   const hasAttachedTools = (module.attached_mcp_tools ?? []).some((row) => row?.server_id)
   const showTools = toolCards.length > 0 || hasAttachedTools
@@ -158,6 +164,7 @@ export function ModuleShowcaseModal({
           <ModuleSpecialistCallout
             module={module}
             moduleName={name}
+            spawnKey={spawnKey}
             onNavigate={() => onOpenChange(false)}
           />
 
@@ -166,7 +173,7 @@ export function ModuleShowcaseModal({
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-2xs font-semibold uppercase tracking-wide text-text-muted">
                   {t('integrations.modules.showcase.partners', {
-                    defaultValue: 'Runs on',
+                    defaultValue: 'Works with',
                   })}
                 </h3>
                 <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
@@ -266,24 +273,32 @@ export function ModuleShowcaseModal({
                   })}
                 </p>
               ) : null}
-              <ModuleToolsetPanel module={module} compact />
-            </section>
-          ) : null}
-
-          {setupSteps.length > 0 ? (
-            <section className="space-y-3">
-              <h3 className="text-2xs font-semibold uppercase tracking-wide text-text-muted">
-                {t('integrations.modules.showcase.setup', {
-                  defaultValue: 'How to set it up',
-                })}
-              </h3>
-              <ol className="list-decimal space-y-1.5 pl-4 text-sm text-text-secondary">
-                {setupSteps.map((step) => (
-                  <li key={step} className="leading-snug">
-                    {step}
-                  </li>
-                ))}
-              </ol>
+              {toolCards.length > 0 ? (
+                <ul className="flex flex-wrap gap-1.5">
+                  {toolCards.map((card) => (
+                    <li
+                      key={`${card.kind}-${card.verb}`}
+                      className="rounded-md border border-border/60 px-2 py-1 text-xs text-text-secondary"
+                    >
+                      {t(`integrations.modules.tools.${module.slug}.${card.verb}.label`, {
+                        defaultValue: card.label,
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-auto px-0 text-xs"
+                onClick={() => setToolsOpen((open) => !open)}
+              >
+                {toolsOpen
+                  ? t('integrations.modules.showcase.toolsLess', { defaultValue: 'Hide details' })
+                  : t('integrations.modules.showcase.toolsMore', { defaultValue: 'Show details' })}
+              </Button>
+              {toolsOpen ? <ModuleToolsetPanel module={module} compact /> : null}
             </section>
           ) : null}
         </div>

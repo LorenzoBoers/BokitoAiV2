@@ -82,7 +82,10 @@ export interface ModulePackageInfo {
   playbooks: ModulePackagePlaybook[]
   agent_template?: {
     name: string
+    job_title?: string
     role_blurb: string
+    avatar_color?: string
+    avatar_shape?: string
   } | null
 }
 

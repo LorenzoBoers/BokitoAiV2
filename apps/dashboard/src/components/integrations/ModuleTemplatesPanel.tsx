@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Workflow } from 'lucide-react'
+import { Route } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
   installModuleTagTemplate,
@@ -84,7 +84,7 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
   return (
     <section>
       <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-text-primary">
-        <Workflow size={14} />
+        <Route size={14} />
         {t('integrations.modules.templates.title', { defaultValue: 'Flows & hashtags' })}
       </h3>
       <p className="mb-3 max-w-2xl text-xs text-text-muted">

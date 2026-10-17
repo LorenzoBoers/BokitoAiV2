@@ -10,6 +10,10 @@ type Props = {
   attachments: AttachmentLike[]
   onRemove?: (id: string) => void
   compact?: boolean
+  /** Inside the composer border: cropped thumbs in one horizontal row. */
+  placement?: 'thread' | 'composer'
+  /** Shown while a paste or file pick is still uploading. */
+  pending?: boolean
 }
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg|avif)(\?|#|$)/i
@@ -47,17 +51,90 @@ function LazyThumb({ url, name }: { url: string; name: string }) {
   return (
     <a ref={ref} href={url} target="_blank" rel="noreferrer" className="block">
       {show ? (
-        <img src={url} alt={name} loading="lazy" decoding="async" className="h-14 w-14 rounded object-cover" />
+        <img
+          src={url}
+          alt={name}
+          loading="lazy"
+          decoding="async"
+          className="max-h-52 max-w-full rounded-md object-contain"
+        />
       ) : (
-        <span className="block h-14 w-14 rounded bg-bg-hover/80" aria-hidden />
+        <span className="block h-24 w-36 rounded-md bg-bg-hover/80" aria-hidden />
       )}
     </a>
   )
 }
 
-export default function MessageAttachments({ attachments, onRemove, compact }: Props) {
+export default function MessageAttachments({
+  attachments,
+  onRemove,
+  compact,
+  placement = 'thread',
+  pending = false,
+}: Props) {
   const { t } = useTranslation('communication')
-  if (!attachments.length) return null
+  if (!attachments.length && !pending) return null
+
+  if (placement === 'composer') {
+    return (
+      <div className="flex gap-2 overflow-x-auto px-2 pb-0.5 pt-2 [scrollbar-width:thin]">
+        {attachments.map((att) => {
+          const name = att.name || 'file'
+          const isImage = isImageAttachment(att)
+          if (!isImage) {
+            return (
+              <div
+                key={att.id}
+                className="composer-thumb-in flex h-16 max-w-40 shrink-0 items-center gap-1.5 self-center rounded-lg border border-border/60 bg-bg-elevated px-2 text-xs shadow-sm"
+              >
+                <FileText size={14} className="shrink-0 text-text-muted" />
+                <span className="min-w-0 truncate-fade text-text-secondary">{name}</span>
+                {onRemove ? (
+                  <button
+                    type="button"
+                    onClick={() => onRemove(att.id)}
+                    className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                    aria-label={t('composer.removeAttachment', { name })}
+                  >
+                    <X size={12} />
+                  </button>
+                ) : null}
+              </div>
+            )
+          }
+          return (
+            <div key={att.id} className="group/thumb relative h-16 w-24 shrink-0">
+              <a
+                href={att.url}
+                target="_blank"
+                rel="noreferrer"
+                className="composer-thumb-in block h-full w-full overflow-hidden rounded-lg shadow-sm ring-1 ring-border/50"
+              >
+                <img src={att.url} alt={name} className="h-full w-full object-cover" />
+              </a>
+              {onRemove ? (
+                <button
+                  type="button"
+                  onClick={() => onRemove(att.id)}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg/70 text-text-heading opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur-sm transition-opacity duration-150 hover:bg-bg focus-visible:opacity-100 group-hover/thumb:opacity-100"
+                  aria-label={t('composer.removeAttachment', { name })}
+                >
+                  <X size={11} />
+                </button>
+              ) : null}
+            </div>
+          )
+        })}
+        {pending ? (
+          <span
+            className="h-16 w-24 shrink-0 animate-pulse rounded-lg bg-bg-hover/80 ring-1 ring-border/40"
+            aria-hidden
+          />
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div className={`flex flex-wrap gap-2 ${compact ? '' : 'mt-2'}`}>
       {attachments.map((att) => {
@@ -66,7 +143,11 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
         return (
           <div
             key={att.id}
-            className="relative flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/60 px-2 py-1.5 text-xs"
+            className={
+              isImage
+                ? 'relative overflow-hidden rounded-lg border border-border/60 bg-bg-elevated/60'
+                : 'relative flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/60 px-2 py-1.5 text-xs'
+            }
           >
             {isImage ? (
               <LazyThumb url={att.url} name={name} />
@@ -85,7 +166,11 @@ export default function MessageAttachments({ attachments, onRemove, compact }: P
               <button
                 type="button"
                 onClick={() => onRemove(att.id)}
-                className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                className={
+                  isImage
+                    ? 'absolute right-1 top-1 rounded-md bg-bg/80 p-0.5 text-text-primary hover:bg-bg'
+                    : 'rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                }
                 aria-label={t('composer.removeAttachment', { name })}
               >
                 <X size={12} />

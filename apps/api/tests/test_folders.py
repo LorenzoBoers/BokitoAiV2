@@ -104,15 +104,8 @@ async def test_nested_folders_resolve_to_the_deepest_path(client: AsyncClient, s
 async def test_group_folder_path_filter(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
-    group = (
-        await client.post("/api/signals/tags/groups", headers=headers, json={"name": "Klant", "exclusive": True})
-    ).json()
-    acme = (
-        await client.post("/api/signals/tags", headers=headers, json={"name": "acme", "group_id": group["id"]})
-    ).json()
-    beta = (
-        await client.post("/api/signals/tags", headers=headers, json={"name": "beta", "group_id": group["id"]})
-    ).json()
+    acme = (await client.post("/api/signals/tags", headers=headers, json={"name": "acme"})).json()
+    beta = (await client.post("/api/signals/tags", headers=headers, json={"name": "beta"})).json()
     clients = await _folder(client, headers, "Klanten", tags=["klanten"])
     facturen = await _folder(client, headers, "Facturen", tag="factuur", parent_id=clients["id"])
 
@@ -146,7 +139,27 @@ async def test_group_folder_path_filter(client: AsyncClient, session_override):
 
     await client.patch(f"/api/signals/{signal.id}", headers=headers, json={"tags": ["klanten", "acme", "beta"]})
     thread = await _thread(client, headers, signal.id)
-    assert "acme" not in thread["tags"] and "beta" in thread["tags"]
+    assert "acme" in thread["tags"] and "beta" in thread["tags"]
+
+
+@pytest.mark.asyncio
+async def test_folder_with_several_labels_matches_any(client: AsyncClient, session_override):
+    """One of the folder's labels is enough; the home folder still needs the full set."""
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    dev = await _folder(client, headers, "Development", tags=["bug", "feature"])
+    only_bug = await _signal(session_override, tenant.id, "Only bug")
+    await client.patch(f"/api/signals/{only_bug.id}", headers=headers, json={"tags": ["bug"]})
+    thread = await _thread(client, headers, only_bug.id)
+    assert thread["project_id"] != dev["id"]
+
+    listed = await client.get(f"/api/signals?view=all&project_id={dev['id']}", headers=headers)
+    assert listed.status_code == 200, listed.text
+    assert str(only_bug.id) in {row["id"] for row in listed.json()["items"]}
+
+    detail = await client.get(f"/api/folders/{dev['id']}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["open_count"] >= 1
 
 
 @pytest.mark.asyncio
@@ -269,23 +282,21 @@ async def test_contact_and_company_tag_routes_refile(client: AsyncClient, sessio
 
 @pytest.mark.asyncio
 async def test_ai_catalog_includes_group_and_folder_path(client: AsyncClient, session_override):
-    from app.services.signal_tags import ai_catalog_lines, create_group, update_tag
+    from app.services.signal_tags import ai_catalog_lines, update_tag
 
     headers = await _login(client)
     tenant = await _tenant(session_override)
     acme = await _folder(client, headers, "Acme", tags=["acme"])
-    group = await create_group(session_override, tenant.id, "Client", exclusive=True)
     await update_tag(
         session_override,
         tenant.id,
         UUID(acme["tag_ids"][0]),
-        group_id=group.id,
         ai_auto_tag=True,
         description="This client",
     )
 
     lines = await ai_catalog_lines(session_override, tenant.id)
-    assert any("#acme" in line and "acme" in line.lower() for line in lines)
+    assert any("acme" in line.lower() for line in lines)
 
 
 @pytest.mark.asyncio

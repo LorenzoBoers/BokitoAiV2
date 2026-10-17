@@ -23,7 +23,7 @@ De **Activiteit**-swimlane op [Agents](/docs/ai/agents) is de live werktijdlijn 
 
 ## Controleer het werklog van één agent
 
-1. Open de agent vanuit de bibliotheek, of kies **Activiteit** onder die agent in de Communicatie-rail.
+1. Open de agent vanuit de bibliotheek. De tijdlijn staat op die pagina.
 2. Op de agentpagina toont dezelfde swimlane alleen het werk van die agent. Je chats met de agent blijven in Communicatie onder zijn map.
 
 ## Open een run en beslis

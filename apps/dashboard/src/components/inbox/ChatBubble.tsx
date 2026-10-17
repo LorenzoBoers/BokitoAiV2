@@ -94,12 +94,15 @@ export function BubbleAction({
   onClick,
   disabled,
   active,
+  mailAction,
   children,
 }: {
   label: string
   onClick: () => void
   disabled?: boolean
   active?: boolean
+  /** Reply / reply-all / forward: a click here replaces the open mail view. */
+  mailAction?: boolean
   children: ReactNode
 }) {
   return (
@@ -108,6 +111,7 @@ export function BubbleAction({
       aria-label={label}
       title={label}
       disabled={disabled}
+      data-mail-action={mailAction ? '' : undefined}
       onClick={onClick}
       className={cn(
         'flex h-5 w-5 items-center justify-center rounded transition-colors disabled:opacity-40 [&_svg]:h-2.5 [&_svg]:w-2.5',

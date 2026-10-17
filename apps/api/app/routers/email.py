@@ -361,12 +361,36 @@ async def send_email(
     session.add(msg)
     signal.last_message_at = now
     signal.updated_at = now
+    from app.services.operator_prefs import close_email_on_send
+
+    closed_on_send = False
+    if close_email_on_send(auth.user.settings_json) and signal.status == "open":
+        from app.services.ai_handling import on_status_change
+
+        signal.status = "closed"
+        signal.has_unread = False
+        on_status_change(session, signal, actor_id=str(auth.user.id))
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=auth.tenant.id,
+                event_type="thread_updated",
+                actor_type="user",
+                actor_id=str(auth.user.id),
+                payload_json=json.dumps({"status": "closed", "via": "close_email_on_send"}),
+            )
+        )
+        closed_on_send = True
     await session.commit()
     await session.refresh(msg)
     from app.gateway.publish import publish_signal_message, publish_thread_update
 
     await publish_signal_message(signal, msg)
     await publish_thread_update(signal)
+    if closed_on_send:
+        from app.services.webhooks import emit_webhook_event, signal_event_data
+
+        await emit_webhook_event(session, auth.tenant.id, "signal.closed", signal_event_data(signal))
     return {
         "ok": True,
         "id": str(msg.id),

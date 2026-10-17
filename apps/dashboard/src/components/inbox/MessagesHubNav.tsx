@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import {
   DndContext,
   PointerSensor,
@@ -10,13 +10,12 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Activity, Inbox, Plus, Settings } from 'lucide-react'
+import { Activity, Inbox, Mail, Plus, Settings } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { openTeamRoom } from '../../lib/teams-api'
 import { asAgentStatus } from '../../lib/presence'
 import { useAgentLive, seedAgentPresence } from '../../hooks/useAgentPresence'
 import { NavSectionSkeleton } from '../ui/skeleton'
@@ -32,15 +31,17 @@ import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { NavFlashProvider } from '../../hooks/useNavReveal'
 import { CommunicationFlowsTree, FolderTagTree } from './FolderTagTree'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
+import { BRAND_ASSET_PATHS } from '../../lib/brand-assets'
+import type { EmailConnection } from '../../lib/email-api'
 import { countForInboxQueue, countForTeam } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
-  activityTerminalPath,
+  AGENT_SUB_QUEUES,
+  CHANNEL_SUB_QUEUES,
   inboxPath,
   leafFromPath,
   leafKey,
   newConversationPath,
-  teamPath,
   type HubLeaf,
   type InboxQueue,
   type SubQueue,
@@ -188,6 +189,32 @@ function ComposePlusLink({ to, label }: { to: string; label: string }) {
   )
 }
 
+const MAILBOX_LOGO: Partial<Record<EmailConnection['provider'], string>> = {
+  outlook: BRAND_ASSET_PATHS.outlook.logoUrl,
+  gmail: BRAND_ASSET_PATHS.google.logoUrl,
+  bokito: BRAND_ASSET_PATHS.bokito.logoUrl,
+}
+
+function MailboxMark({ provider, size = 14 }: { provider: EmailConnection['provider']; size?: number }) {
+  // SMTP/IMAP has no brand mark — use the same envelope as other plain mail.
+  if (provider === 'smtp_imap') {
+    return <Mail size={size} className="shrink-0 text-text-heading" aria-hidden />
+  }
+  const src = MAILBOX_LOGO[provider]
+  if (!src) {
+    return <Mail size={size} className="shrink-0 text-text-heading" aria-hidden />
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      className="shrink-0 object-contain"
+    />
+  )
+}
+
 type ChannelFolder = {
   leaf: HubLeaf
   label: string
@@ -237,7 +264,7 @@ function useConnectedChannelFolders(t: TFn): { folders: ChannelFolder[]; loading
       ...connections.map((conn) => ({
         leaf: { type: 'channel' as const, channelKey: 'email' as const, connectionId: String(conn.id) },
         label: mailboxDisplayLabel(conn.displayName, conn.mailboxEmail),
-        icon: <ChannelGlyph channel="email" size={14} />,
+        icon: <MailboxMark provider={conn.provider} size={14} />,
       })),
       ...(hasWidget
         ? [
@@ -277,13 +304,11 @@ function ChannelsSection({
   folders,
   loading,
   activeLeaf,
-  defaultQueueFor,
   t,
 }: {
   folders: ChannelFolder[]
   loading: boolean
   activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }) {
   return (
@@ -305,7 +330,8 @@ function ChannelsSection({
           icon={folder.icon}
           title={folder.title}
           activeLeaf={activeLeaf}
-          defaultQueue={defaultQueueFor(folder.leaf)}
+          defaultQueue="open"
+          queues={CHANNEL_SUB_QUEUES}
           headerAction={
             folder.leaf.type === 'channel' &&
             folder.leaf.channelKey === 'email' &&
@@ -330,12 +356,10 @@ function ChannelsSection({
 function AgentFolderRow({
   agent,
   activeLeaf,
-  defaultQueueFor,
   t,
 }: {
   agent: ChatTarget
   activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }) {
   const live = useAgentLive(agent.id)
@@ -343,7 +367,6 @@ function AgentFolderRow({
   const workHref =
     activity === 'working' ? openEntityPath({ type: 'agent', id: agent.id, live }) : null
   const baseLeaf: HubLeaf = { type: 'agent', agentId: agent.id }
-  const activityHref = activityTerminalPath(agent.id)
   return (
     <SidebarFolder
       baseLeaf={baseLeaf}
@@ -358,7 +381,8 @@ function AgentFolderRow({
         />
       }
       activeLeaf={activeLeaf}
-      defaultQueue={defaultQueueFor(baseLeaf)}
+      defaultQueue="open"
+      queues={AGENT_SUB_QUEUES}
       headerAction={
         <ComposePlusLink
           to={newConversationPath({ intent: 'agent', agentId: agent.id })}
@@ -375,44 +399,9 @@ function AgentFolderRow({
               </NavLink>
             </Tip>
           ) : null}
-          <Tip label={t('support.agents.activity')} side="right">
-            <NavLink to={activityHref} className="nav-row nav-sub-row h-[26px] text-xs">
-              <Activity size={12} className="shrink-0 text-text-muted" aria-hidden />
-              <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.activity')}</span>
-            </NavLink>
-          </Tip>
         </>
       }
     />
-  )
-}
-
-function TeamGroupChatRow({ teamId, t }: { teamId: string; t: TFn }) {
-  const { token } = useAuth()
-  const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
-  return (
-    <Tip label={t('support.teams.groupChatHint')} side="right">
-      <button
-        type="button"
-        disabled={busy || !token}
-        className="nav-row nav-sub-row h-[26px] text-xs font-medium text-accent"
-        onClick={async (event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          if (!token || busy) return
-          setBusy(true)
-          try {
-            const room = await openTeamRoom(token, teamId)
-            navigate(teamPath(teamId, 'open', room.id))
-          } finally {
-            setBusy(false)
-          }
-        }}
-      >
-        <span className="min-w-0 flex-1 truncate-fade text-left">{t('support.teams.groupChat')}</span>
-      </button>
-    </Tip>
   )
 }
 
@@ -420,13 +409,11 @@ function AgentsSection({
   agents,
   loading,
   activeLeaf,
-  defaultQueueFor,
   t,
 }: {
   agents: ChatTarget[]
   loading: boolean
   activeLeaf: HubLeaf | null
-  defaultQueueFor: (leaf: HubLeaf) => SubQueue
   t: TFn
 }) {
   useEffect(() => {
@@ -466,7 +453,6 @@ function AgentsSection({
           key={agent.id}
           agent={agent}
           activeLeaf={activeLeaf}
-          defaultQueueFor={defaultQueueFor}
           t={t}
         />
       ))}
@@ -613,7 +599,6 @@ export default function MessagesHubNav() {
         folders={channelFolders}
         loading={channelsLoading}
         activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
         t={t}
       />
     ),
@@ -622,7 +607,6 @@ export default function MessagesHubNav() {
         agents={companyAgents}
         loading={targetsLoading}
         activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
         t={t}
       />
     ),
@@ -649,7 +633,6 @@ export default function MessagesHubNav() {
               activeLeaf={activeLeaf}
               defaultQueue={defaultQueueFor(leaf)}
               badgeCount={countForTeam(counts, team.id)}
-              leading={<TeamGroupChatRow teamId={team.id} t={t} />}
             />
           )
         })}

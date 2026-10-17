@@ -734,6 +734,8 @@ export type ThreadFilters = {
 
 export type PagedThreadResult = {
   items: InboxThread[]
+  /** Search hits the current queue or filters leave out. Page 1 only. */
+  outsideItems: InboxThread[]
   curPage: number
   itemsTotal: number | null
   nextPage: number | null
@@ -1008,6 +1010,8 @@ export type ThreadTicket = {
   /** The category hashtag's id. */
   tagId: string
   name: string
+  color?: string
+  icon?: string
   status: TicketStatus
   stage: TicketStage | null
   projectId: string | null
@@ -1020,6 +1024,8 @@ function normalizeThreadTicket(raw: unknown): ThreadTicket | null {
   return {
     tagId: asString(row.tag_id),
     name: asString(row.name),
+    color: asString(row.color),
+    icon: asString(row.icon),
     status: (asString(row.status) || 'open') as TicketStatus,
     projectId: asNullableString(row.project_id),
     stage:
@@ -1030,6 +1036,7 @@ function normalizeThreadTicket(raw: unknown): ThreadTicket | null {
             kind: (asString(stage.kind) || 'open') as TicketStage['kind'],
             auto_close_conversation:
               asString(stage.kind) === 'done' ? Boolean(stage.auto_close_conversation) : false,
+            progress: typeof stage.progress === 'number' ? stage.progress : undefined,
           }
         : null,
   }
@@ -1308,7 +1315,7 @@ export async function getMessage(
   return getSignalMessage(token, String(threadId), messageId)
 }
 
-export async function deleteThread(token: string, threadId: ThreadId): Promise<void> {
+export async function deleteThread(token: string, threadId: ThreadId): Promise<string | null> {
   return deleteSignalThread(token, String(threadId))
 }
 

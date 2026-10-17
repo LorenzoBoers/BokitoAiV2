@@ -45,6 +45,19 @@ function currentTheme(): string {
 }
 
 /**
+ * One in-app launcher per page. Strict Mode, a workspace switch and a hot
+ * reload can each start a mount before the previous effect has removed its
+ * node; the newest generation is the one allowed to append.
+ */
+let inAppMountGeneration = 0
+
+function removeOtherInAppWidgets(keep: Element | null) {
+  document.querySelectorAll('bokito-chat[data-surface="in_app"]').forEach((node) => {
+    if (node !== keep) node.remove()
+  })
+}
+
+/**
  * Every user's personal Bokito helper, mounted as the real `bokito-chat`
  * element — the same bundle a tenant embeds on their own website. The
  * `in_app` surface makes the backend answer as the platform-owned Bokito
@@ -68,6 +81,7 @@ export default function PersonalAssistantWidget() {
 
   useEffect(() => {
     if (!token) return
+    const generation = ++inAppMountGeneration
     let cancelled = false
     let el: HTMLElement | null = null
     const onPanel = (event: Event) => {
@@ -82,7 +96,8 @@ export default function PersonalAssistantWidget() {
     }
     void ensureChatWidgetScript()
       .then(() => {
-        if (cancelled) return
+        if (cancelled || generation !== inAppMountGeneration) return
+        removeOtherInAppWidgets(null)
         el = document.createElement('bokito-chat')
         el.dataset.surface = 'in_app'
         el.dataset.apiUrl = livechatWidgetHttpOrigin()

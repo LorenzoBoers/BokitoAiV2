@@ -377,13 +377,58 @@ def validate_stages(raw: Any) -> str:
         )
     if not any(s["kind"] == "done" for s in out):
         raise HTTPException(status_code=400, detail="A pipeline needs at least one done stage")
+    if not stage_kinds_in_order([s["kind"] for s in out]):
+        raise HTTPException(
+            status_code=400,
+            detail="Stages must run not-started, then active, then done",
+        )
     return json.dumps(out)
+
+
+# Not-started, then active, then done, then closed. A later group never
+# moves in front of an earlier one.
+_STAGE_KIND_RANK = {"open": 0, "waiting": 1, "done": 2, "closed": 3}
+
+
+def stage_kinds_in_order(kinds: list[str]) -> bool:
+    """True when each stage is the same group as the previous one, or a later group."""
+    prev = -1
+    for kind in kinds:
+        rank = _STAGE_KIND_RANK.get(kind)
+        if rank is None or rank < prev:
+            return False
+        prev = rank
+    return True
+
+
+def waiting_stage_progress(stages: list[dict[str, Any]], index: int) -> float | None:
+    """How full the active-stage pie is.
+
+    Active stages are the steps between not-started and done. With ``n`` of
+    them, the one at position ``i`` (0-based) fills ``(i + 1) / (n + 1)`` of
+    the ring, so a single active stage is half and the last one stays short of
+    a full circle.
+    """
+    if index < 0 or index >= len(stages) or stages[index].get("kind") != "waiting":
+        return None
+    group = [i for i, stage in enumerate(stages) if stage.get("kind") == "waiting"]
+    if not group:
+        return None
+    return (group.index(index) + 1) / (len(group) + 1)
 
 
 def stage_payload(signal: Signal, stages: list[dict[str, Any]] | None) -> dict[str, Any] | None:
     if not stages or not signal.stage_key:
         return None
-    return next((dict(s) for s in stages if s["key"] == signal.stage_key), None)
+    found = next(((i, s) for i, s in enumerate(stages) if s["key"] == signal.stage_key), None)
+    if found is None:
+        return None
+    index, stage = found
+    row = dict(stage)
+    progress = waiting_stage_progress(stages, index)
+    if progress is not None:
+        row["progress"] = progress
+    return row
 
 
 # ---------------------------------------------------------------------------
@@ -457,7 +502,12 @@ async def category_counts(session: AsyncSession, tenant_id: UUID) -> dict[UUID, 
 async def list_categories(session: AsyncSession, tenant_id: UUID) -> list[SignalTag]:
     rows = await session.execute(
         select(SignalTag)
-        .where(SignalTag.tenant_id == tenant_id, SignalTag.workstream_id.is_not(None))
+        .join(Workstream, Workstream.id == SignalTag.workstream_id)
+        .where(
+            SignalTag.tenant_id == tenant_id,
+            Workstream.tenant_id == tenant_id,
+            Workstream.deleted_at.is_(None),
+        )
         .order_by(SignalTag.sort_order, SignalTag.name)
     )
     return list(rows.scalars().all())
@@ -470,7 +520,7 @@ async def get_category(session: AsyncSession, tenant_id: UUID, tag_id: UUID) -> 
     if row.workstream_id is None:
         raise HTTPException(
             status_code=400,
-            detail="This tag has no playbook. Promote it to a category first.",
+            detail="This label has no flow.",
         )
     return row
 
@@ -667,10 +717,16 @@ async def ticket_payload(
     ws = await session.get(Workstream, tag.workstream_id) if tag.workstream_id else None
     stages = workstream_stages(ws)
     field_defs = all_stage_fields(stages)
+    from app.services.signal_tags import label_mark
+
+    live = ws is not None and ws.deleted_at is None
+    color, icon = label_mark(tag, flow_live=live)
     return {
         "signal_id": str(signal.id),
         "tag_id": str(tag.id),
         "name": tag.name,
+        "color": color,
+        "icon": icon,
         "status": signal.ticket_status or "open",
         "stage_key": signal.stage_key or None,
         "stage": stage_payload(signal, stages),
@@ -679,8 +735,8 @@ async def ticket_payload(
         "folder_id": str(signal.project_id) if signal.project_id else None,
         "project_id": str(signal.project_id) if signal.project_id else None,
         "folder_path": await folder_path_payload(session, signal),
-        "workstream_id": str(ws.id) if ws else None,
-        "workstream_name": ws.name if ws else None,
+        "workstream_id": str(ws.id) if live else None,
+        "workstream_name": ws.name if live else None,
         "filed_at": signal.ticket_filed_at.isoformat() if signal.ticket_filed_at else None,
         "field_defs": field_defs,
         "fields": parse_ticket_fields(signal.ticket_fields_json),
@@ -718,9 +774,15 @@ async def tickets_by_signal(
         if tag is None:
             continue
         ws = streams.get(tag.workstream_id) if tag.workstream_id else None
+        from app.services.signal_tags import label_mark
+
+        live = ws is not None and ws.deleted_at is None
+        color, icon = label_mark(tag, flow_live=live)
         out[signal.id] = {
             "tag_id": str(tag.id),
             "name": tag.name,
+            "color": color,
+            "icon": icon,
             "status": signal.ticket_status or "open",
             "stage": stage_payload(signal, workstream_stages(ws)),
             "project_id": str(signal.project_id) if signal.project_id else None,
@@ -805,6 +867,59 @@ async def move_ticket_stage(
 
     await on_stage_entered(session, signal, target, actor_type=actor_type, actor_id=actor_id)
     return True
+
+
+async def resolve_open_ticket_for_close(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    fields: dict[str, Any] | None = None,
+    actor_id: str = "",
+) -> None:
+    """Move an open ticket to its first done stage before the conversation closes.
+
+    Missing required fields raise 409 and leave the thread open. A proposed
+    ticket, or one that is already done, is left alone.
+    """
+    if signal.ticket_tag_id is None:
+        return
+    if (signal.ticket_status or "") in ("done", "closed", "proposed"):
+        return
+    tag = await session.get(SignalTag, signal.ticket_tag_id)
+    if tag is None or tag.workstream_id is None:
+        return
+    ws = await session.get(Workstream, tag.workstream_id)
+    if fields:
+        defs = all_stage_fields(workstream_stages(ws))
+        current = parse_ticket_fields(signal.ticket_fields_json)
+        current.update(normalize_ticket_fields(defs, fields, require=False))
+        for key, value in fields.items():
+            if str(value).strip() == "":
+                current.pop(str(key), None)
+        signal.ticket_fields_json = json.dumps(current)
+        signal.updated_at = datetime.utcnow()
+        session.add(signal)
+    try:
+        await move_ticket_stage(
+            session,
+            signal,
+            status="done",
+            actor_type="user",
+            actor_id=actor_id,
+            ws=ws,
+        )
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        if detail.get("code") == "stage_fields_required":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    **detail,
+                    "signal_id": str(signal.id),
+                    "ticket_name": tag.name if tag else "",
+                },
+            ) from exc
+        raise
 
 
 async def settle_ticket_on_close(
@@ -1053,8 +1168,8 @@ async def file_ticket(
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "This conversation already has an action tag. Split the conversation "
-                    "to give the new request its own action tag."
+                    "This conversation already has a label with a flow. Split the conversation "
+                    "to file the new request on its own label."
                 ),
             )
         cleared = await clear_ticket(session, signal)
@@ -1237,19 +1352,18 @@ async def set_ticket_status_for_run(
 async def project_board(
     session: AsyncSession, tenant_id: UUID, project_id: UUID, *, tag_ids: list[UUID] | None = None
 ) -> list[dict[str, Any]]:
-    """Flow boards of a folder: every flow with a ticket in the folder's subtree,
-    every flow whose action tag is a folder in that subtree, and every flow
-    attached to the folder. Boards roll up: a parent shows its children's tickets.
+    """Flow boards of a folder: every flow that already has a ticket on a
+    conversation in this folder's subtree. Boards roll up from children.
+    Flows are not attached to folders — membership is the matching threads.
 
     ``tag_ids`` adds AND filters (virtual path segments under a group folder).
     """
     from app.services.communication_nav import list_predicates
     from app.services.folders import load_catalog
+    from app.services.signal_tags import flow_label_color, flow_label_icon
     from app.services.trash import alive
 
     catalog = await load_catalog(session, tenant_id)
-    fs = catalog.by_id.get(project_id)
-    folder_tag_ids = list(fs.tag_ids) if fs else []
 
     filters: dict[str, Any] = {"project_id": project_id}
     if tag_ids:
@@ -1268,31 +1382,21 @@ async def project_board(
     signals = list(
         (await session.execute(select(Signal).where(*ticket_scope).order_by(Signal.last_message_at.desc()))).scalars()
     )
-    ws_ids: list[UUID] = []
-    linked_ws = (
-        await session.execute(
-            select(WorkstreamProject.workstream_id)
-            .where(WorkstreamProject.tenant_id == tenant_id, WorkstreamProject.project_id == project_id)
-            .order_by(WorkstreamProject.position)
-        )
-    ).scalars()
-    ws_ids.extend(linked_ws)
+    ticket_tag_ids = [s.ticket_tag_id for s in signals if s.ticket_tag_id is not None]
+    if not ticket_tag_ids:
+        return []
     tag_rows = list(
         (
             await session.execute(
                 select(SignalTag).where(
                     SignalTag.tenant_id == tenant_id,
                     SignalTag.workstream_id.is_not(None),
-                    or_(
-                        SignalTag.id.in_(folder_tag_ids) if folder_tag_ids else sa_false(),
-                        SignalTag.id.in_([s.ticket_tag_id for s in signals]) if signals else sa_false(),
-                    ),
+                    SignalTag.id.in_(ticket_tag_ids),
                 )
             )
         ).scalars()
     )
-    ws_ids.extend(t.workstream_id for t in tag_rows if t.workstream_id is not None)
-    ws_ids = list(dict.fromkeys(ws_ids))
+    ws_ids = list(dict.fromkeys(t.workstream_id for t in tag_rows if t.workstream_id is not None))
     if not ws_ids:
         return []
     flows = list(
@@ -1328,7 +1432,14 @@ async def project_board(
                 "enabled": ws.enabled,
                 "stages": stages,
                 "tags": [
-                    {"id": str(t.id), "name": t.name} for t in tags if t.workstream_id == ws.id
+                    {
+                        "id": str(t.id),
+                        "name": t.name,
+                        "color": flow_label_color(t.color),
+                        "icon": flow_label_icon(getattr(t, "icon", None)),
+                    }
+                    for t in tags
+                    if t.workstream_id == ws.id
                 ],
                 "tickets": _board_cards(stages, by_ws.get(ws.id, []), tag_by_id, checkups),
             }

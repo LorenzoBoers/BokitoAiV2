@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from './dialog'
-import { HashtagMark } from './HashtagMark'
 import { TagChipInput, type TagChip } from './TagChipInput'
 import { TagPill } from './TagPill'
 
@@ -90,7 +89,8 @@ export function TagSetPicker({
   const [selected, setSelected] = useState<string[]>([])
   const [seedKey, setSeedKey] = useState(0)
 
-  const blockAction = hideActionTags ?? mode === 'folder'
+  // Folder filtersets may require an action tag (e.g. #bug). Only hide when asked.
+  const blockAction = hideActionTags === true
   const locked = useMemo(() => {
     const names = [...inheritedNames, ...lockedNames].map((n) => normalizeHashtag(n)).filter(Boolean)
     return [...new Set(names)]
@@ -277,16 +277,28 @@ export function TagSetPicker({
   const mapOptions = options.filter((row) => row.isSavedMap)
   const tagOptions = options.filter((row) => !row.isSavedMap)
 
+  const categoryNames = useMemo(() => {
+    const set = new Set<string>()
+    for (const row of registry) {
+      if (row.isCategory) set.add(row.name)
+    }
+    return set
+  }, [registry])
+
   const inputChips: TagChip[] = [
     ...locked.map((name) => ({
       name,
-      tone: 'set' as const,
+      tone: (categoryNames.has(name) ? 'action' : 'set') as TagChip['tone'],
       locked: true,
       title: t('tags.lockedFromParent', {
         defaultValue: 'Inherited from the broader map — always required',
       }),
     })),
-    ...pendingOnly.map((name) => ({ name, tone: 'free' as const, title: name })),
+    ...pendingOnly.map((name) => ({
+      name,
+      tone: (categoryNames.has(name) ? 'action' : 'free') as TagChip['tone'],
+      title: name,
+    })),
   ]
 
   const removeChip = (name: string) => {
@@ -299,7 +311,9 @@ export function TagSetPicker({
     const allSelected =
       !row.isCategory &&
       row.tagNames.every((name) => selectedSet.has(name) || applied.has(name) || inherited.has(name))
-    const tone = row.isCategory ? 'action' : row.isSavedMap ? 'set' : 'free'
+    const single = row.tagNames.length === 1 ? row.tagNames[0] : ''
+    const asAction = row.isCategory || (Boolean(single) && categoryNames.has(single))
+    const tone = asAction ? 'action' : row.isSavedMap ? 'set' : 'free'
     return (
       <TagPill
         key={row.key}
@@ -326,19 +340,14 @@ export function TagSetPicker({
               }
         }
         disabled={busy}
-        className="transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]"
-      >
-        <span className="inline-flex min-w-0 items-center gap-2">
-          <HashtagMark category={row.isCategory} />
-          <span className="min-w-0 truncate">{row.label}</span>
-          {allSelected && !allApplied ? (
-            <Check size={13} className="shrink-0 text-accent" aria-hidden />
-          ) : null}
-          {row.viaContact ? (
+        trailing={
+          allSelected && !allApplied ? (
+            <Check size={13} className="shrink-0" aria-hidden />
+          ) : row.viaContact ? (
             <span className="text-2xs text-text-muted">{t('tags.viaContact')}</span>
-          ) : null}
-        </span>
-      </TagPill>
+          ) : undefined
+        }
+      />
     )
   }
 
@@ -397,7 +406,7 @@ export function TagSetPicker({
                   <p className="px-0.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
                     {t('tags.savedMaps', { defaultValue: 'Saved folders' })}
                   </p>
-                  <div className="flex flex-wrap gap-2">{mapOptions.map(renderOption)}</div>
+                  <div className="flex flex-wrap items-center gap-2">{mapOptions.map(renderOption)}</div>
                 </div>
               ) : null}
               <div className="space-y-1.5">
@@ -406,7 +415,7 @@ export function TagSetPicker({
                     {t('tags.tagsSection', { defaultValue: 'Labels' })}
                   </p>
                 ) : null}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {(mode === 'folder' ? tagOptions : options).map(renderOption)}
                   {isNewName ? (
                     <TagPill

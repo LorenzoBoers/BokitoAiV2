@@ -34,6 +34,32 @@ _CUE_PATTERN = re.compile(
 )
 _CODE_OR_LINK = re.compile(r"```|https?://|\{|\}|=>|\bdef\b|\bSELECT\b", re.IGNORECASE)
 
+# A colleague asking the agent to act. The first model call skips reasoning so
+# the short "yes, I'll do that" can land before tools. Explanations still reason.
+_ACTION_REQUEST = re.compile(
+    r"\b("
+    r"can you|could you|would you|will you|please|"
+    r"kan je|kun je|kunnen jullie|wil je|zou je|"
+    r"schakel|inschakel|zet (?:aan|uit)|maak |stuur |nodig |wijs |"
+    r"turn on|enable |disable |invite |assign "
+    r")",
+    re.IGNORECASE,
+)
+_EXPLAIN_REQUEST = re.compile(
+    r"\b(waarom|why|leg uit|explain|how (?:do|does|can)|hoe (?:werkt|kan ik|doe ik|moet ik))\b",
+    re.IGNORECASE,
+)
+
+
+def turn_is_action_request(text: str) -> bool:
+    """Whether the latest message asks the agent to do something, not to explain."""
+    body = (text or "").strip()
+    if not body or not _ACTION_REQUEST.search(body):
+        return False
+    if _EXPLAIN_REQUEST.search(body):
+        return False
+    return True
+
 
 def turn_needs_reasoning(text: str, *, has_attachments: bool = False) -> bool:
     """Whether the latest operator or customer message deserves model reasoning."""

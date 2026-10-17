@@ -17,13 +17,10 @@ class NavRow(BaseModel):
     name: str
     count: int
     tag_id: str | None = None
-    group_id: str | None = None
 
 
 class FolderNavRow(NavRow):
-    """A folder row. Virtual rows are group children without a pinned row:
-    ``id`` is ``{project_id}:{tag_id}``; open them with ``project_id`` plus
-    ``path=tag_id``."""
+    """A folder row in the Communication rail."""
 
     parent_id: str | None = None
     project_id: str | None = None

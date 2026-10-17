@@ -274,6 +274,7 @@ export default function ThreadHeader({
         </p>
         <ParticipantStrip
           participants={participants}
+          owner={thread.owner}
           activeTurn={activeTurn}
           waitingLabel={t('threadChrome.waitingOnParticipant', {
             defaultValue: 'Waiting on {{name}}',

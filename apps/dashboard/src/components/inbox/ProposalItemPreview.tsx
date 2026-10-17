@@ -13,8 +13,8 @@ import {
   Package,
   Plug,
   Store,
+  Route,
   Trash2,
-  Workflow,
 } from 'lucide-react'
 import type { ProposalItem } from '../../lib/inbox-api'
 import { CANVAS_ICON } from '../../lib/entity-icons'
@@ -40,7 +40,7 @@ const TYPE_ICON: Partial<Record<ProposalItem['type'], IconComponent>> = {
   file: FileText,
   image: ImageIcon,
   tag: Hash,
-  flow: Workflow,
+  flow: Route,
   project: FolderKanban,
   folder: FolderKanban,
   canvas: CANVAS_ICON,

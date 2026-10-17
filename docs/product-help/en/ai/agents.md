@@ -18,11 +18,11 @@ Agents are the AI workers for this workspace. Every agent has one shape: name, d
 
 1. Open **Agents**. Company agents appear as cards. Each card can show **open** conversations (the agent's detail, **Open conversations**) and threads that **need a decision** (**For you**, filtered to that agent). Search and the pills **All** and **Working** narrow the grid. An agent that leads a project shows that project as a folder chip on its card; click it to open the folder. Above the cards, **Activity** is a now-centered timeline of even-sized points. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time, not a from–to range. Choose a point to open the run, conversation or Agenda item. The same timeline sits on each agent page for that agent alone.
 2. Choose **New agent**. Enter a **Name**, a required **Job title** (max 32 characters), an optional **Description**, select a **Model**, add **Instructions**, then choose **Create agent**. The job title sits under the name; the description is a longer optional blurb. Instructions are the brief the agent follows.
-3. Open a card for instructions, model and chat access. Use **New chat** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
+3. Open a card. The gear at the top right opens **Settings**: instructions, model, rules, signature, chat access and tools. Use **New chat** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (AI handling, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
 
-In a chat with an agent, the side panel shows **AI agent** in the same muted style as the model line. The presence dot sits on the avatar (no Standby/Working label). Choose the model line to open **Models**. **Active now** appears while it works and **Last active 5 minutes ago** after its last run or reply. That live state is the same on Agents, the Communication rail, Teams and the project lead. Choose the agent name (or the work line) while it is active to open the conversation or run it is in; **Open agent** still opens the agent page. The count row (**2 modules | 3 connections | 999+ tools**) uses the same muted style as the model line. Expanding it shows one quiet row of modules and connections (logo then name, no extra headings). Look-ups and signals for that thread sit under **This conversation**. When the conversation owns a snapshot canvas, that block also shows the canvas name, a compact preview and a link to open it.
+In a chat with an agent, the side panel shows the function under the name, in the agent's color. The presence dot sits on the avatar (no Standby/Working label). Choose the model line to open **Models**. That live state is the same on Agents, the Communication rail, Teams and the project lead. Choose the agent name (or the work line) while it is active to open the conversation or run it is in; **Open agent** still opens the agent page. The count row (**2 modules | 3 connections | 999+ tools**) uses the same muted style as the model line. Expanding it shows one quiet row of modules and connections (logo then name, no extra headings). Look-ups and signals for that thread sit under **This conversation**. When the conversation owns a snapshot canvas, that block also shows the canvas name, a compact preview and a link to open it.
 
 Real decisions live in each conversation (and under **Open conversations** on the agent). Tip cards for automated mail do not inflate those counts.
 
@@ -33,7 +33,7 @@ New chats in Communication require a **company agent**. If none are available fo
 ![Agent detail](/api/docs/assets/agents/agent-brief.png)
 *Edit purpose, model and allowed tools.*
 
-1. Open the agent. The profile header shows the mark, **name**, required **job title** (in the mark color), and optional **description**. The **Instructions** card below shows a short preview. Choose **Edit** to change the full prompt in a dialog. Also edit **Name**, **Purpose**, and **Model and runtime**.
+1. Open the agent. The profile header shows the mark, **name**, required **job title** (in the mark color), and optional **description**. Choose the gear at the top right. Under **Instructions**, a short preview is shown. Choose **Edit** to change the full prompt. Also edit **Model and runtime**.
 2. Under **Model and runtime**, pick **Workspace default** (follows [Models](/docs/govern/models)), **Automatic** (Bokito picks a tier per action), or pin **Maki**, **Bokito** or **Kong**. New agents start on Workspace default.
 3. Under **Tools & permissions**, choose the tool allowlist. Include **Web search** and **Fetch page** when the agent should look up public facts or read a public URL (workspace search stays on **search index** / docs). Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
 4. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
@@ -41,7 +41,7 @@ New chats in Communication require a **company agent**. If none are available fo
 
 ## Set when the agent acts on its own
 
-1. Open the agent and find **When this agent acts on its own**. Set the **Ceiling**: **Manual**, **Assisted** or **Autonomous**. The ceiling caps everything the agent does, also the AI handling of conversations it owns. Only an owner or admin can set Autonomous.
+1. Open the agent, choose the gear, and find **When this agent acts on its own**. Set the **Ceiling**: **Manual**, **Assisted** or **Autonomous**. The ceiling caps everything the agent does, also the AI handling of conversations it owns. Only an owner or admin can set Autonomous.
 2. Under **Rules**, add an exception. Write the situation, for example *Ask before anything about refunds*, choose **What the agent does** (**Never do this**, **Ask first**, **Do it without asking**) and the **Kind of rule**: **The agent weighs it** for a situation, or **Always for one action** for a specific action or category.
 3. Choose **Add rule**. Rules from **Rules for all agents** on [Govern](/docs/govern/govern) show here too. Each rule counts how often it was used, approved and rejected.
 4. Under **Try out**, pick an action and a certainty from 1 to 10, then **Try**. The answer says whether the agent does it on its own, asks first, or may not, and which rule decided. Below certainty 7 the agent always asks.
@@ -76,13 +76,13 @@ Some agents are owned by a platform stack or module (for example Trading or a hi
 
 ## Limit who can chat
 
-1. An idle agent shows **Ready**. Open **Communication** on the agent page (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.
+1. An idle agent shows **Ready**. Open the gear and choose **Communication** (chat access). Choose **Everyone**, **Selected users**, or **Nobody**.
 2. **Nobody** keeps background work (Agenda, AI handling) without a direct chat from Communication. Front desk, project and other lead agents start on **Everyone** so the whole team can ask them directly.
-3. To take an agent out of the library, use **Deactivate** under the ··· menu. Status becomes **Deactivated**. On **Agents**, open the **Deactivated** filter to find them again, or use **Reactivate** on the agent page or on [Workforce](/docs/getting-started/team) under **Deactivated**. Deactivated agents leave pickers and channel access matrices; leftover grants clear when you save access. History stays. Each card shows **Last active** from the agent's last run.
+3. To take an agent out of the library, use **Deactivate** under the ··· menu. Status becomes **Deactivated**. On **Agents**, open the **Deactivated** filter to find them again, or use **Reactivate** on the agent page or on [Workforce](/docs/getting-started/team) under **Deactivated**. Deactivated agents leave pickers and channel access matrices; leftover grants clear when you save access. History stays. Each card shows the function description under the name.
 
 ## Add an agent signature
 
-1. On a company agent, open **Email signature & send as**.
+1. On a company agent, open the gear and choose **Email signature & send as**.
 2. Choose the default **Send as**: **As this agent** (signs as the agent) or **As the approving teammate** (impersonates the person who approves).
 3. Enter a plain-text signature. Line breaks are kept. When the agent sends as itself, Bokito always adds a short “Replied by an AI agent · Powered by Bokito AI” line with a link to [bokito.ai](https://bokito.ai) under the signature.
 4. Save. Approvals for this agent use that default until you pick another Send as on the card.
@@ -91,8 +91,8 @@ Some agents are owned by a platform stack or module (for example Trading or a hi
 ## Set name, job title, description or look
 
 1. Open a company agent.
-2. Hover or focus the large agent mark in the profile header, then choose the pencil (or open **Edit** from the ··· menu).
-3. Change the **name**, fill in the required **Job title** (max 32 characters; shown under the name in the mark color), optionally add a longer **Description**, then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. Instructions stay on the agent page; they are not this description.
+2. Hover the **name**: it becomes a pill with a pencil. A click opens the same dialog as the pencil on the agent mark (or **Edit** from the ··· menu).
+3. Change the **name**, fill in the required **Job title** (max 32 characters; shown under the name in the mark color), optionally add a longer **Description**, then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. Instructions live in the gear; they are not this description.
 4. Under **Preview motion**, try **Idle**, **Thinking**, **Typing**, **Working**, and short reactions (**Yes**, **No**, **Alert**, **Jump**). In live chats the face follows the turn: thinking while it reasons, typing while text streams, working while tools run; approving or rejecting a decision plays a short yes/no reaction.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.

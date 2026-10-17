@@ -42,10 +42,10 @@ A conversation exception lasts until the conversation closes. Channel and contac
 5. Under **Circuit breaker**, set **Autonomous replies per hour per channel** and **Negative signals per hour per channel**. A tripped channel runs Assisted until someone resumes it from Exceptions or the channel.
 6. Changes save automatically. **Last modified** in the page header shows when the last save finished.
 
-## Action tags that always need review
+## Labels with a flow that always need review
 
-1. On the same page, open **Action tags that always need review**.
-2. Turn **Always review** on for an action tag. Replies on a ticket with that tag become a draft, even when the conversation is Autonomous.
+1. On the same page, open **Labels with a flow that always need review**.
+2. Turn **Always review** on for a label with a flow. Replies on a ticket with that tag become a draft, even when the conversation is Autonomous.
 3. Turn it off (**May send**) when autonomous send is fine for that tag.
 
 The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies. The same line appears with **the agent does not own this conversation** when a person or team owns it (the agent then drafts for them) and with **a colleague is typing a reply** when someone is writing in the composer at that moment.

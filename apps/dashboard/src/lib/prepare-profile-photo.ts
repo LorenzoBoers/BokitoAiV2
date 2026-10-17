@@ -70,11 +70,90 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
   })
 }
 
+/** Square taken from the source image, in source pixels. */
+export type ProfilePhotoCrop = {
+  sx: number
+  sy: number
+  side: number
+}
+
+/** Circle the operator frames in the crop dialog, in CSS pixels. */
+export const AVATAR_CROP_VIEWPORT = 260
+
+export type AvatarCropFrame = ProfilePhotoCrop & {
+  offsetX: number
+  offsetY: number
+  dispW: number
+  dispH: number
+  /** Image origin inside the viewport box. */
+  left: number
+  top: number
+}
+
 /**
- * Center-crop to a square, scale to at most PROFILE_PHOTO_MAX_EDGE, encode as
- * JPEG (or WebP when smaller). Phone camera files become upload-ready.
+ * Map a pan/zoom in the crop viewport back to a source square.
+ * Zoom 1 covers the circle with the shorter side. Offset is clamped so the
+ * circle never shows empty space.
  */
-export async function prepareProfilePhoto(file: File): Promise<File> {
+export function avatarCropFrame(input: {
+  srcW: number
+  srcH: number
+  viewport?: number
+  zoom: number
+  offsetX: number
+  offsetY: number
+}): AvatarCropFrame {
+  const viewport = input.viewport ?? AVATAR_CROP_VIEWPORT
+  const srcW = Math.max(1, input.srcW)
+  const srcH = Math.max(1, input.srcH)
+  const zoom = Math.max(1, input.zoom)
+  const minSide = Math.min(srcW, srcH)
+  const displayScale = (viewport / minSide) * zoom
+  const dispW = srcW * displayScale
+  const dispH = srcH * displayScale
+  const maxX = Math.max(0, (dispW - viewport) / 2)
+  const maxY = Math.max(0, (dispH - viewport) / 2)
+  const offsetX = Math.max(-maxX, Math.min(maxX, input.offsetX))
+  const offsetY = Math.max(-maxY, Math.min(maxY, input.offsetY))
+  const left = (viewport - dispW) / 2 + offsetX
+  const top = (viewport - dispH) / 2 + offsetY
+  const side = viewport / displayScale
+  return {
+    sx: (0 - left) / displayScale,
+    sy: (0 - top) / displayScale,
+    side,
+    offsetX,
+    offsetY,
+    dispW,
+    dispH,
+    left,
+    top,
+  }
+}
+
+function resolveCrop(
+  srcW: number,
+  srcH: number,
+  crop?: ProfilePhotoCrop | null,
+): { sx: number; sy: number; side: number } {
+  if (!crop || !(crop.side > 0)) {
+    const side = Math.min(srcW, srcH)
+    return {
+      sx: (srcW - side) / 2,
+      sy: (srcH - side) / 2,
+      side,
+    }
+  }
+  const side = Math.min(crop.side, srcW, srcH)
+  return {
+    sx: Math.max(0, Math.min(crop.sx, srcW - side)),
+    sy: Math.max(0, Math.min(crop.sy, srcH - side)),
+    side,
+  }
+}
+
+/** Reject a file before the crop dialog opens. */
+export function assertProfilePhotoFile(file: File): void {
   if (!file || file.size <= 0) {
     throw new PrepareProfilePhotoError('empty', 'Empty file')
   }
@@ -84,6 +163,15 @@ export async function prepareProfilePhoto(file: File): Promise<File> {
   if (!looksLikeImage(file)) {
     throw new PrepareProfilePhotoError('unsupported', 'Unsupported image type')
   }
+}
+
+/**
+ * Crop to a square (the operator's frame, or the center when omitted), scale
+ * to at most PROFILE_PHOTO_MAX_EDGE, encode as JPEG. Phone camera files
+ * become upload-ready.
+ */
+export async function prepareProfilePhoto(file: File, crop?: ProfilePhotoCrop | null): Promise<File> {
+  assertProfilePhotoFile(file)
 
   let img: HTMLImageElement
   try {
@@ -99,9 +187,10 @@ export async function prepareProfilePhoto(file: File): Promise<File> {
     throw new PrepareProfilePhotoError('decode', 'Image too small')
   }
 
-  const side = Math.min(srcW, srcH)
-  const sx = Math.floor((srcW - side) / 2)
-  const sy = Math.floor((srcH - side) / 2)
+  const framed = resolveCrop(srcW, srcH, crop)
+  const side = framed.side
+  const sx = framed.sx
+  const sy = framed.sy
   const edge = Math.min(PROFILE_PHOTO_MAX_EDGE, side)
 
   const canvas = document.createElement('canvas')

@@ -150,24 +150,26 @@ async def module_roster_summaries(
         ).scalars():
             name_by_id[agent.id] = agent.name or ""
 
+    from app.services.agent_avatar import avatar_payload
+
     out: dict[str, dict[str, Any]] = {}
     for slug in MODULE_BY_SLUG:
         default_id = default_map.get(slug)
         specialist = specialist_by_slug.get(slug)
+        mark = avatar_payload(specialist) if specialist else {}
         out[slug] = {
             "assigned_agent_count": counts.get(slug, 0),
             "default_agent_id": str(default_id) if default_id else None,
             "default_agent_name": name_by_id.get(default_id, "") if default_id else None,
             "specialist_agent_id": str(specialist.id) if specialist else None,
             "specialist_agent_name": specialist.name if specialist else None,
+            "specialist_job_title": (specialist.job_title or "") if specialist else None,
             "has_managed_specialist": specialist is not None,
-            "specialist_avatar_kind": getattr(specialist, "avatar_kind", None) if specialist else None,
-            "specialist_avatar_icon": getattr(specialist, "avatar_icon", None) if specialist else None,
-            "specialist_avatar_color": getattr(specialist, "avatar_color", None) if specialist else None,
-            "specialist_avatar_shape": getattr(specialist, "avatar_shape", None) if specialist else None,
-            "specialist_avatar_image_url": (
-                getattr(specialist, "avatar_image_url", None) if specialist else None
-            ),
+            "specialist_avatar_kind": mark.get("avatar_kind"),
+            "specialist_avatar_icon": mark.get("avatar_icon"),
+            "specialist_avatar_color": mark.get("avatar_color"),
+            "specialist_avatar_shape": mark.get("avatar_shape"),
+            "specialist_avatar_image_url": mark.get("avatar_image_url"),
         }
     return out
 

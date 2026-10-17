@@ -30,7 +30,7 @@ Govern heeft twee onderdelen: **Ledger** legt workspace-wijzigingen en auditgebe
 3. Onder **Toestemmingsniveaus** zet je elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**. Overschrijf één tool wanneer de categorie te breed is.
 4. Categorieën zijn onder meer Berichten, Workspace, Agents, Kanalen, Triggers, Integraties, Govern en Overdracht. Externe bezoekerssessies muteren nooit automatisch. Berichten op **Eerst vragen** of **Weigeren** begrenst ook AI-afhandeling op gesprekken.
 5. Als learning veel geëscaleerde tool-gates of afgewezen toolbeslissingen ziet op een categorie die **Toestaan** stond, kan Bokito die slider automatisch aanscherpen naar **Eerst vragen**. Onder de sliders verschijnt een korte notitie. Losser maken blijft hier een handmatige edit.
-6. Zet onder **Autonomie per actietag en flow** elke actieve actietag en flow op **Handmatig**, **Geassisteerd** of **Autonoom**.
+6. Zet onder **Autonomie per label en flow** elke actieve label en flow op **Handmatig**, **Geassisteerd** of **Autonoom**.
 
 Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 
@@ -44,7 +44,7 @@ Uitzonderingen per agent staan op de agentpagina onder Tools en toestemmingen.
 
 Versturen naar klanten vraagt altijd. Zie [Agents](/docs/ai/agents) voor regels op één agent.
 
-Autonome antwoorden pauzeren, de noodrem en actietags die altijd controle nodig hebben staan onder [AI-afhandeling](/docs/inbox/inbox-ai), niet op deze pagina.
+Autonome antwoorden pauzeren, de noodrem en labels die altijd controle nodig hebben staan onder [AI-afhandeling](/docs/inbox/inbox-ai), niet op deze pagina.
 
 ## Ongedaan maken en audit
 

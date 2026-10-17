@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Loader2, Unlink } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
-import { Button } from '../ui/button'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Hashtag } from '../ui/HashtagMark'
-import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { TableRowsSkeleton } from '../ui/skeleton'
-import { flowTitle } from '../../lib/flow-title'
 import { useEntityRefresh } from '../../lib/live-store'
 import {
   getProjectBoard,
@@ -20,9 +16,9 @@ import {
   type BoardTicket,
   type ProjectFlowBoard,
 } from '../../lib/tickets-api'
-import { listWorkstreams, patchWorkstream, type WorkstreamRow } from '../../lib/workstreams-api'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { FlowTicketCard } from '../workstreams/FlowTicketCard'
+import { waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 import { ProjectKanbanColumn } from './ProjectKanbanColumn'
 import { useCollectStageFields } from '../inbox/TicketStageGate'
@@ -32,14 +28,13 @@ const Workflow = ENTITY_ICONS.flow
 const COLUMN_PREFIX = 'stage-col:'
 
 /**
- * One kanban per flow attached to the project, stacked. Columns are the
- * flow's own stages; a ticket shows here when it was filed on this project.
- * The project owns which flows it shows: attach and detach live here.
+ * Stacked kanban boards for flows that already have a ticket in this folder
+ * (or a folder under it). Membership comes from those threads — not from
+ * attaching a flow to the folder.
  */
 export function ProjectFlowBoards({
   projectId,
   canEdit,
-  onFlowsChanged,
 }: {
   projectId: string
   canEdit: boolean
@@ -47,26 +42,20 @@ export function ProjectFlowBoards({
 }) {
   const { t } = useTranslation('nav')
   const [boards, setBoards] = useState<ProjectFlowBoard[]>([])
-  const [flows, setFlows] = useState<WorkstreamRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setError(null)
     try {
-      const [boardRows, flowRows] = await Promise.all([
-        getProjectBoard(projectId),
-        canEdit ? listWorkstreams().catch(() => [] as WorkstreamRow[]) : Promise.resolve([] as WorkstreamRow[]),
-      ])
-      setBoards(boardRows)
-      setFlows(flowRows)
+      const rows = await getProjectBoard(projectId)
+      setBoards(rows.filter((row) => row.tickets.length > 0))
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.home.boardLoadError')))
     } finally {
       setLoading(false)
     }
-  }, [projectId, canEdit, t])
+  }, [projectId, t])
 
   useEffect(() => {
     setLoading(true)
@@ -75,68 +64,14 @@ export function ProjectFlowBoards({
 
   useEntityRefresh(['ticket', 'project', 'tag'], () => void load(), { debounceMs: 800 })
 
-  const available = useMemo(
-    () =>
-      flows
-        .filter((flow) => !flow.project_ids.includes(projectId))
-        .sort((a, b) => flowTitle(a).localeCompare(flowTitle(b))),
-    [flows, projectId],
-  )
-
-  const setAttached = async (flowId: string, attach: boolean) => {
-    const flow = flows.find((row) => row.id === flowId)
-    if (!flow) return
-    setBusy(flowId)
-    try {
-      const next = attach
-        ? [...flow.project_ids, projectId]
-        : flow.project_ids.filter((id) => id !== projectId)
-      await patchWorkstream(flowId, { project_ids: next })
-      await load()
-      onFlowsChanged?.()
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('projects.home.flowLinkError')))
-    } finally {
-      setBusy(null)
-    }
-  }
-
   if (loading) return <TableRowsSkeleton rows={3} />
   if (error) return <ApiErrorBanner message={error} onRetry={() => void load()} />
 
   return (
     <div className="space-y-5" data-testid="project-playbook-boards">
-      {canEdit ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <ChoiceSelect
-            aria-label={t('projects.home.addFlow')}
-            placeholder={t('projects.home.addFlow')}
-            triggerClassName="h-8 w-56 text-xs"
-            value=""
-            onValueChange={(value) => void setAttached(value, true)}
-            disabled={busy !== null}
-            groups={[
-              {
-                items:
-                  available.length === 0
-                    ? [{ value: '__none__', label: t('projects.home.noFlowsToAdd'), kind: 'flow', disabled: true }]
-                    : available.map((flow) => ({
-                        value: flow.id,
-                        label: flowTitle(flow),
-                        kind: 'flow' as const,
-                      })),
-              },
-            ]}
-          />
-          {busy ? <Loader2 size={14} className="animate-spin text-text-muted" /> : null}
-        </div>
-      ) : null}
       {boards.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-sm text-text-muted">
-          {t('projects.home.boardsEmpty')}{' '}
-          <Link to="/workstreams" className="font-medium text-accent hover:underline">
-            {t('projects.home.boardsOpenPlaybooks')}
-          </Link>
+          {t('projects.home.boardsEmpty')}
         </p>
       ) : (
         boards.map((board) => (
@@ -144,8 +79,6 @@ export function ProjectFlowBoards({
             key={board.workstream_id}
             board={board}
             canEdit={canEdit}
-            detaching={busy === board.workstream_id}
-            onDetach={() => void setAttached(board.workstream_id, false)}
             onChange={(next) =>
               setBoards((rows) => rows.map((row) => (row.workstream_id === next.workstream_id ? next : row)))
             }
@@ -159,14 +92,10 @@ export function ProjectFlowBoards({
 function FlowBoardView({
   board,
   canEdit,
-  detaching,
-  onDetach,
   onChange,
 }: {
   board: ProjectFlowBoard
   canEdit: boolean
-  detaching: boolean
-  onDetach: () => void
   onChange: (board: ProjectFlowBoard) => void
 }) {
   const { t } = useTranslation('nav')
@@ -229,23 +158,10 @@ function FlowBoardView({
           </Badge>
         ) : null}
         <span className="text-2xs tabular-nums text-text-muted">{board.tickets.length}</span>
-        {canEdit ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="ml-auto h-7 px-2 text-xs text-text-muted"
-            disabled={detaching}
-            onClick={onDetach}
-          >
-            {detaching ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Unlink size={12} className="mr-1" />}
-            {t('projects.home.detachFlow')}
-          </Button>
-        ) : null}
       </header>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {board.stages.map((stage) => {
+          {board.stages.map((stage, index) => {
             const column = board.tickets.filter(
               (ticket) => (stageKeys.has(ticket.stage_key) ? ticket.stage_key : firstKey) === stage.key,
             )
@@ -254,7 +170,7 @@ function FlowBoardView({
                 key={stage.key}
                 id={`${COLUMN_PREFIX}${stage.key}`}
                 title={stageLabel(stage, t)}
-                marker={<StageProgressIcon kind={stage.kind} />}
+                marker={<StageProgressIcon kind={stage.kind} fill={waitingStageFill(board.stages, index)} />}
                 count={column.length}
                 fill
                 compact

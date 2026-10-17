@@ -65,7 +65,7 @@ import {
 import { DecisionResolvedBy, memberForUuid } from './DecisionResolvedBy'
 import { rememberSendAs, rememberedSendAs, tenantDefaultSendAs } from '../../lib/reply-send-as'
 import { useAuth } from '../../context/AuthContext'
-import { listAgents } from '../../lib/agents-api'
+import { getAgent } from '../../lib/agents-api'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
 import { AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
@@ -545,10 +545,9 @@ export default function DecisionRequestMessage({
       return
     }
     let cancelled = false
-    void listAgents()
-      .then((rows) => {
+    void getAgent(resolvedAgentId)
+      .then((match) => {
         if (cancelled) return
-        const match = rows.find((row) => String(row.id) === String(resolvedAgentId))
         setAgentSignatureHtml(
           typeof match?.email_signature_html === 'string' && match.email_signature_html.trim()
             ? match.email_signature_html

@@ -1,8 +1,10 @@
+import { Mail } from 'lucide-react'
 import type { Provider } from '../../lib/email-oauth'
 import { BRAND_ASSETS } from '../../lib/brand-assets'
 import { hostSlugForProvider } from '../../lib/integration-brand'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
+import { cn } from '../../lib/utils'
 
 const EMAIL_PROVIDER_SLUG: Record<Provider, string> = {
   outlook: 'outlook',
@@ -17,12 +19,17 @@ type ProviderLogoProps = {
 }
 
 export function providerLogoSrc(provider: Provider): string {
+  if (provider === 'smtp_imap') return ''
   const hostSlug = hostSlugForProvider(EMAIL_PROVIDER_SLUG[provider])
   return BRAND_ASSETS[hostSlug]?.logoUrl ?? ''
 }
 
 export default function ProviderLogo({ provider, className }: ProviderLogoProps) {
   const brand = useIntegrationBrand(EMAIL_PROVIDER_SLUG[provider])
+  // SMTP/IMAP is not a brand — same envelope as plain mail, not the old rack mark.
+  if (provider === 'smtp_imap') {
+    return <Mail size={16} className={cn('shrink-0 text-text-heading', className)} aria-hidden />
+  }
   return (
     <IntegrationHostLogo
       logoUrl={brand.logoUrl}

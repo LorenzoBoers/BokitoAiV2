@@ -47,7 +47,7 @@ Operator deletes (conversations, projects, canvases, knowledge, contacts, playbo
 
 1. Open **Settings**. At the bottom of the sidebar, above **Support**, choose **Bin**.
 2. Filter by type or search the title. Each row shows who deleted it and **Purge on** the date it will be removed.
-3. Choose **Restore** to bring the item and its children back. If a slug is taken, Bokito appends `-restored`. The toast offers **Open**, which jumps to the restored conversation, project, canvas, document, contact, company, flow, trigger or team. Every delete toast across the app carries **Open Bin**, so you can reach this page right after deleting something.
+3. Choose **Restore** to bring the item and its children back. If a slug is taken, Bokito appends `-restored`. The toast offers **Open**, which jumps to the restored conversation, project, canvas, document, contact, company, flow, trigger or team. Most delete toasts carry **Open Bin**, so you can reach this page right after deleting something. Moving a conversation to the Bin offers **Undo** (Ctrl+Z) instead.
 4. When the Bin is empty, the page says so and links to this article; with a filter or search active, **Clear filters** shows everything again.
 5. Choose **Delete permanently** for one item, or **Empty Bin** (type `empty`) to purge all. The footer states how many days items are kept (platform default 60).
 6. New mail on a binned conversation restores that conversation instead of opening a duplicate.

@@ -160,6 +160,9 @@ async def _get_operator_settings(ctx: ToolContext, tool_input: dict[str, Any]) -
             "ui_language_label": "Settings → Profile & security → Language",
             "default_landing": landing,
             "default_landing_path": "/settings/profile",
+            "close_email_on_send": stored.get("close_email_on_send") is True,
+            "close_email_on_send_path": "/settings/profile",
+            "close_email_on_send_label": "Settings → Profile & security → Close email when I send",
         },
         "workspace": {
             "working_language": workspace,
@@ -1450,10 +1453,12 @@ async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 
 
 async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Add tags to a signal thread from the tenant's tag registry.
+    """Add or remove free labels on this conversation.
 
-    Union merge only: agents never remove operator tags, and can only apply
-    tags that are registered (same constraint as AI triage).
+    Adds only names that already exist (unless create_missing). Removes only
+    free labels linked on this conversation — never an action tag, never a
+    label that arrives only through the contact or company, and never a
+    catalog delete.
     """
     from datetime import datetime
 
@@ -1465,9 +1470,12 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     if signal is None:
         return {"error": err or "Signal not found"}
 
-    requested = tool_input.get("tags")
-    if not isinstance(requested, list) or not requested:
-        return {"error": "tags must be a non-empty list of strings"}
+    requested = tool_input.get("tags") or []
+    remove_requested = tool_input.get("remove") or []
+    if not isinstance(requested, list) or not isinstance(remove_requested, list):
+        return {"error": "tags and remove must be lists of strings"}
+    if not requested and not remove_requested:
+        return {"error": "tags or remove must be a non-empty list of strings"}
 
     create_missing = bool(tool_input.get("create_missing"))
     catalog = set(await allowed_tag_names(ctx.session, ctx.tenant_id))
@@ -1478,7 +1486,7 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
         if not name:
             continue
         (allowed if (name in catalog or create_missing) else rejected).append(name)
-    if not allowed:
+    if requested and not allowed and not remove_requested:
         return {
             "error": (
                 "None of the requested tags exist in the tag registry. Pass "
@@ -1488,45 +1496,112 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
             "catalog": sorted(catalog)[:30],
         }
 
-    from app.services.signal_tags import add_signal_tag_rows, ensure_tags
+    from app.models.signal import SignalTag
+    from app.services.folders import inherited_tag_names
+    from app.services.signal_tags import (
+        add_signal_tag_rows,
+        ensure_tags,
+        remove_signal_tag_ids,
+        signal_tag_names,
+    )
 
-    rows_by_name = await ensure_tags(ctx.session, ctx.tenant_id, allowed, user_id=ctx.user_id) if create_missing else {}
-    if not create_missing:
-        from app.models.signal import SignalTag
+    actor_type = "agent" if ctx.agent else "user"
+    actor_id = str(ctx.agent.id if ctx.agent else ctx.user_id or "")
+    added: list[str] = []
+    replaced: list[str] = []
+    if allowed:
+        rows_by_name = (
+            await ensure_tags(ctx.session, ctx.tenant_id, allowed, user_id=ctx.user_id)
+            if create_missing
+            else {}
+        )
+        if not create_missing:
+            rows_by_name = {
+                row.name: row
+                for row in (
+                    await ctx.session.execute(
+                        select(SignalTag).where(
+                            SignalTag.tenant_id == ctx.tenant_id,
+                            SignalTag.name.in_(allowed),
+                            SignalTag.workstream_id.is_(None),
+                        )
+                    )
+                ).scalars()
+            }
+        outcome = await add_signal_tag_rows(
+            ctx.session,
+            ctx.tenant_id,
+            signal.id,
+            [rows_by_name[n] for n in allowed if n in rows_by_name],
+            replace_exclusive=False,
+            actor_type=actor_type,
+            actor_id=actor_id,
+        )
+        added = outcome["added"]
+        replaced = outcome.get("replaced") or []
 
-        rows_by_name = {
-            row.name: row
-            for row in (
+    own = set(await signal_tag_names(ctx.session, signal.id))
+    inherited = set(await inherited_tag_names(ctx.session, signal))
+    action_name = ""
+    if signal.ticket_tag_id:
+        action = await ctx.session.get(SignalTag, signal.ticket_tag_id)
+        action_name = action.name if action is not None else ""
+    remove_names: list[str] = []
+    refused: list[dict[str, str]] = []
+    for raw in remove_requested:
+        name = normalize_tag(raw) if isinstance(raw, str) else ""
+        if not name:
+            continue
+        if action_name and name == action_name:
+            refused.append({"name": name, "reason": "action_tag"})
+            continue
+        if name not in own and name in inherited:
+            refused.append({"name": name, "reason": "inherited"})
+            continue
+        if name not in own:
+            refused.append({"name": name, "reason": "not_on_conversation"})
+            continue
+        remove_names.append(name)
+    removed: list[str] = []
+    if remove_names:
+        rows = list(
+            (
                 await ctx.session.execute(
                     select(SignalTag).where(
                         SignalTag.tenant_id == ctx.tenant_id,
-                        SignalTag.name.in_(allowed),
-                        SignalTag.workstream_id.is_(None),
+                        SignalTag.name.in_(remove_names),
                     )
                 )
             ).scalars()
-        }
-    outcome = await add_signal_tag_rows(
-        ctx.session,
-        ctx.tenant_id,
-        signal.id,
-        [rows_by_name[n] for n in allowed if n in rows_by_name],
-        # An agent never replaces a competing tag from an exclusive group; it
-        # reports the conflict and lets a person (or the contact) settle it.
-        replace_exclusive=not ctx.agent,
-        actor_type="agent" if ctx.agent else "user",
-        actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
-    )
-    tags, added = outcome["tags"], outcome["added"]
-    if added or outcome["replaced"]:
+        )
+        by_name = {row.name: row for row in rows}
+        ids = []
+        for name in remove_names:
+            row = by_name.get(name)
+            if row is None or row.workstream_id is not None:
+                refused.append({"name": name, "reason": "action_tag" if row else "not_on_conversation"})
+                continue
+            ids.append(row.id)
+            removed.append(name)
+        if ids:
+            await remove_signal_tag_ids(
+                ctx.session,
+                ctx.tenant_id,
+                signal.id,
+                ids,
+                user_id=ctx.user_id,
+                actor_type=actor_type,
+                actor_id=actor_id,
+            )
+    tags = await signal_tag_names(ctx.session, signal.id)
+    await ctx.session.refresh(signal)
+    if added or replaced or removed:
         signal.updated_at = datetime.utcnow()
         ctx.session.add(signal)
-        actor_type = "agent" if ctx.agent else "user"
-        actor_id = str(ctx.agent.id if ctx.agent else ctx.user_id or "")
         payload: dict[str, Any] = {
             "tags": tags,
             "tags_added": added,
-            "tags_removed": outcome.get("replaced") or [],
+            "tags_removed": removed or replaced,
             "via": "set_thread_tags",
         }
         if ctx.agent:
@@ -1544,21 +1619,16 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
         )
         await ctx.session.flush()
         await publish_thread_update(signal, tags=tags)
-    out: dict[str, Any] = {
+    return {
         "ok": True,
         "signal_id": str(signal.id),
         "added": added,
+        "removed": removed,
         "tags": tags,
         "rejected": rejected,
+        "refused": refused,
         "folder_id": str(signal.project_id) if signal.project_id else None,
     }
-    if outcome["skipped_exclusive"]:
-        out["skipped_exclusive"] = outcome["skipped_exclusive"]
-        out["note"] = (
-            "Some tags were skipped: the conversation already carries another tag of the same "
-            "exclusive group. Pick one and explain, or leave it to the team."
-        )
-    return out
 
 
 async def _handoff_to_human(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -3289,14 +3359,15 @@ register_tool(
     ToolSpec(
         name="set_thread_tags",
         description=(
-            "Add free hashtags to a conversation. Omit signal_id to tag the "
-            "current thread (preferred) — never invent or copy a random uuid. "
-            "Names that already exist in the workspace hashtag catalog are "
-            "applied; pass create_missing=true to register new free tags on "
-            "the fly. Existing hashtags are never removed. To start a ticket "
-            "flow, use file_ticket with an action tag instead — do not treat "
-            "action tags as ordinary labels here. If the tool returns an "
-            "error, fix the call; do not claim the tag was applied."
+            "Add or remove free labels on a conversation. Omit signal_id to "
+            "use the current thread — never invent a uuid. tags adds names "
+            "from the catalog; create_missing registers a new free label. "
+            "remove unlinks a free label that is already on this conversation. "
+            "It does not delete the label from the workspace, and it refuses "
+            "an action tag and a label that only comes from the contact or "
+            "company. Use file_ticket for an action tag. If a folder does not "
+            "fit, remove the label before note_no_reply. If the tool returns "
+            "an error, fix the call; do not claim the label changed."
         ),
         category="messaging",
         input_schema={
@@ -3307,12 +3378,17 @@ register_tool(
                     "description": "Conversation id. Omit to use the current thread.",
                 },
                 "tags": {"type": "array", "items": {"type": "string"}},
+                "remove": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Free labels to take off this conversation.",
+                },
                 "create_missing": {
                     "type": "boolean",
                     "description": "Register tags the catalog does not have yet (free tags only).",
                 },
             },
-            "required": ["tags"],
+            "required": [],
         },
         handler=_set_thread_tags,
         gated=False,
@@ -3835,7 +3911,6 @@ async def _list_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
                 "kind": kind,
                 "description": row.description or "",
                 "workstream_id": str(row.workstream_id) if row.workstream_id else None,
-                "group_id": str(row.group_id) if row.group_id else None,
                 "markup": f"#[[{row.name}]]({'action_tag' if is_action else 'tag'}:{row.id})",
             }
         )
@@ -3844,7 +3919,6 @@ async def _list_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
     catalog = {row["id"]: row for row in await registry_with_counts(ctx.session, ctx.tenant_id)}
     for tag in tags:
         extra = catalog.get(tag["id"]) or {}
-        tag["group_name"] = extra.get("group_name")
         tag["folders"] = extra.get("folders") or []
         tag["path"] = " | ".join(folder.get("path") or folder.get("name") or "" for folder in tag["folders"])
     return {"tags": tags, "count": len(tags)}
@@ -3933,10 +4007,11 @@ register_tool(
     ToolSpec(
         name="list_tags",
         description=(
-            "List workspace tags: free tags and action tags (ticket flows), "
-            "grouped by tag group, with the folder paths each tag defines. "
+            "List workspace labels, including which ones have a flow (those start a ticket). "
+            "Color exists only while that flow is attached. "
             "Use #name in chat for inline chips, or attach_items with type tag. "
-            "Returns id, name, kind (tag|action_tag), group, folders, and markup."
+            "Returns id, name, kind (tag|action_tag), folders, and markup. "
+            "Never call a label an action tag or actietag."
         ),
         category="messaging",
         input_schema={
@@ -4068,9 +4143,9 @@ register_tool(
     ToolSpec(
         name="create_tag",
         description=(
-            "Create a free hashtag (a plain label, no ticket flow) in the workspace "
-            "catalog. Use this for ordinary tags; use create_category for an action tag "
-            "that starts a ticket flow. Idempotent: an existing name is updated."
+            "Create a plain label (no flow, no color) in the workspace catalog. "
+            "Use create_category when the label should have a flow and start a ticket. "
+            "Idempotent: an existing name is updated. Never say action tag or actietag."
         ),
         category="messaging",
         input_schema={
@@ -5493,26 +5568,6 @@ register_tool(
 )
 
 
-async def _create_tag_group(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.signal_tags import create_group, serialize_group
-
-    name = str(tool_input.get("name") or "").strip()
-    if not name:
-        return {"error": "name is required"}
-    try:
-        row = await create_group(
-            ctx.session,
-            ctx.tenant_id,
-            name,
-            description=str(tool_input.get("description") or ""),
-            exclusive=bool(tool_input.get("exclusive")),
-            commit=False,
-        )
-    except ValueError as exc:
-        return {"error": "invalid", "message": str(exc)}
-    return {"ok": True, "group": serialize_group(row)}
-
-
 async def _set_contact_tags_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.signal_tags import set_contact_tags
 
@@ -5529,30 +5584,6 @@ async def _set_contact_tags_tool(ctx: ToolContext, tool_input: dict[str, Any]) -
     )
     return {"ok": True, "contact_id": str(contact_id), "tags": tags}
 
-
-register_tool(
-    ToolSpec(
-        name="create_tag_group",
-        description=(
-            "Create a tag group (a dimension such as Client or Document type). "
-            "An exclusive group allows one tag of the group per conversation. "
-            "A folder with this group shows one virtual child per tag."
-        ),
-        category="workspace",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "description": {"type": "string"},
-                "exclusive": {"type": "boolean"},
-            },
-            "required": ["name"],
-        },
-        handler=_create_tag_group,
-        mutating=True,
-        gated=True,
-    )
-)
 
 register_tool(
     ToolSpec(

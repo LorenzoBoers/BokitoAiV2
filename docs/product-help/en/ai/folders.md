@@ -9,7 +9,7 @@ related: workstreams,categories,agenda,knowledge,communication
 
 # How Folders works
 
-A folder has a **name** and a place in a free tree. Optional **labels** (AND) decide which conversations match. Nesting only changes the tree — labels stay the same. Open **Folders** for the hub: conversations, tickets, canvas, docs and files. There is no per-folder agent, budget or repository.
+A folder has a **name** and a place in a free tree. Optional **labels** decide which conversations match: one of those labels on the conversation is enough. Nesting only changes the tree — labels stay the same. Open **Folders** for the hub: conversations, tickets, canvas, docs and files. There is no per-folder agent, budget or repository.
 
 ## Create or open a folder
 
@@ -18,17 +18,17 @@ A folder has a **name** and a place in a free tree. Optional **labels** (AND) de
 
 1. Open **Folders**. The left menu shows the tree. Choose **New folder**, give it a name, and optionally pick labels that define membership.
 2. Confirm. The folder appears in the tree at the root (or under a parent if you chose one).
-3. Open a card. You land on **Overview**. Admins can rename the folder and edit its labels. Members can read; they cannot delete.
+3. Open a card. You land on **Overview**. Admins hover the folder name: it becomes a pill with a pencil, and a click renames the folder. Labels sit in one field beside the name; **+** adds labels, and the cross on a pill removes it. Members can read; they cannot delete.
 
 ## Nest a folder under another
 
-1. On **Folders**, drag a folder onto another row. The map jumps live in the tree to the closest place: same level as that row, or one level deeper when you drag a bit to the right (or use **Nest** in the folder menu).
+1. On **Folders**, drag a folder. The list stays put. A line shows where it will land: move up or down to change the place, further right to nest one level deeper, further left to move up a level. Release to move it. **New folder** (the plus next to search) creates a folder at the top.
 2. Drop when it sits where you want. Labels do not change — only the tree position does.
 3. Use **Undo** on the toast, or Ctrl/Cmd+Z, to reverse the last nest, reorder, or unnest.
 
 ## Move a folder to the top level
 
-1. On **Folders**, drag a nested folder left toward the root indent, or onto a **Top level** zone (above or below the tree) — the map jumps into place while you drag.
+1. On **Folders**, drag a nested folder further left until it sits at the level you want. Far enough left, it becomes a top-level folder.
 2. The folder sits among the other root folders. Its labels stay the same.
 3. Use **Undo** on the toast, or Ctrl/Cmd+Z, if you need to reverse it.
 
@@ -46,9 +46,9 @@ A folder has a **name** and a place in a free tree. Optional **labels** (AND) de
 
 ## Read the Overview
 
-1. The header shows the folder name and its labels. **Open in Communication** jumps to the same scope in the Communication rail.
+1. The header shows the folder name and the label field with its pills beside it. **Open in Communication** jumps to the same scope in the Communication rail.
 2. Hover a tree row for the labels and **Under:** the parent folder when nested.
-3. **Recent conversations** lists matches; **All conversations** opens the Conversations tab. Canvas, docs and files stay on this hub when you use them.
+3. **Flows** shows each board that already has a ticket on a conversation in this folder (or a folder under it) — stages as columns, tickets as cards. Drag a card to change stage, or open the **Tickets** tab for the same board. **Recent conversations** lists the matches; **All conversations** opens the Conversations tab. What an agent did stays in that conversation. Canvas, docs and files stay on this hub when you use them.
 
 ## See conversations in a folder
 
@@ -61,9 +61,9 @@ A folder has a **name** and a place in a free tree. Optional **labels** (AND) de
 ![Flow boards on a project](/api/docs/assets/folders/boards.png)
 *One board per flow on the folder, with that flow's stages as columns.*
 
-1. Open the **Tickets** tab when flows are linked to this folder.
+1. Open the folder on **Overview**, or the **Tickets** tab.
 2. Drag a card to another column to change the stage. Click a card to open it in [Communication](/docs/inbox/communication).
-3. Flows stay the action-tag axis; a folder only filters which tickets you see. See [Flows](/docs/ai/workstreams) and [Action tags](/docs/ai/categories).
+3. Flows stay the flow label axis; the folder only shows flows that already have matching tickets here. See [Flows](/docs/ai/workstreams) and [Labels with a flow](/docs/ai/categories).
 
 ## Ask an agent to write a canvas
 

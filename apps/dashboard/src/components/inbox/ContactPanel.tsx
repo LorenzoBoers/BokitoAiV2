@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { toast } from 'sonner'
 import {
-  Building2,
   Check,
   Loader2,
   Mail,
@@ -24,6 +23,7 @@ import { Badge } from '../ui/badge'
 import { MetaLine } from '../ui/meta-line'
 import { SettingRow } from '../ui/entity-row'
 import { SectionLabel } from '../ui/section-label'
+import { controlTextClass } from '../ui/select'
 import { useAuth } from '../../context/AuthContext'
 import {
   findThreadsForContact,
@@ -55,7 +55,7 @@ import type {
   ThreadStatus,
 } from '../../lib/inbox-api'
 import { inboxPath } from '../../lib/messages-paths'
-import { IdentitySeenLine, seenToIso } from './IdentitySeenLine'
+import { IdentitySeenLine } from './IdentitySeenLine'
 import { timeAgo } from '../../lib/time-ago'
 import { useMembers } from '../../hooks/useMembers'
 import { useAiHandling } from '../../hooks/useAiHandling'
@@ -581,7 +581,6 @@ export default function ContactPanel({
     headlineName.trim().toLowerCase() !== t('contactPanel.widgetVisitor').trim().toLowerCase()
   // Legacy rows may still be "approved" without an email — treat as awaiting identity.
   const statusPending = contact.status === 'pending' || (anonymous && contact.status === 'approved')
-  const lastSeenAt = contact.lastSeenAt || latestThreadActivityAt(threads)
   const needsIdentity = isPlaceholderContactAddress(contact.address)
   const alsoSeenAsVisitor =
     namedHeadline &&
@@ -593,7 +592,7 @@ export default function ContactPanel({
     !isPlaceholderContactAddress(contact.address) &&
     contact.address.trim().toLowerCase() !== String(headlineName).trim().toLowerCase()
   const hasFacts =
-    showEmail || Boolean(contact.phone) || Boolean(contact.company) || alsoSeenAsVisitor
+    showEmail || Boolean(contact.phone) || alsoSeenAsVisitor
 
   const kindLabel =
     contact.status === 'blocked'
@@ -601,8 +600,6 @@ export default function ContactPanel({
       : anonymous
         ? t('contactPanel.kindUnknownChatter')
         : t('contactPanel.kindContact')
-  const seenIso = seenToIso(lastSeenAt || threadActivityAt)
-  const seenLabel = seenIso ? t('contactPanel.lastSeen', { time: timeAgo(seenIso, t) }) : null
 
   return (
     <div className="flex flex-col">
@@ -634,7 +631,18 @@ export default function ContactPanel({
                 <span className={contact.status === 'blocked' ? 'text-status-error' : undefined}>
                   {kindLabel}
                 </span>
-                {seenLabel}
+                {contact.company ? (
+                  <Link
+                    to={
+                      contact.companyId
+                        ? `/contacts/companies/${contact.companyId}`
+                        : `/contacts?q=${encodeURIComponent(contact.company)}`
+                    }
+                    className="hover:text-accent"
+                  >
+                    {contact.company}
+                  </Link>
+                ) : null}
               </MetaLine>
               {basis === 'verified' || basis === 'claimed' ? (
                 <Badge
@@ -675,19 +683,6 @@ export default function ContactPanel({
               </p>
             ) : null}
             <FieldRow icon={Phone} value={contact.phone} />
-            {contact.company ? (
-              <Link
-                to={
-                  contact.companyId
-                    ? `/contacts/companies/${contact.companyId}`
-                    : `/contacts?q=${encodeURIComponent(contact.company)}`
-                }
-                className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent"
-              >
-                <Building2 size={12} className="shrink-0 text-text-muted" />
-                <span className="min-w-0 truncate-fade">{contact.company}</span>
-              </Link>
-            ) : null}
           </div>
         ) : null}
 
@@ -701,19 +696,21 @@ export default function ContactPanel({
             onChange={(mode) => void aiHandling.change(mode)}
             label={t('aiHandling.title', { ns: 'common' })}
             testId="contact-ai-handling"
+            triggerAppearance="text"
             className="py-1.5"
           />
-          {!anonymous ? (
+          {!anonymous && contact.owner ? (
             <SettingRow label={t('contactPanel.owner')} className="py-1.5">
               <ContactOwnerPicker
                 variant="chip"
                 owner={contact.owner}
                 onChange={(owner) => void setOwner(owner)}
                 disabled={saving}
+                triggerClassName={controlTextClass}
               />
             </SettingRow>
           ) : null}
-          {!anonymous ? (
+          {!anonymous && ((contact.tags?.length ?? 0) > 0 || (contact.companyTags?.length ?? 0) > 0) ? (
             <div data-testid="contact-panel-tags">
               <SettingRow label={t('contactPanel.tags')} className="py-1.5">
                 <OwnerTagsField
@@ -742,33 +739,35 @@ export default function ContactPanel({
           ) : null}
         </div>
 
-        <div className="mt-2.5">
-          <textarea
-            value={notesDraft}
-            onChange={(e) => {
-              setNotesDraft(e.target.value)
-              setNotesDirty(true)
-            }}
-            rows={1}
-            placeholder={t('contactPanel.notesPlaceholder')}
-            aria-label={t('contactPanel.notes')}
-            className="min-h-7 w-full resize-y rounded-md border border-transparent bg-transparent px-2 py-1.5 text-xs text-text-primary placeholder:text-text-muted transition-colors hover:bg-bg-hover/40 focus:border-border/60 focus:bg-bg-input focus:outline-none focus:ring-1 focus:ring-accent/40"
-          />
-          {notesDirty ? (
-            <div className="mt-1 flex items-center gap-2 px-0.5">
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void saveNotes()}
-                className="flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-2xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
-              >
-                <Check size={10} />
-                {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
-              </button>
-              <span className="text-2xs text-status-warning">{t('contactPanel.notesUnsaved')}</span>
-            </div>
-          ) : null}
-        </div>
+        {notesDraft.trim() || notesDirty ? (
+          <div className="mt-2.5">
+            <textarea
+              value={notesDraft}
+              onChange={(e) => {
+                setNotesDraft(e.target.value)
+                setNotesDirty(true)
+              }}
+              rows={1}
+              placeholder={t('contactPanel.notesPlaceholder')}
+              aria-label={t('contactPanel.notes')}
+              className="min-h-7 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-0.5 text-xs text-text-secondary placeholder:text-text-muted transition-colors focus:border-border/60 focus:bg-bg-input focus:px-2 focus:py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/40"
+            />
+            {notesDirty ? (
+              <div className="mt-1 flex items-center gap-2 px-0.5">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void saveNotes()}
+                  className="flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-2xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                >
+                  <Check size={10} />
+                  {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
+                </button>
+                <span className="text-2xs text-status-warning">{t('contactPanel.notesUnsaved')}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {needsIdentity ? linkForm : null}
         {(needsIdentity && !captureOpen) || (statusPending && !anonymous) ? (

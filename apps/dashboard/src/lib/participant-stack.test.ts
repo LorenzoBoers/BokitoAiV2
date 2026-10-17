@@ -73,6 +73,26 @@ describe('participantsToAvatarStack', () => {
     expect(stack[0]?.title).toBe('Ada · owner')
   })
 
+  it('keeps a team as one mark when expansion is off', () => {
+    const stack = participantsToAvatarStack(
+      [person({ id: 'p-team', kind: 'team', ref_id: 'team-1', name: 'Support', role: 'owner' })],
+      {
+        teams: [
+          {
+            id: 'team-1',
+            name: 'Support',
+            members: [
+              { kind: 'user', id: 'user-1' },
+              { kind: 'agent', id: 'agent-9' },
+            ],
+          },
+        ],
+        expandTeams: false,
+      },
+    )
+    expect(stack.map((member) => member.key)).toEqual(['team:team-1'])
+  })
+
   it('keeps an empty team as one mark in the pile', () => {
     const stack = participantsToAvatarStack([
       person({ id: 't', kind: 'team', ref_id: 'team-x', name: 'Night', role: 'member' }),

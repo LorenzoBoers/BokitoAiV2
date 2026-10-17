@@ -41,6 +41,8 @@ export type TicketStage = {
   owner?: TicketStageOwner | null
   /** Recurring check-up for the owner while the ticket sits here; 0 is off. */
   checkup_minutes?: number
+  /** Active-stage pie fill from the API (0–1). Boards recompute this from the column list. */
+  progress?: number
 }
 
 export type TicketStageOwner = { kind: 'user' | 'agent' | 'team'; id: string }
@@ -144,8 +146,6 @@ export type CategoryRow = {
   workstream_id: string
   workstream_name?: string
   show_in_nav: boolean
-  group_id?: string | null
-  group_name?: string | null
   create_mode: CategoryCreateMode
   ask_threshold: number
   auto_threshold: number
@@ -180,6 +180,8 @@ export type Ticket = {
   signal_id: string
   tag_id: string
   name: string
+  color?: string
+  icon?: string
   status: TicketStatus
   stage_key: string | null
   stage: TicketStage | null
@@ -201,6 +203,8 @@ export type Ticket = {
 export type TicketSummary = {
   tag_id: string
   name: string
+  color?: string
+  icon?: string
   status: TicketStatus
   stage: TicketStage | null
   project_id: string | null
@@ -327,7 +331,7 @@ export type ProjectFlowBoard = {
   name: string
   enabled: boolean
   stages: TicketStage[]
-  tags: Array<{ id: string; name: string }>
+  tags: Array<{ id: string; name: string; color?: string; icon?: string }>
   tickets: BoardTicket[]
 }
 

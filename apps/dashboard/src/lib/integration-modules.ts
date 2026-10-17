@@ -245,6 +245,58 @@ export const FALLBACK_MODULES: IntegrationModuleRow[] = [
     install_state: 'not_installed',
     tenant_status: 'coming_soon',
   },
+  {
+    slug: 'accountant',
+    name: 'Accountant',
+    description:
+      'Reviews the books already connected on Accounting: trial balance, statements, VAT, aged items, and exceptions. Closing the period stays a proposal you approve.',
+    status: 'coming_soon',
+    provider_slugs: [],
+    planned_provider_slugs: [
+      'king_accountancy',
+      'bjorn_lunden_mcp',
+      'moneybird',
+      'exact_online',
+      'snelstart',
+      'moneybird_mcp',
+      'twinfield_mcp',
+      'exact_online_mcp',
+      'yuki_mcp',
+      'pmb_exact_mcp',
+    ],
+    tool_cards: [
+      { verb: 'trial_balance', label: 'Trial balance', description: 'Trial balance for a period.', kind: 'read' },
+      { verb: 'statements', label: 'Profit and balance', description: 'Profit and loss and balance sheet.', kind: 'read' },
+      { verb: 'vat_position', label: 'VAT position', description: 'VAT to pay or reclaim.', kind: 'read' },
+      { verb: 'aged_balances', label: 'Aged balances', description: 'Open items in age buckets.', kind: 'read' },
+      { verb: 'anomalies', label: 'Exceptions', description: 'Bookings that look off.', kind: 'read' },
+      { verb: 'unmatched_bank', label: 'Unmatched bank', description: 'Bank lines not matched yet.', kind: 'read' },
+      {
+        verb: 'propose_close',
+        label: 'Propose period close',
+        description: 'Propose closing the period after you approve.',
+        kind: 'propose',
+      },
+      {
+        verb: 'request_documents',
+        label: 'Request missing documents',
+        description: 'Ask in the conversation for documents that are still missing.',
+        kind: 'propose',
+      },
+    ],
+    verb_labels: ['Trial balance', 'Profit and balance', 'VAT position', 'Aged balances', 'Exceptions', 'Unmatched bank'],
+    needs_when: 'period close, VAT review, or exceptions in the books',
+    setup_steps: [
+      'This module is an idea and is not connectable yet.',
+      'It will read the same packages as Accounting. It does not add a login.',
+    ],
+    capability_summary: 'Later: review the books on the packages Accounting already uses.',
+    setup_path: '/connections/accountant',
+    workspace_path: '/connections/accountant',
+    enabled: false,
+    install_state: 'not_installed',
+    tenant_status: 'coming_soon',
+  },
 ]
 
 const PLANNED_PROVIDER_LABELS: Record<string, string> = {

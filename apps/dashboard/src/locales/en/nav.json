@@ -39,7 +39,7 @@
     },
     "workstreams": {
       "title": "Flows",
-      "subtitle": "Ticket flows titled by their action-tag hashtag"
+      "subtitle": "Ticket flows, each titled with its label"
     },
     "folders": {
       "title": "Folders",
@@ -84,11 +84,17 @@
         "closed": "Closed"
       },
       "add": "Add new stage",
+      "addButton": "Add stage",
+      "newName": "New stage",
+      "editTitle": "Stage",
       "remove": "Remove stage",
       "menu": "Stage options",
       "moveLeft": "Move left",
       "moveRight": "Move right",
       "needDone": "Add at least one done stage",
+      "kindOrder": "Not started stays before Active, and Done stays after it",
+      "kindOrderNamed": "{{name}} is {{kind}} in a spot that does not fit. Not started stays before Active, and Done stays after it.",
+      "insertBetween": "Insert {{kind}}",
       "saved": "Stages saved",
       "saveError": "Could not save stages",
       "autoClose": "Auto-close conversation",
@@ -99,7 +105,7 @@
       "editNameHint": "Click to edit the phase name",
       "dragAria": "Drag to reorder {{name}}",
       "fields": "Intake fields",
-      "fieldsHint": "Optional fields when filing an action tag (shown from the first not-started stage).",
+      "fieldsHint": "Optional fields when filing a label with a flow (shown from the first not-started stage).",
       "fieldName": "Field name",
       "fieldType": "Type",
       "fieldRequired": "Required",
@@ -134,7 +140,7 @@
       "checkupWeeks_other": "Every {{count}} weeks"
     },
     "title": "Flows",
-    "subtitle": "Each flow belongs to one action tag. Its stages are the columns of a live ticket board.",
+    "subtitle": "Each flow belongs to one label. Its stages are the columns of a live ticket board.",
     "loadError": "Could not load flows.",
     "notFound": "Flow not found.",
     "new": "New flow",
@@ -144,17 +150,22 @@
     "created": "Flow created.",
     "createError": "Could not create the flow.",
     "allWorkstreams": "All flows",
-    "empty": "No flows yet. Choose New flow to pick or create an action tag.",
+    "empty": "No flows yet. Choose New flow to pick or create a label.",
     "emptyTitle": "No flows yet",
-    "emptyBody": "A flow is the stage board for one action tag. Create a flow to turn a hashtag into a live ticket pipeline.",
+    "emptyBody": "A flow is the stage board for one label. Create a flow to turn a hashtag into a live ticket pipeline.",
     "dialogTitle": "New flow",
-    "dialogBody": "Pick a tag that is not already a flow, or type a new hashtag to create one.",
+    "dialogBody": "Existing flow labels are shown disabled. Type to pick a free tag or create a new hashtag.",
+    "dialogTakenAria": "Existing flow labels",
+    "dialogTakenTitle": "This tag already has a flow",
+    "dialogAlreadyFlow": "#{{name}} already belongs to a flow.",
+    "dialogChooseOther": "Other tag",
+    "dialogNoFlows": "No flows yet. Type a hashtag to pick a free tag or create a new one.",
     "dialogSearchPlaceholder": "Search or type a hashtag",
     "dialogTagsAria": "Available tags",
     "dialogLoadingTags": "Loading tags…",
     "dialogNoMatch": "No tag matches that name.",
     "dialogCreateTag": "Create tag #{{name}}",
-    "dialogNoTags": "No free tags yet. Type a hashtag above to create one as the action tag for this flow.",
+    "dialogNoTags": "No free tags yet. Type a hashtag above to create one as the label for this flow.",
     "dialogTypeToFilter": "Type to narrow the tags above.",
     "stepCount": "{{count}} steps",
     "stepCount_one": "{{count}} step",
@@ -183,7 +194,7 @@
     "deleteError": "Could not delete the flow.",
     "deleteTitle": "Delete flow",
     "deleteItem": "flow",
-    "deleteImpact": "Action tags stay; past runs remain in history.",
+    "deleteImpact": "Labels with a flow stay; past runs remain in history.",
     "stepsTitle": "Steps",
     "addStep": "Add step",
     "saveSteps": "Save steps",
@@ -268,20 +279,37 @@
     "agentFallback": "Agent",
     "startedAt": "Started {{time}}",
     "completedAt": "completed {{time}}",
-    "categoriesHint": "Each flow runs the tickets of its one action tag.",
-    "openCategories": "Open action tags",
+    "categoriesHint": "Each flow runs the tickets of its one label.",
+    "openCategories": "Open labels",
     "stageCount": "{{count}} stages",
     "stageCount_one": "{{count}} stage",
     "editNameHint": "Edit title",
+    "mark": {
+      "title": "Label",
+      "body": "Pick a color and an icon. The label stays a pill.",
+      "colorDefault": "Default",
+      "search": "Search icons",
+      "save": "Save",
+      "saveError": "Could not save the label.",
+      "color": {
+        "rose": "Red",
+        "teal": "Teal",
+        "violet": "Purple",
+        "orange": "Orange",
+        "emerald": "Green",
+        "pink": "Pink",
+        "sky": "Blue"
+      }
+    },
     "editDescriptionHint": "Click to edit the description",
     "deactivated": "Deactivated",
     "edit": "Edit",
     "moreActions": "More actions",
     "meta": {
-      "actionTag": "Action tag",
-      "bindTag": "Bind an action tag",
+      "actionTag": "Label",
+      "bindTag": "Attach a label",
       "noFreeTags": "No free hashtags",
-      "noActionTag": "No action tag yet",
+      "noActionTag": "No label with a flow yet",
       "usedIn": "Used in",
       "noProjects": "No project yet",
       "openProject": "Open project {{name}}",
@@ -294,7 +322,7 @@
       "save": "Save",
       "cancel": "Cancel",
       "saved": "Flow saved.",
-      "renameTag": "Rename the action tag",
+      "renameTag": "Rename the label",
       "renameHint": "Saving renames #{{from}} to #{{to}} on every conversation.",
       "discardTitle": "Discard changes?",
       "discardBody": "Your changes to the title, description and stages are not saved yet.",
@@ -673,14 +701,14 @@
       "intro": "Dial how much agents may do on their own, from full oversight to exception-only review."
     },
     "categories": {
-      "bannerTitle": "Action tags are hashtags that start a flow",
-      "bannerBody": "Each conversation can carry one action tag. Filing it makes the conversation a ticket that moves through the flow's stages, on one of its projects or on none.",
-      "pageTitle": "How action tags work",
-      "intro": "An action tag turns a conversation into a ticket, like a complaint or a refund request. One list, read by people and agents alike.",
+      "bannerTitle": "A label has a flow only while that flow is attached",
+      "bannerBody": "Each conversation can carry one label. Filing it makes the conversation a ticket that moves through the flow's stages, on one of its projects or on none.",
+      "pageTitle": "How a label with a flow works",
+      "intro": "A label with a flow turns a conversation into a ticket, like a complaint or a refund request. One list, read by people and agents alike.",
       "sections": [
         {
           "title": "One per conversation",
-          "body": "A conversation carries at most one action tag. Free hashtags sit next to it and never start a flow."
+          "body": "A conversation carries at most one label with a flow. Other labels sit next to it and never start a flow."
         },
         {
           "title": "Read first, confirm when unsure",
@@ -692,7 +720,7 @@
         },
         {
           "title": "Backlog",
-          "body": "Requests that keep arriving without a match land in the backlog. Turn one into an action tag when it is worth tracking."
+          "body": "Requests that keep arriving without a match land in the backlog. Attach a flow when it is worth tracking."
         }
       ]
     }
@@ -1493,7 +1521,7 @@
       "title": "Let an agent help you move forward",
       "body": "A standing thread where an agent writes to you regularly: what is open and which step moves your workspace forward.",
       "cta": "Set up task",
-      "promptDefault": "Take a short look at how the workspace stands: channels, integrations, flows and action tags, projects, agents, and what keeps coming back in conversations. Name what is open and waiting on me. Then suggest at most three concrete steps that move the workspace forward, for example a flow for a question that comes back often, a project for work that now sits loose in conversations, or a marketplace integration that fits what we do. Say why for each step, and offer to set it up for me once I agree. Do not repeat a suggestion that is still open or that I turned down.",
+      "promptDefault": "Take a short look at how the workspace stands: channels, integrations, flows and labels with a flow, projects, agents, and what keeps coming back in conversations. Name what is open and waiting on me. Then suggest at most three concrete steps that move the workspace forward, for example a flow for a question that comes back often, a project for work that now sits loose in conversations, or a marketplace integration that fits what we do. Say why for each step, and offer to set it up for me once I agree. Do not repeat a suggestion that is still open or that I turned down.",
       "taskName": "Move the workspace forward",
       "dismiss": "Hide"
     },
@@ -2756,8 +2784,6 @@
     "teams": {
       "settingsAria": "Manage teams",
       "pinHint": "Create a team on Workforce to show it here",
-      "groupChat": "Group chat",
-      "groupChatHint": "Open this team's group chat",
       "createHint": "Create a team on Workforce to show it here"
     },
     "hashtags": {
@@ -2780,7 +2806,7 @@
       "showEmptyLabel": "Empty maps"
     },
     "flows": {
-      "empty": "Create a flow from an action tag",
+      "empty": "Create a flow from a label",
       "settingsAria": "Manage flows"
     },
     "newConversation": "New conversation"
@@ -2848,9 +2874,9 @@
         "workspace": "Workspace"
       },
       "exceptionClear": "Follow the default again",
-      "reviewedTypesTitle": "Action tags that always need review",
-      "reviewedTypesHint": "Replies on a ticket with one of these action tags become a draft, even when the conversation is autonomous.",
-      "noTypes": "No action tags yet.",
+      "reviewedTypesTitle": "Labels with a flow that always need review",
+      "reviewedTypesHint": "Replies on a ticket with one of these labels with a flow become a draft, even when the conversation is autonomous.",
+      "noTypes": "No label with a flow yet.",
       "alwaysReview": "Always review",
       "mayAutoSend": "May send",
       "breakerTitle": "Circuit breaker",
@@ -2988,10 +3014,6 @@
       "connections_one": "{{count}} connection",
       "connections_other": "{{count}} connections",
       "specialistMeta": "Specialist · {{name}}"
-    },
-    "ask": {
-      "cta": "Ask which connection fits",
-      "prefill": "Which connection or module fits my work? Show me what you recommend and why."
     },
     "group": {
       "nav": "Integrations"
@@ -3355,8 +3377,10 @@
       "kindBadge": "Module",
       "showcase": {
         "subtitle": "Preset for a field of work: tools, partners and setup in one place.",
-        "partners": "Runs on",
+        "partners": "Works with",
         "tools": "What agents can do",
+        "toolsMore": "Show details",
+        "toolsLess": "Hide details",
         "setup": "How to set it up",
         "openModule": "Open module",
         "installedBadge": "Installed",
@@ -3370,13 +3394,66 @@
         "talkSpecialist": "Talk to {{name}}",
         "talkSpecialistShort": "Talk to specialist",
         "talkAfterInstall": "Talk after install",
+        "hireEyebrow": "Expert you hire",
+        "onYourTeam": "On your team",
+        "personas": {
+          "accounting": {
+            "name": "Boekito",
+            "title": "Controller",
+            "blurb": "Keeps the books for this workspace: administrations, contacts, invoices, ledger lines and open balances. Bookings and payment matches wait for your approval.",
+            "usps": [
+              "Invoices and open items at a glance",
+              "Bookings only after you approve",
+              "Ready for Moneybird, KING and Bjorn Lunden"
+            ]
+          },
+          "banking": {
+            "name": "Finito",
+            "title": "Treasurer",
+            "blurb": "Watches linked accounts, balances and transactions. Outgoing payments only leave as a proposal you approve.",
+            "usps": [
+              "Balances and transactions without an export",
+              "Payments only as a proposal",
+              "Every account in one place"
+            ]
+          },
+          "investing": {
+            "name": "Investo",
+            "title": "Markets lead",
+            "blurb": "Follows positions, quotes and watchlists. Trade orders wait for your approval.",
+            "usps": [
+              "Positions and quotes at hand",
+              "Orders wait for you",
+              "Alerts land in the conversation"
+            ]
+          },
+          "documents": {
+            "name": "Documento",
+            "title": "Archivist",
+            "blurb": "Finds and reads files in connected storage so the team can cite them. Uploads wait for your approval.",
+            "usps": [
+              "The right file without hunting",
+              "Content lands in Knowledge",
+              "Uploads only after you approve"
+            ]
+          },
+          "accountant": {
+            "name": "Accounto",
+            "title": "Accountant",
+            "blurb": "Reviews the period on the packages Accounting already connected: trial balance, VAT, aged items, and exceptions. A close waits for your approval. Bookings stay with Accounting.",
+            "usps": [
+              "Trial balance and VAT in one view",
+              "Exceptions before the period closes",
+              "The same connections as Accounting"
+            ]
+          }
+        },
         "talkPrefill": "Help me use {{name}}. What can you do, and what should we set up next?",
         "labelsFlows": "Labels & flows",
         "labelsFlowsIntro": "Hashtags and flows the specialist can file work on. Installing may add the default hashtag for you.",
         "openLabels": "Open Labels",
         "webchatNote": "{{count}} tools can also run in website chat when you enable them under the module Overview.",
-        "cardTools": "{{count}} agent tools",
-        "cardTags": "{{count}} hashtags"
+        "cardTools": "{{count}} agent tools"
       },
       "openCatalog": "Open Connections",
       "helpLink": "How modules work",
@@ -3543,6 +3620,16 @@
         "setup": [
           "This module is prepared but not connectable yet.",
           "When a storage connector ships, reads feed Knowledge and uploads stay decisions."
+        ]
+      },
+      "accountant": {
+        "name": "Accountant",
+        "description": "Reviews the books Accounting already connected: trial balance, VAT, aged items, and exceptions. Closing the period stays a proposal you approve.",
+        "capability": "Later: read trial balance, VAT, aged items, and exceptions on Accounting's packages. No login of its own. Bookings stay there.",
+        "setup": [
+          "This is an idea and is not connectable yet.",
+          "It reads the same packages as Accounting and does not add a login.",
+          "Writes stay on Accounting and still wait for approval."
         ]
       },
       "tools": {
@@ -3900,6 +3987,9 @@
       "emptyDeactivated": "No deactivated agents.",
       "relatedWorkforce": "Workforce",
       "readonlyBanner": "You can read this agent. Ask an admin to change settings.",
+      "openSettings": "Agent settings",
+      "settingsTitle": "Settings",
+      "settingsHint": "Model, instructions, rules, signature and tools for this agent.",
       "moreActions": "More actions",
       "duplicate": "Duplicate",
       "duplicateName": "{{name}} (copy)",
@@ -3963,6 +4053,7 @@
       "types": {
         "orchestrator": "Coordinator",
         "po": "Project agent",
+        "assistant": "Assistant",
         "worker": "Agent"
       },
       "roleUnknown": "Unknown role",
@@ -4588,16 +4679,22 @@
       "nestBody": "Places this folder under the one you choose. Labels stay the same — only the tree position changes.",
       "folderRowTooltip": "{{set}} · Under: {{under}}",
       "noNarrowerMaps": "No nested folders yet — drag a folder onto this one, or create a new folder here.",
-      "editFiltersetBodyNested": "Edit the labels for this folder. Nesting is separate from membership."
+      "editFiltersetBodyNested": "Edit the labels for this folder. Nesting is separate from membership.",
+      "labelsField": "Folder labels",
+      "addTags": "Add labels",
+      "editFiltersetTitle": "Edit folder labels",
+      "editFiltersetBody": "Pick every label this folder should require. Nesting is separate.",
+      "saveFilterset": "Save labels",
+      "filtersetSaved": "Labels updated"
     },
     "home": {
       "noAgent": "No project agent yet.",
       "noRepo": "No repository linked.",
       "resourcesHint": "Surfaces this project is attached to. Manage them under Settings.",
-      "boardsEmpty": "No flow on this project yet. Use Add flow to show its tickets here.",
+      "boardsEmpty": "No tickets in this folder yet. When a conversation here gets a label with a flow, that flow appears.",
       "boardsOpenPlaybooks": "Open Flows",
       "ticketsBoard": "Tickets",
-      "ticketsHint": "Each flow on this project is a board. A ticket moves left to right through the flow stages.",
+      "ticketsHint": "Each flow with a ticket in this folder is a board. A ticket moves left to right through the flow stages.",
       "boardLoadError": "Could not load the boards for this project.",
       "ticketMoveError": "Could not move that ticket.",
       "ticketUntitled": "Untitled conversation",
@@ -5180,7 +5277,7 @@
       "reports": "Daily scan, attention and usage",
       "developers": "AI tools, API tokens and webhooks",
       "models": "Bokito default and optional own models",
-      "categories": "Labels for grouping; open the flow to configure an action tag"
+      "categories": "Labels for grouping; open the flow to configure a label with a flow"
     }
   },
   "helpHub": {
@@ -6546,12 +6643,12 @@
     "title": "When this agent acts on its own",
     "hint": "The ceiling caps everything this agent does. Rules make exceptions for specific actions or situations.",
     "workspaceTitle": "Rules for all agents",
-    "workspaceHint": "Exceptions every agent in this workspace follows, next to its own rules. AI handling, the action tag, and tools that always ask decide whether a reply stays a draft.",
+    "workspaceHint": "Exceptions every agent in this workspace follows, next to its own rules. AI handling, the label, and tools that always ask decide whether a reply stays a draft.",
     "ceiling": "Ceiling",
     "ceilingHint": {
       "manual": "This agent waits for you before it sends or changes anything.",
       "assisted": "This agent prepares the work and asks before actions that need approval.",
-      "autonomous": "This agent acts on its own within AI handling, the action tag, and tools that always ask."
+      "autonomous": "This agent acts on its own within AI handling, the label, and tools that always ask."
     },
     "rulesTitle": "Rules",
     "empty": "No rules yet. The agent follows its ceiling and the Govern settings.",
@@ -6599,11 +6696,9 @@
   "tagRegistry": {
     "title": "Labels",
     "openConversations": "Open conversations with {{name}} in Communication",
-    "description": "Add a label, then create a flow to make it an action tag. Edit a row for color, group, pin and AI auto-label.",
+    "description": "Flow labels are colored and open their flow. Other labels stay plain. Add a name, then create a flow or save it as a map.",
     "newTag": "New label",
-    "editTitle": "Edit label",
-    "createHint": "Name the label and optionally set color, group and Communication pin.",
-    "editHint": "Rename, set color, group, pin and AI auto-label. Create a flow to make it an action tag.",
+    "createHint": "Name the label. Agents read the description when they choose labels.",
     "nameLabel": "Name",
     "namePlaceholder": "label",
     "descriptionLabel": "Description",
@@ -6655,11 +6750,11 @@
     "promote": "Create flow",
     "openFlow": "Open flow",
     "promoteTitle": "Create a flow for",
-    "promoteHint": "An action tag is a label with a flow. Conversations with this label become tickets that move through the flow's stages.",
+    "promoteHint": "Conversations with this label become tickets that move through the flow's stages.",
     "playbook": "Flow",
     "newPlaybook": "New flow {{name}}",
     "promoteAfter": "Set filing rules and projects afterwards.",
-    "promoted": "{{name}} is now an action tag.",
+    "promoted": "{{name}} is now a label with a flow.",
     "promoteFailed": "Could not create a flow for this label.",
     "saveAsMap": "Save as map",
     "saveAsMapTitle": "Save as map",
@@ -6670,7 +6765,7 @@
     "title": "Ticket",
     "file": "File",
     "change": "Change",
-    "setUp": "No action tags yet. Make one under Labels or Settings.",
+    "setUp": "No label with a flow yet. Make one under Labels or Settings.",
     "looksLike": "Looks like",
     "confirm": "Confirm",
     "confirmOn": "Confirm on",
@@ -6679,7 +6774,7 @@
     "noProject": "No project",
     "chooseProject": "Which project does this belong to?",
     "chooseProjectInPanel": "#{{name}} needs a project. Choose one in the Ticket panel.",
-    "unknownCategory": "No action tag #{{name}}.",
+    "unknownCategory": "No label #{{name}}.",
     "stage": "Stage",
     "playbook": "Flow",
     "awaitingVerify": "Waiting for the customer to confirm.",
@@ -6723,29 +6818,29 @@
     "saveFailed": "Could not save the Communication settings."
   },
   "categoriesPage": {
-    "intro": "Labels group conversations. Add a label, then create a flow to make an action tag. Every inbound message is read against labels with AI auto-label on — a certain match files a ticket, an unsure match asks for a confirm, and anything new lands in the backlog below.",
+    "intro": "One flat list. Flow labels are colored and open their flow; other labels stay plain. Add a label, then attach a flow. A certain read files a ticket, an unsure read asks for a confirm, and anything new lands in the backlog below.",
     "loading": "Loading...",
     "loadError": "Could not load the labels.",
     "saveError": "Could not update the label.",
-    "createError": "Could not create the action tag.",
+    "createError": "Could not create the label.",
     "policyError": "Could not save the policy.",
     "policySaved": "Setting saved.",
     "backlogError": "Could not update the backlog.",
     "policyTitle": "Who may confirm tickets",
-    "policyDescription": "Confirming turns a proposed action tag on a conversation into a ticket. Owners and admins may always confirm.",
+    "policyDescription": "Confirming turns a proposed label on a conversation into a ticket. Owners and admins may always confirm.",
     "acceptRolesLabel": "Confirming a ticket",
     "acceptRolesHint": "Members can always file a ticket themselves; this decides who may confirm one the AI proposed.",
     "acceptAdmins": "Owners and admins only",
     "acceptMembers": "Anyone in the workspace",
-    "thresholdLabel": "Offer a new action tag after",
-    "thresholdHint": "How often the same unknown pattern must arrive before Bokito offers it as a new action tag.",
+    "thresholdLabel": "Offer a new label after",
+    "thresholdHint": "How often the same unknown pattern must arrive before Bokito offers it as a new label.",
     "thresholdOption": "{{count}} sightings",
-    "catalogTitle": "Action tags",
+    "catalogTitle": "Labels with a flow",
     "catalogDescription": "What it is, which flow runs it, and which projects it can be filed on.",
-    "newCategory": "New action tag",
+    "newCategory": "New label",
     "newCategoryHint": "Pick a tag and the flow that runs it. A new flow starts with Open, Waiting and Done.",
-    "emptyTitle": "No action tags yet",
-    "emptyBody": "Create a flow on a tag, or add an action tag for each kind of work that arrives in conversations, like a complaint or a refund request.",
+    "emptyTitle": "No label with a flow yet",
+    "emptyBody": "Create a flow on a tag, or add a label with a flow for each kind of work that arrives in conversations, like a complaint or a refund request.",
     "noDescription": "No description yet",
     "needsVerify": "needs confirmation",
     "showInNav": "Show in Communication",
@@ -6773,15 +6868,15 @@
     "save": "Save",
     "saving": "Saving...",
     "cancel": "Cancel",
-    "create": "Create action tag",
+    "create": "Create label",
     "newPlaybook": "New flow {{name}}",
     "backlogTitle": "What we missed",
-    "backlogDescription": "Requests that kept arriving without a matching action tag. Nothing is created automatically; turn one into an action tag when it is worth tracking.",
-    "backlogEmpty": "Nothing unmatched yet. Your action tags cover what has been arriving.",
+    "backlogDescription": "Requests that kept arriving without a matching label. Nothing is created automatically; turn one into a label with a flow when it is worth tracking.",
+    "backlogEmpty": "Nothing unmatched yet. Your labels with a flow cover what has been arriving.",
     "backlogCount": "seen {{count}}x",
-    "backlogPromote": "Make it an action tag",
-    "backlogPromoted": "Action tag created.",
-    "backlogDismiss": "Not an action tag",
+    "backlogPromote": "Make it a label with a flow",
+    "backlogPromoted": "Label created.",
+    "backlogDismiss": "Not a label with a flow",
     "backlogDismissed": "Removed from the backlog.",
     "crossLinks": {
       "communicationHub": "Communication",

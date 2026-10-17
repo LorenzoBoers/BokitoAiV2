@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, ChevronDown, ClipboardCheck, Plus, Sparkles } from 'lucide-react'
+import { ArrowUpRight, ClipboardCheck, Plus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { relativeMoment } from '../agenda/agenda-style'
-import { useCommunicationNav } from '../../hooks/useCommunicationNav'
-import { ENTITY_ICONS } from '../../lib/entity-icons'
-import { openEntityPath } from '../../lib/open-entity'
-import { findNavRowPath, type NavRow } from '../../lib/signals-api'
+import type { LabelColor } from '../../lib/signals-api'
 import {
   checkupLabel,
   getTicket,
@@ -25,15 +22,10 @@ import { cn } from '../../lib/utils'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
+import { waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 import { TagPill } from '../ui/TagPill'
 import { TicketFieldControl } from './TicketFieldControl'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
 
 type Props = {
   signalId: string
@@ -50,58 +42,8 @@ const SEGMENT_KIND: Record<TicketStageKind, string> = {
   closed: 'bg-status-success/70',
 }
 
-const FolderKanban = ENTITY_ICONS.project
-
 const INLINE_INPUT =
   'h-7 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-text-heading outline-none transition placeholder:text-text-muted/70 hover:border-border/60 hover:bg-bg-input/40 focus:border-accent focus:bg-bg-input'
-
-type FolderChoice = { id: string; name: string; depth: number }
-
-/** Every pinned folder row in the rail tree, depth-first, for the folder picker. */
-function flattenFolders(rows: NavRow[], depth = 0): FolderChoice[] {
-  return rows.flatMap((row) =>
-    row.virtual ? [] : [{ id: row.id, name: row.name, depth }, ...flattenFolders(row.children ?? [], depth + 1)],
-  )
-}
-
-/** Folder options: the workspace's folders, then No folder. Filing adds the folder's tags. */
-function FolderItems({
-  choices,
-  current,
-  disabled,
-  onPick,
-  t,
-}: {
-  choices: FolderChoice[]
-  current?: string | null
-  disabled: boolean
-  onPick: (projectId: string | null) => void
-  t: TFn
-}) {
-  return (
-    <>
-      {choices.map((choice) => (
-        <DropdownMenuItem
-          key={choice.id}
-          className="gap-2 text-xs"
-          style={{ paddingLeft: 8 + choice.depth * 12 }}
-          disabled={disabled || current === choice.id}
-          onSelect={() => onPick(choice.id)}
-        >
-          <FolderKanban size={12} className="text-text-muted" />
-          {choice.name}
-        </DropdownMenuItem>
-      ))}
-      <DropdownMenuItem
-        className="text-xs text-text-secondary"
-        disabled={disabled || current === null}
-        onSelect={() => onPick(null)}
-      >
-        {t('tickets.noProject')}
-      </DropdownMenuItem>
-    </>
-  )
-}
 
 /** One label/value row in the ticket details list. */
 function DetailRow({
@@ -131,15 +73,13 @@ function DetailRow({
 }
 
 /**
- * The conversation's ticket once an action tag is filed: stage stepper,
- * folder (derived from the tags; picking one adds its tags), and the flow's
- * custom fields. Filing and replacing the action tag happen in the Hashtags
- * picker (at most one action tag per conversation).
+ * The conversation's ticket once an action tag is filed: stage stepper and the
+ * flow's custom fields. The folder sits on the conversation, above priority.
+ * Filing and replacing the action tag happen in the Hashtags picker.
  */
 export function ThreadCategory({ signalId, version }: Props) {
   const { t } = useTranslation('nav')
   const isAdmin = useIsAdmin()
-  const { nav } = useCommunicationNav()
   const collect = useCollectStageFields()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [busy, setBusy] = useState(false)
@@ -188,14 +128,6 @@ export function ThreadCategory({ signalId, version }: Props) {
 
   const proposed = ticket.status === 'proposed'
   const awaitingVerify = ticket.status === 'waiting' && !ticket.stage_key
-  const choices = flattenFolders(nav.projects)
-  // The path the tags place it on; the rail tree knows the name when the
-  // ticket payload predates the path.
-  const projectName = ticket.project_id
-    ? (ticket.folder_path?.label ||
-      findNavRowPath(nav.projects, ticket.project_id)?.map((row) => row.name).join(' / ') ||
-      t('tickets.project'))
-    : t('tickets.noProject')
   const defs = ticket.field_defs ?? []
   const values = ticket.fields ?? {}
   const defKeys = new Set(defs.map((field) => field.key))
@@ -209,11 +141,23 @@ export function ThreadCategory({ signalId, version }: Props) {
       className="group inline-flex min-w-0 items-center gap-1 no-underline"
       title={t('tickets.openFlow')}
     >
-      <TagPill names={ticket.name} tone="action" size="sm" />
+      <TagPill
+        names={ticket.name}
+        tone="action"
+        size="sm"
+        color={(ticket.color || '') as LabelColor}
+        icon={ticket.icon}
+      />
       <ArrowUpRight size={12} className="shrink-0 text-text-muted opacity-0 transition group-hover:opacity-100" />
     </Link>
   ) : (
-    <TagPill names={ticket.name} tone="action" size="sm" />
+    <TagPill
+      names={ticket.name}
+      tone="action"
+      size="sm"
+      color={(ticket.color || '') as LabelColor}
+      icon={ticket.icon}
+    />
   )
 
   return (
@@ -238,7 +182,13 @@ export function ThreadCategory({ signalId, version }: Props) {
             <p className="flex items-center gap-1.5 text-xs text-text-secondary">
               <Sparkles size={12} className="text-status-warning" aria-hidden />
               {t('tickets.looksLike')}
-              <TagPill names={ticket.name} tone="action" size="sm" />
+              <TagPill
+                names={ticket.name}
+                tone="action"
+                size="sm"
+                color={(ticket.color || '') as LabelColor}
+                icon={ticket.icon}
+              />
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
               <Button
@@ -265,11 +215,22 @@ export function ThreadCategory({ signalId, version }: Props) {
         ) : (
           <>
             <div className="space-y-2 px-3 pb-2.5 pt-2.5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex h-5 items-center justify-between gap-2">
                 {flowLink}
                 {awaitingVerify ? null : (
-                  <span className="inline-flex shrink-0 items-center gap-1 text-2xs font-medium text-text-secondary">
-                    {ticket.stage ? <StageProgressIcon kind={ticket.stage.kind} size={12} /> : null}
+                  <span className="inline-flex h-5 shrink-0 items-center gap-1 text-2xs font-medium leading-none text-text-secondary">
+                    {ticket.stage ? (
+                      <StageProgressIcon
+                        kind={ticket.stage.kind}
+                        fill={
+                          waitingStageFill(
+                            ticket.stages,
+                            ticket.stages.findIndex((stage) => stage.key === ticket.stage?.key),
+                          ) ?? ticket.stage.progress
+                        }
+                        size={12}
+                      />
+                    ) : null}
                     {ticket.stage ? stageLabel(ticket.stage, t) : t(`tickets.status.${ticket.status}`)}
                   </span>
                 )}
@@ -328,47 +289,8 @@ export function ThreadCategory({ signalId, version }: Props) {
               ) : null}
             </div>
 
+            {defs.length > 0 || orphans.length > 0 ? (
             <div className="border-t border-border/40 py-1.5">
-              <DetailRow label={t('tickets.project')}>
-                {choices.length > 0 ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        aria-label={t('tickets.project')}
-                        className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-transparent px-1.5 text-xs text-text-heading transition hover:border-border/60 hover:bg-bg-input/40"
-                      >
-                        <FolderKanban size={12} className="shrink-0 text-text-muted" />
-                        <span className="truncate">{projectName}</span>
-                        <ChevronDown size={11} className="shrink-0 text-text-muted" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
-                      <FolderItems
-                        choices={choices}
-                        current={ticket.project_id}
-                        disabled={busy}
-                        onPick={(projectId) => void patch({ project_id: projectId }, t('tickets.updateError'))}
-                        t={t}
-                      />
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <span className="px-1.5 text-xs text-text-muted">{t('tickets.noProject')}</span>
-                )}
-                {ticket.project_id ? (
-                  <Link
-                    to={openEntityPath({ type: 'project', id: ticket.project_id })}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition hover:bg-bg-input/40 hover:text-accent"
-                    aria-label={t('tickets.openProject')}
-                    title={t('tickets.openProject')}
-                  >
-                    <ArrowUpRight size={12} />
-                  </Link>
-                ) : null}
-              </DetailRow>
-
               {defs.map((field) => (
                 <FieldRow
                   key={field.key}
@@ -388,10 +310,11 @@ export function ThreadCategory({ signalId, version }: Props) {
                 </DetailRow>
               ))}
             </div>
+            ) : null}
 
             {defs.length === 0 && isAdmin && ticket.workstream_id ? (
               <Link
-                to={`${workstreamPath(ticket.workstream_id)}?edit=1`}
+                to={`${workstreamPath(ticket.workstream_id)}?fields=1`}
                 className="flex items-center gap-1.5 border-t border-border/40 px-3 py-2 text-2xs text-text-muted transition hover:bg-bg-muted/40 hover:text-accent"
               >
                 <Plus size={11} aria-hidden />

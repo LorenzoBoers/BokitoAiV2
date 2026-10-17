@@ -611,19 +611,8 @@ def compose_avatar_signature_html(
     language: str | None = None,
     avatar_url: str | None = None,
 ) -> str:
-    """Optional layout with photo left + details right; falls back to text default."""
+    """Personal default: photo (or initials) left, details right."""
     photo = photo_avatar_url_for_email(avatar_url)
-    if not photo:
-        return compose_default_signature_html(
-            name=name,
-            email=email,
-            job_title=job_title,
-            company=company,
-            phone=phone,
-            website=website,
-            address=address,
-            language=language,
-        )
     vars_ = signature_identity_vars(
         name=name,
         email=email,
@@ -636,7 +625,11 @@ def compose_avatar_signature_html(
     )
     display = vars_["name"]
     closing = vars_["closing"]
-    avatar = round_avatar_img_html(url=photo, name=display, size=48)
+    avatar = (
+        round_avatar_img_html(url=photo, name=display, size=48)
+        if photo
+        else initials_avatar_html(display, size=48)
+    )
     details = _signature_detail_bits(vars_)
     return (
         f'<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;'
@@ -796,7 +789,7 @@ async def resolve_signature_html(
             return render_signature_template(
                 personal, user_vars, avatar_url=avatar_src
             )
-        return compose_default_signature_html(
+        return compose_avatar_signature_html(
             name=user_full_name(user) or user.email,
             email=user.email,
             job_title=user.job_title,
@@ -805,6 +798,7 @@ async def resolve_signature_html(
             website=user_extras.get("website"),
             address=user_extras.get("address"),
             language=language,
+            avatar_url=avatar_src,
         )
 
     return None

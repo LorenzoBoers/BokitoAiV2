@@ -522,6 +522,16 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         except Exception:  # noqa: BLE001 — context enrichment must never block replies
             project_context = ""
 
+        filing_context = ""
+        try:
+            from app.services.assistant_context import conversation_filing_brief
+
+            brief = await conversation_filing_brief(session, signal)
+            if brief:
+                filing_context = f"{brief}\n"
+        except Exception:  # noqa: BLE001 — context enrichment must never block replies
+            filing_context = ""
+
         # Same person on another channel this week (WhatsApp after email, a
         # colleague's reply from their own mailbox): the agent must not answer
         # what was already handled elsewhere.
@@ -555,6 +565,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "After record_thread_read (and any tags/ticket/contact updates), "
                 "return exactly: Done.\n"
                 f"{language_rules}"
+                f"{filing_context}"
                 f"{project_context}"
                 f"{related_context}"
             )
@@ -608,6 +619,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "newsletter, receipt, system alert).\n"
                 "Do not return the draft as your final message. The tool call is the action.\n"
                 f"{language_rules}"
+                f"{filing_context}"
                 f"{project_context}"
                 f"{related_context}"
                 "Never invent facts about the customer's administration — if research "
@@ -626,6 +638,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 "return exactly: NO_REPLY_NEEDED: <one-line summary of what it says>, "
                 "as the only line, with no analysis before it.\n"
                 f"{language_rules}"
+                f"{filing_context}"
                 f"{project_context}"
                 f"{related_context}"
             )

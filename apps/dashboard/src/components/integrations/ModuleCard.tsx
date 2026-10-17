@@ -2,14 +2,14 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
-import { ModuleSpecialistCallout } from './ModuleSpecialistCallout'
+import { moduleSpecialistVisual } from './ModuleSpecialistCallout'
+import { AiAvatar } from '../ui/AiAvatar'
+import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
-import { IconTile } from '../ui/icon-tile'
 import {
   moduleHomePath,
   moduleIsOn,
-  moduleNavIcon,
   resolveModuleToolCards,
 } from '../../lib/integration-modules'
 import { hostSlugForProvider, resolveHostBrand } from '../../lib/integration-brand'
@@ -102,12 +102,6 @@ export function ModulePartnerLogos({
   )
 }
 
-function ModuleIcon({ slug }: { slug: string }) {
-  const Icon = moduleNavIcon(slug)
-  return <IconTile icon={Icon} />
-
-}
-
 /** Marketplace and Connections hub share this card: install, manage, uninstall. */
 export function MarketplaceModuleCard({
   module,
@@ -136,7 +130,7 @@ export function MarketplaceModuleCard({
   const hasActive = activeCount > 0
   const clickable = Boolean(onOpenDetail) && !comingSoon
   const toolCount = resolveModuleToolCards(module).length
-  const tagCount = module.package?.tags?.length ?? 0
+  const specialist = moduleSpecialistVisual(module, name, t)
 
   return (
     <article
@@ -153,7 +147,7 @@ export function MarketplaceModuleCard({
         }
       }}
       className={cn(
-        'panel flex h-full flex-col p-4',
+        'panel relative flex h-full flex-col overflow-hidden p-4',
         comingSoon
           ? 'pointer-events-none cursor-not-allowed opacity-50'
           : clickable
@@ -162,9 +156,13 @@ export function MarketplaceModuleCard({
       )}
       aria-disabled={comingSoon || undefined}
     >
-      <div className="flex items-start gap-3">
-        <ModuleIcon slug={module.slug} />
-        <div className="min-w-0 flex-1">
+      <span
+        aria-hidden
+        className="specialist-glow pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full blur-2xl"
+        style={{ backgroundColor: specialist.titleColor }}
+      />
+      <div className="relative z-[1] flex flex-1 items-stretch gap-4">
+        <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
             {showKindBadge ? (
@@ -173,72 +171,74 @@ export function MarketplaceModuleCard({
               </Badge>
             ) : null}
           </div>
-          <p className="mt-1 line-clamp-2 text-sm leading-snug text-text-secondary">
+          <p className="mt-1 line-clamp-3 text-sm leading-snug text-text-secondary">
             {description}
           </p>
-          {(toolCount > 0 || tagCount > 0) && !comingSoon ? (
-            <p className="mt-1.5 text-2xs text-text-muted">
-              {[
-                toolCount > 0
-                  ? t('integrations.modules.showcase.cardTools', {
-                      count: toolCount,
-                      defaultValue: '{{count}} agent tools',
-                    })
-                  : null,
-                tagCount > 0
-                  ? t('integrations.modules.showcase.cardTags', {
-                      count: tagCount,
-                      defaultValue: '{{count}} hashtags',
-                    })
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
+          {toolCount > 0 ? (
+            <p className="mt-2 text-2xs text-text-muted">
+              {t('integrations.modules.showcase.cardTools', {
+                count: toolCount,
+                defaultValue: '{{count}} agent tools',
+              })}
             </p>
           ) : null}
-        </div>
-      </div>
-      <div className="mt-3">
-        <ModuleSpecialistCallout module={module} moduleName={name} compact />
-      </div>
-      <div className="mt-3 flex flex-1 items-end justify-between gap-3 border-t border-border/50 pt-3">
-        <div className="min-w-0 space-y-2">
-          <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
-          <p
-            className={cn(
-              'text-xs',
-              hasActive ? 'font-medium text-accent' : 'text-text-muted',
-            )}
-          >
-            {hasActive
-              ? t('integrations.card.activeConnections', {
-                  count: activeCount,
-                  defaultValue: '{{count}} active connections',
-                })
-              : installed
-                ? t('integrations.card.noConnectionsYet', {
-                    defaultValue: 'No connections yet',
+          <div className="mt-auto space-y-2 pt-3">
+            <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
+            <p
+              className={cn(
+                'text-xs',
+                hasActive ? 'font-medium text-accent' : 'text-text-muted',
+              )}
+            >
+              {hasActive
+                ? t('integrations.card.activeConnections', {
+                    count: activeCount,
+                    defaultValue: '{{count}} active connections',
                   })
-                : t('integrations.card.notInstalledYet', {
-                    defaultValue: 'Not installed yet',
-                  })}
-          </p>
+                : installed
+                  ? t('integrations.card.noConnectionsYet', {
+                      defaultValue: 'No connections yet',
+                    })
+                  : t('integrations.card.notInstalledYet', {
+                      defaultValue: 'Not installed yet',
+                    })}
+            </p>
+          </div>
         </div>
-        <div
-          className="flex shrink-0 items-center gap-2"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          {comingSoon ? null : installed || hasActive ? (
-            <Button asChild size="sm" variant="secondary">
-              <Link to={moduleHomePath(module)}>
-                {t('integrations.modules.manage', { defaultValue: 'Manage' })}
-              </Link>
-            </Button>
-          ) : null}
-          {comingSoon ? null : (
-            <ModuleInstallControls module={module} onAction={onAction} compact />
-          )}
+        <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
+          <AiAvatar
+            {...toAiAvatarProps(specialist.avatar)}
+            size={40}
+            mode="live"
+            decorative
+            className="shrink-0"
+          />
+          <p className="mt-2 max-w-full truncate text-sm font-semibold text-text-heading" title={specialist.agentName}>
+            {specialist.agentName}
+          </p>
+          <p
+            className="max-w-full truncate text-xs font-medium"
+            style={{ color: specialist.titleColor }}
+            title={specialist.jobTitle}
+          >
+            {specialist.jobTitle}
+          </p>
+          <div
+            className="mt-auto flex items-center gap-2 pt-3"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {comingSoon ? null : installed || hasActive ? (
+              <Button asChild size="sm" variant="secondary">
+                <Link to={moduleHomePath(module)}>
+                  {t('integrations.modules.manage', { defaultValue: 'Manage' })}
+                </Link>
+              </Button>
+            ) : null}
+            {comingSoon ? null : (
+              <ModuleInstallControls module={module} onAction={onAction} compact />
+            )}
+          </div>
         </div>
       </div>
     </article>

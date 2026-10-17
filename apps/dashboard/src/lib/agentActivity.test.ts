@@ -491,6 +491,29 @@ describe('liveTurnOrbMotion', () => {
     expect(liveTurnOrbMotion(working)).toBe('working')
   })
 
+  it('stays working after a tool even when a later think is still running', () => {
+    const withWork = applyTurnEvent(EMPTY_TURN, 'agent.activity', {
+      stream_id: 's3',
+      item: {
+        id: 'w1',
+        kind: 'work',
+        label: 'search',
+        tool: 'search_index',
+        status: 'ok',
+      },
+    })
+    const laterThink = applyTurnEvent(withWork, 'agent.activity', {
+      stream_id: 's3',
+      item: {
+        id: 't2',
+        kind: 'think',
+        label: '',
+        status: 'running',
+      },
+    })
+    expect(liveTurnOrbMotion(laterThink)).toBe('working')
+  })
+
   it('stays idle while a proposal is preparing', () => {
     const preparing = {
       ...EMPTY_TURN,

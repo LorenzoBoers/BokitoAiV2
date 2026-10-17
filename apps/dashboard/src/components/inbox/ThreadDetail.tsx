@@ -5,6 +5,11 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
+  CLOSE_EMAIL_ON_SEND_EVENT,
+  fetchCloseEmailOnSend,
+  readCachedCloseEmailOnSend,
+} from '../../lib/email-close-pref'
+import {
   createInboxRule,
   listInboxMembers,
   patchThread,
@@ -25,7 +30,6 @@ import {
 } from '../../lib/mail-draft-store'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import MailComposer, { type MailSendPayload } from './MailComposer'
-import { parseDecisionOptions, pickSoftDecisionTarget } from '../../lib/decision-options'
 import { getContactThreadPage, updateContact } from '../../lib/contacts-api'
 import {
   humanizeContactName,
@@ -33,7 +37,7 @@ import {
 } from '../../lib/contact-label'
 import { fileTicket, listCategories, stageLabel, type Ticket } from '../../lib/tickets-api'
 import { normalizeHashtag } from '../../lib/hashtag'
-import { TicketStageMoveCancelled, loadOpenTickets, resolveOpenTickets } from '../../lib/close-thread-signals'
+import { TicketStageMoveCancelled, closeConversationCollecting, loadOpenTickets } from '../../lib/close-thread-signals'
 import FileInFolderDialog from './FileInFolderDialog'
 import { useCollectStageFields } from './TicketStageGate'
 import {
@@ -114,8 +118,7 @@ import {
   bokitoListMessages,
   closeAgentSession,
   discardAgentSession,
-  requestParticipantTurn,
-  startAgentSession,
+  prepareThreadAsk,
   type ChatMessage,
   type ThreadSession,
 } from '../../lib/signals-api'
@@ -227,6 +230,23 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   const { t, i18n } = useTranslation('communication')
   const confirm = useConfirm()
   const { token, user } = useAuth()
+  const [closeEmailOnSend, setCloseEmailOnSend] = useState(() => readCachedCloseEmailOnSend())
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    void fetchCloseEmailOnSend(token).then((enabled) => {
+      if (!cancelled) setCloseEmailOnSend(enabled)
+    })
+    const onChange = (event: Event) => {
+      const enabled = (event as CustomEvent<boolean>).detail
+      if (typeof enabled === 'boolean') setCloseEmailOnSend(enabled)
+    }
+    window.addEventListener(CLOSE_EMAIL_ON_SEND_EVENT, onChange)
+    return () => {
+      cancelled = true
+      window.removeEventListener(CLOSE_EMAIL_ON_SEND_EVENT, onChange)
+    }
+  }, [token])
   const { agents } = useAgents()
   const collectStageFields = useCollectStageFields()
   const location = useLocation()
@@ -1298,6 +1318,30 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     return hit?.name ?? null
   }, [askAgentId, mentionExtras])
 
+  // Ask-tab face stays on the real agent while Reply clears focus targets.
+  const askChromeAgent = useMemo(() => {
+    if (!detail) return null
+    const id = askAgentId || detail.thread.agentId
+    if (!id) return null
+    const live = agents.find((row) => String(row.id) === String(id))
+    const extra = mentionExtras.find((item) => item.type === 'agent' && item.id === String(id))
+    const onThread = String(id) === String(detail.thread.agentId)
+    return preferLiveAgentAvatar(live, {
+      name:
+        live?.name ??
+        extra?.name ??
+        (onThread ? detail.thread.agentName : null) ??
+        askAgentName,
+      agentId: String(id),
+      agentAvatarKind: extra?.avatarKind ?? (onThread ? detail.thread.agentAvatarKind : null),
+      agentAvatarIcon: extra?.avatarIcon ?? (onThread ? detail.thread.agentAvatarIcon : null),
+      agentAvatarColor: extra?.avatarColor ?? (onThread ? detail.thread.agentAvatarColor : null),
+      agentAvatarShape: extra?.avatarShape ?? (onThread ? detail.thread.agentAvatarShape : null),
+      agentAvatarImageUrl:
+        extra?.avatarImageUrl ?? (onThread ? detail.thread.agentAvatarImageUrl : null),
+    })
+  }, [detail, askAgentId, agents, mentionExtras, askAgentName])
+
   const resolveFocusTarget = useCallback(
     (type: 'agent' | 'user', id: string, name: string): ComposerFocusTarget => {
       if (type === 'agent') {
@@ -1315,7 +1359,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             agentAvatarColor: extra?.avatarColor,
             agentAvatarShape: extra?.avatarShape,
             agentAvatarImageUrl: extra?.avatarImageUrl,
-          }),
+          }) ?? undefined,
         }
       }
       const member = membersById[Number(id)]
@@ -1491,48 +1535,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       const text = bodyText.trim()
       const plainText = stripMentionMarkup(bodyText).trim()
       if (!continuePending && !plainText && !attachments?.length) return false
-      // Soft "Ja"/"Nee" in Ask resolves the sole binary open proposal — same as buttons.
-      // Multi/text cards may stay open; several binary Ja/Nee cards stay button-only.
-      if (!continuePending && plainText && !attachments?.length && detail) {
-        const openCards: { messageId: string; options: ReturnType<typeof parseDecisionOptions> }[] = []
-        for (const m of detail.messages) {
-          if (m.kind === 'decision_request' && decisionCardOpen(m, detail.events) === true) {
-            const raw = (m.payload?.decision as { options?: unknown } | undefined)?.options
-            openCards.push({ messageId: String(m.id), options: parseDecisionOptions(raw) })
-            continue
-          }
-          const proposal = m.proposal
-          if (
-            proposal &&
-            proposal.cardMessageId &&
-            (proposal.status === 'awaiting_human' || proposal.status === 'pending')
-          ) {
-            openCards.push({
-              messageId: proposal.cardMessageId,
-              options: parseDecisionOptions(proposal.options),
-            })
-          }
-        }
-        const target = pickSoftDecisionTarget(plainText, openCards)
-        if (target) {
-          try {
-            await resolveThreadDecision(
-              token,
-              threadIdString,
-              target.messageId,
-              target.soft.kind === 'approve' ? 'approve' : 'reject',
-              { optionId: target.soft.optionId },
-            )
-            onRefresh(true)
-            window.setTimeout(() => pinToBottom('smooth'), 120)
-            return true
-          } catch {
-            // Fall through to a normal Ask turn.
-          }
-        }
-      }
-      const talksDirect = Boolean(detail && isInternalThread(detail.thread))
-      let sessionId = talksDirect ? threadIdString : activeSessionId
       // Mentions in the body win over a stale default (e.g. thread Orchestrator
       // when the operator only tagged Bokito).
       const mentionedFocus = focusFromMentionBody(bodyText, (type, id, name) =>
@@ -1560,39 +1562,34 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       const audienceAgentIds = focusTargets
         .filter((target) => target.type === 'agent')
         .map((target) => target.id)
-      const multiAgentAsk =
-        mentionedFocus.targets.filter((t) => t.type === 'agent').length >= 2 ||
-        audienceAgentIds.length >= 2
-      // Internal threads: floor chip only (run=false). SSE Ask owns the turn —
-      // run=true here stacked a second worker turn beside the stream.
-      // Skip the floor chip when ≥2 agents are tagged: the stream starts a
-      // nestable handoff and claiming the floor first races the opener wake.
-      if (talksDirect && wantedAgentId && token && !multiAgentAsk) {
-        void requestParticipantTurn(
-          token,
-          threadIdString,
-          wantedAgentId,
-          plainText || '',
-          false,
-        ).catch(() => undefined)
+      const mentionedAgentIds = mentionedFocus.targets
+        .filter((target) => target.type === 'agent')
+        .map((target) => target.id)
+      const addressedAgentIds = [...new Set([...mentionedAgentIds, ...audienceAgentIds])]
+      let prepared: Awaited<ReturnType<typeof prepareThreadAsk>>
+      try {
+        prepared = await prepareThreadAsk(token, threadIdString, {
+          text: plainText,
+          agentId: wantedAgentId,
+          addressedAgentIds,
+          continuePending,
+          hasAttachments: Boolean(attachments?.length),
+        })
+      } catch (err) {
+        const detail = err instanceof Error ? err.message.trim() : ''
+        toast.error(detail || t('agentSession.startError'))
+        return false
       }
-      const needsNewSession =
-        !talksDirect &&
-        (!sessionId || Boolean(wantedAgentId && activeSession?.agentId && activeSession.agentId !== wantedAgentId))
-      if (needsNewSession) {
-        let started: ThreadSession | null = null
-        try {
-          started = await startAgentSession(token, threadIdString, wantedAgentId)
-          sessionId = started?.id ?? null
-        } catch {
-          toast.error(t('agentSession.startError'))
-          return false
-        }
-        if (!sessionId) return false
-        // Subscribe to the session's live turn and show the marker right away;
-        // the detail refresh replaces this once it carries the session.
-        setPendingSession(started)
-        setSessionTranscripts((prev) => ({ ...prev, [sessionId!]: [] }))
+      if (!prepared) return false
+      if (prepared.kind === 'decision') {
+        onRefresh(true)
+        window.setTimeout(() => pinToBottom('smooth'), 120)
+        return true
+      }
+      const sessionId = prepared.sessionId
+      if (!prepared.talksDirect && prepared.session) {
+        setPendingSession(prepared.session)
+        setSessionTranscripts((prev) => ({ ...prev, [prepared.sessionId]: [] }))
         onRefresh(true)
       }
       if (!sessionId) return false
@@ -1603,11 +1600,11 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           continuePending,
           // Internal Ask: drive the focused / @-tagged agent, not only the
           // thread's channel default (Orchestrator on agent chats).
-          agentId: talksDirect ? wantedAgentId : undefined,
-          audienceAgentIds: talksDirect ? audienceAgentIds : undefined,
+          agentId: prepared.talksDirect ? wantedAgentId : undefined,
+          audienceAgentIds: prepared.talksDirect ? audienceAgentIds : undefined,
           onFinished: async () => {
             setStreamingAskAgentId(null)
-            if (!talksDirect) await loadSessionMessages(sessionId)
+            if (!prepared.talksDirect) await loadSessionMessages(sessionId)
             // Quiet: keep bubbles on screen; never flash the thread skeleton.
             onRefresh(true)
             window.setTimeout(() => timelineRef.current?.pinToEnd(), 120)
@@ -1637,7 +1634,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         } else {
           toast.error(t('aiChat.sendError', { defaultValue: 'Could not send to the AI.' }))
         }
-        if (!talksDirect) await loadSessionMessages(sessionId)
+        if (!prepared.talksDirect) await loadSessionMessages(sessionId)
         onRefresh(true)
         return false
       }
@@ -1645,8 +1642,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     [
       token,
       threadIdString,
-      activeSessionId,
-      activeSession?.agentId,
       askAgentId,
       focusTargets,
       agentCandidates,
@@ -1719,6 +1714,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         setComposerMode('reply')
         return
       }
+      setComposerMode('reply')
       setMailSeedBody(null)
       setMailDraft(
         buildMailDraftIntent(message, draftMode, {
@@ -1743,6 +1739,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       setComposerMode('reply')
       return
     }
+    setComposerMode('reply')
     // Thread drafts only hold reply intents; 'new' lives on the compose page.
     const draftMode: MailDraftMode =
       storedMailDraft.mode === 'new' ? 'reply' : storedMailDraft.mode
@@ -1812,6 +1809,8 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       // input, so recipients and quoting are always explicit. A pending AI
       // proposal draft stays in the standard composer (it resolves on send).
       if (mode === 'reply' && messageLayout === 'email' && detail && !mailboxDisconnected && !composerDraft) {
+        // Stay on Reply under the mail view so closing it returns the compact field.
+        setComposerMode('reply')
         // An unsent mail draft wins: the Reply tab picks it back up.
         if (storedMailDraft) {
           resumeStoredMailDraft()
@@ -1857,11 +1856,24 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     ],
   )
 
+  // Dismissing the mail view must not refocus straight back into it.
+  const suppressMailPromoteRef = useRef(0)
+  const dismissMailComposer = useCallback(() => {
+    // Closing is a choice. Do not immediately grow the mail view back open
+    // because a stored draft and Reply mode would satisfy the auto-resume effect.
+    autoResumedMailDraftForRef.current = String(threadId)
+    suppressMailPromoteRef.current = Date.now() + 300
+    setMailDraft(null)
+    setMailSeedBody(null)
+    setComposerMode('reply')
+  }, [threadId])
+
   // Focusing the small email composer opens the mail client (empty or with a
   // draft), with the same recipients and quote as Reply.
   const handlePromoteEmailEdit = useCallback(
     (body: string) => {
-      if (!detail || messageLayout !== 'email' || mailboxDisconnected) return
+      if (Date.now() < suppressMailPromoteRef.current) return false
+      if (!detail || messageLayout !== 'email' || mailboxDisconnected) return false
       const source = [...detail.messages]
         .reverse()
         .find(
@@ -1879,7 +1891,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             senderName: detail.thread.contactName || null,
           }),
         )
-        return
+        return true
       }
       if (detail.thread.contactEmail) {
         setMailDraft({
@@ -1891,17 +1903,24 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           quotedHtml: '',
           quotedPreview: '',
         })
-        return
+        return true
       }
       setMailSeedBody(null)
+      return false
     },
     [detail, messageLayout, mailboxDisconnected, mailOwnAddresses, i18n.language],
   )
 
   // Send from the mail-native composer; afterwards the standard composer
   // returns and the sent mail lands in the timeline as an expandable bubble.
+  const closeAfterMailSendRef = useRef<(() => Promise<void>) | null>(null)
   const handleMailSend = useCallback(
     async (payload: MailSendPayload) => {
+      const close =
+        closeEmailOnSend &&
+        detail?.thread.channel === 'email' &&
+        detail.thread.status !== 'closed' &&
+        detail.thread.status !== 'spam'
       await onReply(payload.bodyText, 'send', 'email', payload.attachments, undefined, {
         cc: payload.cc,
         bcc: payload.bcc,
@@ -1912,7 +1931,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         sourceMessageId: payload.sourceMessageId || undefined,
         subject: payload.subject,
         quotedHtml: payload.quotedHtml,
+        // Close runs after send so open tickets can still be resolved.
+        keepOpen: close ? true : undefined,
       })
+      if (close) await closeAfterMailSendRef.current?.()
       // Outbound mail parks the open suggestion. Drop the small-composer
       // prefill so that draft does not reappear under the sent letter.
       setComposerDraft(null)
@@ -1920,7 +1942,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       setMailSeedBody(null)
       window.setTimeout(() => scrollToBottom('smooth'), 80)
     },
-    [onReply, scrollToBottom],
+    [onReply, scrollToBottom, closeEmailOnSend, detail],
   )
 
   // Hand the live turn off to its saved bubbles only after the frontend
@@ -2206,14 +2228,19 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     },
     [detail, onPatch],
   )
+  closeAfterMailSendRef.current = () => requestCloseThread()
 
   const confirmCloseWithSignals = useCallback(
     async (mode: 'resolve' | 'leave') => {
       if (!closeSignalsPrompt) return
       setCloseSignalsBusy(true)
       try {
-        if (mode === 'resolve') {
-          await resolveOpenTickets(closeSignalsPrompt.tickets, collectStageFields)
+        if (mode === 'resolve' && token && detail) {
+          await closeConversationCollecting(token, String(detail.thread.id), {
+            resolve: true,
+            collect: collectStageFields,
+            projectId: closeSignalsPrompt.projectId,
+          })
         }
         await onPatch({
           status: 'closed',
@@ -2228,7 +2255,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         setCloseSignalsBusy(false)
       }
     },
-    [closeSignalsPrompt, collectStageFields, onPatch, t],
+    [closeSignalsPrompt, collectStageFields, detail, onPatch, t, token],
   )
 
   const handleReply = useCallback(
@@ -2241,6 +2268,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         cc?: string
         bcc?: string
         channelAccountId?: string
+        to?: string
         handback?: boolean
         keepOpen?: boolean
       },
@@ -2486,7 +2514,15 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         </Callout>
       ) : null}
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        className="relative flex min-h-0 flex-1 flex-col"
+        onPointerDown={(event) => {
+          if (!mailDraft) return
+          const target = event.target
+          if (target instanceof Element && target.closest('[data-mail-action]')) return
+          dismissMailComposer()
+        }}
+      >
         {unseenNew > 0 ? (
           <button
             type="button"
@@ -2669,10 +2705,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           preferSeedBody={mailSeedBody != null}
           saving={saving}
           onSend={handleMailSend}
-          onCancel={() => {
-            setMailDraft(null)
-            setMailSeedBody(null)
-          }}
+          onCancel={dismissMailComposer}
         />
       ) : composerSurface ? (
         <ReplyComposer
@@ -2686,22 +2719,31 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           onModeChange={handleComposerModeChange}
           onVerb={handleComposerVerb}
           agentModeName={activeSession?.agentName ?? askAgentName ?? thread.agentName ?? null}
+          askAgent={askChromeAgent}
           replyFocus={replyFocus}
           onReplyFocusChange={handleReplyFocusChange}
           onAskTabFocus={handleAskTabFocus}
           onMentionInserted={handleMentionInserted}
           saving={saving || agentStreaming}
           lastInboundText={lastInboundText}
-          routingPolicy={detail.routingPolicy ?? null}
+          routingPolicy={
+            thread.status === 'closed' && detail.routingPolicy
+              ? { ...detail.routingPolicy, closeAfterHumanReply: false }
+              : (detail.routingPolicy ?? null)
+          }
+          closeEmailOnSend={
+            thread.status !== 'closed' && thread.status !== 'spam' && closeEmailOnSend
+          }
           handbackChoice={
             detail.routingPolicy?.afterHumanReply === 'ask' &&
             thread.owner?.kind !== 'user' &&
             thread.aiHandling?.effective !== 'manual'
           }
           channelAccountId={thread.channelAccountId ?? null}
-          onChannelAccountChange={(channelAccountId) => {
-            void onPatch({ channelAccountId })
-          }}
+          contactId={thread.contactId}
+          customerEmail={thread.contactEmail}
+          customerPhone={thread.contactPhone}
+          customerName={thread.contactName}
           replyDisabledNotice={
             mailboxDisconnected ? (
               <span className="flex flex-wrap items-center gap-2">
@@ -2720,10 +2762,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                     : t('composer.reconnectMailbox')}
                 </Link>
               </span>
-            ) : thread.status === 'closed' || thread.status === 'spam' ? (
+            ) : thread.status === 'spam' ? (
               <span className="flex flex-wrap items-center gap-2">
                 <AlertCircle size={13} className="shrink-0 text-status-warning" />
-                <span>{thread.status === 'spam' ? t('composer.spamBlocked') : t('shortcuts.replyBlocked')}</span>
+                <span>{t('composer.spamBlocked')}</span>
                 <button
                   type="button"
                   className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover"

@@ -4,7 +4,8 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
-import { Archive, ArrowLeft, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, RotateCcw, ShieldCheck } from 'lucide-react'
+import { Archive, ArrowLeft, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, RotateCcw, Settings, ShieldCheck } from 'lucide-react'
+import { NameEdit } from '../components/ui/NameEdit'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
@@ -26,7 +27,7 @@ import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
-import { listAgents } from '../lib/agents-api'
+import { getAgent } from '../lib/agents-api'
 import { agendaKindLabel } from '../lib/status-labels'
 import { translateDecisionText } from '../lib/activity-labels'
 import { agentChatPath, newConversationPath } from '../lib/messages-paths'
@@ -50,6 +51,13 @@ import { useAgentOrbDrive } from '../hooks/useBotOrbPulse'
 import { presenceOrbMotion } from '../lib/bot-orb-motion'
 import { agentStatusOf, presenceBadgeVariant, presenceLabel } from '../lib/presence'
 import { Badge } from '../components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
 
 /** Profile hero mark — large enough to read as identity, not a form icon. */
 const HERO_MARK_SIZE = 120
@@ -77,15 +85,16 @@ export default function AiAgentDetail() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!agentId || workLogId) return
     setLoading(true)
     setError(null)
     try {
-      const [agentRows, projectRows, passportRows, agendaRows, threadsResult, openThreadsResult] =
+      const [foundAgent, projectRows, passportRows, agendaRows, threadsResult, openThreadsResult] =
         await Promise.all([
-        listAgents({ includeInactive: true }),
+        getAgent(agentId),
         listProjects(),
         listAgentPassports()
           .then((r) => r.items)
@@ -118,7 +127,7 @@ export default function AiAgentDetail() {
         const all = await listWorkLogs({ limit: 100 })
         runRows = all.filter((r) => r.agent_id === agentId)
       }
-      const found = agentRows.find((a) => a.id === agentId) ?? null
+      const found = foundAgent
       setAgent(found)
       if (found) seedAgentPresence([found])
       setPassport(passportRows.find((p) => p.id === agentId) ?? null)
@@ -275,6 +284,16 @@ export default function AiAgentDetail() {
         <>
           <section className="relative py-4">
             <div className="absolute right-0 top-0 z-[1] flex h-8 items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8 w-8 px-0 text-text-muted"
+                aria-label={t('workforce.agents.openSettings')}
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings size={16} aria-hidden />
+              </Button>
               {isAdmin ? (
                 <DropdownMenu.Root>
                   <DropdownMenu.Trigger asChild>
@@ -398,9 +417,14 @@ export default function AiAgentDetail() {
 
               <div className="mt-4 flex min-w-0 max-w-xl flex-col items-center">
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  <h2 className="text-2xl font-semibold tracking-tight text-text-heading">
-                    {agent.name}
-                  </h2>
+                  <NameEdit
+                    value={agent.name}
+                    canEdit={isAdmin && agent.kind !== 'personal'}
+                    heading="h2"
+                    size="2xl"
+                    label={t('workforce.agents.editIdentity')}
+                    onStart={() => setIdentityOpen(true)}
+                  />
                   {agent.managed ? (
                     <span
                       className="rounded-md border border-border/70 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
@@ -718,78 +742,81 @@ export default function AiAgentDetail() {
             </Card>
           </div>
 
-          {agent.kind !== 'personal' ? (
-            <AgentInstructionsCard
-              agentId={agent.id}
-              name={agent.name}
-              systemPrompt={agent.system_prompt ?? ''}
-              canEdit={isAdmin}
-              onChanged={() => void load()}
-            />
-          ) : null}
-
-          {agent.kind !== 'personal' ? (
-            <AgentSignatureCard
-              agentId={agent.id}
-              agentName={agent.name}
-              signatureText={agent.email_signature_text ?? ''}
-              replySendAs={agent.reply_send_as === 'user' ? 'user' : 'agent'}
-              canEdit={isAdmin}
-              onChanged={() => void load()}
-            />
-          ) : null}
-
-          {agent.kind !== 'personal' ? (
-            <AgentAskTargetCard
-              agentId={agent.id}
-              askTarget={agent.ask_target}
-              canEdit={isAdmin}
-              onChanged={() => void load()}
-            />
-          ) : null}
-
-          {agent.kind !== 'personal' ? <AgentRulesEditor agentId={agent.id} canEdit canGrant={isAdmin} /> : null}
-
-          {/* Chat access is a company-agent concept; the API 404s for personal agents. */}
-          {agent.kind !== 'personal' ? <AgentChatAccessCard agentId={agent.id} /> : null}
-
-          <AgentModelCard
-            agentId={agent.id}
-            currentModel={agent.model}
-            canEdit={isAdmin}
-            onChanged={() => void load()}
-          />
-
-          <Card id="tools" className="px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="text-base font-semibold text-text-heading">
-                  {t('workforce.agents.permissionsTitle')}
-                </h3>
-                <p className="text-sm text-text-muted">
-                  {t('workforce.agents.permissionsDescription')}
-                </p>
-              </div>
-              <Button type="button" size="sm" variant="outline" asChild>
-                <Link to="/settings/govern?tab=policy">
-                  <ShieldCheck size={14} className="mr-1.5" aria-hidden />
-                  {t('workforce.agents.editPolicies')}
-                </Link>
-              </Button>
-            </div>
-            <div className="mt-3">
-              <div>
-                <AgentToolsPicker
+          <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-3xl gap-0 overflow-hidden p-0">
+              <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
+                <DialogTitle>{t('workforce.agents.settingsTitle')}</DialogTitle>
+                <DialogDescription>{t('workforce.agents.settingsHint')}</DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[min(760px,calc(92vh-5.5rem))] space-y-4 overflow-y-auto px-5 py-4">
+                {agent.kind !== 'personal' ? (
+                  <AgentInstructionsCard
+                    agentId={agent.id}
+                    name={agent.name}
+                    systemPrompt={agent.system_prompt ?? ''}
+                    canEdit={isAdmin}
+                    onChanged={() => void load()}
+                  />
+                ) : null}
+                <AgentModelCard
                   agentId={agent.id}
-                  allowedTools={passport?.tools ?? []}
+                  currentModel={agent.model}
                   canEdit={isAdmin}
-                  onSaved={(tools) =>
-                    setPassport((prev) => (prev ? { ...prev, tools } : prev))
-                  }
+                  onChanged={() => void load()}
                 />
+                {agent.kind !== 'personal' ? (
+                  <AgentRulesEditor agentId={agent.id} canEdit canGrant={isAdmin} />
+                ) : null}
+                {agent.kind !== 'personal' ? (
+                  <AgentSignatureCard
+                    agentId={agent.id}
+                    agentName={agent.name}
+                    signatureText={agent.email_signature_text ?? ''}
+                    replySendAs={agent.reply_send_as === 'user' ? 'user' : 'agent'}
+                    canEdit={isAdmin}
+                    onChanged={() => void load()}
+                  />
+                ) : null}
+                {agent.kind !== 'personal' ? (
+                  <AgentAskTargetCard
+                    agentId={agent.id}
+                    askTarget={agent.ask_target}
+                    canEdit={isAdmin}
+                    onChanged={() => void load()}
+                  />
+                ) : null}
+                {agent.kind !== 'personal' ? <AgentChatAccessCard agentId={agent.id} /> : null}
+                <Card id="tools" className="px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-base font-semibold text-text-heading">
+                        {t('workforce.agents.permissionsTitle')}
+                      </h3>
+                      <p className="text-sm text-text-muted">
+                        {t('workforce.agents.permissionsDescription')}
+                      </p>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" asChild>
+                      <Link to="/settings/govern?tab=policy">
+                        <ShieldCheck size={14} className="mr-1.5" aria-hidden />
+                        {t('workforce.agents.editPolicies')}
+                      </Link>
+                    </Button>
+                  </div>
+                  <div className="mt-3">
+                    <AgentToolsPicker
+                      agentId={agent.id}
+                      allowedTools={passport?.tools ?? []}
+                      canEdit={isAdmin}
+                      onSaved={(tools) =>
+                        setPassport((prev) => (prev ? { ...prev, tools } : prev))
+                      }
+                    />
+                  </div>
+                </Card>
               </div>
-            </div>
-          </Card>
+            </DialogContent>
+          </Dialog>
 
           <div className="space-y-2">
             <h3 className="text-base font-semibold text-text-heading">

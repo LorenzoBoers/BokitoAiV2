@@ -72,7 +72,7 @@ Een antwoord dat een collega rechtstreeks vanuit Gmail of Outlook stuurt hoort n
 1. Open **Kanalen**.
 2. Klik op de kanaalrij en kies **Wijzigen** naast **Naam** onder **Algemeen**.
 3. Typ een korte weergavenaam (bijvoorbeeld **Support**) en kies **Naam opslaan**. Laat het veld leeg om weer het adres te gebruiken.
-4. De naam verschijnt in de kanalenlijst, in de Communicatie-zijbalk en op het reply-tabblad wanneer je vanaf die mailbox verstuurt.
+4. De naam verschijnt in de kanalenlijst en in de Communicatie-zijbalk. Het antwoordtabblad in een gesprek toont het adres of nummer van de klant, met een kanaalicoon. Heeft dat contact nog een adres, nummer of gesprek, dan wisselt een chevron op het tabblad daarnaartoe.
 
 Kopieer of fotografeer geen OAuth-geheimen van gekoppelde accounts.
 
@@ -106,7 +106,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 
 ## Zet een handtekening en standaardagent
 
-1. Klik op de rij van een mailbox of Bokito-adres. Onder **Handtekeningbron** kies je **Mailbox-handtekening** (één gedeelde template voor iedereen; placeholders zoals `{{name}}`, `{{first_name}}` en `{{last_name}}` worden per afzender ingevuld) of **Ieders eigen handtekening** (via **Profiel**). Bij mailboxbron kies je **Wijzigen** naast **Handtekening** voor de template. In de editor open je **Voorbeeld** en kies je met **Voorbeeld als** jezelf, een teamlid, een agent of voorbeeldgegevens. Placeholders komen uit dat profiel. **Met profielfoto** zet de profielfoto van de afzender naast de naam, of een cirkel met initialen als er geen foto is. De groet staat als gewone tekst in de template, zodat je die kunt aanpassen. Is de template leeg, of staat de bron op ieders eigen, dan gebruikt Bokito de persoonlijke handtekening en daarna de Bokito-standaard. Agent-sends blijven de agenthandtekening gebruiken. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
+1. Klik op de rij van een mailbox of Bokito-adres. Onder **Handtekeningbron** kies je **Mailbox-handtekening** (één gedeelde template voor iedereen; placeholders zoals `{{name}}`, `{{first_name}}` en `{{last_name}}` worden per afzender ingevuld) of **Ieders eigen handtekening** (via **Profiel**). Bij mailboxbron kies je **Wijzigen** naast **Handtekening** voor de template. In de editor open je **Voorbeeld** en kies je met **Voorbeeld als** jezelf, een teamlid, een agent of voorbeeldgegevens. Placeholders komen uit dat profiel. **Met profielfoto** zet de profielfoto van de afzender naast de naam, of een cirkel met initialen als er geen foto is. De groet staat als gewone tekst in de template, zodat je die kunt aanpassen. Is de template leeg, of staat de bron op ieders eigen, dan gebruikt Bokito de persoonlijke handtekening en daarna de Bokito-standaard: foto naast de naam, of een cirkel met initialen zonder foto. Agent-sends blijven de agenthandtekening gebruiken. Na versturen toont Communicatie diezelfde handtekening in de bubbel (wat de klant ontving).
 2. Kies onder **Algemeen** een **Eigenaar** en een **AI-agent**. **Standaard** bij de agent is de standaardagent van het bedrijf. De eigenaar — een persoon, een team, of **Alle mensen** — krijgt het gesprek als een mens het moet overnemen. Op **Autonoom** of **Geassisteerd** is de agent zelf eigenaar van nieuwe gesprekken (bij Geassisteerd alleen zolang hij het antwoord voorbereidt). Ontbreekt een agent die het kanaal mag afhandelen, dan blijft de eigenaar eigenaar en komt er een regel in de tijdlijn.
 3. Kies **Toegang** om de toegangsmatrix te openen. Zet **Zien** en **Afhandelen** per team, persoon en agent aan of uit. Afhandelen betekent reageren, gesprekken oppakken en ze toegewezen krijgen; Zien is alleen lezen. Teams dekken hun leden — iemand zonder eigen toekenning volgt nog steeds **Alle mensen**. Eigenaren en beheerders handelen altijd elk kanaal af.
 4. Kies **Primaire afzender maken** naast **Primaire afzender** als je meerdere e-mailkanalen hebt. Inboxautomatiseringen beheer je één keer onder **Automatiseringsregels**, niet als een tweede set routeringsregels per mailbox.
@@ -154,9 +154,9 @@ Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI
 *Elke rij in Communicatie met de submap waarmee hij opent.*
 
 1. Scroll naar **Tags en Communicatie** op dezelfde pagina. Elke rij in de zijbalk van Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies de **Standaard submap**, en wijk daar per team, kanaal, tag of project van af.
-2. Tags en actietags beheer je onder **Instellingen** → **Actietags**: één **Tags**-lijst. Kies **Nieuwe tag**, typ een naam en voeg een omschrijving toe die agents lezen.
-3. Zet een vrije tag vast voor een rij onder **Tags** in Communicatie, of kies **Flow aanmaken** om er een flow aan te koppelen. Bij een actietag kies je **Flow openen**.
-4. Zie [Actietags en tickets](/docs/ai/categories).
+2. Tags en labels beheer je onder **Instellingen** → **Labels**: één **Tags**-lijst. Kies **Nieuwe tag**, typ een naam en voeg een omschrijving toe die agents lezen.
+3. Zet een vrije tag vast voor een rij onder **Tags** in Communicatie, of kies **Flow aanmaken** om er een flow aan te koppelen. Bij een label met een flow kies je **Flow openen**.
+4. Zie [Labels en tickets](/docs/ai/categories).
 
 ## Wat nu
 

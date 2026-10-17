@@ -220,9 +220,20 @@ async def list_agents(
     directory views that show the Deactivated filter.
     """
     items = await svc.list_runtime_agents(
-        session, auth.tenant.id, include_inactive=include_inactive
+        session, auth.tenant.id, include_inactive=include_inactive, view="passport"
     )
     return {"items": items}
+
+
+@router.get("/agents/{agent_id}")
+async def get_agent(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """One agent for the edit screen, including instructions and signature."""
+    agent = await svc.get_runtime_agent(session, auth.tenant.id, agent_id)
+    return {"agent": agent}
 
 
 @router.post("/agents")

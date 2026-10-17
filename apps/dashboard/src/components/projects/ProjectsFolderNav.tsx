@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Plus } from 'lucide-react'
+import { CreateFolderDialog } from '../folders/CreateFolderDialog'
 import { FolderNavTree } from '../folders/FolderNavTree'
+import { Button } from '../ui/button'
 import { SearchField } from '../ui/search-field'
 import { filtersetPlainLabel } from '../../lib/folder-filter-tree'
 import { onFoldersChanged } from '../../lib/folders-bus'
@@ -54,10 +57,12 @@ function filterProjects(projects: ProjectRow[], query: string): ProjectRow[] {
 export default function ProjectsFolderNav({ className }: { className?: string }) {
   const { t } = useTranslation('nav')
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [open, setOpen] = useState<Set<string>>(loadOpen)
   const [query, setQuery] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
 
   const reload = useCallback(() => {
     void listProjects()
@@ -141,13 +146,31 @@ export default function ProjectsFolderNav({ className }: { className?: string })
 
   return (
     <nav className={cn('flex min-h-0 flex-col gap-1', className)} aria-label={t('projects.page.folderNav')}>
-      <SearchField
-        value={query}
-        onChange={setQuery}
-        size="sm"
-        placeholder={t('projects.page.searchPlaceholder')}
-        aria-label={t('projects.page.searchPlaceholder')}
-        className="shrink-0"
+      <div className="flex shrink-0 items-center gap-1">
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          size="sm"
+          placeholder={t('projects.page.searchPlaceholder')}
+          aria-label={t('projects.page.searchPlaceholder')}
+          className="min-w-0 flex-1"
+        />
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="bg-bg-hover/70 text-text-heading hover:bg-bg-hover"
+          aria-label={t('projects.page.dialogTitle')}
+          title={t('projects.page.dialogTitle')}
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus size={16} />
+        </Button>
+      </div>
+      <CreateFolderDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(id) => navigate(`/folders/${id}`)}
       />
       <ScrollFade className="min-h-0 flex-1">
         <FolderNavTree

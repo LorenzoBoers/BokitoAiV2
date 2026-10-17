@@ -22,10 +22,11 @@ import type { NavRow } from '../../lib/signals-api'
 import { fileTicket } from '../../lib/tickets-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { HashtagMark } from '../ui/HashtagMark'
+import { TagPill } from '../ui/TagPill'
 import { Tip } from '../ui/Tip'
 import { SidebarFolder } from './QueueSublist'
 import { NavSectionSkeleton } from '../ui/skeleton'
-import type { HubLeaf, SubQueue } from '../../lib/messages-paths'
+import { FLOW_SUB_QUEUES, FOLDER_SUB_QUEUES, type HubLeaf, type SubQueue } from '../../lib/messages-paths'
 
 function useFileThreadsOntoRail() {
   const { token } = useAuth()
@@ -232,7 +233,8 @@ function CommunicationFolderRow({
       label={label}
       icon={<FolderIcon size={12} className="text-text-muted" aria-hidden />}
       activeLeaf={activeLeaf}
-      defaultQueue={defaultQueueFor(leaf)}
+      defaultQueue="open"
+      queues={FOLDER_SUB_QUEUES}
       badgeCount={row.count}
       retainOnExpand={ancestors}
       closeOnCollapse={children.flatMap(projectScopeKeys)}
@@ -297,9 +299,11 @@ function CommunicationTagRow({
     <SidebarFolder
       baseLeaf={leaf}
       label={bare}
-      icon={<HashtagMark category={Boolean(category)} />}
+      labelNode={category ? <TagPill names={bare} tone="action" size="sm" /> : undefined}
+      icon={category ? undefined : <HashtagMark />}
       activeLeaf={activeLeaf}
-      defaultQueue={defaultQueueFor(leaf)}
+      defaultQueue={category ? 'open' : defaultQueueFor(leaf)}
+      queues={category ? FLOW_SUB_QUEUES : undefined}
       badgeCount={row.count}
       onFileThreads={
         category ? (ids) => fileThreadsIntoFlow(ids, row.id, bare) : undefined

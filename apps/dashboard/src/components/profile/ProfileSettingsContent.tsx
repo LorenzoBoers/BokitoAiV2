@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect, useMemo, type KeyboardEvent, 
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
+import { Switch } from '../ui/switch'
 import { toast } from 'sonner'
 import { UserAvatar } from '../ui/UserAvatar'
 import { useAuth } from '../../context/AuthContext'
@@ -40,7 +41,13 @@ import {
   readCachedDefaultLanding,
   type DefaultLanding,
 } from '../../lib/landing-preference'
-import { prepareProfilePhoto, PrepareProfilePhotoError } from '../../lib/prepare-profile-photo'
+import {
+  fetchCloseEmailOnSend,
+  persistCloseEmailOnSend,
+  readCachedCloseEmailOnSend,
+} from '../../lib/email-close-pref'
+import { prepareProfilePhoto, PrepareProfilePhotoError, assertProfilePhotoFile, type ProfilePhotoCrop } from '../../lib/prepare-profile-photo'
+import { AvatarCropDialog } from './AvatarCropDialog'
 
 // ── inline editable field ────────────────────────────────────────────────────
 
@@ -288,12 +295,16 @@ export function ProfileSettingsContent() {
   const { mode, setMode } = useTheme()
   const confirm = useConfirm()
   const [defaultLanding, setDefaultLanding] = useState<DefaultLanding>(() => readCachedDefaultLanding())
+  const [closeEmailOnSend, setCloseEmailOnSend] = useState(() => readCachedCloseEmailOnSend())
 
   useEffect(() => {
     if (!token) return
     let cancelled = false
     void fetchDefaultLanding(token).then((landing) => {
       if (!cancelled) setDefaultLanding(landing)
+    })
+    void fetchCloseEmailOnSend(token).then((enabled) => {
+      if (!cancelled) setCloseEmailOnSend(enabled)
     })
     return () => {
       cancelled = true
@@ -303,72 +314,93 @@ export function ProfileSettingsContent() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarRemoving, setAvatarRemoving] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
   const [verifySending, setVerifySending] = useState(false)
 
-  const handleAvatarChange = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+  const uploadPreparedAvatar = useCallback(async (prepared: File) => {
+    if (!token) return
+    const form = new FormData()
+    form.append('avatar', prepared)
+    const headers = buildAuthHeaders(token, false) // no Content-Type — browser sets multipart boundary
+    const sendAvatar = async (path: string) => fetch(`${AUTH_API_BASE}${path}`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: form,
+    })
+    let res = await sendAvatar(authRoutes.users.meAvatar)
+    if (res.status === 404) {
+      // Backward compatibility while some environments still use legacy path.
+      res = await sendAvatar(authRoutes.users.avatarLegacy)
+    }
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`
+      try {
+        const body = (await res.json()) as { detail?: unknown }
+        if (typeof body.detail === 'string' && body.detail.trim()) detail = body.detail.trim()
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detail)
+    }
+    const data = await res.json() as { avatar?: { url?: string; path?: string } }
+    const url = data.avatar?.url ?? data.avatar?.path ?? null
+    if (url) {
+      patchLocalUser({ avatarUrl: url })
+      toast.success(t('profile:personalInformation.photoUpdated'))
+    }
+  }, [token, patchLocalUser, t])
+
+  const handleAvatarChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !token) return
+    try {
+      assertProfilePhotoFile(file)
+    } catch (prepErr) {
+      if (prepErr instanceof PrepareProfilePhotoError) {
+        const key =
+          prepErr.code === 'too_large'
+            ? 'profile:errors.uploadAvatarTooLarge'
+            : prepErr.code === 'unsupported' || prepErr.code === 'decode'
+              ? 'profile:errors.uploadAvatarUnsupported'
+              : 'profile:errors.uploadAvatar'
+        toast.error(t(key))
+        return
+      }
+      throw prepErr
+    }
+    setCropFile(file)
+  }, [token, t])
+
+  const handleAvatarCrop = useCallback(async (crop: ProfilePhotoCrop) => {
+    const file = cropFile
     if (!file || !token) return
     setAvatarUploading(true)
     try {
-      let prepared: File
-      try {
-        prepared = await prepareProfilePhoto(file)
-      } catch (prepErr) {
-        if (prepErr instanceof PrepareProfilePhotoError) {
-          const key =
-            prepErr.code === 'too_large'
-              ? 'profile:errors.uploadAvatarTooLarge'
-              : prepErr.code === 'unsupported' || prepErr.code === 'decode'
-                ? 'profile:errors.uploadAvatarUnsupported'
-                : 'profile:errors.uploadAvatar'
-          toast.error(t(key))
-          return
-        }
-        throw prepErr
+      const prepared = await prepareProfilePhoto(file, crop)
+      await uploadPreparedAvatar(prepared)
+      setCropFile(null)
+    } catch (prepErr) {
+      if (prepErr instanceof PrepareProfilePhotoError) {
+        const key =
+          prepErr.code === 'too_large'
+            ? 'profile:errors.uploadAvatarTooLarge'
+            : prepErr.code === 'unsupported' || prepErr.code === 'decode'
+              ? 'profile:errors.uploadAvatarUnsupported'
+              : 'profile:errors.uploadAvatar'
+        toast.error(t(key))
+        return
       }
-
-      const form = new FormData()
-      form.append('avatar', prepared)
-      const headers = buildAuthHeaders(token, false) // no Content-Type — browser sets multipart boundary
-      const sendAvatar = async (path: string) => fetch(`${AUTH_API_BASE}${path}`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: form,
-      })
-      let res = await sendAvatar(authRoutes.users.meAvatar)
-      if (res.status === 404) {
-        // Backward compatibility while some environments still use legacy path.
-        res = await sendAvatar(authRoutes.users.avatarLegacy)
-      }
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`
-        try {
-          const body = (await res.json()) as { detail?: unknown }
-          if (typeof body.detail === 'string' && body.detail.trim()) detail = body.detail.trim()
-        } catch {
-          /* ignore */
-        }
-        throw new Error(detail)
-      }
-      const data = await res.json() as { avatar?: { url?: string; path?: string } }
-      const url = data.avatar?.url ?? data.avatar?.path ?? null
-      if (url) {
-        patchLocalUser({ avatarUrl: url })
-        toast.success(t('profile:personalInformation.photoUpdated'))
-      }
-    } catch (err) {
       toast.error(
-        err instanceof Error
-          ? t('profile:errors.uploadAvatarDetail', { detail: err.message })
+        prepErr instanceof Error
+          ? t('profile:errors.uploadAvatarDetail', { detail: prepErr.message })
           : t('profile:errors.uploadAvatar'),
       )
     } finally {
       setAvatarUploading(false)
-      // Reset so the same file can be re-selected
-      e.target.value = ''
     }
-  }, [token, patchLocalUser, t])
+  }, [cropFile, token, t, uploadPreparedAvatar])
 
   const handleAvatarRemove = useCallback(async () => {
     if (!token || avatarRemoving || !user?.avatarUrl) return
@@ -749,7 +781,15 @@ export function ProfileSettingsContent() {
                 type="file"
                 accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
                 className="hidden"
-                onChange={(e) => void handleAvatarChange(e)}
+                onChange={handleAvatarChange}
+              />
+              <AvatarCropDialog
+                file={cropFile}
+                busy={avatarUploading}
+                onClose={() => {
+                  if (!avatarUploading) setCropFile(null)
+                }}
+                onConfirm={(crop) => void handleAvatarCrop(crop)}
               />
             </div>
           </div>
@@ -798,10 +838,10 @@ export function ProfileSettingsContent() {
         </Card>
       </Section>
 
-      {/* ── Email signature (personal fallback) ── */}
+      {/* ── Email: signature and close-on-send ── */}
       <Section title={t('profile:signature.title')} description={t('profile:signature.description')}>
         <Card>
-          <div className="flex items-center justify-between gap-4 py-3.5 pr-4">
+          <div className="flex items-center justify-between gap-4 border-b border-border/60 py-3.5 pr-4">
             <div className="min-w-0 flex-1">
               {!user?.emailSignatureHtml?.trim() && (
                 <p className="mb-2 text-xs font-medium text-text-muted">{t('profile:signature.usingDefault')}</p>
@@ -820,6 +860,24 @@ export function ProfileSettingsContent() {
               <PenLine size={12} />
               {user?.emailSignatureHtml?.trim() ? t('profile:signature.edit') : t('profile:signature.add')}
             </Button>
+          </div>
+          <div className="flex items-center justify-between gap-4 py-3.5 pr-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-heading">{t('profile:emailClose.label')}</p>
+              <p className="text-xs text-text-muted">{t('profile:emailClose.hint')}</p>
+            </div>
+            <Switch
+              checked={closeEmailOnSend}
+              aria-label={t('profile:emailClose.label')}
+              onCheckedChange={(checked) => {
+                setCloseEmailOnSend(checked)
+                if (!token) return
+                void persistCloseEmailOnSend(token, checked).catch(() => {
+                  setCloseEmailOnSend(!checked)
+                  toast.error(t('profile:emailClose.saveError'))
+                })
+              }}
+            />
           </div>
         </Card>
         <SignatureEditor

@@ -9,7 +9,7 @@ related: workstreams,categories,agenda,knowledge,communication
 
 # Zo werken Mappen
 
-Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** (ÉN) bepalen welke gesprekken matchen. Nesten verandert alleen de boom — labels blijven gelijk. Open **Mappen** voor de hub: gesprekken, tickets, canvas, docs en bestanden. Er is geen map-agent, budget of repository.
+Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** bepalen welke gesprekken matchen: één van die labels op het gesprek is genoeg. Nesten verandert alleen de boom — labels blijven gelijk. Open **Mappen** voor de hub: gesprekken, tickets, canvas, docs en bestanden. Er is geen map-agent, budget of repository.
 
 ## Maak of open een map
 
@@ -18,17 +18,17 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** (
 
 1. Open **Mappen**. Het linkermenu toont de boom. Kies **Nieuwe map**, geef een naam en kies optioneel labels voor lidmaatschap.
 2. Bevestig. De map verschijnt in de boom op het hoogste niveau (of onder een ouder als je die koos).
-3. Open een kaart. Je landt op **Overzicht**. Beheerders kunnen de naam en labels wijzigen. Leden kunnen lezen; ze kunnen niet verwijderen.
+3. Open een kaart. Je landt op **Overzicht**. Beheerders hoveren de mapnaam: die wordt een pil met een pennetje, en een klik hernoemt de map. Labels staan in één veld naast de naam; **+** voegt labels toe, de kruisjes op een pil halen die weg. Leden kunnen lezen; ze kunnen niet verwijderen.
 
 ## Nest een map onder een andere
 
-1. Op **Mappen** sleep je een map naar een andere rij. De map springt live in de boom naar de dichtstbijzijnde plek: hetzelfde niveau als die rij, of één niveau dieper als je iets naar rechts sleept (of gebruik **Nesten** in het mapmenu).
+1. Op **Mappen** sleep je een map. De lijst blijft staan. Een lijn toont waar ze landt: omhoog of omlaag voor de plek, verder naar rechts om één niveau dieper te nesten, verder naar links om een niveau omhoog te gaan. Loslaten verplaatst de map. **Nieuwe map** (de plus naast zoeken) maakt een map op het hoogste niveau.
 2. Laat los als hij op de goede plek zit. Labels veranderen niet — alleen de plek in de boom.
 3. Gebruik **Ongedaan maken** op de toast, of Ctrl/Cmd+Z, om de laatste nest, herschikking of unnest terug te draaien.
 
 ## Verplaats een map naar het hoogste niveau
 
-1. Op **Mappen** sleep je een geneste map naar links richting de root-indent, of naar een zone **Bovenste laag** (boven of onder de boom) — de map springt live terwijl je sleept.
+1. Op **Mappen** sleep je een geneste map verder naar links tot ze op het gewenste niveau staat. Ver genoeg naar links wordt ze een map op het hoogste niveau.
 2. De map komt tussen de andere wortelmapen. Labels blijven gelijk.
 3. Gebruik **Ongedaan maken** op de toast, of Ctrl/Cmd+Z, als je het wilt terugdraaien.
 
@@ -46,9 +46,9 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** (
 
 ## Lees het Overzicht
 
-1. De kop toont de mapnaam en de labels. **Open in Communicatie** springt naar dezelfde scope in de Communicatie-rail.
+1. De kop toont de mapnaam en daarnaast het labelveld met de pills. **Open in Communicatie** springt naar dezelfde scope in de Communicatie-rail.
 2. Hover een boomrij voor de labels en **Onder:** de oudermap wanneer genest.
-3. **Recente gesprekken** toont matches; **Alle gesprekken** opent het tabblad Gesprekken. Canvas, docs en bestanden blijven op deze hub.
+3. **Flows** toont automatisch elk bord waarvan een gesprek in deze map (of een map eronder) een ticket is — fasen als kolommen, tickets als kaarten. Sleep een kaart om de fase te wijzigen, of open het tabblad **Tickets** voor hetzelfde bord. **Recente gesprekken** toont de matches; **Alle gesprekken** opent het tabblad Gesprekken. Wat een agent deed, staat in dat gesprek. Canvas, docs en bestanden blijven op deze hub.
 
 ## Zie gesprekken in een map
 
@@ -61,9 +61,9 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** (
 ![Flow-borden op een project](/api/docs/assets/folders/boards.png)
 *Eén bord per flow op de map, met de stages van die flow als kolommen.*
 
-1. Open het tabblad **Tickets** wanneer flows aan deze map hangen.
-2. Sleep een kaart naar een andere kolom om de stage te wijzigen. Klik een kaart om hem in [Communicatie](/docs/inbox/communication) te openen.
-3. Flows blijven de actietag-as; een map filtert alleen welke tickets je ziet. Zie [Flows](/docs/ai/workstreams) en [Actietags](/docs/ai/categories).
+1. Open de map op **Overzicht**, of het tabblad **Tickets**.
+2. Sleep een kaart naar een andere kolom om de fase te wijzigen. Klik een kaart om hem in [Communicatie](/docs/inbox/communication) te openen.
+3. Flows blijven het label-as; de map toont alleen flows met tickets die hier matchen. Zie [Flows](/docs/ai/workstreams) en [Labels](/docs/ai/categories).
 
 ## Vraag een agent om een canvas
 

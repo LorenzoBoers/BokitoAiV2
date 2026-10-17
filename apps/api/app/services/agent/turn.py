@@ -199,6 +199,9 @@ class TurnRecorder:
         self._speech_id: str | None = None
         self._speech_text = ""
         self.started = False
+        # After the first tool, later reasoning must not take the face back
+        # to Thinking. The live state stays Working until the next sentence.
+        self._worked = False
 
     async def _emit(self, event: str, data: dict[str, Any]) -> None:
         if self._publish is None:
@@ -215,6 +218,8 @@ class TurnRecorder:
 
     async def thinking(self, delta: str) -> None:
         if not delta or (self._think is None and not delta.strip()):
+            return
+        if self._worked:
             return
         await self.start()
         if self._think is None:
@@ -314,6 +319,7 @@ class TurnRecorder:
         await self.start()
         await self._end_think()
         self._close_speech()
+        self._worked = True
         item = {
             "id": f"tool-{uuid.uuid4().hex[:10]}",
             "kind": KIND_OTHER if name in _OTHER_TOOLS else KIND_WORK,

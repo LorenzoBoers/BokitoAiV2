@@ -114,6 +114,23 @@ async def test_seeds_are_free_tags_and_promote_makes_a_category(client: AsyncCli
 
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
     assert [row["name"] for row in nav["ticket_tags"]] == ["klacht"]
+    assert promoted.json()["color"]
+    assert promoted.json()["icon"]
+
+    detached = await client.patch(
+        f"/api/categories/{names['klacht']['id']}",
+        headers=headers,
+        json={"workstream_id": None},
+    )
+    assert detached.status_code == 200, detached.text
+    plain = {
+        row["name"]: row
+        for row in (await client.get("/api/signals/tags", headers=headers)).json()
+    }
+    assert plain["klacht"]["is_category"] is False
+    assert plain["klacht"]["workstream_id"] is None
+    assert plain["klacht"]["color"] == ""
+    assert plain["klacht"]["icon"] == ""
 
     # Deleting a seed does not bring it back on the next run.
     spam = names["spam"]["id"]

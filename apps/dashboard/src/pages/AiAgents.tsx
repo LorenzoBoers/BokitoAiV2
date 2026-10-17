@@ -28,6 +28,8 @@ import type { RuntimeAgent } from '../lib/workforce-api'
 import {
   filterLibraryAgents,
   isDeactivatedAgent,
+  isOrchestratorAgent,
+  normalizeRoleSlug,
   sortAgentsForLibrary,
 } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
@@ -35,6 +37,7 @@ import { useAgentOrbDrive } from '../hooks/useBotOrbPulse'
 import { presenceOrbMotion } from '../lib/bot-orb-motion'
 import { AgentActiveLine } from '../components/inbox/IdentitySeenLine'
 import { cn } from '../lib/utils'
+import type { TFunction } from 'i18next'
 
 /** Library card mark — readable face, not a dense list icon. */
 const LIBRARY_MARK_SIZE = 52
@@ -92,6 +95,19 @@ function AgentQuickLinks({
   )
 }
 
+/** Colored line under the name. A title that only repeats the name falls back to the role. */
+function agentFunctionLabel(agent: RuntimeAgent, t: TFunction): string {
+  const name = agent.name.trim().toLowerCase()
+  const title = (agent.job_title ?? '').trim()
+  if (title && title.toLowerCase() !== name) return title
+  const slug = normalizeRoleSlug(agent)
+  if (slug === 'assistant') return t('workforce.agents.types.assistant')
+  if (isOrchestratorAgent(agent)) return t('workforce.agents.types.orchestrator')
+  const roleName = (agent.role_name ?? '').trim()
+  if (roleName && roleName.toLowerCase() !== name) return roleName
+  return t('workforce.agents.types.worker')
+}
+
 function AgentLibraryCard({
   agent,
   project,
@@ -112,14 +128,21 @@ function AgentLibraryCard({
   const summary = view.current_activity_summary
   const profileAccent = agentProfileAccentColor(resolveAgentAvatarColor(agent.avatar_color))
   const showStatusPill = isDeactivatedAgent(agent) || work === 'working' || work === 'error'
+  const functionLabel = agentFunctionLabel(agent, t)
+  const description = (agent.description ?? '').trim()
 
   return (
     <Link to={href} className="group block h-full">
       <Card
         interactive
-        className="flex h-full flex-col gap-3 border-border/50 p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
+        className="relative flex h-full flex-col gap-3 overflow-hidden border-border/50 p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
       >
-        <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="specialist-glow pointer-events-none absolute -left-8 -top-10 h-36 w-36 rounded-full blur-2xl"
+          style={{ backgroundColor: profileAccent }}
+        />
+        <div className="relative z-[1] flex items-start gap-3">
           <AgentMark
             agent={agent}
             size={LIBRARY_MARK_SIZE}
@@ -131,29 +154,38 @@ function AgentLibraryCard({
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="truncate-fade text-lg font-semibold tracking-tight text-text-heading">
-                {agent.name}
-              </p>
-              {agent.managed ? (
-                <span
-                  className="shrink-0 rounded-md bg-bg-hover/80 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
-                  title={
-                    agent.origin_label
-                      ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
-                      : t('workforce.agents.managedBadge')
-                  }
-                >
-                  {t('workforce.agents.managedBadgeShort')}
-                </span>
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <p className="truncate-fade text-lg font-semibold tracking-tight text-text-heading">
+                    {agent.name}
+                  </p>
+                  {agent.managed ? (
+                    <span
+                      className="shrink-0 rounded-md bg-bg-hover/80 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
+                      title={
+                        agent.origin_label
+                          ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
+                          : t('workforce.agents.managedBadge')
+                      }
+                    >
+                      {t('workforce.agents.managedBadgeShort')}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-sm font-medium leading-snug" style={{ color: profileAccent }}>
+                  {functionLabel}
+                </p>
+              </div>
+              {!isDeactivatedAgent(agent) ? (
+                <AgentActiveLine
+                  at={view.last_active_at}
+                  working={work === 'working'}
+                  className="mt-1 shrink-0 text-right"
+                />
               ) : null}
             </div>
-            {agent.job_title ? (
-              <p
-                className="mt-1 text-sm font-medium leading-snug"
-                style={{ color: profileAccent }}
-              >
-                {agent.job_title}
-              </p>
+            {description ? (
+              <p className="mt-1 line-clamp-2 text-sm leading-snug text-text-secondary">{description}</p>
             ) : null}
             {showStatusPill || project ? (
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -191,12 +223,6 @@ function AgentLibraryCard({
                 ) : null}
               </div>
             ) : null}
-            {!isDeactivatedAgent(agent) ? (
-              <AgentActiveLine at={view.last_active_at} working={work === 'working'} />
-            ) : null}
-            {agent.description ? (
-              <p className="mt-1 line-clamp-2 text-sm leading-snug text-text-secondary">{agent.description}</p>
-            ) : null}
             {openCount > 0 || decisionCount > 0 ? (
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                 {openCount > 0 ? (
@@ -230,11 +256,11 @@ function AgentLibraryCard({
           </div>
         </div>
         {summary && work === 'working' ? (
-          <p className="line-clamp-2 text-sm leading-snug text-text-muted">{summary}</p>
-        ) : !agent.description && summary ? (
-          <p className="line-clamp-2 text-sm leading-snug text-text-secondary">{summary}</p>
+          <p className="relative z-[1] line-clamp-2 text-sm leading-snug text-text-muted">{summary}</p>
+        ) : !description && summary ? (
+          <p className="relative z-[1] line-clamp-2 text-sm leading-snug text-text-secondary">{summary}</p>
         ) : null}
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/40 pt-2.5">
+        <div className="relative z-[1] mt-auto flex items-center justify-between gap-2 border-t border-border/40 pt-2.5">
           <AgentQuickLinks
             agentId={agent.id}
             chatLabel={t('workforce.agents.chat')}
@@ -308,7 +334,7 @@ export default function AiAgents() {
         return false
       }
       if (!needle) return true
-      const hay = [view.name, view.description, view.purpose, view.current_activity_summary]
+      const hay = [view.name, view.description, view.role_name, view.job_title, view.current_activity_summary]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()

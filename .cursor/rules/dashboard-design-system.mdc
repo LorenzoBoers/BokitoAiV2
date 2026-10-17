@@ -19,6 +19,7 @@ Rare one-off styles fold into the nearest catalog component.
 | Family | Component | Use for |
 |---|---|---|
 | Surfaces | `Card` (+ `CardHeader`, `CardTitle`, `CardContent`) / `.panel` | Every card, section, standalone list |
+| | `AmbientSpotlights` | Soft corner wash on a large dark canvas (parent is `relative`) |
 | | `InsetPanel` | Region inside a Card (sublist, preview, group) |
 | | `SettingsSection` | Settings form card with title, description, actions |
 | | `SectionHeading` | Heading of a group inside a page or card |

@@ -958,7 +958,8 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   tag_removed: (t) => t('timeline.events.labelRemoved'),
   priority_changed: (t, p) => t('timeline.events.priority', { priority: String(p.priority ?? '') }),
   replied: (t) => t('timeline.events.replySent'),
-  reply_sent: (t) => t('timeline.events.replySent'),
+  reply_sent: (t, p) =>
+    p.reopened ? t('timeline.events.replyReopened') : t('timeline.events.replySent'),
   note_added: (t) => t('timeline.events.noteAdded'),
   message_added: (t) => t('timeline.events.messageAdded'),
   folder_set: (t, p) => {
@@ -1097,13 +1098,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     }
     return t('timeline.events.triaged')
   },
-  category_set: (t, p) => {
-    const category = String(p.category ?? '')
-    if (p.proposed) return t('timeline.events.categoryProposed', { category })
-    return typeof p.previous === 'string' && p.previous
-      ? t('timeline.events.categoryChanged', { category, previous: p.previous })
-      : t('timeline.events.categorySet', { category })
-  },
+  category_set: () => '',
   split: (t, p) => {
     const category = typeof p.category === 'string' ? p.category : ''
     if (p.direction === 'in') return t('timeline.events.splitIn')
@@ -1310,25 +1305,6 @@ function eventLabel(
   actorVoice: EventActorVoice = null,
 ): string {
   const p = event.payload ?? {}
-  if (event.eventType === 'category_set' && !p.proposed && actorVoice) {
-    const category = String(p.category ?? '')
-    const previous = typeof p.previous === 'string' && p.previous ? p.previous : ''
-    if (previous) {
-      return actorVoice === 'you'
-        ? t('timeline.events.categoryChangedYou', { category, previous })
-        : t('timeline.events.categoryChangedBy', {
-            category,
-            previous,
-            name: memberName || t('timeline.events.someone'),
-          })
-    }
-    return actorVoice === 'you'
-      ? t('timeline.events.categorySetYou', { category })
-      : t('timeline.events.categorySetBy', {
-          category,
-          name: memberName || t('timeline.events.someone'),
-        })
-  }
   if (event.eventType === 'ticket_stage_changed' && actorVoice) {
     const kind = p.to_kind as TicketStageKind | undefined
     const stageName = String(p.to_stage ?? '')
@@ -1462,6 +1438,64 @@ function tagNameList(value: unknown): string[] {
     .filter(Boolean)
 }
 
+function ActionTagPill({ name }: { name: string }) {
+  const bare = name.replace(/^#/, '').trim()
+  if (!bare) return null
+  return <TagPill names={bare} tone="action" size="sm" />
+}
+
+function categoryChangeLabel(
+  event: InboxEvent,
+  t: TFunction,
+  memberName?: string,
+  actorVoice: EventActorVoice = null,
+): ReactNode | null {
+  if (event.eventType !== 'category_set') return null
+  const p = event.payload ?? {}
+  const category = String(p.category ?? '').replace(/^#/, '').trim()
+  if (!category) return null
+  const previous = typeof p.previous === 'string' ? p.previous.replace(/^#/, '').trim() : ''
+  const who = memberName || t('timeline.events.someone')
+  if (p.proposed) {
+    return (
+      <Trans
+        t={t}
+        i18nKey="timeline.events.categoryProposed"
+        components={{ tag: <ActionTagPill name={category} /> }}
+      />
+    )
+  }
+  if (previous) {
+    const key =
+      actorVoice === 'you'
+        ? 'categoryChangedYou'
+        : actorVoice === 'them'
+          ? 'categoryChangedBy'
+          : 'categoryChanged'
+    return (
+      <Trans
+        t={t}
+        i18nKey={`timeline.events.${key}`}
+        values={{ name: who }}
+        components={{
+          from: <ActionTagPill name={previous} />,
+          to: <ActionTagPill name={category} />,
+        }}
+      />
+    )
+  }
+  const key =
+    actorVoice === 'you' ? 'categorySetYou' : actorVoice === 'them' ? 'categorySetBy' : 'categorySet'
+  return (
+    <Trans
+      t={t}
+      i18nKey={`timeline.events.${key}`}
+      values={{ name: who }}
+      components={{ tag: <ActionTagPill name={category} /> }}
+    />
+  )
+}
+
 function InlineTagPills({ names }: { names: string[] }) {
   if (names.length === 0) return null
   return (
@@ -1585,6 +1619,7 @@ function EventPill({
       : event
   const richLabel =
     assistedHandoverLabel(labelEvent, t) ??
+    categoryChangeLabel(labelEvent, t, memberName, actorVoice) ??
     tagsChangeLabel(labelEvent, t, memberName, actorVoice)
   const label: ReactNode =
     richLabel ?? eventLabel(labelEvent, t, memberName, memberNameFor, actorVoice)
@@ -2573,10 +2608,11 @@ export function MessageTimelineItem({
       <>
         {isInbound && authorKind === 'external' ? (
           <>
-            <BubbleAction label={t('timeline.replyMail')} onClick={() => onMailAction(message, 'reply')}>
+            <BubbleAction mailAction label={t('timeline.replyMail')} onClick={() => onMailAction(message, 'reply')}>
               <Reply size={12} />
             </BubbleAction>
             <BubbleAction
+              mailAction
               label={t('timeline.replyAllMail')}
               onClick={() => onMailAction(message, 'reply_all')}
               disabled={!canReplyAll(message, mailOwnAddresses ?? [])}
@@ -2585,7 +2621,7 @@ export function MessageTimelineItem({
             </BubbleAction>
           </>
         ) : null}
-        <BubbleAction label={t('timeline.forwardMail')} onClick={() => onMailAction(message, 'forward')}>
+        <BubbleAction mailAction label={t('timeline.forwardMail')} onClick={() => onMailAction(message, 'forward')}>
           <Forward size={12} />
         </BubbleAction>
       </>

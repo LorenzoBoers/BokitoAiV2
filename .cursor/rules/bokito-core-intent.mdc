@@ -18,7 +18,7 @@ Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on 
 ## Decision rules
 
 1. **Everything is reachable from a conversation** — pages for browsing; every action also has a chat path
-2. **One object per idea** — Conversation, Action tag (Ticket), Flow, Project, Contact (+ Organization), Agent, Decision
+2. **One object per idea** — Conversation, Label (a label with a flow is the Ticket), Flow, Project, Contact (+ Organization), Agent, Decision
 3. **Modules add types and flows; never screens**
 4. **The system reads first; people correct**
 5. **Autonomy is one dial in Govern** (workspace ceiling; type/flow may sit below)
@@ -30,7 +30,7 @@ Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on 
 
 ## Operator vocabulary (Set C)
 
-Conversation/Gesprek · Action tag/Actietag (a hashtag that starts a ticket flow; filing it makes the conversation a Ticket) · Flow (title + action-tag `#name`) · Folder/Map (a tag with a place; projects are folders) · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: AI handling/AI-afhandeling (Autonomous · Assisted · Manual). Avoid Smarttag / Smartflow.
+Conversation/Gesprek · Label (a hashtag; color and icon only while a flow is attached; filing that label makes the conversation a Ticket) · Flow (title + that label) · Folder/Map (a tag with a place; projects are folders) · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: AI handling/AI-afhandeling (Autonomous · Assisted · Manual). Avoid Smarttag / Smartflow and actietag / action tag.
 
 ## What we are building
 
@@ -87,6 +87,7 @@ Prefer the cleanest design over backward-compatibility shims. Breaking schema/AP
 - Agent writes bypassing govern / apply modes / posture
 - Results with no learning or audit hook
 - Hardcoded API paths outside `apps/dashboard/src/api/routes/`
+- Product rules, prompts or multi-step workflows in the dashboard, widget or mobile bundle — the API is the backbone (`.cursor/rules/backend-backbone.mdc`)
 - Back-compat shims that duplicate mental models during initial build phase
 - Rebuilding coding tools inside Bokito instead of workbench connections
 

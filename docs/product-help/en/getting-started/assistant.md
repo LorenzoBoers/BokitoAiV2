@@ -14,8 +14,8 @@ Bokito is your own assistant inside the platform. It is not one of the workspace
 ## Start from the home screen
 
 1. Open Bokito from **Help** in the top bar, or the button in the bottom-right.
-2. Under **Start new conversation**, choose **What can I do here?**, **Hand work over**, or **Set something up**. Bokito starts a chat and asks that for you.
-3. Choose **Earlier chats** to open your private conversation list.
+2. Choose **Start new conversation** and ask your question. Handing work over or setting something up happens in that chat.
+3. Choose **Earlier chats** for your private conversation list, or **Help articles** for the product help.
 
 ## Ask about the page you are on
 
@@ -59,7 +59,7 @@ Each chat stays inside the workspace where you had it. What Bokito remembers abo
 
 ## Review what Bokito remembers
 
-1. Open **Settings**, then **My assistant**.
+1. Open **Settings**, then **My assistant** under **Personal** (after **Notifications**). The page shows the Bokito mark of the helper in the bottom-right corner.
 2. Read the facts Bokito stored about you. Choose **Forget** on one row or **Clear all**.
 3. Open the helper again with **Talk to assistant** if you want to tell it something new. Company agents and the website widget are separate — see [Agents](/docs/ai/agents) and [Chat widget](/docs/inbox/widget).
 

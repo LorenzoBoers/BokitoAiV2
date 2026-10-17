@@ -20,7 +20,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.channel import Contact
-from app.models.signal import CompanyTagLink, ContactTagLink, Signal, SignalTag, SignalTagLink, TagGroup
+from app.models.signal import CompanyTagLink, ContactTagLink, Signal, SignalTag, SignalTagLink
 
 MAX_TAG_LEN = 40
 MAX_TAGS_PER_THREAD = 20
@@ -122,14 +122,13 @@ async def ai_catalog_lines(
         if row.get("is_category") or not row.get("ai_auto_tag"):
             continue
         name = str(row.get("name") or "")
-        group = str(row.get("group_name") or "").strip()
         paths = [
             str(folder.get("path") or "")
             for folder in row.get("folders") or []
             if isinstance(folder, dict) and folder.get("path")
         ]
         desc = str(row.get("description") or "").strip()
-        label = f"{group}: #{name}" if group else name
+        label = name
         if paths:
             label = f"{label} → {paths[0]}"
         lines.append(f"{label} - {desc}" if desc else label)
@@ -169,13 +168,6 @@ async def signal_tag_names(session: AsyncSession, signal_id: UUID) -> list[str]:
     return (await tags_by_signal(session, [signal_id]))[signal_id]
 
 
-async def _exclusive_groups(session: AsyncSession, tenant_id: UUID) -> set[UUID]:
-    rows = await session.execute(
-        select(TagGroup.id).where(TagGroup.tenant_id == tenant_id, TagGroup.exclusive.is_(True))
-    )
-    return set(rows.scalars())
-
-
 async def _signal_row(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> Signal | None:
     signal = await session.get(Signal, signal_id)
     return signal if signal is not None and signal.tenant_id == tenant_id else None
@@ -186,15 +178,6 @@ async def _current_tag_rows(session: AsyncSession, signal_id: UUID) -> dict[UUID
         select(SignalTag).join(SignalTagLink, SignalTagLink.tag_id == SignalTag.id).where(SignalTagLink.signal_id == signal_id)
     )
     return {row.id: row for row in rows.scalars()}
-
-
-def _dedupe_exclusive(rows: list[SignalTag], exclusive: set[UUID]) -> list[SignalTag]:
-    """Within one request the last tag of an exclusive group wins."""
-    winner: dict[UUID, UUID] = {}
-    for row in rows:
-        if row.group_id in exclusive:
-            winner[row.group_id] = row.id
-    return [row for row in rows if row.group_id not in exclusive or winner[row.group_id] == row.id]
 
 
 async def _after_tag_change(
@@ -217,15 +200,13 @@ async def set_signal_tags(
 ) -> dict[str, list[str]]:
     """Replace a conversation's free tags (registering new names). Flushes, never commits.
 
-    The operator's list is authoritative: of two tags from one exclusive
-    group the last one stays. The folder is refiled afterwards.
+    The operator's list is authoritative. The folder is refiled afterwards.
 
     Returns ``{"tags": all names, "added": names, "removed": names}``.
     """
     before = set(await signal_tag_names(session, signal_id))
     rows = await ensure_tags(session, tenant_id, normalize_tags(names), user_id=user_id)
-    exclusive = await _exclusive_groups(session, tenant_id)
-    kept = _dedupe_exclusive(list(rows.values()), exclusive)
+    kept = list(rows.values())
     category_ids = select(SignalTag.id).where(
         SignalTag.tenant_id == tenant_id, SignalTag.workstream_id.is_not(None)
     )
@@ -261,10 +242,7 @@ async def add_signal_tags(
     """Add free tags without removing any. Returns ``(all tags, newly added)``.
 
     ``registered_only`` skips names the registry does not have (agents and
-    rules); otherwise new names are registered. A person's new tag replaces
-    the conversation's tag from the same exclusive group; an agent or rule
-    skips it (``skipped_exclusive`` on the result of `add_signal_tag_rows`).
-    Flushes, never commits.
+    rules); otherwise new names are registered. Flushes, never commits.
     """
     current = await signal_tag_names(session, signal_id)
     wanted = [n for n in normalize_tags(names) if n not in current]
@@ -295,50 +273,17 @@ async def add_signal_tag_rows(
     actor_type: str = "user",
     actor_id: str = "",
 ) -> dict[str, Any]:
-    """Link tag rows to a conversation; the exclusive-group rule decides what
-    happens to a competing tag already there (or inherited from the contact).
+    """Link tag rows to a conversation.
 
-    Returns ``{"tags": all names, "added": names, "replaced": names, "skipped_exclusive": [{tag, conflicts_with}]}``.
+    Returns ``{"tags": all names, "added": names, "replaced": names, "skipped_exclusive": []}``.
     """
-    from app.services.folders import contact_tag_ids
-
-    exclusive = await _exclusive_groups(session, tenant_id)
+    del replace_exclusive
     current = await _current_tag_rows(session, signal_id)
-    signal = await _signal_row(session, tenant_id, signal_id)
-    inherited_ids = await contact_tag_ids(session, signal.contact_id) if signal is not None else set()
-    inherited = {
-        row.id: row
-        for row in (
-            (await session.execute(select(SignalTag).where(SignalTag.id.in_(list(inherited_ids))))).scalars()
-            if inherited_ids
-            else []
-        )
-    }
-    ticket_row = await session.get(SignalTag, signal.ticket_tag_id) if signal is not None and signal.ticket_tag_id else None
-    candidates = _dedupe_exclusive([r for r in rows if r.id not in current], exclusive)
+    candidates = [r for r in rows if r.id not in current]
     added: list[SignalTag] = []
     replaced: list[str] = []
     skipped: list[dict[str, str]] = []
     for row in candidates:
-        if row.group_id in exclusive:
-            competing_links = [c for c in current.values() if c.group_id == row.group_id and c.id != row.id]
-            competing_fixed = [c for c in inherited.values() if c.group_id == row.group_id and c.id != row.id]
-            if ticket_row is not None and ticket_row.group_id == row.group_id and ticket_row.id != row.id:
-                competing_fixed.append(ticket_row)
-            if competing_fixed:
-                # Contact and action tags are not ours to replace from here.
-                skipped.append({"tag": row.name, "conflicts_with": competing_fixed[0].name})
-                continue
-            if competing_links:
-                if not replace_exclusive:
-                    skipped.append({"tag": row.name, "conflicts_with": competing_links[0].name})
-                    continue
-                for old in competing_links:
-                    await session.execute(
-                        delete(SignalTagLink).where(SignalTagLink.signal_id == signal_id, SignalTagLink.tag_id == old.id)
-                    )
-                    current.pop(old.id, None)
-                    replaced.append(old.name)
         if len(current) >= MAX_TAGS_PER_THREAD:
             break
         session.add(SignalTagLink(signal_id=signal_id, tag_id=row.id, tenant_id=tenant_id))
@@ -382,7 +327,14 @@ async def add_signal_tag_ids(
 
 
 async def remove_signal_tag_ids(
-    session: AsyncSession, tenant_id: UUID, signal_id: UUID, tag_ids: Iterable[UUID], *, user_id: UUID | None = None
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    tag_ids: Iterable[UUID],
+    *,
+    user_id: UUID | None = None,
+    actor_type: str = "user",
+    actor_id: str = "",
 ) -> None:
     ids = [t for t in dict.fromkeys(tag_ids)]
     if not ids:
@@ -391,7 +343,13 @@ async def remove_signal_tag_ids(
         delete(SignalTagLink).where(SignalTagLink.signal_id == signal_id, SignalTagLink.tag_id.in_(ids))
     )
     await session.flush()
-    await _after_tag_change(session, tenant_id, signal_id, actor_type="user", actor_id=str(user_id or ""))
+    await _after_tag_change(
+        session,
+        tenant_id,
+        signal_id,
+        actor_type=actor_type,
+        actor_id=actor_id or str(user_id or ""),
+    )
 
 
 async def registry_with_counts(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
@@ -420,24 +378,100 @@ async def registry_with_counts(session: AsyncSession, tenant_id: UUID) -> list[d
         ).all()
     )
     names = dict(
-        (await session.execute(select(Workstream.id, Workstream.name).where(Workstream.tenant_id == tenant_id))).all()
+        (
+            await session.execute(
+                select(Workstream.id, Workstream.name).where(
+                    Workstream.tenant_id == tenant_id,
+                    Workstream.deleted_at.is_(None),
+                )
+            )
+        ).all()
     )
     from app.services.folders import load_catalog, serialize_folders_for_tag
 
     catalog = await load_catalog(session, tenant_id)
-    groups = catalog.groups
     out = []
     for row in await registry_rows(session, tenant_id):
-        item = serialize_tag(row, counts.get(row.id, 0) + ticket_counts.get(row.id, 0))
-        item["workstream_name"] = names.get(row.workstream_id) if row.workstream_id else None
+        live = row.workstream_id is not None and row.workstream_id in names
+        item = serialize_tag(
+            row,
+            counts.get(row.id, 0) + ticket_counts.get(row.id, 0),
+            flow_live=live,
+        )
+        item["workstream_name"] = names.get(row.workstream_id) if live else None
         item["folders"] = serialize_folders_for_tag(catalog, row.id)
-        group = groups.get(row.group_id) if row.group_id else None
-        item["group_name"] = group.name if group else None
         out.append(item)
     return out
 
 
-LABEL_COLORS = frozenset({"", "neutral", "accent", "ai", "success", "warning", "info"})
+LABEL_COLORS = frozenset(
+    {
+        "",
+        "neutral",
+        "accent",
+        "ai",
+        "success",
+        "warning",
+        "info",
+        "rose",
+        "teal",
+        "violet",
+        "orange",
+        "emerald",
+        "pink",
+        "sky",
+    }
+)
+
+# Curated Lucide names operators can put on a label. The dashboard binds the same ids.
+LABEL_ICONS = frozenset(
+    {
+        "bug",
+        "shield",
+        "flask-conical",
+        "git-branch",
+        "route",
+        "siren",
+        "life-buoy",
+        "headset",
+        "message-circle",
+        "phone",
+        "user-plus",
+        "calendar",
+        "map-pin",
+        "wrench",
+        "package",
+        "truck",
+        "file-text",
+        "receipt",
+        "credit-card",
+        "user",
+        "bot",
+        "refresh-cw",
+        "plug",
+        "download",
+        "zap",
+        "sparkles",
+        "phone-call",
+        "star",
+        "clock",
+        "megaphone",
+        "pen-line",
+        "briefcase",
+        "heart",
+        "flag",
+        "tag",
+    }
+)
+
+
+# A flow label is always a colored pill. Empty mark → sky wash + route icon.
+FLOW_LABEL_COLOR = "sky"
+FLOW_LABEL_ICON = "route"
+# Mark hues operators pick for a flow label (excludes free-label presets).
+LABEL_MARK_FLOW_COLORS = frozenset(
+    {"rose", "teal", "violet", "orange", "emerald", "pink", "sky"}
+)
 
 
 def normalize_label_color(value: str | None) -> str:
@@ -445,166 +479,52 @@ def normalize_label_color(value: str | None) -> str:
     return raw if raw in LABEL_COLORS else ""
 
 
-def serialize_tag(row: SignalTag, count: int = 0) -> dict[str, Any]:
+def normalize_label_icon(value: str | None) -> str:
+    raw = (value or "").strip().lower()
+    return raw if raw in LABEL_ICONS else ""
+
+
+def flow_label_color(value: str | None) -> str:
+    """Action-tag color; never empty (no gray/green unmarked pill)."""
+    color = normalize_label_color(value)
+    return color if color in LABEL_MARK_FLOW_COLORS else FLOW_LABEL_COLOR
+
+
+def flow_label_icon(value: str | None) -> str:
+    """Action-tag icon; never empty."""
+    icon = normalize_label_icon(value)
+    return icon or FLOW_LABEL_ICON
+
+
+
+def label_mark(row: SignalTag, *, flow_live: bool) -> tuple[str, str]:
+    """Color and icon exist only while a living flow is attached."""
+    if not flow_live:
+        return "", ""
+    return (
+        flow_label_color(getattr(row, "color", None)),
+        flow_label_icon(getattr(row, "icon", None)),
+    )
+
+
+def serialize_tag(row: SignalTag, count: int = 0, *, flow_live: bool | None = None) -> dict[str, Any]:
+    linked = row.workstream_id is not None
+    live = linked if flow_live is None else bool(flow_live) and linked
+    color, icon = label_mark(row, flow_live=live)
     return {
         "id": str(row.id),
         "name": row.name,
         "description": row.description or "",
-        "color": normalize_label_color(getattr(row, "color", None)),
+        "color": color,
+        "icon": icon,
         "count": count,
-        "is_category": row.workstream_id is not None,
-        "workstream_id": str(row.workstream_id) if row.workstream_id else None,
-        "group_id": str(row.group_id) if row.group_id else None,
+        "is_category": live,
+        "workstream_id": str(row.workstream_id) if live else None,
         "show_in_nav": bool(row.show_in_nav),
         "ai_auto_tag": bool(row.ai_auto_tag),
         "send_mode": row.send_mode or "send",
     }
 
-
-# ---------------------------------------------------------------------------
-# Tag groups
-
-
-def serialize_group(row: TagGroup, *, tag_count: int = 0) -> dict[str, Any]:
-    return {
-        "id": str(row.id),
-        "name": row.name,
-        "slug": row.slug,
-        "description": row.description or "",
-        "exclusive": bool(row.exclusive),
-        "sort_order": row.sort_order,
-        "tag_count": tag_count,
-    }
-
-
-async def list_groups(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
-    rows = list(
-        (
-            await session.execute(
-                select(TagGroup).where(TagGroup.tenant_id == tenant_id).order_by(TagGroup.sort_order, TagGroup.name)
-            )
-        ).scalars()
-    )
-    counts = dict(
-        (
-            await session.execute(
-                select(SignalTag.group_id, func.count())
-                .where(SignalTag.tenant_id == tenant_id, SignalTag.group_id.is_not(None))
-                .group_by(SignalTag.group_id)
-            )
-        ).all()
-    )
-    return [serialize_group(row, tag_count=int(counts.get(row.id, 0))) for row in rows]
-
-
-async def _group_row(session: AsyncSession, tenant_id: UUID, group_id: UUID) -> TagGroup:
-    row = await session.get(TagGroup, group_id)
-    if row is None or row.tenant_id != tenant_id:
-        raise LookupError("Tag group not found")
-    return row
-
-
-async def create_group(
-    session: AsyncSession,
-    tenant_id: UUID,
-    name: str,
-    *,
-    description: str = "",
-    exclusive: bool = False,
-    commit: bool = True,
-) -> TagGroup:
-    clean = (name or "").strip()[:80]
-    slug = normalize_tag(clean)
-    if not slug:
-        raise ValueError("Name is required")
-    existing = (
-        await session.execute(select(TagGroup).where(TagGroup.tenant_id == tenant_id, TagGroup.slug == slug))
-    ).scalar_one_or_none()
-    if existing is not None:
-        raise ValueError(f"A group named {existing.name} already exists")
-    row = TagGroup(tenant_id=tenant_id, name=clean, slug=slug, description=description.strip()[:300], exclusive=bool(exclusive))
-    session.add(row)
-    if commit:
-        await session.commit()
-    else:
-        await session.flush()
-    return row
-
-
-async def update_group(
-    session: AsyncSession,
-    tenant_id: UUID,
-    group_id: UUID,
-    *,
-    name: str | None = None,
-    description: str | None = None,
-    exclusive: bool | None = None,
-    sort_order: int | None = None,
-    commit: bool = True,
-) -> TagGroup:
-    row = await _group_row(session, tenant_id, group_id)
-    if name is not None:
-        clean = name.strip()[:80]
-        slug = normalize_tag(clean)
-        if not slug:
-            raise ValueError("Name is required")
-        other = (
-            await session.execute(select(TagGroup).where(TagGroup.tenant_id == tenant_id, TagGroup.slug == slug))
-        ).scalar_one_or_none()
-        if other is not None and other.id != row.id:
-            raise ValueError(f"A group named {other.name} already exists")
-        row.name, row.slug = clean, slug
-    if description is not None:
-        row.description = description.strip()[:300]
-    if exclusive is not None:
-        row.exclusive = bool(exclusive)
-    if sort_order is not None:
-        row.sort_order = int(sort_order)
-    row.updated_at = datetime.utcnow()
-    session.add(row)
-    if commit:
-        await session.commit()
-    else:
-        await session.flush()
-    return row
-
-
-async def delete_group(session: AsyncSession, tenant_id: UUID, group_id: UUID, *, commit: bool = True) -> None:
-    """Tags lose their group; group folders lose their dynamic children (and refile)."""
-    from app.services.folders import refile_tagged
-
-    row = await _group_row(session, tenant_id, group_id)
-    tag_ids = list(
-        (await session.execute(select(SignalTag.id).where(SignalTag.tenant_id == tenant_id, SignalTag.group_id == row.id))).scalars()
-    )
-    await session.execute(
-        update(SignalTag).where(SignalTag.tenant_id == tenant_id, SignalTag.group_id == row.id).values(group_id=None)
-    )
-    await session.flush()
-    await refile_tagged(session, tenant_id, tag_ids)
-    await session.delete(row)
-    if commit:
-        await session.commit()
-    else:
-        await session.flush()
-
-
-async def exclusive_violations(session: AsyncSession, tenant_id: UUID, group_id: UUID) -> list[dict[str, Any]]:
-    """Conversations carrying more than one tag of this group (shown when a group turns exclusive)."""
-    rows = await session.execute(
-        select(SignalTagLink.signal_id, func.count())
-        .join(SignalTag, SignalTag.id == SignalTagLink.tag_id)
-        .where(SignalTag.tenant_id == tenant_id, SignalTag.group_id == group_id)
-        .group_by(SignalTagLink.signal_id)
-        .having(func.count() > 1)
-    )
-    out: list[dict[str, Any]] = []
-    for signal_id, count in rows.all():
-        signal = await session.get(Signal, signal_id)
-        if signal is None or signal.deleted_at is not None:
-            continue
-        out.append({"signal_id": str(signal_id), "subject": signal.subject, "count": int(count)})
-    return out
 
 
 async def _tag_row(session: AsyncSession, tenant_id: UUID, tag_id: UUID) -> SignalTag:
@@ -621,8 +541,8 @@ async def create_tag(
     *,
     description: str = "",
     color: str | None = None,
+    icon: str | None = None,
     show_in_nav: bool = False,
-    group_id: UUID | None = None,
     user_id: UUID | None = None,
     commit: bool = True,
 ) -> SignalTag:
@@ -635,13 +555,18 @@ async def create_tag(
         session.add(row)
     if description:
         row.description = description.strip()[:300]
-    if color is not None:
-        row.color = normalize_label_color(color)
+    if row.workstream_id is not None:
+        if color is not None:
+            row.color = normalize_label_color(color)
+        if icon is not None:
+            row.icon = normalize_label_icon(icon)
+        row.color = flow_label_color(row.color)
+        row.icon = flow_label_icon(getattr(row, "icon", None))
+    else:
+        row.color = ""
+        row.icon = ""
     if show_in_nav:
         row.show_in_nav = True
-    if group_id is not None:
-        await _group_row(session, tenant_id, group_id)
-        row.group_id = group_id
     row.updated_at = datetime.utcnow()
     if commit:
         await session.commit()
@@ -658,21 +583,13 @@ async def update_tag(
     name: str | None = None,
     description: str | None = None,
     color: str | None = None,
+    icon: str | None = None,
     show_in_nav: bool | None = None,
     ai_auto_tag: bool | None = None,
-    group_id: UUID | None = None,
-    clear_group: bool = False,
     commit: bool = True,
 ) -> SignalTag:
-    """Rename, describe, group or place a tag. Renaming onto an existing free tag merges the two.
-
-    A group change refiles every conversation carrying the tag (it may now be
-    a virtual folder, or stop being one).
-    """
-    from app.services.folders import refile_tagged
-
+    """Rename, describe or place a tag. Renaming onto an existing free tag merges the two."""
     row = await _tag_row(session, tenant_id, tag_id)
-    regroup = False
     if name is not None:
         clean = normalize_tag(name)
         if not clean:
@@ -713,22 +630,21 @@ async def update_tag(
         row.description = description.strip()[:300]
     if color is not None:
         row.color = normalize_label_color(color)
+    if icon is not None:
+        row.icon = normalize_label_icon(icon)
+    if row.workstream_id is not None:
+        row.color = flow_label_color(row.color)
+        row.icon = flow_label_icon(getattr(row, "icon", None))
+    else:
+        row.color = ""
+        row.icon = ""
     if show_in_nav is not None:
         row.show_in_nav = bool(show_in_nav)
     if ai_auto_tag is not None:
         row.ai_auto_tag = bool(ai_auto_tag)
-    if clear_group and row.group_id is not None:
-        row.group_id = None
-        regroup = True
-    elif group_id is not None and group_id != row.group_id:
-        await _group_row(session, tenant_id, group_id)
-        row.group_id = group_id
-        regroup = True
     row.updated_at = datetime.utcnow()
     session.add(row)
     await session.flush()
-    if regroup:
-        await refile_tagged(session, tenant_id, [row.id])
     if commit:
         await session.commit()
     else:
@@ -870,6 +786,8 @@ async def set_tag_playbook(
         if ws is None or ws.tenant_id != tenant_id or ws.deleted_at is not None:
             raise LookupError("Playbook not found")
         row.workstream_id = ws.id
+        row.color = flow_label_color(row.color)
+        row.icon = flow_label_icon(getattr(row, "icon", None))
     elif row.workstream_id is not None:
         await session.execute(
             update(Signal)
@@ -878,6 +796,8 @@ async def set_tag_playbook(
         )
         row.workstream_id = None
         row.show_in_nav = False
+        row.color = ""
+        row.icon = ""
     row.updated_at = datetime.utcnow()
     session.add(row)
     if commit:

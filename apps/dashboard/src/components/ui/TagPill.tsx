@@ -1,12 +1,14 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import { X } from 'lucide-react'
 import type { LabelColor } from '../../lib/signals-api'
+import { useTagMark } from '../../lib/tag-marks'
 import { cn } from '../../lib/utils'
 import { HashtagMark } from './HashtagMark'
+import { labelMarkIcon, labelMarkInk } from './label-marks'
 
 export type TagPillTone = 'free' | 'action' | 'set' | 'inherited'
 
-const FREE_COLOR_PILL: Record<Exclude<LabelColor, ''>, string> = {
+const FREE_COLOR_PILL: Partial<Record<Exclude<LabelColor, ''>, string>> = {
   neutral: 'bg-bg-hover text-text-heading',
   accent: 'bg-accent/18 text-accent',
   ai: 'bg-ai/12 text-ai-ink',
@@ -22,12 +24,13 @@ type PillVisual = {
   applied?: boolean
   size?: 'sm' | 'md' | 'lg'
   interactive?: boolean
+  marked?: boolean
   className?: string
 }
 
 /**
  * Stadium pill: soft tinted fill, matching leading mark, no `#`, no hard border.
- * Free labels use a tinted dot; action tags use an accent play glyph.
+ * A mark (color + icon) paints only when the label has a flow. Otherwise a dot.
  */
 function pillClassName({
   tone = 'free',
@@ -36,26 +39,28 @@ function pillClassName({
   applied = false,
   size = 'md',
   interactive = false,
+  marked = false,
   className,
 }: PillVisual) {
-  const isAction = tone === 'action'
+  const painted = tone === 'action' && marked
   const isInherited = tone === 'inherited'
-  const freeTint = tone === 'free' && color ? FREE_COLOR_PILL[color] : null
+  const freeTint = !painted && color ? FREE_COLOR_PILL[color] : null
   return cn(
-    'tag-pill group/pill inline-flex max-w-full items-center font-medium leading-none transition-colors duration-150',
+    'tag-pill group/pill inline-flex max-w-full items-center font-medium leading-none transition-colors duration-150 [&_svg]:block',
     size === 'sm' && 'h-5 gap-1 rounded-full px-2 text-[10px]',
     size === 'md' && 'h-7 gap-2 rounded-full px-3.5 text-xs',
     size === 'lg' && 'h-8 gap-2.5 rounded-full px-4 text-sm',
     isInherited
       ? 'bg-bg-elevated/70 text-text-muted'
-      : isAction
-        ? 'bg-bg-hover text-accent'
+      : painted
+        ? null
         : freeTint ?? 'bg-bg-hover text-text-heading',
-    selected && !applied && !isInherited && 'bg-border-light/40 text-text-heading',
-    selected && !applied && !isInherited && isAction && 'text-accent',
+    selected && !applied && !isInherited && !painted && !marked && 'bg-border-light/40 text-text-heading',
     !applied &&
       !selected &&
       interactive &&
+      !marked &&
+      !painted &&
       (isInherited
         ? 'hover:bg-bg-elevated hover:text-text-secondary'
         : 'hover:bg-border-light/35'),
@@ -66,31 +71,30 @@ function pillClassName({
 
 function PillLabel({
   names,
-  tone,
   color = '',
   iconUrl,
+  icon,
   size = 'md',
 }: {
   names: string[]
-  tone: TagPillTone
   color?: LabelColor
   iconUrl?: string | null
+  icon?: string
   size?: 'sm' | 'md' | 'lg'
 }) {
-  const isAction = tone === 'action'
+  const Mark = labelMarkIcon(icon)
   const gap = size === 'sm' ? 'gap-1' : 'gap-2'
-  // Play glyph needs a touch more box size than the solid dot to match optically.
-  const mark = isAction
-    ? size === 'sm'
-      ? 'h-2 w-2'
-      : size === 'lg'
-        ? 'h-3 w-3'
-        : 'h-2.5 w-2.5'
-    : size === 'sm'
-      ? 'h-1.5 w-1.5'
-      : size === 'lg'
-        ? 'h-2.5 w-2.5'
-        : 'h-2 w-2'
+  const mark =
+    size === 'sm' ? 'h-1.5 w-1.5' : size === 'lg' ? 'h-2.5 w-2.5' : 'h-2 w-2'
+  if (Mark) {
+    const glyph = size === 'sm' ? 11 : size === 'lg' ? 15 : 13
+    return (
+      <span className={cn('inline-flex min-w-0 items-center', gap)}>
+        <Mark size={glyph} className="block shrink-0" aria-hidden />
+        <span className="min-w-0 truncate">{names.join(' · ')}</span>
+      </span>
+    )
+  }
   if (iconUrl) {
     return (
       <span className={cn('inline-flex min-w-0 items-center', gap)}>
@@ -105,14 +109,15 @@ function PillLabel({
   }
   return (
     <span className={cn('inline-flex min-w-0 items-center', gap)}>
-      <HashtagMark category={isAction} color={isAction ? '' : color} className={mark} />
+      <HashtagMark color={color} className={mark} />
       <span className="min-w-0 truncate">{names.join(' · ')}</span>
     </span>
   )
 }
 
 /**
- * Platform label chip: stadium pill, leading mark (dot or play), no `#`.
+ * Platform label chip: stadium pill, leading mark, no `#`.
+ * Color and icon paint only when this label has a flow.
  */
 export function TagPill({
   names,
@@ -122,6 +127,7 @@ export function TagPill({
   applied = false,
   size = 'md',
   iconUrl,
+  icon,
   onClick,
   onRemove,
   removeLabel,
@@ -130,16 +136,20 @@ export function TagPill({
   disabled,
   className,
   children,
+  /** Extra content after the label, inside the same pill (stage on a list row). */
+  trailing,
   title,
 }: {
   names: string | string[]
   tone?: TagPillTone
-  /** Design-system preset for free labels; ignored for action tags. */
+  /** Hue. Painted only together with an icon, and only for a label that has a flow. */
   color?: LabelColor
   selected?: boolean
   applied?: boolean
   size?: 'sm' | 'md' | 'lg'
   iconUrl?: string | null
+  /** Lucide kebab id from the label catalog. */
+  icon?: string
   onClick?: () => void
   onRemove?: () => void
   removeLabel?: string
@@ -147,31 +157,49 @@ export function TagPill({
   disabled?: boolean
   className?: string
   children?: ReactNode
+  trailing?: ReactNode
   title?: string
 }) {
   const list = (Array.isArray(names) ? names : [names]).map((n) => n.replace(/^#/, '')).filter(Boolean)
+  const stored = useTagMark(list[0] ?? '')
+  // A mark is color plus icon from the call site or the catalog. The catalog
+  // only keeps a mark for a label that currently has a flow. No fallback wash.
+  const useCatalog = list.length === 1 && tone === 'action'
+  const resolvedColor = (color || (useCatalog ? stored?.color : '') || '') as LabelColor
+  const resolvedIcon = icon || (useCatalog ? stored?.icon : '') || ''
   if (!list.length && !children) return null
 
   const interactive = Boolean(onClick) && !applied && !disabled
   const canRemove = Boolean(onRemove) && !applied
   /** Hover-reveal X overlays the text (no reserved gap). Trays keep an in-flow X. */
   const overlayRemove = canRemove && !removeAlwaysVisible
+  const ink = labelMarkIcon(resolvedIcon) ? labelMarkInk(resolvedColor) : null
   const visual = pillClassName({
     tone,
-    color,
+    color: resolvedColor,
     selected,
     applied,
     size,
     interactive,
+    marked: Boolean(ink),
     className: cn(overlayRemove && 'relative', className),
   })
   const removeIcon = size === 'lg' ? 14 : size === 'sm' ? 10 : 12
   const labelGap = size === 'sm' ? 'gap-1' : 'gap-2'
-  const label = children ?? <PillLabel names={list} tone={tone} color={color} iconUrl={iconUrl} size={size} />
+  const label = children ?? (
+    <PillLabel
+      names={list}
+      color={resolvedColor}
+      iconUrl={iconUrl}
+      icon={resolvedIcon}
+      size={size}
+    />
+  )
 
   return (
     <span
       className={visual}
+      style={ink ? { backgroundColor: ink.wash, color: ink.ink } : undefined}
       data-tag-tone={tone}
       data-selected={selected ? 'true' : undefined}
       data-applied={applied ? 'true' : undefined}
@@ -190,6 +218,7 @@ export function TagPill({
           )}
         >
           {label}
+          {trailing}
         </button>
       ) : (
         <span
@@ -201,6 +230,7 @@ export function TagPill({
           )}
         >
           {label}
+          {trailing}
         </span>
       )}
       {canRemove ? (
@@ -240,22 +270,28 @@ export function TagPillInline({
   iconUrl?: string | null
 } & HTMLAttributes<HTMLAnchorElement>) {
   const bare = name.replace(/^#/, '')
+  const stored = useTagMark(bare)
+  const iconId = action ? stored?.icon || '' : ''
+  const colorId = action ? stored?.color || '' : ''
+  const Mark = labelMarkIcon(iconId)
+  const ink = Mark ? labelMarkInk(colorId) : null
   return (
     <a
       className={cn(
         'tag-pill tag-pill--inline inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[0.92em] font-medium leading-none no-underline transition-colors',
-        action
-          ? 'bg-bg-hover text-accent hover:bg-border-light/35'
-          : 'bg-bg-hover text-text-heading hover:bg-border-light/35',
+        !ink && 'bg-bg-hover text-text-heading hover:bg-border-light/35',
         className,
       )}
-      data-tag-tone={action ? 'action' : 'free'}
+      style={ink ? { backgroundColor: ink.wash, color: ink.ink } : undefined}
+      data-tag-tone={action || Mark ? 'action' : 'free'}
       {...props}
     >
       {iconUrl ? (
         <img src={iconUrl} alt="" className="h-3 w-3 shrink-0 rounded-full object-cover" />
+      ) : Mark ? (
+        <Mark size={11} className="block shrink-0" aria-hidden />
       ) : (
-        <HashtagMark category={action} />
+        <HashtagMark />
       )}
       <span>{bare}</span>
     </a>

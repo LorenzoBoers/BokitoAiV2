@@ -44,6 +44,7 @@ export default function InboxHeaderSearch() {
           'placeholder:text-text-muted/80 shadow-inset-highlight',
           'transition-[border-color,box-shadow,background-color] duration-150',
           'focus:outline-none focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',
+          '[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:[-webkit-appearance:none] [&::-webkit-search-decoration]:hidden',
         )}
       />
       {canSave ? (

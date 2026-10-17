@@ -18,6 +18,19 @@ logger = logging.getLogger(__name__)
 _OPERATOR_ONLY_KINDS = frozenset({"internal_note", "system_event"})
 
 
+def _visitor_message(message: "SignalMessage") -> dict[str, Any]:
+    """Fields the embed renders. No html, trace, decisions or tool output."""
+    created = message.created_at
+    return {
+        "id": str(message.id),
+        "signal_id": str(message.signal_id),
+        "role": message.role,
+        "direction": message.direction,
+        "body_text": message.body_text or "",
+        "created_at": created.isoformat() if created is not None else None,
+    }
+
+
 def _is_personal_helper_thread(signal: "Signal") -> bool:
     """In-app Bokito helper chats must not land on the Communication firehose."""
     from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
@@ -142,17 +155,32 @@ async def publish_thread_presence(
     """
     if phase not in THREAD_PRESENCE_PHASES:
         raise ValueError(f"Unknown thread presence phase: {phase}")
+    actor = {"kind": actor_kind, "id": actor_id, "name": actor_name}
     await _safe_publish(
         tenant_id,
         [f"signal:{signal_id}"],
         "thread.presence",
         {
+            "audience": "operator",
             "signal_id": str(signal_id),
             "phase": phase,
-            "actor": {"kind": actor_kind, "id": actor_id, "name": actor_name},
+            "actor": actor,
             "stream_id": stream_id,
             "item": item,
             "delta": delta,
+            "expires_in_ms": expires_in_ms,
+        },
+    )
+    await _safe_publish(
+        tenant_id,
+        [f"signal:{signal_id}"],
+        "thread.presence",
+        {
+            "audience": "visitor",
+            "signal_id": str(signal_id),
+            "phase": phase,
+            "actor": {"kind": actor_kind, "id": actor_id},
+            "stream_id": stream_id,
             "expires_in_ms": expires_in_ms,
         },
     )
@@ -172,6 +200,11 @@ async def publish_turn_event(
     if event not in TURN_EVENTS:
         raise ValueError(f"Unknown turn event: {event}")
     payload = {"signal_id": str(signal_id), **data}
+    if event == "message.delta":
+        payload["audience"] = "all"
+    else:
+        # Thinking, tool activity and turn bookends stay on the operator socket.
+        payload["audience"] = "operator"
     await _safe_publish(
         tenant_id,
         [f"signal:{signal_id}"],
@@ -195,8 +228,10 @@ async def publish_signal_message(
     get everything they need to append without a refetch:
 
     - ``threads`` topic (operator-only): full thread row + message preview.
-    - ``signal:{id}`` topic: full serialized message (html, attachments,
-      decision options). Internal notes / system events are operator-only.
+    - ``signal:{id}`` topic, operator: full serialized message (html, attachments,
+      decision options, trace).
+    - ``signal:{id}`` topic, visitor: id, role, direction and body only.
+      Internal notes / system events are operator-only.
     """
     from app.services.signal_threads import serialize_message
 
@@ -223,11 +258,21 @@ async def publish_signal_message(
         [f"signal:{signal.id}"],
         "message",
         {
-            "audience": "operator" if message.kind in _OPERATOR_ONLY_KINDS else "all",
+            "audience": "operator",
             "thread": thread_row,
             "message": serialize_message(message, decision=decision),
         },
     )
+    if message.kind not in _OPERATOR_ONLY_KINDS:
+        await _safe_publish(
+            signal.tenant_id,
+            [f"signal:{signal.id}"],
+            "message",
+            {
+                "audience": "visitor",
+                "message": _visitor_message(message),
+            },
+        )
 
 
 async def publish_thread_update(

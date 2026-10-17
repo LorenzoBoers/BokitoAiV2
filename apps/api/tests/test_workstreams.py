@@ -92,12 +92,21 @@ async def test_creating_a_flow_makes_its_hashtag_the_one_action_tag(client: Asyn
     flow = created.json()
     assert flow["name"] == "retour"
     assert [t["name"] for t in flow["tags"]] == ["retour"]
+    assert flow["tags"][0]["color"] == "sky"
+    assert flow["tags"][0]["icon"] == "route"
 
     tags = {row["name"]: row for row in (await client.get("/api/signals/tags", headers=headers)).json()}
     assert tags["retour"]["is_category"] is True
 
     duplicate = await client.post(API, headers=headers, json={"name": "retour"})
     assert duplicate.status_code == 400
+
+    marked = await client.post(
+        API, headers=headers, json={"name": "factuur", "color": "rose", "icon": "bug"}
+    )
+    assert marked.status_code == 200, marked.text
+    assert marked.json()["tags"][0]["color"] == "rose"
+    assert marked.json()["tags"][0]["icon"] == "bug"
 
     # A free hashtag is reused, not duplicated.
     free = await client.post("/api/signals/tags", headers=headers, json={"name": "garantie"})
@@ -135,33 +144,27 @@ async def test_renaming_the_action_tag_renames_the_flow(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_list_hides_internal_defaults_and_folders_share_one(
+async def test_folder_create_does_not_mint_internal_default(
     client: AsyncClient, session_override
 ):
-    """Folder defaults are plumbing — not Flows. Creating folders must not mint copies."""
+    """Folders no longer auto-create an untagged Review-and-execute playbook."""
     from uuid import UUID
 
-    from app.models.orchestra import WorkstreamProject
-    from app.services.workstreams import DEFAULT_WORKSTREAM_NAME, ensure_default_workstream
+    from app.models.orchestra import Workstream, WorkstreamProject
 
     headers = await _login(client)
 
-    a = await client.post(
+    created = await client.post(
         "/api/folders",
         headers=headers,
         json={"tags": ["ws-default-a"], "slug": "ws-default-a"},
     )
-    b = await client.post(
-        "/api/folders",
-        headers=headers,
-        json={"tags": ["ws-default-b"], "slug": "ws-default-b"},
-    )
-    assert a.status_code == 200, a.text
-    assert b.status_code == 200, b.text
+    assert created.status_code == 200, created.text
+    folder_id = UUID(created.json()["id"])
 
     listed = await client.get(API, headers=headers)
     assert listed.status_code == 200
-    assert all(row["name"] != DEFAULT_WORKSTREAM_NAME for row in listed.json()["items"])
+    assert all(row["name"] != "Review and execute" for row in listed.json()["items"])
 
     flow = await client.post(API, headers=headers, json={"name": "zichtbare-flow"})
     assert flow.status_code == 200
@@ -169,23 +172,25 @@ async def test_list_hides_internal_defaults_and_folders_share_one(
     assert any(row["id"] == flow.json()["id"] for row in listed2.json()["items"])
 
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    ws_a = await ensure_default_workstream(
-        session_override, tenant.id, UUID(a.json()["id"]), commit=False
-    )
-    ws_b = await ensure_default_workstream(
-        session_override, tenant.id, UUID(b.json()["id"]), commit=False
-    )
-    assert ws_a.id == ws_b.id
     links = (
         await session_override.execute(
-            select(WorkstreamProject.workstream_id).where(
+            select(WorkstreamProject).where(
                 WorkstreamProject.tenant_id == tenant.id,
-                WorkstreamProject.project_id.in_([UUID(a.json()["id"]), UUID(b.json()["id"])]),
-                WorkstreamProject.is_default.is_(True),
+                WorkstreamProject.project_id == folder_id,
             )
         )
     ).scalars().all()
-    assert set(links) == {ws_a.id}
+    assert links == []
+    orphans = (
+        await session_override.execute(
+            select(Workstream).where(
+                Workstream.tenant_id == tenant.id,
+                Workstream.name == "Review and execute",
+                Workstream.deleted_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    assert orphans == []
 
 
 @pytest.mark.asyncio

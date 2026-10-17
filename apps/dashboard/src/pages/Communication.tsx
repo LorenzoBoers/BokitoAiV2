@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
+import { restoreTrashItem } from '../lib/trash-api'
 import {
   activityTerminalPath,
   forYouPath,
@@ -58,7 +59,7 @@ import {
   pickPreferredInboxThread,
   threadHubPath,
 } from '../lib/message-composer'
-import { TicketStageMoveCancelled, loadOpenTickets, resolveOpenTickets } from '../lib/close-thread-signals'
+import { TicketStageMoveCancelled, closeConversationCollecting, loadOpenTickets } from '../lib/close-thread-signals'
 import { useCollectStageFields } from '../components/inbox/TicketStageGate'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { useConfirm } from '../components/ui/confirm-dialog'
@@ -69,7 +70,6 @@ import { useNavBadges } from '../context/NavBadgeContext'
 import { useChannelStatus } from '../hooks/useChannelStatus'
 import { Callout } from '../components/ui/callout'
 import { Button } from '../components/ui/button'
-import { dismissNoReplySuggestions } from '../lib/signals-api'
 import {
   useInboxCommunication,
   type InboxListQuickFilter,
@@ -159,11 +159,8 @@ export default function Communication() {
   const navigate = useNavigate()
   const { user, token, logout } = useAuth()
   const collectStageFields = useCollectStageFields()
-  const { counts, refresh: refreshNavBadges } = useNavBadges()
+  const { refresh: refreshNavBadges } = useNavBadges()
   const { sendReady, loading: channelStatusLoading } = useChannelStatus()
-  const [dismissingTips, setDismissingTips] = useState(false)
-  /** Session hide for the tips callout (X) without permanently dismissing tips. */
-  const [tipsBannerHidden, setTipsBannerHidden] = useState(false)
   const currentUserId = user?.id ?? null
 
   const leaf = useMemo<HubLeaf>(
@@ -423,6 +420,7 @@ export default function Communication() {
 
   const {
     threads,
+    outsideThreads,
     loading: threadsLoading,
     loadingMore: threadsLoadingMore,
     threadsReady,
@@ -591,6 +589,9 @@ export default function Communication() {
   const selectedInFilteredList =
     selectedThreadId != null &&
     filteredThreads.some((thread) => String(thread.id) === String(selectedThreadId))
+  const selectedInOutside =
+    selectedThreadId != null &&
+    outsideThreads.some((thread) => String(thread.id) === String(selectedThreadId))
 
   // Auto-select the first match. On For you, also replace orphan detail
   // (thread left open from another folder) or clear the pane when empty.
@@ -602,7 +603,7 @@ export default function Communication() {
       handleSelectThread(firstThreadId, true, { markRead: false })
       return
     }
-    if (leaf.queue !== 'for_you' || selectedInFilteredList) return
+    if (leaf.queue !== 'for_you' || selectedInFilteredList || selectedInOutside) return
     if (firstThreadId != null) {
       setSkipMarkRead(true)
       handleSelectThread(firstThreadId, true, { markRead: false })
@@ -614,6 +615,7 @@ export default function Communication() {
     threadsReady,
     selectedThreadId,
     selectedInFilteredList,
+    selectedInOutside,
     firstThreadId,
     listContextKey,
     leaf,
@@ -736,28 +738,47 @@ export default function Communication() {
   const handleDeleteThread = useCallback(
     async (id: ThreadId, subject?: string) => {
       if (!token) return
-      const label = subject?.trim() || t('actions.deleteFallback', { id })
-      if (!(await confirm({ description: t('actions.deleteConfirm', { label }), destructive: true }))) {
+      const label = subject?.trim() || t('threadList.deleteFallback')
+      if (!(await confirm({ description: t('threadList.deleteConfirm', { label }), destructive: true }))) {
         return
       }
 
       setDeletingThreadId(id)
+      const reopenHere = String(selectedThreadId) === String(id)
       try {
-        await apiDeleteThread(token, id)
+        const trashId = await apiDeleteThread(token, id)
         removeThread(id)
         if (pinnedIds.some((pinnedId) => String(pinnedId) === String(id))) removePin(id)
-        if (String(selectedThreadId) === String(id)) {
+        if (reopenHere) {
           navigate(`${leafPath(leaf)}${inboxQuery}`)
         }
-        toastMovedToBin(t('actions.deleted'), navigate)
+        toastMovedToBin(
+          t('threadList.movedToBin'),
+          trashId
+            ? {
+                undoLabel: t('undoSend.undo'),
+                undo: async () => {
+                  try {
+                    await restoreTrashItem(trashId)
+                    await refreshThreads()
+                    void refreshNavBadges()
+                    if (reopenHere) navigate(`${leafPath(leaf, String(id))}${inboxQuery}`)
+                    toast.success(t('threadList.undoBinDone'))
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : t('threadList.deleteFailed'))
+                  }
+                },
+              }
+            : navigate,
+        )
         void refreshNavBadges()
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : t('actions.deleteFailed'))
+        toast.error(err instanceof Error ? err.message : t('threadList.deleteFailed'))
       } finally {
         setDeletingThreadId(null)
       }
     },
-    [token, removeThread, pinnedIds, removePin, selectedThreadId, leaf, navigate, refreshNavBadges, inboxQuery, t, confirm],
+    [token, removeThread, pinnedIds, removePin, selectedThreadId, leaf, navigate, refreshNavBadges, refreshThreads, inboxQuery, t, confirm],
   )
 
   const handleDetailDelete = useCallback(async () => {
@@ -807,7 +828,20 @@ export default function Communication() {
             })
           ) {
             try {
-              await resolveOpenTickets(openTickets, collectStageFields)
+              await closeConversationCollecting(token, String(id), { resolve: true, collect: collectStageFields })
+              const undoReopen = () => {
+                void apiPatchThread(token, id, { status: 'open' }).then(() => {
+                  void refreshThreads()
+                  void refreshNavBadges()
+                })
+              }
+              toast.success(t('threadResolved.closed'), {
+                action: { label: t('undoSend.undo'), onClick: undoReopen },
+              })
+              leaveResolvedThread(id, 'closed')
+              void refreshThreads()
+              void refreshNavBadges()
+              return
             } catch (err) {
               if (err instanceof TicketStageMoveCancelled) return
               toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
@@ -865,6 +899,7 @@ export default function Communication() {
     if (advancingRef.current) return
     if (!detail) return
     if (String(detail.thread.id) !== String(selectedThreadId)) return
+    if (selectedInOutside) return
     const leafKeyPart = leaf.type === 'inbox' ? leaf.queue : leaf.type
     const fitKey = `${selectedThreadId}:${detail.thread.status}:${leafKeyPart}`
     if (redirectCheckedForThreadRef.current === fitKey) return
@@ -918,6 +953,7 @@ export default function Communication() {
     navigate,
     inboxQuery,
     filteredThreads,
+    selectedInOutside,
     leaveResolvedThread,
   ])
 
@@ -995,7 +1031,12 @@ export default function Communication() {
     onCloseHelp: () => setShortcutHelpOpen(false),
     onOpenHelp: () => setShortcutHelpOpen(true),
     selectedThreadId,
-    threadIds: filteredThreads.map((thread) => thread.id),
+    threadIds: [
+      ...filteredThreads.map((thread) => thread.id),
+      ...outsideThreads
+        .filter((thread) => !filteredThreads.some((row) => String(row.id) === String(thread.id)))
+        .map((thread) => thread.id),
+    ],
     onSelect: handleSelectThread,
     onEscapeList: () => {
       if (selectedThreadId != null) navigate(`${leafPath(leaf)}${inboxQuery}`)
@@ -1023,8 +1064,12 @@ export default function Communication() {
               description: t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
             })
           ) {
+            if (!token) return
             try {
-              await resolveOpenTickets(openTickets, collectStageFields)
+              await closeConversationCollecting(token, String(selectedThreadId), {
+                resolve: true,
+                collect: collectStageFields,
+              })
             } catch (err) {
               if (err instanceof TicketStageMoveCancelled) return
               toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
@@ -1068,7 +1113,7 @@ export default function Communication() {
     },
     onReply: () => {
       const status = detail?.thread.status
-      if (status === 'closed' || status === 'spam') {
+      if (status === 'spam') {
         void handlePatch({ status: 'open' }).then(() => {
           window.setTimeout(() => {
             if (!focusInboxReply()) toast.message(t('shortcuts.replyBlocked'))
@@ -1144,12 +1189,39 @@ export default function Communication() {
             })
           ) {
             try {
-              await resolveOpenTickets(openTickets, collectStageFields)
+              for (const id of bulkSelectedIds) {
+                await closeConversationCollecting(token, String(id), {
+                  resolve: true,
+                  collect: collectStageFields,
+                })
+              }
             } catch (err) {
               if (err instanceof TicketStageMoveCancelled) return
               toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
               return
             }
+            const ids = [...bulkSelectedIds]
+            toast.success(t(bulkDoneKey('close'), { count: ids.length }), {
+              duration: BULK_UNDO_TOAST_MS,
+              action: {
+                label: t('undoSend.undo'),
+                onClick: () => {
+                  void bulkUpdateSignalThreads(token, ids, 'reopen')
+                    .then((reopened) => {
+                      toast.success(t('bulkActions.reopened', { count: reopened || ids.length }))
+                      void refreshThreads()
+                      void refreshNavBadges()
+                    })
+                    .catch((undoErr) => {
+                      toast.error(undoErr instanceof Error ? undoErr.message : t('bulkActions.failed'))
+                    })
+                },
+              },
+            })
+            setBulkSelectedIds(new Set())
+            void refreshThreads()
+            void refreshNavBadges()
+            return
           }
         }
       }
@@ -1596,6 +1668,45 @@ export default function Communication() {
     return <Navigate to={activityTerminalPath(leaf.agentId)} replace />
   }
 
+  // Agent folders only have Open and Closed. Open is the one that expands.
+  if (leaf.type === 'agent' && (leaf.queue === 'for_you' || leaf.queue === 'unassigned')) {
+    return <Navigate to={leafPath({ type: 'agent', agentId: leaf.agentId, queue: 'open' })} replace />
+  }
+
+  // Channel folders use the same Open / Closed split.
+  if (leaf.type === 'channel' && (leaf.queue === 'for_you' || leaf.queue === 'unassigned')) {
+    return (
+      <Navigate
+        to={leafPath({
+          type: 'channel',
+          channelKey: leaf.channelKey,
+          connectionId: leaf.connectionId,
+          queue: 'open',
+        })}
+        replace
+      />
+    )
+  }
+
+  // Saved folders use the same Open / Closed split.
+  if (leaf.type === 'project' && (leaf.queue === 'for_you' || leaf.queue === 'unassigned')) {
+    return (
+      <Navigate
+        to={leafPath({ type: 'project', projectId: leaf.projectId, queue: 'open' })}
+        replace
+      />
+    )
+  }
+
+  // Flow (action-tag) folders use the same Open / Closed split.
+  if (
+    leaf.type === 'tag' &&
+    (leaf.queue === 'for_you' || leaf.queue === 'unassigned') &&
+    communicationNav.ticketTags.some((row) => row.name === leaf.tag || row.name === leaf.tag.replace(/^#/, ''))
+  ) {
+    return <Navigate to={leafPath({ type: 'tag', tag: leaf.tag, queue: 'open' })} replace />
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
       <SplitRow
@@ -1614,6 +1725,7 @@ export default function Communication() {
         >
           <ThreadList
             threads={filteredThreads}
+            outsideThreads={outsideThreads}
             allThreads={threads}
             loading={!threadsReady}
             lastMailboxSyncAt={
@@ -1673,51 +1785,6 @@ export default function Communication() {
                       >
                         {t('banners.openChannels', { defaultValue: 'Open Channels' })}
                       </Link>
-                    }
-                  />
-                ) : null}
-                {counts.noReplySuggestions > 0 && !tipsBannerHidden ? (
-                  <Callout
-                    tone="ai"
-                    className="rounded-none border-x-0 border-t-0"
-                    title={t('banners.noReplyTips', {
-                      defaultValue: '{{count}} “No reply needed” tips wait in decisions',
-                      count: counts.noReplySuggestions,
-                    })}
-                    dismissLabel={t('banners.hideTips', { defaultValue: 'Hide' })}
-                    onDismiss={() => setTipsBannerHidden(true)}
-                    actions={
-                      <div className="flex items-center gap-2">
-                        <Link
-                          to={`${forYouPath()}?needs_decision=1`}
-                          className="text-xs font-semibold text-accent hover:underline"
-                        >
-                          {t('banners.reviewTips', { defaultValue: 'Review' })}
-                        </Link>
-                        {token ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={dismissingTips}
-                            onClick={() => {
-                              void (async () => {
-                                setDismissingTips(true)
-                                try {
-                                  await dismissNoReplySuggestions(token)
-                                  setTipsBannerHidden(true)
-                                  await refreshNavBadges()
-                                  void refreshThreads()
-                                } finally {
-                                  setDismissingTips(false)
-                                }
-                              })()
-                            }}
-                          >
-                            {t('banners.dismissTips', { defaultValue: 'Dismiss all' })}
-                          </Button>
-                        ) : null}
-                      </div>
                     }
                   />
                 ) : null}

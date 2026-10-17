@@ -53,12 +53,15 @@ class GatewayConnection:
     def matches(self, envelope: dict[str, Any]) -> bool:
         if envelope.get("tenant_id") != self.tenant_id:
             return False
-        # Operator-audience frames (internal notes, thread triage state, list
-        # feed rows) must never reach widget (visitor) connections.
+        # Operator frames stay on the dashboard. Visitor frames stay on the widget.
+        # ``all`` (and frames with no audience) reach both.
+        data = envelope.get("data")
+        audience = data.get("audience") if isinstance(data, dict) else None
         if self.kind == "widget":
-            data = envelope.get("data")
-            if isinstance(data, dict) and data.get("audience") == "operator":
+            if audience == "operator":
                 return False
+        elif audience == "visitor":
+            return False
         topics = envelope.get("topics") or []
         return any(t in self.topics for t in topics)
 

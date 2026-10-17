@@ -19,6 +19,13 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { ChevronDown, GripVertical, Plus, Trash2, UserRound } from 'lucide-react'
 import { Button } from '../ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import type { ChoiceItem } from '../ui/ChoiceOption'
 import { Label } from '../ui/label'
@@ -36,6 +43,7 @@ import {
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { listAgents } from '../../lib/agents-api'
+import { waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from './StageProgressIcon'
 import { cn } from '../../lib/utils'
 
@@ -192,6 +200,7 @@ function stagesEqual(a: TicketStage[], b: TicketStage[]): boolean {
 function SortablePhaseCard({
   stage,
   index,
+  fill,
   canEdit,
   canRemove,
   owners,
@@ -200,6 +209,7 @@ function SortablePhaseCard({
 }: {
   stage: DraftStage
   index: number
+  fill?: number
   canEdit: boolean
   canRemove: boolean
   owners: StageOwnerOption[]
@@ -211,8 +221,6 @@ function SortablePhaseCard({
     id: stage.dragId,
     disabled: !canEdit,
   })
-  const fieldCount = stage.fields?.length ?? 0
-  const [fieldsOpen, setFieldsOpen] = useState(false)
 
   return (
     <article
@@ -245,7 +253,7 @@ function SortablePhaseCard({
             <GripVertical size={15} />
           </button>
         ) : null}
-        <StageProgressIcon kind={stage.kind} size={18} />
+        <StageProgressIcon kind={stage.kind} fill={fill} size={18} />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <span className="shrink-0 text-xs font-semibold tabular-nums text-text-muted">
             {index + 1}.
@@ -325,6 +333,26 @@ function SortablePhaseCard({
           </label>
         ) : null}
 
+        <StageFieldsBlock stage={stage} canEdit={canEdit} onUpdate={onUpdate} />
+      </div>
+    </article>
+  )
+}
+
+function StageFieldsBlock({
+  stage,
+  canEdit,
+  onUpdate,
+}: {
+  stage: TicketStage & { dragId?: string }
+  canEdit: boolean
+  onUpdate: (patch: Partial<TicketStage>) => void
+}) {
+  const { t } = useTranslation('nav')
+  const fieldCount = stage.fields?.length ?? 0
+  const [fieldsOpen, setFieldsOpen] = useState(false)
+  const rowId = stage.dragId || stage.key || 'stage'
+  return (
         <div className="space-y-2 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
           <button
             type="button"
@@ -349,7 +377,7 @@ function SortablePhaseCard({
           ) : null}
           {fieldsOpen ? (stage.fields ?? []).map((field, fieldIndex) => (
             <div
-              key={`${stage.dragId}-field-${fieldIndex}`}
+              key={`${rowId}-field-${fieldIndex}`}
               className="space-y-1.5 rounded-md border border-border/40 bg-bg-surface/80 p-2"
             >
               <div className="flex items-center gap-1">
@@ -436,7 +464,7 @@ function SortablePhaseCard({
                     {t('workstreamsPage.stages.fieldOptions')}
                   </p>
                   {(field.options ?? ['', '']).map((option, optionIndex) => (
-                    <div key={`${stage.dragId}-opt-${fieldIndex}-${optionIndex}`} className="flex items-center gap-1">
+                    <div key={`${rowId}-opt-${fieldIndex}-${optionIndex}`} className="flex items-center gap-1">
                       <input
                         value={option}
                         disabled={!canEdit}
@@ -509,33 +537,10 @@ function SortablePhaseCard({
             </button>
           ) : null}
         </div>
-      </div>
-    </article>
   )
 }
 
-export type StagesDraft = { dirty: boolean; valid: boolean; stages: TicketStage[] }
-
-/** Stage editor working on a local draft; the page saves or discards it. */
-export function WorkstreamStagesCard({
-  stages,
-  canEdit,
-  onDraftChange,
-}: {
-  stages: TicketStage[]
-  canEdit: boolean
-  onDraftChange?: (draft: StagesDraft) => void
-}) {
-  const { t } = useTranslation('nav')
-  const stagesKey = JSON.stringify(stages)
-  const shown = useMemo(
-    () => (JSON.parse(stagesKey) as TicketStage[]).map((s) => normalizeStage({ ...s, name: stageLabel(s, t) })),
-    [stagesKey, t],
-  )
-  const [draft, setDraft] = useState<DraftStage[]>(() =>
-    shown.map((s) => ({ ...s, dragId: s.key || newDragId() })),
-  )
-  const boardRef = useRef<HTMLDivElement>(null)
+function useStageOwners(): StageOwnerOption[] {
   const { members } = useMembers()
   const { teams } = useTeams()
   const [agents, setAgents] = useState<
@@ -574,7 +579,7 @@ export function WorkstreamStagesCard({
     }
   }, [])
 
-  const owners = useMemo<StageOwnerOption[]>(
+  return useMemo<StageOwnerOption[]>(
     () => [
       ...members
         .filter((m) => m.uuid)
@@ -599,6 +604,179 @@ export function WorkstreamStagesCard({
     ],
     [members, agents, teams],
   )
+}
+
+/** One stage: name, kind, owner, check-up and intake fields. Saves from the board. */
+export function StageEditorDialog({
+  stage,
+  open,
+  onOpenChange,
+  canRemove,
+  canMoveLeft = false,
+  canMoveRight = false,
+  kinds,
+  saving,
+  onSave,
+  onRemove,
+  onMove,
+}: {
+  stage: TicketStage | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  canRemove: boolean
+  canMoveLeft?: boolean
+  canMoveRight?: boolean
+  /** Kinds this stage may take without breaking not-started → active → done. */
+  kinds?: TicketStageKind[]
+  saving?: boolean
+  onSave: (stage: TicketStage) => void
+  onRemove: () => void
+  onMove?: (direction: -1 | 1) => void
+}) {
+  const { t } = useTranslation('nav')
+  const owners = useStageOwners()
+  const [draft, setDraft] = useState<TicketStage | null>(null)
+
+  const stageKey = stage?.key ?? ''
+  useEffect(() => {
+    if (open && stage) setDraft(normalizeStage(stage))
+    // Reload the form when a different stage opens, not when the list reorders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, stageKey])
+
+  const update = (patch: Partial<TicketStage>) =>
+    setDraft((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, ...patch }
+      if (patch.kind != null && patch.kind !== 'done') next.auto_close_conversation = false
+      if (patch.kind === 'done') next.checkup_minutes = 0
+      return next
+    })
+
+  const kindChoices = (kinds?.length ? kinds : KINDS).slice()
+  if (draft && !kindChoices.includes(draft.kind)) kindChoices.unshift(draft.kind)
+
+  const save = () => {
+    if (!draft || !draft.name.trim()) return
+    onSave({
+      ...normalizeStage(draft),
+      name: draft.name.trim().slice(0, 60),
+      fields: (draft.fields ?? [])
+        .filter((field) => field.name.trim())
+        .map((field) => ({
+          ...field,
+          name: field.name.trim(),
+          key: field.key || field.name.trim(),
+          options:
+            field.type === 'enum'
+              ? (field.options ?? []).map((opt) => opt.trim()).filter(Boolean)
+              : undefined,
+        })),
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t('workstreamsPage.stages.editTitle')}</DialogTitle>
+        </DialogHeader>
+        {draft ? (
+          <div className="space-y-3">
+            <input
+              value={draft.name}
+              onChange={(event) => update({ name: event.target.value })}
+              placeholder={t('workstreamsPage.stages.namePlaceholder')}
+              aria-label={t('workstreamsPage.stages.namePlaceholder')}
+              className="h-9 w-full rounded-md border border-border/70 bg-bg-input/80 px-2.5 text-sm font-medium text-text-heading outline-none focus:border-border focus:ring-1 focus:ring-border/60"
+            />
+            {onMove ? (
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="ghost" disabled={saving || !canMoveLeft} onClick={() => onMove(-1)}>
+                  {t('workstreamsPage.stages.moveLeft')}
+                </Button>
+                <Button type="button" size="sm" variant="ghost" disabled={saving || !canMoveRight} onClick={() => onMove(1)}>
+                  {t('workstreamsPage.stages.moveRight')}
+                </Button>
+              </div>
+            ) : null}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.kind')}</Label>
+              <Select value={draft.kind} onValueChange={(value) => update({ kind: value as TicketStageKind })}>
+                <SelectTrigger className="h-8 text-xs" aria-label={t('workstreamsPage.stages.kind')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {kindChoices.map((kind) => (
+                    <SelectItem key={kind} value={kind}>
+                      {t(`workstreamsPage.stages.kinds.${kind}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <StageOwnerFields stage={draft} owners={owners} canEdit onUpdate={update} />
+            {draft.kind === 'done' ? (
+              <label className="flex items-start gap-2.5 rounded-lg border border-border/50 bg-bg-muted/20 px-2.5 py-2">
+                <Switch
+                  checked={Boolean(draft.auto_close_conversation)}
+                  onCheckedChange={(checked) => update({ auto_close_conversation: checked })}
+                  aria-label={t('workstreamsPage.stages.autoClose')}
+                  className="mt-0.5"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-text-primary">
+                    {t('workstreamsPage.stages.autoClose')}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-snug text-text-muted">
+                    {t('workstreamsPage.stages.autoCloseHint')}
+                  </span>
+                </span>
+              </label>
+            ) : null}
+            <StageFieldsBlock stage={draft} canEdit onUpdate={update} />
+          </div>
+        ) : null}
+        <DialogFooter className="gap-2 sm:justify-between">
+          {canRemove ? (
+            <Button type="button" variant="ghost" className="text-status-error" disabled={saving} onClick={onRemove}>
+              {t('workstreamsPage.stages.remove')}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button type="button" disabled={saving || !draft?.name.trim()} onClick={save}>
+            {t('workstreamsPage.editBar.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export type StagesDraft = { dirty: boolean; valid: boolean; stages: TicketStage[] }
+
+/** Stage editor working on a local draft; the page saves or discards it. */
+export function WorkstreamStagesCard({
+  stages,
+  canEdit,
+  onDraftChange,
+}: {
+  stages: TicketStage[]
+  canEdit: boolean
+  onDraftChange?: (draft: StagesDraft) => void
+}) {
+  const { t } = useTranslation('nav')
+  const stagesKey = JSON.stringify(stages)
+  const shown = useMemo(
+    () => (JSON.parse(stagesKey) as TicketStage[]).map((s) => normalizeStage({ ...s, name: stageLabel(s, t) })),
+    [stagesKey, t],
+  )
+  const [draft, setDraft] = useState<DraftStage[]>(() =>
+    shown.map((s) => ({ ...s, dragId: s.key || newDragId() })),
+  )
+  const boardRef = useRef<HTMLDivElement>(null)
+  const owners = useStageOwners()
 
   useEffect(() => {
     setDraft((prev) => {
@@ -724,6 +902,7 @@ export function WorkstreamStagesCard({
                   key={stage.dragId}
                   stage={stage}
                   index={index}
+                  fill={waitingStageFill(draft, index)}
                   canEdit={canEdit}
                   canRemove={draft.length > 1}
                   owners={owners}

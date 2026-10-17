@@ -12,6 +12,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Badge } from '../components/ui/badge'
+import type { LabelColor } from '../lib/signals-api'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -25,7 +26,10 @@ import {
 } from '../components/ui/dialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
+import { LabelMarkFields } from '../components/ui/LabelMark'
+import { FLOW_LABEL_COLOR, FLOW_LABEL_ICON } from '../components/ui/label-marks'
 import { TagPill } from '../components/ui/TagPill'
+import { waitingStageFill } from '../lib/stage-order'
 import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
 import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
@@ -173,12 +177,18 @@ function CreateFlowDialog({
   const [tags, setTags] = useState<SignalTag[]>([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [choice, setChoice] = useState<{ name: string } | null>(null)
+  const [markColor, setMarkColor] = useState<LabelColor>(FLOW_LABEL_COLOR)
+  const [markIcon, setMarkIcon] = useState(FLOW_LABEL_ICON)
 
   useEffect(() => {
     if (!open || !token) return
     let cancelled = false
     setLoading(true)
     setQuery('')
+    setChoice(null)
+    setMarkColor(FLOW_LABEL_COLOR)
+    setMarkIcon(FLOW_LABEL_ICON)
     void listSignalTags(token)
       .then((rows) => {
         if (!cancelled) setTags(rows)
@@ -194,28 +204,44 @@ function CreateFlowDialog({
     }
   }, [open, token])
 
-  const available = useMemo(
+  const taken = useMemo(
+    () => tags.filter((tag) => tag.workstreamId).sort((a, b) => a.name.localeCompare(b.name)),
+    [tags],
+  )
+  const free = useMemo(
     () => tags.filter((tag) => !tag.workstreamId).sort((a, b) => a.name.localeCompare(b.name)),
     [tags],
   )
 
   const normalized = normalizeHashtag(query)
-  const matches = useMemo(() => {
-    if (!normalized) return available
-    return available.filter(
-      (tag) =>
-        tag.name.includes(normalized) || tag.description.toLowerCase().includes(normalized),
+  const takenHit = useMemo(
+    () => (normalized ? taken.find((tag) => tag.name === normalized) ?? null : null),
+    [normalized, taken],
+  )
+  const freeMatches = useMemo(() => {
+    if (!normalized) return []
+    return free.filter(
+      (tag) => tag.name.includes(normalized) || tag.description.toLowerCase().includes(normalized),
     )
-  }, [available, normalized])
+  }, [free, normalized])
 
-  const canCreateTag = Boolean(normalized) && matches.length === 0
+  const canUseNewName = Boolean(normalized) && !takenHit && freeMatches.length === 0
 
-  const createWithName = async (name: string) => {
+  const choose = (name: string) => {
     const tagName = normalizeHashtag(name)
+    if (!tagName || taken.some((tag) => tag.name === tagName)) return
+    setQuery(tagName)
+    setChoice({ name: tagName })
+    setMarkColor(FLOW_LABEL_COLOR)
+    setMarkIcon(FLOW_LABEL_ICON)
+  }
+
+  const createFlow = async () => {
+    const tagName = choice?.name
     if (!tagName || creating) return
     setCreating(true)
     try {
-      const created = await createWorkstream({ name: tagName })
+      const created = await createWorkstream({ name: tagName, color: markColor, icon: markIcon })
       toast.success(t('workstreamsPage.created'))
       onOpenChange(false)
       onCreated(created.id)
@@ -228,12 +254,12 @@ function CreateFlowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className={cn('max-w-md', choice && 'max-w-lg')}>
         <DialogHeader>
           <DialogTitle>{t('workstreamsPage.dialogTitle')}</DialogTitle>
           <DialogDescription>{t('workstreamsPage.dialogBody')}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto">
           <div className="relative">
             <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-accent">
               #
@@ -241,15 +267,23 @@ function CreateFlowDialog({
             <Input
               autoFocus
               value={query}
-              onChange={(e) => setQuery(stripHash(e.target.value))}
+              onChange={(e) => {
+                setQuery(stripHash(e.target.value))
+                setChoice(null)
+              }}
               onKeyDown={(e) => {
                 if (e.key !== 'Enter') return
                 e.preventDefault()
-                if (canCreateTag) {
-                  void createWithName(normalized)
+                if (choice) {
+                  void createFlow()
                   return
                 }
-                if (matches.length === 1) void createWithName(matches[0].name)
+                if (takenHit) return
+                if (canUseNewName) {
+                  choose(normalized)
+                  return
+                }
+                if (freeMatches.length === 1) choose(freeMatches[0].name)
               }}
               placeholder={t('workstreamsPage.dialogSearchPlaceholder')}
               aria-label={t('workstreamsPage.dialogSearchPlaceholder')}
@@ -263,54 +297,115 @@ function CreateFlowDialog({
               <Loader2 size={14} className="animate-spin" aria-hidden />
               {t('workstreamsPage.dialogLoadingTags')}
             </div>
-          ) : matches.length > 0 ? (
+          ) : choice ? (
+            <div className="flex items-center justify-between gap-2">
+              <TagPill names={choice.name} tone="action" size="sm" color={markColor} icon={markIcon} selected />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={creating}
+                onClick={() => setChoice(null)}
+              >
+                {t('workstreamsPage.dialogChooseOther')}
+              </Button>
+            </div>
+          ) : !normalized ? (
+            taken.length > 0 ? (
+              <div
+                className="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto"
+                role="listbox"
+                aria-label={t('workstreamsPage.dialogTakenAria')}
+              >
+                {taken.map((tag) => (
+                  <TagPill
+                    key={tag.id}
+                    names={tag.name}
+                    tone="action"
+                    size="sm"
+                    color={tag.color}
+                    icon={tag.icon}
+                    disabled
+                    className="pointer-events-none opacity-45"
+                    title={t('workstreamsPage.dialogTakenTitle')}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center text-xs text-text-muted">
+                {t('workstreamsPage.dialogNoFlows')}
+              </p>
+            )
+          ) : takenHit ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5" role="listbox" aria-label={t('workstreamsPage.dialogTakenAria')}>
+                <TagPill
+                  names={takenHit.name}
+                  tone="action"
+                  size="sm"
+                  color={takenHit.color}
+                  icon={takenHit.icon}
+                  disabled
+                  className="pointer-events-none opacity-45"
+                  title={t('workstreamsPage.dialogTakenTitle')}
+                />
+              </div>
+              <p className="text-center text-xs text-text-muted">
+                {t('workstreamsPage.dialogAlreadyFlow', { name: takenHit.name })}
+              </p>
+            </div>
+          ) : freeMatches.length > 0 ? (
             <div
               className="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto"
               role="listbox"
               aria-label={t('workstreamsPage.dialogTagsAria')}
             >
-              {matches.map((tag) => (
+              {freeMatches.map((tag) => (
                 <TagPill
                   key={tag.id}
                   names={tag.name}
-                  tone={tag.isCategory ? 'action' : 'free'}
+                  tone="free"
                   size="sm"
                   disabled={creating}
                   title={tag.description || undefined}
-                  onClick={() => void createWithName(tag.name)}
+                  onClick={() => choose(tag.name)}
                 />
               ))}
             </div>
-          ) : canCreateTag ? (
+          ) : (
             <div className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center">
               <p className="text-xs text-text-muted">{t('workstreamsPage.dialogNoMatch')}</p>
-              <Button
-                type="button"
-                size="sm"
-                className="mt-3"
-                disabled={creating}
-                onClick={() => void createWithName(normalized)}
-              >
-                {creating ? (
-                  <Loader2 size={13} className="mr-1 animate-spin" aria-hidden />
-                ) : (
-                  <Plus size={13} className="mr-1" aria-hidden />
-                )}
+              <Button type="button" size="sm" className="mt-3" disabled={creating} onClick={() => choose(normalized)}>
+                <Plus size={13} className="mr-1" aria-hidden />
                 {t('workstreamsPage.dialogCreateTag', { name: normalized })}
               </Button>
             </div>
-          ) : (
-            <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center text-xs text-text-muted">
-              {available.length === 0
-                ? t('workstreamsPage.dialogNoTags')
-                : t('workstreamsPage.dialogTypeToFilter')}
-            </p>
           )}
+
+          {choice ? (
+            <div className="space-y-2 border-t border-border/60 pt-3">
+              <p className="text-sm font-medium text-text-heading">{t('workstreamsPage.mark.title')}</p>
+              <p className="text-xs text-text-muted">{t('workstreamsPage.mark.body')}</p>
+              <LabelMarkFields
+                name={choice.name}
+                color={markColor}
+                icon={markIcon}
+                onColorChange={setMarkColor}
+                onIconChange={setMarkIcon}
+              />
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={creating}>
             {t('workstreamsPage.cancel')}
           </Button>
+          {choice ? (
+            <Button type="button" onClick={() => void createFlow()} disabled={creating}>
+              {creating ? <Loader2 size={13} className="mr-1 animate-spin" aria-hidden /> : null}
+              {t('workstreamsPage.create')}
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -351,8 +446,17 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
     >
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate text-sm font-semibold text-text-heading">{title}</span>
-          {actionTag ? <TagPill names={actionTag} tone="action" size="sm" /> : null}
+          <Workflow size={16} className="shrink-0 text-text-muted" aria-hidden />
+          <span className="min-w-0 truncate font-medium text-text-heading">{title}</span>
+          {actionTag ? (
+            <TagPill
+              names={actionTag}
+              tone="action"
+              size="sm"
+              color={(ws.tags?.[0]?.color || '') as LabelColor}
+              icon={ws.tags?.[0]?.icon}
+            />
+          ) : null}
           {!ws.enabled ? (
             <Badge variant="neutral" size="sm">
               {t('workstreamsPage.deactivated')}
@@ -365,13 +469,13 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1" aria-label={t('workstreamsPage.list.stagesAria')}>
-          {ws.stages.map((stage) => (
+          {ws.stages.map((stage, index) => (
             <span
               key={stage.key}
               className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-bg-input/30 px-1.5 py-0.5 text-2xs text-text-secondary"
               title={stageLabel(stage, t)}
             >
-              <StageProgressIcon kind={stage.kind} size={11} />
+              <StageProgressIcon kind={stage.kind} fill={waitingStageFill(ws.stages, index)} size={11} />
               <span className="max-w-[7rem] truncate">{stageLabel(stage, t)}</span>
               <span className="font-semibold tabular-nums text-text-heading">{counts[stage.key] ?? 0}</span>
             </span>

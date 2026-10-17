@@ -78,6 +78,35 @@ def _attachment_mime(att: dict) -> str:
     return guessed or ""
 
 
+def _strip_message_attachments(
+    messages: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict] | None]:
+    """Drop the history-only attachments key. Keep images from the latest user turns.
+
+    A follow-up question has no new files. The previous user bubble still
+    carries them, so the model can look at that picture.
+    """
+    cleaned: list[dict[str, Any]] = []
+    found: list[dict] | None = None
+    user_seen = 0
+    for message in reversed(messages):
+        if message.get("role") != "user":
+            continue
+        user_seen += 1
+        atts = message.get("attachments")
+        if isinstance(atts, list) and atts:
+            found = [a for a in atts if isinstance(a, dict)]
+            break
+        if user_seen >= 2:
+            break
+    for message in messages:
+        if "attachments" not in message:
+            cleaned.append(message)
+            continue
+        cleaned.append({key: value for key, value in message.items() if key != "attachments"})
+    return cleaned, found or None
+
+
 def _truncate_trace_value(value: Any, max_chars: int = 480) -> Any:
     """Keep persisted step payloads small enough for message metadata."""
     try:
@@ -200,6 +229,12 @@ class AgentLoop:
         r"(?i)(verhaal|verhaaltje|meerdere bericht|multiple message|"
         r"several message|in meerdere)"
     )
+
+    def _ack_before_tools(self) -> bool:
+        """Action requests speak a short yes before the model reasons."""
+        from app.services.agent.reasoning_policy import turn_is_action_request
+
+        return turn_is_action_request(str(getattr(self, "_turn_user_text", "") or ""))
 
     def _looks_like_work_announce(self, text: str) -> bool:
         cleaned = (text or "").strip()
@@ -1023,11 +1058,15 @@ class AgentLoop:
         self._turn_model_slug = model_slug
         self._turn_user_text = user_query
         self._turn_has_attachments = bool(attachments)
+        chat_messages, history_attachments = _strip_message_attachments(messages)
+        if not attachments and history_attachments:
+            attachments = history_attachments
+            self._turn_has_attachments = True
         system = await self._build_system_prompt(extra_context, user_query=user_query)
         if attachments:
             vision_note = self._attachments_context(attachments)
             system += vision_note
-        llm_messages = [{"role": "system", "content": system}, *messages]
+        llm_messages = [{"role": "system", "content": system}, *chat_messages]
         llm_messages = await self._apply_attachments_to_messages(llm_messages, attachments)
         return llm_messages, {"input_tokens": 0, "output_tokens": 0}
 
@@ -1035,6 +1074,7 @@ class AgentLoop:
         self,
         messages: list[dict[str, Any]],
         extra_context: str = "",
+        attachments: list[dict] | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, int]]:
         """Minimal prompt so a timed-out prepare can still reach the LLM."""
         from app.services.model_resolution import resolve_model_call
@@ -1059,7 +1099,19 @@ class AgentLoop:
         system = self.agent.system_prompt if self.agent and self.agent.system_prompt else default_prompt
         if extra_context:
             system = f"{system}\n\n{extra_context}"
-        return [{"role": "system", "content": system}, *messages], {
+        chat_messages, history_attachments = _strip_message_attachments(messages)
+        if not attachments and history_attachments:
+            attachments = history_attachments
+        if messages:
+            last = messages[-1]
+            content = last.get("content", "") if isinstance(last, dict) else ""
+            if isinstance(content, str) and content.strip():
+                self._turn_user_text = content
+        if attachments:
+            system += self._attachments_context(attachments)
+        llm_messages = [{"role": "system", "content": system}, *chat_messages]
+        llm_messages = await self._apply_attachments_to_messages(llm_messages, attachments)
+        return llm_messages, {
             "input_tokens": 0,
             "output_tokens": 0,
         }
@@ -1325,16 +1377,19 @@ class AgentLoop:
         """Non-streaming turn. Returns the last speech; ``self.turn`` has every segment."""
         llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
         turn = self._new_turn()
-        self.thinking_budget = self._resolve_thinking_budget()
+        full_budget = self._resolve_thinking_budget()
+        self.thinking_budget = full_budget
         max_tokens = self._resolve_max_tokens()
         self._continue_nudged = False
         started = time.monotonic()
         self._started = started
+        ack_first = self._ack_before_tools()
 
         for loop_idx in range(self.max_loops):
             if await self._is_cancelled():
                 break
             await self._log_event("think", f"Loop {loop_idx + 1}")
+            self.thinking_budget = 0 if ack_first and loop_idx == 0 else full_budget
             response = await self._llm_chat(llm_messages, max_tokens)
             tokens["input_tokens"] += response.get("usage", {}).get("input_tokens", 0)
             tokens["output_tokens"] += response.get("usage", {}).get("output_tokens", 0)
@@ -1434,9 +1489,13 @@ class AgentLoop:
                 "chat prepare timed out after %.1fs; using bare prompt",
                 time.monotonic() - prepare_started,
             )
-            llm_messages, tokens = await self._prepare_chat_bare(messages, extra_context)
-        self.thinking_budget = self._resolve_thinking_budget()
+            llm_messages, tokens = await self._prepare_chat_bare(
+                messages, extra_context, attachments
+            )
+        full_budget = self._resolve_thinking_budget()
+        self.thinking_budget = full_budget
         max_tokens = self._resolve_max_tokens()
+        ack_first = self._ack_before_tools()
         await self._checkpoint_turn()
 
         cancelled = False
@@ -1445,6 +1504,7 @@ class AgentLoop:
                 cancelled = True
                 break
             await self._log_event("think", f"Loop {loop_idx + 1}")
+            self.thinking_budget = 0 if ack_first and loop_idx == 0 else full_budget
 
             response_content: list[dict[str, Any]] = []
             streamed_text = False

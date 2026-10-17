@@ -72,7 +72,7 @@ A reply a colleague sends from Gmail or Outlook itself still belongs on the conv
 1. Open **Channels**.
 2. Click the channel row, then choose **Edit** next to **Name** under **General**.
 3. Type a short display name (for example **Support**) and choose **Save name**. Leave the field empty to use the address again.
-4. The name appears in the Channels list, in the Communication sidebar, and on the reply tab when you send from that mailbox.
+4. The name appears in the Channels list and in the Communication sidebar. The reply tab in a conversation shows the customer's address or number, with a channel icon. When that contact has another address, number, or conversation, a chevron on the tab switches to it.
 
 Do not screenshot or copy OAuth secrets from connected accounts.
 
@@ -106,7 +106,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 
 ## Set a signature and default agent
 
-1. Click a mailbox or Bokito address row. Under **Signature source**, choose **Mailbox signature** (one shared template for everyone, with placeholders such as `{{name}}`, `{{first_name}}` and `{{last_name}}` filled from the sender) or **Each person's signature** (uses **Profile**). With mailbox source, choose **Edit** next to **Signature** to set the template. In the editor, open **Preview** and use **Preview as** to check the template as yourself, another teammate, an agent, or sample data. Placeholders fill from that profile. **With profile photo** puts the sender's profile photo beside the name, or a circle with their initials when they have no photo. The greeting is written out in the template so you can edit it. If the template is empty, or the source is each person, Bokito uses the personal signature, then the Bokito default. Agent sends still use the agent signature. After send, Communication shows that same signature in the thread bubble (what the customer received).
+1. Click a mailbox or Bokito address row. Under **Signature source**, choose **Mailbox signature** (one shared template for everyone, with placeholders such as `{{name}}`, `{{first_name}}` and `{{last_name}}` filled from the sender) or **Each person's signature** (uses **Profile**). With mailbox source, choose **Edit** next to **Signature** to set the template. In the editor, open **Preview** and use **Preview as** to check the template as yourself, another teammate, an agent, or sample data. Placeholders fill from that profile. **With profile photo** puts the sender's profile photo beside the name, or a circle with their initials when they have no photo. The greeting is written out in the template so you can edit it. If the template is empty, or the source is each person, Bokito uses the personal signature, then the Bokito default: a photo beside the name, or a circle with initials when there is no photo. Agent sends still use the agent signature. After send, Communication shows that same signature in the thread bubble (what the customer received).
 2. Under **General**, pick an **Owner** and an **AI agent**. **Default** on the agent is the company default agent. The owner — a person, a team, or **All people** — gets the conversation when a person has to take over. On **Autonomous** or **Assisted** the agent owns new conversations (on Assisted only while it prepares the reply). If no agent may handle the channel, the owner keeps it and the timeline says so.
 3. Choose **Access** to open the access matrix. Toggle **View** and **Handle** per team, person and agent. Handle means reply, take conversations and receive them; View is read only. Teams cover their members — a person with no own grant still follows **All people**. Owners and admins always handle every channel.
 4. Choose **Make primary sender** next to **Primary sender** if you have several email channels. Inbox automations are managed once under **Automation rules**, not as a second set of per-mailbox routing rules.
@@ -154,9 +154,9 @@ Contacts and single conversations can still differ from the channel. See [AI han
 *Each Communication row with the sub-view it opens on.*
 
 1. Scroll to **Tags and Communication** on the same page. Every row in the Communication sidebar has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Pick the **Default sub-view**, and override it per team, channel, tag or project below.
-2. Manage tags and action tags under **Settings** → **Action tags**: one **Tags** list. Choose **New tag**, type a name, and add a description agents read.
-3. Pin a free tag for a row under **Tags** in Communication, or choose **Create flow** to attach a flow. On an action tag choose **Open flow**.
-4. See [Action tags and tickets](/docs/ai/categories).
+2. Manage tags and labels with a flow under **Settings** → **Labels with a flow**: one **Tags** list. Choose **New tag**, type a name, and add a description agents read.
+3. Pin a free tag for a row under **Tags** in Communication, or choose **Create flow** to attach a flow. On a label with a flow choose **Open flow**.
+4. See [Labels and tickets](/docs/ai/categories).
 
 ## What to do next
 

@@ -27,6 +27,25 @@ from app.services.workspace import _keyword_score, _tokens, chunk_markdown, pars
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 LANGS = ("en", "nl")
 SECTIONS = ("getting-started", "inbox", "ai", "govern", "integrations", "developers")
+# Same labels as the /docs navigation.
+SECTION_TITLES = {
+    "en": {
+        "getting-started": "Getting started",
+        "inbox": "Inbox",
+        "ai": "AI workforce",
+        "govern": "Govern",
+        "integrations": "Integrations",
+        "developers": "Developers",
+    },
+    "nl": {
+        "getting-started": "Aan de slag",
+        "inbox": "Communicatie",
+        "ai": "AI-workforce",
+        "govern": "Govern",
+        "integrations": "Integraties",
+        "developers": "Voor ontwikkelaars",
+    },
+}
 SOURCE_TYPE = "product_help"
 
 
@@ -203,12 +222,18 @@ def serialize_article(article: ProductHelpArticle) -> dict[str, Any]:
 
 def nav_tree(lang: str | None = None) -> list[dict[str, Any]]:
     """Section → articles navigation, in fixed section order."""
-    articles = list_articles(lang)
+    resolved = normalize_lang(lang)
+    titles = SECTION_TITLES.get(resolved, SECTION_TITLES["en"])
+    articles = list_articles(resolved)
     sections: list[dict[str, Any]] = []
     for section in SECTIONS:
         items = [serialize_summary(a) for a in articles if a.section == section]
         if items:
-            sections.append({"id": section, "articles": items})
+            sections.append({
+                "id": section,
+                "title": titles.get(section, section),
+                "articles": items,
+            })
     return sections
 
 

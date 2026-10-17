@@ -916,6 +916,47 @@ async def test_list_threads_search_matches_company_and_attachment(client: AsyncC
 
 
 @pytest.mark.asyncio
+async def test_search_peeks_outside_current_filters(client: AsyncClient, session_override):
+    """A search keeps the current queue on top and lists other hits beside it."""
+    headers = await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+
+    def add(subject: str, *, status: str = "open", has_unread: bool = True) -> Signal:
+        row = Signal(
+            tenant_id=tenant.id,
+            channel="email",
+            subject=subject,
+            contact_email="ap@example.com",
+            status=status,
+            has_unread=has_unread,
+        )
+        session_override.add(row)
+        return row
+
+    unread = add("Zebra unread")
+    read = add("Zebra read", has_unread=False)
+    closed = add("Zebra closed", status="closed", has_unread=False)
+    spam = add("Zebra spam", status="spam", has_unread=False)
+    await session_override.commit()
+
+    listed = await client.get(
+        "/api/signals?view=all_open&unread=1&search=Zebra",
+        headers=headers,
+    )
+    assert listed.status_code == 200, listed.text
+    body = listed.json()
+    assert [item["id"] for item in body["items"]] == [str(unread.id)]
+    outside_ids = {item["id"] for item in body["outside_items"]}
+    assert str(read.id) in outside_ids
+    assert str(closed.id) in outside_ids
+    assert str(unread.id) not in outside_ids
+    assert str(spam.id) not in outside_ids
+
+    plain = await client.get("/api/signals?view=all_open", headers=headers)
+    assert plain.json()["outside_items"] == []
+
+
+@pytest.mark.asyncio
 async def test_new_inbound_message_parks_open_reply_proposal(client: AsyncClient, session_override):
     """The draft answers the previous mail: a newer customer message sets it aside."""
     from uuid import uuid4

@@ -21,8 +21,8 @@ import {
   SquarePen,
   User,
   UserPlus,
+  Route,
   Users,
-  Workflow,
 } from 'lucide-react'
 import { openAssistant } from '../../lib/personal-assistant-widget'
 import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
@@ -52,6 +52,7 @@ import { listWorkstreams, startWorkstreamRun, type WorkstreamRow } from '../../l
 import { parseComposerVerb } from '../../lib/composer-verbs'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
+import { AmbientSpotlights } from '../ui/ambient-spotlights'
 
 type PaletteItem = {
   id: string
@@ -353,7 +354,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         id: 'action-new-flow',
         label: t('palette.newFlow'),
         group: t('palette.groupActions'),
-        icon: Workflow,
+        icon: Route,
         run: () => navigate('/workstreams?new=1'),
       },
       {
@@ -374,7 +375,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         id: 'action-open-playbook',
         label: t('palette.openPlaybook'),
         group: t('palette.groupActions'),
-        icon: Workflow,
+        icon: Route,
         run: () => navigate('/workstreams'),
       },
       {
@@ -578,12 +579,16 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           .slice(0, 8)
       : []
     const matchingAgents: PaletteItem[] = agents
-      .filter((item) => `${item.name} ${item.role_name ?? ''} ${item.purpose ?? ''}`.toLowerCase().includes(q.toLowerCase()))
+      .filter((item) =>
+        `${item.name} ${item.role_name ?? ''} ${item.role ?? ''} ${item.job_title ?? ''} ${item.description ?? ''}`
+          .toLowerCase()
+          .includes(q.toLowerCase()),
+      )
       .slice(0, 5)
       .map((item) => ({
         id: `agent-${item.id}`,
         label: item.name,
-        hint: item.role_name || item.purpose || undefined,
+        hint: item.role_name || item.job_title || undefined,
         group: t('palette.groupActions'),
         icon: Bot,
         run: () => navigate(`/agents/${item.id}`),
@@ -607,7 +612,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: item.name,
         hint: item.description,
         group: t('palette.groupActions'),
-        icon: Workflow,
+        icon: Route,
         run: () => navigate(`/workstreams/${item.id}`),
       }))
     const docs: PaletteItem[] = docResults
@@ -741,15 +746,16 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   let lastGroup: string | null = null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[14vh]">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-hidden pt-[14vh]">
       <button
         type="button"
         aria-label={t('palette.ariaClose')}
-        className="absolute inset-0 bg-black/48 backdrop-blur-[6px] animate-fade-in"
+        className="absolute inset-0 bg-bg/70 backdrop-blur-[6px] animate-fade-in"
         onClick={onClose}
       />
+      <AmbientSpotlights />
       <div
-        className="relative w-full max-w-[560px] overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay animate-pop-in"
+        className="relative z-[1] w-full max-w-[560px] overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay animate-pop-in"
         role="dialog"
         aria-label={t('palette.ariaDialog')}
       >

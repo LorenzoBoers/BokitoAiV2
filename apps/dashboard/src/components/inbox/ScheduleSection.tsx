@@ -1,22 +1,17 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
-import { ExternalLink, MapPin, Pause, Pencil, Play, Repeat, X } from 'lucide-react'
+import { ExternalLink, MapPin, Repeat } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
-import { useAuth } from '../../context/AuthContext'
 import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import type { InboxThread } from '../../lib/inbox-api'
-import { clearThreadSchedule, runThreadSchedule, setThreadScheduleEnabled } from '../../lib/signals-api'
 import { describeRepeat, parseServerTime, scheduleLongLabel } from '../../lib/thread-schedule'
 import { formatAppTime } from '../../lib/app-locale'
-import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { SettingRow } from '../ui/entity-row'
-import { controlChipClass } from '../ui/select'
+import { controlTextClass } from '../ui/select'
+import { cn } from '../../lib/utils'
 
 const CalendarClock = ENTITY_ICONS.agenda
-const Zap = ENTITY_ICONS.trigger
 
 type Props = {
   thread: InboxThread
@@ -29,13 +24,11 @@ type Props = {
  * The thread's date and repeat: when it comes back, for whom, and what the
  * agent does then. Empty threads show a single "Plan" chip.
  */
-export function ScheduleSection({ thread, onPlan, onChanged }: Props) {
+export function ScheduleSection({ thread, onPlan }: Props) {
   const { t, i18n } = useTranslation('communication')
-  const { token } = useAuth()
   const { members } = useMembers()
   const { teams } = useTeams()
   const { agents } = useAgents()
-  const [busy, setBusy] = useState<'run' | 'toggle' | 'clear' | null>(null)
   const rule = thread.schedule ?? null
   const details = thread.scheduleDetails ?? {}
   const nextAt = rule?.nextRunAt ?? thread.nextAt
@@ -45,7 +38,7 @@ export function ScheduleSection({ thread, onPlan, onChanged }: Props) {
     if (!onPlan) return null
     return (
       <SettingRow label={t('schedule.title')}>
-        <button type="button" onClick={onPlan} className={`${controlChipClass} text-text-secondary`}>
+        <button type="button" onClick={onPlan} className={`${controlTextClass} text-text-secondary`}>
           <CalendarClock size={11} aria-hidden />
           <span className="truncate">{t('schedule.plan')}</span>
         </button>
@@ -64,29 +57,24 @@ export function ScheduleSection({ thread, onPlan, onChanged }: Props) {
   const agentName = rule?.agentId ? (agents.find((agent) => agent.id === rule.agentId)?.name ?? null) : null
   const paused = rule != null && !rule.enabled
 
-  async function act(kind: 'run' | 'toggle' | 'clear') {
-    if (!token || busy) return
-    setBusy(kind)
-    try {
-      if (kind === 'run') {
-        await runThreadSchedule(token, String(thread.id))
-        toast.success(t('schedule.runStarted'))
-        onChanged?.(null)
-      } else if (kind === 'toggle' && rule) {
-        onChanged?.(await setThreadScheduleEnabled(token, String(thread.id), !rule.enabled))
-      } else if (kind === 'clear') {
-        onChanged?.(await clearThreadSchedule(token, String(thread.id)))
-        toast.success(t('schedule.cleared'))
-      }
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('schedule.actionError')))
-    } finally {
-      setBusy(null)
-    }
-  }
-
   return (
-    <section className="space-y-2 rounded-lg border border-border/50 bg-bg-elevated/40 px-3 py-2.5" data-testid="thread-schedule">
+    <section
+      className={cn(
+        'space-y-2 rounded-lg border border-border/50 bg-bg-elevated/40 px-3 py-2.5 text-left',
+        onPlan && 'cursor-pointer transition-colors hover:border-border hover:bg-bg-hover/40',
+      )}
+      data-testid="thread-schedule"
+      role={onPlan ? 'button' : undefined}
+      tabIndex={onPlan ? 0 : undefined}
+      onClick={onPlan}
+      onKeyDown={(event) => {
+        if (!onPlan) return
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onPlan()
+        }
+      }}
+    >
       <div className="flex min-w-0 items-start gap-2">
         {rule?.repeat ? (
           <Repeat size={14} className="mt-0.5 shrink-0 text-text-muted" aria-hidden />
@@ -105,17 +93,6 @@ export function ScheduleSection({ thread, onPlan, onChanged }: Props) {
             <p className="text-xs text-text-muted">{describeRepeat(rule.repeat, t, i18n.language)}</p>
           ) : null}
         </div>
-        {onPlan ? (
-          <button
-            type="button"
-            onClick={onPlan}
-            className="shrink-0 rounded p-1 text-text-muted hover:bg-bg-hover hover:text-text-heading"
-            aria-label={t('schedule.edit')}
-            title={t('schedule.edit')}
-          >
-            <Pencil size={12} aria-hidden />
-          </button>
-        ) : null}
       </div>
 
       {recipientName || agentName ? (
@@ -150,6 +127,7 @@ export function ScheduleSection({ thread, onPlan, onChanged }: Props) {
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1 text-accent hover:underline"
+              onClick={(event) => event.stopPropagation()}
             >
               <ExternalLink size={11} aria-hidden />
               {t('schedule.openInCalendar')}
@@ -165,32 +143,6 @@ export function ScheduleSection({ thread, onPlan, onChanged }: Props) {
             status: t(`schedule.status.${rule.lastStatus.split(':')[0]}`, { defaultValue: rule.lastStatus }),
           })}
         </p>
-      ) : null}
-
-      {token ? (
-        <div className="flex flex-wrap gap-1.5 pt-0.5">
-          {rule?.agentId ? (
-            <button type="button" className={controlChipClass} disabled={busy != null} onClick={() => void act('run')}>
-              <Zap size={11} aria-hidden />
-              {t('schedule.runNow')}
-            </button>
-          ) : null}
-          {rule?.repeat ? (
-            <button type="button" className={controlChipClass} disabled={busy != null} onClick={() => void act('toggle')}>
-              {paused ? <Play size={11} aria-hidden /> : <Pause size={11} aria-hidden />}
-              {paused ? t('schedule.resume') : t('schedule.pause')}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={`${controlChipClass} text-text-secondary`}
-            disabled={busy != null}
-            onClick={() => void act('clear')}
-          >
-            <X size={11} aria-hidden />
-            {rule?.repeat ? t('schedule.stop') : t('schedule.clear')}
-          </button>
-        </div>
       ) : null}
     </section>
   )
