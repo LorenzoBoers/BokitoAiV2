@@ -110,7 +110,9 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     folder_rows = {row["id"]: row for row in body["projects"]}
     assert folder_rows[project_id]["name"].lower().lstrip("#") == "repairs"
     assert folder_rows[project_id]["count"] == 1
-    assert folder_rows[project_id]["tag_ids"] == created.json()["tag_ids"]
+    assert set(folder_rows[project_id]["tag_ids"]) == set(created.json()["tag_ids"]) | {
+        category["id"]
+    }
     assert folder_rows[project_id]["children"] == []
 
     hidden = await client.patch(f"/api/categories/{category['id']}", headers=headers, json={"show_in_nav": False})

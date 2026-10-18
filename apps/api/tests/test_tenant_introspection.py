@@ -45,7 +45,7 @@ async def test_collect_tenant_snapshot_includes_agents_projects(client: AsyncCli
     snapshot = await collect_tenant_snapshot(session_override, tenant.id)
     assert any(a["name"] for a in snapshot["agents"])
     assert all(a.get("name") != "Bokito" for a in snapshot["agents"])
-    assert any(t.get("kind") in ("people", "agents") for t in snapshot.get("teams") or [])
+    assert any(t.get("system") for t in snapshot.get("teams") or [])
     assert any(p["name"] == "MMXM Trading" for p in snapshot["projects"])
     assert any(t["name"] == "Pipeline scan" for t in snapshot["triggers"])
     assert "open_decisions" in snapshot

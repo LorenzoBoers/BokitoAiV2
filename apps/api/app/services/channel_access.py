@@ -130,7 +130,9 @@ async def visible_channel_account_ids(
     """Channels the user may see. None means unrestricted (owner/admin)."""
     if role in UNRESTRICTED_ROLES:
         return None
-    principal = await user_principal(session, tenant_id, user_id, role)
+    principal = await user_principal(
+        session, tenant_id, user_id, role, include_system=False
+    )
     return {a.id for a in await _accounts(session, tenant_id) if access_level(a, principal)}
 
 
@@ -140,7 +142,9 @@ async def handled_channel_account_ids(
     """Channels the user may handle. None means unrestricted (owner/admin)."""
     if role in UNRESTRICTED_ROLES:
         return None
-    principal = await user_principal(session, tenant_id, user_id, role)
+    principal = await user_principal(
+        session, tenant_id, user_id, role, include_system=False
+    )
     return {
         a.id for a in await _accounts(session, tenant_id) if access_level(a, principal) == "handle"
     }
@@ -151,7 +155,9 @@ async def can_view_account(
 ) -> bool:
     if role in UNRESTRICTED_ROLES:
         return True
-    principal = await user_principal(session, account.tenant_id, user_id, role)
+    principal = await user_principal(
+        session, account.tenant_id, user_id, role, include_system=False
+    )
     return access_level(account, principal) is not None
 
 
@@ -160,7 +166,9 @@ async def can_handle_account(
 ) -> bool:
     if role in UNRESTRICTED_ROLES:
         return True
-    principal = await user_principal(session, account.tenant_id, user_id, role)
+    principal = await user_principal(
+        session, account.tenant_id, user_id, role, include_system=False
+    )
     return access_level(account, principal) == "handle"
 
 

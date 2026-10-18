@@ -86,7 +86,9 @@ async def user_level(
 ) -> str | None:
     if role in UNRESTRICTED_ROLES:
         return "manage"
-    principal = await user_principal(session, cal.tenant_id, user_id, role)
+    principal = await user_principal(
+        session, cal.tenant_id, user_id, role, include_system=False
+    )
     return level_for(cal, principal)
 
 

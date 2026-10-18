@@ -847,7 +847,9 @@ async def visible_connections(
     if viewer.agent_id is not None:
         principal = await agent_principal(session, tenant_id, viewer.agent_id)
     elif viewer.user_id is not None:
-        principal = await user_principal(session, tenant_id, viewer.user_id, viewer.role)
+        principal = await user_principal(
+            session, tenant_id, viewer.user_id, viewer.role, include_system=False
+        )
     else:
         return []
     out = []

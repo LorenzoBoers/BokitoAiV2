@@ -36,11 +36,21 @@ class Principal:
 
 
 async def user_principal(
-    session: AsyncSession, tenant_id: UUID, user_id: UUID, role: str
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    role: str,
+    *,
+    include_system: bool = True,
 ) -> Principal:
     from app.services.teams import user_team_ids
 
-    teams = {str(t) for t in await user_team_ids(session, tenant_id, user_id)}
+    teams = {
+        str(t)
+        for t in await user_team_ids(
+            session, tenant_id, user_id, include_system=include_system
+        )
+    }
     return Principal("user", str(user_id), teams, unrestricted=role in UNRESTRICTED_ROLES)
 
 

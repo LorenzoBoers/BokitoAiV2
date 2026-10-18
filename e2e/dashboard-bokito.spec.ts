@@ -13,7 +13,7 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/inbox/all')
     await expect(page.getByRole('link', { name: 'New conversation' }).first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('link', { name: 'Unassigned' }).first()).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('button', { name: 'Teams' }).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Departments' }).first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('link', { name: 'Contacts' }).first()).toBeVisible({ timeout: 20000 })
   })
 
@@ -22,14 +22,14 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/inbox/all')
     await page.getByTestId('customize-sidebar').click()
     await expect(page.getByRole('heading', { name: 'Customize sidebar' })).toBeVisible({ timeout: 20000 })
-    // Toggle off the Teams section via its Show switch.
+    // Toggle off the Departments section via its Show switch.
     const teamsRow = page.locator('[data-customize-section="teams"]')
     await teamsRow.getByRole('switch').nth(1).click()
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('button', { name: 'Teams' }).first()).toBeHidden({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Departments' }).first()).toBeHidden({ timeout: 20000 })
     await page.reload()
     await expect(page.getByRole('link', { name: 'Contacts' }).first()).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('button', { name: 'Teams' }).first()).toBeHidden({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Departments' }).first()).toBeHidden({ timeout: 20000 })
   })
 
   test('new conversation surface shows To-picker with default company agent', async ({ page }) => {

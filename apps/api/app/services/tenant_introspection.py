@@ -73,6 +73,7 @@ async def collect_tenant_snapshot(
         for a in agents_rows
     ]
 
+    from app.models.team import is_root_department
     from app.services.teams import list_teams as list_team_rows
 
     team_rows = await list_team_rows(session, tenant_id)
@@ -81,7 +82,7 @@ async def collect_tenant_snapshot(
             "id": str(t.id),
             "name": t.name,
             "kind": t.kind,
-            "system": t.kind in ("people", "agents"),
+            "system": is_root_department(t),
             "mention": f"@[{t.name}](team:{t.id})",
         }
         for t in team_rows[:20]

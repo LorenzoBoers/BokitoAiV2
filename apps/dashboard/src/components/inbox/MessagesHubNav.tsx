@@ -69,7 +69,7 @@ export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultL
   flows: { labelKey: 'support.section.flows', defaultLabel: 'Flows' },
   channels: { labelKey: 'support.section.channels', defaultLabel: 'Channels' },
   agents: { labelKey: 'support.section.agents', defaultLabel: 'Chat with agents' },
-  teams: { labelKey: 'support.section.teams', defaultLabel: 'Teams' },
+  teams: { labelKey: 'support.section.teams', defaultLabel: 'Departments' },
   settings: { labelKey: 'support.section.settings', defaultLabel: 'Settings' },
 }
 

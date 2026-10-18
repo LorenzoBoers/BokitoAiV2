@@ -17,6 +17,7 @@ class WorkstreamCreateBody(BaseModel):
     name: str
     description: str = ""
     stages: list[dict[str, Any]] | None = None
+    project_ids: list[UUID] = []
     # Omitted values use the flow-label default (blue + route). Empty string clears the mark.
     color: str | None = None
     icon: str | None = None
@@ -121,6 +122,28 @@ async def create_workstream(
     tag.workstream_id = ws.id
     tag.show_in_nav = True
     session.add(tag)
+    if body.project_ids:
+        from app.models.project import Project, ProjectTagLink
+
+        for project_id in body.project_ids:
+            project = (
+                await session.execute(
+                    select(Project).where(
+                        Project.id == project_id,
+                        Project.tenant_id == auth.tenant.id,
+                        Project.deleted_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
+            if project is None:
+                raise HTTPException(status_code=400, detail="Folder not found")
+            session.add(
+                ProjectTagLink(
+                    tenant_id=auth.tenant.id,
+                    project_id=project.id,
+                    tag_id=tag.id,
+                )
+            )
     await session.commit()
     await session.refresh(ws)
     return await svc.serialize_workstream_full(session, ws)

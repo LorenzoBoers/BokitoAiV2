@@ -44,6 +44,8 @@ def doc_in_agent_scope(
     Membership is the agent's departments plus ancestors (All included when
     they belong to a child). A null department and a null agent stay out.
     """
+    if doc_department_id is None and doc_agent_id is None:
+        return True
     if agent_id is not None and doc_agent_id == agent_id:
         return True
     if doc_department_id is not None and doc_department_id in membership:

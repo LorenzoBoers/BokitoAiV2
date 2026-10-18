@@ -293,7 +293,10 @@ async def agent_team_ids(session: AsyncSession, tenant_id: UUID, agent_id: UUID)
             )
         ).scalars().all()
     )
-    return await _ancestor_ids(session, tenant_id, direct)
+    ids = await _ancestor_ids(session, tenant_id, direct)
+    root = await ensure_all_department(session, tenant_id)
+    ids.add(root.id)
+    return ids
 
 
 async def create_team(

@@ -444,7 +444,10 @@ def resolve_channel(
             "breaker_tripped_at": breaker_tripped_at(account),
         },
         "default_agent_id": str(account.default_agent_id) if account.default_agent_id else None,
-        "default_team_id": (settings.get("routing") or {}).get("team_id")
+        "default_team_id": (
+            (settings.get("routing") or {}).get("department_id")
+            or (settings.get("routing") or {}).get("team_id")
+        )
         if isinstance(settings.get("routing"), dict)
         else None,
         "default_user_id": (settings.get("routing") or {}).get("user_id")

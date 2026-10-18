@@ -140,7 +140,7 @@ async def request_human_handoff(
         body=reason or default_body,
         payload=payload,
         cooldown_minutes=30,
-        user_ids=recipients,
+        user_ids=recipients or None,
         kind="handoff",
         tier=1,
         signal_id=signal.id,

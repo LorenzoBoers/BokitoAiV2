@@ -79,7 +79,9 @@ def test_handled_externally_text_languages():
         "Handled by phone by Lorenzo"
     )
     # Unknown channel falls back to "other"; empty name falls back to the team.
-    assert handled_externally_text("fax", "", language="en") == "Handled outside Bokito by team"
+    assert handled_externally_text("fax", "", language="en") == (
+        "Handled outside Bokito by department"
+    )
 
 
 @pytest.mark.asyncio

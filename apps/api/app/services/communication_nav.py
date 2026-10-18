@@ -253,7 +253,9 @@ async def nav(
     ticket_tags: list[dict[str, Any]] = []
     free_tags: list[dict[str, Any]] = []
     for tag in tags:
-        if not tag.show_in_nav or tag.id in used_in_filtersets:
+        if not tag.show_in_nav:
+            continue
+        if tag.workstream_id not in live_flows and tag.id in used_in_filtersets:
             continue
         row = {
             "id": str(tag.id),

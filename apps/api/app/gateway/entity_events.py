@@ -99,7 +99,11 @@ def _record(session: Session, obj: Any, op: str) -> None:
         return
     if op == "updated" and getattr(obj, "deleted_at", None) is not None:
         op = "deleted"
-    team_id = getattr(obj, "team_id", None) if entity == "department" else None
+    from app.models.team import TeamMember
+
+    team_id = None
+    if entity == "team" and isinstance(obj, TeamMember):
+        team_id = getattr(obj, "department_id", None)
     # A playbook attached to or detached from a project changes that project's board.
     board_project_id = getattr(obj, "workstream_id", None) and getattr(obj, "project_id", None)
     if entity == "ticket":
