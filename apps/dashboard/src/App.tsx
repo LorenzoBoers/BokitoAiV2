@@ -76,6 +76,7 @@ const TrustPrivacyPage = lazy(() => import('./pages/TrustPrivacyPage'))
 const BinPage = lazy(() => import('./pages/BinPage'))
 const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const TeamPage = lazy(() => import('./pages/TeamPage'))
+const OrgCanvasPage = lazy(() => import('./pages/OrgCanvasPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
 const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
@@ -425,6 +426,8 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
+          <Route path="/grid" element={<OrgCanvasPage />} />
+          <Route path="/team/canvas" element={<Navigate to="/grid" replace />} />
           <Route path="/team" element={<TeamPage />} />
           {/* Cases hub retired: a typed signal lives on its conversation. The
               type catalog moved to Settings. */}

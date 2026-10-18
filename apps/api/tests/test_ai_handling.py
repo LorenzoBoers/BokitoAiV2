@@ -221,13 +221,13 @@ async def test_close_clears_and_assignment_does_not_hold(session_override: Async
     user_id = uuid4()
     signal.assigned_user_id = user_id
     signal.assignee_kind = "user"
-    svc.on_assignment_change(session_override, signal, before_assignee=None, before_kind="team")
+    svc.on_assignment_change(session_override, signal, before_assignee=None, before_kind="department")
     assert signal.ai_handling is None
 
     # A customer handoff is not released by moving it to a team or another person.
     svc.hold_conversation(session_override, signal, reason=svc.REASON_HANDOFF)
     signal.assigned_user_id = None
-    signal.assignee_kind = "team"
+    signal.assignee_kind = "department"
     svc.on_assignment_change(session_override, signal, before_assignee=user_id, before_kind="user")
     assert signal.ai_handling == "manual"
     assert signal.ai_handling_reason == svc.REASON_HANDOFF
@@ -235,7 +235,7 @@ async def test_close_clears_and_assignment_does_not_hold(session_override: Async
     # Handing it to an agent explicitly releases every hold.
     signal.agent_id = uuid4()
     signal.assignee_kind = "agent"
-    svc.on_assignment_change(session_override, signal, before_assignee=None, before_kind="team")
+    svc.on_assignment_change(session_override, signal, before_assignee=None, before_kind="department")
     assert signal.ai_handling is None
 
 

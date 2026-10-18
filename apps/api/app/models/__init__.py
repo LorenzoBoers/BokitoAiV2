@@ -13,7 +13,6 @@ from app.models.platform_change import PlatformChange
 from app.models.signal import (
     CompanyTagLink,
     ContactTagLink,
-    SavedReply,
     Signal,
     SignalEvent,
     SignalMessage,
@@ -25,7 +24,7 @@ from app.models.integration import IntegrationBinding, IntegrationConnection, Mc
 from app.models.integration_catalog import IntegrationCatalogHost, IntegrationCatalogProvider
 from app.models.notification import DecisionRequest, Notification, UserNotificationPreference
 from app.models.trigger import Trigger
-from app.models.orchestra import Workstream, WorkstreamProject, WorkstreamRun, WorkstreamStep
+from app.models.orchestra import Workstream, WorkstreamRun, WorkstreamStep
 from app.models.api_token import ApiToken
 from app.models.oauth_as import (
     McpOAuthAccessToken,
@@ -56,7 +55,14 @@ from app.models.calendar import CalendarEvent, CalendarTagLink, TenantCalendar
 from app.models.user_memory import UserAssistantMemory
 from app.models.customer_verify import CustomerVerifyToken, HandoverCode
 from app.models.workbench import WorkJob
-from app.models.team import Team, TeamMember
+from app.models.team import Department, DepartmentMember, Team, TeamMember
+from app.models.relations import (
+    ResourceGrant,
+    WorkstreamChannel,
+    WorkstreamConnection,
+    WorkstreamStage,
+    WorkstreamStageOwner,
+)
 from app.models.trash import TrashEntry
 
 __all__ = [
@@ -99,7 +105,6 @@ __all__ = [
     "McpOAuthRefreshToken",
     "Trigger",
     "Workstream",
-    "WorkstreamProject",
     "WorkstreamRun",
     "WorkstreamStep",
     "Project",
@@ -117,7 +122,6 @@ __all__ = [
     "SignalThreadPin",
     "ContactTagLink",
     "CompanyTagLink",
-    "SavedReply",
     "Feedback",
     "MessageReaction",
     "SignalParticipant",
@@ -142,9 +146,16 @@ __all__ = [
     "CustomerVerifyToken",
     "HandoverCode",
     "WorkJob",
+    "Department",
+    "DepartmentMember",
     "Team",
     "TeamMember",
     "TrashEntry",
+    "ResourceGrant",
+    "WorkstreamStage",
+    "WorkstreamStageOwner",
+    "WorkstreamConnection",
+    "WorkstreamChannel",
 ]
 
 # Owner normalization and turn hooks attach to the mappers on import.

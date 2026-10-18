@@ -1406,7 +1406,7 @@ async def set_module_enabled(
             raise ValueError(
                 "Assign at least one AI agent to this module before finishing setup"
             )
-        return await _write_module_row(
+        row = await _write_module_row(
             session,
             tenant_id,
             slug,
@@ -1415,12 +1415,20 @@ async def set_module_enabled(
             audit_action="module:enabled",
             summary=f"{MODULE_BY_SLUG[slug].name} installed",
         )
+        from app.services.module_department import bind_module_department
+
+        department = await bind_module_department(session, tenant_id, slug)
+        row["department_id"] = str(department.id)
+        return row
     from app.services.module_agents import (
         clear_module_agents,
         soft_archive_module_specialists,
     )
 
     archived = await soft_archive_module_specialists(session, tenant_id, slug)
+    from app.services.module_department import archive_module_department
+
+    await archive_module_department(session, tenant_id, slug)
     row = await _write_module_row(
         session,
         tenant_id,
@@ -1483,6 +1491,17 @@ async def install_module(
             row["auto_tag"] = tag_row
         except Exception:  # noqa: BLE001
             pass
+    from app.services.module_department import bind_module_department
+
+    agent_raw = row.get("specialist_agent_id")
+    try:
+        agent_uuid = UUID(str(agent_raw)) if agent_raw else None
+    except (ValueError, TypeError):
+        agent_uuid = None
+    department = await bind_module_department(
+        session, tenant_id, slug, agent_id=agent_uuid
+    )
+    row["department_id"] = str(department.id)
     return row
 
 
@@ -1840,6 +1859,21 @@ async def update_module_prefs(
         row.customer_tools_json = json.dumps(cleaned)
     row.updated_at = _dt.utcnow()
     session.add(row)
+    await session.flush()
+    if user_access is not None:
+        from app.services.setup_links import replace_resource_grants
+
+        saved = json.loads(row.user_access_json or "{}")
+        mode = str(saved.get("mode") or "all_members")
+        user_ids = [str(item) for item in (saved.get("user_ids") or [])]
+        grant_entries = (
+            [{"kind": "department", "id": "everyone", "level": "use"}]
+            if mode != "selected"
+            else [{"kind": "user", "id": user_id, "level": "use"} for user_id in user_ids]
+        )
+        await replace_resource_grants(
+            session, tenant_id, "module", grant_entries, module_install_id=row.id
+        )
     await session.commit()
     await session.refresh(row)
     return _row_prefs(row)

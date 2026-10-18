@@ -438,8 +438,8 @@ export default function ThreadList({
               </section>
             </div>
           ) : (
-            <div className="px-3 py-8 text-center text-xs text-text-muted">
-              <p>
+            <div className="px-3 py-10 text-center text-xs text-text-muted">
+              <p className="text-sm font-medium text-text-heading">
                 {quickFilter === 'unread'
                   ? t('threadList.emptyUnread')
                   : quickFilter === 'pinned'

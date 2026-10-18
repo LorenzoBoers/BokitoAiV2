@@ -152,7 +152,9 @@ export function shouldShowWaitingTurn(
   if (!turn.active || opts.lastRunning || opts.lastIsSpeech) return false
   if (opts.hasSpeech) return false
   if (turnPreparesProposal(turn)) return false
-  return true
+  // A quiet gap before the first word is not thinking. Show Working only
+  // once a tool has already run and the model is still on the job.
+  return turnHasWork(turn)
 }
 
 /** Face motion for the bot orb — re-exported from bot-orb-motion. */
@@ -193,7 +195,7 @@ export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMoti
     return 'thinking'
   }
   if (Object.values(turn.thinking).some((text) => text.trim().length > 0)) return 'thinking'
-  return 'thinking'
+  return 'idle'
 }
 
 /**

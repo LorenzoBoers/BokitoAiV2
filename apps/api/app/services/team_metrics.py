@@ -68,8 +68,8 @@ async def overview_metrics(session: AsyncSession, tenant_id: UUID) -> dict[str, 
     for row in decisions:
         if row.source_type == "agent" and row.source_id:
             agents.setdefault(str(row.source_id), _Bucket()).add_decision(row)
-        if row.addressee_kind == "team" and row.addressee_team_id:
-            teams.setdefault(str(row.addressee_team_id), _Bucket()).add_decision(row)
+        if row.addressee_kind == "department" and row.addressee_department_id:
+            teams.setdefault(str(row.addressee_department_id), _Bucket()).add_decision(row)
 
     events = (
         await session.execute(

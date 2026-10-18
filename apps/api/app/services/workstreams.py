@@ -19,7 +19,6 @@ from app.models.agent import AgentRun
 from app.models.orchestra import (
     WORKSTREAM_INPUT_KINDS,
     Workstream,
-    WorkstreamProject,
     WorkstreamRun,
     WorkstreamStep,
 )
@@ -69,7 +68,6 @@ def serialize_workstream(
         "project_ids": project_ids or [],
         "name": title,
         "description": ws.description,
-        "enabled": ws.enabled,
         "module_slug": ws.module_slug,
         "template_slug": ws.template_slug,
         "stages": stages,
@@ -161,33 +159,46 @@ def serialize_run(run: WorkstreamRun, *, workstream_name: str | None = None) -> 
 # Definition CRUD
 
 
-async def playbook_project_map(
+async def flow_folder_map(
     session: AsyncSession, tenant_id: UUID, workstream_ids: list[UUID]
 ) -> dict[UUID, list[str]]:
+    """Folders whose filterset includes an action tag of each flow.
+
+    ``project_ids`` on the API is derived this way — there is no direct
+    flow↔folder attachment table.
+    """
     if not workstream_ids:
         return {}
-    from app.models.project import Project
+    from app.models.project import Project, ProjectTagLink
+    from app.models.signal import SignalTag
 
     rows = await session.execute(
-        select(WorkstreamProject.workstream_id, WorkstreamProject.project_id)
-        .join(Project, Project.id == WorkstreamProject.project_id)
+        select(SignalTag.workstream_id, Project.id)
+        .join(ProjectTagLink, ProjectTagLink.tag_id == SignalTag.id)
+        .join(Project, Project.id == ProjectTagLink.project_id)
         .where(
-            WorkstreamProject.tenant_id == tenant_id,
-            WorkstreamProject.workstream_id.in_(workstream_ids),
+            SignalTag.tenant_id == tenant_id,
+            SignalTag.workstream_id.in_(workstream_ids),
+            Project.tenant_id == tenant_id,
             Project.deleted_at.is_(None),
         )
-        .order_by(WorkstreamProject.created_at)
+        .order_by(Project.name)
     )
     out: dict[UUID, list[str]] = {}
     for ws_id, project_id in rows.all():
-        out.setdefault(ws_id, []).append(str(project_id))
+        if ws_id is None:
+            continue
+        pid = str(project_id)
+        bucket = out.setdefault(ws_id, [])
+        if pid not in bucket:
+            bucket.append(pid)
     return out
 
 
 async def serialize_workstream_full(
     session: AsyncSession, ws: Workstream, *, stages_count: int | None = None
 ) -> dict[str, Any]:
-    projects = await playbook_project_map(session, ws.tenant_id, [ws.id])
+    projects = await flow_folder_map(session, ws.tenant_id, [ws.id])
     tags = await playbook_tags_map(session, ws.tenant_id, [ws.id])
     return serialize_workstream(
         ws,
@@ -195,52 +206,6 @@ async def serialize_workstream_full(
         project_ids=projects.get(ws.id, []),
         tags=tags.get(ws.id, []),
     )
-
-
-async def set_playbook_projects(
-    session: AsyncSession, tenant_id: UUID, ws: Workstream, project_ids: list[UUID]
-) -> None:
-    """Replace the projects a playbook is attached to.
-
-    Folder boards list flows from tickets in the folder subtree, not from this
-    attachment list. Attachment remains for other project/playbook links.
-    """
-    from app.models.project import Project
-
-    wanted = list(dict.fromkeys(project_ids))
-    if wanted:
-        found = set(
-            (
-                await session.execute(
-                    select(Project.id).where(
-                        Project.tenant_id == tenant_id,
-                        Project.id.in_(wanted),
-                        Project.deleted_at.is_(None),
-                    )
-                )
-            ).scalars()
-        )
-        missing = [str(pid) for pid in wanted if pid not in found]
-        if missing:
-            raise HTTPException(status_code=400, detail=f"Unknown project: {missing[0]}")
-    existing = {
-        row.project_id: row
-        for row in (
-            await session.execute(
-                select(WorkstreamProject).where(
-                    WorkstreamProject.tenant_id == tenant_id,
-                    WorkstreamProject.workstream_id == ws.id,
-                )
-            )
-        ).scalars()
-    }
-    for pid, row in existing.items():
-        if pid not in wanted:
-            await session.delete(row)
-    for pid in wanted:
-        if pid not in existing:
-            session.add(WorkstreamProject(tenant_id=tenant_id, workstream_id=ws.id, project_id=pid))
-    await session.flush()
 
 
 async def get_workstream(
@@ -279,16 +244,21 @@ async def list_workstreams(
         Workstream.id.in_(tagged),
     )
     if project_id is not None:
+        from app.models.project import ProjectTagLink
+
         query = query.where(
             Workstream.id.in_(
-                select(WorkstreamProject.workstream_id).where(
-                    WorkstreamProject.project_id == project_id
+                select(SignalTag.workstream_id)
+                .join(ProjectTagLink, ProjectTagLink.tag_id == SignalTag.id)
+                .where(
+                    ProjectTagLink.project_id == project_id,
+                    SignalTag.workstream_id.is_not(None),
                 )
             )
         )
     rows = list((await session.execute(query.order_by(Workstream.name))).scalars().all())
     ids = [w.id for w in rows]
-    projects = await playbook_project_map(session, tenant_id, ids)
+    projects = await flow_folder_map(session, tenant_id, ids)
     tags = await playbook_tags_map(session, tenant_id, ids)
     activity = await playbook_ticket_activity(session, tenant_id, rows)
     out = []
@@ -434,7 +404,6 @@ async def install_template(
         tenant_id=tenant_id,
         name=template.name,
         description=template.description,
-        enabled=True,
         module_slug=template.module_slug,
         template_slug=template.slug,
     )
@@ -479,8 +448,6 @@ async def start_run(
     if input_kind not in WORKSTREAM_INPUT_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid input kind: {input_kind}")
     ws = await get_workstream(session, tenant_id, workstream_id)
-    if not ws.enabled:
-        raise HTTPException(status_code=400, detail="Workstream is disabled.")
     now = datetime.utcnow()
     return WorkstreamRun(
         tenant_id=tenant_id,

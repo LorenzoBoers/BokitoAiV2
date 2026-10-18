@@ -763,18 +763,6 @@ async def _purge_inbox_rule(session: AsyncSession, tenant_id: UUID, resource_id:
         await session.delete(row)
 
 
-async def _purge_saved_reply(session: AsyncSession, tenant_id: UUID, resource_id: UUID) -> None:
-    from app.models.signal import SavedReply
-
-    row = (
-        await session.execute(
-            select(SavedReply).where(SavedReply.id == resource_id, SavedReply.tenant_id == tenant_id)
-        )
-    ).scalar_one_or_none()
-    if row is not None:
-        await session.delete(row)
-
-
 async def _purge_project_resource(session: AsyncSession, tenant_id: UUID, resource_id: UUID) -> None:
     from app.models.project_work import ProjectResource
 
@@ -812,7 +800,6 @@ _PURGE_HANDLERS = {
     "trigger": _purge_trigger,
     "team": _purge_team,
     "inbox_rule": _purge_inbox_rule,
-    "saved_reply": _purge_saved_reply,
     "project_resource": _purge_project_resource,
     "queue_item": _purge_queue_item,
 }
@@ -826,7 +813,7 @@ def _bind_models() -> dict[str, type]:
     from app.models.project import Project
     from app.models.project_canvas import ProjectCanvas
     from app.models.project_work import ProjectResource
-    from app.models.signal import SavedReply, Signal
+    from app.models.signal import Signal
     from app.models.team import Team
     from app.models.trigger import Trigger
     from app.models.workspace import WorkspaceDoc
@@ -842,7 +829,6 @@ def _bind_models() -> dict[str, type]:
         "trigger": Trigger,
         "team": Team,
         "inbox_rule": InboxRule,
-        "saved_reply": SavedReply,
         "project_resource": ProjectResource,
         "queue_item": AgentTask,
     }

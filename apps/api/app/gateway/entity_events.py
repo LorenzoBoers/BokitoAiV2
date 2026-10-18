@@ -47,7 +47,6 @@ def _entity_of(obj: Any) -> str | None:
     from app.models.agent import Agent
     from app.models.calendar import CalendarEvent
     from app.models.module_source import ModuleSource
-    from app.models.orchestra import WorkstreamProject
     from app.models.project import Project
     from app.models.signal import Signal, SignalTag
     from app.models.team import Team, TeamMember
@@ -58,7 +57,6 @@ def _entity_of(obj: Any) -> str | None:
         (Trigger, "trigger"),
         (SignalTag, "tag"),
         (Project, "project"),
-        (WorkstreamProject, "project"),
         (Agent, "agent"),
         (ModuleSource, "module_source"),
         (CalendarEvent, "calendar"),
@@ -101,7 +99,7 @@ def _record(session: Session, obj: Any, op: str) -> None:
         return
     if op == "updated" and getattr(obj, "deleted_at", None) is not None:
         op = "deleted"
-    team_id = getattr(obj, "team_id", None) if entity == "team" else None
+    team_id = getattr(obj, "team_id", None) if entity == "department" else None
     # A playbook attached to or detached from a project changes that project's board.
     board_project_id = getattr(obj, "workstream_id", None) and getattr(obj, "project_id", None)
     if entity == "ticket":

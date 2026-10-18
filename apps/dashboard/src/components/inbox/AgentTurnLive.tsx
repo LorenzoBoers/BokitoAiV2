@@ -300,6 +300,19 @@ export default function AgentTurnLive({
     <div className="flex items-start gap-2">
       <span className={THREAD_GUTTER}>{avatarNode}</span>
       <div className="min-w-0 flex-1 space-y-1.5">
+        {!entering && preparingProposal ? (
+          <div role="status" aria-live="polite">
+            <ThreadMetaRow live ai>
+              {t('proposal.preparing')}
+            </ThreadMetaRow>
+          </div>
+        ) : !entering && waiting ? (
+          <div role="status" aria-live="polite">
+            <ThreadMetaRow live ai>
+              {t(turnHasWork(turn) ? 'activity.working' : 'activity.thinking')}
+            </ThreadMetaRow>
+          </div>
+        ) : null}
         {showStatus
           ? blocks.map((block, index) =>
               block.type === 'activity' ? (
@@ -321,19 +334,6 @@ export default function AgentTurnLive({
               ),
             )
           : null}
-        {!entering && preparingProposal ? (
-          <div role="status" aria-live="polite">
-            <ThreadMetaRow live ai>
-              {t('proposal.preparing')}
-            </ThreadMetaRow>
-          </div>
-        ) : !entering && waiting ? (
-          <div role="status" aria-live="polite">
-            <ThreadMetaRow live ai>
-              {t(turnHasWork(turn) ? 'activity.working' : 'activity.thinking')}
-            </ThreadMetaRow>
-          </div>
-        ) : null}
       </div>
     </div>
   )

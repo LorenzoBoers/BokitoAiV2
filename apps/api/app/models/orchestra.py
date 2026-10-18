@@ -32,16 +32,22 @@ WORKSTREAM_INPUT_KINDS = ("manual", "queue_item", "signal", "trigger", "ticket")
 
 
 class Workstream(SQLModel, table=True):
-    """Reusable playbook: a stage pipeline for tickets. Attached to projects via
-    `WorkstreamProject`; categories (`SignalTag.workstream_id`) feed it tickets."""
+    """Reusable playbook: a stage pipeline for tickets.
+
+    Folders that share the flow's action tag (`project_tag_links` +
+    `SignalTag.workstream_id`) become board lanes. Categories
+    (`SignalTag.workstream_id`) feed it tickets.
+    """
 
     __tablename__ = "workstreams"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     name: str
     description: str = ""
-    enabled: bool = True
     # Provenance when installed from a module template: the integrity check
     # before each run re-validates the template requirements (module installed,
     # integration connected, agents available).
@@ -56,22 +62,6 @@ class Workstream(SQLModel, table=True):
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
-    trash_was_enabled: Optional[bool] = Field(default=None)
-
-
-class WorkstreamProject(SQLModel, table=True):
-    """A playbook attached to a project. Its tickets filed on that project show
-    on the project's board."""
-
-    __tablename__ = "workstream_projects"
-
-    workstream_id: uuid.UUID = Field(foreign_key="workstreams.id", primary_key=True)
-    project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True, index=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    # Optional preferred Flow when a folder links several playbooks.
-    is_default: bool = False
-    position: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # WorkstreamStep table retired — playbooks are stages-only (migration 076).

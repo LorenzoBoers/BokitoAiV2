@@ -55,10 +55,6 @@ export function agentRuntimeStatusLabel(status: string | null | undefined, t: TF
   return presenceLabel(status, t)
 }
 
-export function flowStatusLabel(enabled: boolean, t: TFunction): string {
-  return enabled ? t('status.flow.active', { ns: 'communication' }) : t('status.flow.paused', { ns: 'communication' })
-}
-
 export function indexStatusLabel(status: string | null | undefined, t: TFunction): string {
   return labelFromMap(status, t, 'status.index')
 }

@@ -1,12 +1,13 @@
 """Per-turn reasoning decision.
 
-Native model reasoning costs seconds and tokens. A greeting or a one-line
-lookup does not need it; a multi-step request, a "why", or anything that
-changes the workspace does. The loop asks this module once per turn and passes
-the resulting budget to the provider (Anthropic extended thinking, Mistral
-``reasoning_effort``).
+Native model reasoning costs seconds and tokens. Each turn picks one pace:
 
-Kong is the heavier tier: it always reasons, with a larger budget.
+- ``reply`` — a fast answer is enough. No reasoning.
+- ``reply_then_think`` — say yes in one line, then reason while doing the work.
+- ``think`` — the answer itself needs reasoning before the first word.
+
+A pinned agent budget or Kong only raises the budget when the pace is not
+``reply``. A greeting never thinks.
 """
 
 from __future__ import annotations
@@ -15,6 +16,22 @@ import re
 
 KONG_SLUG = "bokito-kong"
 KONG_MIN_BUDGET = 4096
+
+PACE_REPLY = "reply"
+PACE_REPLY_THEN_THINK = "reply_then_think"
+PACE_THINK = "think"
+
+# Social lines. "Hoe is het met jou?" is not a how-to.
+_SMALL_TALK_RE = re.compile(
+    r"^(?:"
+    r"hoi|hey|hallo|hello|hi|yo|dag|goedemorgen|goedemiddag|goedenavond|"
+    r"thanks|thank you|dank(?:je|jewel)?|top|ok+e?|oké|prima|mooi|goed|"
+    r"hoe gaat (?:het|ie)(?: met (?:je|jou|u))?|"
+    r"hoe is het(?: met (?:je|jou|u))?|"
+    r"how are you|what'?s up|alles goed"
+    r")[\s!?.]*$",
+    re.IGNORECASE,
+)
 
 # Longer than this, a message usually carries context worth reasoning over.
 _LONG_MESSAGE_CHARS = 160
@@ -61,6 +78,18 @@ def turn_is_action_request(text: str) -> bool:
     return True
 
 
+def turn_pace(text: str, *, has_attachments: bool = False) -> str:
+    """Which of the three paces this message gets."""
+    body = (text or "").strip()
+    if body and _SMALL_TALK_RE.match(body) and not has_attachments:
+        return PACE_REPLY
+    if turn_is_action_request(body):
+        return PACE_REPLY_THEN_THINK
+    if turn_needs_reasoning(body, has_attachments=has_attachments):
+        return PACE_THINK
+    return PACE_REPLY
+
+
 def turn_needs_reasoning(text: str, *, has_attachments: bool = False) -> bool:
     """Whether the latest operator or customer message deserves model reasoning."""
     if has_attachments:
@@ -85,16 +114,17 @@ def turn_thinking_budget(
     has_attachments: bool = False,
     agent_pinned: bool = False,
 ) -> int:
-    """The budget for this turn; 0 means no reasoning.
+    """The budget once this turn is allowed to reason. 0 means speak directly.
 
     ``configured`` is the agent's own budget or the global chat default.
-    ``agent_pinned`` means the agent set its budget explicitly: always reason.
+    ``agent_pinned`` is accepted for callers and does not override the pace:
+    a greeting stays at 0. Kong only lifts the budget on a think pace.
     """
+    del agent_pinned
+    pace = turn_pace(user_text, has_attachments=has_attachments)
+    if pace == PACE_REPLY:
+        return 0
     budget = max(0, int(configured or 0))
     if (model_slug or "").strip().lower() == KONG_SLUG:
-        return max(budget, KONG_MIN_BUDGET)
-    if budget <= 0:
-        return 0
-    if agent_pinned:
-        return budget
-    return budget if turn_needs_reasoning(user_text, has_attachments=has_attachments) else 0
+        budget = max(budget, KONG_MIN_BUDGET)
+    return budget

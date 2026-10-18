@@ -162,7 +162,8 @@ async def test_queue_item_bug_files_ticket_on_project_board(client: AsyncClient,
     """bug/feature with a matching action tag must appear on the project flow board."""
     import json
 
-    from app.models.orchestra import Workstream, WorkstreamProject
+    from app.models.orchestra import Workstream
+    from app.models.project import ProjectTagLink
     from app.models.signal import SignalTag
 
     tenant = await _tenant(session_override)
@@ -184,13 +185,9 @@ async def test_queue_item_bug_files_ticket_on_project_board(client: AsyncClient,
         auto_threshold=5,
     )
     session_override.add(tag)
+    await session_override.flush()
     session_override.add(
-        WorkstreamProject(
-            tenant_id=tenant.id,
-            workstream_id=ws.id,
-            project_id=project.id,
-            is_default=True,
-        )
+        ProjectTagLink(tenant_id=tenant.id, project_id=project.id, tag_id=tag.id)
     )
     await session_override.commit()
 

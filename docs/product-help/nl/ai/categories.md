@@ -66,4 +66,4 @@ Als een klant iets nieuws in een oud thread opbrengt, krijgt dat verzoek een eig
 
 ## Wat daarna
 
-Zet de flow op een [project](/docs/ai/folders) met **Flow toevoegen** op de projectpagina, zodat de tickets daar als bord verschijnen. Geef elke fase een eigenaar en een check-up-ritme op [Flows](/docs/ai/workstreams); openstaande check-ups staan op [Agenda](/docs/ai/agenda) en in het ticketpaneel.
+Zet het actielabel van de flow in de filterset van een [map](/docs/ai/folders), zodat die map een baan op het flowbord wordt; tickets in die map verschijnen ook onder **Flows** op de mappagina. Geef elke fase een eigenaar en een check-up-ritme op [Flows](/docs/ai/workstreams); openstaande check-ups staan op [Agenda](/docs/ai/agenda) en in het ticketpaneel.

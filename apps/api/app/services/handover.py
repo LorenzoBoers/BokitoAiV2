@@ -228,7 +228,7 @@ async def hand_to_people_after_assist(
     kind, owner_id = await human_fallback_owner(session, signal, contact=contact)
     set_owner(signal, kind, owner_id)
     session.add(signal)
-    if kind == "team":
+    if kind == "department":
         await distribute(session, signal)
     event = _handover_event(
         signal,
@@ -295,7 +295,7 @@ async def escalate_to_human(
         if addressee.kind == "user" and addressee.user_id:
             set_owner(signal, "user", addressee.user_id)
         elif addressee.team_id:
-            set_owner(signal, "team", addressee.team_id)
+            set_owner(signal, "department", addressee.team_id)
         session.add(signal)
     if addressee.kind == "user" and addressee.user_id:
         recipients = [addressee.user_id]
@@ -409,7 +409,7 @@ async def apply_after_human_reply(
     reason = signal.ai_handling_reason or ""
     sticky = ai_handling.is_held(signal) and reason in ai_handling.STICKY_HOLD_REASONS
     before = owner_payload(signal)
-    before_kind = signal.assignee_kind or "team"
+    before_kind = signal.assignee_kind or "department"
     # The reply is out: the typing lock must not keep the agent at drafting.
     signal.human_composing_until = None
 
@@ -432,7 +432,7 @@ async def apply_after_human_reply(
         wants_agent = (
             not sticky
             and setting == "return_to_agent"
-            and (before_kind in ("agent", "team") or own_reply)
+            and (before_kind in ("agent", "department") or own_reply)
         )
     else:
         wants_agent = handback
@@ -495,10 +495,10 @@ async def apply_after_human_reply(
                 session.add(signal)
                 return result
 
-    # Keep with the person: the replier picks up a team- or agent-owned
+    # Keep with the person: the replier picks up a department- or agent-owned
     # conversation; a conversation already owned by another person stays theirs.
-    if before_kind in ("team", "agent"):
-        team_id = signal.assignee_team_id if before_kind == "team" else None
+    if before_kind in ("department", "agent"):
+        team_id = signal.assignee_team_id if before_kind == "department" else None
         set_owner(signal, "user", user_id, by_user_id=user_id)
         session.add(await picked_up_event(session, signal, user_id, team_id, via=via))
         if before_kind == "agent":
@@ -542,7 +542,7 @@ async def apply_reopen_policy(
     policy = ai_handling.resolve_routing(tenant, account)
     before = owner_payload(signal)
     if policy.effective["reopen_owner"] == "route_again":
-        signal.assignee_kind = "team"
+        signal.assignee_kind = "department"
         signal.assigned_user_id = None
         signal.assignee_team_id = None
         await session.flush()

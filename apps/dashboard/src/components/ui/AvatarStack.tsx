@@ -81,11 +81,11 @@ export function AvatarStack({
   const shown = members.slice(0, max)
   const overflow = members.length - shown.length
   const overlap = Math.max(6, Math.min(STACK_OVERLAP_PX, Math.round(size * 0.4)))
-  const ring = cutout === 'bg' ? 'ring-bg' : 'ring-bg-surface'
+  const ring = 'ring-cutout'
 
   return (
     <span
-      className={cn('inline-flex items-center overflow-visible', className)}
+      className={cn('inline-flex items-center overflow-visible', cutout === 'bg' && 'cutout-bg', className)}
       data-testid="avatar-stack"
     >
       {shown.map((member, index) => {

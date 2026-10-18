@@ -31,15 +31,15 @@ export default function ChannelTeamPicker({
   const isAdmin = useIsAdmin()
   const { members } = useMembers()
   const [teams, setTeams] = useState<Team[]>([])
-  const [value, setValue] = useState<{ kind: 'people' | 'user' | 'team'; id: string | null }>({
-    kind: userId ? 'user' : teamId ? 'team' : 'people',
+  const [value, setValue] = useState<{ kind: 'all' | 'user' | 'team'; id: string | null }>({
+    kind: userId ? 'user' : teamId ? 'team' : 'all',
     id: userId || teamId || null,
   })
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     setValue({
-      kind: userId ? 'user' : teamId ? 'team' : 'people',
+      kind: userId ? 'user' : teamId ? 'team' : 'all',
       id: userId || teamId || null,
     })
   }, [teamId, userId])
@@ -51,12 +51,12 @@ export default function ChannelTeamPicker({
       .catch(() => setTeams([]))
   }, [token])
 
-  const peopleTeam = teams.find((tm) => tm.kind === 'people')
+  const allTeam = teams.find((tm) => tm.system)
   const custom = teams.filter((tm) => !tm.system)
   const current =
     value.kind === 'user' && value.id
       ? personValue(value.id)
-      : value.kind === 'team' && value.id && value.id !== peopleTeam?.id
+      : value.kind === 'team' && value.id && value.id !== allTeam?.id
         ? teamValue(value.id)
         : PEOPLE
 
@@ -77,9 +77,9 @@ export default function ChannelTeamPicker({
   const change = async (next: string) => {
     if (!token || busy) return
     const previous = value
-    let owner: { kind: 'people' | 'user' | 'team'; id: string | null }
+    let owner: { kind: 'all' | 'user' | 'team'; id: string | null }
     if (next === PEOPLE) {
-      owner = { kind: 'people', id: null }
+      owner = { kind: 'all', id: null }
     } else if (next.startsWith('user:')) {
       owner = { kind: 'user', id: next.slice(5) }
     } else if (next.startsWith('team:')) {
@@ -115,9 +115,9 @@ export default function ChannelTeamPicker({
           items: [
             {
               value: PEOPLE,
-              label: t('teamPage.system.people'),
+              label: t('teamPage.system.all'),
               kind: 'team',
-              team: peopleTeam ?? { name: t('teamPage.system.people') },
+              team: allTeam ?? { name: t('teamPage.system.all') },
               trailing: <DefaultBadge>{t('channelsPage.defaultBadge')}</DefaultBadge>,
             },
           ],

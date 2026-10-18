@@ -1,4 +1,4 @@
-import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Forward, Hash, Layers, Loader2, Mail, Pencil, Phone, Reply, ReplyAll, Trash2, User, Users, X as XIcon } from 'lucide-react'
+import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Flag, Forward, Hash, Layers, Loader2, Mail, Pencil, Phone, Reply, ReplyAll, Trash2, User, Users, X as XIcon } from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
@@ -55,6 +55,7 @@ import {
 import MessageAttachments from './MessageAttachments'
 import ChatText from './ChatText'
 import ActivityTrail from './ActivityTrail'
+import { PRIORITY_META } from './ConversationWorkSection'
 import { THREAD_ICON, THREAD_INDENT, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
 import { TimelineScrollContext } from './timeline-scroll'
 import { isCustomerChannel } from '../../lib/chatMessages'
@@ -941,8 +942,8 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   picked_up: (t, p, name) => {
     const who = name ?? t('timeline.events.someone')
     const team =
-      p.team_kind === 'people'
-        ? t('nav:teamPage.system.people')
+      p.team_kind === 'people' || p.team_name === 'All'
+        ? t('nav:teamPage.system.all')
         : typeof p.team_name === 'string'
           ? p.team_name
           : ''
@@ -956,7 +957,8 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
       tags: Array.isArray(p.tags) ? p.tags.join(', ') : '',
     }),
   tag_removed: (t) => t('timeline.events.labelRemoved'),
-  priority_changed: (t, p) => t('timeline.events.priority', { priority: String(p.priority ?? '') }),
+  priority_changed: (t, p) =>
+    t('timeline.events.priority', { priority: localizedPriority(t, p.priority) }),
   replied: (t) => t('timeline.events.replySent'),
   reply_sent: (t, p) =>
     p.reopened ? t('timeline.events.replyReopened') : t('timeline.events.replySent'),
@@ -988,7 +990,9 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
         ? t('timeline.events.assigned', { name: assignee })
         : t('timeline.events.threadAssigned')
     }
-    if (typeof p.priority === 'string' && p.priority) return t('timeline.events.priority', { priority: p.priority })
+    if (typeof p.priority === 'string' && p.priority) {
+      return t('timeline.events.priority', { priority: localizedPriority(t, p.priority) })
+    }
     // Tag diffs render as a rich Trans + TagPill row in EventPill; this is the
     // plain-text fallback (tooltips / unknown surfaces).
     if (Array.isArray(p.tags_added) && p.tags_added.length > 0) {
@@ -1233,6 +1237,65 @@ function handlingEventMode(eventType: string, payload: Record<string, unknown>):
   return null
 }
 
+function localizedPriority(t: TFunction, raw: unknown): string {
+  const key = typeof raw === 'string' ? raw : ''
+  if (!key) return ''
+  return t(`priority.${key}`, { defaultValue: key })
+}
+
+/** Priority is the only visible change on this patch, so the row can use the flag. */
+function priorityOnlyValue(eventType: string, payload: Record<string, unknown>): string | null {
+  if (eventType === 'priority_changed' && typeof payload.priority === 'string' && payload.priority) {
+    return payload.priority
+  }
+  if (eventType !== 'thread_updated') return null
+  if (typeof payload.status === 'string' && payload.status) return null
+  if (typeof payload.bulk === 'string' && payload.bulk) return null
+  if (payload.assigned_to != null) return null
+  if (Array.isArray(payload.tags)) return null
+  if (Array.isArray(payload.tags_added) && payload.tags_added.length > 0) return null
+  if (Array.isArray(payload.tags_removed) && payload.tags_removed.length > 0) return null
+  return typeof payload.priority === 'string' && payload.priority ? payload.priority : null
+}
+
+function priorityFlagClass(priority: string): string {
+  if (priority === 'urgent') return 'text-status-error'
+  if (priority === 'high') return 'text-status-warning'
+  return 'text-text-muted'
+}
+
+function PriorityInline({ priority }: { priority: string }) {
+  const { t } = useTranslation('communication')
+  const meta = PRIORITY_META[priority] ?? { labelKey: `priority.${priority}`, dot: 'bg-text-muted/40' }
+  return (
+    <span className="inline-flex items-center gap-1 align-middle">
+      <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`} aria-hidden />
+      <span>{t(meta.labelKey, { defaultValue: priority })}</span>
+    </span>
+  )
+}
+
+function priorityChangeLabel(
+  event: InboxEvent,
+  t: TFunction,
+  memberName?: string,
+  actorVoice: EventActorVoice = null,
+): ReactNode | null {
+  const priority = priorityOnlyValue(event.eventType, event.payload ?? {})
+  if (!priority) return null
+  const who = memberName || t('timeline.events.someone')
+  const key =
+    actorVoice === 'you' ? 'prioritySetYou' : actorVoice === 'them' ? 'prioritySetBy' : 'prioritySet'
+  return (
+    <Trans
+      t={t}
+      i18nKey={`timeline.events.${key}`}
+      values={{ name: who }}
+      components={{ priority: <PriorityInline priority={priority} /> }}
+    />
+  )
+}
+
 function isTagOnlyThreadPatch(p: Record<string, unknown>): boolean {
   if (typeof p.status === 'string' && p.status) return false
   if (typeof p.bulk === 'string' && p.bulk) return false
@@ -1293,6 +1356,13 @@ function eventPresentation(
     eventType === 'agent_assigned'
   ) {
     return { ai: false, icon: <User size={THREAD_ICON} /> }
+  }
+  const priority = priorityOnlyValue(eventType, payload)
+  if (priority) {
+    return {
+      ai: false,
+      icon: <Flag size={THREAD_ICON} className={priorityFlagClass(priority)} />,
+    }
   }
   return { ai: false, icon: <CircleDot size={THREAD_ICON} /> }
 }
@@ -1358,7 +1428,7 @@ function OwnerInlineChip({
   let display = label
   if (kind === 'team') {
     const team = id ? teams.find((row) => row.id === id) : undefined
-    display = team?.kind === 'people' ? t('nav:teamPage.system.people') : team?.name || label
+    display = team?.system ? t('nav:teamPage.system.all') : team?.name || label
     face = (
       <TeamFacepile
         team={team ?? { id: id ?? display, name: display }}
@@ -1620,7 +1690,8 @@ function EventPill({
   const richLabel =
     assistedHandoverLabel(labelEvent, t) ??
     categoryChangeLabel(labelEvent, t, memberName, actorVoice) ??
-    tagsChangeLabel(labelEvent, t, memberName, actorVoice)
+    tagsChangeLabel(labelEvent, t, memberName, actorVoice) ??
+    priorityChangeLabel(labelEvent, t, memberName, actorVoice)
   const label: ReactNode =
     richLabel ?? eventLabel(labelEvent, t, memberName, memberNameFor, actorVoice)
   // Rich labels (tag pills, owner chips) are React nodes; only strings have .trim().
@@ -1806,11 +1877,16 @@ export function MessageTimelineItem({
 
   // Timeline windows may omit body_html while has_html is true — fetch once
   // so HTML mail never stays stuck on a messy plain-text fallback.
+  const htmlFetchId = useRef<string | null>(null)
   useEffect(() => {
     if (!token || !threadId) return
     if (!message.hasHtml || message.bodyHtml) return
+    const id = String(message.id)
+    // A message that stays has_html without a body must not refetch every render.
+    if (htmlFetchId.current === id) return
+    htmlFetchId.current = id
     void ensureFullMessage()
-  }, [token, threadId, message.hasHtml, message.bodyHtml, ensureFullMessage])
+  }, [token, threadId, message.hasHtml, message.bodyHtml, message.id, ensureFullMessage])
 
   const currentUserId = user?.id ?? null
   // Amber note chrome is for kind=internal_note only. Teammate @-messages use

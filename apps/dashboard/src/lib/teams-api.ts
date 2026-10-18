@@ -4,7 +4,7 @@ import { appRoutes } from '../api/routes/app.routes'
 import type { AgentPassport } from './workforce-api'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
-export type TeamKind = 'people' | 'agents' | 'custom'
+export type TeamKind = 'custom'
 export type TeamPickup = 'people' | 'agent_first' | 'round_robin' | 'least_open'
 /** People: available|away|offline. Agents/teams may also use standby|working. */
 export type PresenceStatus = 'available' | 'away' | 'offline' | 'standby' | 'working'
@@ -27,7 +27,55 @@ export function parsePresenceStatus(value: unknown): PresenceStatus | undefined 
   return undefined
 }
 
-export type TeamMemberRef = { kind: 'user' | 'agent'; id: string }
+export type TeamMemberRef = {
+  kind: 'user' | 'agent'
+  id: string
+  duty?: 'primary' | 'backup' | 'member'
+  position?: number
+}
+
+export type OrgGraphMark = {
+  avatar_kind?: string
+  avatar_icon?: string
+  avatar_color?: string
+  avatar_shape?: string
+  avatar_image_url?: string | null
+  name?: string
+  icon?: string
+  color?: string
+  channel?: string
+  provider?: string
+}
+
+export type OrgGraphNode = {
+  id: string
+  kind: string
+  label: string
+  href?: string
+  x: number
+  y: number
+  region?: string
+  mark?: OrgGraphMark
+}
+export type OrgGraphEdge = {
+  id: string
+  kind: string
+  source: string
+  target: string
+  points: number[][]
+}
+export type OrgGraphRegion = { id: string; label: string; href?: string; points: number[][]; labelAt?: number[] }
+export type OrgGraph = {
+  revision: number
+  projection?: string
+  regions?: OrgGraphRegion[]
+  nodes: OrgGraphNode[]
+  edges: OrgGraphEdge[]
+}
+
+export function getOrgGraph(token: string): Promise<OrgGraph> {
+  return apiGet<OrgGraph>(appRoutes.teams.graph, token)
+}
 
 export type TeamAvatarKind = 'initials' | 'icon' | 'image'
 
@@ -36,9 +84,12 @@ export type Team = {
   name: string
   description: string
   kind: TeamKind
+  /** True for the All root (undeletable; Everyone in the access picker). */
   system: boolean
+  root?: boolean
+  parent_id?: string | null
   pickup: TeamPickup
-  /** Always true for custom teams (Communication folder); false for system teams. */
+  /** Communication folder; All is pinned too. */
   pinned: boolean
   members: TeamMemberRef[]
   member_count: number

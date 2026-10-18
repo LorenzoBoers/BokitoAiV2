@@ -67,10 +67,9 @@ export function statusTone(status: string | null | undefined): BadgeTone {
   }
 }
 
-/** Workspace roles: owner stands out, admin is accent, the rest neutral. */
+/** Workspace roles share one neutral pill. */
 export function roleTone(role: string | null | undefined): BadgeTone {
   const raw = String(role ?? '').trim().toLowerCase()
-  if (raw === 'owner') return 'accent'
   if (raw === 'admin') return 'info'
   return 'neutral'
 }

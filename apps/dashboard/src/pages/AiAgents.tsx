@@ -26,10 +26,9 @@ import { openEntityPath } from '../lib/open-entity'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 import {
+  agentFunctionLabel,
   filterLibraryAgents,
   isDeactivatedAgent,
-  isOrchestratorAgent,
-  normalizeRoleSlug,
   sortAgentsForLibrary,
 } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
@@ -37,7 +36,6 @@ import { useAgentOrbDrive } from '../hooks/useBotOrbPulse'
 import { presenceOrbMotion } from '../lib/bot-orb-motion'
 import { AgentActiveLine } from '../components/inbox/IdentitySeenLine'
 import { cn } from '../lib/utils'
-import type { TFunction } from 'i18next'
 
 /** Library card mark — readable face, not a dense list icon. */
 const LIBRARY_MARK_SIZE = 52
@@ -93,19 +91,6 @@ function AgentQuickLinks({
       ))}
     </span>
   )
-}
-
-/** Colored line under the name. A title that only repeats the name falls back to the role. */
-function agentFunctionLabel(agent: RuntimeAgent, t: TFunction): string {
-  const name = agent.name.trim().toLowerCase()
-  const title = (agent.job_title ?? '').trim()
-  if (title && title.toLowerCase() !== name) return title
-  const slug = normalizeRoleSlug(agent)
-  if (slug === 'assistant') return t('workforce.agents.types.assistant')
-  if (isOrchestratorAgent(agent)) return t('workforce.agents.types.orchestrator')
-  const roleName = (agent.role_name ?? '').trim()
-  if (roleName && roleName.toLowerCase() !== name) return roleName
-  return t('workforce.agents.types.worker')
 }
 
 function AgentLibraryCard({
@@ -539,6 +524,7 @@ export default function AiAgents() {
       <PageRelatedLinks
         links={[
           { to: '/team', label: t('workforce.agents.relatedWorkforce') },
+          { to: '/grid', label: t('orgCanvas.link') },
           ...(isAdmin
             ? [
                 { to: '/folders', label: t('workforce.agents.projectsLink') },

@@ -2,9 +2,9 @@
 
 - 073: ``signals.tags_json`` becomes ``signal_tag_links``.
 - 075: categories and tickets live on hashtags and conversations. Case types
-  become ``signal_tags`` with a playbook, cases become ``signals.ticket_*``,
-  playbook projects move to ``workstream_projects``; ``cases``,
-  ``case_types`` and ``inbox_folders`` are dropped.
+  become ``signal_tags`` with a playbook, cases become ``signals.ticket_*``;
+  ``cases``, ``case_types`` and ``inbox_folders`` are dropped.
+- 114: ``workstream_projects`` dropped; flow lanes use ``project_tag_links``.
 - 079: partial unique index on ``integration_connections.instance_key``.
 - 090: hashtag words join with ``_``; duplicate names merge; folder names follow the tag.
 """
@@ -42,6 +42,8 @@ _DROPPED_TABLES = (
     "custom_tables",
     # 102_drop_workstream_runs
     "workstream_runs",
+    # 114_drop_workstream_projects
+    "workstream_projects",
 )
 
 # 103_signal_owner_slim — old ownership columns dropped after backfill.
@@ -67,7 +69,7 @@ _RETIRED_STEP_COLUMNS = (
 # SQLite refuses DROP COLUMN on some legacy columns; those stay as unused
 # orphans in dev databases while Alembic drops them on Postgres.
 _RETIRED_COLUMNS = {
-    "workstreams": ("project_id", "is_default"),
+    "workstreams": ("project_id", "is_default", "enabled", "trash_was_enabled"),
     # 088: pinned folded into show_in_nav.
     "signal_tags": ("pinned",),
     "agent_runs": ("signal_type_id",),
@@ -382,33 +384,10 @@ def _normalize_tag_names(connection: Connection) -> None:
 
 
 def _workstream_projects(connection: Connection) -> None:
+    """Clear legacy ``workstreams.project_id``; attachment table is retired."""
     columns = {c["name"] for c in inspect(connection).get_columns("workstreams")}
     if "project_id" not in columns:
         return
-    has_default = "is_default" in columns
-    now = datetime.utcnow()
-    rows = connection.execute(
-        text(
-            "SELECT id, tenant_id, project_id"
-            + (", is_default" if has_default else "")
-            + " FROM workstreams WHERE project_id IS NOT NULL"
-        )
-    ).mappings().all()
-    for row in rows:
-        connection.execute(
-            text(
-                "INSERT OR IGNORE INTO workstream_projects "
-                "(workstream_id, project_id, tenant_id, is_default, position, created_at) "
-                "VALUES (:ws, :project, :tenant, :is_default, 0, :now)"
-            ),
-            {
-                "ws": row["id"],
-                "project": row["project_id"].replace("-", ""),
-                "tenant": row["tenant_id"],
-                "is_default": bool(row.get("is_default")) if has_default else False,
-                "now": now,
-            },
-        )
     connection.execute(text("UPDATE workstreams SET project_id = NULL"))
 
 
@@ -495,16 +474,6 @@ def _cases_to_tickets(connection: Connection) -> None:
             },
         )
         tag_by_type[ct["id"]] = tag_id
-        default_project = ct.get("default_project_id")
-        if playbook and default_project:
-            connection.execute(
-                text(
-                    "INSERT OR IGNORE INTO workstream_projects "
-                    "(workstream_id, project_id, tenant_id, is_default, position, created_at) "
-                    "VALUES (:ws, :project, :t, 0, 0, :now)"
-                ),
-                {"ws": playbook, "project": default_project.replace("-", ""), "t": ct["tenant_id"], "now": now},
-            )
 
     filed: set[str] = set()
     for case in reversed(case_rows):

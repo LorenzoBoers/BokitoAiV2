@@ -243,7 +243,7 @@ async def test_channel_visibility_acl(client: AsyncClient, session_override: Asy
     r = await client.put(
         f"/api/channels/accounts/{account.id}/access",
         headers=owner,
-        json={"entries": [{"kind": "team", "id": "agents", "level": "handle"}]},
+        json={"entries": [{"kind": "department", "id": "agents", "level": "handle"}]},
     )
     assert r.status_code == 200, r.text
     assert r.json()["is_default"] is False
@@ -303,7 +303,7 @@ async def test_channel_visibility_acl(client: AsyncClient, session_override: Asy
     # A team grant gives handle access through membership.
     team = (
         await client.post(
-            "/api/teams",
+            "/api/departments",
             headers=owner,
             json={"name": "Mailbox team", "members": [{"kind": "user", "id": str(member_user.id)}]},
         )
@@ -311,7 +311,7 @@ async def test_channel_visibility_acl(client: AsyncClient, session_override: Asy
     r = await client.put(
         f"/api/channels/accounts/{account.id}/access",
         headers=owner,
-        json={"entries": [{"kind": "team", "id": team["id"], "level": "handle"}]},
+        json={"entries": [{"kind": "department", "id": team["id"], "level": "handle"}]},
     )
     assert r.status_code == 200
     r = await client.patch(f"/api/signals/{signal.id}", headers=member, json={"status": "closed"})

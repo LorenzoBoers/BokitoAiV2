@@ -109,7 +109,7 @@ export default function TeamPage() {
 
   const teamNames = useMemo(() => {
     const map: Record<string, string> = {}
-    for (const team of overview?.teams ?? []) map[team.id] = team.system ? t(`teamPage.system.${team.kind}`) : team.name
+    for (const team of overview?.teams ?? []) map[team.id] = team.name
     return map
   }, [overview, t])
 
@@ -142,6 +142,11 @@ export default function TeamPage() {
         guide="team"
         title={t('tabs.team.title')}
         subtitle={t('tabs.team.subtitle')}
+        meta={
+          <Button size="sm" variant="outline" asChild>
+            <Link to="/grid">{t('orgCanvas.link')}</Link>
+          </Button>
+        }
       />
 
       <MemberManagement
@@ -201,7 +206,7 @@ export default function TeamPage() {
                       </p>
                       <p className="truncate-fade text-xs text-text-muted">
                         {team.system
-                          ? t(`teamPage.systemHint.${team.kind}`)
+                          ? t('teamPage.systemHint.all')
                           : team.description || t('teamPage.noDescription')}
                       </p>
                       <p className="text-xs text-text-secondary">
@@ -265,6 +270,7 @@ export default function TeamPage() {
 
       <PageRelatedLinks
         links={[
+          { to: '/grid', label: t('orgCanvas.link') },
           { to: '/agents', label: t('teamPage.relatedAgents') },
           { to: '/settings/setup', label: t('membersPage.openSetup') },
         ]}

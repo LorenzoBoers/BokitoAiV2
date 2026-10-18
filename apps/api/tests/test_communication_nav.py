@@ -54,8 +54,21 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     await client.patch(
         f"/api/workstreams/{category['workstream_id']}",
         headers=headers,
-        json={"stages": STAGES, "project_ids": [project_id]},
+        json={"stages": STAGES},
     )
+    # Put the flow's action tag on the folder filterset (lane / filing context).
+    from uuid import UUID as _UUID
+
+    from app.models.project import ProjectTagLink
+
+    session_override.add(
+        ProjectTagLink(
+            tenant_id=tenant.id,
+            project_id=_UUID(project_id),
+            tag_id=_UUID(category["id"]),
+        )
+    )
+    await session_override.commit()
     pinned = (
         await client.post("/api/signals/tags", headers=headers, json={"name": "#VIP", "show_in_nav": True})
     ).json()

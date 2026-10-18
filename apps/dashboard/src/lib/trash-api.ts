@@ -34,7 +34,6 @@ export const BIN_TYPES = [
   'trigger',
   'team',
   'inbox_rule',
-  'saved_reply',
 ] as const
 
 export function filterBinItems(

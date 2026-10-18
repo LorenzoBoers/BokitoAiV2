@@ -285,6 +285,7 @@ export function useThreadDetail(
           const before = detailRef.current?.thread.ticket
           const after = threadRow.ticket
           const prevLast = detailRef.current?.thread.lastMessageAt
+          const beforePriority = detailRef.current?.thread.priority || 'normal'
           setRawDetail((prev) => {
             if (!prev || String(prev.thread.id) !== String(threadId)) return prev
             return { ...prev, thread: mergeThreadRow(prev.thread, threadRow) }
@@ -298,11 +299,13 @@ export function useThreadDetail(
           ) {
             scheduleQuietRefetch()
           }
-          // A category or stage change also wrote a timeline event.
+          // A category, stage, or priority change also wrote a timeline event.
+          // The live row only carries the new priority, not that event.
           if (
-            after !== undefined &&
-            `${before?.tagId}|${before?.status}|${before?.stage?.key}|${before?.projectId}` !==
-              `${after?.tagId}|${after?.status}|${after?.stage?.key}|${after?.projectId}`
+            (after !== undefined &&
+              `${before?.tagId}|${before?.status}|${before?.stage?.key}|${before?.projectId}` !==
+                `${after?.tagId}|${after?.status}|${after?.stage?.key}|${after?.projectId}`) ||
+            (threadRow.priority || 'normal') !== beforePriority
           ) {
             scheduleQuietRefetch()
           }
@@ -437,13 +440,25 @@ export function useThreadDetail(
         if (updated) {
           setRawDetail((prev) => (prev ? { ...prev, thread: updated } : prev))
         }
+        // The patch response is the thread row. Status, labels, priority and
+        // assignment also write a timeline event that only a reload includes.
+        if (
+          input.status != null ||
+          input.assignedToUserId != null ||
+          input.assignee != null ||
+          input.tags != null ||
+          input.priority != null ||
+          input.projectId !== undefined
+        ) {
+          void fetchDetail(true)
+        }
       } catch (err) {
         throw err instanceof Error ? err : new Error('Could not update thread.')
       } finally {
         setSaving(false)
       }
     },
-    [token, threadId],
+    [token, threadId, fetchDetail],
   )
 
   const reply = useCallback(

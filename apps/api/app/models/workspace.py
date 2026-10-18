@@ -29,6 +29,10 @@ class WorkspaceDoc(SQLModel, table=True):
     project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     # Agent-scoped personal knowledge; null = organization (or project) knowledge.
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id", index=True)
+    # Home department for org-map / retrieval scope; null = unassigned.
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     # Stable file-style path, unique per tenant (e.g. "memory.md", "skills/triage.md").
     path: str = Field(index=True)
     kind: str = Field(default="doc", index=True)

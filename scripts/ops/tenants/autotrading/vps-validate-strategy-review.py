@@ -45,7 +45,7 @@ async def main():
                 )
             )
         ).scalar_one()
-        print("workstream_id", str(ws.id), "steps_enabled", ws.enabled)
+        print("workstream_id", str(ws.id), "name", ws.name)
 asyncio.run(main())
 PY
 """

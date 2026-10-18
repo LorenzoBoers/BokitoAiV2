@@ -20,6 +20,15 @@ describe('navigation', () => {
     expect(titleForTab('workstreams')).toBe('Playbooks')
   })
 
+  it('puts Grid under AI with Agents and Knowledge', () => {
+    const ai = TAB_GROUPS.find((g) => g.label === 'AI')
+    expect(ai?.tabs).toEqual(['agents', 'knowledge', 'grid'])
+    expect(TAB_PATHS.grid).toBe('/grid')
+    expect(tabFromPath('/grid')).toBe('grid')
+    expect(tabFromPath('/team/canvas')).toBe('grid')
+    expect(tabFromPath('/team')).toBe('team')
+  })
+
   it('keeps Govern out of the primary rail', () => {
     expect(TAB_PATHS).not.toHaveProperty('cases')
     expect(TAB_PATHS).not.toHaveProperty('activity')

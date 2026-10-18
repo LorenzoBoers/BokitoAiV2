@@ -61,10 +61,12 @@ class DecisionRequest(SQLModel, table=True):
     # leaves SQLAlchemy unable to order those tables for a tenant purge.
     agent_task_id: Optional[uuid.UUID] = Field(default=None, index=True)
     run_id: Optional[uuid.UUID] = Field(default=None, index=True)
-    # Who is asked: a person or a team (services/addressee.py).
-    addressee_kind: str = ""  # user | team
+    # Who is asked: a person or a department (services/addressee.py).
+    addressee_kind: str = ""  # user | department
     addressee_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-    addressee_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
+    addressee_department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     routed_by: str = ""  # auto | fixed | rule
     # Rule that turned the action into a question (agent or workspace rule id).
     rule_id: str = ""

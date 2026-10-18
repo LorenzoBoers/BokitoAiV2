@@ -338,10 +338,10 @@ async def _matching_action_tag_for_project(
     project_id: UUID,
     kind: str,
 ):
-    """Action tag whose name matches ``kind`` and whose flow is on this project."""
+    """Action tag whose name matches ``kind`` and sits on this folder's filterset."""
     from sqlalchemy import func
 
-    from app.models.orchestra import WorkstreamProject
+    from app.models.project import ProjectTagLink
     from app.models.signal import SignalTag
 
     tag = (
@@ -357,10 +357,10 @@ async def _matching_action_tag_for_project(
         return None
     linked = (
         await session.execute(
-            select(WorkstreamProject).where(
-                WorkstreamProject.tenant_id == tenant_id,
-                WorkstreamProject.workstream_id == tag.workstream_id,
-                WorkstreamProject.project_id == project_id,
+            select(ProjectTagLink).where(
+                ProjectTagLink.tenant_id == tenant_id,
+                ProjectTagLink.project_id == project_id,
+                ProjectTagLink.tag_id == tag.id,
             )
         )
     ).scalar_one_or_none()

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.auth import Membership, Tenant, User, UserPreference
 from app.models.integration import McpServer
-from app.models.orchestra import Workstream, WorkstreamProject
+from app.models.orchestra import Workstream
 from app.models.project import Project
 from app.models.signal import Signal
 from app.models.trigger import Trigger
@@ -593,17 +593,6 @@ async def get_or_create_session_digest_trigger(
     return trigger
 
 
-async def _attach_playbook(
-    session: AsyncSession, tenant_id: UUID, workstream_id: UUID, project_id: UUID
-) -> None:
-    exists = await session.get(WorkstreamProject, (workstream_id, project_id))
-    if exists is None:
-        session.add(
-            WorkstreamProject(tenant_id=tenant_id, workstream_id=workstream_id, project_id=project_id)
-        )
-        await session.flush()
-
-
 async def get_or_create_strategy_workstream(
     session: AsyncSession,
     tenant_id: UUID,
@@ -611,6 +600,7 @@ async def get_or_create_strategy_workstream(
     *,
     project_id: UUID | None = None,
 ) -> Workstream:
+    del project_id  # lanes follow shared labels; no direct flow↔folder attach
     result = await session.execute(
         select(Workstream).where(
             Workstream.tenant_id == tenant_id,
@@ -624,12 +614,9 @@ async def get_or_create_strategy_workstream(
             tenant_id=tenant_id,
             name=STRATEGY_WORKSTREAM_NAME,
             description="Collect outcomes, analyze performance, propose strategy doc updates.",
-            enabled=True,
         )
         session.add(ws)
         await session.flush()
-    if project_id:
-        await _attach_playbook(session, tenant_id, ws.id, project_id)
 
     return ws
 
@@ -642,6 +629,7 @@ async def get_or_create_intraday_workstream(
     project_id: UUID | None = None,
 ) -> Workstream:
     """Intraday cycle playbook: risk → setup → decide → manage → report."""
+    del project_id
     result = await session.execute(
         select(Workstream).where(
             Workstream.tenant_id == tenant_id,
@@ -654,12 +642,9 @@ async def get_or_create_intraday_workstream(
             tenant_id=tenant_id,
             name=INTRADAY_WORKSTREAM_NAME,
             description="Risk check, setup validation, enter/skip, manage open risk, report.",
-            enabled=True,
         )
         session.add(ws)
         await session.flush()
-    if project_id:
-        await _attach_playbook(session, tenant_id, ws.id, project_id)
 
     return ws
 

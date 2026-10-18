@@ -68,6 +68,27 @@ function BrandOrIcon({
   return <Icon size={size} className={cn('shrink-0 text-text-muted', className)} />
 }
 
+/** Overlapping marks for the channels a workspace can connect. */
+const STACK_KINDS = ['email', 'whatsapp', 'widget', 'slack'] as const
+
+export function ChannelMarkStack({ className }: { className?: string }) {
+  return (
+    <div className={cn('flex items-center justify-center', className)} aria-hidden>
+      {STACK_KINDS.map((kind, index) => (
+        <span
+          key={kind}
+          className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-cutout"
+          style={{ marginLeft: index === 0 ? 0 : -10, zIndex: STACK_KINDS.length - index }}
+        >
+          <span className="flex h-full w-full items-center justify-center rounded-full bg-bg-elevated">
+            <ChannelGlyph channel={kind} size={16} />
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function ChannelGlyph({ channel, size = 13, className }: GlyphProps) {
   const kind = channelKind(channel)
   const slug = CHANNEL_BRAND[kind]

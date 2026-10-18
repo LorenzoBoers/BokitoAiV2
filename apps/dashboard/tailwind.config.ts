@@ -5,6 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        cutout: 'rgb(var(--color-cutout) / <alpha-value>)',
         bg: {
           DEFAULT: 'rgb(var(--color-bg) / <alpha-value>)',
           root: 'rgb(var(--color-bg-root) / <alpha-value>)',

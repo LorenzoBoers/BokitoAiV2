@@ -27,7 +27,7 @@ from app.models.trigger import Trigger
 SCHEDULE_SOURCE = "schedule"
 REOPEN_FROM = ("closed", "pending")
 _DETAIL_KEYS = ("note", "location", "attendees", "html_link", "all_day", "calendar_event_id")
-RECIPIENT_KINDS = ("user", "team")
+RECIPIENT_KINDS = ("user", "department")
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -112,8 +112,8 @@ def schedule_payload(trigger: Trigger | None) -> dict[str, Any] | None:
     recipient = None
     if trigger.recipient_kind == "user" and trigger.recipient_user_id:
         recipient = {"kind": "user", "id": str(trigger.recipient_user_id)}
-    elif trigger.recipient_kind == "team" and trigger.recipient_team_id:
-        recipient = {"kind": "team", "id": str(trigger.recipient_team_id)}
+    elif trigger.recipient_kind == "department" and trigger.recipient_department_id:
+        recipient = {"kind": "department", "id": str(trigger.recipient_department_id)}
     return {
         "trigger_id": str(trigger.id),
         "name": trigger.name,
@@ -141,8 +141,8 @@ def mirror_next_at(signal: Signal, trigger: Trigger) -> None:
 def _owner_target(trigger: Trigger) -> tuple[str, UUID] | None:
     if trigger.recipient_kind == "user" and trigger.recipient_user_id:
         return "user", trigger.recipient_user_id
-    if trigger.recipient_kind == "team" and trigger.recipient_team_id:
-        return "team", trigger.recipient_team_id
+    if trigger.recipient_kind == "department" and trigger.recipient_department_id:
+        return "department", trigger.recipient_department_id
     if trigger.created_by_user_id:
         return "user", trigger.created_by_user_id
     return None
@@ -272,12 +272,12 @@ async def resolve_recipient(
             names = {(user.email or "").lower(), (user.display_name or "").lower()}
             if lowered in names:
                 return "user", user.id
-    if kind in ("", "team"):
+    if kind in ("", "department"):
         for team in teams:
             if as_id and team.id == as_id:
-                return "team", team.id
+                return "department", team.id
             if (team.name or "").lower() == lowered:
-                return "team", team.id
+                return "department", team.id
     if kind in ("", "user") and not as_id:
         matches = [u for u in members if lowered and lowered in (u.display_name or "").lower()]
         if len(matches) == 1:
@@ -377,12 +377,12 @@ async def apply_thread_schedule(
             rule.instructions = instructions
         if recipient is not ...:
             if recipient is None:
-                rule.recipient_kind, rule.recipient_user_id, rule.recipient_team_id = "", None, None
+                rule.recipient_kind, rule.recipient_user_id, rule.recipient_department_id = "", None, None
             else:
                 kind, rid = recipient  # type: ignore[misc]
                 rule.recipient_kind = kind
                 rule.recipient_user_id = rid if kind == "user" else None
-                rule.recipient_team_id = rid if kind == "team" else None
+                rule.recipient_department_id = rid if kind == "department" else None
         rule.enabled = enabled
         if not enabled:
             rule.next_run_at = None
@@ -510,7 +510,7 @@ async def owner_recipients(session: AsyncSession, signal: Signal) -> list[UUID]:
     """People to notify when the thread comes up: its person or team owner."""
     if signal.assignee_kind == "user" and signal.assigned_user_id:
         return [signal.assigned_user_id]
-    if signal.assignee_kind == "team" and signal.assignee_team_id:
+    if signal.assignee_kind == "department" and signal.assignee_team_id:
         from app.models.team import Team
         from app.services.teams import team_members
 

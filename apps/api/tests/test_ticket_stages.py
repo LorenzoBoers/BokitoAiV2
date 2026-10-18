@@ -81,6 +81,42 @@ def test_validate_stages_requires_done():
     assert exc.value.status_code == 400
 
 
+def test_validate_stages_requires_first_not_started():
+    with pytest.raises(HTTPException) as exc:
+        validate_stages(
+            [
+                {"name": "Busy", "kind": "waiting"},
+                {"name": "Klaar", "kind": "done"},
+            ]
+        )
+    assert exc.value.status_code == 400
+    assert "not-started" in str(exc.value.detail).lower()
+
+
+def test_validate_stages_rejects_extra_not_started():
+    with pytest.raises(HTTPException) as exc:
+        validate_stages(
+            [
+                {"name": "Start", "kind": "open"},
+                {"name": "Again", "kind": "open"},
+                {"name": "Klaar", "kind": "done"},
+            ]
+        )
+    assert exc.value.status_code == 400
+
+
+def test_validate_stages_allows_multiple_done():
+    raw = validate_stages(
+        [
+            {"name": "Start", "kind": "open"},
+            {"name": "Busy", "kind": "waiting"},
+            {"name": "Klaar", "kind": "done"},
+            {"name": "Archief", "kind": "done"},
+        ]
+    )
+    assert [s["kind"] for s in json.loads(raw)] == ["open", "waiting", "done", "done"]
+
+
 def test_missing_required_stage_fields():
     stages = parse_stages(
         json.dumps(

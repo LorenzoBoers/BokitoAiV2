@@ -230,11 +230,14 @@ class AgentLoop:
         r"several message|in meerdere)"
     )
 
-    def _ack_before_tools(self) -> bool:
-        """Action requests speak a short yes before the model reasons."""
-        from app.services.agent.reasoning_policy import turn_is_action_request
+    def _turn_pace(self) -> str:
+        """reply, reply_then_think, or think for the latest user message."""
+        from app.services.agent.reasoning_policy import PACE_REPLY, turn_pace
 
-        return turn_is_action_request(str(getattr(self, "_turn_user_text", "") or ""))
+        return turn_pace(
+            str(getattr(self, "_turn_user_text", "") or ""),
+            has_attachments=bool(getattr(self, "_turn_has_attachments", False)),
+        ) or PACE_REPLY
 
     def _looks_like_work_announce(self, text: str) -> bool:
         cleaned = (text or "").strip()
@@ -299,8 +302,8 @@ class AgentLoop:
     def _resolve_thinking_budget(self) -> int:
         """This turn's reasoning budget (see ``reasoning_policy``).
 
-        An agent's own budget always reasons; the global chat default only
-        reasons when the message calls for it. Kong always reasons.
+        The budget applies when the pace is think or the later half of
+        reply-then-think. A plain reply stays at 0, including Kong.
         """
         from app.services.agent.reasoning_policy import turn_thinking_budget
 
@@ -640,7 +643,13 @@ class AgentLoop:
         if user_query and not getattr(self, "_skip_rag", False):
             try:
                 hits = await asyncio.wait_for(
-                    hybrid_search(self.session, self.tenant_id, user_query, top_k=5),
+                    hybrid_search(
+                        self.session,
+                        self.tenant_id,
+                        user_query,
+                        top_k=5,
+                        agent_id=self.agent.id if self.agent is not None else None,
+                    ),
                     timeout=6,
                 )
             except TimeoutError:
@@ -1383,7 +1392,7 @@ class AgentLoop:
         self._continue_nudged = False
         started = time.monotonic()
         self._started = started
-        ack_first = self._ack_before_tools()
+        ack_first = self._turn_pace() == "reply_then_think"
 
         for loop_idx in range(self.max_loops):
             if await self._is_cancelled():
@@ -1495,7 +1504,7 @@ class AgentLoop:
         full_budget = self._resolve_thinking_budget()
         self.thinking_budget = full_budget
         max_tokens = self._resolve_max_tokens()
-        ack_first = self._ack_before_tools()
+        ack_first = self._turn_pace() == "reply_then_think"
         await self._checkpoint_turn()
 
         cancelled = False

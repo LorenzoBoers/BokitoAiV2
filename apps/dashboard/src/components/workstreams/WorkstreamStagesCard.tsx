@@ -43,11 +43,11 @@ import {
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { listAgents } from '../../lib/agents-api'
-import { waitingStageFill } from '../../lib/stage-order'
+import { EDITABLE_STAGE_KINDS, waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from './StageProgressIcon'
 import { cn } from '../../lib/utils'
 
-const KINDS: TicketStageKind[] = ['open', 'waiting', 'done', 'closed']
+const KINDS: TicketStageKind[] = EDITABLE_STAGE_KINDS
 const FIELD_TYPES: TicketStageFieldType[] = ['text', 'textarea', 'number', 'enum']
 const MAX_FIELDS = 8
 const MAX_ENUM_OPTIONS = 20
@@ -293,22 +293,28 @@ function SortablePhaseCard({
       <div className="flex flex-1 flex-col gap-3 p-3">
         <div className="space-y-1.5 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
           <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.kind')}</Label>
-          <Select
-            value={stage.kind}
-            onValueChange={(value) => onUpdate({ kind: value as TicketStageKind })}
-            disabled={!canEdit}
-          >
-            <SelectTrigger className="h-8 text-xs" aria-label={t('workstreamsPage.stages.kind')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {KINDS.map((kind) => (
-                <SelectItem key={kind} value={kind}>
-                  {t(`workstreamsPage.stages.kinds.${kind}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {stage.kind === 'open' ? (
+            <p className="flex h-8 items-center rounded-md border border-border/60 bg-bg-input/40 px-2.5 text-xs text-text-secondary">
+              {t('workstreamsPage.stages.kinds.open')}
+            </p>
+          ) : (
+            <Select
+              value={stage.kind}
+              onValueChange={(value) => onUpdate({ kind: value as TicketStageKind })}
+              disabled={!canEdit}
+            >
+              <SelectTrigger className="h-8 text-xs" aria-label={t('workstreamsPage.stages.kind')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {KINDS.map((kind) => (
+                  <SelectItem key={kind} value={kind}>
+                    {t(`workstreamsPage.stages.kinds.${kind}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <StageOwnerFields stage={stage} owners={owners} canEdit={canEdit} onUpdate={onUpdate} />
@@ -626,7 +632,7 @@ export function StageEditorDialog({
   canRemove: boolean
   canMoveLeft?: boolean
   canMoveRight?: boolean
-  /** Kinds this stage may take without breaking not-started → active → done. */
+  /** Editable kinds this stage may take (never not-started). */
   kinds?: TicketStageKind[]
   saving?: boolean
   onSave: (stage: TicketStage) => void
@@ -636,6 +642,7 @@ export function StageEditorDialog({
   const { t } = useTranslation('nav')
   const owners = useStageOwners()
   const [draft, setDraft] = useState<TicketStage | null>(null)
+  const lockedNotStarted = draft?.kind === 'open'
 
   const stageKey = stage?.key ?? ''
   useEffect(() => {
@@ -647,14 +654,15 @@ export function StageEditorDialog({
   const update = (patch: Partial<TicketStage>) =>
     setDraft((prev) => {
       if (!prev) return prev
+      // Not-started is fixed on the first column — never reassign it here.
+      if (prev.kind === 'open' && patch.kind != null && patch.kind !== 'open') return prev
       const next = { ...prev, ...patch }
       if (patch.kind != null && patch.kind !== 'done') next.auto_close_conversation = false
       if (patch.kind === 'done') next.checkup_minutes = 0
       return next
     })
 
-  const kindChoices = (kinds?.length ? kinds : KINDS).slice()
-  if (draft && !kindChoices.includes(draft.kind)) kindChoices.unshift(draft.kind)
+  const kindChoices = (kinds?.length ? kinds : KINDS).filter((kind) => kind !== 'open')
 
   const save = () => {
     if (!draft || !draft.name.trim()) return
@@ -702,18 +710,24 @@ export function StageEditorDialog({
             ) : null}
             <div className="space-y-1.5">
               <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.kind')}</Label>
-              <Select value={draft.kind} onValueChange={(value) => update({ kind: value as TicketStageKind })}>
-                <SelectTrigger className="h-8 text-xs" aria-label={t('workstreamsPage.stages.kind')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {kindChoices.map((kind) => (
-                    <SelectItem key={kind} value={kind}>
-                      {t(`workstreamsPage.stages.kinds.${kind}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {lockedNotStarted ? (
+                <p className="flex h-8 items-center rounded-md border border-border/60 bg-bg-input/40 px-2.5 text-xs text-text-secondary">
+                  {t('workstreamsPage.stages.kinds.open')}
+                </p>
+              ) : (
+                <Select value={draft.kind} onValueChange={(value) => update({ kind: value as TicketStageKind })}>
+                  <SelectTrigger className="h-8 text-xs" aria-label={t('workstreamsPage.stages.kind')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kindChoices.map((kind) => (
+                      <SelectItem key={kind} value={kind}>
+                        {t(`workstreamsPage.stages.kinds.${kind}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <StageOwnerFields stage={draft} owners={owners} canEdit onUpdate={update} />
             {draft.kind === 'done' ? (
@@ -738,7 +752,7 @@ export function StageEditorDialog({
           </div>
         ) : null}
         <DialogFooter className="gap-2 sm:justify-between">
-          {canRemove ? (
+          {canRemove && !lockedNotStarted ? (
             <Button type="button" variant="ghost" className="text-status-error" disabled={saving} onClick={onRemove}>
               {t('workstreamsPage.stages.remove')}
             </Button>
@@ -805,6 +819,9 @@ export function WorkstreamStagesCard({
     setDraft((prev) =>
       prev.map((s, i) => {
         if (i !== index) return s
+        // Not-started stays on the first column only.
+        if (s.kind === 'open' && patch.kind != null && patch.kind !== 'open') return s
+        if (patch.kind === 'open') return s
         const next = { ...s, ...patch }
         if (patch.kind != null && patch.kind !== 'done') {
           next.auto_close_conversation = false
@@ -823,7 +840,7 @@ export function WorkstreamStagesCard({
       {
         key: '',
         name: '',
-        kind: 'open',
+        kind: 'waiting',
         auto_close_conversation: false,
         fields: [],
         owner: null,
@@ -904,7 +921,7 @@ export function WorkstreamStagesCard({
                   index={index}
                   fill={waitingStageFill(draft, index)}
                   canEdit={canEdit}
-                  canRemove={draft.length > 1}
+                  canRemove={draft.length > 1 && stage.kind !== 'open'}
                   owners={owners}
                   onUpdate={(patch) => update(index, patch)}
                   onRemove={() => remove(index)}

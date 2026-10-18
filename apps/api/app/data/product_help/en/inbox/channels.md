@@ -142,12 +142,6 @@ Contacts and single conversations can still differ from the channel. See [AI han
 3. After connecting, Bokito shows **Webhook URL** and **Verify token**. Paste those in Meta under WhatsApp → Configuration, subscribe to **messages**, and send a test message. Temporary Meta tokens expire after 24 hours.
 4. Website chat is the [website widget](/docs/inbox/widget). **Add channel** then **Website chat** creates another channel with its own snippet. After you connect, these channels appear in the Communication sidebar.
 
-## Save replies the team can reuse
-
-1. Scroll to **Saved replies** on the same page (or open `#saved-replies` from the composer).
-2. Create a title and body, or save a draft from the composer in a thread.
-3. Anyone can insert a saved reply while answering in Communication.
-
 ## Choose sub-views and manage tags
 
 ![Tags and Communication on the Channels page](/api/docs/assets/channels/communication-tags.png)

@@ -15,7 +15,6 @@ import {
   listConversations,
   listDecisions,
   listNotifications,
-  listSavedReplies,
   listSignalMembers,
   listThreads,
   listWorkspaces,
@@ -51,7 +50,6 @@ export const messagingKeys = {
   notificationPrefs: ['notificationPrefs'] as const,
   notifications: ['notifications'] as const,
   workspaces: ['workspaces'] as const,
-  savedReplies: ['savedReplies'] as const,
   members: ['signalMembers'] as const,
 }
 
@@ -203,14 +201,6 @@ export function useWorkspaces() {
   return useQuery({
     queryKey: messagingKeys.workspaces,
     queryFn: listWorkspaces,
-    staleTime: 60_000,
-  })
-}
-
-export function useSavedReplies() {
-  return useQuery({
-    queryKey: messagingKeys.savedReplies,
-    queryFn: listSavedReplies,
     staleTime: 60_000,
   })
 }

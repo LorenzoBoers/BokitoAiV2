@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Loader2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,9 +22,9 @@ import {
 } from '../ui/dialog'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
-export type AccessKind = 'user' | 'agent' | 'team'
+export type AccessKind = 'user' | 'agent' | 'department'
 
-/** One grant. System teams use their kind as id: `people` or `agents`. */
+/** One grant. Everyone is the pinned All department uuid (or legacy people/agents). */
 export type AccessEntry<L extends string = string> = { kind: AccessKind; id: string; level: L }
 
 export type AccessState<L extends string = string> = { entries: AccessEntry<L>[]; isDefault: boolean }
@@ -130,11 +131,7 @@ function AccessDialog<L extends string>({
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const [overview, setOverview] = useState<TeamOverview | null>(null)
-  const [choices, setChoices] = useState<Record<string, L | 'none'>>(() => {
-    const map: Record<string, L | 'none'> = {}
-    for (const e of access.entries) map[key(e.kind, e.id)] = e.level
-    return map
-  })
+  const [choices, setChoices] = useState<Record<string, L | 'none'>>({})
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -143,6 +140,26 @@ function AccessDialog<L extends string>({
       .then(setOverview)
       .catch((err) => toast.error(formatApiErrorMessage(err, t('access.loadError'))))
   }, [token, t])
+
+  const allDepartmentId = useMemo(
+    () => overview?.teams.find((team) => team.system || team.root)?.id ?? null,
+    [overview],
+  )
+
+  useEffect(() => {
+    const map: Record<string, L | 'none'> = {}
+    for (const e of access.entries) {
+      if (
+        e.kind === 'department' &&
+        (e.id === 'people' || e.id === 'agents' || e.id === 'everyone' || (allDepartmentId && e.id === allDepartmentId))
+      ) {
+        map[key('department', 'everyone')] = e.level
+        continue
+      }
+      map[key(e.kind, e.id)] = e.level
+    }
+    setChoices(map)
+  }, [access.entries, allDepartmentId])
 
   const unrestrictedUserIds = useMemo(() => {
     if (!overview) return new Set<string>()
@@ -170,14 +187,26 @@ function AccessDialog<L extends string>({
 
   const groups = useMemo(() => {
     if (!overview) return []
-    const teamRows = overview.teams.map((team) => ({
-      kind: 'team' as const,
-      id: team.system ? team.kind : team.id,
-      label: team.system ? t(`teamPage.system.${team.kind}`) : team.name,
-      avatar: <TeamFacepile team={team} size={20} linkAgents={false} />,
-      locked: false,
-      deactivated: false,
-    }))
+    const teamRows = [
+      {
+        kind: 'department' as const,
+        id: 'everyone',
+        label: t('access.everyone'),
+        avatar: <TeamFacepile team={{ id: 'everyone', name: t('access.everyone') }} size={20} linkAgents={false} />,
+        locked: false,
+        deactivated: false,
+      },
+      ...overview.teams
+        .filter((team) => !team.system)
+        .map((team) => ({
+          kind: 'department' as const,
+          id: team.id,
+          label: team.name,
+          avatar: <TeamFacepile team={team} size={20} linkAgents={false} />,
+          locked: false,
+          deactivated: false,
+        })),
+    ]
     // Active roster only; keep a deactivated row when it still has a grant so
     // the operator can clear it (save drops deactivated principals).
     const peopleRows = overview.people
@@ -238,9 +267,14 @@ function AccessDialog<L extends string>({
         if (kind === 'user' && unrestrictedUserIds.has(rest.join(':'))) return false
         return true
       })
-      .map(([k, level]) => {
+      .flatMap(([k, level]) => {
         const [kind, ...rest] = k.split(':')
-        return { kind: kind as AccessKind, id: rest.join(':'), level: level as L }
+        const id = rest.join(':')
+        if (kind === 'department' && id === 'everyone') {
+          if (!allDepartmentId) return []
+          return [{ kind: 'department' as const, id: allDepartmentId, level: level as L }]
+        }
+        return [{ kind: kind as AccessKind, id, level: level as L }]
       })
 
   const setChoice = (k: string, level: L, checked: boolean) => {
@@ -337,6 +371,11 @@ function AccessDialog<L extends string>({
               <p className="text-xs text-status-error">{t('access.deactivatedHint')}</p>
             ) : null}
             <p className="text-xs text-text-muted">{t('access.inheritHint')}</p>
+            <p className="text-xs text-text-muted">
+              <Link to="/grid" className="underline" onClick={onClose}>
+                {t('orgCanvas.link')}
+              </Link>
+            </p>
             <p className="text-xs text-text-muted">{copy.adminsNote}</p>
           </div>
         )}

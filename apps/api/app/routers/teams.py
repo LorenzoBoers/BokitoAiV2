@@ -21,12 +21,14 @@ from app.services import teams as teams_svc
 from app.gateway.publish import publish_presence
 from app.services.audit import record_audit
 
-router = APIRouter(prefix="/teams", tags=["teams"])
+router = APIRouter(prefix="/departments", tags=["departments"])
 
 
 class TeamMemberRef(BaseModel):
     kind: Literal["user", "agent"]
     id: str
+    duty: Literal["primary", "backup", "member"] = "member"
+    position: int = 0
 
 
 class TeamPresenceOut(BaseModel):
@@ -39,6 +41,8 @@ class TeamOut(BaseModel):
     description: str
     kind: str
     system: bool
+    root: bool = False
+    parent_id: str | None = None
     pickup: str
     pinned: bool = False
     members: list[TeamMemberRef]
@@ -99,6 +103,9 @@ class OverviewAgent(BaseModel):
     id: str
     name: str
     role: str
+    job_title: str = ""
+    role_name: str | None = None
+    role_slug: str | None = None
     # Older rows can still have NULL; treat that as assisted for the overview.
     autonomy_level: str = "assisted"
     team_ids: list[str]
@@ -148,7 +155,7 @@ async def list_teams(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """List the workspace teams. The two system teams always come first."""
-    rows = await teams_svc.list_teams(session, auth.tenant.id)
+    rows = await teams_svc.list_teams(session, auth.tenant.id, include_system=False)
     out = [await teams_svc.serialize_team(session, row) for row in rows]
     await session.commit()
     return out
@@ -194,13 +201,15 @@ async def patch_team(
 ):
     """Rename a team, change its description or pickup.
 
-    System teams (All people / All agents) are not editable. Custom teams
+    The All root is not editable. Custom departments
     always appear in the Communication sidebar; mark/pin are not configurable.
     """
     auth.require_role("owner", "admin")
     team = await _team_or_404(session, auth.tenant.id, team_id)
-    if team.kind in teams_svc.SYSTEM_TEAM_KINDS:
-        raise HTTPException(status_code=400, detail="System teams cannot be edited")
+    from app.models.team import is_root_department
+
+    if is_root_department(team):
+        raise HTTPException(status_code=400, detail="The All department cannot be edited")
     if body.name is not None:
         team.name = body.name.strip()
     if body.description is not None:
@@ -221,9 +230,13 @@ async def put_team_members(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Replace the members of a custom team. System team members are computed."""
+    """Replace the members of a custom department. All is managed by membership seed."""
     auth.require_role("owner", "admin")
     team = await _team_or_404(session, auth.tenant.id, team_id)
+    from app.models.team import is_root_department
+
+    if is_root_department(team):
+        raise HTTPException(status_code=400, detail="The All department roster is managed automatically")
     try:
         await teams_svc.set_team_members(session, team, [m.model_dump() for m in body.members])
     except ValueError as exc:
@@ -249,8 +262,10 @@ async def open_team_room(
     Groepschat row opens it. Members talk here like any other internal thread.
     """
     team = await _team_or_404(session, auth.tenant.id, team_id)
-    if team.kind in teams_svc.SYSTEM_TEAM_KINDS:
-        raise HTTPException(status_code=400, detail="System teams have no group chat")
+    from app.models.team import is_root_department
+
+    if is_root_department(team):
+        raise HTTPException(status_code=400, detail="The All department has no group chat")
     signal = await teams_svc.get_or_create_team_room(session, auth.tenant.id, team)
     await session.commit()
     return TeamRoomOut(id=str(signal.id), title=signal.subject)
@@ -262,7 +277,7 @@ async def delete_team(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Delete a custom team. Its conversations and questions move to All people."""
+    """Delete a custom department. Its conversations and questions move to All."""
     auth.require_role("owner", "admin")
     team = await _team_or_404(session, auth.tenant.id, team_id)
     try:
@@ -297,7 +312,8 @@ async def team_overview(
 
     tenant_id = auth.tenant.id
     metrics = await overview_metrics(session, tenant_id)
-    team_rows = await teams_svc.list_teams(session, tenant_id)
+    # Include All so the access picker can pin Everyone to its uuid.
+    team_rows = await teams_svc.list_teams(session, tenant_id, include_system=True)
     teams_out = [
         {
             **await teams_svc.serialize_team(session, row),

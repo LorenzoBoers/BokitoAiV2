@@ -840,12 +840,6 @@ export type BulkThreadAction =
   | 'trash'
   | 'file'
 
-export type SavedReply = {
-  id: string
-  title: string
-  bodyText: string
-}
-
 export type SyncFolderStatus = {
   id: number
   folderId: string

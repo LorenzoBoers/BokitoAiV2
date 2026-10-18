@@ -53,6 +53,11 @@
       "title": "Knowledge",
       "subtitle": "Docs, skills and memory"
     },
+    "grid": {
+      "title": "Grid",
+      "subtitle": "Organization map: departments, people, agents and links",
+      "newBadge": "New"
+    },
     "modules": {
       "title": "Connections",
       "subtitle": "Installed modules, partner logins and tools",
@@ -311,7 +316,7 @@
       "noFreeTags": "No free hashtags",
       "noActionTag": "No label with a flow yet",
       "usedIn": "Used in",
-      "noProjects": "No project yet",
+      "noProjects": "No shared folders yet",
       "openProject": "Open project {{name}}",
       "checkupsOnAgenda": "Check-ups on Agenda"
     },
@@ -338,7 +343,19 @@
       "noProject": "No project",
       "openProject": "Open project",
       "empty": "No tickets yet. File a conversation with #{{tag}} to start one.",
-      "openCommunication": "Open Communication"
+      "emptyTitle": "No tickets yet",
+      "emptyBody": "Open a conversation in Communication and file it with #{{tag}} to put it on this board.",
+      "emptyBodyPlain": "Open a conversation in Communication and file it with this flow's label to put it on this board.",
+      "emptyAction": "Open Communication",
+      "openCommunication": "Open Communication",
+      "showEmptyLanes": "Show empty folders",
+      "resizeColumn": "Drag to resize {{name}}",
+      "filterLabel": "Filter",
+      "filterAny": "Any {{name}}",
+      "filterShowing": "{{shown}} of {{total}}",
+      "filterClear": "Clear filters",
+      "filterEmptyTitle": "No matching tickets",
+      "filterEmptyBody": "No tickets match these field filters. Clear them to see the full board."
     },
     "list": {
       "stagesAria": "Tickets per stage",
@@ -2088,25 +2105,6 @@
     "widgetLive": "Live handoff",
     "widgetLiveHint": "Offered when someone with Handle access on the widget is available."
   },
-  "savedReplies": {
-    "title": "Saved replies",
-    "description": "Reusable responses your team can insert from the reply composer.",
-    "newReply": "New reply",
-    "empty": "No saved replies yet. Create one, or save a draft from the composer.",
-    "openCommunication": "Open Communication",
-    "loading": "Loading...",
-    "titlePlaceholder": "Title (e.g. Refund policy)",
-    "bodyPlaceholder": "Reply text...",
-    "cancel": "Cancel",
-    "save": "Save",
-    "saving": "Saving...",
-    "editAria": "Edit",
-    "deleteAria": "Delete",
-    "deleteConfirm": "Delete saved reply \"{{title}}\"?",
-    "loadFailed": "Failed to load saved replies.",
-    "saveFailed": "Failed to save.",
-    "deleteFailed": "Failed to delete."
-  },
   "automationRules": {
     "title": "Automation rules",
     "description": "Learned from your choices on automated mail: matching threads are closed, turned into a task, or left for the team without AI drafting.",
@@ -2696,7 +2694,7 @@
       "channels": "Channels",
       "agents": "Chat with agents",
       "settings": "Settings",
-      "teams": "Teams",
+      "teams": "Departments",
       "hashtags": "Tags",
       "projects": "Projects",
       "folders": "Folders",
@@ -2783,8 +2781,8 @@
     },
     "teams": {
       "settingsAria": "Manage teams",
-      "pinHint": "Create a team on Workforce to show it here",
-      "createHint": "Create a team on Workforce to show it here"
+      "pinHint": "Create a department on Workforce to show it here",
+      "createHint": "Create a department on Workforce to show it here"
     },
     "hashtags": {
       "empty": "Pin a tag or create a flow",
@@ -5263,7 +5261,7 @@
       "general": "Company name, support access and workspace deletion",
       "branding": "Logo and colors",
       "members": "Invite teammates",
-      "emailMessages": "Channels, mailboxes, rules and saved replies",
+      "emailMessages": "Channels, mailboxes and rules",
       "chatWidget": "Website chat for customers",
       "inboxAi": "Autonomous, Assisted or Manual per channel and contact",
       "helpCenters": "Public help articles",
@@ -5401,8 +5399,7 @@
       "playbook": "Flow",
       "trigger": "Trigger",
       "team": "Team",
-      "inbox_rule": "Inbox rule",
-      "saved_reply": "Saved reply"
+      "inbox_rule": "Inbox rule"
     }
   },
   "publicTrust": {
@@ -6525,6 +6522,35 @@
     "copiedUrl": "Article link copied",
     "copyFailed": "Could not copy the link"
   },
+  "orgCanvas": {
+    "title": "Organization",
+    "subtitle": "Company in the center, each department as an island. Drag to pan, right-drag to tilt, wheel to zoom. Hover a mark for details; use the legend to find one.",
+    "link": "Grid",
+    "loadError": "Could not load the organization map.",
+    "back": "Back to Agents",
+    "legend": "Legend",
+    "legendHint": "Click an item to find it on the map.",
+    "findPlaceholder": "Find on map…",
+    "findEmpty": "Nothing matches.",
+    "findAction": "Find {{name}} on the map",
+    "openHint": "Click to open",
+    "kinds": {
+      "organization": "Organization",
+      "department": "Departments",
+      "user": "People",
+      "agent": "Agents",
+      "channel": "Channels",
+      "flow": "Flows",
+      "label": "Labels",
+      "folder": "Folders",
+      "calendar": "Calendars",
+      "connection": "Connections",
+      "module": "Modules",
+      "doc": "Docs",
+      "source": "Sources",
+      "webhook": "Webhooks"
+    }
+  },
   "teamPage": {
     "openConversations": "Conversations",
     "openFolder": "Open the {{name}} folder in Communication",
@@ -6533,7 +6559,7 @@
     "relatedAgents": "Agents",
     "away": "Away",
     "sections": {
-      "teams": "Teams",
+      "teams": "Departments",
       "teamsHint": "Group people and agents; set how they pick up conversations."
     },
     "avatarLabel": "Team mark",
@@ -6543,11 +6569,11 @@
     "tabs": {
       "people": "People",
       "agents": "Agents",
-      "teams": "Teams"
+      "teams": "Departments"
     },
     "cols": {
       "agent": "Agent",
-      "teams": "Teams",
+      "teams": "Departments",
       "open": "Open conversations",
       "ceiling": "Ceiling",
       "questions": "Questions (30 days)",
@@ -6565,10 +6591,10 @@
     "openCount_other": "{{count}} open",
     "turnCount_one": "{{count}} waiting on them",
     "turnCount_other": "{{count}} waiting on them",
-    "newTeam": "New team",
-    "editTitle": "Edit team",
-    "dialogHint": "A team can own conversations and receive agent questions. Mix people and agents.",
-    "namePlaceholder": "Team name, for example Support",
+    "newTeam": "New department",
+    "editTitle": "Edit department",
+    "dialogHint": "A department can own conversations and receive agent questions. Mix people and agents.",
+    "namePlaceholder": "Department name, for example Support",
     "descriptionPlaceholder": "What this team handles (optional)",
     "pickupLabel": "Pick up conversations",
     "pickup": {
@@ -6584,20 +6610,18 @@
       "least_open": "New conversations go to the available member with the fewest open conversations."
     },
     "system": {
-      "people": "All people",
-      "agents": "All agents"
+      "all": "All"
     },
-    "systemBadge": "System",
+    "systemBadge": "Root",
     "systemHint": {
-      "people": "Everyone in the workspace. Members follow the workspace.",
-      "agents": "Every company agent. Members follow the agents list."
+      "all": "Everyone in the workspace. Child department members inherit All."
     },
     "noDescription": "No description",
     "memberCount_one": "{{count}} member",
     "memberCount_other": "{{count}} members",
     "edit": "Edit",
     "delete": "Delete team",
-    "deleteConfirm": "Delete {{name}}? Its conversations and questions move to All people.",
+    "deleteConfirm": "Delete {{name}}? Its conversations and questions move to All.",
     "cancel": "Cancel",
     "save": "Save",
     "pinLabel": "Show in the Communication sidebar",
@@ -6618,11 +6642,12 @@
     "adminsNote": "Owners and admins always manage every connection; their toggles stay on and cannot be changed."
   },
   "access": {
-    "default": "All people and agents",
+    "default": "Everyone",
     "count_one": "{{count}} grant",
     "count_other": "{{count}} grants",
     "who": "Who",
-    "teams": "Teams",
+    "teams": "Departments",
+    "everyone": "Everyone",
     "people": "People",
     "agents": "Agents",
     "level": {
@@ -6632,7 +6657,7 @@
       "use": "Use",
       "manage": "Manage"
     },
-    "inheritHint": "Teams cover their members. A person or agent with no own grant still follows All people or All agents.",
+    "inheritHint": "Departments cover their members. A person or agent with no own grant still follows Everyone.",
     "deactivated": "Deactivated",
     "deactivatedHint": "Deactivated people and agents cannot get new access. Save to remove leftover grants.",
     "reset": "Back to default",

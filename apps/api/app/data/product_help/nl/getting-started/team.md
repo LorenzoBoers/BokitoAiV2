@@ -1,7 +1,7 @@
 ---
 title: Zo werkt Workforce
-intro: Mensen, agents en teams op één pagina, met wie er beschikbaar is.
-description: Nodig mensen uit, zie mensen en agents in één directory, groepeer ze in teams, kies hoe een team gesprekken oppakt, meld je afwezig en lees de teamcijfers.
+intro: Mensen, agents en afdelingen op één pagina, met wie er beschikbaar is.
+description: Nodig mensen uit, zie mensen en agents in één directory, groepeer ze in afdelingen, kies hoe een afdeling gesprekken oppakt, meld je afwezig en lees de afdelingscijfers.
 keywords: workforce, team, leden, uitnodigen, rollen, teams, beschikbaarheid, afwezig, om de beurt, minst open, oppakken
 sort: 60
 related: setup-guide,communication,agents,channels
@@ -9,7 +9,7 @@ related: setup-guide,communication,agents,channels
 
 # Zo werkt Workforce
 
-Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de teams waarin je ze groepeert. Open **Workforce** in de rail onder **Organisatie** om iemand uit te nodigen, de directory te bekijken of een team te maken.
+Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de afdelingen waarin je ze groepeert. Open **Workforce** in de rail onder **Organisatie** om iemand uit te nodigen, de directory te bekijken of een afdeling te maken. De organisatiekaart staat onder **AI** als **Grid** (`/grid`). Communicatie, Agenda, Agents, Koppelingen, Flows, Mappen en toeganglijsten linken naar dezelfde kaart. De kaart is een full-page scène: het bedrijf in het midden, elke afdeling als een zacht eiland, en mensen, bedrijfsagents, kanalen, flows en andere items als markeringen op die eilanden. Afdelingen zijn gebieden met een naamchip, geen aparte bases. Labels (`#tags`) staan niet als markering op de kaart; koppelingen via een label worden een directe lijn tussen de gekoppelde items. De persoonlijke Bokito-helper staat niet op de kaart. Sleep om te verschuiven; het wiel zoomt. Hover een markering voor een korte showcasekaart. De legenda rechts toont alles op de kaart; kies een rij om die markering te vinden. Een markering opent dat item.
 
 ## Nodig iemand uit
 
@@ -25,7 +25,7 @@ Leden beantwoorden gesprekken. Eigenaren en beheerders koppelen ook kanalen, wij
 ## Neem nieuwe agents aan
 
 1. Open op **Workforce**, onder **Personen uitnodigen**, de banner **Neem nieuwe agents aan**.
-2. Kies **Marketplace**. Die opent Koppelingen gefilterd op modules (`/connections?kind=modules`), waar je specialisten naast het team installeert. Naast de titel staat nog **binnenkort** zolang de agent-markt zelf niet open is.
+2. Kies **Marketplace**. Die opent Koppelingen gefilterd op modules (`/connections?kind=modules`), waar je specialisten naast het team installeert.
 
 ## Meld je afwezig
 
@@ -37,8 +37,8 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
 
 ## Lees de directory
 
-1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen. De kolom **Laatst actief** toont wanneer iemand voor het laatst online was en wanneer een agent voor het laatst draaide. Via Gerelateerd open je **Agents** (zelfde filter **Gedeactiveerd** daar).
-2. Elke persoon toont rol, teams, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout** — geen vraagtellers. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)).
+1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Onder de naam van een agent staat de functie in de kleur van die agent. **Type** is gewone tekst: **Persoon** voor mensen en uitnodigingen, **Agent** in het paars van agents. Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen. De kolom **Laatst actief** toont wanneer iemand voor het laatst online was en wanneer een agent voor het laatst draaide. Via Gerelateerd open je **Agents** (zelfde filter **Gedeactiveerd** daar).
+2. Elke persoon toont rol, teams, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). In **Rol / plafond** wijzigt een eigenaar of beheerder de rol van een persoon, en het plafond van een agent met hetzelfde soort menu: **Handmatig**, **Geassisteerd** of **Autonoom**. Alleen een eigenaar of beheerder kan een plafond naar **Autonoom** zetten. Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout**. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)). **Organisatiekaart** staat in de paginakop.
 3. Mensen en agents gebruiken hun eigen markering; teams gebruiken een facepile van leden. De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents beschikbaar zijn, grijs als iedereen offline is.
 
 ## Deactiveer een persoon of agent

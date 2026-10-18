@@ -1,9 +1,8 @@
-"""One access-list shape for people, agents and teams, shared by resources.
+"""One access-list shape for people, agents and departments, shared by resources.
 
-An entry is ``{"kind": "user" | "agent" | "team", "id": "<uuid or system
-kind>", "level": "<level>"}``. System teams are referenced by their kind
-(``people`` / ``agents``) so lists resolve without a lookup. Each resource
-picks its own ordered levels, lowest first:
+An entry is ``{"kind": "user" | "agent" | "department", "id": "<uuid>",
+"level": "<level>"}``. The pinned **All** department is the Everyone option.
+Each resource picks its own ordered levels, lowest first:
 
 - channels: ``view`` < ``handle`` (``channel_access``)
 - connections: ``use`` < ``manage`` (``connection_access``)
@@ -20,10 +19,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.team import SYSTEM_TEAM_KINDS, TEAM_KIND_AGENTS, TEAM_KIND_PEOPLE, Team
+from app.models.team import Team
 
-ACCESS_KINDS = ("user", "agent", "team")
+ACCESS_KINDS = ("user", "agent", "department")
 UNRESTRICTED_ROLES = ("owner", "admin")
+# Legacy string ids and the Everyone UI sentinel — map to All on validate.
+EVERYONE_SENTINELS = frozenset({"people", "agents", "everyone", "all"})
 
 
 @dataclass
@@ -39,35 +40,22 @@ async def user_principal(
 ) -> Principal:
     from app.services.teams import user_team_ids
 
-    teams = {str(t) for t in await user_team_ids(session, tenant_id, user_id, include_system=False)}
-    teams.add(TEAM_KIND_PEOPLE)
+    teams = {str(t) for t in await user_team_ids(session, tenant_id, user_id)}
     return Principal("user", str(user_id), teams, unrestricted=role in UNRESTRICTED_ROLES)
 
 
 async def agent_principals(
     session: AsyncSession, tenant_id: UUID, agent_ids: Sequence[UUID]
 ) -> dict[UUID, Principal]:
-    """Team memberships for many agents in one query."""
-    from app.models.team import TeamMember
+    """Team memberships for many agents (direct + ancestors)."""
+    from app.services.teams import agent_team_ids
 
     unique = list(dict.fromkeys(agent_ids))
-    if not unique:
-        return {}
-    by_agent: dict[UUID, set[str]] = {aid: set() for aid in unique}
-    rows = await session.execute(
-        select(TeamMember.agent_id, TeamMember.team_id).where(
-            TeamMember.tenant_id == tenant_id,
-            TeamMember.member_kind == "agent",
-            TeamMember.agent_id.in_(unique),
-        )
-    )
-    for agent_id, team_id in rows.all():
-        if agent_id in by_agent:
-            by_agent[agent_id].add(str(team_id))
-    return {
-        aid: Principal("agent", str(aid), teams | {TEAM_KIND_AGENTS})
-        for aid, teams in by_agent.items()
-    }
+    out: dict[UUID, Principal] = {}
+    for aid in unique:
+        teams = {str(t) for t in await agent_team_ids(session, tenant_id, aid)}
+        out[aid] = Principal("agent", str(aid), teams)
+    return out
 
 
 async def agent_principal(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> Principal:
@@ -103,22 +91,13 @@ async def validate_entries(
     entries: list[dict[str, Any]],
     levels: Sequence[str],
 ) -> list[dict[str, str]]:
-    """Validate operator input; system team rows map to their kind; the highest level wins.
-
-    Agent grants must target an active company agent so deactivated agents cannot
-    be re-added via the access matrix (leftover grants are cleared by the UI).
-    """
+    """Validate operator input; Everyone / legacy people|agents map to All."""
     from app.models.agent import Agent
     from app.models.auth import Membership
+    from app.services.teams import ensure_all_department
 
-    system_ids = {
-        str(row.id): row.kind
-        for row in (
-            await session.execute(
-                select(Team).where(Team.tenant_id == tenant_id, Team.kind.in_(SYSTEM_TEAM_KINDS))
-            )
-        ).scalars().all()
-    }
+    all_dept = await ensure_all_department(session, tenant_id)
+    all_id = str(all_dept.id)
     rank = {lvl: i for i, lvl in enumerate(levels)}
     seen: dict[tuple[str, str], str] = {}
     agent_ids: list[UUID] = []
@@ -129,10 +108,18 @@ async def validate_entries(
         level = str(entry.get("level") or levels[-1])
         if kind not in ACCESS_KINDS or level not in rank or not ident:
             raise ValueError("Invalid access entry")
-        if kind == "team":
-            ident = system_ids.get(ident, ident)
-            if ident not in SYSTEM_TEAM_KINDS:
+        if kind == "department":
+            if ident in EVERYONE_SENTINELS:
+                ident = all_id
+            else:
                 _require_uuid(ident)
+                row = (
+                    await session.execute(
+                        select(Team.id).where(Team.id == UUID(ident), Team.tenant_id == tenant_id)
+                    )
+                ).scalar_one_or_none()
+                if row is None:
+                    raise ValueError("Unknown department")
         else:
             _require_uuid(ident)
             if kind == "agent":
@@ -197,7 +184,7 @@ def best_level(
         if level not in rank:
             continue
         match = (kind == principal.kind and ident == principal.id) or (
-            kind == "team" and ident in principal.team_ids
+            kind == "department" and ident in principal.team_ids
         )
         if match and (best is None or rank[level] > rank[best]):
             best = level

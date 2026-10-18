@@ -114,8 +114,21 @@ function TagChip({ name, action }: { name: string; action: boolean }) {
   )
 }
 
+/** Commas the model puts between #tags. The pills already separate themselves. */
+function isTagSeparator(text: string): boolean {
+  return /^[\s,;]+$/.test(text)
+}
+
 function renderInline(nodes: ChatInline[]): ReactNode[] {
   return nodes.map((node, index) => {
+    if (
+      node.type === 'text' &&
+      isTagSeparator(node.text) &&
+      nodes[index - 1]?.type === 'tag' &&
+      nodes[index + 1]?.type === 'tag'
+    ) {
+      return <span key={index} className="inline-block w-1" />
+    }
     switch (node.type) {
       case 'text':
         return node.text

@@ -472,11 +472,6 @@ async def list_members(
     return await svc.list_members(session, auth.tenant.id)
 
 
-class SavedReplyBody(BaseModel):
-    title: str
-    body_text: str
-
-
 class RuleCreateBody(BaseModel):
     match_type: str = "sender"  # sender | domain | list_id
     match_value: str
@@ -563,118 +558,6 @@ async def delete_inbox_rule(
     ok = await inbox_rules.delete_rule(session, auth.tenant.id, rule_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Rule not found")
-    return {"ok": True}
-
-
-@router.get("/saved-replies")
-async def list_saved_replies(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from sqlalchemy import select
-
-    from app.models.signal import SavedReply
-
-    result = await session.execute(
-        select(SavedReply)
-        .where(SavedReply.tenant_id == auth.tenant.id, SavedReply.deleted_at.is_(None))
-        .order_by(SavedReply.title)
-    )
-    return [
-        {
-            "id": str(row.id),
-            "title": row.title,
-            "body_text": row.body_text,
-            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-        }
-        for row in result.scalars().all()
-    ]
-
-
-@router.post("/saved-replies")
-async def create_saved_reply(
-    body: SavedReplyBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.models.signal import SavedReply
-
-    title = body.title.strip()
-    text = body.body_text.strip()
-    if not title or not text:
-        raise HTTPException(status_code=400, detail="Title and body are required")
-    row = SavedReply(
-        tenant_id=auth.tenant.id,
-        title=title[:120],
-        body_text=text,
-        created_by_user_id=auth.user.id,
-    )
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return {"id": str(row.id), "title": row.title, "body_text": row.body_text}
-
-
-@router.patch("/saved-replies/{reply_id}")
-async def update_saved_reply(
-    reply_id: UUID,
-    body: SavedReplyBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from sqlalchemy import select
-
-    from app.models.signal import SavedReply
-
-    result = await session.execute(
-        select(SavedReply).where(
-            SavedReply.id == reply_id,
-            SavedReply.tenant_id == auth.tenant.id,
-            SavedReply.deleted_at.is_(None),
-        )
-    )
-    row = result.scalar_one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Saved reply not found")
-    row.title = body.title.strip()[:120] or row.title
-    row.body_text = body.body_text.strip() or row.body_text
-    row.updated_at = datetime.utcnow()
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    return {"id": str(row.id), "title": row.title, "body_text": row.body_text}
-
-
-@router.delete("/saved-replies/{reply_id}")
-async def delete_saved_reply(
-    reply_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from sqlalchemy import select
-
-    from app.models.signal import SavedReply
-
-    result = await session.execute(
-        select(SavedReply).where(
-            SavedReply.id == reply_id,
-            SavedReply.tenant_id == auth.tenant.id,
-            SavedReply.deleted_at.is_(None),
-        )
-    )
-    row = result.scalar_one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Saved reply not found")
-    from app.services.trash import move_to_bin
-
-    await move_to_bin(
-        session,
-        auth.tenant,
-        resource_type="saved_reply",
-        row=row,
-        user_id=auth.user.id if auth.user else None,
-        commit=True,
-    )
     return {"ok": True}
 
 

@@ -1,8 +1,8 @@
-"""Team visual identity for API fallbacks and system-team icons.
+"""Department visual identity for API fallbacks.
 
-Custom teams render as member facepiles in the product UI. Operators no longer
-set a team mark. ``avatar_payload`` still supplies system-team icons (All people /
-All agents) and initials when a facepile has no resolvable members.
+Custom departments render as member facepiles in the product UI. Operators no
+longer set a team mark. ``avatar_payload`` supplies a fixed mark for the All
+root and initials when a facepile has no resolvable members.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.models.team import TEAM_KIND_AGENTS, TEAM_KIND_PEOPLE, Team
+from app.models.team import Team, is_root_department
 from app.services.agent_avatar import (
     AVATAR_KIND_ICON,
     AVATAR_KIND_IMAGE,
@@ -21,18 +21,10 @@ from app.services.agent_avatar import (
     normalize_image_url,
 )
 
-# Fixed marks for system teams (always icon, never initials).
-SYSTEM_TEAM_AVATARS: dict[str, dict[str, str]] = {
-    TEAM_KIND_PEOPLE: {
-        "avatar_kind": AVATAR_KIND_ICON,
-        "avatar_icon": "users",
-        "avatar_color": "#4652f2",
-    },
-    TEAM_KIND_AGENTS: {
-        "avatar_kind": AVATAR_KIND_ICON,
-        "avatar_icon": "bot",
-        "avatar_color": "#7c3aed",
-    },
+ALL_ROOT_AVATAR = {
+    "avatar_kind": AVATAR_KIND_ICON,
+    "avatar_icon": "users",
+    "avatar_color": "#4652f2",
 }
 
 # Seeded palette matches dashboard ``lib/avatar.ts``.
@@ -64,7 +56,7 @@ def _settings(raw: str | None) -> dict[str, Any]:
 
 def seeded_color(seed: str) -> str:
     """Deterministic hex from an id/name seed."""
-    value = (seed or "").strip() or "team"
+    value = (seed or "").strip() or "department"
     hash_val = 0
     for ch in value:
         hash_val = (hash_val * 31 + ord(ch)) & 0xFFFFFFFF
@@ -81,12 +73,11 @@ def avatar_payload(team: Team | None) -> dict[str, Any]:
     }
     if team is None:
         return empty
-    system = SYSTEM_TEAM_AVATARS.get(str(getattr(team, "kind", "") or ""))
-    if system:
+    if is_root_department(team):
         return {
-            "avatar_kind": system["avatar_kind"],
-            "avatar_icon": system["avatar_icon"],
-            "avatar_color": system["avatar_color"],
+            "avatar_kind": ALL_ROOT_AVATAR["avatar_kind"],
+            "avatar_icon": ALL_ROOT_AVATAR["avatar_icon"],
+            "avatar_color": ALL_ROOT_AVATAR["avatar_color"],
             "avatar_image_url": None,
         }
     stored = _settings(getattr(team, "settings_json", None))

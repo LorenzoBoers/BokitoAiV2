@@ -50,6 +50,7 @@ from app.routers import (
     signal_tags,
     signals,
     teams,
+    org_graph,
     workbench,
     learning,
     triggers,
@@ -292,6 +293,7 @@ app.include_router(signal_tags.router, prefix=api_prefix)
 app.include_router(communication_nav.router, prefix=api_prefix)
 app.include_router(signals.router, prefix=api_prefix)
 app.include_router(teams.router, prefix=api_prefix)
+app.include_router(org_graph.router, prefix=api_prefix)
 app.include_router(workbench.router, prefix=api_prefix)
 app.include_router(uploads.router, prefix=api_prefix)
 app.include_router(learning.router, prefix=api_prefix)

@@ -28,6 +28,9 @@ class Project(SQLModel, table=True):
     parent_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="projects.id", index=True
     )
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     # Sibling order under the same parent.
     sort_order: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)

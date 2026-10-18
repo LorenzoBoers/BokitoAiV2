@@ -119,7 +119,7 @@ async def test_round_robin_takes_turns_and_skips_away(client: AsyncClient, sessi
         session_override.add(user)
     await session_override.commit()
     signal = await _inbound(session_override, tenant_id, account_id, "31600000004")
-    assert signal.assignee_kind == "team" and signal.assignee_team_id == team_id
+    assert signal.assignee_kind == "department" and signal.assignee_team_id == team_id
 
 
 @pytest.mark.asyncio
@@ -141,7 +141,7 @@ async def test_people_pickup_keeps_team_owner(client: AsyncClient, session_overr
     (member,) = await _people(session_override, 1)
     tenant_id, team_id, account_id = await _team_with_channel(session_override, [member], "people")
     signal = await _inbound(session_override, tenant_id, account_id, "31600000020")
-    assert signal.assignee_kind == "team" and signal.assignee_team_id == team_id
+    assert signal.assignee_kind == "department" and signal.assignee_team_id == team_id
 
 
 @pytest.mark.asyncio
@@ -207,7 +207,7 @@ async def test_learned_routing_proposal_and_rule(client: AsyncClient, session_ov
     addressee = await resolve_addressee(session_override, tenant_id, signal=fresh)
     assert addressee.routed_by == "rule" and addressee.user_id == owner_id
 
-    overview = await client.get("/api/teams/overview", headers=headers)
+    overview = await client.get("/api/departments/overview", headers=headers)
     assert overview.status_code == 200, overview.text
     body = overview.json()
     assert all("metrics" in team for team in body["teams"])

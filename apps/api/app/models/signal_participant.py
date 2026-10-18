@@ -13,7 +13,7 @@ from datetime import datetime
 from sqlalchemy import Column, DateTime, Index, UniqueConstraint, text
 from sqlmodel import Field, SQLModel
 
-PARTICIPANT_KINDS = ("user", "agent", "contact", "team")
+PARTICIPANT_KINDS = ("user", "agent", "contact", "department")
 PARTICIPANT_ROLES = ("owner", "member", "watcher")
 
 

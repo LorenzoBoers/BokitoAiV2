@@ -142,12 +142,6 @@ Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [AI
 3. Na het koppelen toont Bokito **Webhook-URL** en **Verify token**. Plak die in Meta onder WhatsApp → Configuration, abonneer op **messages**, en stuur een testbericht. Tijdelijke Meta-tokens verlopen na 24 uur.
 4. Websitechat is de [websitewidget](/docs/inbox/widget). **Kanaal toevoegen** en daarna **Websitechat** maakt een extra kanaal met eigen snippet. Na het koppelen verschijnen deze kanalen in de Communicatie-zijbalk.
 
-## Bewaar antwoorden die het team hergebruikt
-
-1. Scroll naar **Opgeslagen antwoorden** op dezelfde pagina (of open `#saved-replies` vanuit de composer).
-2. Maak een titel en tekst, of sla een concept op vanuit de composer in een gesprek.
-3. Iedereen kan een opgeslagen antwoord invoegen tijdens het antwoorden in Communicatie.
-
 ## Kies submappen en beheer tags
 
 ![Tags en Communicatie op de pagina Kanalen](/api/docs/assets/channels/communication-tags.png)

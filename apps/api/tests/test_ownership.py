@@ -48,15 +48,15 @@ async def _email_thread(session: AsyncSession, tenant, *, inbound: bool = True):
 
 @pytest.mark.asyncio
 async def test_new_conversation_belongs_to_all_people(client: AsyncClient, session_override: AsyncSession):
-    from app.models.team import Team
+    from app.models.team import ALL_DEPARTMENT_NAME, Team, is_root_department
 
     tenant, _ = await _tenant_and_user(session_override)
     signal = await _email_thread(session_override, tenant)
     team = await session_override.get(Team, signal.assignee_team_id)
-    assert signal.assignee_kind == "team"
-    assert team is not None and team.kind == "people"
+    assert signal.assignee_kind == "department"
+    assert team is not None and is_root_department(team) and team.name == ALL_DEPARTMENT_NAME
     assert (signal.turn_kind, signal.turn_team_id, signal.turn_reason) == (
-        "team",
+        "department",
         team.id,
         "reply_needed",
     )
@@ -77,7 +77,7 @@ async def test_channel_owner_team_is_default(client: AsyncClient, session_overri
     signal = Signal(tenant_id=tenant.id, channel="email", channel_account_id=account.id, subject="Hi")
     session_override.add(signal)
     await session_override.commit()
-    assert signal.assignee_kind == "team"
+    assert signal.assignee_kind == "department"
     assert signal.assignee_team_id == team.id
 
 
@@ -131,7 +131,7 @@ async def test_unassign_falls_back_to_team(client: AsyncClient, session_override
     await session_override.commit()
     signal.assigned_user_id = None
     await session_override.commit()
-    assert signal.assignee_kind == "team"
+    assert signal.assignee_kind == "department"
     assert signal.assignee_team_id is not None
 
 
@@ -161,11 +161,11 @@ async def test_patch_assignee_agent_and_team(client: AsyncClient, session_overri
     r = await client.patch(
         f"/api/signals/{signal.id}",
         headers=headers,
-        json={"assignee": {"kind": "team", "id": str(team.id)}},
+        json={"assignee": {"kind": "department", "id": str(team.id)}},
     )
     assert r.status_code == 200, r.text
     owner = r.json()["owner"]
-    assert owner["kind"] == "team"
+    assert owner["kind"] == "department"
     assert owner["id"] == str(team.id)
     assert owner["team_id"] == str(team.id)
     assert owner["user_id"] is None
@@ -174,7 +174,7 @@ async def test_patch_assignee_agent_and_team(client: AsyncClient, session_overri
     r = await client.patch(
         f"/api/signals/{signal.id}",
         headers=headers,
-        json={"assignee": {"kind": "team", "id": "00000000-0000-0000-0000-000000000000"}},
+        json={"assignee": {"kind": "department", "id": "00000000-0000-0000-0000-000000000000"}},
     )
     assert r.status_code == 422
 
@@ -200,11 +200,11 @@ async def test_patch_unassign_clears_person(client: AsyncClient, session_overrid
     r = await client.patch(
         f"/api/signals/{signal.id}",
         headers=headers,
-        json={"assignee": {"kind": "team", "id": None}},
+        json={"assignee": {"kind": "department", "id": None}},
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["owner"]["kind"] == "team"
+    assert body["owner"]["kind"] == "department"
     assert body["assigned_to_user_id"] is None
     assert body["owner"]["user_id"] is None
 
@@ -220,7 +220,7 @@ async def test_patch_unassign_clears_person(client: AsyncClient, session_overrid
         json={"assigned_to_user_id": 0},
     )
     assert r.status_code == 200, r.text
-    assert r.json()["owner"]["kind"] == "team"
+    assert r.json()["owner"]["kind"] == "department"
     assert r.json()["assigned_to_user_id"] is None
 
 
@@ -297,34 +297,31 @@ async def test_personal_agent_chat_assigns_opener_not_agent(
 
 
 @pytest.mark.asyncio
-async def test_for_you_includes_all_people_team_turn(
+async def test_for_you_includes_all_department_turn(
     client: AsyncClient, session_override: AsyncSession
 ):
-    """When All people must reply, every member sees it in For you — not only personal assignees."""
+    """When All must reply, every member sees it in For you — not only personal assignees."""
     from app.models.signal import Signal
-    from app.models.team import TEAM_KIND_PEOPLE, Team
     from app.services.ownership import for_you_predicate, turn_is_mine_predicate
+    from app.services.teams import ensure_all_department
 
     tenant, user = await _tenant_and_user(session_override)
     waiting = await _email_thread(session_override, tenant)
-    assert waiting.assignee_kind == "team" and waiting.turn_reason == "reply_needed"
-    people = (
-        await session_override.execute(
-            select(Team).where(Team.tenant_id == tenant.id, Team.kind == TEAM_KIND_PEOPLE)
-        )
-    ).scalar_one()
+    assert waiting.assignee_kind == "department" and waiting.turn_reason == "reply_needed"
+    root = await ensure_all_department(session_override, tenant.id)
+    await session_override.commit()
 
     for_you = set(
         (
             await session_override.execute(
-                select(Signal.id).where(for_you_predicate(user.id, set(), people.id))
+                select(Signal.id).where(for_you_predicate(user.id, set(), root.id))
             )
         ).scalars().all()
     )
     mine_now = set(
         (
             await session_override.execute(
-                select(Signal.id).where(turn_is_mine_predicate(user.id, set(), people.id))
+                select(Signal.id).where(turn_is_mine_predicate(user.id, set(), root.id))
             )
         ).scalars().all()
     )

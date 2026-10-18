@@ -25,7 +25,7 @@ export function AgentDoneCorner({
         style={{ width: badge, height: badge }}
         className={cn(
           'absolute -bottom-px -right-px inline-flex items-center justify-center rounded-full',
-          'bg-ai text-white ring-2 ring-bg-surface',
+          'bg-ai text-white ring-2 ring-cutout',
           enter && 'agent-done-corner--enter',
         )}
         aria-hidden

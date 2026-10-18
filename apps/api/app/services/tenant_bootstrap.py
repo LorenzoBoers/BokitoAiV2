@@ -258,6 +258,9 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     # No Front desk seed — operators create company agents as needed; routing
     # falls back to the lead agent (ensure_lead_agents on startup).
     # Platform furniture, not a tenant agent: every member's own Bokito helper.
+    from app.services.teams import ensure_all_department
+
+    await ensure_all_department(session, tenant_id)
     await ensure_personal_assistant(session, tenant_id, commit=False)
     for path, kind, content in DEFAULT_DOCS:
         await upsert_doc(

@@ -276,6 +276,7 @@ export default function ProjectsPage() {
 
       <PageRelatedLinks
         links={[
+          { to: '/grid', label: t('orgCanvas.link') },
           { to: '/workstreams', label: t('pageGuides.related.workstreams', { defaultValue: 'Flows' }) },
           { to: '/settings/action-tags', label: t('pageGuides.related.categories', { defaultValue: 'Action tags' }) },
           {

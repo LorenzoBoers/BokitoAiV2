@@ -272,7 +272,7 @@ async def claim_handover(session: AsyncSession, signal: Signal, body_text: str) 
             widget.assigned_user_id
             if widget.assignee_kind == "user"
             else widget.assignee_team_id
-            if widget.assignee_kind == "team"
+            if widget.assignee_kind == "department"
             else widget.agent_id
         )
         set_owner(signal, widget.assignee_kind, owner_id)

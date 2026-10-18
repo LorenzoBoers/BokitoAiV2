@@ -72,7 +72,7 @@ _COMPAT_ATTRS = frozenset(
         "handoff_session_json",
         "last_human_owner_kind",
         "last_human_owner_user_id",
-        "last_human_owner_team_id",
+        "last_human_owner_department_id",
     }
 )
 
@@ -115,7 +115,7 @@ class Signal(SQLModel, table=True):
     # Owner: assignee_kind + assignee_id (polymorphic). agent_id is the handling
     # pin and may differ when a team/person owns while an agent drafts.
     # Maintained by services/ownership.py; every conversation has one.
-    assignee_kind: str = Field(default="", index=True)  # user | agent | team
+    assignee_kind: str = Field(default="", index=True)  # user | agent | department
     assignee_id: Optional[uuid.UUID] = Field(default=None, index=True)
     assigned_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     # Last person or team that owned this conversation: {"kind","id"}.
@@ -124,7 +124,7 @@ class Signal(SQLModel, table=True):
     # an autonomous agent drafts instead of sending while it is in the future.
     human_composing_until: Optional[datetime] = Field(default=None)
     # Turn: who must act now (derived by ownership.recompute_turn).
-    turn_kind: str = Field(default="", index=True)  # customer | agent | user | team | ""
+    turn_kind: str = Field(default="", index=True)  # customer | agent | user | department | ""
     turn_ref_id: Optional[uuid.UUID] = Field(default=None, index=True)
     turn_reason: str = ""  # reply_needed | question | draft_ready
     # Multi-agent floor: {"active_turn": {...}, "handoff_session": {...}}.
@@ -212,7 +212,7 @@ class Signal(SQLModel, table=True):
             out["assignee_id"] = out.pop("assigned_user_id")
             out.pop("assignee_team_id", None)
         elif out.get("assignee_team_id"):
-            out["assignee_kind"] = out.get("assignee_kind") or "team"
+            out["assignee_kind"] = out.get("assignee_kind") or "department"
             out["assignee_id"] = out.pop("assignee_team_id")
         else:
             out.pop("assigned_user_id", None)
@@ -222,7 +222,7 @@ class Signal(SQLModel, table=True):
             out["turn_ref_id"] = out.pop("turn_user_id")
             out.pop("turn_team_id", None)
         elif out.get("turn_team_id"):
-            out["turn_kind"] = out.get("turn_kind") or "team"
+            out["turn_kind"] = out.get("turn_kind") or "department"
             out["turn_ref_id"] = out.pop("turn_team_id")
         else:
             out.pop("turn_user_id", None)
@@ -246,11 +246,11 @@ class Signal(SQLModel, table=True):
             out["floor_json"] = json.dumps(floor)
         kind = out.pop("last_human_owner_kind", None)
         user = out.pop("last_human_owner_user_id", None)
-        team = out.pop("last_human_owner_team_id", None)
+        team = out.pop("last_human_owner_department_id", None)
         if kind == "user" and user:
             out["last_human_owner_json"] = json.dumps({"kind": "user", "id": str(user)})
-        elif kind == "team" and team:
-            out["last_human_owner_json"] = json.dumps({"kind": "team", "id": str(team)})
+        elif kind == "department" and team:
+            out["last_human_owner_json"] = json.dumps({"kind": "department", "id": str(team)})
         return out
 
     def __init__(self, **data: Any) -> None:
@@ -285,11 +285,11 @@ class Signal(SQLModel, table=True):
         if name == "assigned_user_id":
             return self.assignee_id if self.assignee_kind == "user" else None
         if name == "assignee_team_id":
-            return self.assignee_id if self.assignee_kind == "team" else None
+            return self.assignee_id if self.assignee_kind == "department" else None
         if name == "turn_user_id":
             return self.turn_ref_id if self.turn_kind == "user" else None
         if name == "turn_team_id":
-            return self.turn_ref_id if self.turn_kind == "team" else None
+            return self.turn_ref_id if self.turn_kind == "department" else None
         if name == "active_turn_json":
             at = self._floor().get("active_turn")
             return json.dumps(at) if isinstance(at, dict) else "{}"
@@ -306,9 +306,9 @@ class Signal(SQLModel, table=True):
                 return uuid.UUID(str(data["id"]))
             except (ValueError, TypeError, AttributeError):
                 return None
-        if name == "last_human_owner_team_id":
+        if name == "last_human_owner_department_id":
             data = self._human_owner()
-            if data.get("kind") != "team" or not data.get("id"):
+            if data.get("kind") != "department" or not data.get("id"):
                 return None
             try:
                 return uuid.UUID(str(data["id"]))
@@ -329,9 +329,9 @@ class Signal(SQLModel, table=True):
             return
         if name == "assignee_team_id":
             if value is not None:
-                super().__setattr__("assignee_kind", "team")
+                super().__setattr__("assignee_kind", "department")
                 super().__setattr__("assignee_id", value)
-            elif getattr(self, "assignee_kind", None) == "team":
+            elif getattr(self, "assignee_kind", None) == "department":
                 super().__setattr__("assignee_id", None)
             return
         if name == "turn_user_id":
@@ -343,9 +343,9 @@ class Signal(SQLModel, table=True):
             return
         if name == "turn_team_id":
             if value is not None:
-                super().__setattr__("turn_kind", "team")
+                super().__setattr__("turn_kind", "department")
                 super().__setattr__("turn_ref_id", value)
-            elif getattr(self, "turn_kind", None) == "team":
+            elif getattr(self, "turn_kind", None) == "department":
                 super().__setattr__("turn_ref_id", None)
             return
         if name == "active_turn_json":
@@ -390,13 +390,13 @@ class Signal(SQLModel, table=True):
                 "last_human_owner_json", json.dumps({"kind": "user", "id": str(value)})
             )
             return
-        if name == "last_human_owner_team_id":
+        if name == "last_human_owner_department_id":
             if value is None:
-                if self._human_owner().get("kind") == "team":
+                if self._human_owner().get("kind") == "department":
                     super().__setattr__("last_human_owner_json", "{}")
                 return
             super().__setattr__(
-                "last_human_owner_json", json.dumps({"kind": "team", "id": str(value)})
+                "last_human_owner_json", json.dumps({"kind": "department", "id": str(value)})
             )
             return
         super().__setattr__(name, value)
@@ -452,23 +452,6 @@ class SignalEvent(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class SavedReply(SQLModel, table=True):
-    """Tenant-scoped canned response for the reply composer."""
-
-    __tablename__ = "saved_replies"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    title: str = ""
-    body_text: str = ""
-    created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    deleted_at: Optional[datetime] = Field(default=None, index=True)
-    deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
-
-
 class SignalTag(SQLModel, table=True):
     """A hashtag: the one label people learn. Roles are orthogonal:
 
@@ -487,6 +470,9 @@ class SignalTag(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     # Normalized hashtag name (lower case, underscores, no leading #); unique per tenant.
     name: str = Field(default="", index=True)
     # When to use this tag. Shown in settings and fed to AI tagging.

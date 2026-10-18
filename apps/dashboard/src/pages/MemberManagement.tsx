@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Store, Trash2, UserMinus } from 'lucide-react'
-import { AI_CARD_CLASS } from '../components/ai/AiMark'
 import { AgentMark } from '../components/ui/AgentMark'
+import { AmbientSpotlights } from '../components/ui/ambient-spotlights'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
-import type { AgentAvatarProps } from '../lib/agent-avatar'
+import { agentProfileAccentColor, resolveAgentAvatarColor, type AgentAvatarProps } from '../lib/agent-avatar'
 import {
   type OverviewAgent,
   type PresenceStatus,
@@ -17,6 +17,7 @@ import { appRoutes } from '../api/routes/app.routes'
 import { toast } from 'sonner'
 import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '../lib/api'
 import { archiveAgent, restoreAgent } from '../lib/workforce-api'
+import { normalizeAutonomy, saveAgentRules, type AutonomyMode } from '../lib/agent-rules-api'
 import { agentAutonomyLevelLabel } from '../lib/labels'
 import { presenceBadgeVariant, presenceLabel, asAgentStatus } from '../lib/presence'
 import { formatAppDate } from '../lib/app-locale'
@@ -37,7 +38,7 @@ import {
 } from '../components/ui/dialog'
 import { SearchField } from '../components/ui/search-field'
 import { cn } from '../lib/utils'
-import { memberTypeTone, roleTone } from '../lib/badge-tones'
+import { roleTone } from '../lib/badge-tones'
 import {
   Select,
   SelectContent,
@@ -47,6 +48,7 @@ import {
 } from '../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { seenToIso } from '../components/inbox/IdentitySeenLine'
+import { agentFunctionLabel } from '../lib/workforce-nav-agents'
 import { connectionsPathWithKind } from '../lib/integration-kind-url'
 import { timeAgo } from '../lib/time-ago'
 
@@ -92,8 +94,9 @@ type Invite = {
 }
 
 // Owner is assigned via the member row controls, not via invites.
-const INVITE_ROLE_VALUES: MemberRole[] = ['admin', 'member']
 const MEMBER_ROLE_VALUES: MemberRole[] = ['owner', 'admin', 'member']
+const INVITE_ROLE_VALUES: MemberRole[] = ['admin', 'member']
+const CEILING_MODES: AutonomyMode[] = ['manual', 'assisted', 'autonomous']
 
 /** Showcase orb pool for the hire-agents banner (pick four at random per visit). */
 const MARKETPLACE_BANNER_POOL: AgentAvatarProps[] = [
@@ -478,6 +481,21 @@ export default function MemberManagement({
     }
   }
 
+  const changeAgentCeiling = async (agent: OverviewAgent, level: AutonomyMode) => {
+    if (!canManageMembers || agent.deactivated) return
+    if (normalizeAutonomy(agent.autonomy_level) === level) return
+    setRowBusyId(agent.id)
+    setError(null)
+    try {
+      await saveAgentRules(agent.id, { autonomyLevel: level })
+      onChanged?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('teamPage.saveError'))
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
   const reactivateAgent = async (agent: OverviewAgent) => {
     if (!token || !canManageMembers) return
     if (!(await confirm({ description: t('membersPage.reactivateConfirm', { name: agent.name }) }))) return
@@ -649,20 +667,18 @@ export default function MemberManagement({
 
       <Card
         id="agent-marketplace"
-        className={cn(AI_CARD_CLASS, 'overflow-hidden p-0 scroll-mt-24')}
+        className="relative overflow-hidden p-0 scroll-mt-24"
         data-testid="agent-marketplace-banner"
       >
-        <div className="flex flex-wrap items-center gap-4 px-5 py-4 sm:gap-6">
+        <AmbientSpotlights />
+        <div className="relative z-[1] flex flex-wrap items-center gap-4 px-5 py-4 sm:gap-6">
           <div className="flex items-center gap-1.5" aria-hidden>
             {marketplaceBannerAgents.map((agent, index) => (
               <AiAvatar key={agent.name ?? index} {...agent} size={44} decorative mode="static" />
             ))}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium text-text-heading">{t('membersPage.hireAgentsTitle')}</p>
-              <Badge size="sm" variant="neutral">{t('membersPage.hireAgentsSoon')}</Badge>
-            </div>
+            <p className="text-sm font-medium text-text-heading">{t('membersPage.hireAgentsTitle')}</p>
             <p className="mt-0.5 text-xs text-text-muted">{t('membersPage.hireAgentsBody')}</p>
           </div>
           <Button asChild variant="ai" className="shrink-0">
@@ -791,7 +807,7 @@ export default function MemberManagement({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={memberTypeTone('human')}>{t('membersPage.typePerson')}</Badge>
+                        <span className="text-sm text-text-secondary">{t('membersPage.typePerson')}</span>
                       </TableCell>
                       <TableCell>
                         {canEditMemberRow(m) && m.isActive ? (
@@ -890,7 +906,7 @@ export default function MemberManagement({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="neutral">{t('membersPage.typeInvite')}</Badge>
+                        <span className="text-sm text-text-secondary">{t('membersPage.typePerson')}</span>
                       </TableCell>
                       <TableCell>
                         <Badge variant={roleTone(inv.role)}>{t(`membersPage.roles.${inv.role}`)}</Badge>
@@ -945,6 +961,7 @@ export default function MemberManagement({
                 }
 
                 const agent = row.data
+                const functionColor = agentProfileAccentColor(resolveAgentAvatarColor(agent.avatar_color))
                 const teams = agentTeamLabels(agent.team_ids)
                 const deactivated = Boolean(agent.deactivated)
                 const agentStatus = asAgentStatus(agent.status)
@@ -963,16 +980,40 @@ export default function MemberManagement({
                           mode="static"
                           activity={deactivated ? undefined : agentStatus}
                         />
-                        <span className="font-medium text-text-primary">{agent.name}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate-fade font-medium text-text-primary">{agent.name}</span>
+                          <span className="block truncate-fade text-xs font-medium" style={{ color: functionColor }}>
+                            {agentFunctionLabel(agent, t)}
+                          </span>
+                        </span>
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={memberTypeTone('agent')}>{t('membersPage.typeAgent')}</Badge>
+                      <span className="text-sm font-medium text-ai">{t('membersPage.typeAgent')}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="neutral">
-                        {agentAutonomyLevelLabel(agent.autonomy_level, t)}
-                      </Badge>
+                      {canManageMembers && !deactivated ? (
+                        <Select
+                          value={normalizeAutonomy(agent.autonomy_level)}
+                          onValueChange={(value) => void changeAgentCeiling(agent, value as AutonomyMode)}
+                          disabled={busy}
+                        >
+                          <SelectTrigger className="h-7 w-[130px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CEILING_MODES.map((mode) => (
+                              <SelectItem key={mode} value={mode}>
+                                {t(`teamPage.ceiling.${mode}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="neutral">
+                          {agentAutonomyLevelLabel(agent.autonomy_level, t)}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-text-secondary">
                       {teams.length ? teams.join(', ') : '-'}

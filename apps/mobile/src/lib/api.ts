@@ -321,14 +321,6 @@ export const addNote = (id: string, bodyText: string, attachments?: Attachment[]
 
 export type ResolveAction = 'approved' | 'rejected' | 'deferred'
 
-export type SavedReply = {
-  id: string
-  title: string
-  body_text: string
-}
-
-export const listSavedReplies = () => apiGet<SavedReply[]>('/api/signals/saved-replies')
-
 export const draftThreadReply = (id: string, instruction = '') =>
   apiPost<{ draft?: string }>(`/api/signals/${id}/draft`, { instruction })
 

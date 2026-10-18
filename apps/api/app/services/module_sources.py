@@ -552,9 +552,20 @@ async def create_tenant_source(
     clean_url = (url or "").strip()
     if not clean_url.startswith("http://") and not clean_url.startswith("https://"):
         raise ValueError("URL must start with http:// or https://")
+    from app.models.module_install import ModuleInstall
+
+    install = (
+        await session.execute(
+            select(ModuleInstall).where(
+                ModuleInstall.tenant_id == tenant_id,
+                ModuleInstall.module_slug == module_slug,
+            )
+        )
+    ).scalar_one_or_none()
     row = ModuleSource(
         tenant_id=tenant_id,
         module_slug=module_slug,
+        department_id=install.department_id if install else None,
         kind="web",
         origin="tenant",
         title=(title or "").strip() or clean_url,
@@ -633,6 +644,13 @@ async def index_source(session: AsyncSession, source_id: UUID) -> ModuleSource:
             created_by_type="system",
             created_by_id="module_source",
         )
+        if row.department_id is not None:
+            from app.services.module_department import require_one_scope
+
+            require_one_scope(department_id=row.department_id, agent_id=None)
+            doc.department_id = row.department_id
+            doc.agent_id = None
+            session.add(doc)
         from app.models.workspace import DocChunk
 
         chunks = (
@@ -718,23 +736,40 @@ async def search_module_sources(
 ) -> list[dict[str, Any]]:
     from app.services.workspace import hybrid_search
 
+    from app.models.module_install import ModuleInstall
+
+    install = (
+        await session.execute(
+            select(ModuleInstall).where(
+                ModuleInstall.tenant_id == tenant_id,
+                ModuleInstall.module_slug == module_slug,
+            )
+        )
+    ).scalar_one_or_none()
+    source_filter = [
+        ModuleSource.tenant_id == tenant_id,
+        ModuleSource.module_slug == module_slug,
+        ModuleSource.status == "ready",
+        ModuleSource.workspace_doc_id.is_not(None),
+    ]
+    if install is not None and install.department_id is not None:
+        source_filter.append(ModuleSource.department_id == install.department_id)
     doc_ids = {
         str(row.workspace_doc_id)
         for row in (
-            await session.execute(
-                select(ModuleSource).where(
-                    ModuleSource.tenant_id == tenant_id,
-                    ModuleSource.module_slug == module_slug,
-                    ModuleSource.status == "ready",
-                    ModuleSource.workspace_doc_id.is_not(None),
-                )
-            )
+            await session.execute(select(ModuleSource).where(*source_filter))
         ).scalars().all()
         if row.workspace_doc_id
     }
     if not doc_ids:
         return []
-    hits = await hybrid_search(session, tenant_id, query, top_k=top_k * 4)
+    hits = await hybrid_search(
+        session,
+        tenant_id,
+        query,
+        top_k=top_k * 4,
+        department_id=install.department_id if install else None,
+    )
     filtered: list[dict[str, Any]] = []
     for hit in hits or []:
         if str(hit.get("doc_id") or "") in doc_ids:

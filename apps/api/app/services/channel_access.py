@@ -2,12 +2,12 @@
 
 Stored on ``ChannelAccount.settings_json`` under ``access`` in the shared
 ``access_list`` shape with levels ``view`` < ``handle``. No list means
-everyone: All people and All agents may handle the channel. Owners and
-admins always handle every channel.
+everyone (the All department). Owners and admins always handle every channel.
 
 ``view`` lets someone read the channel's conversations; ``handle`` also lets
 them reply, take ownership and receive its conversations. For agents, a
-missing entry means the agent may not act on the channel at all.
+missing entry means the agent may not act on the channel at all — except when
+the list is the default (everyone).
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.channel import ChannelAccount
-from app.models.team import SYSTEM_TEAM_KINDS, TEAM_KIND_AGENTS, TEAM_KIND_PEOPLE
 from app.services.access_list import (
     ACCESS_KINDS,
     UNRESTRICTED_ROLES,
@@ -31,6 +30,7 @@ from app.services.access_list import (
     user_principal,
     validate_entries,
 )
+from app.services.teams import ensure_all_department
 
 __all__ = [
     "ACCESS_KINDS",
@@ -42,11 +42,6 @@ __all__ = [
 ]
 
 ACCESS_LEVELS = ("view", "handle")
-
-DEFAULT_ACCESS: list[dict[str, str]] = [
-    {"kind": "team", "id": TEAM_KIND_PEOPLE, "level": "handle"},
-    {"kind": "team", "id": TEAM_KIND_AGENTS, "level": "handle"},
-]
 
 
 def _settings(account: ChannelAccount) -> dict[str, Any]:
@@ -63,18 +58,25 @@ def _legacy_access(settings: dict[str, Any]) -> list[dict[str, str]] | None:
     if not isinstance(raw, dict) or raw.get("mode") != "selected":
         return None
     users = raw.get("user_ids") if isinstance(raw.get("user_ids"), list) else []
-    entries = [{"kind": "user", "id": str(u), "level": "handle"} for u in users if u]
-    entries.append({"kind": "team", "id": TEAM_KIND_AGENTS, "level": "handle"})
-    return entries
+    return [{"kind": "user", "id": str(u), "level": "handle"} for u in users if u]
+
+
+async def default_access(session: AsyncSession, tenant_id: UUID) -> list[dict[str, str]]:
+    root = await ensure_all_department(session, tenant_id)
+    return [{"kind": "department", "id": str(root.id), "level": "handle"}]
 
 
 def account_access(account: ChannelAccount) -> list[dict[str, str]]:
-    """Normalized access list for a channel (never raises)."""
+    """Normalized access list for a channel (never raises).
+
+    When nothing is stored, returns an empty list — callers treat that as
+    default/everyone via ``is_default_access``.
+    """
     settings = _settings(account)
     entries = normalize_entries(settings.get("access"), ACCESS_LEVELS)
     if entries is None:
         legacy = _legacy_access(settings)
-        return legacy if legacy is not None else [dict(e) for e in DEFAULT_ACCESS]
+        return legacy if legacy is not None else []
     return entries
 
 
@@ -96,10 +98,21 @@ async def set_account_access(
             session, account.tenant_id, entries, ACCESS_LEVELS
         )
     account.settings_json = json.dumps(settings)
+    from app.services.setup_links import replace_resource_grants
+
+    await replace_resource_grants(
+        session,
+        account.tenant_id,
+        "channel",
+        settings.get("access") if isinstance(settings.get("access"), list) else [],
+        channel_account_id=account.id,
+    )
 
 
 def access_level(account: ChannelAccount, principal: Principal) -> str | None:
     """``handle``, ``view`` or None for this principal on this channel."""
+    if principal.unrestricted or is_default_access(account):
+        return "handle"
     return best_level(account_access(account), principal, ACCESS_LEVELS)
 
 
@@ -181,10 +194,16 @@ async def agents_that_can_handle(
 
 async def handler_user_ids(session: AsyncSession, account: ChannelAccount) -> set[UUID] | None:
     """People who may handle the channel besides owners/admins. None = everyone."""
-    from app.services.teams import get_team, team_user_ids
+    from app.services.teams import all_department, get_team, team_user_ids
 
+    if is_default_access(account):
+        return None
     entries = account_access(account)
-    if any(e["kind"] == "team" and e["id"] == TEAM_KIND_PEOPLE and e["level"] == "handle" for e in entries):
+    root = await all_department(session, account.tenant_id)
+    if any(
+        e["kind"] == "department" and e["id"] == str(root.id) and e["level"] == "handle"
+        for e in entries
+    ):
         return None
     out: set[UUID] = set()
     for entry in entries:
@@ -192,8 +211,11 @@ async def handler_user_ids(session: AsyncSession, account: ChannelAccount) -> se
             continue
         if entry["kind"] == "user":
             out.add(UUID(entry["id"]))
-        elif entry["kind"] == "team" and entry["id"] not in SYSTEM_TEAM_KINDS:
-            team = await get_team(session, account.tenant_id, UUID(entry["id"]))
+        elif entry["kind"] == "department":
+            try:
+                team = await get_team(session, account.tenant_id, UUID(entry["id"]))
+            except ValueError:
+                continue
             if team is not None:
                 out.update(await team_user_ids(session, team))
     return out

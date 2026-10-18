@@ -69,7 +69,7 @@ async def test_archive_keeps_conversations_and_access(
     access = await client.put(
         f"/api/channels/accounts/{account.id}/access",
         headers=headers,
-        json={"entries": [{"kind": "team", "id": "agents", "level": "view"}]},
+        json={"entries": [{"kind": "department", "id": "agents", "level": "view"}]},
     )
     assert access.status_code == 200, access.text
     assert access.json()["is_default"] is False

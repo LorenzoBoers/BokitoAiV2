@@ -572,6 +572,9 @@ export default function AgendaPage() {
         <Button type="button" size="sm" variant="outline" onClick={() => setAnchor(new Date())}>
           {t('agendaPage.today')}
         </Button>
+        <Link to="/grid" className="text-xs text-text-muted underline">
+          {t('orgCanvas.link')}
+        </Link>
         <div className="flex">
           <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.previous')} onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}>
             <ChevronLeft className="h-4 w-4" aria-hidden />

@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.module_agent import AgentScope
 
-SCOPE_KINDS = ("project", "knowledge")
+SCOPE_KINDS = ("project", "knowledge", "connection")
 
 
 async def list_agent_scopes(
@@ -65,12 +65,19 @@ async def set_agent_scope(
         resource_id = str(entry.get("resource_id") or "").strip()
         if not resource_id:
             continue
+        connection_id = None
+        if resource_kind == "connection":
+            try:
+                connection_id = UUID(resource_id)
+            except ValueError:
+                continue
         session.add(
             AgentScope(
                 tenant_id=tenant_id,
                 agent_id=agent_id,
                 resource_kind=resource_kind,
                 resource_id=resource_id,
+                connection_id=connection_id,
                 can_write=bool(entry.get("can_write", True)),
             )
         )

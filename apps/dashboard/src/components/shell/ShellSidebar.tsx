@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
@@ -47,14 +47,6 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups)
   const [, setNewBadgeTick] = useState(0)
 
-  // Persist + re-render so temporary "New" badges clear after the area is opened.
-  useEffect(() => {
-    if (!activeTab) return
-    if (!isNewTab(activeTab)) return
-    markTabSeen(activeTab)
-    setNewBadgeTick((n) => n + 1)
-  }, [activeTab])
-
   const tabTitle = (tab: Tab) => t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
 
   const toggleGroup = (label: string) => {
@@ -89,12 +81,19 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const renderTab = (tab: Tab) => {
     const badge = badgeForTab(tab)
     const showNew = isNewTab(tab)
-    const newLabel = t('tabs.modules.newBadge', { defaultValue: 'New' })
+    const newLabel = t(`tabs.${tab}.newBadge`, { defaultValue: 'New' })
     return (
       <NavRowLink
         key={tab}
         to={pathForTab(tab)}
-        onClick={onNavigate}
+        onClick={() => {
+          // Clear New only when the operator picks the rail row (not on deep-link).
+          if (isNewTab(tab)) {
+            markTabSeen(tab)
+            setNewBadgeTick((n) => n + 1)
+          }
+          onNavigate?.()
+        }}
         icon={iconForTab(tab)}
         label={tabTitle(tab)}
         iconOnly={collapsed}

@@ -1113,15 +1113,14 @@ async def nav_badge_counts(
     from app.models.team import Team
     from app.services.time_items import due_for_user
 
-    from app.models.team import SYSTEM_TEAM_KINDS
     from app.services.trash import alive as team_alive
 
-    # Every custom team is a Communication folder (pin is no longer optional).
+    # Custom departments (not the All root) are Communication folders.
     sidebar_teams = (
         await session.execute(
             select(Team.id).where(
                 Team.tenant_id == tenant_id,
-                Team.kind.notin_(SYSTEM_TEAM_KINDS),
+                Team.parent_id.is_not(None),
                 team_alive(Team),
             )
         )
@@ -1132,9 +1131,9 @@ async def nav_badge_counts(
             open_status,
             hub_inbox,
             or_(
-                and_(Signal.turn_kind == "team", Signal.turn_ref_id == team_id),
+                and_(Signal.turn_kind == "department", Signal.turn_ref_id == team_id),
                 and_(
-                    Signal.assignee_kind == "team",
+                    Signal.assignee_kind == "department",
                     Signal.assignee_id == team_id,
                     unread,
                 ),
@@ -1280,8 +1279,8 @@ def _hub_predicate(user_id: UUID, *, include_runs: bool = False):
             and_(
                 Signal.channel == "internal",
                 or_(
-                    Signal.turn_kind.in_(("user", "team")),
-                    Signal.source.in_(("team", SCHEDULE_SOURCE)),
+                    Signal.turn_kind.in_(("user", "department")),
+                    Signal.source.in_(("department", SCHEDULE_SOURCE)),
                 ),
             )
         )
@@ -1342,8 +1341,8 @@ async def list_threads(
             return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
         query = query.where(
             or_(
-                and_(Signal.assignee_kind == "team", Signal.assignee_id == team_uuid),
-                and_(Signal.turn_kind == "team", Signal.turn_ref_id == team_uuid),
+                and_(Signal.assignee_kind == "department", Signal.assignee_id == team_uuid),
+                and_(Signal.turn_kind == "department", Signal.turn_ref_id == team_uuid),
             )
         )
 
@@ -2267,7 +2266,7 @@ async def patch_thread(
         assignee = (
             {"kind": "user", "id": assigned_to_user_id}
             if assigned_to_user_id
-            else {"kind": "team", "id": None}
+            else {"kind": "department", "id": None}
         )
     if assignee is not None:
         kind = str(assignee.get("kind") or "")
@@ -2333,7 +2332,7 @@ async def patch_thread(
     session.add(signal)
     self_pick = (
         owner_changed
-        and before_owner["kind"] == "team"
+        and before_owner["kind"] == "department"
         and signal.assignee_kind == "user"
         and signal.assigned_user_id == user_id
     )
@@ -3214,7 +3213,7 @@ _HANDLED_EXTERNALLY_TEXT = {
 def handled_externally_text(channel: str, name: str, *, language: str = "") -> str:
     lang = "nl" if str(language or "").lower().startswith("nl") else "en"
     key = channel if channel in HANDLED_EXTERNALLY_CHANNELS else "other"
-    return _HANDLED_EXTERNALLY_TEXT[lang][key].format(name=name or "team")
+    return _HANDLED_EXTERNALLY_TEXT[lang][key].format(name=name or "department")
 
 
 async def mark_handled_externally(

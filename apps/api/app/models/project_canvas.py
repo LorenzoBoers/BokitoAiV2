@@ -37,6 +37,9 @@ class ProjectCanvas(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     owner_kind: str = Field(default=OWNER_PROJECT, max_length=16, index=True)
     owner_id: uuid.UUID = Field(index=True)
     # Kept for project delete cascade and older queries; mirrors owner_id when owner_kind=project.

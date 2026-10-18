@@ -3,12 +3,12 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
-import { ArrowLeft, Loader2, MoreHorizontal, PauseCircle, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
-import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { Switch } from '../components/ui/switch'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
@@ -23,7 +23,6 @@ import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { flowActionTag, flowTitle } from '../lib/flow-title'
 import { useEntityRefresh } from '../lib/live-store'
-import { inboxPath } from '../lib/messages-paths'
 import { listSignalTags, updateSignalTag, type LabelColor, type SignalTag } from '../lib/signals-api'
 import type { FlowBoard, TicketStage, TicketStageKind } from '../lib/tickets-api'
 import { timeAgo } from '../lib/time-ago'
@@ -37,14 +36,13 @@ import {
 
 const CalendarClock = ENTITY_ICONS.agenda
 const FlowIcon = ENTITY_ICONS.flow
-const MessageSquare = ENTITY_ICONS.conversation
 
 const KIND_ORDER: TicketStageKind[] = ['open', 'waiting', 'done', 'closed']
 
 /**
  * A flow: the stage pipeline of one action tag. The live ticket board is the
- * page; admins rename stages and add one from the column row.
- * Projects attach flows from the project page; here they are only shown.
+ * page; admins rename stages and add one from the column row. Lanes are
+ * folders that share the flow's action tag.
  */
 export default function WorkstreamDetail() {
   const { t } = useTranslation('nav')
@@ -67,7 +65,6 @@ export default function WorkstreamDetail() {
   const [savingMeta, setSavingMeta] = useState(false)
   const [markOpen, setMarkOpen] = useState(false)
   const [savingMark, setSavingMark] = useState(false)
-  const [togglingEnabled, setTogglingEnabled] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [freeTags, setFreeTags] = useState<SignalTag[]>([])
@@ -200,19 +197,6 @@ export default function WorkstreamDetail() {
     }
   }
 
-  const toggleEnabled = async (checked: boolean) => {
-    if (!workstream) return
-    setTogglingEnabled(true)
-    try {
-      const updated = await patchWorkstream(workstream.id, { enabled: checked })
-      setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
-    } finally {
-      setTogglingEnabled(false)
-    }
-  }
-
   const confirmDelete = async () => {
     if (!workstream) return
     setDeleting(true)
@@ -291,13 +275,8 @@ export default function WorkstreamDetail() {
                         variant="secondary"
                         className="h-8 w-8 px-0 text-text-muted"
                         aria-label={t('workstreamsPage.moreActions')}
-                        disabled={togglingEnabled}
                       >
-                        {togglingEnabled ? (
-                          <Loader2 size={16} className="animate-spin" aria-hidden />
-                        ) : (
-                          <MoreHorizontal size={16} aria-hidden />
-                        )}
+                        <MoreHorizontal size={16} aria-hidden />
                       </Button>
                     </DropdownMenu.Trigger>
                     <DropdownMenu.Portal>
@@ -306,43 +285,17 @@ export default function WorkstreamDetail() {
                         sideOffset={4}
                         className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
                       >
-                        {workstream.enabled ? (
-                          <DropdownMenu.Item
-                            className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                            onSelect={() => void toggleEnabled(false)}
-                          >
-                            <PauseCircle size={14} />
-                            {t('workstreamsPage.deactivate')}
-                          </DropdownMenu.Item>
-                        ) : (
-                          <>
-                            <DropdownMenu.Item
-                              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
-                              onSelect={() => void toggleEnabled(true)}
-                            >
-                              <RotateCcw size={14} />
-                              {t('workstreamsPage.activate')}
-                            </DropdownMenu.Item>
-                            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
-                            <DropdownMenu.Item
-                              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                              onSelect={() => setDeleteOpen(true)}
-                            >
-                              <Trash2 size={14} />
-                              {t('workstreamsPage.delete')}
-                            </DropdownMenu.Item>
-                          </>
-                        )}
+                        <DropdownMenu.Item
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                          onSelect={() => setDeleteOpen(true)}
+                        >
+                          <Trash2 size={14} />
+                          {t('workstreamsPage.delete')}
+                        </DropdownMenu.Item>
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
                 ) : null}
-                <Badge
-                  variant={workstream.enabled ? 'success' : 'secondary'}
-                  className="h-8 px-3 text-xs"
-                >
-                  {workstream.enabled ? t('workstreamsPage.active') : t('workstreamsPage.deactivated')}
-                </Badge>
               </div>
             </div>
 
@@ -482,6 +435,7 @@ function FlowViewBody({
   onSaveStages: (stages: TicketStage[]) => Promise<void>
 }) {
   const { t } = useTranslation('nav')
+  const [showEmptyLanes, setShowEmptyLanes] = useState(false)
   if (boardError) return <ApiErrorBanner message={boardError} onRetry={onRetry} />
   if (!board) return <FlowTicketBoardSkeleton />
 
@@ -492,6 +446,9 @@ function FlowViewBody({
     .map((ticket) => ticket.last_message_at)
     .filter((at): at is string => Boolean(at))
     .sort()[0]
+  const emptyLaneCount = board.lanes.filter(
+    (lane) => !board.tickets.some((ticket) => (ticket.project_id ?? null) === lane.id),
+  ).length
 
   return (
     <section className="space-y-3">
@@ -506,16 +463,17 @@ function FlowViewBody({
           />
         ))}
         {idle ? <Stat label={t('workstreamsPage.stats.longestIdle')} value={timeAgo(idle, t)} /> : null}
+        {emptyLaneCount > 0 && board.tickets.length > 0 ? (
+          <label className="ml-auto inline-flex cursor-pointer items-center gap-2 text-xs text-text-muted">
+            <Switch
+              checked={showEmptyLanes}
+              onCheckedChange={setShowEmptyLanes}
+              aria-label={t('workstreamsPage.board.showEmptyLanes')}
+            />
+            <span>{t('workstreamsPage.board.showEmptyLanes')}</span>
+          </label>
+        ) : null}
       </div>
-      {board.tickets.length === 0 ? (
-        <p className="flex flex-wrap items-center gap-1.5 text-sm text-text-muted">
-          <MessageSquare size={14} aria-hidden />
-          {t('workstreamsPage.board.empty', { tag: tagName })}
-          <Link to={inboxPath('all')} className="font-medium text-accent hover:underline">
-            {t('workstreamsPage.board.openCommunication')}
-          </Link>
-        </p>
-      ) : null}
       <FlowTicketBoard
         board={board}
         canMove
@@ -523,6 +481,8 @@ function FlowViewBody({
         canEditStages={canEditStages}
         editStageKey={editStageKey}
         onSaveStages={onSaveStages}
+        showEmptyLanes={showEmptyLanes}
+        actionTag={tagName}
       />
     </section>
   )

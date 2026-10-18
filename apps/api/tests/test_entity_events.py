@@ -146,7 +146,7 @@ async def test_team_member_change_publishes_its_team(session_override: AsyncSess
     calls.clear()
 
     session_override.add(
-        TeamMember(tenant_id=tenant.id, team_id=team.id, member_kind="user")
+        TeamMember(tenant_id=tenant.id, department_id=team.id, member_kind="user")
     )
     await session_override.commit()
     await asyncio.sleep(0)

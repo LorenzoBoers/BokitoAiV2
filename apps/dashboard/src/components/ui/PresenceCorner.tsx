@@ -22,7 +22,7 @@ export function PresenceCorner({
       <span
         style={{ width: dot, height: dot }}
         className={cn(
-          'absolute -bottom-px -right-px rounded-full ring-2 ring-bg-surface',
+          'absolute -bottom-px -right-px rounded-full ring-2 ring-cutout',
           presenceDotClass(status),
         )}
       >

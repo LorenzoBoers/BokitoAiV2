@@ -161,7 +161,7 @@ async def test_assisted_agent_owns_then_hands_draft_to_people(client: AsyncClien
     await session_override.commit()
 
     assert handed["via"] == "assisted" and handed["reason"] == "draft_ready"
-    assert signal.assignee_kind in ("team", "user")
+    assert signal.assignee_kind in ("department", "user")
     assert signal.assignee_kind != "agent"
     assert not ai_handling.is_held(signal)
     assert await bounce_count(session_override, signal) == 0
@@ -177,7 +177,7 @@ async def test_manual_channel_routes_to_team_not_agent(client: AsyncClient, sess
     await route_new_conversation(session_override, signal, tenant=tenant, account=account)
     await session_override.commit()
 
-    assert signal.assignee_kind == "team"
+    assert signal.assignee_kind == "department"
     assert signal.assignee_team_id is not None
     assert not await agent_may_own(session_override, signal, agent=agent, tenant=tenant)
 
@@ -280,7 +280,7 @@ async def test_escalation_holds_routes_and_leaves_note(client: AsyncClient, sess
     assert result["bounce_limited"] is False
     assert signal.ai_handling == "manual"
     assert signal.ai_handling_reason == ai_handling.REASON_HANDOFF
-    assert signal.assignee_kind in ("user", "team")
+    assert signal.assignee_kind in ("user", "department")
     assert signal.has_unread is True
 
     handovers = await _events(session_override, signal, HANDOVER_EVENT)
@@ -617,7 +617,7 @@ def test_autonomous_gate_reason():
     other = uuid4()
     now = datetime(2026, 1, 1, 12, 0, 0)
 
-    team_owned = Signal(tenant_id=uuid4(), channel="email", assignee_kind="team")
+    team_owned = Signal(tenant_id=uuid4(), channel="email", assignee_kind="department")
     assert autonomous_gate_reason(team_owned, agent, now=now) == "not_owner"
 
     other_agent = Signal(tenant_id=uuid4(), channel="email", assignee_kind="agent", agent_id=other)
@@ -658,7 +658,7 @@ async def test_reopen_same_owner_falls_back_when_owner_left(client: AsyncClient,
     changed = await apply_reopen_policy(session_override, tenant, signal, account=account, contact=None)
     await session_override.commit()
     assert changed is True
-    assert signal.assignee_kind == "team"
+    assert signal.assignee_kind == "department"
     events = await _events(session_override, signal, "auto_assigned")
     assert events[-1]["reason"] == "reopened"
 

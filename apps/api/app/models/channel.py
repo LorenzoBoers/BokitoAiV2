@@ -39,6 +39,11 @@ class ChannelAccount(SQLModel, table=True):
     default_agent_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="agents.id", index=True
     )
+    # Routing owner. Kept in step with settings_json.routing.
+    routing_department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
+    routing_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     # Archived channels keep their conversations and access list but never
     # sync, receive or send; see services/channel_lifecycle.py.
     archived_at: Optional[datetime] = Field(default=None, index=True)
@@ -85,9 +90,11 @@ class Contact(SQLModel, table=True):
     # Contact owner (account manager): new conversations from this contact go
     # to this person or team unless the agent may answer autonomously, and the
     # escalation chain returns here after the last human owner.
-    owner_kind: str = Field(default="")  # user | team | ""
+    owner_kind: str = Field(default="")  # user | department | ""
     owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-    owner_team_id: Optional[uuid.UUID] = Field(default=None, foreign_key="teams.id", index=True)
+    owner_department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     merged_into_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="contacts.id", index=True
     )

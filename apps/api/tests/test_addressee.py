@@ -66,8 +66,8 @@ async def test_auto_route_goes_to_owner_team(client: AsyncClient, session_overri
     tenant, _ = await _tenant_and_user(session_override)
     signal = await _thread(session_override, tenant)
     decision = await _decide(session_override, tenant, signal)
-    assert (decision.addressee_kind, decision.addressee_team_id, decision.routed_by) == (
-        "team",
+    assert (decision.addressee_kind, decision.addressee_department_id, decision.routed_by) == (
+        "department",
         signal.assignee_team_id,
         "auto",
     )
@@ -76,7 +76,7 @@ async def test_auto_route_goes_to_owner_team(client: AsyncClient, session_overri
     assert notification.signal_id == signal.id
     assert notification.tier == 1
     await session_override.refresh(signal)
-    assert (signal.turn_kind, signal.turn_reason) == ("team", "question")
+    assert (signal.turn_kind, signal.turn_reason) == ("department", "question")
 
 
 @pytest.mark.asyncio
@@ -101,7 +101,7 @@ async def test_away_person_is_skipped(client: AsyncClient, session_override: Asy
     user.away = True
     await session_override.commit()
     decision = await _decide(session_override, tenant, signal)
-    assert decision.addressee_kind == "team"
+    assert decision.addressee_kind == "department"
 
 
 @pytest.mark.asyncio
@@ -111,13 +111,13 @@ async def test_agent_fixed_target_wins(client: AsyncClient, session_override: As
     tenant, user = await _tenant_and_user(session_override)
     team = await create_team(session_override, tenant.id, name="Billing")
     await session_override.commit()
-    agent = await _agent(session_override, tenant, ask_target={"kind": "team", "id": str(team.id)})
+    agent = await _agent(session_override, tenant, ask_target={"kind": "department", "id": str(team.id)})
     signal = await _thread(session_override, tenant)
     signal.assigned_user_id = user.id
     await session_override.commit()
     decision = await _decide(session_override, tenant, signal, agent_id=agent.id)
-    assert (decision.addressee_kind, decision.addressee_team_id, decision.routed_by) == (
-        "team",
+    assert (decision.addressee_kind, decision.addressee_department_id, decision.routed_by) == (
+        "department",
         team.id,
         "fixed",
     )
@@ -132,10 +132,10 @@ async def test_explicit_to_by_team_name(client: AsyncClient, session_override: A
     team = await create_team(session_override, tenant.id, name="Finance")
     await session_override.commit()
     target = await parse_target(session_override, tenant.id, "team:finance")
-    assert target == {"kind": "team", "id": str(team.id)}
+    assert target == {"kind": "department", "id": str(team.id)}
     signal = await _thread(session_override, tenant)
     decision = await _decide(session_override, tenant, signal, to=target)
-    assert (decision.addressee_team_id, decision.routed_by) == (team.id, "fixed")
+    assert (decision.addressee_department_id, decision.routed_by) == (team.id, "fixed")
 
 
 @pytest.mark.asyncio
@@ -150,10 +150,10 @@ async def test_agent_ask_target_via_api(client: AsyncClient, session_override: A
     r = await client.patch(
         f"/api/workforce/agents/{agent.id}",
         headers=headers,
-        json={"ask_target": {"kind": "team", "id": str(team.id)}},
+        json={"ask_target": {"kind": "department", "id": str(team.id)}},
     )
     assert r.status_code == 200, r.text
-    assert r.json()["agent"]["ask_target"] == {"kind": "team", "id": str(team.id)}
+    assert r.json()["agent"]["ask_target"] == {"kind": "department", "id": str(team.id)}
     r = await client.patch(
         f"/api/workforce/agents/{agent.id}", headers=headers, json={"ask_target": {"kind": "auto"}}
     )

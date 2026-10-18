@@ -647,7 +647,7 @@ def on_assignment_change(
     reason = signal.ai_handling_reason or ""
     if signal.assignee_kind == "agent" and is_held(signal):
         release_conversation(session, signal, reason="assigned_to_agent", actor_id=actor_id, via="assign")
-    elif signal.assignee_kind == "team" and reason == REASON_ASSIGNED:
+    elif signal.assignee_kind == "department" and reason == REASON_ASSIGNED:
         release_conversation(session, signal, reason="unassigned", actor_id=actor_id, via="assign")
     elif signal.assignee_kind == "user" and reason == REASON_ASSIGNED:
         # Legacy hold from before owner and AI handling were separated.
@@ -779,7 +779,7 @@ async def set_ai_handling(
         if assign_to_me is not None and mode == "manual":
             from app.services.ownership import picked_up_event, set_owner
 
-            if signal.assignee_kind == "team":
+            if signal.assignee_kind == "department":
                 session.add(
                     await picked_up_event(session, signal, assign_to_me, signal.assignee_team_id, via="take_over")
                 )
@@ -810,8 +810,8 @@ async def set_ai_handling(
                 # shows in the queue instead of staying on their plate.
                 from app.services.ownership import resolve_assignee, set_owner
 
-                team_id = await resolve_assignee(session, tenant.id, signal, "team", None)
-                set_owner(signal, "team", team_id, by_user_id=actor_uuid)
+                team_id = await resolve_assignee(session, tenant.id, signal, "department", None)
+                set_owner(signal, "department", team_id, by_user_id=actor_uuid)
         signal.updated_at = datetime.utcnow()
         session.add(signal)
         affected = [signal]

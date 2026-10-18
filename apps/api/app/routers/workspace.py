@@ -42,6 +42,8 @@ class SearchBody(BaseModel):
     query: str
     top_k: int = 8
     source_types: list[str] | None = None
+    department_id: UUID | None = None
+    agent_id: UUID | None = None
 
 
 class SectionCreateBody(BaseModel):
@@ -402,5 +404,7 @@ async def search_workspace(
         body.query,
         top_k=max(1, min(body.top_k, 40)),
         source_types=body.source_types,
+        department_id=body.department_id,
+        agent_id=body.agent_id,
     )
     return {"results": results}

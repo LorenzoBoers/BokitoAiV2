@@ -27,7 +27,6 @@ describe('restoredEntityPath', () => {
 
   it('returns null for kinds without a page', () => {
     expect(restoredEntityPath('inbox_rule', 'r1')).toBeNull()
-    expect(restoredEntityPath('saved_reply', 's1')).toBeNull()
   })
 
   it('opens a restored team on its Communication folder', () => {

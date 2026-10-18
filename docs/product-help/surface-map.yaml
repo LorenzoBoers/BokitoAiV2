@@ -109,15 +109,21 @@ team:
   section: getting-started
   routes:
     - /team
+    - /grid
     - /settings/members
     - /settings/teams
   code_globs:
     - apps/dashboard/src/pages/TeamPage.tsx
+    - apps/dashboard/src/pages/OrgCanvasPage.tsx
+    - apps/dashboard/src/components/org/**
     - apps/dashboard/src/pages/MemberManagement.tsx
     - apps/dashboard/src/lib/teams-api.ts
+    - apps/dashboard/src/lib/navigation.ts
     - apps/dashboard/src/components/ui/PresenceDot.tsx
     - apps/api/app/routers/teams.py
+    - apps/api/app/routers/org_graph.py
     - apps/api/app/services/teams.py
+    - apps/api/app/services/org_graph.py
     - apps/api/app/services/presence.py
     - apps/api/app/services/distribution.py
     - apps/api/app/services/team_metrics.py

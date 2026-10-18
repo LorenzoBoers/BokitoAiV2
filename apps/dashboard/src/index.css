@@ -36,6 +36,8 @@
     --color-bg-elevated: 30 30 33;
     --color-bg-hover: 38 38 42;
     --color-bg-input: 30 30 33;
+    /* Avatar and status-dot cutout. Follows the surface behind the mark. */
+    --color-cutout: var(--color-bg);
     --color-border: 44 44 49;
     --color-border-light: 62 62 68;
     --color-border-focus: 50 191 142;
@@ -277,6 +279,19 @@
    */
   .panel {
     @apply bg-bg-surface border border-border/70 rounded-lg;
+    --color-cutout: var(--color-bg-surface);
+  }
+  .bg-bg-surface {
+    --color-cutout: var(--color-bg-surface);
+  }
+  .bg-bg-elevated {
+    --color-cutout: var(--color-bg-elevated);
+  }
+  .bg-bg,
+  .bg-bg-sidebar,
+  .bg-bg-canvas,
+  .cutout-bg {
+    --color-cutout: var(--color-bg);
   }
   /* Light: sheets float on the grey chrome (dark keeps the flat hairline). */
   :root[data-theme='light'] .panel {
@@ -321,6 +336,7 @@
   .nav-row[data-active='true'],
   .nav-row[aria-current='page'] {
     @apply bg-bg-hover text-text-heading font-medium;
+    --color-cutout: var(--color-bg-hover);
   }
   .nav-row > svg {
     @apply h-4 w-4 shrink-0 text-text-muted;
@@ -832,31 +848,22 @@
   }
   /*
    * Facepile cutout: follow the silhouette (not a circle) with a ~2px
-   * surface edge so overlapping orbs separate like user rings.
+   * edge in `--color-cutout`, the surface behind the pile.
    */
-  .bot-orb--stack {
-    /* ~1px surface edge — closer to the people facepile ring weight. */
-    filter:
-      drop-shadow(1px 0 0 rgb(var(--color-bg-surface)))
-      drop-shadow(-1px 0 0 rgb(var(--color-bg-surface)))
-      drop-shadow(0 1px 0 rgb(var(--color-bg-surface)))
-      drop-shadow(0 -1px 0 rgb(var(--color-bg-surface)))
-      drop-shadow(0.7px 0.7px 0 rgb(var(--color-bg-surface)))
-      drop-shadow(-0.7px 0.7px 0 rgb(var(--color-bg-surface)))
-      drop-shadow(0.7px -0.7px 0 rgb(var(--color-bg-surface)))
-      drop-shadow(-0.7px -0.7px 0 rgb(var(--color-bg-surface)));
+  .bot-orb--on-bg {
+    --color-cutout: var(--color-bg);
   }
-  /* Cutout that matches the page background (thread header), not a card. */
-  .bot-orb--stack.bot-orb--on-bg {
+  .bot-orb--stack {
+    /* ~1px edge in the surface behind the pile, so the overlap reads as a cutout. */
     filter:
-      drop-shadow(1px 0 0 rgb(var(--color-bg)))
-      drop-shadow(-1px 0 0 rgb(var(--color-bg)))
-      drop-shadow(0 1px 0 rgb(var(--color-bg)))
-      drop-shadow(0 -1px 0 rgb(var(--color-bg)))
-      drop-shadow(0.7px 0.7px 0 rgb(var(--color-bg)))
-      drop-shadow(-0.7px 0.7px 0 rgb(var(--color-bg)))
-      drop-shadow(0.7px -0.7px 0 rgb(var(--color-bg)))
-      drop-shadow(-0.7px -0.7px 0 rgb(var(--color-bg)));
+      drop-shadow(1px 0 0 rgb(var(--color-cutout)))
+      drop-shadow(-1px 0 0 rgb(var(--color-cutout)))
+      drop-shadow(0 1px 0 rgb(var(--color-cutout)))
+      drop-shadow(0 -1px 0 rgb(var(--color-cutout)))
+      drop-shadow(0.7px 0.7px 0 rgb(var(--color-cutout)))
+      drop-shadow(-0.7px 0.7px 0 rgb(var(--color-cutout)))
+      drop-shadow(0.7px -0.7px 0 rgb(var(--color-cutout)))
+      drop-shadow(-0.7px -0.7px 0 rgb(var(--color-cutout)));
   }
   /* Same silhouette cutout, in accent, for whoever holds the thread floor. */
   .bot-orb--stack.bot-orb--floor {
@@ -1434,15 +1441,20 @@
     opacity: 0.9;
   }
 
-  /* #tags — paper surface (white in light), same family as TagPill. */
+  /* #tags — the pill is the chip. No second surface around it. */
   .chat-tag-chip {
-    color: rgb(var(--color-text-heading));
-    background: rgb(var(--color-bg-surface));
-    box-shadow: inset 0 0 0 1px rgb(var(--color-border) / 0.5);
+    display: inline-flex;
+    align-items: center;
+    margin: 0.12em 0.28em 0.12em 0;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    box-shadow: none;
+    vertical-align: middle;
     letter-spacing: -0.01em;
   }
   .chat-tag-chip:hover {
-    background: rgb(var(--color-bg-elevated));
+    background: transparent;
   }
   /* Action tags keep their TagPill wash; do not force accent green. */
   .chat-tag-chip[data-tag-kind='action_tag'] {
@@ -1455,14 +1467,19 @@
   }
 
   /* Chips inside the operator's own (accent-filled) bubble. */
-  .chat-bubble-self :is(.chat-tag-chip, .mention-chip, .md-app-link),
-  .chat-bubble-self .chat-tag-chip[data-tag-kind='action_tag'],
+  .chat-bubble-self :is(.mention-chip, .md-app-link),
   .chat-bubble-self .mention-chip[data-mention-type='agent'] {
     color: rgb(var(--color-accent-fg));
     background: rgb(255 255 255 / 0.18);
   }
-  .chat-bubble-self :is(.chat-tag-chip, .mention-chip, .md-app-link):hover {
+  .chat-bubble-self :is(.mention-chip, .md-app-link):hover {
     background: rgb(255 255 255 / 0.26);
+  }
+  .chat-bubble-self .chat-tag-chip,
+  .chat-bubble-self .chat-tag-chip[data-tag-kind='action_tag'] {
+    color: inherit;
+    background: transparent;
+    box-shadow: none;
   }
   .chat-bubble-self .md-app-link .md-app-link-icon {
     color: inherit;

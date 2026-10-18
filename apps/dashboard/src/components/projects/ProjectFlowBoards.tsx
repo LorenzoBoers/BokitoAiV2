@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { toast } from 'sonner'
-import { Badge } from '../ui/badge'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Hashtag } from '../ui/HashtagMark'
 import { TableRowsSkeleton } from '../ui/skeleton'
@@ -152,11 +151,6 @@ function FlowBoardView({
           <Workflow size={14} className="text-text-muted" aria-hidden />
           <Hashtag name={board.tags[0]?.name || board.name} category />
         </Link>
-        {!board.enabled ? (
-          <Badge variant="outline" className="px-1.5 py-0 text-2xs text-text-muted">
-            {t('workstreamsPage.deactivated')}
-          </Badge>
-        ) : null}
         <span className="text-2xs tabular-nums text-text-muted">{board.tickets.length}</span>
       </header>
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>

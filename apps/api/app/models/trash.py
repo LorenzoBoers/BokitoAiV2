@@ -19,7 +19,6 @@ RESOURCE_TYPES = (
     "trigger",
     "team",
     "inbox_rule",
-    "saved_reply",
     "project_resource",
     "queue_item",
 )

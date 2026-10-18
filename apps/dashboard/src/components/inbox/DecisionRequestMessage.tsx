@@ -429,7 +429,7 @@ export default function DecisionRequestMessage({
     }
     const team = teams.find((tm) => tm.id === addressee.id)
     if (!team) return null
-    return team.kind === 'people' ? t('nav:teamPage.system.people') : team.name
+    return team.system ? t('nav:teamPage.system.all') : team.name
   }, [addressee, members, teams, t])
   const draftBody = useMemo(() => {
     if (toolCopy) return toolCopy.summary

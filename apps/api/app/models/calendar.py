@@ -23,6 +23,9 @@ class TenantCalendar(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     connection_id: uuid.UUID = Field(foreign_key="integration_connections.id", index=True)
     external_id: str = Field(default="", index=True)
     name: str = ""

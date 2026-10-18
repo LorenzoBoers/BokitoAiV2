@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import Index, text
 from sqlmodel import Field, SQLModel
@@ -29,6 +30,9 @@ class IntegrationConnection(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     kind: str = Field(default="integration", index=True)
     provider: str = Field(index=True)
     display_name: str = ""

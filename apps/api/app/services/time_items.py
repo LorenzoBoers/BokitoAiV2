@@ -192,8 +192,8 @@ class _Names:
             return "user", str(signal.assigned_user_id), self.users.get(signal.assigned_user_id)
         if kind == "agent" and signal.agent_id:
             return "agent", str(signal.agent_id), self.agents.get(signal.agent_id)
-        if kind == "team" and signal.assignee_team_id:
-            return "team", str(signal.assignee_team_id), self.teams.get(signal.assignee_team_id)
+        if kind == "department" and signal.assignee_team_id:
+            return "department", str(signal.assignee_team_id), self.teams.get(signal.assignee_team_id)
         return None, None, None
 
     def payload_owner(self, raw: Any) -> str:
@@ -201,7 +201,7 @@ class _Names:
         if not isinstance(raw, dict):
             return ""
         kind = raw.get("kind")
-        table = {"user": self.users, "agent": self.agents, "team": self.teams}.get(kind or "", {})
+        table = {"user": self.users, "agent": self.agents, "department": self.teams}.get(kind or "", {})
         ref = _uuid(raw.get(f"{kind}_id"))
         return table.get(ref, "") if ref else ""
 

@@ -1,7 +1,7 @@
 ---
 title: How Flows work
 intro: A flow belongs to exactly one label. The list and page show a title with that label (`#klacht`) beside it, and a live board of its tickets with a lane per project. The label is colored only while the flow exists.
-description: Create a flow for a label, follow its tickets per stage and project, edit or add stages on the board, and deactivate or delete it.
+description: Create a flow for a label, follow its tickets per stage and folder lane, edit or add stages on the board, and delete it.
 keywords: flows, workstreams, playbooks, stages, owner, check-up, pipeline, tickets, hashtags, labels, projects, board, lanes
 sort: 45
 related: categories,folders,agenda,agents,knowledge
@@ -25,7 +25,8 @@ A flow is the pipeline for work that comes back under one label: a complaint, a 
 1. Open a flow. The label sits beside the title. Admins click that pill to pick a color and an icon; it stays a pill, with a colored icon tile to the left of the name. Under that you see counts such as **Open tickets** and **Longest idle**, and the projects the flow is **Used in**.
 2. The board has a column per stage and a lane per project, plus **No project** for tickets filed without one. Collapse a lane with its header, or choose **Open project** to go to that project.
 3. A card shows the conversation title, contact, up to two intake fields, the channel, the time of the last message, the assignee and the next check-up. Click a card to open the conversation.
-4. Drag a card to another stage in the same lane. The move shows in the conversation's timeline; the project only changes from the conversation. If the target stage has required fields that are still empty, a dialog asks for them first and the card stays put until they are filled.
+4. When stages define intake fields, a **Filter** row above the board lets you narrow tickets by those values (choice lists pick an option; text and number match what is on the ticket). **Clear filters** restores the full board; column counts follow the filter.
+5. Drag a card to another stage in the same lane. The move shows in the conversation's timeline; the project only changes from the conversation. If the target stage has required fields that are still empty, a dialog asks for them first and the card stays put until they are filled.
 
 ## Edit stages on the board
 
@@ -34,16 +35,15 @@ A flow is the pipeline for work that comes back under one label: a complaint, a 
 3. Hover the headers and a plus appears in each gap. One click inserts a stage of the same kind as the column on the left, named after that kind until you rename it. **Add stage** on the right adds another stage of the last column's kind. Not started never sits after Active, and Done never sits before Active. Every flow starts with Not started, Active and Done.
 4. In **Intake fields** you add text, long text, number or choice-list fields, and pick an **Owner** and a **Check-up**. On a done stage, turn on **Auto-close conversation** when entering it should close the thread. Fields on the first stage are asked when someone files the label. Required fields on a later stage must be filled before a ticket can enter that stage. **Save** in that dialog writes the stage immediately. Done stages never check up; a check-up shows on [Agenda](/docs/ai/agenda) for the owner.
 
-## Show the flow on a project
+## Folders and lanes on the flow board
 
-1. Projects pick their flows. Open the [project](/docs/ai/folders) and choose **Add flow**. On **Flows**, each row shows the projects it is used on as folder chips; a chip opens that project, the rest of the row opens the flow.
-2. **Unlink** on a project board removes the flow from that project. Its tickets keep their project but leave that board.
-3. Filing a ticket asks which of the flow's projects it belongs to, or **No project**.
+1. A folder becomes a lane on the flow when that folder's labels include the flow's action tag. On **Flows**, each row shows those shared folders as chips; a chip opens that folder, the rest of the row opens the flow.
+2. Empty lanes (folders with no tickets yet) stay hidden. Turn on **Show empty folders** on the flow page to see them.
+3. On a [folder](/docs/ai/folders), a flow appears under **Flows** once a conversation in that folder (or a nested folder) has the flow's label filed as a ticket.
 
-## Deactivate or delete a flow
+## Delete a flow
 
-1. Choose **Deactivate** at the top right to stop new work on the flow. Its status shows **Deactivated**.
-2. A deactivated flow shows **Activate** and **Delete**. Delete moves it to the trash; it is not available while the flow is active.
+1. Open the ··· menu at the top right and choose **Delete**. Delete moves the flow to the trash.
 
 ## What to do next
 

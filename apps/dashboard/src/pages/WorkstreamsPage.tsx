@@ -11,7 +11,6 @@ const Workflow = ENTITY_ICONS.flow
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import ContentHeader from '../components/shell/ContentHeader'
-import { Badge } from '../components/ui/badge'
 import type { LabelColor } from '../lib/signals-api'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
@@ -153,6 +152,7 @@ export default function WorkstreamsPage() {
 
       <PageRelatedLinks
         links={[
+          { to: '/grid', label: t('orgCanvas.link') },
           { to: '/folders', label: t('pageGuides.related.projects') },
           { to: '/settings/action-tags', label: t('pageGuides.related.categories') },
           { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
@@ -440,7 +440,6 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
       className={cn(
         'panel hover-lift group flex cursor-pointer items-center gap-4 px-4 py-3 transition',
         'hover:border-border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent',
-        !ws.enabled && 'opacity-70',
       )}
       data-testid="flow-row"
     >
@@ -456,11 +455,6 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
               color={(ws.tags?.[0]?.color || '') as LabelColor}
               icon={ws.tags?.[0]?.icon}
             />
-          ) : null}
-          {!ws.enabled ? (
-            <Badge variant="neutral" size="sm">
-              {t('workstreamsPage.deactivated')}
-            </Badge>
           ) : null}
           {ws.description ? (
             <span className="hidden min-w-0 truncate text-xs text-text-muted md:inline" title={ws.description}>

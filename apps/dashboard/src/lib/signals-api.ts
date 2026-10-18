@@ -668,55 +668,6 @@ export async function runThreadSchedule(token: string, threadId: string): Promis
   await apiPost<unknown>(appRoutes.signals.threadScheduleRun(threadId), {}, token)
 }
 
-// ---------------------------------------------------------------------------
-// Saved replies (canned responses for the composer)
-// ---------------------------------------------------------------------------
-
-export type SavedReplyRow = { id: string; title: string; bodyText: string }
-
-function normalizeSavedReply(row: unknown): SavedReplyRow | null {
-  if (!row || typeof row !== 'object') return null
-  const raw = row as Record<string, unknown>
-  const id = asString(raw.id)
-  if (!id) return null
-  return { id, title: asString(raw.title), bodyText: asString(raw.body_text) }
-}
-
-export async function listSavedReplies(token: string): Promise<SavedReplyRow[]> {
-  const payload = await apiGet<unknown>(appRoutes.signals.savedReplies, token)
-  const source = Array.isArray(payload) ? payload : []
-  return source.map(normalizeSavedReply).filter((r): r is SavedReplyRow => r !== null)
-}
-
-export async function createSavedReply(
-  token: string,
-  input: { title: string; bodyText: string },
-): Promise<SavedReplyRow | null> {
-  const payload = await apiPost<unknown>(
-    appRoutes.signals.savedReplies,
-    { title: input.title, body_text: input.bodyText },
-    token,
-  )
-  return normalizeSavedReply(payload)
-}
-
-export async function updateSavedReply(
-  token: string,
-  replyId: string,
-  input: { title: string; bodyText: string },
-): Promise<SavedReplyRow | null> {
-  const payload = await apiPatch<unknown>(
-    appRoutes.signals.savedReply(replyId),
-    { title: input.title, body_text: input.bodyText },
-    token,
-  )
-  return normalizeSavedReply(payload)
-}
-
-export async function deleteSavedReply(token: string, replyId: string): Promise<void> {
-  await apiDelete<unknown>(appRoutes.signals.savedReply(replyId), token)
-}
-
 export async function deleteSignalThread(token: string, threadId: string): Promise<string | null> {
   const payload = await apiDelete<{ trash_id?: string }>(appRoutes.signals.threadDelete(threadId), token)
   const id = payload && typeof payload === 'object' ? payload.trash_id : null
@@ -1558,7 +1509,8 @@ export type AssigneeCandidates = {
     {
       id: string
       name: string
-      kind: 'people' | 'agents' | 'custom'
+      kind: 'custom'
+      system?: boolean
       canHandle: boolean
       presence?: PresenceStatus
       members: Array<{ kind: 'user' | 'agent'; id: string }>
@@ -1620,7 +1572,8 @@ export async function listSignalAssignees(token: string, threadId: string): Prom
       return {
         id: asString(raw.id),
         name: asString(raw.name),
-        kind: raw.kind === 'people' || raw.kind === 'agents' ? raw.kind : 'custom',
+        kind: 'custom' as const,
+        system: raw.system === true,
         canHandle: raw.can_handle !== false,
         presence: parsePresenceStatus(presenceRaw),
         members: memberRows

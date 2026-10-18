@@ -84,7 +84,7 @@ def serialize_trigger(row: Trigger) -> dict[str, Any]:
         "workstream_id": str(row.workstream_id) if row.workstream_id else None,
         "signal_id": str(row.signal_id) if row.signal_id else None,
         "recipient_kind": row.recipient_kind or None,
-        "recipient_id": str(row.recipient_user_id or row.recipient_team_id or "") or None,
+        "recipient_id": str(row.recipient_user_id or row.recipient_department_id or "") or None,
         "purpose": row.purpose or None,
         "instructions": row.instructions,
         "has_webhook_secret": bool(row.webhook_secret),
@@ -266,7 +266,7 @@ async def create_trigger(
     if recipient is not None:
         trigger.recipient_kind = recipient[0]
         trigger.recipient_user_id = recipient[1] if recipient[0] == "user" else None
-        trigger.recipient_team_id = recipient[1] if recipient[0] == "team" else None
+        trigger.recipient_department_id = recipient[1] if recipient[0] == "department" else None
     if kind in ("once", "event"):
         trigger.next_run_at = run_at
     else:
@@ -374,7 +374,7 @@ async def _recipient_label(session: AsyncSession, signal: Any) -> str:
         user = await session.get(User, signal.assigned_user_id)
         if user is not None:
             return f"{user.display_name or user.email} (a person)"
-    if signal.assignee_kind == "team" and signal.assignee_team_id:
+    if signal.assignee_kind == "department" and signal.assignee_team_id:
         team = await session.get(Team, signal.assignee_team_id)
         if team is not None:
             return f"the team {team.name}"

@@ -2406,12 +2406,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             >
               {t('threadChrome.startNewChat')}
             </Link>
-            <Link
-              to="/settings/setup"
-              className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-            >
-              {t('threadChrome.openSetupGuide')}
-            </Link>
           </div>
         </div>
       </div>

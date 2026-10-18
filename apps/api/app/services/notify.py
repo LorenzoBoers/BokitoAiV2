@@ -525,7 +525,7 @@ async def notify_new_inbound(
     recipients: list[UUID] = []
     if kind == "user" and signal.assigned_user_id:
         recipients = [signal.assigned_user_id]
-    elif kind == "team" and signal.assignee_team_id:
+    elif kind == "department" and signal.assignee_team_id:
         team = await session.get(Team, signal.assignee_team_id)
         if team is not None and team.tenant_id == tenant_id:
             recipients = await team_user_ids(session, team)

@@ -4,8 +4,14 @@ import type { TicketStageKind } from './tickets-api'
  * Pipeline order the API enforces in ``validate_stages``:
  * not started, then active, then done, then closed.
  * A group never sits in front of an earlier group.
+ *
+ * The first stage is always not-started (``open``). Operators never pick or
+ * insert extra ``open`` stages — only active / done / closed.
  */
 export const STAGE_KIND_ORDER: TicketStageKind[] = ['open', 'waiting', 'done', 'closed']
+
+/** Kinds operators may assign when adding or editing a stage. */
+export const EDITABLE_STAGE_KINDS: TicketStageKind[] = ['waiting', 'done', 'closed']
 
 function rank(kind: TicketStageKind): number {
   const index = STAGE_KIND_ORDER.indexOf(kind)
@@ -32,7 +38,7 @@ export function allowedKindsAt(
   const prev = index > 0 ? rank(stages[index - 1].kind) : 0
   const next =
     index < stages.length - 1 ? rank(stages[index + 1].kind) : STAGE_KIND_ORDER.length - 1
-  return STAGE_KIND_ORDER.filter((kind) => {
+  return EDITABLE_STAGE_KINDS.filter((kind) => {
     const value = rank(kind)
     return value >= prev && value <= next
   })
@@ -40,14 +46,15 @@ export function allowedKindsAt(
 
 /**
  * Kind for a stage inserted at ``index`` (before the stage that is there now).
- * Same group as the stage on the left, which always keeps the pipeline in order.
+ * Never ``open`` — that stays reserved for the first column.
  */
 export function kindForInsert(
   stages: { kind: TicketStageKind }[],
   index: number,
 ): TicketStageKind {
-  if (index > 0) return stages[index - 1].kind
-  return stages[0]?.kind ?? 'open'
+  const left = index > 0 ? stages[index - 1]?.kind : undefined
+  if (left && left !== 'open') return left
+  return 'waiting'
 }
 
 /**

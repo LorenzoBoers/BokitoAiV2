@@ -1,7 +1,7 @@
 ---
 title: How Workforce works
-intro: People, agents and teams on one page, with who is available.
-description: Invite people, see people and agents in one directory, group them into teams, set how a team picks up conversations, mark yourself away and read team numbers.
+intro: People, agents and departments on one page, with who is available.
+description: Invite people, see people and agents in one directory, group them into departments, set how a department picks up conversations, mark yourself away and read department numbers.
 keywords: workforce, team, members, invite, roles, teams, availability, away, round robin, least open, pickup
 sort: 60
 related: setup-guide,communication,agents,channels
@@ -9,7 +9,7 @@ related: setup-guide,communication,agents,channels
 
 # How Workforce works
 
-Workforce shows everyone who works conversations: the people in the workspace, the company agents, and the teams you group them into. Open **Workforce** in the rail under **Organization** to invite someone, scan the directory, or build a team.
+Workforce shows everyone who works conversations: the people in the workspace, the company agents, and the departments you group them into. Open **Workforce** in the rail under **Organization** to invite someone, scan the directory, or build a department. The organization map lives under **AI** as **Grid** (`/grid`). Communication, Calendar, Agents, Connections, Flows, Folders, and access lists link to the same map. The map is a full-page scene: the company in the center, each department as a soft island, and people, company agents, channels, flows and other items as marks on those islands. Departments are areas with a name chip, not separate bases. Filing labels (`#tags`) do not appear as marks; ties that ran through a label show as a direct line between the linked items. The personal Bokito helper is not on the map. Drag to pan; the wheel zooms. Hover a mark for a short showcase card. The legend on the right lists everything on the map; choose a row to find and highlight that mark. A mark opens that item.
 
 ## Invite someone
 
@@ -25,7 +25,7 @@ Members answer conversations. Owners and admins also connect channels, change au
 ## Hire new agents
 
 1. On **Workforce**, below **Invite people**, open the **Hire new agents** banner.
-2. Choose **Marketplace**. It opens Connections filtered to modules (`/connections?kind=modules`), where you install specialists next to the team. **Coming soon** stays next to the title until the agent market itself is open.
+2. Choose **Marketplace**. It opens Connections filtered to modules (`/connections?kind=modules`), where you install specialists next to the team.
 
 ## Mark yourself away
 
@@ -37,8 +37,8 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
 
 ## Read the directory
 
-1. On **Workforce**, the directory lists people, pending invites and company agents together. Filter with **All**, **People**, **Agents**, **Pending** or **Deactivated**, or search by name. **All**, **People** and **Agents** hide deactivated rows. The **Last active** column shows when a person was last online and when an agent last ran. Open **Agents** from the related links for the agent library (same **Deactivated** filter there).
-2. Each person shows role, teams, open work and presence (**Available**, **Away**, **Offline**). Each agent uses the same mark as on Agents and in Communication, and Status is **Standby**, **Working** or **Error** — not question counts. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)).
+1. On **Workforce**, the directory lists people, pending invites and company agents together. An agent's function sits under the name in that agent's color. **Type** is plain text: **Person** for people and invites, **Agent** in the agent violet. Filter with **All**, **People**, **Agents**, **Pending** or **Deactivated**, or search by name. **All**, **People** and **Agents** hide deactivated rows. The **Last active** column shows when a person was last online and when an agent last ran. Open **Agents** from the related links for the agent library (same **Deactivated** filter there).
+2. Each person shows role, teams, open work and presence (**Available**, **Away**, **Offline**). In **Role / ceiling**, an owner or admin changes a person's role, and changes an agent's ceiling with the same kind of menu: **Manual**, **Assisted** or **Autonomous**. Only an owner or admin can raise a ceiling to **Autonomous**. Each agent uses the same mark as on Agents and in Communication, and Status is **Standby**, **Working** or **Error**. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)). **Organization map** sits in the page header.
 3. People and agents use their own marks; teams use a facepile of members. Corner dots follow a shared hierarchy: green when a person is available, purple pulse when an agent on the team is working, amber when someone is away, static purple when only agents are available, gray when everyone is offline.
 
 ## Deactivate a person or agent

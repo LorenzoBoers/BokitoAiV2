@@ -29,7 +29,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Het instelling
 ## Koppel kanalen en stel AI-afhandeling in
 
 1. Maak een Bokito-adres aan of koppel elke mailbox onder **Instellingen** en daarna **Kanalen**. Zie [Kanalen](/docs/inbox/channels).
-2. Voeg routing, handtekeningen en een paar opgeslagen antwoorden toe.
+2. Voeg routing en handtekeningen toe.
 3. Open [AI-afhandeling](/docs/inbox/inbox-ai) onder **Instellingen** → **AI-afhandeling**. Begin de workspace op **Geassisteerd**. Websitechat kan wachten tot de widget erop staat.
 4. Websitechat en WhatsApp kunnen wachten tot mail loopt.
 

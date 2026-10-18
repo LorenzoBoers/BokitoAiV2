@@ -611,7 +611,7 @@ async def propose_scoped_autonomy_growth(
             await session.execute(
                 select(Workstream).where(
                     Workstream.tenant_id == tenant_id,
-                    Workstream.enabled.is_(True),
+                    Workstream.deleted_at.is_(None),
                     Workstream.autonomy_level.in_(("assisted", "approval")),
                 )
             )
@@ -909,7 +909,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
                     )
                 )
             ).scalar_one_or_none()
-        if ws and ws.enabled:
+        if ws and ws.deleted_at is None:
             try:
                 await start_run(
                     session,

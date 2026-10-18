@@ -53,6 +53,11 @@
       "title": "Kennis",
       "subtitle": "Documenten, skills en geheugen"
     },
+    "grid": {
+      "title": "Grid",
+      "subtitle": "Organisatiekaart: afdelingen, mensen, agents en koppelingen",
+      "newBadge": "Nieuw"
+    },
     "modules": {
       "title": "Koppelingen",
       "subtitle": "Geïnstalleerde modules, partnerlogins en tools",
@@ -311,7 +316,7 @@
       "noFreeTags": "Geen vrije hashtags",
       "noActionTag": "Nog geen label met een flow",
       "usedIn": "Gebruikt in",
-      "noProjects": "Nog geen project",
+      "noProjects": "Nog geen gedeelde mappen",
       "openProject": "Project {{name}} openen",
       "checkupsOnAgenda": "Check-ups in Agenda"
     },
@@ -338,7 +343,19 @@
       "noProject": "Geen project",
       "openProject": "Project openen",
       "empty": "Nog geen tickets. Leg een gesprek vast met #{{tag}} om er een te starten.",
-      "openCommunication": "Communicatie openen"
+      "emptyTitle": "Nog geen tickets",
+      "emptyBody": "Open een gesprek in Communicatie en leg het vast met #{{tag}} om het op dit bord te zetten.",
+      "emptyBodyPlain": "Open een gesprek in Communicatie en leg het vast met het label van deze flow om het op dit bord te zetten.",
+      "emptyAction": "Communicatie openen",
+      "openCommunication": "Communicatie openen",
+      "showEmptyLanes": "Toon lege mappen",
+      "resizeColumn": "Sleep om {{name}} te herschalen",
+      "filterLabel": "Filter",
+      "filterAny": "Alle {{name}}",
+      "filterShowing": "{{shown}} van {{total}}",
+      "filterClear": "Filters wissen",
+      "filterEmptyTitle": "Geen passende tickets",
+      "filterEmptyBody": "Geen tickets passen bij deze veldfilters. Wis ze om het hele bord te zien."
     },
     "list": {
       "stagesAria": "Tickets per fase",
@@ -2088,25 +2105,6 @@
     "widgetLive": "Live overdracht",
     "widgetLiveHint": "Beschikbaar zodra iemand met Afhandelen-toegang op de widget beschikbaar is."
   },
-  "savedReplies": {
-    "title": "Opgeslagen antwoorden",
-    "description": "Herbruikbare antwoorden die je team vanuit de composer kan invoegen.",
-    "newReply": "Nieuw antwoord",
-    "empty": "Nog geen opgeslagen antwoorden. Maak er een, of sla een concept op vanuit de composer.",
-    "openCommunication": "Communicatie openen",
-    "loading": "Laden...",
-    "titlePlaceholder": "Titel (bijv. Restitutiebeleid)",
-    "bodyPlaceholder": "Antwoordtekst...",
-    "cancel": "Annuleren",
-    "save": "Opslaan",
-    "saving": "Opslaan...",
-    "editAria": "Bewerken",
-    "deleteAria": "Verwijderen",
-    "deleteConfirm": "Opgeslagen antwoord \"{{title}}\" verwijderen?",
-    "loadFailed": "Opgeslagen antwoorden konden niet worden geladen.",
-    "saveFailed": "Opslaan mislukt.",
-    "deleteFailed": "Verwijderen mislukt."
-  },
   "automationRules": {
     "title": "Automatiseringsregels",
     "description": "Geleerd van je keuzes bij geautomatiseerde mail: bijpassende gesprekken worden gesloten, een taak, of blijven voor het team zonder AI-concept.",
@@ -2696,7 +2694,7 @@
       "channels": "Kanalen",
       "agents": "Chat met agents",
       "settings": "Instellingen",
-      "teams": "Teams",
+      "teams": "Afdelingen",
       "hashtags": "Tags",
       "projects": "Projecten",
       "folders": "Mappen",
@@ -2782,9 +2780,9 @@
     "agentOpsHint": "Beslissingen verschijnen inline in gesprekken",
     "mailboxes": "Kanalen",
     "teams": {
-      "settingsAria": "Teams beheren",
-      "pinHint": "Maak een team op Workforce om het hier te tonen",
-      "createHint": "Maak een team op Workforce om het hier te tonen"
+      "settingsAria": "Afdelingen beheren",
+      "pinHint": "Maak een afdeling op Workforce om die hier te tonen",
+      "createHint": "Maak een afdeling op Workforce om die hier te tonen"
     },
     "hashtags": {
       "empty": "Zet een tag vast of maak een flow",
@@ -5263,7 +5261,7 @@
       "general": "Bedrijfsnaam, toegang voor support en workspace verwijderen",
       "branding": "Logo en kleuren",
       "members": "Collega's uitnodigen",
-      "emailMessages": "Kanalen, mailboxen, regels en opgeslagen antwoorden",
+      "emailMessages": "Kanalen, mailboxen en regels",
       "chatWidget": "Websitechat voor klanten",
       "inboxAi": "Autonoom, Geassisteerd of Handmatig per kanaal en contact",
       "helpCenters": "Openbare helpartikelen",
@@ -5401,8 +5399,7 @@
       "playbook": "Flow",
       "trigger": "Trigger",
       "team": "Team",
-      "inbox_rule": "Inboxregel",
-      "saved_reply": "Opgeslagen antwoord"
+      "inbox_rule": "Inboxregel"
     }
   },
   "publicTrust": {
@@ -6525,6 +6522,35 @@
     "copiedUrl": "Artikellink gekopieerd",
     "copyFailed": "Kon de link niet kopiëren"
   },
+  "orgCanvas": {
+    "title": "Organisatie",
+    "subtitle": "Bedrijf in het midden, elke afdeling als een eiland. Sleep om te verschuiven, rechtermuis om te kantelen, wiel om te zoomen. Hover een markering voor details; gebruik de legenda om iets te vinden.",
+    "link": "Grid",
+    "loadError": "De organisatiekaart kon niet worden geladen.",
+    "back": "Terug naar Agents",
+    "legend": "Legenda",
+    "legendHint": "Klik op een item om het op de kaart te vinden.",
+    "findPlaceholder": "Zoek op de kaart…",
+    "findEmpty": "Geen resultaten.",
+    "findAction": "{{name}} op de kaart vinden",
+    "openHint": "Klik om te openen",
+    "kinds": {
+      "organization": "Organisatie",
+      "department": "Afdelingen",
+      "user": "Mensen",
+      "agent": "Agents",
+      "channel": "Kanalen",
+      "flow": "Flows",
+      "label": "Labels",
+      "folder": "Mappen",
+      "calendar": "Agenda’s",
+      "connection": "Koppelingen",
+      "module": "Modules",
+      "doc": "Docs",
+      "source": "Bronnen",
+      "webhook": "Webhooks"
+    }
+  },
   "teamPage": {
     "openConversations": "Gesprekken",
     "openFolder": "Map {{name}} openen in Communicatie",
@@ -6533,7 +6559,7 @@
     "relatedAgents": "Agents",
     "away": "Afwezig",
     "sections": {
-      "teams": "Teams",
+      "teams": "Afdelingen",
       "teamsHint": "Groepeer mensen en agents; stel in hoe ze gesprekken oppakken."
     },
     "avatarLabel": "Teammarkering",
@@ -6543,11 +6569,11 @@
     "tabs": {
       "people": "Mensen",
       "agents": "Agents",
-      "teams": "Teams"
+      "teams": "Afdelingen"
     },
     "cols": {
       "agent": "Agent",
-      "teams": "Teams",
+      "teams": "Afdelingen",
       "open": "Open gesprekken",
       "ceiling": "Plafond",
       "questions": "Vragen (30 dagen)",
@@ -6565,7 +6591,7 @@
     "openCount_other": "{{count}} open",
     "turnCount_one": "{{count}} wacht op hen",
     "turnCount_other": "{{count}} wachten op hen",
-    "newTeam": "Nieuw team",
+    "newTeam": "Nieuwe afdeling",
     "editTitle": "Team bewerken",
     "dialogHint": "Een team kan eigenaar zijn van gesprekken en vragen van agents krijgen. Combineer mensen en agents.",
     "namePlaceholder": "Teamnaam, bijvoorbeeld Support",
@@ -6584,20 +6610,18 @@
       "least_open": "Nieuwe gesprekken gaan naar het beschikbare lid met de minste open gesprekken."
     },
     "system": {
-      "people": "Alle mensen",
-      "agents": "Alle agents"
+      "all": "Alles"
     },
-    "systemBadge": "Systeem",
+    "systemBadge": "Root",
     "systemHint": {
-      "people": "Iedereen in de werkruimte. Leden volgen de werkruimte.",
-      "agents": "Elke bedrijfsagent. Leden volgen de agentlijst."
+      "all": "Iedereen in de werkruimte. Leden van kindafdelingen erven Alles."
     },
     "noDescription": "Geen omschrijving",
     "memberCount_one": "{{count}} lid",
     "memberCount_other": "{{count}} leden",
     "edit": "Bewerken",
     "delete": "Team verwijderen",
-    "deleteConfirm": "{{name}} verwijderen? Gesprekken en vragen gaan naar Alle mensen.",
+    "deleteConfirm": "{{name}} verwijderen? Gesprekken en vragen gaan naar Alles.",
     "cancel": "Annuleren",
     "save": "Opslaan",
     "pinLabel": "Tonen in de zijbalk van Communicatie",
@@ -6618,11 +6642,12 @@
     "adminsNote": "Eigenaren en beheerders beheren altijd elke koppeling; hun schuifjes blijven aan en zijn niet te wijzigen."
   },
   "access": {
-    "default": "Alle mensen en agents",
+    "default": "Iedereen",
     "count_one": "{{count}} toegang",
     "count_other": "{{count}} toegangen",
     "who": "Wie",
-    "teams": "Teams",
+    "teams": "Afdelingen",
+    "everyone": "Iedereen",
     "people": "Mensen",
     "agents": "Agents",
     "level": {

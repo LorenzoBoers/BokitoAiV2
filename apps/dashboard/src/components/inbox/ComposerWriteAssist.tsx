@@ -1,25 +1,13 @@
 /**
  * Compose-with-AI menu for the customer reply composer: intent → draft,
- * quick rewrite actions on existing text, plus demoted saved replies.
+ * plus quick rewrite actions on existing text.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
-import {
-  BookmarkPlus,
-  Loader2,
-  MessageSquareText,
-  Sparkles,
-  Wand2,
-} from 'lucide-react'
+import { Loader2, Sparkles, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { draftThreadReply } from '../../lib/inbox-api'
-import {
-  createSavedReply,
-  listSavedReplies,
-  type SavedReplyRow,
-} from '../../lib/signals-api'
 import { appendSpeechChunk, useSpeechDictation } from '../../hooks/useSpeechDictation'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
@@ -27,7 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { DictationMicButton } from './DictationMicButton'
@@ -102,11 +89,9 @@ function buildInstruction(action: ComposeAiAction, body: string, intent: string)
 export default function ComposerWriteAssist({ threadId, body, disabled, onApply }: Props) {
   const { t } = useTranslation('communication')
   const { token } = useAuth()
-  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [intent, setIntent] = useState('')
   const [busy, setBusy] = useState(false)
-  const [savedReplies, setSavedReplies] = useState<SavedReplyRow[] | null>(null)
   const [dictationInterim, setDictationInterim] = useState('')
   const dictationInterimRef = useRef('')
   dictationInterimRef.current = dictationInterim
@@ -143,15 +128,6 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
     return intent ? `${intent} ${dictationInterim}` : dictationInterim
   }, [dictation.listening, dictationInterim, intent])
 
-  const loadSavedReplies = async () => {
-    if (!token || savedReplies !== null) return
-    try {
-      setSavedReplies(await listSavedReplies(token))
-    } catch {
-      setSavedReplies([])
-    }
-  }
-
   const run = async (action: ComposeAiAction) => {
     if (!token || busy) return
     if (dictation.listening) confirmDictation()
@@ -180,36 +156,10 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
     }
   }
 
-  const insertSavedReply = (row: SavedReplyRow) => {
-    onApply(body.trim() ? `${body.trimEnd()}\n\n${row.bodyText}` : row.bodyText)
-    setOpen(false)
-  }
-
-  const saveCurrentAsReply = async () => {
-    if (!token || !body.trim()) return
-    const title = window.prompt(t('composer.templateNamePrompt'), body.trim().slice(0, 40))
-    if (!title?.trim()) return
-    try {
-      const created = await createSavedReply(token, { title: title.trim(), bodyText: body.trim() })
-      if (created) {
-        setSavedReplies((prev) => (prev ? [...prev, created] : [created]))
-        toast.success(t('composer.savedReplyCreated'))
-      }
-    } catch (err) {
-      toast.error(formatApiErrorMessage(err, t('composer.saveReplyError')))
-    }
-  }
-
   const hasDraft = Boolean(body.trim())
 
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (next) void loadSavedReplies()
-      }}
-    >
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -305,49 +255,6 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
             ))}
           </div>
         ) : null}
-
-        <DropdownMenuSeparator />
-        <div className="px-1 py-1">
-          <DropdownMenuLabel className="flex items-center gap-1.5 text-2xs font-semibold text-text-muted">
-            <MessageSquareText size={11} />
-            {t('composer.savedReplies')}
-          </DropdownMenuLabel>
-          {savedReplies === null ? (
-            <DropdownMenuItem disabled className="text-xs">
-              {t('composer.loadingSavedReplies')}
-            </DropdownMenuItem>
-          ) : savedReplies.length === 0 ? (
-            <DropdownMenuItem
-              className="text-xs"
-              onSelect={() => navigate('/settings/channels#saved-replies')}
-            >
-              {t('composer.noSavedReplies')}
-            </DropdownMenuItem>
-          ) : (
-            savedReplies.slice(0, 6).map((row) => (
-              <DropdownMenuItem
-                key={row.id}
-                className="flex-col items-start gap-0.5 text-xs"
-                onSelect={() => insertSavedReply(row)}
-              >
-                <span className="font-medium text-text-heading">{row.title}</span>
-                <span className="line-clamp-1 text-xs text-text-muted">{row.bodyText}</span>
-              </DropdownMenuItem>
-            ))
-          )}
-          {body.trim() ? (
-            <DropdownMenuItem className="gap-1.5 text-xs" onSelect={() => void saveCurrentAsReply()}>
-              <BookmarkPlus size={12} />
-              {t('composer.saveAsTemplate')}
-            </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem
-            className="text-xs"
-            onSelect={() => navigate('/settings/channels#saved-replies')}
-          >
-            {t('composer.manageSavedReplies')}
-          </DropdownMenuItem>
-        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )

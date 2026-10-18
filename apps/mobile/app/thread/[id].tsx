@@ -27,7 +27,7 @@ import ThreadComposer from '../../src/components/ThreadComposer'
 import { useCopy } from '../../src/context/LocaleContext'
 import { useLastAgentSteps } from '../../src/hooks/useLastAgentSteps'
 import { useSignalStream } from '../../src/hooks/useSignalStream'
-import { useSavedReplies, useSignalMembers, useThreadDetail, useThreadMutations } from '../../src/hooks/useMessagingQueries'
+import { useSignalMembers, useThreadDetail, useThreadMutations } from '../../src/hooks/useMessagingQueries'
 import { useAuth } from '../../src/context/AuthContext'
 import {
   createConversation,
@@ -155,7 +155,6 @@ export default function ThreadScreen() {
 
   const { data: detail, isLoading, isError, refetch } = useThreadDetail(threadId || null)
   const mutations = useThreadMutations(threadId)
-  const { data: savedReplies = [] } = useSavedReplies()
   const { data: members = [] } = useSignalMembers()
   const myUserId = userNumericId(user?.id)
   const gatewayStream = useSignalStream(threadId || null)
@@ -525,7 +524,6 @@ export default function ThreadScreen() {
           presetDraft={draftPreset}
           threadId={threadId}
           thread={thread}
-          savedReplies={savedReplies}
           drafting={drafting}
           onRequestDraft={async () => {
             setDrafting(true)

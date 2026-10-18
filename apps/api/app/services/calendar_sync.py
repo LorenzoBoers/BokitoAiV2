@@ -1348,12 +1348,15 @@ async def delete_external_event(
     await session.commit()
 
 
-def default_access_entries(user_id: UUID | None) -> list[dict[str, str]]:
+async def default_access_entries(
+    session: AsyncSession, tenant_id: UUID, user_id: UUID | None
+) -> list[dict[str, str]]:
     """New calendars are personal: the person who connected manages them and
-    agents may use them. Owners and admins always manage."""
-    from app.models.team import TEAM_KIND_AGENTS
+    All may use them. Owners and admins always manage."""
+    from app.services.teams import ensure_all_department
 
-    entries = [{"kind": "team", "id": TEAM_KIND_AGENTS, "level": "use"}]
+    root = await ensure_all_department(session, tenant_id)
+    entries = [{"kind": "department", "id": str(root.id), "level": "use"}]
     if user_id is not None:
         entries.insert(0, {"kind": "user", "id": str(user_id), "level": "manage"})
     return entries
@@ -1368,4 +1371,6 @@ async def apply_default_access(
 
     if user_id is None or not is_default_access(conn):
         return
-    await set_connection_access(session, conn, default_access_entries(user_id))
+    await set_connection_access(
+        session, conn, await default_access_entries(session, conn.tenant_id, user_id)
+    )

@@ -19,16 +19,18 @@ async def _headers(client: AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
-async def test_system_teams_exist_and_compute_members(client: AsyncClient, session_override):
+async def test_all_root_exists_with_members(client: AsyncClient, session_override):
     headers = await _headers(client)
-    r = await client.get("/api/teams", headers=headers)
+    r = await client.get("/api/departments", headers=headers)
     assert r.status_code == 200
-    kinds = [t["kind"] for t in r.json()]
-    assert kinds[:2] == ["people", "agents"]
-    people = r.json()[0]
-    assert people["system"] is True
-    assert people["member_count"] >= 1
-    assert all(m["kind"] == "user" for m in people["members"])
+    assert all(row["kind"] == "custom" for row in r.json())
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    root = await teams_svc.ensure_all_department(session_override, tenant.id)
+    assert root.name == "All"
+    assert root.parent_id is None
+    members = await teams_svc.team_members(session_override, root)
+    assert members
+    assert any(member.kind == "user" for member in members)
 
 
 async def test_custom_team_crud(client: AsyncClient, session_override):
@@ -40,7 +42,7 @@ async def test_custom_team_crud(client: AsyncClient, session_override):
     await session_override.commit()
 
     r = await client.post(
-        "/api/teams",
+        "/api/departments",
         headers=headers,
         json={
             "name": "Support",
@@ -53,45 +55,45 @@ async def test_custom_team_crud(client: AsyncClient, session_override):
     assert team["system"] is False
     assert team["pinned"] is True
 
-    r = await client.patch(f"/api/teams/{team['id']}", headers=headers, json={"pickup": "round_robin"})
+    r = await client.patch(f"/api/departments/{team['id']}", headers=headers, json={"pickup": "round_robin"})
     body = r.json()
     assert body["pickup"] == "round_robin"
     assert body["pinned"] is True
 
-    r = await client.put(f"/api/teams/{team['id']}/members", headers=headers, json={"members": []})
+    r = await client.put(f"/api/departments/{team['id']}/members", headers=headers, json={"members": []})
     assert r.json()["member_count"] == 0
 
-    r = await client.delete(f"/api/teams/{team['id']}", headers=headers)
+    r = await client.delete(f"/api/departments/{team['id']}", headers=headers)
     assert r.status_code == 204
     session_override.expire_all()
     removed = await session_override.get(Team, UUID(team["id"]))
     assert removed is None or removed.deleted_at is not None
 
 
-async def test_system_team_is_protected(client: AsyncClient, session_override):
+async def test_all_root_is_protected(client: AsyncClient, session_override):
     headers = await _headers(client)
-    teams = (await client.get("/api/teams", headers=headers)).json()
-    people_id = teams[0]["id"]
-    assert (await client.delete(f"/api/teams/{people_id}", headers=headers)).status_code == 400
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    all_id = str((await teams_svc.ensure_all_department(session_override, tenant.id)).id)
+    assert (await client.delete(f"/api/departments/{all_id}", headers=headers)).status_code == 400
     assert (
-        await client.patch(f"/api/teams/{people_id}", headers=headers, json={"name": "Everyone"})
+        await client.patch(f"/api/departments/{all_id}", headers=headers, json={"name": "Everyone"})
     ).status_code == 400
     assert (
-        await client.put(f"/api/teams/{people_id}/members", headers=headers, json={"members": []})
+        await client.put(f"/api/departments/{all_id}/members", headers=headers, json={"members": []})
     ).status_code == 400
     assert (
-        await client.post(f"/api/teams/{people_id}/room", headers=headers)
+        await client.post(f"/api/departments/{all_id}/room", headers=headers)
     ).status_code == 400
 
 
 async def test_custom_team_room_is_reused(client: AsyncClient, session_override):
     headers = await _headers(client)
-    created = await client.post("/api/teams", headers=headers, json={"name": "Desk"})
+    created = await client.post("/api/departments", headers=headers, json={"name": "Desk"})
     assert created.status_code == 201, created.text
     team_id = created.json()["id"]
-    first = await client.post(f"/api/teams/{team_id}/room", headers=headers)
+    first = await client.post(f"/api/departments/{team_id}/room", headers=headers)
     assert first.status_code == 200, first.text
-    second = await client.post(f"/api/teams/{team_id}/room", headers=headers)
+    second = await client.post(f"/api/departments/{team_id}/room", headers=headers)
     assert second.status_code == 200
     assert first.json()["id"] == second.json()["id"]
     assert first.json()["title"] == "Desk"
@@ -99,10 +101,10 @@ async def test_custom_team_room_is_reused(client: AsyncClient, session_override)
 
 async def test_empty_team_room_is_not_in_for_you(client: AsyncClient, session_override):
     headers = await _headers(client)
-    created = await client.post("/api/teams", headers=headers, json={"name": "Ops desk"})
+    created = await client.post("/api/departments", headers=headers, json={"name": "Ops desk"})
     assert created.status_code == 201, created.text
     team_id = created.json()["id"]
-    room = await client.post(f"/api/teams/{team_id}/room", headers=headers)
+    room = await client.post(f"/api/departments/{team_id}/room", headers=headers)
     assert room.status_code == 200, room.text
     room_id = room.json()["id"]
     for_you = await client.get(
@@ -137,12 +139,14 @@ async def test_overview_lists_people_agents_and_presence(client: AsyncClient, se
     session_override.add(agent)
     await session_override.commit()
 
-    r = await client.get("/api/teams/overview", headers=headers)
+    r = await client.get("/api/departments/overview", headers=headers)
     assert r.status_code == 200
     body = r.json()
     me = next(p for p in body["people"] if p["email"] == TEST_EMAIL)
     assert me["presence"]["status"] in ("available", "away", "offline")
-    assert len(body["teams"]) >= 2
+    roots = [row for row in body["teams"] if row["system"]]
+    assert len(roots) == 1 and roots[0]["name"] == "All"
+    assert all(not row["system"] for row in body["teams"] if row["name"] != "All")
     null_agent = next(a for a in body["agents"] if a["id"] == str(agent.id))
     assert null_agent["autonomy_level"] == "assisted"
     assert null_agent["status"] in ("standby", "working", "error")
@@ -152,9 +156,9 @@ async def test_overview_lists_people_agents_and_presence(client: AsyncClient, se
     assert me["deactivated"] is False
     assert null_agent["deactivated"] is False
 
-    r = await client.put("/api/teams/me/away", headers=headers, json={"away": True})
+    r = await client.put("/api/departments/me/away", headers=headers, json={"away": True})
     assert r.json()["status"] == "away"
-    r = await client.put("/api/teams/me/away", headers=headers, json={"away": False})
+    r = await client.put("/api/departments/me/away", headers=headers, json={"away": False})
     assert r.json()["status"] in ("available", "offline")
 
 
@@ -169,7 +173,7 @@ async def test_overview_includes_deactivated_people_and_agents(client: AsyncClie
     agent_id = created.json()["agent"]["id"]
     archived = await client.delete(f"/api/workforce/agents/{agent_id}", headers=headers)
     assert archived.status_code == 200, archived.text
-    r = await client.get("/api/teams/overview", headers=headers)
+    r = await client.get("/api/departments/overview", headers=headers)
     assert r.status_code == 200
     row = next(a for a in r.json()["agents"] if a["id"] == agent_id)
     assert row["deactivated"] is True
@@ -281,9 +285,10 @@ async def test_list_members_counts_a_live_socket(session_override):
         manager.unregister(conn)
 
 
-async def test_user_team_ids_includes_people_team(client: AsyncClient, session_override):
+async def test_user_team_ids_includes_all_root(client: AsyncClient, session_override):
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    root = await teams_svc.ensure_all_department(session_override, tenant.id)
+    await session_override.commit()
     ids = await teams_svc.user_team_ids(session_override, tenant.id, user.id)
-    people = await teams_svc.people_team(session_override, tenant.id)
-    assert people.id in ids
+    assert root.id in ids

@@ -329,7 +329,6 @@ export type FlowBoard = ProjectFlowBoard & { lanes: FlowBoardLane[] }
 export type ProjectFlowBoard = {
   workstream_id: string
   name: string
-  enabled: boolean
   stages: TicketStage[]
   tags: Array<{ id: string; name: string; color?: string; icon?: string }>
   tickets: BoardTicket[]

@@ -77,7 +77,7 @@ async def _route_to_people(
         if addressee.kind == "user":
             set_owner(signal, "user", addressee.user_id)
         else:
-            set_owner(signal, "team", addressee.team_id)
+            set_owner(signal, "department", addressee.team_id)
         session.add(signal)
     if addressee.kind == "user" and addressee.user_id:
         return [addressee.user_id]

@@ -20,6 +20,7 @@ import { ModuleProviderPickerDialog } from '../components/integrations/ModulePro
 import { ModuleToolsetDropdown } from '../components/integrations/ModuleToolsetDropdown'
 import { ModuleToolsetPanel } from '../components/integrations/ModuleToolsetPanel'
 import { PageContent } from '../components/layout/PageContent'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
@@ -531,6 +532,8 @@ export default function ModuleSetupPage() {
           bumpConnections()
         }}
       />
+
+      <PageRelatedLinks links={[{ to: '/grid', label: t('orgCanvas.link') }]} />
     </PageContent>
   )
 }

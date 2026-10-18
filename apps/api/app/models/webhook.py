@@ -21,6 +21,7 @@ class WebhookEndpoint(SQLModel, table=True):
     url: str = Field(default="")
     description: str = Field(default="")
     events_json: str = Field(default='["*"]')
+    workstream_id: uuid.UUID | None = Field(default=None, foreign_key="workstreams.id", index=True)
     secret_encrypted: str = Field(default="")
     active: bool = Field(default=True)
     created_by_user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id")

@@ -1,14 +1,19 @@
 from app.services.agent.reasoning_policy import (
     KONG_MIN_BUDGET,
+    PACE_REPLY,
+    PACE_REPLY_THEN_THINK,
+    PACE_THINK,
     turn_is_action_request,
     turn_needs_reasoning,
+    turn_pace,
     turn_thinking_budget,
 )
 
 
 def test_small_talk_skips_reasoning():
-    for text in ("Hoi", "Hoe gaat het?", "thanks!", "ok, top", ""):
+    for text in ("Hoi", "Hoe gaat het?", "Hoe is het met jou?", "thanks!", "ok, top", ""):
         assert not turn_needs_reasoning(text, has_attachments=False), text
+        assert turn_pace(text) == PACE_REPLY, text
 
 
 def test_tasks_and_questions_reason():
@@ -43,14 +48,23 @@ def test_action_requests_skip_the_opening_think():
     assert not turn_is_action_request("Hoi")
 
 
+def test_pace_splits_reply_then_think_from_explain():
+    assert turn_pace("Kun je deze agent even inschakelen?") == PACE_REPLY_THEN_THINK
+    assert turn_pace("Maak een flow voor retouren") == PACE_REPLY_THEN_THINK
+    assert turn_pace("Waarom krijgt deze klant geen antwoord?") == PACE_THINK
+    assert turn_pace("Hoe kan ik WhatsApp koppelen?") == PACE_THINK
+
+
 def test_budget_by_tier_and_pin():
-    small_talk = "Hoi"
+    small_talk = "Hoe is het met jou?"
     task = "Leg uit waarom deze flow niet start"
     kw = {"has_attachments": False}
 
     assert turn_thinking_budget(1024, model_slug="bokito-ai-3-1", user_text=small_talk, agent_pinned=False, **kw) == 0
     assert turn_thinking_budget(1024, model_slug="bokito-ai-3-1", user_text=task, agent_pinned=False, **kw) == 1024
-    assert turn_thinking_budget(2048, model_slug="bokito-ai-3-1", user_text=small_talk, agent_pinned=True, **kw) == 2048
+    assert turn_thinking_budget(2048, model_slug="bokito-ai-3-1", user_text=small_talk, agent_pinned=True, **kw) == 0
+    assert turn_thinking_budget(2048, model_slug="bokito-ai-3-1", user_text=task, agent_pinned=True, **kw) == 2048
     assert turn_thinking_budget(0, model_slug="bokito-ai-3-1", user_text=task, agent_pinned=False, **kw) == 0
-    assert turn_thinking_budget(0, model_slug="bokito-kong", user_text=small_talk, agent_pinned=False, **kw) == KONG_MIN_BUDGET
-    assert turn_thinking_budget(8192, model_slug="bokito-kong", user_text=small_talk, agent_pinned=False, **kw) == 8192
+    assert turn_thinking_budget(0, model_slug="bokito-kong", user_text=small_talk, agent_pinned=False, **kw) == 0
+    assert turn_thinking_budget(0, model_slug="bokito-kong", user_text=task, agent_pinned=False, **kw) == KONG_MIN_BUDGET
+    assert turn_thinking_budget(8192, model_slug="bokito-kong", user_text=task, agent_pinned=False, **kw) == 8192

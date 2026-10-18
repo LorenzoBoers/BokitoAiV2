@@ -869,6 +869,7 @@ export default function AiAgentDetail() {
 
           <PageRelatedLinks
             links={[
+              { to: '/grid', label: t('orgCanvas.link') },
               { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
               { to: '/knowledge', label: t('workforce.agents.relatedKnowledge') },
               { to: '/settings/govern?tab=policy', label: t('workforce.agents.relatedGovern') },

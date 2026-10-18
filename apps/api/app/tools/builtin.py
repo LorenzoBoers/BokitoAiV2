@@ -72,7 +72,11 @@ async def _search_index(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     from app.services.workspace import hybrid_search
 
     results = await hybrid_search(
-        ctx.session, ctx.tenant_id, tool_input.get("query", ""), tool_input.get("top_k", 8)
+        ctx.session,
+        ctx.tenant_id,
+        tool_input.get("query", ""),
+        tool_input.get("top_k", 8),
+        agent_id=ctx.agent.id if ctx.agent is not None else None,
     )
     return {"results": results}
 
@@ -676,7 +680,7 @@ async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     if signal is None:
         return {"error": err or "Signal not found"}
     kind = str(tool_input.get("kind") or "").strip()
-    if kind not in ("user", "agent", "team"):
+    if kind not in ("user", "agent", "department"):
         return {"error": "kind must be user, agent, or team"}
     try:
         ref_id = UUID(str(tool_input.get("id") or ""))
@@ -701,7 +705,7 @@ async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
 
         invited = await ctx.session.get(Agent, ref_id)
         name = (invited.name if invited else "") or ""
-    elif kind == "team":
+    elif kind == "department":
         from app.services.teams import get_team
 
         team = await get_team(ctx.session, ctx.tenant_id, ref_id)
@@ -1231,7 +1235,7 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
         "signal_id": str(signal.id),
         "ai_handling": None,
         "handling_agent": ctx.agent.name,
-        "owner": "agent" if became_owner else (signal.assignee_kind or "team"),
+        "owner": "agent" if became_owner else (signal.assignee_kind or "department"),
         "note": (
             "You now own this conversation and send the next reply yourself."
             if became_owner
@@ -2363,9 +2367,11 @@ async def _assign_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> 
 
     if not ctx.signal_id:
         return {"error": "assign_conversation only works inside a conversation"}
-    kind = str(tool_input.get("kind") or "")
-    if kind not in ("agent", "team"):
-        return {"error": "kind must be agent or team"}
+    raw_kind = str(tool_input.get("kind") or "")
+    # ``team`` remains accepted for older prompts; stored kind is department.
+    if raw_kind not in ("agent", "team", "department"):
+        return {"error": "kind must be agent or department"}
+    kind = "department" if raw_kind in ("team", "department") else "agent"
     signal = await ctx.session.get(Signal, ctx.signal_id)
     if signal is None or signal.tenant_id != ctx.tenant_id:
         return {"error": "Conversation not found"}
@@ -4342,8 +4348,12 @@ register_tool(
         input_schema={
             "type": "object",
             "properties": {
-                "kind": {"type": "string", "enum": ["agent", "team"]},
-                "id": {"type": "string", "description": "Agent or team id"},
+                "kind": {
+                    "type": "string",
+                    "enum": ["agent", "department", "team"],
+                    "description": "agent or department (team is accepted as an alias)",
+                },
+                "id": {"type": "string", "description": "Agent or department id"},
                 "message": {"type": "string", "description": "Handover note for the new owner"},
             },
             "required": ["kind", "id"],
@@ -4496,7 +4506,6 @@ register_tool(
                 "workstream_id": {"type": "string"},
                 "name": {"type": "string"},
                 "description": {"type": "string"},
-                "enabled": {"type": "boolean"},
                 "steps": {
                     "type": "array",
                     "items": {
@@ -6459,7 +6468,7 @@ register_tool(
             "List items currently in the workspace Bin (soft-deleted, recoverable). "
             "Omit type to see every kind. Conversations are type 'conversation' "
             "(also accept signal/thread). Other types: project, canvas, knowledge, "
-            "contact, company, playbook, trigger, team, inbox_rule, saved_reply."
+            "contact, company, playbook, trigger, team, inbox_rule."
         ),
         category="workspace",
         input_schema={

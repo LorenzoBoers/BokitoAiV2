@@ -81,7 +81,7 @@ async def expand_invitees(
     ``extra_agent_ids`` are the Ask-tab audience. They join the mention list
     without being written into the message body.
     """
-    from app.models.team import TEAM_KIND_AGENTS
+    from app.models.team import is_root_department
     from app.services.teams import get_team, team_agent_ids, team_user_ids
     from app.services.thread_dispatch import entity_mentions
 
@@ -100,7 +100,7 @@ async def expand_invitees(
             agent_ids.append(agent.id)
             agents.append(agent)
             continue
-        if kind != "team":
+        if kind != "department":
             continue
         team = await get_team(session, tenant_id, target_id)
         if team is None:
@@ -113,7 +113,7 @@ async def expand_invitees(
                 continue
             agent_ids.append(agent.id)
             agents.append(agent)
-        if team.kind != TEAM_KIND_AGENTS:
+        if not is_root_department(team):
             for uid in await team_user_ids(session, team):
                 key = str(uid)
                 if key in human_ids:

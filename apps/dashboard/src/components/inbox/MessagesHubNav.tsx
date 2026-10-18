@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Activity, Inbox, Mail, Plus, Settings } from 'lucide-react'
+import { Activity, Clock, Inbox, Mail, Network, Plus, Settings } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
@@ -630,6 +630,9 @@ export default function MessagesHubNav() {
     teams: (
       <>
         {teamsLoading ? <NavSectionSkeleton rows={2} /> : null}
+        <Link to="/grid" className="nav-row text-xs text-text-muted">
+          <span className="min-w-0 flex-1 truncate-fade">{t('orgCanvas.link')}</span>
+        </Link>
         {!teamsLoading && teams.length === 0 ? (
           <Link to="/team" className="nav-row border border-dashed border-border/80 text-xs">
             <Plus aria-hidden />
@@ -682,6 +685,9 @@ export default function MessagesHubNav() {
                         data-active={isLeafActive(activeLeaf, leaf) ? 'true' : undefined}
                         className="nav-row nav-sub-row h-[26px] text-xs"
                       >
+                        {item.queue === 'scheduled' ? (
+                          <Clock size={12} className="shrink-0 text-text-muted" aria-hidden />
+                        ) : null}
                         <span className="min-w-0 flex-1 truncate-fade">{t(item.labelKey)}</span>
                         <NavCountBadge count={countForInboxQueue(counts, item.queue)} placement="inline" />
                       </NavLink>
@@ -708,12 +714,26 @@ export default function MessagesHubNav() {
                   title={t(SECTION_LABELS[section].labelKey)}
                   count={sectionCounts[section]}
                   headerAction={
-                    gear ? (
-                      <SectionGearLink
-                        to={gear.to}
-                        label={t(gear.labelKey, { defaultValue: gear.defaultLabel })}
-                      />
-                    ) : undefined
+                    <span className="inline-flex items-center">
+                      {section === 'teams' ? (
+                        <Tip label={t('orgCanvas.link')}>
+                          <Link
+                            to="/grid"
+                            aria-label={t('orgCanvas.link')}
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <Network size={12} strokeWidth={2} aria-hidden />
+                          </Link>
+                        </Tip>
+                      ) : null}
+                      {gear ? (
+                        <SectionGearLink
+                          to={gear.to}
+                          label={t(gear.labelKey, { defaultValue: gear.defaultLabel })}
+                        />
+                      ) : null}
+                    </span>
                   }
                 >
                   {sectionContent[section as Exclude<SidebarSection, 'settings'>]}

@@ -2,7 +2,7 @@
  * Navigation model for the control shell.
  *
  * Rail: Overview + Communication (pinned); Work (Folders, Playbooks, Agenda);
- * AI (Agents, Knowledge); Organization (Team, Connections, Settings).
+ * AI (Agents, Knowledge, Grid); Organization (Team, Connections, Settings).
  * Govern lives under Settings (not a primary rail item).
  * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
  */
@@ -13,6 +13,7 @@ import {
   CalendarDays,
   FolderOpen,
   LayoutDashboard,
+  LayoutGrid,
   MessageSquare,
   Plug,
   Settings,
@@ -29,6 +30,7 @@ export type Tab =
   | 'agents'
   | 'workstreams'
   | 'knowledge'
+  | 'grid'
   | 'folders'
   | 'modules'
   | 'settings'
@@ -37,7 +39,7 @@ export const PINNED_TABS: readonly Tab[] = ['overview', 'communication']
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
   { label: 'Work', tabs: ['folders', 'workstreams', 'agenda'] },
-  { label: 'AI', tabs: ['agents', 'knowledge'] },
+  { label: 'AI', tabs: ['agents', 'knowledge', 'grid'] },
   { label: 'Organization', tabs: ['team', 'modules', 'settings'] },
 ]
 
@@ -49,6 +51,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   agents: '/agents',
   workstreams: '/workstreams',
   knowledge: '/knowledge',
+  grid: '/grid',
   folders: '/folders',
   modules: '/connections',
   settings: '/settings',
@@ -71,6 +74,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   agents: Bot,
   workstreams: Route,
   knowledge: Brain,
+  grid: LayoutGrid,
   folders: FolderOpen,
   modules: Plug,
   settings: Settings,
@@ -84,6 +88,7 @@ const TAB_TITLES: Record<Tab, string> = {
   agents: 'Agents',
   workstreams: 'Playbooks',
   knowledge: 'Knowledge',
+  grid: 'Grid',
   folders: 'Folders',
   modules: 'Connections',
   settings: 'Settings',
@@ -97,18 +102,28 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   agents: 'People and agents you can chat with',
   workstreams: 'Repeatable step-by-step playbooks for agents',
   knowledge: 'Docs, skills and memory',
+  grid: 'Organization map: departments, people, agents and links',
   folders: 'A tag with a place: conversations, boards and docs under one path',
   modules: 'Installed modules, partner logins and tools',
   settings: 'Workspace configuration',
 }
 
 /** Tabs that show a temporary "New" rail label (not a count badge). */
-const NEW_TABS: ReadonlySet<Tab> = new Set(['modules'])
+const NEW_TABS: ReadonlySet<Tab> = new Set(['modules', 'grid'])
+
+/**
+ * Bump a tab's revision when the New chip should reappear for everyone
+ * (e.g. Grid shipped after an earlier accidental mark-as-seen).
+ */
+const NEW_TAB_REVISIONS: Partial<Record<Tab, string>> = {
+  grid: 'v1',
+}
 
 const NEW_TAB_SEEN_PREFIX = 'bokito.nav.newTab.seen.'
 
 function newTabSeenKey(tab: Tab): string {
-  return `${NEW_TAB_SEEN_PREFIX}${tab}`
+  const rev = NEW_TAB_REVISIONS[tab]
+  return rev ? `${NEW_TAB_SEEN_PREFIX}${tab}.${rev}` : `${NEW_TAB_SEEN_PREFIX}${tab}`
 }
 
 export function iconForTab(tab: Tab): LucideIcon {
@@ -160,6 +175,7 @@ export function tabFromPath(pathname: string): Tab | null {
   // Contacts nest under Communication.
   if (pathname.startsWith('/contacts')) return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
+  if (pathname === '/grid' || pathname.startsWith('/team/canvas')) return 'grid'
   if (pathname.startsWith('/team')) return 'team'
   if (pathname.startsWith('/agents')) return 'agents'
   if (pathname.startsWith('/workstreams')) return 'workstreams'

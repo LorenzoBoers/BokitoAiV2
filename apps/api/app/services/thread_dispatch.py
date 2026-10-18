@@ -249,7 +249,7 @@ async def dispatch_to(
     user_role: str = "member",
 ) -> dict[str, Any]:
     """Route one agent or team target; returns what happened for the caller."""
-    from app.models.team import TEAM_KIND_AGENTS
+    from app.models.team import is_root_department
     from app.services.channel_access import agent_can_handle
     from app.services.notify import TIER_NOW, notify
     from app.services.teams import get_team, team_agent_ids, team_user_ids
@@ -305,8 +305,8 @@ async def dispatch_to(
 
     team = await get_team(session, tenant_id, target_id)
     if team is None:
-        return {"kind": "team", "id": str(target_id), "dispatched": False}
-    if team.kind == TEAM_KIND_AGENTS:
+        return {"kind": "department", "id": str(target_id), "dispatched": False}
+    if is_root_department(team):
         from app.services.lead_agent import get_lead_agent
 
         lead = await get_lead_agent(session, tenant_id)
@@ -321,8 +321,8 @@ async def dispatch_to(
                 user_role=user_role,
                 base_instruction=LEAD_PICK_INSTRUCTION,
             )
-            return {"kind": "team", "id": str(team.id), "dispatched": True, "agent_id": str(lead.id)}
-        return {"kind": "team", "id": str(team.id), "dispatched": False}
+            return {"kind": "department", "id": str(team.id), "dispatched": True, "agent_id": str(lead.id)}
+        return {"kind": "department", "id": str(team.id), "dispatched": False}
     if team.pickup == "agent_first":
         for agent_id in await team_agent_ids(session, team):
             agent = await _active_agent(session, tenant_id, agent_id)
@@ -330,7 +330,7 @@ async def dispatch_to(
                 await _start_agent(
                     session, tenant_id, author_user_id, signal, agent, operator_text=text, user_role=user_role
                 )
-                return {"kind": "team", "id": str(team.id), "dispatched": True, "agent_id": str(agent.id)}
+                return {"kind": "department", "id": str(team.id), "dispatched": True, "agent_id": str(agent.id)}
     people = [uid for uid in await team_user_ids(session, team) if uid != author_user_id]
     if people:
         await notify(
@@ -344,7 +344,7 @@ async def dispatch_to(
             category="mentions",
             signal_id=signal.id,
         )
-    return {"kind": "team", "id": str(team.id), "dispatched": bool(people), "notified": len(people)}
+    return {"kind": "department", "id": str(team.id), "dispatched": bool(people), "notified": len(people)}
 
 
 async def dispatch_mentions(

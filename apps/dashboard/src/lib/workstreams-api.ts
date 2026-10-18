@@ -18,8 +18,7 @@ export type WorkstreamRow = {
   /** Operator title (independent of the action-tag hashtag). */
   name: string
   description: string
-  enabled: boolean
-  /** Projects this flow is on; its tickets can be filed on one of them or on none. */
+  /** Folders whose filterset includes this flow's action tag (derived, not an attach list). */
   project_ids: string[]
   /** Action tags linked to this flow (hashtags with workstream_id). */
   tags?: Array<{ id: string; name: string; color?: string; icon?: string }>
@@ -103,7 +102,6 @@ export async function listWorkstreams(opts?: { projectId?: string }): Promise<Wo
 export async function createWorkstream(body: {
   name: string
   description?: string
-  project_ids?: string[]
   stages?: TicketStage[]
   /** Flow-label hue. Omitted uses the server default (blue). */
   color?: string
@@ -119,7 +117,7 @@ export async function getWorkstream(workstreamId: string): Promise<WorkstreamDet
 
 export async function patchWorkstream(
   workstreamId: string,
-  patch: Partial<Pick<WorkstreamRow, 'name' | 'description' | 'enabled' | 'project_ids' | 'stages'>> & {
+  patch: Partial<Pick<WorkstreamRow, 'name' | 'description' | 'stages'>> & {
     /** The flow's one action tag (at most one id); empty detaches it. */
     tag_ids?: string[]
   },

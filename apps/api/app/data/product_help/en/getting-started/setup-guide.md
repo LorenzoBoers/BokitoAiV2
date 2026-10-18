@@ -29,7 +29,7 @@ The quickstart gets you running. This guide gets you configured. The settings si
 ## Connect channels and set AI handling
 
 1. Create a Bokito address or connect every mailbox under **Settings**, then **Channels**. See [Channels](/docs/inbox/channels).
-2. Add routing, signatures and a few saved replies.
+2. Add routing and signatures.
 3. Open [AI handling](/docs/inbox/inbox-ai) under **Settings** → **AI handling**. Start the workspace on **Assisted**. Website chat can wait until the widget is installed.
 4. Website chat and WhatsApp can wait until mail runs.
 

@@ -811,7 +811,6 @@ async def delete_project(
 
     from sqlalchemy import delete as sa_delete, update as sa_update
 
-    from app.models.orchestra import WorkstreamProject
     from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
     from app.models.project_work import TaskDocLink
     from app.models.trigger import Trigger
@@ -820,11 +819,6 @@ async def delete_project(
     from app.models.orchestration import TaskArtifact
 
     await session.execute(sa_delete(ProjectTagLink).where(ProjectTagLink.project_id == project_id))
-    await session.execute(
-        sa_delete(WorkstreamProject).where(
-            WorkstreamProject.project_id == project_id, WorkstreamProject.tenant_id == tenant_id
-        )
-    )
     project_doc_ids = select(WorkspaceDoc.id).where(WorkspaceDoc.project_id == project_id)
     section_ids = select(DocSection.id).where(DocSection.doc_id.in_(project_doc_ids))
     task_ids = select(AgentTask.id).where(AgentTask.project_id == project_id)

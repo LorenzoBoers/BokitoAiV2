@@ -81,7 +81,8 @@ async def test_assignees_lists_people_agents_and_teams(client: AsyncClient, sess
     body = r.json()
     assert any(p["email"] == TEST_EMAIL and p["can_handle"] for p in body["people"])
     assert any(a["id"] == str(agent.id) for a in body["agents"])
-    assert [t["kind"] for t in body["teams"]][:2] == ["people", "agents"]
+    roots = [t for t in body["teams"] if t.get("system") or t.get("name") == "All"]
+    assert len(roots) == 1 and roots[0]["kind"] == "custom"
 
 
 async def test_assign_to_agent_with_message_runs_the_agent(client: AsyncClient, session_override):
@@ -112,7 +113,7 @@ async def test_team_mention_notifies_the_people_in_the_team(client: AsyncClient,
     ).scalar_one()
     teammate_id = teammate.id
     r = await client.post(
-        "/api/teams",
+        "/api/departments",
         headers=owner,
         json={"name": "Support", "members": [{"kind": "user", "id": str(teammate_id)}]},
     )
@@ -136,7 +137,7 @@ async def test_team_mention_notifies_the_people_in_the_team(client: AsyncClient,
 
 async def test_agent_hands_conversation_to_a_team(client: AsyncClient, session_override):
     from app.models.signal import Signal
-    from app.services.teams import people_team
+    from app.services.teams import all_department
     from app.tools.builtin import _assign_conversation
     from app.tools.registry import ToolContext
 
@@ -145,18 +146,18 @@ async def test_agent_hands_conversation_to_a_team(client: AsyncClient, session_o
     agent = await _agent(session_override)
     agent_id, tenant_id = agent.id, agent.tenant_id
     user_id = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one().id
-    team_id = (await people_team(session_override, tenant_id)).id
+    team_id = (await all_department(session_override, tenant_id)).id
     await session_override.commit()
 
     ctx = ToolContext(
         session=session_override, tenant_id=tenant_id, user_id=user_id, agent=agent, signal_id=signal_id
     )
-    result = await _assign_conversation(ctx, {"kind": "team", "id": str(team_id), "message": "Billing dispute"})
-    assert result["assigned_to"] == {"kind": "team", "id": str(team_id)}
+    result = await _assign_conversation(ctx, {"kind": "department", "id": str(team_id), "message": "Billing dispute"})
+    assert result["assigned_to"] == {"kind": "department", "id": str(team_id)}
 
     session_override.expire_all()
     signal = await session_override.get(Signal, signal_id)
-    assert signal.assignee_kind == "team" and signal.assignee_team_id == team_id
+    assert signal.assignee_kind == "department" and signal.assignee_team_id == team_id
     notes = await _notes(session_override, str(signal_id))
     assert any(n.author_agent_id == agent_id and n.body_text == "Billing dispute" for n in notes)
 

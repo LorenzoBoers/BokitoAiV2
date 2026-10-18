@@ -317,6 +317,8 @@ async def hybrid_search(
     *,
     source_types: list[str] | None = None,
     include_external: bool = False,
+    agent_id: UUID | None = None,
+    department_id: UUID | None = None,
 ) -> list[dict[str, Any]]:
     from app.services.embeddings import embed_text_with_usage
     from app.services.model_resolution import record_usage, resolve_model_call
@@ -347,8 +349,42 @@ async def hybrid_search(
     if source_types:
         stmt = stmt.where(DocChunk.source_type.in_(source_types))
     result = await session.execute(stmt.limit(200))
+    chunks = list(result.scalars().all())
+    if agent_id is not None or department_id is not None:
+        from app.services.module_department import doc_in_agent_scope
+        from app.services.teams import agent_team_ids
+
+        membership: set[UUID] = set()
+        if agent_id is not None:
+            membership = await agent_team_ids(session, tenant_id, agent_id)
+        if department_id is not None:
+            membership.add(department_id)
+        doc_ids = [chunk.doc_id for chunk in chunks if chunk.doc_id]
+        docs: dict[UUID, WorkspaceDoc] = {}
+        if doc_ids:
+            docs = {
+                doc.id: doc
+                for doc in (
+                    await session.execute(
+                        select(WorkspaceDoc).where(WorkspaceDoc.id.in_(doc_ids))
+                    )
+                ).scalars().all()
+            }
+        scoped = []
+        for chunk in chunks:
+            doc = docs.get(chunk.doc_id) if chunk.doc_id else None
+            if doc is None:
+                continue
+            if doc_in_agent_scope(
+                doc_department_id=doc.department_id,
+                doc_agent_id=doc.agent_id,
+                membership=membership,
+                agent_id=agent_id,
+            ):
+                scoped.append(chunk)
+        chunks = scoped
     scored = []
-    for i, chunk in enumerate(result.scalars().all()):
+    for i, chunk in enumerate(chunks):
         if i and i % 40 == 0:
             await asyncio.sleep(0)
         try:
@@ -447,6 +483,7 @@ def serialize_doc(doc: WorkspaceDoc, *, include_content: bool = True) -> dict[st
         "kind": doc.kind,
         "project_id": str(doc.project_id) if doc.project_id else None,
         "agent_id": str(doc.agent_id) if getattr(doc, "agent_id", None) else None,
+        "department_id": str(doc.department_id) if getattr(doc, "department_id", None) else None,
         "title": doc.title,
         "frontmatter": frontmatter,
         "internal": doc.internal,

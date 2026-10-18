@@ -61,7 +61,7 @@ describe('turnPreparesProposal', () => {
         { ...EMPTY_TURN, active: true },
         { lastRunning: false, lastIsSpeech: false },
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       shouldShowWaitingTurn(
         { ...EMPTY_TURN, active: true },
@@ -471,8 +471,8 @@ describe('liveTurnOrbMotion', () => {
     expect(liveTurnOrbMotion(turn)).toBe('typing')
   })
 
-  it('returns thinking while waiting with no visible work (Nadenken)', () => {
-    expect(liveTurnOrbMotion({ ...EMPTY_TURN, active: true })).toBe('thinking')
+  it('stays idle while waiting with no visible work', () => {
+    expect(liveTurnOrbMotion({ ...EMPTY_TURN, active: true })).toBe('idle')
   })
 
   it('returns thinking with reasoning text and working while tools run', () => {

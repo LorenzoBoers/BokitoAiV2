@@ -254,7 +254,7 @@ async def test_access_list_limits_people_and_agents(session_override: AsyncSessi
     conn = await _conn(
         session_override,
         tenant,
-        meta={"access": calendar_sync.default_access_entries(owner_id)},
+        meta={"access": await calendar_sync.default_access_entries(session_override, tenant.id, owner_id)},
     )
     await sync_connection(session_override, conn)
     window = {
@@ -400,10 +400,14 @@ async def test_api_hides_and_guards_other_peoples_calendars(
     await session_override.commit()
     try:
         private = await _conn(
-            session_override, tenant, meta={"access": calendar_sync.default_access_entries(uuid4())}
+            session_override,
+            tenant,
+            meta={"access": await calendar_sync.default_access_entries(session_override, tenant.id, uuid4())},
         )
         mine = await _conn(
-            session_override, tenant, meta={"access": calendar_sync.default_access_entries(me.id)}
+            session_override,
+            tenant,
+            meta={"access": await calendar_sync.default_access_entries(session_override, tenant.id, me.id)},
         )
         listed = await client.get("/api/calendars/connections", headers=headers)
         assert listed.status_code == 200

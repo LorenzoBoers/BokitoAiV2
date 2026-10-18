@@ -205,7 +205,7 @@ async def list_autonomy_scopes(
     workstreams = (
         await session.execute(
             select(Workstream)
-            .where(Workstream.tenant_id == auth.tenant.id, Workstream.enabled.is_(True))
+            .where(Workstream.tenant_id == auth.tenant.id, Workstream.deleted_at.is_(None))
             .order_by(Workstream.name)
         )
     ).scalars().all()

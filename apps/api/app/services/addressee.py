@@ -31,7 +31,29 @@ from app.models.auth import Membership, User
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal
 
-ASK_TARGET_KINDS = ("auto", "user", "team")
+ASK_TARGET_KINDS = ("auto", "user", "department")
+
+
+async def _address_department(
+    session: AsyncSession,
+    tenant_id: UUID,
+    team_id: UUID | None,
+    *,
+    routed_by: str,
+    signal: Signal | None,
+) -> Addressee:
+    """Ask the department's next free person. Otherwise the department keeps it."""
+    from app.services.department_escalation import first_available
+    from app.services.teams import get_team
+
+    team = await get_team(session, tenant_id, team_id) if team_id else None
+    if team is not None:
+        member = await first_available(
+            session, team, signal_id=signal.id if signal is not None else None
+        )
+        if member is not None and member.kind == "user":
+            return Addressee("user", user_id=member.id, routed_by=routed_by)
+    return Addressee("department", team_id=team_id, routed_by=routed_by)
 
 
 @dataclass(frozen=True)
@@ -44,7 +66,7 @@ class Addressee:
     def apply(self, decision: DecisionRequest) -> None:
         decision.addressee_kind = self.kind
         decision.addressee_user_id = self.user_id if self.kind == "user" else None
-        decision.addressee_team_id = self.team_id if self.kind == "team" else None
+        decision.addressee_department_id = self.team_id if self.kind == "department" else None
         decision.routed_by = self.routed_by
 
 
@@ -132,7 +154,9 @@ async def parse_target(
         kind, ref = (part.strip() for part in raw.split(":", 1))
     else:
         return None
-    if kind not in ("user", "team") or not ref:
+    if kind == "team":
+        kind = "department"
+    if kind not in ("user", "department") or not ref:
         return None
     if _uuid(ref):
         return {"kind": kind, "id": ref}
@@ -166,8 +190,10 @@ async def _explicit(
     target_id = _uuid(target.get("id"))
     if kind == "user" and await _available_member(session, tenant_id, target_id):
         return Addressee("user", user_id=target_id, routed_by="fixed")
-    if kind == "team" and await _valid_team(session, tenant_id, target_id):
-        return Addressee("team", team_id=target_id, routed_by="fixed")
+    if kind == "department" and await _valid_team(session, tenant_id, target_id):
+        return await _address_department(
+            session, tenant_id, target_id, routed_by="fixed", signal=None
+        )
     return None
 
 
@@ -211,8 +237,10 @@ async def resolve_addressee(
             session, tenant_id, signal.last_human_owner_user_id
         ):
             return Addressee("user", user_id=signal.last_human_owner_user_id)
-        if last_kind == "team" and await _valid_team(session, tenant_id, signal.last_human_owner_team_id):
-            return Addressee("team", team_id=signal.last_human_owner_team_id)
+        if last_kind == "department" and await _valid_team(session, tenant_id, signal.last_human_owner_department_id):
+            return await _address_department(
+                session, tenant_id, signal.last_human_owner_department_id, routed_by="auto", signal=signal
+            )
         if signal.contact_id:
             from app.models.channel import Contact
             from app.services.ownership import contact_owner
@@ -224,10 +252,14 @@ async def resolve_addressee(
                 kind, owner_id = owner
                 if kind == "user" and await _available_member(session, tenant_id, owner_id):
                     return Addressee("user", user_id=owner_id)
-                if kind == "team":
-                    return Addressee("team", team_id=owner_id)
-        if signal.assignee_kind == "team" and await _valid_team(session, tenant_id, signal.assignee_team_id):
-            return Addressee("team", team_id=signal.assignee_team_id)
+                if kind == "department":
+                    return await _address_department(
+                        session, tenant_id, owner_id, routed_by="auto", signal=signal
+                    )
+        if signal.assignee_kind == "department" and await _valid_team(session, tenant_id, signal.assignee_team_id):
+            return await _address_department(
+                session, tenant_id, signal.assignee_team_id, routed_by="auto", signal=signal
+            )
         from app.services.ownership import channel_human_owner
 
         channel_owner = await channel_human_owner(session, signal)
@@ -235,20 +267,28 @@ async def resolve_addressee(
             kind, owner_id = channel_owner
             if kind == "user":
                 return Addressee("user", user_id=owner_id)
-            return Addressee("team", team_id=owner_id)
-    from app.services.teams import people_team
+            return await _address_department(
+                session, tenant_id, owner_id, routed_by="auto", signal=signal
+            )
+    from app.services.teams import all_department
 
-    return Addressee("team", team_id=(await people_team(session, tenant_id)).id)
+    return await _address_department(
+        session,
+        tenant_id,
+        (await all_department(session, tenant_id)).id,
+        routed_by="auto",
+        signal=signal,
+    )
 
 
 async def addressee_user_ids(session: AsyncSession, decision: DecisionRequest) -> list[UUID]:
     """The people a decision notifies: the addressee, or the people in the team."""
     if decision.addressee_kind == "user" and decision.addressee_user_id:
         return [decision.addressee_user_id]
-    if decision.addressee_kind == "team" and decision.addressee_team_id:
+    if decision.addressee_kind == "department" and decision.addressee_department_id:
         from app.services.teams import get_team, team_user_ids
 
-        team = await get_team(session, decision.tenant_id, decision.addressee_team_id)
+        team = await get_team(session, decision.tenant_id, decision.addressee_department_id)
         if team is not None:
             return await team_user_ids(session, team)
     return []
@@ -258,6 +298,6 @@ def addressee_payload(decision: DecisionRequest) -> dict[str, Any]:
     return {
         "kind": decision.addressee_kind or "",
         "user_id": str(decision.addressee_user_id) if decision.addressee_user_id else None,
-        "team_id": str(decision.addressee_team_id) if decision.addressee_team_id else None,
+        "team_id": str(decision.addressee_department_id) if decision.addressee_department_id else None,
         "routed_by": decision.routed_by or "",
     }

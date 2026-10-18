@@ -115,7 +115,7 @@ def apply_stage_owner(
     current = {
         "user": signal.assigned_user_id,
         "agent": signal.agent_id,
-        "team": signal.assignee_team_id,
+        "department": signal.assignee_team_id,
     }.get(kind)
     if signal.assignee_kind == kind and current == owner_id:
         return False

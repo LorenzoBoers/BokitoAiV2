@@ -1,7 +1,7 @@
 ---
 title: Hoe Flows werken
 intro: Een flow hoort bij precies één label. De lijst en pagina tonen een titel met dat label (`#klacht`) ernaast, en een live bord met de tickets, met een baan per project. Het label is alleen gekleurd zolang de flow bestaat.
-description: Maak een flow voor een label, volg de tickets per fase en project, bewerk of voeg fasen toe op het bord, en deactiveer of verwijder hem.
+description: Maak een flow voor een label, volg de tickets per fase en mapbaan, bewerk of voeg fasen toe op het bord, en verwijder hem.
 keywords: flows, workstreams, draaiboeken, fasen, eigenaar, check-up, pijplijn, tickets, hashtags, labels, projecten, bord, banen
 sort: 45
 related: categories,folders,agenda,agents,knowledge
@@ -25,7 +25,8 @@ Een flow is de pijplijn voor werk dat onder één label terugkomt: een klacht, e
 1. Open een flow. Naast de titel staat het label. Beheerders klikken die pil om een kleur en een icoon te kiezen; de pil blijft een pil, met een gekleurd icoontegel links van de naam. Daaronder zie je tellers zoals **Open tickets** en **Langst stil**, en de projecten waarin de flow **Gebruikt in** is.
 2. Het bord heeft een kolom per fase en een baan per project, plus **Geen project** voor tickets zonder project. Klap een baan in via de kop, of kies **Project openen** om naar dat project te gaan.
 3. Een kaart toont de gesprekstitel, het contact, maximaal twee invoervelden, het kanaal, het tijdstip van het laatste bericht, de behandelaar en de volgende check-up. Klik op een kaart om het gesprek te openen.
-4. Sleep een kaart naar een andere fase in dezelfde baan. De verplaatsing staat in de tijdlijn van het gesprek; het project wijzig je alleen vanuit het gesprek. Als de doelfase verplichte velden heeft die nog leeg zijn, vraagt een dialoog ze eerst in te vullen en blijft de kaart staan tot ze er zijn.
+4. Als fasen invoervelden hebben, kun je met **Filter** boven het bord tickets beperken op die waarden (keuzelijst kiest een optie; tekst en getal matchen wat op het ticket staat). **Filters wissen** toont het hele bord weer; kolomtellers volgen het filter.
+5. Sleep een kaart naar een andere fase in dezelfde baan. De verplaatsing staat in de tijdlijn van het gesprek; het project wijzig je alleen vanuit het gesprek. Als de doelfase verplichte velden heeft die nog leeg zijn, vraagt een dialoog ze eerst in te vullen en blijft de kaart staan tot ze er zijn.
 
 ## Fasen bewerken op het bord
 
@@ -34,16 +35,15 @@ Een flow is de pijplijn voor werk dat onder één label terugkomt: een klacht, e
 3. Hover over de koppen en in elke tussenruimte verschijnt een plus. Eén klik voegt een fase in van hetzelfde soort als de kolom links, met die soortnaam tot je hem hernoemt. **Fase toevoegen** rechts voegt nog een fase toe van het soort van de laatste kolom. Niet gestart staat nooit na Actief, en Klaar nooit ervoor. Elke flow start met Niet gestart, Actief en Klaar.
 4. In **Invoervelden** voeg je tekst-, lange-tekst-, getal- of keuzelijstvelden toe, en kies je **Eigenaar** en **Check-up**. Op een klaar-fase zet je **Gesprek automatisch sluiten** aan als binnenkomen in die fase de thread moet sluiten. Velden op de eerste fase worden gevraagd bij het vastleggen van het label. Verplichte velden op een latere fase moeten ingevuld zijn voordat een ticket die fase in kan. **Opslaan** in dat venster schrijft de fase meteen weg. Klaar-fasen checken nooit; een check-up verschijnt op [Agenda](/docs/ai/agenda) voor de eigenaar.
 
-## De flow op een project tonen
+## Mappen en banen op het flowbord
 
-1. Projecten kiezen hun flows. Open het [project](/docs/ai/folders) en kies **Flow toevoegen**. Op **Flows** toont elke rij de projecten waarop hij gebruikt wordt als mapchips; een chip opent dat project, de rest van de rij opent de flow.
-2. **Ontkoppelen** op een projectbord haalt de flow van dat project af. De tickets houden hun project, maar staan niet meer op dat bord.
-3. Bij vastleggen van een ticket wordt gevraagd bij welk project van de flow het hoort, of **Geen project**.
+1. Een map wordt een baan op de flow wanneer de labels van die map het actielabel van de flow bevatten. Op **Flows** toont elke rij die gedeelde mappen als chips; een chip opent die map, de rest van de rij opent de flow.
+2. Lege banen (mappen zonder tickets) blijven verborgen. Zet **Toon lege mappen** aan op de flowpagina om ze te zien.
+3. Op een [map](/docs/ai/folders) verschijnt een flow onder **Flows** zodra een gesprek in die map (of een nestmap) het label van de flow als ticket heeft.
 
-## Een flow deactiveren of verwijderen
+## Een flow verwijderen
 
-1. Kies rechtsboven **Deactiveren** om nieuw werk op de flow te stoppen. De status toont **Gedeactiveerd**.
-2. Een gedeactiveerde flow toont **Activeren** en **Verwijderen**. Verwijderen zet hem in de prullenbak; zolang de flow actief is, kan dat niet.
+1. Open het ···-menu rechtsboven en kies **Verwijderen**. Verwijderen zet de flow in de prullenbak.
 
 ## Wat daarna
 

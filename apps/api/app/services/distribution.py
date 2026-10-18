@@ -100,7 +100,7 @@ async def distribute(session: AsyncSession, signal: Signal) -> dict | None:
     from app.services.audit import record_audit
     from app.services.ownership import set_owner
 
-    if signal.assignee_kind != "team" or not signal.assignee_team_id:
+    if signal.assignee_kind != "department" or not signal.assignee_team_id:
         return None
     team = await session.get(Team, signal.assignee_team_id)
     if team is None or team.pickup not in DISTRIBUTING_PICKUPS:
@@ -116,7 +116,7 @@ async def distribute(session: AsyncSession, signal: Signal) -> dict | None:
 
     team_id = team.id
     set_owner(signal, pick.kind, pick.id)
-    on_assignment_change(session, signal, before_assignee=None, before_kind="team", actor_id="system")
+    on_assignment_change(session, signal, before_assignee=None, before_kind="department", actor_id="system")
     team.last_pick = pick.key
     session.add(team)
     session.add(signal)

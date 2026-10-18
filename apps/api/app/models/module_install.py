@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint, text
 from sqlmodel import Field, SQLModel
 
 
@@ -18,10 +18,22 @@ class ModuleInstall(SQLModel, table=True):
     __tablename__ = "module_installs"
     __table_args__ = (
         UniqueConstraint("tenant_id", "module_slug", name="uq_module_install"),
+        Index(
+            "uq_module_installs_tenant_department",
+            "tenant_id",
+            "department_id",
+            unique=True,
+            postgresql_where=text("department_id IS NOT NULL"),
+            sqlite_where=text("department_id IS NOT NULL"),
+        ),
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    # Install owns at most one department (module-as-department).
+    department_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="departments.id", index=True
+    )
     module_slug: str = Field(index=True, max_length=64)
 
     # not_installed | setup | installed

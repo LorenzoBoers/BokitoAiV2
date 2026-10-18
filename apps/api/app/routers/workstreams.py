@@ -16,7 +16,6 @@ router = APIRouter(prefix="/workstreams", tags=["workstreams"])
 class WorkstreamCreateBody(BaseModel):
     name: str
     description: str = ""
-    project_ids: list[UUID] = []
     stages: list[dict[str, Any]] | None = None
     # Omitted values use the flow-label default (blue + route). Empty string clears the mark.
     color: str | None = None
@@ -26,8 +25,6 @@ class WorkstreamCreateBody(BaseModel):
 class WorkstreamPatchBody(BaseModel):
     name: str | None = None
     description: str | None = None
-    enabled: bool | None = None
-    project_ids: list[UUID] | None = None
     tag_ids: list[UUID] | None = None
     stages: list[dict[str, Any]] | None = None
 
@@ -107,6 +104,9 @@ async def create_workstream(
         ws.stages_json = default_stages_json()
     session.add(ws)
     await session.flush()
+    from app.services.setup_links import sync_flow_stages
+
+    await sync_flow_stages(session, ws)
     label_color = flow_label_color(body.color if body.color is not None else FLOW_LABEL_COLOR)
     label_icon = flow_label_icon(body.icon if body.icon is not None else FLOW_LABEL_ICON)
     if tag is None:
@@ -121,7 +121,6 @@ async def create_workstream(
     tag.workstream_id = ws.id
     tag.show_in_nav = True
     session.add(tag)
-    await svc.set_playbook_projects(session, auth.tenant.id, ws, body.project_ids)
     await session.commit()
     await session.refresh(ws)
     return await svc.serialize_workstream_full(session, ws)
@@ -204,8 +203,8 @@ async def get_workstream_board(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """The flow's live tickets: columns are its stages, lanes are its projects
-    (plus `id: null` for tickets filed without a project)."""
+    """The flow's live tickets: columns are its stages; lanes are folders that
+    share the flow's action tag (plus `id: null` for tickets without a project)."""
     from app.services.tickets import workstream_board
 
     return await workstream_board(session, auth.tenant.id, workstream_id)
@@ -225,10 +224,6 @@ async def patch_workstream(
         ws.name = str(patch["name"]).strip()
     if "description" in patch and patch["description"] is not None:
         ws.description = str(patch["description"])
-    if "enabled" in patch and patch["enabled"] is not None:
-        ws.enabled = bool(patch["enabled"])
-    if patch.get("project_ids") is not None:
-        await svc.set_playbook_projects(session, auth.tenant.id, ws, patch["project_ids"])
     stages_changed = False
     if patch.get("stages") is not None:
         from app.services.stage_checkups import validate_stage_owners
@@ -238,6 +233,9 @@ async def patch_workstream(
         await validate_stage_owners(session, auth.tenant.id, stages_json)
         stages_changed = stages_json != ws.stages_json
         ws.stages_json = stages_json
+        from app.services.setup_links import sync_flow_stages
+
+        await sync_flow_stages(session, ws)
     if patch.get("tag_ids") is not None:
         await _set_playbook_tags(session, auth.tenant.id, ws, patch["tag_ids"])
     from datetime import datetime

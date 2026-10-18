@@ -68,7 +68,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
 
   const teamLabel = useCallback(
     (team: AssigneeCandidates['teams'][number]) =>
-      team.kind === 'custom' ? team.name : tn(`teamPage.system.${team.kind}`),
+      team.name === 'All' || team.system ? tn('teamPage.system.all') : team.name,
     [tn],
   )
 
@@ -209,7 +209,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
               'text-xs',
               owner?.kind === 'team' &&
                 currentAssigneeId == null &&
-                (!currentTeam || currentTeam.kind === 'people') &&
+                (!currentTeam || currentTeam.system) &&
                 'bg-bg-hover/80',
             )}
           >

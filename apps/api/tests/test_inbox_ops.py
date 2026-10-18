@@ -1,4 +1,4 @@
-"""Cycle 12: full-text search, thread dates, bulk actions and saved replies."""
+"""Cycle 12: full-text search, thread dates and bulk actions."""
 
 from datetime import datetime, timedelta
 
@@ -346,52 +346,6 @@ async def test_bulk_trash_moves_to_bin(client: AsyncClient):
     assert bin_list.status_code == 200, bin_list.text
     resource_ids = {item["resource_id"] for item in bin_list.json()["items"]}
     assert a in resource_ids and b in resource_ids
-
-
-# ---------------------------------------------------------------------------
-# Saved replies
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_saved_replies_crud(client: AsyncClient):
-    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
-
-    r = await client.post(
-        "/api/signals/saved-replies",
-        headers=owner,
-        json={"title": "Refund policy", "body_text": "Refunds take 5 business days."},
-    )
-    assert r.status_code == 200, r.text
-    reply_id = r.json()["id"]
-
-    r = await client.get("/api/signals/saved-replies", headers=owner)
-    assert r.status_code == 200
-    rows = r.json()
-    assert any(row["id"] == reply_id for row in rows)
-
-    r = await client.patch(
-        f"/api/signals/saved-replies/{reply_id}",
-        headers=owner,
-        json={"title": "Refund policy v2", "body_text": "Refunds take 3 business days."},
-    )
-    assert r.status_code == 200
-    assert r.json()["title"] == "Refund policy v2"
-
-    r = await client.delete(f"/api/signals/saved-replies/{reply_id}", headers=owner)
-    assert r.status_code == 200
-
-    r = await client.get("/api/signals/saved-replies", headers=owner)
-    assert all(row["id"] != reply_id for row in r.json())
-
-
-@pytest.mark.asyncio
-async def test_saved_reply_requires_title_and_body(client: AsyncClient):
-    owner = await _login(client, TEST_EMAIL, TEST_PASSWORD)
-    r = await client.post(
-        "/api/signals/saved-replies", headers=owner, json={"title": " ", "body_text": ""}
-    )
-    assert r.status_code == 400
 
 
 # ---------------------------------------------------------------------------

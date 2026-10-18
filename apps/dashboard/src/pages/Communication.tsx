@@ -70,6 +70,7 @@ import { useNavBadges } from '../context/NavBadgeContext'
 import { useChannelStatus } from '../hooks/useChannelStatus'
 import { Callout } from '../components/ui/callout'
 import { Button } from '../components/ui/button'
+import { ChannelMarkStack } from '../components/ui/ChannelGlyph'
 import {
   useInboxCommunication,
   type InboxListQuickFilter,
@@ -1771,7 +1772,7 @@ export default function Communication() {
             onClearScope={hasFolderFilter ? clearScope : undefined}
             banner={
               <>
-                {!channelStatusLoading && !sendReady ? (
+                {!channelStatusLoading && !sendReady && filteredThreads.length > 0 ? (
                   <Callout
                     tone="warning"
                     className="rounded-none border-x-0 border-t-0"
@@ -1861,25 +1862,24 @@ export default function Communication() {
                   </Link>
                 </div>
               ) : leaf.queue === 'for_you' ? (
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-                  <p className="w-full text-xs text-text-muted">{t('threadList.emptyForYouHint')}</p>
-                  <Link
-                    to="/settings/channels"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                  >
-                    {t('threadList.emptyForYouConnect')}
-                  </Link>
+                <div className="mx-auto mt-3 flex max-w-sm flex-col items-center gap-3">
+                  {!channelStatusLoading && !sendReady ? <ChannelMarkStack /> : null}
+                  <p>
+                    {t('threadList.emptyForYouHint')}
+                    {!channelStatusLoading && !sendReady
+                      ? ` ${t('threadList.emptyForYouNoChannel')}`
+                      : ''}
+                  </p>
+                  {!channelStatusLoading && !sendReady ? (
+                    <Button asChild size="sm">
+                      <Link to="/settings/channels">{t('threadList.emptyForYouConnect')}</Link>
+                    </Button>
+                  ) : null}
                   <Link
                     to="/communication/new"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="text-xs font-medium text-text-secondary hover:text-text-primary hover:underline"
                   >
                     {t('threadList.emptyForYouNewChat')}
-                  </Link>
-                  <Link
-                    to={inboxPath('open')}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                  >
-                    {t('threadList.openInbox')}
                   </Link>
                 </div>
               ) : mode === 'customer' && threads.length === 0 && !threadsLoading ? (

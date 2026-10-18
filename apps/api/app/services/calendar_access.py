@@ -1,11 +1,7 @@
 """Who may use and manage a tenant calendar (shared ``access_list`` shape).
 
 Stored on ``TenantCalendar.access_json`` with levels ``use`` < ``manage``.
-Empty list means: All people and All agents may use it; only owners and
-admins manage it. Owners and admins always manage.
-
-``use`` sees the calendar's events in Agenda and agent tools.
-``manage`` toggles sync, tags and the calendar access list.
+Empty list means: everyone (All) may use it; only owners and admins manage it.
 """
 
 from __future__ import annotations
@@ -17,7 +13,6 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.calendar import TenantCalendar
-from app.models.team import TEAM_KIND_AGENTS, TEAM_KIND_PEOPLE
 from app.services.access_list import (
     UNRESTRICTED_ROLES,
     Principal,
@@ -27,13 +22,14 @@ from app.services.access_list import (
     user_principal,
     validate_entries,
 )
+from app.services.teams import ensure_all_department
 
 LEVELS = ("use", "manage")
 
-DEFAULT_ACCESS: list[dict[str, str]] = [
-    {"kind": "team", "id": TEAM_KIND_PEOPLE, "level": "use"},
-    {"kind": "team", "id": TEAM_KIND_AGENTS, "level": "use"},
-]
+
+async def default_access(session: AsyncSession, tenant_id: UUID) -> list[dict[str, str]]:
+    root = await ensure_all_department(session, tenant_id)
+    return [{"kind": "department", "id": str(root.id), "level": "use"}]
 
 
 def calendar_access(cal: TenantCalendar) -> list[dict[str, str]]:
@@ -42,7 +38,7 @@ def calendar_access(cal: TenantCalendar) -> list[dict[str, str]]:
     except json.JSONDecodeError:
         raw = []
     entries = normalize_entries(raw if isinstance(raw, list) and raw else None, LEVELS)
-    return entries if entries is not None else [dict(e) for e in DEFAULT_ACCESS]
+    return entries if entries is not None else []
 
 
 def is_default_access(cal: TenantCalendar) -> bool:
@@ -64,10 +60,24 @@ async def set_calendar_access(
             await validate_entries(session, cal.tenant_id, entries, LEVELS)
         )
     session.add(cal)
-    return calendar_access(cal)
+    from app.services.setup_links import replace_resource_grants
+
+    raw = json.loads(cal.access_json or "[]")
+    await replace_resource_grants(
+        session,
+        cal.tenant_id,
+        "calendar",
+        raw if isinstance(raw, list) else [],
+        calendar_id=cal.id,
+    )
+    return await default_access(session, cal.tenant_id) if is_default_access(cal) else calendar_access(cal)
 
 
 def level_for(cal: TenantCalendar, principal: Principal) -> str | None:
+    if principal.unrestricted:
+        return "manage"
+    if is_default_access(cal):
+        return "use"
     return best_level(calendar_access(cal), principal, LEVELS)
 
 

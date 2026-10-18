@@ -75,7 +75,16 @@ def _serialize_account(row: ChannelAccount) -> dict:
         "access": account_access(row),
         "access_is_default": is_default_access(row),
         "default_agent_id": str(row.default_agent_id) if row.default_agent_id else None,
-        "default_team_id": settings.get("routing", {}).get("team_id")
+        "default_department_id": (
+            settings.get("routing", {}).get("department_id")
+            or settings.get("routing", {}).get("team_id")
+        )
+        if isinstance(settings.get("routing"), dict)
+        else None,
+        "default_team_id": (
+            settings.get("routing", {}).get("department_id")
+            or settings.get("routing", {}).get("team_id")
+        )
         if isinstance(settings.get("routing"), dict)
         else None,
         "default_user_id": settings.get("routing", {}).get("user_id")
@@ -706,15 +715,18 @@ async def patch_channel(
                 raise HTTPException(status_code=400, detail="Person not found")
             routing["user_id"] = str(body.default_user_id)
             routing.pop("team_id", None)
+            routing.pop("department_id", None)
         elif "default_team_id" in body.model_fields_set and body.default_team_id is not None:
             from app.services.teams import get_team
 
             if await get_team(session, auth.tenant.id, body.default_team_id) is None:
-                raise HTTPException(status_code=400, detail="Team not found")
-            routing["team_id"] = str(body.default_team_id)
+                raise HTTPException(status_code=400, detail="Department not found")
+            routing["department_id"] = str(body.default_team_id)
+            routing.pop("team_id", None)
             routing.pop("user_id", None)
         else:
             routing.pop("team_id", None)
+            routing.pop("department_id", None)
             routing.pop("user_id", None)
         settings["routing"] = routing
     if body.is_primary is not None:
@@ -735,6 +747,9 @@ async def patch_channel(
                     other.settings_json = json.dumps(other_settings)
                     session.add(other)
     account.settings_json = json.dumps(settings)
+    from app.services.setup_links import apply_routing_columns
+
+    apply_routing_columns(account)
     session.add(account)
     await session.commit()
     await session.refresh(account)
@@ -917,15 +932,15 @@ def _contact_owner_payload(row: Contact) -> dict | None:
     kind = row.owner_kind or ""
     if kind == "user" and row.owner_user_id:
         return {"kind": "user", "id": str(row.owner_user_id)}
-    if kind == "team" and row.owner_team_id:
-        return {"kind": "team", "id": str(row.owner_team_id)}
+    if kind == "department" and row.owner_department_id:
+        return {"kind": "department", "id": str(row.owner_department_id)}
     return None
 
 
 async def _apply_contact_owner(
     session: AsyncSession, tenant_id: UUID, contact: Contact, owner: ContactOwnerBody
 ) -> None:
-    if owner.kind not in ("", "user", "team"):
+    if owner.kind not in ("", "user", "department"):
         raise HTTPException(status_code=400, detail="Owner kind must be user, team or empty")
     if owner.kind and owner.id is None:
         raise HTTPException(status_code=400, detail="Owner id is required")
@@ -941,14 +956,14 @@ async def _apply_contact_owner(
         ).scalar_one_or_none()
         if member is None:
             raise HTTPException(status_code=404, detail="Person not found in this workspace")
-    elif owner.kind == "team":
+    elif owner.kind == "department":
         from app.services.teams import get_team
 
         if await get_team(session, tenant_id, owner.id) is None:
             raise HTTPException(status_code=404, detail="Team not found")
     contact.owner_kind = owner.kind
     contact.owner_user_id = owner.id if owner.kind == "user" else None
-    contact.owner_team_id = owner.id if owner.kind == "team" else None
+    contact.owner_department_id = owner.id if owner.kind == "department" else None
 
 
 class ContactCreateBody(BaseModel):

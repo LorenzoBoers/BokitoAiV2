@@ -124,7 +124,7 @@ async def sync_owner_participant(session: AsyncSession, signal: Signal) -> None:
         ref = signal.assigned_user_id
     elif kind == "agent":
         ref = signal.agent_id
-    elif kind == "team":
+    elif kind == "department":
         ref = signal.assignee_team_id
     if not kind or ref is None:
         return
@@ -203,7 +203,7 @@ async def serialize_participants(
     user_ids = [r.ref_id for r in rows if r.kind == "user"]
     agent_ids = [r.ref_id for r in rows if r.kind == "agent"]
     contact_ids = [r.ref_id for r in rows if r.kind == "contact"]
-    team_ids = [r.ref_id for r in rows if r.kind == "team"]
+    team_ids = [r.ref_id for r in rows if r.kind == "department"]
 
     users: dict[UUID, User] = {}
     if user_ids:
@@ -268,7 +268,7 @@ async def serialize_participants(
                 # Contact: display_name + address (not name/email).
                 name = (c.display_name or "").strip() or c.address or c.phone or ""
                 email = c.address if (c.channel or "") == "email" else ""
-        elif row.kind == "team":
+        elif row.kind == "department":
             t = teams.get(row.ref_id)
             if t:
                 name = t.name or ""
@@ -293,6 +293,6 @@ async def serialize_participants(
         )
     # Owners first, then agents, then people.
     rank = {"owner": 0, "member": 1, "watcher": 2}
-    kind_rank = {"agent": 0, "user": 1, "team": 2, "contact": 3}
+    kind_rank = {"agent": 0, "user": 1, "department": 2, "contact": 3}
     out.sort(key=lambda p: (rank.get(p["role"], 9), kind_rank.get(p["kind"], 9), p["name"]))
     return out

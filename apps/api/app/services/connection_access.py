@@ -1,13 +1,8 @@
 """Who may use and manage a connection (shared ``access_list`` shape).
 
 Stored on ``IntegrationConnection.metadata_json`` under ``access`` with levels
-``use`` < ``manage``. No list means: All people and All agents may use it;
-only owners and admins manage it. Owners and admins always manage.
-
-``use`` lets an agent reach the connection's tools (writes still pass the
-module roster, apply mode and posture) and lets a person see it and have
-their assistant runs use it. ``manage`` adds verify, rename, defaults,
-project links, access and disconnect.
+``use`` < ``manage``. No list means: everyone (All) may use it; only owners
+and admins manage it.
 """
 
 from __future__ import annotations
@@ -19,7 +14,6 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.integration import IntegrationConnection
-from app.models.team import TEAM_KIND_AGENTS, TEAM_KIND_PEOPLE
 from app.services.access_list import (
     UNRESTRICTED_ROLES,
     Principal,
@@ -29,13 +23,14 @@ from app.services.access_list import (
     user_principal,
     validate_entries,
 )
+from app.services.teams import ensure_all_department
 
 LEVELS = ("use", "manage")
 
-DEFAULT_ACCESS: list[dict[str, str]] = [
-    {"kind": "team", "id": TEAM_KIND_PEOPLE, "level": "use"},
-    {"kind": "team", "id": TEAM_KIND_AGENTS, "level": "use"},
-]
+
+async def default_access(session: AsyncSession, tenant_id: UUID) -> list[dict[str, str]]:
+    root = await ensure_all_department(session, tenant_id)
+    return [{"kind": "department", "id": str(root.id), "level": "use"}]
 
 
 def _meta(conn: IntegrationConnection) -> dict[str, Any]:
@@ -48,7 +43,7 @@ def _meta(conn: IntegrationConnection) -> dict[str, Any]:
 
 def connection_access(conn: IntegrationConnection) -> list[dict[str, str]]:
     entries = normalize_entries(_meta(conn).get("access"), LEVELS)
-    return entries if entries is not None else [dict(e) for e in DEFAULT_ACCESS]
+    return entries if entries is not None else []
 
 
 def is_default_access(conn: IntegrationConnection) -> bool:
@@ -66,10 +61,24 @@ async def set_connection_access(
         meta["access"] = await validate_entries(session, conn.tenant_id, entries, LEVELS)
     conn.metadata_json = json.dumps(meta)
     session.add(conn)
-    return connection_access(conn)
+    from app.services.setup_links import replace_resource_grants
+
+    access = meta.get("access")
+    await replace_resource_grants(
+        session,
+        conn.tenant_id,
+        "connection",
+        access if isinstance(access, list) else [],
+        connection_id=conn.id,
+    )
+    return await default_access(session, conn.tenant_id) if is_default_access(conn) else connection_access(conn)
 
 
 def level_for(conn: IntegrationConnection, principal: Principal) -> str | None:
+    if principal.unrestricted:
+        return "manage"
+    if is_default_access(conn):
+        return "use"
     return best_level(connection_access(conn), principal, LEVELS)
 
 

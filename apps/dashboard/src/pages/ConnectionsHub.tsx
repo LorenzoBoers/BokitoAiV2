@@ -24,6 +24,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import ContentHeader from '../components/shell/ContentHeader'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
@@ -634,6 +635,8 @@ export default function ConnectionsHub() {
           await refreshCatalog()
         }}
       />
+
+      <PageRelatedLinks links={[{ to: '/grid', label: t('orgCanvas.link') }]} />
     </PageContent>
   )
 }

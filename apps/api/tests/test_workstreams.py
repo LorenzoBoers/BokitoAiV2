@@ -1,6 +1,7 @@
 """Workstream API: stages-only playbooks (step engine retired)."""
 
 import os
+from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
@@ -150,7 +151,8 @@ async def test_folder_create_does_not_mint_internal_default(
     """Folders no longer auto-create an untagged Review-and-execute playbook."""
     from uuid import UUID
 
-    from app.models.orchestra import Workstream, WorkstreamProject
+    from app.models.orchestra import Workstream
+    from app.models.project import ProjectTagLink
 
     headers = await _login(client)
 
@@ -172,15 +174,16 @@ async def test_folder_create_does_not_mint_internal_default(
     assert any(row["id"] == flow.json()["id"] for row in listed2.json()["items"])
 
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    # Creating a folder no longer attaches a playbook row.
     links = (
         await session_override.execute(
-            select(WorkstreamProject).where(
-                WorkstreamProject.tenant_id == tenant.id,
-                WorkstreamProject.project_id == folder_id,
+            select(ProjectTagLink).where(
+                ProjectTagLink.tenant_id == tenant.id,
+                ProjectTagLink.project_id == folder_id,
             )
         )
     ).scalars().all()
-    assert links == []
+    assert all(link.tag_id for link in links)  # only the folder's own tags
     orphans = (
         await session_override.execute(
             select(Workstream).where(
@@ -206,8 +209,19 @@ async def test_flow_board_groups_tickets_into_project_lanes(client: AsyncClient,
     acme_id = acme_res.json()["id"]
 
     flow = (await client.post(API, headers=headers, json={"name": "reparatie"})).json()
-    linked = await client.patch(f"{API}/{flow['id']}", headers=headers, json={"project_ids": [acme_id]})
-    assert linked.status_code == 200, linked.text
+    # Lane candidates come from folders that share the flow's action tag.
+    from app.models.project import ProjectTagLink
+    from app.models.signal import SignalTag
+
+    tag = (
+        await session_override.execute(
+            select(SignalTag).where(SignalTag.tenant_id == tenant.id, SignalTag.name == "reparatie")
+        )
+    ).scalar_one()
+    session_override.add(
+        ProjectTagLink(tenant_id=tenant.id, project_id=UUID(acme_id), tag_id=tag.id)
+    )
+    await session_override.commit()
 
     on_project = Signal(tenant_id=tenant.id, channel="widget", source="widget", subject="Pump")
     loose = Signal(tenant_id=tenant.id, channel="widget", source="widget", subject="Valve")

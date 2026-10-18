@@ -154,9 +154,19 @@ async def apply_workstream_change(
         ws = result.scalar_one_or_none()
         if not ws:
             raise HTTPException(status_code=404, detail="Workstream not found")
-        ws.enabled = False
-        await session.flush()
-        return {"workstream_id": str(ws.id), "status": "disabled"}
+        from app.services.trash import load_tenant, move_to_bin
+
+        tenant = await load_tenant(session, tenant_id)
+        await move_to_bin(
+            session,
+            tenant,
+            resource_type="playbook",
+            row=ws,
+            user_id=None,
+            commit=False,
+            reason="platform_apply",
+        )
+        return {"workstream_id": str(ws.id), "status": "deleted"}
 
     if change_kind == "update":
         ws_id = after.get("workstream_id") or before.get("workstream_id")
@@ -170,8 +180,6 @@ async def apply_workstream_change(
             ws.name = after["name"]
         if "description" in after:
             ws.description = after["description"]
-        if "enabled" in after:
-            ws.enabled = bool(after["enabled"])
         if "autonomy_level" in after:
             ws.autonomy_level = parse_autonomy_level(after["autonomy_level"])
         # steps retired — stages-only playbooks
@@ -187,7 +195,6 @@ async def apply_workstream_change(
         tenant_id=tenant_id,
         name=name,
         description=after.get("description", ""),
-        enabled=after.get("enabled", True),
     )
     session.add(ws)
     await session.flush()

@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import type { RuntimeAgent } from './workforce-api'
 
 /** Role slugs for built-in platform agents (excluded from worker library list). */
@@ -20,6 +21,27 @@ export function isOrchestratorAgent(agent: RuntimeAgent): boolean {
 
 export function agentType(agent: RuntimeAgent): AgentType {
   return isOrchestratorAgent(agent) ? 'orchestrator' : 'worker'
+}
+
+type AgentFunctionSource = {
+  name: string
+  job_title?: string | null
+  role?: string | null
+  role_slug?: string | null
+  role_name?: string | null
+}
+
+/** Colored or subtitle line under the name. A title that only repeats the name falls back to the role. */
+export function agentFunctionLabel(agent: AgentFunctionSource, t: TFunction): string {
+  const name = agent.name.trim().toLowerCase()
+  const title = (agent.job_title ?? '').trim()
+  if (title && title.toLowerCase() !== name) return title
+  const slug = (agent.role_slug || agent.role || '').toLowerCase()
+  if (slug === 'assistant') return t('workforce.agents.types.assistant')
+  if (isOrchestratorAgent(agent as RuntimeAgent)) return t('workforce.agents.types.orchestrator')
+  const roleName = (agent.role_name ?? '').trim()
+  if (roleName && roleName.toLowerCase() !== name) return roleName
+  return t('workforce.agents.types.worker')
 }
 
 export function isPlatformAgent(agent: RuntimeAgent): boolean {

@@ -66,4 +66,4 @@ When a customer raises something new in an old thread, the new request gets its 
 
 ## What to do next
 
-Add the flow to a [project](/docs/ai/folders) with **Add flow** on the project page, so its tickets show as a board there. Give each stage an owner and a check-up rhythm on [Flows](/docs/ai/workstreams); due check-ups show on [Agenda](/docs/ai/agenda) and on the ticket panel.
+Put the flow's action tag on a [folder](/docs/ai/folders) filterset so that folder becomes a lane on the flow board; tickets filed in the folder also show under **Flows** on the folder page. Give each stage an owner and a check-up rhythm on [Flows](/docs/ai/workstreams); due check-ups show on [Agenda](/docs/ai/agenda) and on the ticket panel.

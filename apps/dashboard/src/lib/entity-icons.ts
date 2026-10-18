@@ -12,7 +12,6 @@ import {
   LayoutTemplate,
   ListFilter,
   MessageSquare,
-  MessageSquareText,
   Route,
   ScrollText,
   UserRound,
@@ -40,7 +39,6 @@ export type EntityIconKind =
   | 'team'
   | 'decision'
   | 'inbox_rule'
-  | 'saved_reply'
 
 export const ENTITY_ICONS: Record<EntityIconKind, LucideIcon> = {
   conversation: MessageSquare,
@@ -57,7 +55,6 @@ export const ENTITY_ICONS: Record<EntityIconKind, LucideIcon> = {
   team: Users,
   decision: ScrollText,
   inbox_rule: ListFilter,
-  saved_reply: MessageSquareText,
 }
 
 /** Bin rows and audit payloads use older names for a few kinds. */

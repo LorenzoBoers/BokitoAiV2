@@ -12,7 +12,6 @@ import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
 import CommunicationTagsCard from '../components/inbox/CommunicationTagsCard'
-import SavedRepliesManager from '../components/inbox/SavedRepliesManager'
 import AutomationRulesManager from '../components/inbox/AutomationRulesManager'
 import ChannelList, { type ChannelListProps } from '../components/channels/ChannelList'
 import AddChannelDialog from '../components/inbox/AddChannelDialog'
@@ -296,8 +295,6 @@ export default function InboxSettings() {
 
       <CommunicationTagsCard />
 
-      <SavedRepliesManager />
-
       <AddChannelDialog
         open={addOpen}
         onOpenChange={setAddOpen}
@@ -310,6 +307,7 @@ export default function InboxSettings() {
       <PageRelatedLinks
         className="mt-2"
         links={[
+          { to: '/grid', label: t('orgCanvas.link') },
           { to: inboxPath('open'), label: t('channelsPage.crossLinks.communication') },
           { to: '/settings/communication', label: t('channelsPage.crossLinks.inboxAi') },
           { to: WEBSITE_WIDGET_PATH, label: t('channelsPage.crossLinks.widget') },

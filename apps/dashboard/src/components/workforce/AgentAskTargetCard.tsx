@@ -94,7 +94,7 @@ export function AgentAskTargetCard({
             },
             {
               items: teams.map((team) => {
-                const label = team.kind === 'people' ? t('teamPage.system.people') : team.name
+                const label = team.system ? t('teamPage.system.all') : team.name
                 return {
                   value: `team:${team.id}`,
                   label,

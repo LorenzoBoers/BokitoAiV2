@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AlertCircle, Brain, ChevronDown, ChevronRight, CircleDot, Globe, UserRound, Wrench } from 'lucide-react'
+import { AlertCircle, Brain, ChevronDown, ChevronRight, CircleDot, Globe, Tags, UserRound, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
 import {
@@ -164,6 +164,7 @@ export function ActivityIcon({
   if (item && inviteTarget(item)) icon = <InviteMark item={item} size={size} live={live} />
   else if (kind === 'think') icon = <Brain size={size} className="shrink-0" />
   else if (tool === 'web_search' || tool === 'fetch_url') icon = <Globe size={size} className="shrink-0" />
+  else if (tool === 'list_tags') icon = <Tags size={size} className="shrink-0" />
   else if (kind === 'other') {
     icon = isHandoffTool(tool) ? (
       <UserRound size={size} className="shrink-0" />
@@ -357,6 +358,17 @@ export function ActivityGroupLine({
       <div key={current?.id} role="status" aria-live="polite">
         <ThreadMetaRow
           live
+          icon={
+            current ? (
+              <ActivityIcon
+                kind={current.kind}
+                tool={current.tool}
+                provider={current.provider}
+                item={current}
+                live
+              />
+            ) : undefined
+          }
           trailing={group.kind === 'work' && group.items.length > 1 ? group.items.length : undefined}
         >
           {label}
@@ -431,13 +443,18 @@ export default function ActivityTrail({
   const now = useNow(live)
   const groups = groupActivity(items.filter(isVisibleActivity), now)
   if (groups.length === 0) return null
+  // The running line is the current occupation. It leads so it sits on the
+  // avatar row; finished groups follow underneath.
+  const runningAt = live ? groups.findIndex((group) => group.running) : -1
+  const ordered =
+    runningAt > 0 ? [groups[runningAt], ...groups.filter((_, index) => index !== runningAt)] : groups
   return (
     <div className={cn('min-w-0 max-w-[85%]', className)}>
-      {groups.map((group, index) => (
+      {ordered.map((group) => (
         <ActivityGroupLine
           key={group.key}
           group={group}
-          live={live && index === groups.length - 1 && group.running}
+          live={runningAt >= 0 && group === groups[runningAt]}
           onExpand={onExpand}
         />
       ))}

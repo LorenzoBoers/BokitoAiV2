@@ -24,7 +24,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orchestra import Workstream, WorkstreamProject
+from app.models.orchestra import Workstream
 from app.models.project import Project
 from app.models.signal import (
     CATEGORY_CREATE_MODES,
@@ -89,7 +89,7 @@ def _stage_auto_close(item: dict[str, Any], kind: str) -> bool:
     return bool(item.get("auto_close_conversation"))
 
 
-STAGE_OWNER_KINDS = ("user", "agent", "team")
+STAGE_OWNER_KINDS = ("user", "agent", "department")
 MIN_CHECKUP_MINUTES = 60
 MAX_CHECKUP_MINUTES = 60 * 24 * 30
 
@@ -376,6 +376,16 @@ def validate_stages(raw: Any) -> str:
         )
     if not any(s["kind"] == "done" for s in out):
         raise HTTPException(status_code=400, detail="A pipeline needs at least one done stage")
+    if out[0]["kind"] != "open":
+        raise HTTPException(
+            status_code=400,
+            detail="The first stage must be not-started",
+        )
+    if sum(1 for s in out if s["kind"] == "open") > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="A pipeline has only one not-started stage",
+        )
     if not stage_kinds_in_order([s["kind"] for s in out]):
         raise HTTPException(
             status_code=400,
@@ -1428,7 +1438,6 @@ async def project_board(
             {
                 "workstream_id": str(ws.id),
                 "name": ws.name,
-                "enabled": ws.enabled,
                 "stages": stages,
                 "tags": [
                     {
@@ -1513,10 +1522,12 @@ async def workstream_board(
 ) -> dict[str, Any]:
     """One flow's tickets across every project, grouped into lanes.
 
-    Lanes are the projects the flow is on, in board order, plus ``none`` for
-    tickets filed without a project. ``none`` is listed only when it holds
-    tickets or when the flow is on no project at all.
+    Candidate lanes are folders whose filterset includes the flow's action tag
+    (``project_tag_links``). Tickets on other folders still get their own lane.
+    ``none`` appears only when at least one ticket has no project. The client
+    hides empty candidate lanes by default.
     """
+    from app.models.project import ProjectTagLink
     from app.services.trash import alive
 
     ws = (
@@ -1558,20 +1569,29 @@ async def workstream_board(
         else []
     )
     projects = (
-        await session.execute(
-            select(Project)
-            .join(WorkstreamProject, WorkstreamProject.project_id == Project.id)
-            .where(
-                WorkstreamProject.tenant_id == tenant_id,
-                WorkstreamProject.workstream_id == ws.id,
-            )
-            .order_by(WorkstreamProject.position, Project.name)
+        list(
+            (
+                await session.execute(
+                    select(Project)
+                    .join(ProjectTagLink, ProjectTagLink.project_id == Project.id)
+                    .where(
+                        ProjectTagLink.tenant_id == tenant_id,
+                        ProjectTagLink.tag_id.in_(list(tag_by_id)),
+                        Project.tenant_id == tenant_id,
+                        Project.deleted_at.is_(None),
+                    )
+                    .order_by(Project.name)
+                    .distinct()
+                )
+            ).scalars()
         )
-    ).scalars().all()
+        if tag_by_id
+        else []
+    )
     lane_ids = {p.id for p in projects}
     cards = _board_cards(stages, signals, tag_by_id, await _checkups_by_signal(session, signals))
     lanes: list[dict[str, Any]] = [{"id": str(p.id), "name": p.name} for p in projects]
-    # A ticket on a project the flow has since left still shows, in its own lane.
+    # A ticket filed on a folder that does not share the flow label still shows.
     extra_ids = {s.project_id for s in signals if s.project_id and s.project_id not in lane_ids}
     if extra_ids:
         extra = (
@@ -1580,12 +1600,11 @@ async def workstream_board(
             )
         ).scalars().all()
         lanes.extend({"id": str(p.id), "name": p.name} for p in sorted(extra, key=lambda p: p.name))
-    if not projects or any(c["project_id"] is None for c in cards):
+    if any(c["project_id"] is None for c in cards):
         lanes.append({"id": None, "name": ""})
     return {
         "workstream_id": str(ws.id),
         "name": ws.name,
-        "enabled": ws.enabled,
         "stages": stages,
         "tags": [{"id": str(t.id), "name": t.name} for t in tags],
         "lanes": lanes,
