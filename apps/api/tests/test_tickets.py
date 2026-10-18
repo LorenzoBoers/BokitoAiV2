@@ -557,9 +557,11 @@ async def test_action_tag_can_be_a_folder(client: AsyncClient, session_override)
     assert filed.json()["ticket"]["project_id"] == folder["id"]
     row = (await client.get("/api/categories", headers=headers)).json()["items"][0]
     assert [f["id"] for f in row["folders"]] == [folder["id"]]
-    # The nav lists the tag as a folder, not twice.
+    # Folder collects the tickets; the flow tag stays under Flows as well.
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
-    assert nav["ticket_tags"] == []
+    assert [(row["id"], row["count"]) for row in nav["ticket_tags"]] == [
+        (repair["id"], 1)
+    ]
     assert [row["id"] for row in nav["projects"]] == [folder["id"]]
     assert nav["projects"][0]["count"] == 1
 

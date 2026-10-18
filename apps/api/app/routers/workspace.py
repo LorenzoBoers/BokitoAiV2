@@ -360,6 +360,12 @@ async def publish_workspace_doc(
             suffix += 1
         meta["published"] = "true"
         meta["slug"] = slug
+        # Company help is shared: put unscoped docs on All so agent RAG sees them.
+        if doc.department_id is None and doc.agent_id is None:
+            from app.services.teams import ensure_all_department
+
+            root = await ensure_all_department(session, auth.tenant.id)
+            doc.department_id = root.id
     else:
         meta.pop("published", None)
 
