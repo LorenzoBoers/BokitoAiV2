@@ -92,7 +92,11 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/decisions')
     await expect(page).toHaveURL(/\/communication\/inbox\/for_you/, { timeout: 20000 })
     const payload = await page.evaluate(async () => {
-      const res = await fetch('/api/notifications/decisions/groups', { credentials: 'include' })
+      const token = sessionStorage.getItem('bokito_access_token_session')
+      const res = await fetch('/api/notifications/decisions/groups', {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!res.ok) return { ok: false, status: res.status, body: '' }
       return { ok: true, status: res.status, body: await res.text() }
     })
