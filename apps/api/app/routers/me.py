@@ -96,8 +96,9 @@ def _inbox_folders_state(stored: dict) -> dict:
     }
 
 
-SIDEBAR_SECTIONS = ("folders", "hashtags", "projects", "channels", "agents", "teams", "settings")
+_CANONICAL_SECTIONS = ("folders", "flows", "channels", "agents", "teams", "settings")
 MAX_RAIL_PINS = 80
+MAX_SIDEBAR_ITEMS = 400
 
 
 def _normalize_section(value: str) -> str:
@@ -146,43 +147,90 @@ def _rail_hidden_defaults_state(stored: dict) -> list[str]:
     return out
 
 
+def _item_ids(raw: object) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        ref = item.strip()[:120]
+        if ref and ref not in out:
+            out.append(ref)
+        if len(out) >= MAX_SIDEBAR_ITEMS:
+            break
+    return out
+
+
+def _item_order_state(raw: object) -> dict[str, list[str]]:
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for key, value in raw.items():
+        parent = str(key).strip()[:80]
+        if not parent:
+            continue
+        ids = _item_ids(value)
+        if ids:
+            out[parent] = ids
+        if len(out) >= 80:
+            break
+    return out
+
+
+def _fill_section_order(order: list[str]) -> list[str]:
+    middle = [section for section in order if section != "settings"]
+    for section in _CANONICAL_SECTIONS:
+        if section == "settings" or section in middle:
+            continue
+        insert_at = len(middle)
+        default_idx = _CANONICAL_SECTIONS.index(section)
+        for prior in reversed(_CANONICAL_SECTIONS[:default_idx]):
+            if prior in middle:
+                insert_at = middle.index(prior) + 1
+                break
+        middle.insert(insert_at, section)
+    return middle + ["settings"]
+
+
 def _sidebar_state(stored: dict) -> dict:
     raw = stored.get("sidebar")
     if not isinstance(raw, dict):
-        return {"order": ["folders", "channels", "agents", "teams", "settings"], "hidden": [], "collapsed": [], "expanded_leaves": []}
+        raw = {}
     order_raw = raw.get("order") if isinstance(raw.get("order"), list) else []
     order: list[str] = []
     for item in order_raw:
         if not isinstance(item, str):
             continue
         section = _normalize_section(item)
-        if section in SIDEBAR_SECTIONS and section not in order:
+        if section in _CANONICAL_SECTIONS and section not in order:
             order.append(section)
-    for section in ("folders", "channels", "agents", "teams", "settings"):
-        if section not in order:
-            order.append(section)
-    if order[-1] != "settings":
-        order = [s for s in order if s != "settings"] + ["settings"]
+    order = _fill_section_order(order)
     hidden = [
         _normalize_section(item)
         for item in (raw.get("hidden") if isinstance(raw.get("hidden"), list) else [])
-        if isinstance(item, str) and _normalize_section(item) in SIDEBAR_SECTIONS
+        if isinstance(item, str) and _normalize_section(item) in _CANONICAL_SECTIONS
     ]
     collapsed = [
         _normalize_section(item)
         for item in (raw.get("collapsed") if isinstance(raw.get("collapsed"), list) else [])
-        if isinstance(item, str) and _normalize_section(item) in SIDEBAR_SECTIONS
+        if isinstance(item, str) and _normalize_section(item) in _CANONICAL_SECTIONS
     ]
     expanded = [
         str(item)[:80]
         for item in (raw.get("expanded_leaves") if isinstance(raw.get("expanded_leaves"), list) else [])
         if isinstance(item, str)
     ][:200]
+    hidden_items = _item_ids(raw.get("hidden_items"))
+    if "queue:for_you" in hidden_items and "queue:open" in hidden_items:
+        hidden_items = [item for item in hidden_items if item != "queue:open"]
     return {
         "order": order,
         "hidden": list(dict.fromkeys(hidden)),
         "collapsed": list(dict.fromkeys(collapsed)),
         "expanded_leaves": expanded,
+        "item_order": _item_order_state(raw.get("item_order")),
+        "hidden_items": hidden_items,
     }
 
 

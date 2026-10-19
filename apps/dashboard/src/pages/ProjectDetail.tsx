@@ -30,7 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
-import { CardGridSkeleton } from '../components/ui/skeleton'
+import { FolderHomeSkeleton } from '../components/ui/skeleton'
 import { ProjectConversations } from '../components/projects/ProjectConversations'
 import { ProjectDocs } from '../components/projects/ProjectDocs'
 import { ProjectCanvasBoard } from '../components/projects/ProjectCanvasBoard'
@@ -184,7 +184,7 @@ export default function ProjectDetail() {
       </nav>
 
       {loading ? (
-        <CardGridSkeleton cards={4} className="lg:grid-cols-2" />
+        <FolderHomeSkeleton />
       ) : error || !project ? (
         <ApiErrorBanner message={error ?? t('projects.detail.notFound')} onRetry={() => void load()} />
       ) : (

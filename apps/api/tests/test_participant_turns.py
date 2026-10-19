@@ -80,6 +80,60 @@ async def test_request_turn_sets_active_floor(client, session_override):
 
 
 @pytest.mark.asyncio
+async def test_agent_request_does_not_post_ahead_of_the_turn(client, session_override):
+    """The question stays in the caller's turn. A row posted now lands above the ack."""
+    from app.models.signal import SignalMessage
+
+    _ = client
+    caller, signal = await _seed_agent_signal(session_override)
+    peer = Agent(
+        tenant_id=caller.tenant_id,
+        name=f"Peer {uuid4().hex[:6]}",
+        role="assistant",
+        kind="company",
+        is_active=True,
+        slug=f"peer-{uuid4().hex[:8]}",
+        tools_json="[]",
+        settings_json="{}",
+    )
+    session_override.add(peer)
+    await session_override.flush()
+
+    result = await request_participant_turn(
+        session_override,
+        signal,
+        member_kind="agent",
+        member_ref_id=peer.id,
+        prompt="Wil je een zelfportret sturen?",
+        requested_by_kind="agent",
+        requested_by_id=caller.id,
+        run=False,
+    )
+    assert result.get("ok") is True
+    rows = (
+        await session_override.execute(
+            select(SignalMessage).where(SignalMessage.signal_id == signal.id)
+        )
+    ).scalars().all()
+    assert rows == []
+
+
+def test_deferred_floor_stays_off_the_thread_payload():
+    from types import SimpleNamespace
+
+    from app.services.signal_threads import _active_turn_payload
+
+    hidden = SimpleNamespace(
+        active_turn_json=json.dumps({"ref_id": "abc", "deferred": True, "kind": "agent"})
+    )
+    assert _active_turn_payload(hidden) is None
+    shown = SimpleNamespace(
+        active_turn_json=json.dumps({"ref_id": "abc", "deferred": False, "kind": "agent"})
+    )
+    assert _active_turn_payload(shown)["ref_id"] == "abc"
+
+
+@pytest.mark.asyncio
 async def test_agent_request_defers_peer_until_flush(client, session_override, monkeypatch):
     _ = client
     agent, signal = await _seed_agent_signal(session_override)

@@ -6,7 +6,7 @@ import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { toast } from 'sonner'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Hashtag } from '../ui/HashtagMark'
-import { TableRowsSkeleton } from '../ui/skeleton'
+import { KanbanColumnsSkeleton } from '../ui/skeleton'
 import { useEntityRefresh } from '../../lib/live-store'
 import {
   getProjectBoard,
@@ -63,7 +63,7 @@ export function ProjectFlowBoards({
 
   useEntityRefresh(['ticket', 'project', 'tag'], () => void load(), { debounceMs: 800 })
 
-  if (loading) return <TableRowsSkeleton rows={3} />
+  if (loading) return <KanbanColumnsSkeleton />
   if (error) return <ApiErrorBanner message={error} onRetry={() => void load()} />
 
   return (

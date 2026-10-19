@@ -49,3 +49,36 @@ export default function NavCountBadge({
     </span>
   )
 }
+
+type NavQueueCountsProps = {
+  unread: number
+  total: number
+  unreadLabel: string
+  totalLabel: string
+  max?: number
+}
+
+/** Colored unread, then the gray open-list total. Zeros stay hidden. */
+export function NavQueueCounts({
+  unread,
+  total,
+  unreadLabel,
+  totalLabel,
+  max = 99,
+}: NavQueueCountsProps) {
+  if (unread <= 0 && total <= 0) return null
+  return (
+    <span className="nav-counts">
+      {unread > 0 ? (
+        <span className="nav-count" data-unread="true" title={unreadLabel}>
+          {formatCount(unread, max)}
+        </span>
+      ) : null}
+      {total > 0 ? (
+        <span className="nav-count" data-unread="false" title={totalLabel}>
+          {formatCount(total, max)}
+        </span>
+      ) : null}
+    </span>
+  )
+}

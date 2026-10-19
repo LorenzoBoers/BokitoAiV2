@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutGrid } from 'lucide-react'
+import { GRID_ICON } from '../../lib/navigation'
 import { orgGridPath, type OrgGridKind } from '../../lib/org-grid'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
@@ -18,7 +18,7 @@ type Props = {
 }
 
 /**
- * Consistent "Open in Grid" entry: LayoutGrid (rail icon) + optional focus.
+ * Consistent "Open in Grid" entry: the rail Grid mark + optional focus.
  * Opens `/grid` and, when a node is given, finds it like the legend.
  */
 export function OpenInGridButton({ kind, id, nodeId, className, iconOnly = false }: Props) {
@@ -38,7 +38,7 @@ export function OpenInGridButton({ kind, id, nodeId, className, iconOnly = false
       asChild
     >
       <Link to={to} aria-label={label} data-testid="open-in-grid">
-        <LayoutGrid size={14} aria-hidden />
+        <GRID_ICON size={14} aria-hidden />
         {iconOnly ? null : <span>{label}</span>}
       </Link>
     </Button>

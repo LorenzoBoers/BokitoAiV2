@@ -12,7 +12,7 @@ import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { Input } from '../ui/input'
 import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
-import { TableRowsSkeleton } from '../ui/skeleton'
+import { DocSplitSkeleton } from '../ui/skeleton'
 import { cn } from '../../lib/utils'
 import {
   listProjectDocs,
@@ -230,7 +230,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
     }
   }
 
-  if (loading) return <TableRowsSkeleton rows={4} />
+  if (loading) return <DocSplitSkeleton />
   if (error) return <ApiErrorBanner message={error} onRetry={() => void load()} />
 
   return (

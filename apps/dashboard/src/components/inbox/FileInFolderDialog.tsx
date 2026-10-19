@@ -8,7 +8,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
 import { ApiErrorBanner } from '../ui/ApiErrorBanner'
-import { LoadingBlock } from '../ui/loading-block'
+import { FolderChecklistSkeleton } from '../ui/skeleton'
 import {
   Dialog,
   DialogContent,
@@ -114,7 +114,7 @@ export default function FileInFolderDialog({
           className="h-8 w-full rounded-md border border-border/70 bg-bg-input px-2 text-sm text-text-heading outline-none focus:border-accent"
         />
         <div className="max-h-64 space-y-1 overflow-y-auto">
-          {loading ? <LoadingBlock variant="skeleton" rows={3} className="py-1" /> : null}
+          {loading ? <FolderChecklistSkeleton rows={4} /> : null}
           {allowRoot ? (
             <button
               type="button"

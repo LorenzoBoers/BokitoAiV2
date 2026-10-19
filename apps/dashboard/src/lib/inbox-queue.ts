@@ -49,6 +49,20 @@ export function dedicatedInboxQueueForStatus(
   return null
 }
 
+/**
+ * Inbox box that can show this conversation when a link landed in the wrong one.
+ * Closed and spam go to their own box; open customer threads go to Open;
+ * agent runs go to All. The thread id stays on the URL.
+ */
+export function inboxQueueForOpenedThread(
+  thread: Pick<InboxThread, 'status' | 'channel' | 'folder'>,
+): InboxQueue {
+  const dedicated = dedicatedInboxQueueForStatus(thread.status)
+  if (dedicated) return dedicated
+  if (thread.status === 'open' && !isAgentRunThread(thread)) return 'open'
+  return 'all'
+}
+
 /** True when a resolve/park action should leave the current inbox, not hop away. */
 export function resolvedStatusLeavesInboxQueue(
   status: InboxThread['status'],

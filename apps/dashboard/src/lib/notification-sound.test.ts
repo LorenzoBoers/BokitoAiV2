@@ -1,6 +1,8 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
   isNotificationSoundEnabled,
+  playDictationStartSound,
+  playDictationStopSound,
   playIncomingNotificationSound,
   setNotificationSoundEnabled,
   unlockNotificationAudio,
@@ -13,6 +15,14 @@ describe('notification-sound', () => {
 
   it('playIncomingNotificationSound is safe without a browser window', async () => {
     await expect(playIncomingNotificationSound()).resolves.toBeUndefined()
+  })
+
+  it('playDictationStartSound is safe without a browser window', async () => {
+    await expect(playDictationStartSound()).resolves.toBeUndefined()
+  })
+
+  it('playDictationStopSound is safe without a browser window', async () => {
+    await expect(playDictationStopSound()).resolves.toBeUndefined()
   })
 
   it('unlockNotificationAudio is safe without a browser window', () => {

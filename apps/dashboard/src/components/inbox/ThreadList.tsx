@@ -6,6 +6,7 @@ import type { InboxListQuickFilter } from '../../context/InboxCommunicationConte
 import type { BulkThreadAction, InboxMember, InboxThread, ThreadId } from '../../lib/inbox-api'
 import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
+import { SegmentedControl } from '../ui/segmented-control'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../context/AuthContext'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
@@ -73,15 +74,13 @@ type Props = {
   emptyHint?: ReactNode
   onRetry?: () => void
   lastMailboxSyncAt?: string | null
-  /** Closed conversations of this same scope, behind a disclosure at the bottom. */
-  showClosedToggle?: boolean
-  closedOpen?: boolean
-  closedThreads?: InboxThread[]
-  closedTotal?: number | null
-  closedLoading?: boolean
-  closedHasMore?: boolean
-  onToggleClosed?: () => void
-  onLoadMoreClosed?: () => void
+  /** Open or closed within this folder. Absent on Spam and Scheduled. */
+  statusSegment?: {
+    value: 'open' | 'closed'
+    openCount: number | null
+    closedCount: number | null
+    onChange: (value: 'open' | 'closed') => void
+  }
 }
 
 function OutsideFiltersMarker({ label }: { label: string }) {
@@ -146,14 +145,7 @@ export default function ThreadList({
   emptyHint,
   onRetry,
   lastMailboxSyncAt,
-  showClosedToggle = false,
-  closedOpen = false,
-  closedThreads = [],
-  closedTotal = null,
-  closedLoading = false,
-  closedHasMore = false,
-  onToggleClosed,
-  onLoadMoreClosed,
+  statusSegment,
 }: Props) {
   const { user } = useAuth()
   const { t } = useTranslation('communication')
@@ -335,48 +327,6 @@ export default function ThreadList({
     ],
   )
 
-  const closedCount = closedTotal ?? closedThreads.length
-  const closedRows = (
-    <>
-      {closedLoading && closedThreads.length === 0 ? (
-        <p className="px-2.5 py-2 text-center text-xs text-text-muted">{t('threadList.loadingMore')}</p>
-      ) : closedThreads.length === 0 ? (
-        <p className="px-2.5 py-2 text-center text-xs text-text-muted">{t('threadList.closedEmpty')}</p>
-      ) : (
-        closedThreads.map((thread, index) => renderItem(index, thread, true))
-      )}
-      {closedHasMore && onLoadMoreClosed ? (
-        <button
-          type="button"
-          onClick={onLoadMoreClosed}
-          className="mb-1 mt-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-        >
-          {t('threadList.loadMore')}
-        </button>
-      ) : null}
-    </>
-  )
-  const openGroupLabel =
-    showClosedToggle && threads.length > 0 ? (
-      <p className="px-2.5 py-1.5 text-center text-2xs font-medium text-text-muted">
-        {t('threadList.openGroup')}
-      </p>
-    ) : null
-  const closedIsTheList = threads.length === 0 && closedOpen && closedCount > 0
-  const closedBlock =
-    showClosedToggle && !closedIsTheList && closedCount > 0 ? (
-      <div className="mt-1 border-t border-border/50 pt-1">
-        <button
-          type="button"
-          onClick={onToggleClosed}
-          className="w-full rounded-md px-2.5 py-2 text-center text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-        >
-          {closedOpen ? t('threadList.closedGroup') : t('threadList.showClosed', { count: closedCount })}
-        </button>
-        {closedOpen ? <div>{closedRows}</div> : null}
-      </div>
-    ) : null
-
   const footer = useCallback(() => {
     const loadMore =
       hasMore && onLoadMore && threads.length > 0 ? (
@@ -398,11 +348,10 @@ export default function ThreadList({
           )}
         </button>
       ) : null
-    if (!loadMore && outsideThreads.length === 0 && !closedBlock) return null
+    if (!loadMore && outsideThreads.length === 0) return null
     return (
       <div>
         {loadMore}
-        {closedBlock}
         {outsideThreads.length > 0 ? (
           <section aria-label={t('threadList.outsideFilters')}>
             <OutsideFiltersMarker label={t('threadList.outsideFilters')} />
@@ -421,7 +370,6 @@ export default function ThreadList({
     allThreads.length,
     outsideThreads,
     renderItem,
-    closedBlock,
   ])
 
   return (
@@ -480,19 +428,39 @@ export default function ThreadList({
 
       {banner}
 
+      {statusSegment ? (
+        <div className="flex justify-center px-2 pt-1.5">
+          <SegmentedControl
+            size="sm"
+            aria-label={t('threadList.statusSwitch')}
+            value={statusSegment.value}
+            onChange={statusSegment.onChange}
+            options={[
+              {
+                value: 'open',
+                label:
+                  statusSegment.openCount == null
+                    ? t('threadList.statusOpen')
+                    : t('threadList.statusOpenCount', { count: statusSegment.openCount }),
+              },
+              {
+                value: 'closed',
+                label:
+                  statusSegment.closedCount == null
+                    ? t('threadList.statusClosed')
+                    : t('threadList.statusClosedCount', { count: statusSegment.closedCount }),
+              },
+            ]}
+          />
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1 flex-col p-1.5">
         {threads.length === 0 ? (
           loading ? (
             <InboxListSkeleton />
           ) : error ? (
             <ApiErrorBanner message={error} onRetry={onRetry} className="mx-2 my-3" />
-          ) : closedIsTheList ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <p className="px-2.5 py-2 text-center text-xs font-medium text-text-secondary">
-                {t('threadList.closedGroup')}
-              </p>
-              {closedRows}
-            </div>
           ) : outsideThreads.length > 0 ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <p className="px-3 py-3 text-center text-xs text-text-muted">
@@ -525,7 +493,6 @@ export default function ThreadList({
               ) : (
                 emptyHint
               )}
-              {closedBlock}
             </div>
           )
         ) : (
@@ -540,7 +507,6 @@ export default function ThreadList({
             }}
             increaseViewportBy={200}
             components={{
-              Header: openGroupLabel ? () => openGroupLabel : undefined,
               Footer: footer,
             }}
             scrollerRef={(ref) => {

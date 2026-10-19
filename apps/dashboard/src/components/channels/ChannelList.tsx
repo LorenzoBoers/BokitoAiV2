@@ -8,6 +8,7 @@ import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { ChannelRowsSkeleton } from '../ui/skeleton'
 import { ChannelIcon, ChannelStatus } from './ChannelStatus'
 import { channelFix, type ChannelActions, type ChannelFix } from './channel-actions'
 import { AI_HANDLING_CHANNELS } from '../../lib/ai-handling'
@@ -95,6 +96,10 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
   }, [sorted, attentionOnly, needle, t])
 
   const showFilter = sorted.length > 3
+
+  if (loading && sorted.length === 0) {
+    return <ChannelRowsSkeleton />
+  }
 
   if (!loading && sorted.length === 0) {
     return (

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Bell, BellRing, RotateCcw, Volume2 } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { NotificationMatrixSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import { policyRoutes } from '../api/routes/policy.routes'
@@ -343,10 +343,11 @@ export default function NotificationSettings() {
         </div>
       </Card>
 
-      {loading ? <LoadingBlock variant="skeleton" rows={4} /> : null}
       {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
 
-      <Card className={`overflow-hidden ${loading ? 'pointer-events-none opacity-60' : ''}`} data-testid="notification-tiers">
+      {loading ? <NotificationMatrixSkeleton /> : null}
+
+      <Card className={`overflow-hidden ${loading ? 'hidden' : ''}`} data-testid="notification-tiers">
         <div className={`grid ${GRID} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}>
           <span className="flex items-center gap-1.5">
             {t('notificationsPage.notifyMe')}

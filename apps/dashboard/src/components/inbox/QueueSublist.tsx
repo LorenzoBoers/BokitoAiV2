@@ -16,7 +16,8 @@ import {
   dataTransferHasThreads,
   readThreadDragIds,
 } from '../../lib/thread-folder-drag'
-import NavCountBadge from '../layout/NavCountBadge'
+import NavCountBadge, { NavQueueCounts } from '../layout/NavCountBadge'
+import type { QueueCountPair } from '../../lib/nav-badge-counts'
 import { Tip } from '../ui/Tip'
 import { cn } from '../../lib/utils'
 
@@ -31,8 +32,8 @@ type QueueSublistProps = {
   /** Folder leaf without a queue; sub-rows derive from it. */
   baseLeaf: HubLeaf
   activeLeaf: HubLeaf | null
-  /** Badge per sub-queue. */
-  counts?: Partial<Record<SubQueue, number>>
+  /** Unread and open total per sub-queue. */
+  counts?: Partial<Record<SubQueue, QueueCountPair>>
   /** Rows above the standard For you / Open / Unassigned / Closed list. */
   leading?: ReactNode
   /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
@@ -65,7 +66,12 @@ export function QueueSublist({
             className={cn('nav-row nav-sub-row h-[26px] text-xs')}
           >
             <span className="min-w-0 flex-1 truncate-fade">{t(SUB_QUEUE_LABEL_KEYS[queue])}</span>
-            <NavCountBadge count={counts?.[queue] ?? 0} placement="inline" />
+            <NavQueueCounts
+              unread={counts?.[queue]?.unread ?? 0}
+              total={counts?.[queue]?.total ?? 0}
+              unreadLabel={t('badges.queue.unread')}
+              totalLabel={t('badges.queue.total')}
+            />
           </NavLink>
         )
       })}
@@ -85,7 +91,9 @@ type SidebarFolderProps = {
   /** The sub-view a first expand opens (from folder prefs). */
   defaultQueue: SubQueue
   badgeCount?: number
-  queueCounts?: Partial<Record<SubQueue, number>>
+  /** When set, the header shows unread plus the open total instead of badgeCount. */
+  badgePair?: QueueCountPair
+  queueCounts?: Partial<Record<SubQueue, QueueCountPair>>
   title?: string
   /** Rows above the standard For you / Open / Unassigned / Closed list. */
   leading?: ReactNode
@@ -121,6 +129,7 @@ export function SidebarFolder({
   activeLeaf,
   defaultQueue,
   badgeCount = 0,
+  badgePair,
   queueCounts,
   title,
   leading,
@@ -133,6 +142,7 @@ export function SidebarFolder({
   onFileThreads,
 }: SidebarFolderProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation('nav')
   const { prefs, setLeafExpanded } = useSidebarPrefs()
   const flashKey = useNavFlashKey()
   const [dropLit, setDropLit] = useState(false)
@@ -228,14 +238,23 @@ export function SidebarFolder({
           </span>
           {headerAction ? (
             <span
-              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+              className="hidden shrink-0 group-hover:inline-flex"
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
             >
               {headerAction}
             </span>
           ) : null}
-          <NavCountBadge count={badgeCount} placement="inline" />
+          {badgePair ? (
+            <NavQueueCounts
+              unread={badgePair.unread}
+              total={badgePair.total}
+              unreadLabel={t('badges.queue.unread')}
+              totalLabel={t('badges.queue.total')}
+            />
+          ) : (
+            <NavCountBadge count={badgeCount} placement="inline" />
+          )}
         </button>
       </Tip>
       {hasNested ? (

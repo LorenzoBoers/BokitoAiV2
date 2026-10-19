@@ -395,7 +395,7 @@
     "connectedTools": "Connected tools",
     "connected": "Connections",
     "myAssistant": "My assistant",
-    "forYou": "Assigned to me",
+    "forYou": "For you",
     "team": "Team",
     "bin": "Bin"
   },
@@ -1703,7 +1703,7 @@
     "openDecisions": "Open decisions",
     "openDecisionsHint": "Cards waiting on a person in Communication.",
     "openDecisionsEmpty": "No decision cards waiting.",
-    "openForYou": "Open Assigned to me",
+    "openForYou": "Open For you",
     "loading": "Loading usage...",
     "byModel": "By model ({{days}}d)",
     "billable": "Billable {{amount}}",
@@ -1757,11 +1757,11 @@
     "title": "Notifications",
     "markAll": "Mark all read",
     "empty": "No system notices",
-    "emptyHint": "Work assigned to you lives in Assigned to me. The list below is for system notices.",
+    "emptyHint": "Work assigned to you lives in For you. The list below is for system notices.",
     "settings": "Settings",
     "openChannels": "Email & messages",
     "openCommunication": "Open Communication",
-    "openForYou": "Open Assigned to me",
+    "openForYou": "Open For you",
     "forYouEmpty": "Nothing assigned to you right now",
     "staleDays": "{{count}}d ago — still open",
     "similarCount": "{{count}} similar — still waiting",
@@ -2183,7 +2183,7 @@
     "pushNotConfigured": "Push is not enabled on this server. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in the API environment (see docs/PRODUCTION_READINESS.md).",
     "pushFailed": "Could not enable push notifications.",
     "channelsTitle": "Where conversation notices go",
-    "channelsBody": "Assignments, mentions and decisions aimed at you land in Assigned to me; opening the conversation marks them read on every device. The bell keeps system notices only.",
+    "channelsBody": "Assignments, mentions and decisions aimed at you land in For you; opening the conversation marks them read on every device. The bell keeps system notices only.",
     "connectSlack": "Connect Slack",
     "enableSlack": "to enable the Slack toggles.",
     "budgetHint": "Budget alerts follow spend caps on",
@@ -2539,7 +2539,9 @@
     "queue": {
       "all": "{{count}} unread open",
       "my": "{{count}} unread assigned to you",
-      "unassigned": "{{count}} unread unassigned"
+      "unassigned": "{{count}} unread unassigned",
+      "unread": "Unread",
+      "total": "Total"
     }
   },
   "backgroundWorkers": {
@@ -2692,15 +2694,15 @@
       "allHint": "Every customer conversation, including closed ones",
       "allCommunication": "All communication",
       "allCommunicationHint": "Every conversation across channels — or open a channel or agent folder below",
-      "open": "Open",
-      "openHint": "Every open conversation, assigned or not",
+      "open": "All",
+      "openHint": "Every open conversation, yours, a colleague's, or nobody's yet. Closed is the switch.",
       "unassigned": "Unassigned",
       "unassignedHint": "Nobody owns these yet",
       "closed": "Closed",
       "closedHint": "Finished conversations",
       "spam": "Spam",
       "spamHint": "Hidden from the open queue",
-      "forYou": "Assigned to me",
+      "forYou": "For you",
       "forYouHint": "Assigned to you, plus questions, drafts and mentions aimed at you",
       "scheduled": "Scheduled",
       "scheduledHint": "Conversations with a date or repeat"
@@ -2764,12 +2766,20 @@
     },
     "customize": {
       "title": "Customize sidebar",
-      "description": "Drag sections to reorder them, hide the ones you do not use, and pick which start collapsed.",
+      "description": "Drag a row to reorder it. The eye hides a section or a row. Hidden rows are off.",
       "visible": "Show",
       "collapsed": "Collapse",
       "anchored": "Anchored",
       "reset": "Reset to defaults",
-      "reorderAria": "Reorder {{label}}"
+      "reorderAria": "Reorder {{label}}",
+      "hide": "Hide",
+      "show": "Show",
+      "hidden": "{{label}} hidden",
+      "undo": "Undo",
+      "keepOne": "Keep For you or All visible.",
+      "search": "Search",
+      "editSection": "Edit this section",
+      "manage": "Manage"
     },
     "allChannels": "All channels",
     "allMessages": "All",
@@ -2782,7 +2792,7 @@
     "agentOpsHint": "Decisions appear inline in threads",
     "mailboxes": "Channels",
     "links": {
-      "myInbox": "Assigned to me",
+      "myInbox": "For you",
       "allMessages": "Open",
       "awaitingDecision": "Awaiting decision",
       "updates": "Updates",
@@ -5519,7 +5529,7 @@
   },
   "supportPageMeta": {
     "my": {
-      "title": "Assigned to me",
+      "title": "For you",
       "description": "Threads assigned to you — customer and agent work in one place."
     },
     "all": {
@@ -6868,7 +6878,7 @@
   },
   "communicationTags": {
     "title": "Communication rail",
-    "description": "All communication opens on Assigned to me, Open or Unassigned. Other rows open their own list; closed conversations sit behind Show closed.",
+    "description": "All communication opens on For you, All or Unassigned. Other rows open their own list. Above the list, Open and Closed switch within that folder.",
     "defaultTitle": "All communication opens on",
     "defaultDescription": "The list that opens when you click All communication.",
     "useGlobal": "Default ({{queue}})",

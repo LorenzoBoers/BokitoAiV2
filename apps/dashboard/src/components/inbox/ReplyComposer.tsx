@@ -1464,7 +1464,21 @@ export default function ReplyComposer({
             onPromoteEmailEdit(body)
           }}
           onBlur={() => setMentionQuery(null)}
-          highlighter={dictation.listening ? undefined : <MentionHighlight raw={body} />}
+          highlighter={
+            dictation.listening ? (
+              <>
+                <span>{displayBody}</span>
+                {dictationInterim.trim() ? (
+                  <span className="text-text-muted">
+                    {displayBody ? ` ${dictationInterim}` : dictationInterim}
+                  </span>
+                ) : null}
+                {'\n'}
+              </>
+            ) : (
+              <MentionHighlight raw={body} />
+            )
+          }
           aiFlashNonce={aiFlashNonce}
           disabled={disabled || busy}
           placeholder={

@@ -25,7 +25,7 @@ import { AgentActivityTimeline } from '../components/workforce/AgentActivityTime
 import { AgentIdentityDialog } from '../components/workforce/AgentIdentityDialog'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { CardGridSkeleton } from '../components/ui/skeleton'
+import { AgentIdentitySkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { PageContent } from '../components/layout/PageContent'
 import { useIsAdmin } from '../hooks/useIsAdmin'
@@ -269,7 +269,7 @@ export default function AiAgentDetail() {
       </Link>
 
       {loading ? (
-        <CardGridSkeleton cards={4} className="lg:grid-cols-2" />
+        <AgentIdentitySkeleton />
       ) : !agent ? (
         <Card className="p-4">
           <p className="text-sm text-status-error">

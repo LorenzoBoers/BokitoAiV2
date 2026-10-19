@@ -5,7 +5,7 @@ import { Loader2, Lock, Search, Shield } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { DirectoryRowsSkeleton, StatTilesSkeleton } from '../components/ui/skeleton'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { toast } from 'sonner'
@@ -293,7 +293,10 @@ export default function OpsPage() {
       ) : null}
 
       {loading && !data ? (
-        <LoadingBlock variant="inline" label={t('ops.loading')} className="text-sm" />
+        <div className="space-y-4">
+          <StatTilesSkeleton />
+          <DirectoryRowsSkeleton rows={5} />
+        </div>
       ) : null}
 
       {data ? (
@@ -348,7 +351,7 @@ export default function OpsPage() {
                   {weightsLoading && !weights ? (
                     <tr>
                       <td colSpan={4} className="px-3 py-6 text-center text-text-muted">
-                        <LoadingBlock variant="inline" label={t('ops.loading')} className="text-sm" />
+                        <DirectoryRowsSkeleton rows={3} />
                       </td>
                     </tr>
                   ) : null}

@@ -515,7 +515,37 @@ _KIND_RANK = {
 }
 
 
-def _attach_marks(nodes, agents, user_rows, tags, accounts, calendars, connections) -> None:
+def _company_logo_url(tenant: Tenant | None) -> str:
+    """Branding pictogram: company logo, then favicon. Stored marks pass through."""
+    if tenant is None:
+        return ""
+    try:
+        settings = json.loads(tenant.settings_json or "{}")
+    except json.JSONDecodeError:
+        settings = {}
+    if not isinstance(settings, dict):
+        settings = {}
+    livechat = settings.get("livechat_settings")
+    if not isinstance(livechat, dict):
+        livechat = {}
+    appearance = livechat.get("appearance")
+    if not isinstance(appearance, dict):
+        appearance = {}
+    candidates = (
+        tenant.logo_url,
+        livechat.get("logo_url"),
+        appearance.get("widget_favicon_url"),
+        livechat.get("favicon_url"),
+        settings.get("favicon_url"),
+    )
+    for value in candidates:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _attach_marks(nodes, agents, user_rows, tags, accounts, calendars, connections, tenant: Tenant | None) -> None:
     """Copy the same marks the rest of the product already stores."""
     people = {str(row.id): row for row in user_rows}
     tag_by_id = {str(row.id): row for row in tags}
@@ -530,7 +560,13 @@ def _attach_marks(nodes, agents, user_rows, tags, accounts, calendars, connectio
     for node in nodes.values():
         kind, _, ident = node["id"].partition(":")
         mark: dict[str, Any] = {}
-        if kind == "agent":
+        if node.get("kind") == "organization":
+            # The center id is department:{all}, so the face cannot follow the id prefix.
+            mark = {
+                "avatar_image_url": _company_logo_url(tenant) or None,
+                "name": node.get("label") or "",
+            }
+        elif kind == "agent":
             agent = agents.get(ident)
             if agent is not None:
                 mark = avatar_payload(agent)
@@ -562,8 +598,6 @@ def _attach_marks(nodes, agents, user_rows, tags, accounts, calendars, connectio
             conn = connections.get(ident)
             if conn is not None:
                 mark = {"provider": conn.provider or ""}
-        elif kind == "organization":
-            mark = {"provider": "bokito"}
         elif kind == "module":
             mark = {"provider": ident}
         node["mark"] = mark
@@ -1275,7 +1309,7 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         key=lambda node_id: nodes[node_id]["label"].lower(),
     )
     placed, home, regions = arrange(nodes, links, org_id, department_ids)
-    _attach_marks(nodes, agents, user_rows, tags, accounts, calendars, connections)
+    _attach_marks(nodes, agents, user_rows, tags, accounts, calendars, connections, tenant)
     painted = []
     for node in nodes.values():
         x, y = placed.get(node["id"], (0.0, 0.0))

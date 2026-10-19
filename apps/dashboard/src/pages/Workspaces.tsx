@@ -7,7 +7,7 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { useTranslation } from 'react-i18next'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { WorkspaceCardsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { buildTenantOrigin, isLocalHostname } from '../lib/host-routing'
 import { useAuth } from '../context/AuthContext'
@@ -158,7 +158,7 @@ export default function Workspaces() {
   if (workspaceLoading) {
     return (
       <div className="mx-auto w-full max-w-[920px] px-2 py-6">
-        <LoadingBlock variant="skeleton" rows={4} />
+        <WorkspaceCardsSkeleton />
       </div>
     )
   }

@@ -85,6 +85,15 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _activity_input(tool: str, tool_input: Any) -> Any:
+    """Drop the spoken request from the trail. It is its own chat bubble."""
+    if tool not in ("invite_to_thread", "request_participant_turn"):
+        return tool_input
+    if not isinstance(tool_input, dict):
+        return tool_input
+    return {key: value for key, value in tool_input.items() if key not in ("message", "prompt")}
+
+
 def _compact(value: Any) -> Any:
     try:
         text = value if isinstance(value, str) else json.dumps(value, default=str)
@@ -158,7 +167,7 @@ def _activity_result(tool: str, result: Any) -> Any:
         return slim
     if isinstance(result, dict) and isinstance(result.get("items"), list):
         # Keep enough to rebuild showcase cards if the in-memory stash is lost
-        # (attach_items, list_folders, list_agents, list_contacts, …).
+        # (attach_items and tools that showcase a thing they just created).
         rows: list[dict[str, Any]] = []
         for row in result.get("items") or []:
             if not isinstance(row, dict):
@@ -498,7 +507,7 @@ class TurnRecorder:
             "started_at": _now(),
             "ended_at": None,
             "status": "running",
-            "input": _compact(tool_input),
+        "input": _compact(_activity_input(name, tool_input)),
         }
         if _raises_proposal(name):
             item["proposes"] = True
@@ -511,8 +520,11 @@ class TurnRecorder:
 
         item["ended_at"] = _now()
         item["status"] = "error" if _is_error(result) else "ok"
-        if decision_ids_from_result(result):
+        decision_ids = decision_ids_from_result(result)
+        if decision_ids:
             item["proposes"] = True
+            # Survives result compaction (480 chars). Placement reads this, not the slim result.
+            item["decision_ids"] = sorted(decision_ids)
         item["result"] = _activity_result(str(item.get("tool") or ""), result)
         # Concrete trail copy so collapsed activity is not just "1 action".
         tool = str(item.get("tool") or "")

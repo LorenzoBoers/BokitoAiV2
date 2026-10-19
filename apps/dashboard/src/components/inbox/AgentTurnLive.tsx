@@ -18,7 +18,7 @@ import type { AgentAvatarProps } from '../../lib/agent-avatar'
 import ActivityTrail from './ActivityTrail'
 import { EntityAvatarLink } from './EntityAvatarLink'
 import { LiveAgentAvatarSlot, useLiveAgentSeat } from './LiveAgentSeat'
-import { THREAD_GUTTER } from './ThreadMeta'
+import { CHAT_AVATAR_SIZE, THREAD_GUTTER } from './ThreadMeta'
 import { BubbleHeader, ChatBubbleShell, RoleChip } from './ChatBubble'
 import ChatText from './ChatText'
 import { ProposalItemList } from './ProposalItemPreview'
@@ -281,17 +281,30 @@ export default function AgentTurnLive({
     if (sawEnterRef.current) setStatusReady(true)
   }, [seated, enteringNow])
   const [revealed, setRevealed] = useState<Record<string, boolean>>({})
+  const [speechShown, setSpeechShown] = useState(1)
   const markRevealed = useCallback((key: string, done: boolean) => {
     setRevealed((prev) => (prev[key] === done ? prev : { ...prev, [key]: done }))
   }, [])
   const blocks = liveBlocks(turn)
+  const speechKeys = blocks.filter((block) => block.type === 'speech').map((block) => block.key)
+  useEffect(() => {
+    setSpeechShown(1)
+  }, [turn.streamId])
+  useEffect(() => {
+    if (speechKeys.length <= speechShown) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setSpeechShown(speechKeys.length)
+      return
+    }
+    const timer = window.setTimeout(() => setSpeechShown((count) => count + 1), 500)
+    return () => window.clearTimeout(timer)
+  }, [speechKeys.length, speechShown, turn.streamId])
   const frames = turn.status
     ? turn.status.frames
     : blocks
         .filter((block) => block.type === 'activity')
         .flatMap((block) => imageGenerationFrames(block.items))
   const shownImages = frames.map((frame) => frame.src).filter((src): src is string => Boolean(src))
-  const speechKeys = blocks.filter((block) => block.type === 'speech').map((block) => block.key)
   const playbackDone =
     !turn.active && (speechKeys.length === 0 || speechKeys.every((key) => revealed[key]))
   useEffect(() => {
@@ -345,7 +358,7 @@ export default function AgentTurnLive({
         slotId={seatSlotId}
         claim
         spawn
-        size={28}
+        size={CHAT_AVATAR_SIZE}
         decorative
         name={avatarMark.name ?? agentName}
         kind={avatarMark.kind}
@@ -358,7 +371,7 @@ export default function AgentTurnLive({
         baseMotion={orbBaseMotion}
       />
     ) : (
-      (avatar ?? <AiAvatar name={agentName} kind={null} size={28} decorative mode="live" />)
+      (avatar ?? <AiAvatar name={agentName} kind={null} size={CHAT_AVATAR_SIZE} decorative mode="live" />)
     )
   const hasActivityBlock = blocks.some((block) => block.type === 'activity')
   const showBlocks =
@@ -384,8 +397,14 @@ export default function AgentTurnLive({
           <div className="min-h-7" />
         ) : null}
         {showBlocks
-          ? blocks.map((block, index) =>
-              block.type === 'activity' ? (
+          ? blocks.map((block, index) => {
+              if (block.type === 'speech') {
+                const speechIndex = blocks
+                  .slice(0, index + 1)
+                  .filter((item) => item.type === 'speech').length
+                if (speechIndex > speechShown) return null
+              }
+              return block.type === 'activity' ? (
                 statusReady && !entering ? (
                   <ActivityTrail
                     key={block.key}
@@ -410,8 +429,8 @@ export default function AgentTurnLive({
                   attached={index === lastSpeechIndex ? attached : undefined}
                   onRevealed={(done) => markRevealed(block.key, done)}
                 />
-              ),
-            )
+              )
+            })
           : null}
       </div>
     </div>

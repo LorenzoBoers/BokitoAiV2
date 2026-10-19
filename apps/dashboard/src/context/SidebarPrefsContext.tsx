@@ -11,6 +11,7 @@ import {
   type SidebarPrefs,
   type SidebarSection,
 } from '../lib/communication-sidebar-prefs'
+import { canHideItem } from '../lib/sidebar-catalog'
 import { fetchRailPrefs, saveRailPrefs, togglePin } from '../lib/rail-prefs'
 
 type SidebarPrefsContextValue = {
@@ -29,6 +30,9 @@ type SidebarPrefsContextValue = {
     extra?: { retain?: string[]; close?: string[] },
   ) => void
   resetPrefs: () => void
+  /** Reorder views inside one parent. Returns false when the guard blocks a hide. */
+  setParentOrder: (parentId: string, ids: string[]) => void
+  setItemHidden: (id: string, hidden: boolean) => boolean
   isPinned: (ref: string) => boolean
   toggleRailPin: (ref: string) => void
   hideDefaultRow: (ref: string, hidden: boolean) => void
@@ -133,15 +137,37 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
 
   const resetPrefs = useCallback(
     () =>
-      update(() => ({
+      update((prev) => ({
+        ...prev,
         order: [...DEFAULT_SECTION_ORDER],
         hidden: [],
-        collapsed: [],
-        expandedLeaves: [],
-        railPins: [],
-        railHiddenDefaults: [],
+        itemOrder: {},
+        hiddenItems: [],
       })),
     [update],
+  )
+
+  const setParentOrder = useCallback(
+    (parentId: string, ids: string[]) =>
+      update((prev) => ({
+        ...prev,
+        itemOrder: { ...prev.itemOrder, [parentId]: ids },
+      })),
+    [update],
+  )
+
+  const setItemHidden = useCallback(
+    (id: string, hidden: boolean) => {
+      if (hidden && !canHideItem(id, prefs.hiddenItems)) return false
+      update((prev) => ({
+        ...prev,
+        hiddenItems: hidden
+          ? [...prev.hiddenItems.filter((item) => item !== id), id]
+          : prev.hiddenItems.filter((item) => item !== id),
+      }))
+      return true
+    },
+    [prefs.hiddenItems, update],
   )
 
   const isPinned = useCallback((ref: string) => prefs.railPins.some((pin) => pin.ref === ref), [prefs.railPins])
@@ -183,6 +209,8 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
       setSectionCollapsed,
       setLeafExpanded,
       resetPrefs,
+      setParentOrder,
+      setItemHidden,
       isPinned,
       toggleRailPin,
       hideDefaultRow,
@@ -196,6 +224,8 @@ export function SidebarPrefsProvider({ children }: { children: ReactNode }) {
       setSectionCollapsed,
       setLeafExpanded,
       resetPrefs,
+      setParentOrder,
+      setItemHidden,
       isPinned,
       toggleRailPin,
       hideDefaultRow,

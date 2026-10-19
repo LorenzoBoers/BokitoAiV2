@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   dedicatedInboxQueueForStatus,
+  inboxQueueForOpenedThread,
   pickRemainingInboxThread,
   resolvedStatusLeavesInboxQueue,
   threadFitsInboxQueue,
@@ -63,6 +64,19 @@ describe('scheduled queue', () => {
       true,
     )
     expect(threadFitsInboxQueue({ ...base, status: 'open', nextAt: null }, 'scheduled', 1)).toBe(false)
+  })
+})
+
+describe('inboxQueueForOpenedThread', () => {
+  const base = { assignedToUserId: null, channel: 'email' as const, folder: 'inbox' as const }
+
+  it('keeps the same conversation when a link lands in the wrong box', () => {
+    expect(inboxQueueForOpenedThread({ ...base, status: 'closed' })).toBe('closed')
+    expect(inboxQueueForOpenedThread({ ...base, status: 'spam' })).toBe('spam')
+    expect(inboxQueueForOpenedThread({ ...base, status: 'open' })).toBe('open')
+    expect(
+      inboxQueueForOpenedThread({ status: 'open', channel: 'internal', folder: 'internal' }),
+    ).toBe('all')
   })
 })
 

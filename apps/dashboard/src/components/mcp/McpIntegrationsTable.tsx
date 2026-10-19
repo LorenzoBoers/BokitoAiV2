@@ -8,6 +8,7 @@ import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Input } from '../ui/input'
+import { McpRowsSkeleton } from '../ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { IntegrationHostLogo } from '../integrations/IntegrationHostLogo'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -98,8 +99,8 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-sm text-text-muted py-8 text-center">
-                ...
+              <TableCell colSpan={6}>
+                <McpRowsSkeleton />
               </TableCell>
             </TableRow>
           ) : rows.length === 0 || visible.length === 0 ? (

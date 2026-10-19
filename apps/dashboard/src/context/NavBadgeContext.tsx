@@ -17,8 +17,16 @@ const GATEWAY_DEBOUNCE_MS = 1_500
 
 export type NavBadgeCounts = {
   inboxUnread: number
-  /** forYou: what waits on you now; the other queues count unread. */
-  inboxByQueue: { forYou: number; forYouUnread: number; unassigned: number; all: number }
+  /** forYou is whose turn it is (bell). Rows use unread plus the open-list total. */
+  inboxByQueue: {
+    forYou: number
+    forYouUnread: number
+    forYouTotal: number
+    unassigned: number
+    unassignedTotal: number
+    all: number
+    allTotal: number
+  }
   /** Pinned team id -> open work waiting on that team. */
   byTeam: Record<string, number>
   agentsAttention: number
@@ -29,7 +37,15 @@ export type NavBadgeCounts = {
 
 const EMPTY_COUNTS: NavBadgeCounts = {
   inboxUnread: 0,
-  inboxByQueue: { forYou: 0, forYouUnread: 0, unassigned: 0, all: 0 },
+  inboxByQueue: {
+    forYou: 0,
+    forYouUnread: 0,
+    forYouTotal: 0,
+    unassigned: 0,
+    unassignedTotal: 0,
+    all: 0,
+    allTotal: 0,
+  },
   byTeam: {},
   agentsAttention: 0,
   noReplySuggestions: 0,
@@ -42,8 +58,11 @@ function mapBadgeCounts(payload: Awaited<ReturnType<typeof fetchSignalBadgeCount
     inboxByQueue: {
       forYou: payload.inbox_by_queue.for_you,
       forYouUnread: payload.inbox_by_queue.for_you_unread,
+      forYouTotal: payload.inbox_by_queue.for_you_total,
       unassigned: payload.inbox_by_queue.unassigned,
+      unassignedTotal: payload.inbox_by_queue.unassigned_total,
       all: payload.inbox_by_queue.all,
+      allTotal: payload.inbox_by_queue.all_total,
     },
     byTeam: payload.by_team,
     agentsAttention: payload.agents_attention,

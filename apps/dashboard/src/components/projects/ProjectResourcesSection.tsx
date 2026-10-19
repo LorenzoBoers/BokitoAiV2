@@ -19,7 +19,7 @@ import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
-import { LoadingBlock } from '../ui/loading-block'
+import { ResourceRowsSkeleton } from '../ui/skeleton'
 import { Input } from '../ui/input'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -150,7 +150,7 @@ export function ProjectResourcesSection({
   }
 
   if (loading) {
-    return <LoadingBlock variant="skeleton" rows={3} />
+    return <ResourceRowsSkeleton />
   }
 
   return (

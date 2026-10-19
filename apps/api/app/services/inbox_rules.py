@@ -495,6 +495,7 @@ async def raise_rule_decision(
     signal_id: UUID | None,
     agent_id: UUID | None = None,
     summary: str = "",
+    reveal: bool = True,
 ) -> dict[str, Any] | None:
     """Ask inline whether a suggested rule may go live.
 
@@ -557,6 +558,7 @@ async def raise_rule_decision(
         agent_id=agent_id,
         signal_id=signal_id,
         notification_payload={"rule": rule_payload},
+        reveal=reveal,
     )
     return {"decision_request_id": str(decision.id), "title": title}
 

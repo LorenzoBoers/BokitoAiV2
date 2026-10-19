@@ -17,7 +17,7 @@ import { listProjects } from '../../lib/projects-api'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
-import { Skeleton } from '../ui/skeleton'
+import { ConversationRowsSkeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 
 const MessageSquare = ENTITY_ICONS.conversation
@@ -154,11 +154,7 @@ export function ProjectConversations({
       </div>
 
       {threads == null ? (
-        <div className="space-y-1.5" aria-busy="true">
-          {Array.from({ length: preview ? 3 : 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-11 rounded-lg" />
-          ))}
-        </div>
+        <ConversationRowsSkeleton rows={preview ? 3 : 5} />
       ) : error && rows.length === 0 ? (
         <ApiErrorBanner message={error} />
       ) : rows.length === 0 ? (

@@ -13,8 +13,8 @@ import {
   CalendarDays,
   FolderOpen,
   LayoutDashboard,
-  LayoutGrid,
   MessageSquare,
+  Network,
   Plug,
   Settings,
   SquarePen,
@@ -69,6 +69,9 @@ export const OVERVIEW_PATH = '/cockpit' as const
 /** @deprecated Use OVERVIEW_PATH — kept for older imports. */
 export const REPORTS_PATH = OVERVIEW_PATH
 
+/** Org map mark. Same glyph on the rail, Open in Grid, and the departments link. */
+export const GRID_ICON: LucideIcon = Network
+
 const TAB_ICONS: Record<Tab, LucideIcon> = {
   newChat: SquarePen,
   overview: LayoutDashboard,
@@ -78,7 +81,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   agents: Bot,
   workstreams: Route,
   knowledge: Brain,
-  grid: LayoutGrid,
+  grid: GRID_ICON,
   folders: FolderOpen,
   modules: Plug,
   settings: Settings,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { EmptyState } from '../ui/empty-state'
 import {
@@ -11,8 +11,9 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Activity, Clock, Inbox, Mail, Network, Plus, Settings } from 'lucide-react'
+import { Activity, Clock, Inbox, Mail, Plus, Settings } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { GRID_ICON } from '../../lib/navigation'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
@@ -23,6 +24,7 @@ import { NavSectionSkeleton } from '../ui/skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { useNavBadges } from '../../context/NavBadgeContext'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
+import { useSidebarEditor } from '../../context/SidebarEditorContext'
 import { useInboxFolderPrefs } from '../../hooks/useInboxFolderPrefs'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { listChannelAccounts, type ChannelAccountRow } from '../../lib/channel-accounts-api'
@@ -34,36 +36,63 @@ import { CommunicationFlowsTree, FolderTagTree } from './FolderTagTree'
 import { mailboxDisplayLabel } from '../../lib/mailbox-label'
 import { BRAND_ASSET_PATHS } from '../../lib/brand-assets'
 import type { EmailConnection } from '../../lib/email-api'
-import { countForInboxQueue, countForTeam } from '../../lib/nav-badge-counts'
+import { countForTeam, pairForInboxQueue } from '../../lib/nav-badge-counts'
+import {
+  INBOX_SIDEBAR_QUEUES,
+  agentItemId,
+  applyOrder,
+  applyTreeOrder,
+  buildCommunicationCatalog,
+  catalogStructureKey,
+  channelItemId,
+  flowItemId,
+  folderItemId,
+  queueItemId,
+  teamItemId,
+  type CatalogNode,
+  type InboxSidebarQueue,
+} from '../../lib/sidebar-catalog'
+import { tagPinRef } from '../../lib/communication-sidebar-prefs'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
-  INBOX_WORK_QUEUES,
   TEAM_SUB_QUEUES,
   inboxPath,
   leafFromPath,
   leafKey,
   newConversationPath,
   type HubLeaf,
-  type InboxQueue,
   type SubQueue,
 } from '../../lib/messages-paths'
 import { openEntityPath } from '../../lib/open-entity'
 import type { Team } from '../../lib/teams-api'
 import { useTeams } from '../../hooks/useTeams'
 import { SidebarFolder } from './QueueSublist'
-import NavCountBadge from '../layout/NavCountBadge'
+import { RailEyeButton, RailPenButton } from './RailEditButtons'
+import { useHideSidebarRow } from '../../hooks/useHideSidebarRow'
+import { NavQueueCounts } from '../layout/NavCountBadge'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
+import { HashtagMark } from '../ui/HashtagMark'
+import { TagPill } from '../ui/TagPill'
 import ScrollFade from '../ui/ScrollFade'
 import { Tip } from '../ui/Tip'
 import { SectionLabel } from '../ui/section-label'
 import { cn } from '../../lib/utils'
 
 const Users = ENTITY_ICONS.team
+const FolderIcon = ENTITY_ICONS.project
 
-const EXTRA_INBOX_ITEMS: ReadonlyArray<{ queue: InboxQueue; labelKey: string }> = [
-  { queue: 'scheduled', labelKey: 'support.inbox.scheduled' },
-  { queue: 'spam', labelKey: 'support.inbox.spam' },
-]
+function paintCatalog(
+  nodes: CatalogNode[],
+  icons: Map<string, ReactNode>,
+  marks: Map<string, ReactNode>,
+): CatalogNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    icon: icons.get(node.id),
+    mark: marks.get(node.id),
+    children: paintCatalog(node.children, icons, marks),
+  }))
+}
 
 export const SECTION_LABELS: Record<SidebarSection, { labelKey: string; defaultLabel: string }> = {
   folders: { labelKey: 'support.section.folders', defaultLabel: 'Folders' },
@@ -157,6 +186,7 @@ function CollapsibleSection({ section, title, count, headerAction, children }: C
         open={!collapsed}
         onOpenChange={(next) => setSectionCollapsed(section, !next)}
         actions={headerAction}
+        hoverActions
         contentClassName="space-y-px"
         titleButtonProps={{
           ...attributes,
@@ -315,6 +345,7 @@ function ChannelsSection({
   activeLeaf: HubLeaf | null
   t: TFn
 }) {
+  const { hideItem } = useHideSidebarRow()
   return (
     <div className="space-y-px">
       {loading ? <NavSectionSkeleton rows={3} /> : null}
@@ -337,19 +368,33 @@ function ChannelsSection({
           defaultQueue="open"
           queues={[]}
           headerAction={
-            folder.leaf.type === 'channel' &&
-            folder.leaf.channelKey === 'email' &&
-            folder.leaf.connectionId ? (
-              <ComposePlusLink
-                to={newConversationPath({ intent: 'contact', connectionId: folder.leaf.connectionId })}
-                label={t('support.composeFromChannel')}
+            <>
+              <RailEyeButton
+                label={t('support.customize.hide')}
+                onClick={() =>
+                  hideItem(
+                    channelItemId(
+                      folder.leaf.type === 'channel' ? folder.leaf.channelKey : '',
+                      folder.leaf.type === 'channel' ? folder.leaf.connectionId : undefined,
+                    ),
+                    folder.label,
+                  )
+                }
               />
-            ) : folder.leaf.type === 'channel' ? (
-              <ComposePlusLink
-                to={newConversationPath({ intent: 'contact' })}
-                label={t('support.composeFromChannel')}
-              />
-            ) : null
+              {folder.leaf.type === 'channel' &&
+              folder.leaf.channelKey === 'email' &&
+              folder.leaf.connectionId ? (
+                <ComposePlusLink
+                  to={newConversationPath({ intent: 'contact', connectionId: folder.leaf.connectionId })}
+                  label={t('support.composeFromChannel')}
+                />
+              ) : folder.leaf.type === 'channel' ? (
+                <ComposePlusLink
+                  to={newConversationPath({ intent: 'contact' })}
+                  label={t('support.composeFromChannel')}
+                />
+              ) : null}
+            </>
           }
         />
       ))}
@@ -366,6 +411,7 @@ function AgentFolderRow({
   activeLeaf: HubLeaf | null
   t: TFn
 }) {
+  const { hideItem } = useHideSidebarRow()
   const live = useAgentLive(agent.id)
   const activity = live?.status ?? asAgentStatus(agent.status)
   const workHref =
@@ -388,10 +434,16 @@ function AgentFolderRow({
       defaultQueue="open"
       queues={[]}
       headerAction={
-        <ComposePlusLink
-          to={newConversationPath({ intent: 'agent', agentId: agent.id })}
-          label={t('support.composeToAgent')}
-        />
+        <>
+          <RailEyeButton
+            label={t('support.customize.hide')}
+            onClick={() => hideItem(agentItemId(agent.id), agent.name)}
+          />
+          <ComposePlusLink
+            to={newConversationPath({ intent: 'agent', agentId: agent.id })}
+            label={t('support.composeToAgent')}
+          />
+        </>
       }
       extra={
         <>
@@ -486,6 +538,56 @@ function AgentsSection({
   )
 }
 
+const INBOX_QUEUE_LABEL: Record<InboxSidebarQueue, string> = {
+  for_you: 'support.inbox.forYou',
+  open: 'support.inbox.open',
+  unassigned: 'support.inbox.unassigned',
+  scheduled: 'support.inbox.scheduled',
+  spam: 'support.inbox.spam',
+}
+
+function InboxQueueRows({
+  queues,
+  activeLeaf,
+  counts,
+}: {
+  queues: readonly InboxSidebarQueue[]
+  activeLeaf: HubLeaf | null
+  counts: ReturnType<typeof useNavBadges>['counts']
+}) {
+  const { t } = useTranslation('nav')
+  const { hideItem } = useHideSidebarRow()
+  return (
+    <>
+      {queues.map((queue) => {
+        const leaf: HubLeaf = { type: 'inbox', queue }
+        const label = t(INBOX_QUEUE_LABEL[queue])
+        const pair = pairForInboxQueue(counts, queue)
+        return (
+          <NavLink
+            key={queue}
+            to={inboxPath(queue)}
+            data-active={isLeafActive(activeLeaf, leaf) ? 'true' : undefined}
+            className="nav-row nav-sub-row group/row h-[26px] text-xs"
+          >
+            {queue === 'scheduled' ? <Clock size={12} className="shrink-0 text-text-muted" aria-hidden /> : null}
+            <span className="min-w-0 flex-1 truncate-fade">{label}</span>
+            <span className="hidden group-hover/row:inline-flex">
+              <RailEyeButton label={t('support.customize.hide')} onClick={() => hideItem(queueItemId(queue), label)} />
+            </span>
+            <NavQueueCounts
+              unread={pair.unread}
+              total={pair.total}
+              unreadLabel={t('badges.queue.unread')}
+              totalLabel={t('badges.queue.total')}
+            />
+          </NavLink>
+        )
+      })}
+    </>
+  )
+}
+
 function NavRowFolders({
   rows,
   leafFor,
@@ -538,6 +640,12 @@ export default function MessagesHubNav() {
   const { token } = useAuth()
   const { counts } = useNavBadges()
   const { prefs, visibleSections, settingsVisible, setOrder } = useSidebarPrefs()
+  const { setCatalog, openEditor } = useSidebarEditor()
+  const { hideItem, hideSection } = useHideSidebarRow()
+  const layout = useMemo(
+    () => ({ itemOrder: prefs.itemOrder, hiddenItems: prefs.hiddenItems }),
+    [prefs.itemOrder, prefs.hiddenItems],
+  )
   const { defaultQueueFor } = useInboxFolderPrefs()
   const location = useLocation()
   const activeLeaf = leafFromPath(location.pathname)
@@ -552,7 +660,7 @@ export default function MessagesHubNav() {
       const activeId = String(event.active.id) as SidebarSection
       const overId = event.over ? (String(event.over.id) as SidebarSection) : null
       if (!overId || activeId === overId) return
-      const middle = prefs.order.filter((section) => section !== 'settings')
+      const middle: SidebarSection[] = prefs.order.filter((section) => section !== 'settings')
       const oldIndex = middle.indexOf(activeId)
       const newIndex = middle.indexOf(overId)
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
@@ -584,12 +692,131 @@ export default function MessagesHubNav() {
     }
   }, [token])
 
-  const companyAgents = targets.filter((target) => target.kind === 'company')
+  const companyAgents = useMemo(
+    () => targets.filter((target) => target.kind === 'company'),
+    [targets],
+  )
   const inboxBaseLeaf: HubLeaf = { type: 'inbox' }
-  const inboxQueueCounts = {
-    for_you: counts.inboxByQueue.forYou,
-    unassigned: counts.inboxByQueue.unassigned,
-  }
+  const orderedQueues = useMemo(
+    () => applyOrder([...INBOX_SIDEBAR_QUEUES], 'inbox', queueItemId, layout),
+    [layout],
+  )
+  const orderedFolders = useMemo(
+    () => applyTreeOrder(nav.projects, 'folders', (row) => folderItemId(row.id), layout),
+    [layout, nav.projects],
+  )
+  const orderedFlows = useMemo(
+    () => applyOrder(nav.ticketTags, 'flows', (row) => flowItemId(row.id), layout),
+    [layout, nav.ticketTags],
+  )
+  const orderedChannels = useMemo(
+    () =>
+      applyOrder(channelFolders, 'channels', (folder) =>
+        channelItemId(
+          folder.leaf.type === 'channel' ? folder.leaf.channelKey : '',
+          folder.leaf.type === 'channel' ? folder.leaf.connectionId : undefined,
+        ),
+        layout,
+      ),
+    [channelFolders, layout],
+  )
+  const orderedAgents = useMemo(
+    () => applyOrder(companyAgents, 'agents', (agent) => agentItemId(agent.id), layout),
+    [companyAgents, layout],
+  )
+  const orderedTeams = useMemo(
+    () => applyOrder(teams, 'teams', (team) => teamItemId(team.id), layout),
+    [layout, teams],
+  )
+
+  const catalog = useMemo(() => {
+    const built = buildCommunicationCatalog({
+        labels: {
+          inbox: t('support.inbox.allCommunication'),
+          folders: t(SECTION_LABELS.folders.labelKey),
+          flows: t(SECTION_LABELS.flows.labelKey),
+          channels: t(SECTION_LABELS.channels.labelKey),
+          agents: t(SECTION_LABELS.agents.labelKey),
+          teams: t(SECTION_LABELS.teams.labelKey),
+          contacts: t('support.contacts.label'),
+          settings: t(SECTION_LABELS.settings.labelKey),
+          queues: {
+            for_you: t('support.inbox.forYou'),
+            open: t('support.inbox.open'),
+            unassigned: t('support.inbox.unassigned'),
+            scheduled: t('support.inbox.scheduled'),
+            spam: t('support.inbox.spam'),
+          },
+        },
+        sectionOrder: prefs.order.filter((section) => section !== 'settings'),
+        hiddenSections: prefs.hidden,
+        folders: nav.projects,
+        tags: nav.tags
+          .filter((row) => prefs.railPins.some((pin) => pin.ref === tagPinRef(row.name)))
+          .map((row) => ({ id: `tag:${row.id}`, label: row.name.replace(/^#/, '') })),
+        flows: nav.ticketTags.map((row) => ({ id: flowItemId(row.id), label: row.name.replace(/^#/, '') })),
+        channels: channelFolders.map((folder) => ({
+          id: channelItemId(
+            folder.leaf.type === 'channel' ? folder.leaf.channelKey : '',
+            folder.leaf.type === 'channel' ? folder.leaf.connectionId : undefined,
+          ),
+          label: folder.label,
+        })),
+        agents: companyAgents.map((agent) => ({ id: agentItemId(agent.id), label: agent.name })),
+        teams: teams.map((team) => ({ id: teamItemId(team.id), label: team.name })),
+        prefs: layout,
+      })
+    const icons = new Map<string, ReactNode>()
+    const marks = new Map<string, ReactNode>()
+    icons.set('inbox', <Inbox size={14} className="shrink-0 text-text-muted" />)
+    icons.set('contacts', <Users size={14} className="shrink-0 text-text-muted" />)
+    icons.set('settings', <Settings size={14} className="shrink-0 text-text-muted" />)
+    icons.set(queueItemId('scheduled'), <Clock size={12} className="shrink-0 text-text-muted" />)
+    const walkFolders = (rows: typeof nav.projects) => {
+      for (const row of rows) {
+        icons.set(folderItemId(row.id), <FolderIcon size={12} className="shrink-0 text-text-muted" />)
+        if (row.children?.length) walkFolders(row.children)
+      }
+    }
+    walkFolders(nav.projects)
+    for (const row of nav.tags) {
+      if (!prefs.railPins.some((pin) => pin.ref === tagPinRef(row.name))) continue
+      icons.set(`tag:${row.id}`, <HashtagMark />)
+    }
+    for (const row of nav.ticketTags) {
+      marks.set(flowItemId(row.id), <TagPill names={row.name.replace(/^#/, '')} tone="action" size="sm" />)
+    }
+    for (const folder of channelFolders) {
+      icons.set(
+        channelItemId(
+          folder.leaf.type === 'channel' ? folder.leaf.channelKey : '',
+          folder.leaf.type === 'channel' ? folder.leaf.connectionId : undefined,
+        ),
+        folder.icon,
+      )
+    }
+    for (const agent of companyAgents) {
+      icons.set(
+        agentItemId(agent.id),
+        <AiAvatar {...toAiAvatarProps(agent)} size={14} decorative mode="static" />,
+      )
+    }
+    for (const team of teams) {
+      icons.set(
+        teamItemId(team.id),
+        <TeamFacepile team={team} size={14} linkAgents={false} presence={team.presence?.status} />,
+      )
+    }
+    return paintCatalog(built, icons, marks)
+  }, [channelFolders, companyAgents, layout, nav.projects, nav.tags, nav.ticketTags, prefs.hidden, prefs.order, prefs.railPins, t, teams])
+
+  const publishedCatalog = useRef('')
+  useEffect(() => {
+    const next = catalogStructureKey(catalog)
+    if (publishedCatalog.current === next) return
+    publishedCatalog.current = next
+    setCatalog(catalog)
+  }, [catalog, setCatalog])
 
   const sectionCounts: Partial<Record<SidebarSection, number | null>> = {
     folders: nav.projects.length > 0 ? nav.projects.length : null,
@@ -602,7 +829,7 @@ export default function MessagesHubNav() {
   const sectionContent: Record<Exclude<SidebarSection, 'settings'>, ReactNode> = {
     folders: (
       <FolderTagTree
-        folders={nav.projects}
+        folders={orderedFolders}
         tags={nav.tags}
         ticketTags={[]}
         loading={!navLoaded}
@@ -613,7 +840,7 @@ export default function MessagesHubNav() {
     ),
     flows: (
       <CommunicationFlowsTree
-        ticketTags={nav.ticketTags}
+        ticketTags={orderedFlows}
         loading={!navLoaded}
         activeLeaf={activeLeaf}
         t={t}
@@ -621,7 +848,7 @@ export default function MessagesHubNav() {
     ),
     channels: (
       <ChannelsSection
-        folders={channelFolders}
+        folders={orderedChannels}
         loading={channelsLoading}
         activeLeaf={activeLeaf}
         t={t}
@@ -629,7 +856,7 @@ export default function MessagesHubNav() {
     ),
     agents: (
       <AgentsSection
-        agents={companyAgents}
+        agents={orderedAgents}
         loading={targetsLoading}
         activeLeaf={activeLeaf}
         t={t}
@@ -638,16 +865,13 @@ export default function MessagesHubNav() {
     teams: (
       <>
         {teamsLoading ? <NavSectionSkeleton rows={2} /> : null}
-        <Link to="/grid" className="nav-row text-xs text-text-muted">
-          <span className="min-w-0 flex-1 truncate-fade">{t('orgCanvas.link')}</span>
-        </Link>
         {!teamsLoading && teams.length === 0 ? (
           <Link to="/team" className="nav-row border border-dashed border-border/80 text-xs">
             <Plus aria-hidden />
             <span className="min-w-0 flex-1 truncate-fade">{t('support.teams.createHint')}</span>
           </Link>
         ) : null}
-        {teams.map((team) => {
+        {orderedTeams.map((team) => {
           const leaf: HubLeaf = { type: 'team', teamId: team.id }
           return (
             <SidebarFolder
@@ -663,6 +887,12 @@ export default function MessagesHubNav() {
               headerQueue={null}
               queues={TEAM_SUB_QUEUES}
               badgeCount={countForTeam(counts, team.id)}
+              headerAction={
+                <RailEyeButton
+                  label={t('support.customize.hide')}
+                  onClick={() => hideItem(teamItemId(team.id), team.name)}
+                />
+              }
             />
           )
         })}
@@ -682,30 +912,18 @@ export default function MessagesHubNav() {
             icon={<Inbox size={14} className="shrink-0 text-text-muted" />}
             activeLeaf={activeLeaf}
             defaultQueue={defaultQueueFor(inboxBaseLeaf)}
-            queues={INBOX_WORK_QUEUES}
-            badgeCount={counts.inboxByQueue.forYou}
-            queueCounts={inboxQueueCounts}
-            extra={
-              <>
-                {EXTRA_INBOX_ITEMS.map((item) => {
-                  const leaf: HubLeaf = { type: 'inbox', queue: item.queue }
-                  return (
-                    <Tip key={item.queue} label={t(`${item.labelKey}Hint`)} side="right">
-                      <NavLink
-                        to={inboxPath(item.queue)}
-                        data-active={isLeafActive(activeLeaf, leaf) ? 'true' : undefined}
-                        className="nav-row nav-sub-row h-[26px] text-xs"
-                      >
-                        {item.queue === 'scheduled' ? (
-                          <Clock size={12} className="shrink-0 text-text-muted" aria-hidden />
-                        ) : null}
-                        <span className="min-w-0 flex-1 truncate-fade">{t(item.labelKey)}</span>
-                        <NavCountBadge count={countForInboxQueue(counts, item.queue)} placement="inline" />
-                      </NavLink>
-                    </Tip>
-                  )
-                })}
-              </>
+            queues={[]}
+            badgePair={pairForInboxQueue(counts, 'open')}
+            headerAction={
+              <RailPenButton
+                label={t('support.customize.editSection')}
+                onClick={() => openEditor('inbox')}
+              />
+            }
+            leading={
+              orderedQueues.length > 0 ? (
+                <InboxQueueRows queues={orderedQueues} activeLeaf={activeLeaf} counts={counts} />
+              ) : null
             }
           />
         </section>
@@ -726,6 +944,14 @@ export default function MessagesHubNav() {
                   count={sectionCounts[section]}
                   headerAction={
                     <span className="inline-flex items-center">
+                      <RailPenButton
+                        label={t('support.customize.editSection')}
+                        onClick={() => openEditor(section)}
+                      />
+                      <RailEyeButton
+                        label={t('support.customize.hide')}
+                        onClick={() => hideSection(section, t(SECTION_LABELS[section].labelKey))}
+                      />
                       {section === 'teams' ? (
                         <Tip label={t('orgCanvas.link')}>
                           <Link
@@ -734,7 +960,7 @@ export default function MessagesHubNav() {
                             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
                             onClick={(event) => event.stopPropagation()}
                           >
-                            <Network size={12} strokeWidth={2} aria-hidden />
+                            <GRID_ICON size={12} strokeWidth={2} aria-hidden />
                           </Link>
                         </Tip>
                       ) : null}
@@ -764,9 +990,19 @@ export default function MessagesHubNav() {
         </Tip>
         {settingsVisible ? (
           <Tip label={t('support.settings.channels')} side="right">
-            <NavLink to="/settings/channels" className="nav-row">
+            <NavLink to="/settings/channels" className="nav-row group/row">
               <Settings aria-hidden />
               <span className="min-w-0 flex-1 truncate-fade">{t('support.settings.channels')}</span>
+              <span className="hidden group-hover/row:inline-flex">
+                <RailPenButton
+                  label={t('support.customize.editSection')}
+                  onClick={() => openEditor('settings')}
+                />
+                <RailEyeButton
+                  label={t('support.customize.hide')}
+                  onClick={() => hideSection('settings', t(SECTION_LABELS.settings.labelKey))}
+                />
+              </span>
             </NavLink>
           </Tip>
         ) : null}

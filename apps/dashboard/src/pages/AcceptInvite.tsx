@@ -8,6 +8,7 @@ import { authInviteInfo, type InviteInfo } from '../lib/api';
 import { apiPatchAuth, AUTH_API_BASE, buildAuthHeaders } from '../lib/api';
 import { authRoutes } from '../api/routes/auth.routes';
 import { policyRoutes } from '../api/routes/policy.routes';
+import { InviteCardSkeleton } from '../components/ui/skeleton'
 import { memberRoleLabel } from '../lib/labels';
 
 type PrefRow = {
@@ -333,9 +334,7 @@ export default function AcceptInvite() {
               </div>
             </div>
           ) : infoLoading ? (
-            <div className="flex justify-center py-8 text-text-muted">
-              <Loader2 size={18} className="animate-spin" />
-            </div>
+            <InviteCardSkeleton />
           ) : infoError ? (
             <div className="space-y-4">
               <div className="px-4 py-3 rounded-md bg-status-error/10 border border-status-error/30 text-status-error text-sm">

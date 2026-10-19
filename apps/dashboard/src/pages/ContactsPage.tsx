@@ -22,7 +22,7 @@ const Building2 = ENTITY_ICONS.company
 const MessageSquare = ENTITY_ICONS.conversation
 const UserRound = ENTITY_ICONS.contact
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import { TableRowsSkeleton } from '../components/ui/skeleton'
+import { CompanyTableSkeleton, DirectoryRowsSkeleton, ProfileSkeleton } from '../components/ui/skeleton'
 import { ChannelGlyph, ChannelLabel, channelKind } from '../components/ui/ChannelGlyph'
 import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
 import { DomainFavicon } from '../components/ui/DomainFavicon'
@@ -282,7 +282,7 @@ function ContactDetail({ contactId }: { contactId: string }) {
   if (loading) {
     return (
       <PageContent width="xl">
-        <TableRowsSkeleton rows={5} className="pt-4" />
+        <ProfileSkeleton />
       </PageContent>
     )
   }
@@ -723,7 +723,7 @@ function CompanyDetailView({ companyId }: { companyId: string }) {
   if (loading) {
     return (
       <PageContent width="xl">
-        <TableRowsSkeleton rows={5} className="pt-4" />
+        <ProfileSkeleton />
       </PageContent>
     )
   }
@@ -1467,7 +1467,7 @@ export default function ContactsPage() {
       </Dialog>
 
       {loading && (view === 'companies' ? companies.length === 0 : contacts.length === 0) ? (
-        <TableRowsSkeleton rows={8} />
+        view === 'companies' ? <CompanyTableSkeleton rows={8} /> : <DirectoryRowsSkeleton rows={8} />
       ) : listError ? (
         <div className="rounded-lg border border-dashed border-status-error/40 px-4 py-12 text-center">
           <UserRound size={22} className="mx-auto text-text-muted" />

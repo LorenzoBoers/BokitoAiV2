@@ -97,6 +97,57 @@ function tone(
   osc.stop(t0 + duration + 0.01)
 }
 
+/**
+ * Soft rising blip when dictation starts. Not a notice, so it ignores the
+ * notification-sound preference. The click that starts recording is the gesture.
+ */
+export async function playDictationStartSound(): Promise<void> {
+  try {
+    const ctx = ensureContext()
+    if (!ctx) return
+    if (ctx.state === 'suspended') await ctx.resume()
+    const osc = ctx.createOscillator()
+    const vol = ctx.createGain()
+    osc.connect(vol)
+    vol.connect(ctx.destination)
+    osc.type = 'sine'
+    const t0 = ctx.currentTime
+    osc.frequency.setValueAtTime(520, t0)
+    osc.frequency.exponentialRampToValueAtTime(880, t0 + 0.09)
+    vol.gain.setValueAtTime(0.0001, t0)
+    vol.gain.exponentialRampToValueAtTime(0.09, t0 + 0.02)
+    vol.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16)
+    osc.start(t0)
+    osc.stop(t0 + 0.18)
+  } catch {
+    // Autoplay or missing Web Audio — ignore.
+  }
+}
+
+/** Soft falling blip when dictation stops. Pair of the start sound. */
+export async function playDictationStopSound(): Promise<void> {
+  try {
+    const ctx = ensureContext()
+    if (!ctx) return
+    if (ctx.state === 'suspended') await ctx.resume()
+    const osc = ctx.createOscillator()
+    const vol = ctx.createGain()
+    osc.connect(vol)
+    vol.connect(ctx.destination)
+    osc.type = 'sine'
+    const t0 = ctx.currentTime
+    osc.frequency.setValueAtTime(740, t0)
+    osc.frequency.exponentialRampToValueAtTime(360, t0 + 0.12)
+    vol.gain.setValueAtTime(0.0001, t0)
+    vol.gain.exponentialRampToValueAtTime(0.08, t0 + 0.015)
+    vol.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18)
+    osc.start(t0)
+    osc.stop(t0 + 0.2)
+  } catch {
+    // Autoplay or missing Web Audio — ignore.
+  }
+}
+
 /** Play when a conversation notice arrives while the dashboard is open. */
 export async function playIncomingNotificationSound(opts?: { force?: boolean }): Promise<void> {
   if (!opts?.force && !isNotificationSoundEnabled()) return

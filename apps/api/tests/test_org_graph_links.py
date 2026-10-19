@@ -27,6 +27,13 @@ from app.services.personal_assistant import ensure_personal_assistant
 from scripts.seed import TEST_EMAIL
 
 
+def test_company_logo_keeps_the_stored_brand_file():
+    from app.services.org_graph import _company_logo_url
+
+    tenant = Tenant(slug="bokito", name="Bokito AI", logo_url="/bokito-logo.png")
+    assert _company_logo_url(tenant) == "/bokito-logo.png"
+
+
 def test_channel_href_mailbox_uses_the_connection():
     connection_id = uuid4()
     assert channel_href("email", connection_id) == f"/communication/channel/email/{connection_id}"
@@ -336,6 +343,16 @@ async def test_org_graph_department_hierarchy_edge(client: AsyncClient, session_
     all_region = next(region for region in graph["regions"] if region["id"] == org_node)
     assert all_region["shape"] == "ring"
     assert all_region["label"] != "All"
+    assert org["mark"].get("provider") != "bokito"
+    assert not org["mark"].get("avatar_image_url")
+
+    tenant.logo_url = "data:image/png;base64,abc"
+    await session_override.commit()
+    graph = await build_org_graph(session_override, tenant.id)
+    org = next(node for node in graph["nodes"] if node["kind"] == "organization")
+    assert org["mark"]["avatar_image_url"] == "data:image/png;base64,abc"
+    tenant.logo_url = None
+    await session_override.commit()
 
 
 @pytest.mark.asyncio

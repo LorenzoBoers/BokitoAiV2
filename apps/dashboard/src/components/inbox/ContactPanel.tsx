@@ -14,7 +14,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
-import { LoadingBlock } from '../ui/loading-block'
+import { ContactSideSkeleton } from '../ui/skeleton'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ContactAvatar } from '../ui/ContactAvatar'
@@ -459,9 +459,9 @@ export default function ContactPanel({
   if (loading) {
     return (
       <>
-        <div className="flex items-center gap-2 px-4 py-4">
-          <LoadingBlock variant="inline" label={t('contactPanel.loading')} className="min-w-0 flex-1 text-sm" />
-          {closeAction}
+        <div>
+          <div className="flex justify-end px-4 pt-3">{closeAction}</div>
+          <ContactSideSkeleton />
         </div>
         {children}
       </>

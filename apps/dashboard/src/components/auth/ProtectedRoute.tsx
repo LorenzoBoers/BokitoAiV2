@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { AuthScreenSkeleton } from '../ui/skeleton';
 import { buildAppLoginUrl, resolveTenantSubdomainFromHost } from '../../lib/host-routing';
 
 export default function ProtectedRoute() {
@@ -7,11 +8,7 @@ export default function ProtectedRoute() {
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg">
-        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-      </div>
-    );
+    return <AuthScreenSkeleton />;
   }
 
   const returnUrl = `${location.pathname}${location.search}${location.hash}`;

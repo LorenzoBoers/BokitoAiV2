@@ -12,7 +12,7 @@ import { Button } from '../components/ui/button'
 import { Switch } from '../components/ui/switch'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
-import { CardGridSkeleton } from '../components/ui/skeleton'
+import { FlowHeaderSkeleton } from '../components/ui/skeleton'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { NameEdit } from '../components/ui/NameEdit'
 import { LabelMarkDialog } from '../components/ui/LabelMark'
@@ -223,7 +223,7 @@ export default function WorkstreamDetail() {
       </Link>
 
       {loading ? (
-        <CardGridSkeleton cards={3} className="lg:grid-cols-1" />
+        <FlowHeaderSkeleton />
       ) : error || !workstream ? (
         <ApiErrorBanner message={error ?? t('workstreamsPage.notFound')} onRetry={() => void load()} />
       ) : (

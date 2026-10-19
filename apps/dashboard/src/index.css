@@ -487,6 +487,12 @@
   .nav-count[data-unread='true'] {
     @apply text-accent font-medium;
   }
+  .nav-counts {
+    @apply ml-auto inline-flex shrink-0 items-center gap-1.5;
+  }
+  .nav-counts .nav-count {
+    @apply ml-0;
+  }
 
   /*
    * Scrollable vertical list with fading edges. <ScrollFade> toggles

@@ -236,7 +236,16 @@ async def test_signal_badge_counts(client: AsyncClient):
     body = res.json()
     assert "inbox_unread" in body
     assert "agents_attention" in body
-    assert set(body["inbox_by_queue"].keys()) == {"for_you", "for_you_unread", "unassigned", "all"}
+    assert set(body["inbox_by_queue"].keys()) == {
+        "for_you",
+        "for_you_unread",
+        "for_you_total",
+        "unassigned",
+        "unassigned_total",
+        "all",
+        "all_total",
+    }
+    assert body["inbox_unread"] == body["inbox_by_queue"]["all"]
     assert body["by_team"] == {}
     assert body["agenda_due"] == 0
 

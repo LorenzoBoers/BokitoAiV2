@@ -214,14 +214,8 @@ async def _list_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
         agent_id=agent_id,
         scope=str(scope) if scope else None,
     )
-    from app.services.proposal_items import resolve_items, stash_attach_items
-
     rows = [serialize_doc(d, include_content=False) for d in docs]
-    refs = [{"type": "knowledge", "id": row["id"], "title": row.get("title") or "", "path": row.get("path") or ""} for row in rows]
-    showcase = await resolve_items(ctx.session, ctx.tenant_id, refs)
-    if showcase:
-        stash_attach_items(ctx.signal_id, showcase)
-    return {"docs": rows, "items": showcase}
+    return {"docs": rows}
 
 
 async def _read_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -2223,6 +2217,7 @@ async def _suggest_inbox_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             signal_id=ctx.signal_id,
             agent_id=ctx.agent.id if ctx.agent else None,
             summary=str(tool_input.get("reason") or ""),
+            reveal=not bool(ctx.turn_id),
         )
     await ctx.session.commit()
     return {
@@ -4849,7 +4844,6 @@ async def _set_platform_watch(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 
 
 async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.proposal_items import resolve_items, stash_attach_items
     from app.services.tenant_introspection import list_threads_summary
 
     older_raw = tool_input.get("older_than_days")
@@ -4870,11 +4864,6 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         scheduled_to=scheduled_to,
         tag=tag_raw,
     )
-    refs = [{"type": "conversation", "id": row["id"]} for row in payload.get("threads") or [] if row.get("id")]
-    showcase = await resolve_items(ctx.session, ctx.tenant_id, refs)
-    if showcase:
-        stash_attach_items(ctx.signal_id, showcase)
-    payload["items"] = showcase
     return payload
 
 
@@ -5027,8 +5016,9 @@ register_tool(
             "Open tickets for a label (#bug, #feature, …): pass tag (name without #, or "
             "comma-separated / list). Prefer this over list_queue_items for "
             "'which bugs/features are open' — those are filed conversations, not folder "
-            "queue rows. Results are showcased as conversation cards; do not repeat them "
-            "as a numbered list. "
+            "queue rows. A lookup does not show cards. Call attach_items "
+            "(type conversation) when you want those threads as cards, and do not "
+            "repeat them as a numbered list. "
             "Not for workspace users or teams — use list_teams (and membership tools) instead. "
             "Defaults to open/pending threads. Does not include Bin items — use list_trash "
             "for deleted conversations (type conversation, alias signal). "
@@ -6156,22 +6146,6 @@ def _serialize_agent_row(row: Any, *, detail: bool = False) -> dict[str, Any]:
     return data
 
 
-async def _showcase_agents(ctx: ToolContext, agent_ids: list[str]) -> list[dict[str, Any]]:
-    """Resolve and stash agent cards for the final reply bubble."""
-    from app.services.proposal_items import resolve_items, stash_attach_items
-
-    if not agent_ids:
-        return []
-    showcase = await resolve_items(
-        ctx.session,
-        ctx.tenant_id,
-        [{"type": "agent", "id": aid} for aid in agent_ids],
-    )
-    if showcase:
-        stash_attach_items(ctx.signal_id, showcase)
-    return showcase
-
-
 async def _list_agents(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.models.agent import Agent
 
@@ -6188,8 +6162,7 @@ async def _list_agents(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
         await ctx.session.execute(stmt.order_by(Agent.name).limit(100))
     ).scalars().all()
     agents = [_serialize_agent_row(row) for row in rows]
-    showcase = await _showcase_agents(ctx, [a["id"] for a in agents if a.get("id")])
-    return {"agents": agents, "count": len(agents), "items": showcase}
+    return {"agents": agents, "count": len(agents)}
 
 
 async def _get_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -6207,9 +6180,7 @@ async def _get_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
     row = (await ctx.session.execute(stmt)).scalar_one_or_none()
     if row is None:
         return {"error": "Agent not found"}
-    payload = _serialize_agent_row(row, detail=True)
-    showcase = await _showcase_agents(ctx, [payload["id"]])
-    return {**payload, "items": showcase}
+    return _serialize_agent_row(row, detail=True)
 
 
 async def _list_playbooks(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -6363,8 +6334,9 @@ register_tool(
             "role, autonomy, active flag, path, mention). This is the agent "
             "roster — humans are not included. You may appear in the list; the "
             "person chatting with you does not. Excludes the Bokito helper that "
-            "acts for the signed-in user. Auto-showcases agent cards on the "
-            "reply. In prose chip one name with mention or [Name](/agents/{id}) "
+            "acts for the signed-in user. A lookup does not show cards. Call "
+            "attach_items (type agent) when you want agent cards on the reply. "
+            "In prose chip one name with mention or [Name](/agents/{id}) "
             "from path — never a plain bold name. Pass include_inactive to also "
             "see paused agents."
         ),
@@ -6424,8 +6396,9 @@ register_tool(
         name="get_agent",
         description=(
             "Read one agent by id or slug, including its description, purpose "
-            "(system prompt), tool passport, path and mention. Showcases a card "
-            "and returns mention/path for an inline chip in chat."
+            "(system prompt), tool passport, path and mention. Does not show a "
+            "card. Call attach_items (type agent) when you want one, and use "
+            "mention or path for an inline chip in chat."
         ),
         category="agents",
         input_schema={

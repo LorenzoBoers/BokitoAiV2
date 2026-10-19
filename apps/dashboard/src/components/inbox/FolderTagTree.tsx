@@ -25,6 +25,9 @@ import { HashtagMark } from '../ui/HashtagMark'
 import { TagPill } from '../ui/TagPill'
 import { Tip } from '../ui/Tip'
 import { SidebarFolder } from './QueueSublist'
+import { RailEyeButton } from './RailEditButtons'
+import { useHideSidebarRow } from '../../hooks/useHideSidebarRow'
+import { applyOrder, flowItemId, folderItemId, tagItemId } from '../../lib/sidebar-catalog'
 import { NavSectionSkeleton } from '../ui/skeleton'
 import { type HubLeaf, type SubQueue } from '../../lib/messages-paths'
 
@@ -203,6 +206,7 @@ function CommunicationFolderRow({
   parentTagNames?: string[] | null
 }) {
   const { toggleRailPin } = useSidebarPrefs()
+  const { hideItem } = useHideSidebarRow()
   const children = (row.children ?? []).filter((child) =>
     rowVisible(child, { hideEmpty, isPinned, activeProjectId: activeLeaf?.type === 'project' ? activeLeaf.projectId : undefined, pathIds }),
   )
@@ -243,15 +247,18 @@ function CommunicationFolderRow({
         fileThreadsIntoFolder(ids, row.projectId ?? row.id, label)
       }
       headerAction={
-        <PinButton
-          pinned={pinned}
-          onClick={() => toggleRailPin(ref)}
-          label={
-            pinned
-              ? t('support.folders.unpin', { defaultValue: 'Unpin from rail' })
-              : t('support.folders.pin', { defaultValue: 'Pin in rail' })
-          }
-        />
+        <>
+          <RailEyeButton label={t('support.customize.hide')} onClick={() => hideItem(folderItemId(row.id), label)} />
+          <PinButton
+            pinned={pinned}
+            onClick={() => toggleRailPin(ref)}
+            label={
+              pinned
+                ? t('support.folders.unpin', { defaultValue: 'Unpin from rail' })
+                : t('support.folders.pin', { defaultValue: 'Pin in rail' })
+            }
+          />
+        </>
       }
       title={tip}
       leading={
@@ -288,12 +295,15 @@ function CommunicationTagRow({
   activeLeaf: HubLeaf | null
   t: TFn
 }) {
-  const { isPinned, toggleRailPin } = useSidebarPrefs()
+  const { isPinned, toggleRailPin, prefs } = useSidebarPrefs()
+  const { hideItem } = useHideSidebarRow()
   const { fileThreadsIntoFlow } = useFileThreadsOntoRail()
   const leaf: HubLeaf = { type: 'tag', tag: row.name }
   const ref = tagPinRef(row.name)
   const pinned = isPinned(ref)
   const bare = row.name.replace(/^#/, '')
+  const itemId = category ? flowItemId(row.id) : tagItemId(row.id)
+  if (prefs.hiddenItems.includes(itemId)) return null
   return (
     <SidebarFolder
       baseLeaf={leaf}
@@ -309,15 +319,18 @@ function CommunicationTagRow({
         category ? (ids) => fileThreadsIntoFlow(ids, row.id, bare) : undefined
       }
       headerAction={
-        <PinButton
-          pinned={pinned}
-          onClick={() => toggleRailPin(ref)}
-          label={
-            pinned
-              ? t('support.folders.unpin', { defaultValue: 'Unpin from rail' })
-              : t('support.folders.pin', { defaultValue: 'Pin in rail' })
-          }
-        />
+        <>
+          <RailEyeButton label={t('support.customize.hide')} onClick={() => hideItem(itemId, bare)} />
+          <PinButton
+            pinned={pinned}
+            onClick={() => toggleRailPin(ref)}
+            label={
+              pinned
+                ? t('support.folders.unpin', { defaultValue: 'Unpin from rail' })
+                : t('support.folders.pin', { defaultValue: 'Pin in rail' })
+            }
+          />
+        </>
       }
     />
   )
@@ -431,7 +444,12 @@ export function FolderTagTree({
       ? [{ id: activeLeaf.projectId, name: activeLeaf.projectId.slice(0, 8), count: 0 }]
       : []
   // Communication: only pinned free tags live under Mappen (flows have their own section).
-  const pinnedFreeTags = tags.filter((row) => isPinned(tagPinRef(row.name)))
+  const pinnedFreeTags = applyOrder(
+    tags.filter((row) => isPinned(tagPinRef(row.name))),
+    'folders:tags',
+    (row) => tagItemId(row.id),
+    sidebarPrefs?.prefs ?? { itemOrder: {}, hiddenItems: [] },
+  )
   const activeTagName = activeLeaf?.type === 'tag' ? activeLeaf.tag : null
   const extraPinnedTag =
     mode === 'communication' &&
@@ -466,7 +484,7 @@ export function FolderTagTree({
         : []
     return (
       <div className="space-y-px" data-testid="folder-tag-tree">
-        {loading ? <NavSectionSkeleton rows={2} /> : null}
+        {loading ? <NavSectionSkeleton rows={4} /> : null}
         {[...folders, ...extraFolder].map((row) => (
           <AgendaFolderRow key={row.id} row={row} selectedId={selectedId} onSelect={clickFolder} nameById={nameById} />
         ))}

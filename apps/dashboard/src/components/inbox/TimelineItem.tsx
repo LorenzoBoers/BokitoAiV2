@@ -57,7 +57,7 @@ import MessageAttachments from './MessageAttachments'
 import ChatText from './ChatText'
 import ActivityTrail from './ActivityTrail'
 import { PRIORITY_META } from './ConversationWorkSection'
-import { THREAD_ICON, THREAD_INDENT, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
+import { CHAT_AVATAR_SIZE, THREAD_ICON, THREAD_INDENT, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
 import { TimelineScrollContext } from './timeline-scroll'
 import { isCustomerChannel } from '../../lib/chatMessages'
 import { isSessionMessage } from '../../lib/session-timeline'
@@ -2122,7 +2122,7 @@ export function MessageTimelineItem({
       to={contactId ? `/contacts/${contactId}` : null}
       label={t('timeline.openProfile', { name: inboundName })}
     >
-      <ContactAvatarWithHover email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
+      <ContactAvatarWithHover email={inboundEmail} name={inboundName} phone={contactPhone} size={CHAT_AVATAR_SIZE} />
     </EntityAvatarLink>
   )
   // Prefer the live agents catalog so timeline marks stay in sync with the
@@ -2169,7 +2169,7 @@ export function MessageTimelineItem({
     <LiveAgentAvatarSlot
       agentId={String(messageAgentId)}
       slotId={agentSlotId}
-      size={28}
+      size={CHAT_AVATAR_SIZE}
       decorative
       name={agentMarkProps.name}
       kind={agentMarkProps.kind}
@@ -2182,17 +2182,17 @@ export function MessageTimelineItem({
       baseMotion="idle"
     />
   ) : (
-    <span className="relative inline-flex shrink-0" style={{ width: 28, height: 28 }}>
+    <span className="relative inline-flex shrink-0" style={{ width: CHAT_AVATAR_SIZE, height: CHAT_AVATAR_SIZE }}>
       <AiAvatar
         {...agentMarkProps}
-        size={28}
+        size={CHAT_AVATAR_SIZE}
         decorative
         mode="static"
         motion={timelineOrbPulse?.motion}
         pulseId={timelineOrbPulse?.pulseId}
         baseMotion="idle"
       />
-      <AgentDoneCorner size={28} />
+      <AgentDoneCorner size={CHAT_AVATAR_SIZE} />
     </span>
   )}
     </EntityAvatarLink>
@@ -2234,7 +2234,7 @@ export function MessageTimelineItem({
         name={userDisplayName}
         email={isOwn ? user?.email || authorEmail || authorName : authorEmail || authorName}
         avatarUrl={isOwn ? user?.avatarUrl ?? authorAvatarUrl : authorAvatarUrl}
-        size={28}
+        size={CHAT_AVATAR_SIZE}
       />
     </EntityAvatarLink>
   )
@@ -2894,7 +2894,7 @@ function LiveAgentMark({
   agentAvatarColor,
   agentAvatarShape,
   agentAvatarImageUrl,
-  size = 28,
+  size = CHAT_AVATAR_SIZE,
 }: {
   name?: string | null
   agentId?: string | null
@@ -3042,7 +3042,7 @@ export function EventClusterTimelineItem({
               name={actorName || '?'}
               email={actorMember?.email}
               avatarUrl={actorMember?.avatarUrl}
-              size={28}
+              size={CHAT_AVATAR_SIZE}
               decorative
             />
           </EntityAvatarLink>

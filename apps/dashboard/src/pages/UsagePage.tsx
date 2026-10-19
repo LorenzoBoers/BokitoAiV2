@@ -26,7 +26,7 @@ import { CapBar } from '../components/ui/cap-bar'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { Chart } from '../components/ui/chart'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { ChartPanelSkeleton, StatTilesSkeleton } from '../components/ui/skeleton'
 import { InsetPanel } from '../components/ui/inset-panel'
 import { StatGrid, StatTile } from '../components/ui/stat-tile'
 import { formatAppTime } from '../lib/app-locale'
@@ -413,7 +413,7 @@ export default function UsagePage() {
                 </div>
               </div>
             ) : (
-              <LoadingBlock variant="skeleton" rows={3} className="py-4" />
+              <ChartPanelSkeleton />
             )}
           </div>
         </section>
@@ -532,7 +532,7 @@ export default function UsagePage() {
             </div>
           </section>
         ) : !summary && !error ? (
-          <LoadingBlock variant="skeleton" rows={3} className="px-1 py-4" />
+          <StatTilesSkeleton tiles={6} />
         ) : null}
 
         {breakdown ? (

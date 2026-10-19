@@ -106,8 +106,7 @@ async def test_list_agents_tool_excludes_bokito_helper(client: AsyncClient, sess
     assert "error" not in result, result
     ids = {a["id"] for a in result.get("agents") or []}
     assert str(helper.id) not in ids
-    showcase_ids = {i["id"] for i in result.get("items") or [] if i.get("type") == "agent"}
-    assert str(helper.id) not in showcase_ids
+    assert not result.get("items")
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,7 @@ import {
   type MessageAttachment,
   type InboxMessage,
 } from '../../lib/inbox-api'
-import { buildMailDraftIntent, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
+import { messageHeldForReveal, prefersReducedMotion, useRevealClock } from '../../lib/thread-reveal'
 import {
   clearStoredMailDraft,
   MAIL_DRAFT_CHANGED_EVENT,
@@ -56,6 +56,7 @@ import {
   listThreadAgentCandidates,
   setThreadSchedule,
   type AssigneeCandidates,
+  type LabelColor,
   type ThreadAgentCandidate,
 } from '../../lib/signals-api'
 import {
@@ -75,6 +76,8 @@ import ThreadTimeline, {
 import type { ChatTagMap } from '../../lib/chatText'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { Button } from '../ui/button'
+import { TagPill } from '../ui/TagPill'
+import { StageProgressIcon } from '../workstreams/StageProgressIcon'
 import { useConfirm } from '../ui/confirm-dialog'
 import { InboxThreadSkeleton } from '../ui/skeleton'
 import { TooltipProvider } from '../ui/tooltip'
@@ -89,6 +92,7 @@ import {
 import { useSignalStream } from '../../hooks/useSignalStream'
 import { onGatewayEvent } from '../../lib/gateway'
 import type { ThreadActiveTurn } from '../../lib/inbox-api'
+import { visibleFloor } from '../../lib/participant-stack'
 import AgentTurnLive from './AgentTurnLive'
 import { ClaimIdleAgentSeat, LiveAgentSeatProvider, SyncLiveAgentFocus } from './LiveAgentSeat'
 import { answeredDecisionIds } from './ThreadTimeline'
@@ -272,7 +276,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       const row =
         floor && typeof floor === 'object' ? (floor as Record<string, unknown>) : null
       // Require a floor holder; empty `{}` / null means idle (do not keep a stale wait label).
-      if (row && typeof row.ref_id === 'string' && row.ref_id) {
+      if (row && typeof row.ref_id === 'string' && row.ref_id && row.deferred !== true) {
         setLiveActiveTurn({
           kind: typeof row.kind === 'string' ? row.kind : undefined,
           ref_id: row.ref_id,
@@ -281,6 +285,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           deadline: typeof row.deadline === 'string' ? row.deadline : undefined,
           prompt: typeof row.prompt === 'string' ? row.prompt : undefined,
           streak: typeof row.streak === 'number' ? row.streak : undefined,
+          deferred: undefined,
         })
         return
       }
@@ -670,7 +675,9 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           : null
       const row =
         floor && typeof floor === 'object' ? (floor as Record<string, unknown>) : null
-      const peerFloor = Boolean(row && typeof row.ref_id === 'string' && row.ref_id)
+      const peerFloor = Boolean(
+        row && typeof row.ref_id === 'string' && row.ref_id && row.deferred !== true,
+      )
       // Only seal on an explicit peer floor or host idle — not on thinking/writing
       // presence that simply omits active_turn.
       if (!peerFloor && event.data?.phase !== 'idle') return
@@ -831,16 +838,20 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   }, [checkpointTurn, sessionCheckpointTurn, gatewayStream.turn, sessionLive.turn])
 
   // Cards arrive from the server after speech is persisted (reveal). Only hide
-  // saved rows that the live overlay still owns for this turn.
+  // saved rows that the live overlay still owns for this turn. Bubbles with a
+  // future reveal_at wait their turn so a saved burst does not land at once.
+  const revealNow = useRevealClock(timelineDetail?.messages.map((message) => message.revealAt) ?? [])
   const visibleTimelineDetail = useMemo(() => {
     if (!timelineDetail) return timelineDetail
-    if (liveOverlayTurnIds.size === 0) return timelineDetail
-    const messages = timelineDetail.messages.filter(
-      (message) => !(message.turnId && liveOverlayTurnIds.has(message.turnId)),
-    )
+    const reduced = prefersReducedMotion()
+    const messages = timelineDetail.messages.filter((message) => {
+      if (message.turnId && liveOverlayTurnIds.has(message.turnId)) return false
+      if (messageHeldForReveal(message.revealAt, revealNow, reduced)) return false
+      return true
+    })
     if (messages.length === timelineDetail.messages.length) return timelineDetail
     return { ...timelineDetail, messages }
-  }, [timelineDetail, liveOverlayTurnIds])
+  }, [timelineDetail, liveOverlayTurnIds, revealNow])
 
   const rows = useMemo(
     () => buildTimelineRows(visibleTimelineDetail, t, i18n.language),
@@ -1982,10 +1993,8 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     return () => window.clearTimeout(timer)
   }, [sessionTurn.streamId, sessionTurn.ended, sessionTurnSaved, sessionPlaybackDone])
 
-  const floorAgentId =
-    (liveActiveTurn ?? detail?.activeTurn)?.ref_id != null
-      ? String((liveActiveTurn ?? detail?.activeTurn)!.ref_id)
-      : null
+  const shownFloor = visibleFloor(liveActiveTurn ?? detail?.activeTurn)
+  const floorAgentId = shownFloor?.ref_id != null ? String(shownFloor.ref_id) : null
   const liveAgentId =
     streamingAskAgentId ??
     floorAgentId ??
@@ -2027,7 +2036,8 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     // Skip when that agent already posted the latest bubble — Ask finishes
     // before the run=false floor chip clears, and inventing Nadenken again
     // left Stop / “Wacht op …” stuck under the answer.
-    const floor = liveActiveTurn ?? detail?.activeTurn
+    // A deferred peer is not on screen yet; the caller is still the speaker.
+    const floor = shownFloor
     if (floor?.kind === 'agent' && floor.ref_id) {
       const last = detail?.messages?.[detail.messages.length - 1]
       const lastAgentId =
@@ -2059,8 +2069,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     sessionStream.text,
     sessionStream.parts,
     sessionStream.thinking,
-    liveActiveTurn,
-    detail?.activeTurn,
+    shownFloor,
     detail?.messages,
     detail?.thread.agentId,
   ])
@@ -2245,33 +2254,30 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   )
   closeAfterMailSendRef.current = () => requestCloseThread()
 
-  const confirmCloseWithSignals = useCallback(
-    async (mode: 'resolve' | 'leave') => {
-      if (!closeSignalsPrompt) return
-      setCloseSignalsBusy(true)
-      try {
-        if (mode === 'resolve' && token && detail) {
-          await closeConversationCollecting(token, String(detail.thread.id), {
-            resolve: true,
-            collect: collectStageFields,
-            projectId: closeSignalsPrompt.projectId,
-          })
-        }
-        await onPatch({
-          status: 'closed',
-          ...(closeSignalsPrompt.projectId ? { projectId: closeSignalsPrompt.projectId } : {}),
+  const confirmCloseWithSignals = useCallback(async () => {
+    if (!closeSignalsPrompt) return
+    setCloseSignalsBusy(true)
+    try {
+      if (token && detail) {
+        await closeConversationCollecting(token, String(detail.thread.id), {
+          resolve: true,
+          collect: collectStageFields,
+          projectId: closeSignalsPrompt.projectId,
         })
-        if (closeSignalsPrompt.afterResolve) await closeSignalsPrompt.afterResolve()
-        setCloseSignalsPrompt(null)
-      } catch (err) {
-        if (err instanceof TicketStageMoveCancelled) return
-        toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
-      } finally {
-        setCloseSignalsBusy(false)
       }
-    },
-    [closeSignalsPrompt, collectStageFields, detail, onPatch, t, token],
-  )
+      await onPatch({
+        status: 'closed',
+        ...(closeSignalsPrompt.projectId ? { projectId: closeSignalsPrompt.projectId } : {}),
+      })
+      if (closeSignalsPrompt.afterResolve) await closeSignalsPrompt.afterResolve()
+      setCloseSignalsPrompt(null)
+    } catch (err) {
+      if (err instanceof TicketStageMoveCancelled) return
+      toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
+    } finally {
+      setCloseSignalsBusy(false)
+    }
+  }, [closeSignalsPrompt, collectStageFields, detail, onPatch, t, token])
 
   const handleReply = useCallback(
     async (
@@ -2441,7 +2447,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     : undefined
   const liveSeatName =
     liveSeatAgent?.name ??
-    (liveActiveTurn ?? detail.activeTurn)?.name ??
+    shownFloor?.name ??
     activeSession?.agentName ??
     askAgentName ??
     thread.agentName
@@ -2505,7 +2511,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         blockingContact={blockingContact}
         onPlan={onPlan}
         participants={detail.participants}
-        activeTurn={liveActiveTurn ?? detail.activeTurn}
+        activeTurn={shownFloor}
         panelCount={openSignalCount + (thread.nextAt || thread.schedule ? 1 : 0)}
         onExampleChanged={() => {
           void onRefresh()
@@ -2843,21 +2849,39 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                 count: closeSignalsPrompt?.tickets.length ?? 0,
                 names:
                   (closeSignalsPrompt?.tickets ?? [])
-                    .map((row) => `#${row.name}`)
+                    .map((row) => row.name)
                     .filter(Boolean)
                     .slice(0, 3)
                     .join(', ') || t('threadChrome.closeWithTicketFallback'),
               })}
             </DialogDescription>
           </DialogHeader>
-          <ul className="max-h-40 space-y-1 overflow-y-auto text-sm text-text-secondary">
+          <div className="flex flex-wrap gap-2">
             {(closeSignalsPrompt?.tickets ?? []).map((row) => (
-              <li key={row.signal_id} className="truncate-fade rounded-md border border-border/50 px-2.5 py-1.5">
-                #{row.name}
-                {row.stage ? ` · ${stageLabel(row.stage, t)}` : ''}
-              </li>
+              <TagPill
+                key={row.signal_id}
+                names={row.name}
+                tone="action"
+                size="md"
+                color={(row.color || '') as LabelColor}
+                icon={row.icon}
+                title={row.stage ? `${row.name} · ${stageLabel(row.stage, t)}` : row.name}
+                trailing={
+                  row.stage ? (
+                    <span className="inline-flex items-center gap-1.5 pl-0.5">
+                      <StageProgressIcon
+                        kind={row.stage.kind}
+                        fill={row.stage.progress}
+                        size={12}
+                        title={stageLabel(row.stage, t)}
+                      />
+                      <span>{stageLabel(row.stage, t)}</span>
+                    </span>
+                  ) : null
+                }
+              />
             ))}
-          </ul>
+          </div>
           <DialogFooter className="gap-2 sm:gap-2">
             <Button
               type="button"
@@ -2867,19 +2891,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             >
               {t('threadChrome.closeWithTicketCancel')}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={closeSignalsBusy}
-              onClick={() => void confirmCloseWithSignals('leave')}
-            >
-              {t('threadChrome.closeWithTicketLeaveOpen')}
-            </Button>
-            <Button
-              type="button"
-              disabled={closeSignalsBusy}
-              onClick={() => void confirmCloseWithSignals('resolve')}
-            >
+            <Button type="button" disabled={closeSignalsBusy} onClick={() => void confirmCloseWithSignals()}>
               {t('threadChrome.closeWithTicketResolve')}
             </Button>
           </DialogFooter>

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 import { OrgMakeScene } from '../components/org/OrgMakeScene'
 import { ORG_KIND_ORDER, OrgNodeFace } from '../components/org/OrgNodeFace'
+import { OrgCanvasSkeleton, OrgLegendSkeleton } from '../components/ui/skeleton'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { useAuth } from '../context/AuthContext'
 import { getOrgGraph, type OrgGraph, type OrgGraphNode } from '../lib/teams-api'
@@ -111,7 +112,7 @@ export default function OrgCanvasPage() {
             }}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-text-muted">…</div>
+          <OrgCanvasSkeleton />
         )}
       </div>
       <aside className="flex h-full w-64 shrink-0 flex-col border-l border-border/40 bg-bg-surface/95">
@@ -133,7 +134,9 @@ export default function OrgCanvasPage() {
           </label>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
-          {legendGroups.length === 0 ? (
+          {!graph && !error ? (
+            <OrgLegendSkeleton />
+          ) : legendGroups.length === 0 ? (
             <p className="px-1.5 py-2 text-[11px] text-text-muted">{t('orgCanvas.findEmpty')}</p>
           ) : (
             legendGroups.map((group) => (

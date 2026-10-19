@@ -288,6 +288,10 @@ def _active_turn_payload(signal: Signal) -> dict[str, Any] | None:
         return None
     if not isinstance(data, dict) or not data.get("ref_id"):
         return None
+    # A deferred peer waits until the caller finishes. Showing them now
+    # swaps the live face onto bubbles the caller is still writing.
+    if data.get("deferred"):
+        return None
     deadline_raw = str(data.get("deadline") or "").strip()
     if deadline_raw:
         try:
@@ -690,6 +694,8 @@ def serialize_message(
             payload["history"] = activity["history"]
     if meta.get("turn_id"):
         payload["turn_id"] = str(meta["turn_id"])
+    if meta.get("reveal_at"):
+        payload["reveal_at"] = str(meta["reveal_at"])
     if meta.get("in_progress"):
         payload["in_progress"] = True
     if include_trace and isinstance(meta.get("usage"), dict) and meta["usage"]:
@@ -1085,10 +1091,11 @@ async def nav_badge_counts(
     include_agents_attention: bool,
     visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any]:
-    """Lightweight unread/attention counts for sidebar badges (no thread payloads).
+    """Lightweight unread and list totals for sidebar badges (no thread payloads).
 
-    Unassigned / all badges only count **open** hub threads (never closed,
-    spam, pending, or Bin). Closed conversations clear ``has_unread`` on close.
+    ``for_you`` stays the turn count (bell and cockpit). Sidebar rows use
+    ``*_unread`` and ``*_total``; totals match the Open side of the list switch.
+    Counts are open hub threads only (never closed, spam, pending, or Bin).
     """
     from app.services.trash import alive
 
@@ -1112,8 +1119,12 @@ async def nav_badge_counts(
     )
     for_you_count = attention["for_you"]
     for_you_unread = await _count(open_status, unread, hub_inbox, for_you)
-    unassigned_unread = await _count(open_status, unread, hub_inbox, unassigned_predicate())
+    for_you_total = await _count(open_status, hub_inbox, for_you)
+    unassigned_clause = unassigned_predicate()
+    unassigned_unread = await _count(open_status, unread, hub_inbox, unassigned_clause)
+    unassigned_total = await _count(open_status, hub_inbox, unassigned_clause)
     all_unread = await _count(open_status, unread, hub_inbox)
+    all_total = await _count(open_status, hub_inbox)
 
     agents_attention = attention["decisions"] if include_agents_attention else 0
     no_reply_suggestions = attention["no_reply_suggestions"] if include_agents_attention else 0
@@ -1149,12 +1160,16 @@ async def nav_badge_counts(
         )
 
     return {
-        "inbox_unread": for_you_count + unassigned_unread,
+        # Rail and the All communication row use unread, not whose turn it is.
+        "inbox_unread": all_unread,
         "inbox_by_queue": {
             "for_you": for_you_count,
             "for_you_unread": for_you_unread,
+            "for_you_total": for_you_total,
             "unassigned": unassigned_unread,
+            "unassigned_total": unassigned_total,
             "all": all_unread,
+            "all_total": all_total,
         },
         "by_team": by_team,
         "agents_attention": agents_attention,
@@ -1780,7 +1795,9 @@ async def get_thread(
                 session.add(busy)
                 busy = None
         if busy is None:
-            sealed = await seal_in_progress_checkpoints(session, signal)
+            sealed = await seal_in_progress_checkpoints(
+                session, signal, older_than=timedelta(minutes=15)
+            )
             if sealed:
                 await session.commit()
     except Exception:  # noqa: BLE001
@@ -3640,6 +3657,7 @@ async def _generate_agent_reply(
 
     signal_id = signal.id
     agent = None
+    agent_id: UUID | None = None
     try:
         # Auto-reply only when the thread explicitly involves an agent (pinned,
         # in the message history, or via its project) — the lead-agent fallback
@@ -3649,6 +3667,7 @@ async def _generate_agent_reply(
         )
         if not agent or not agent.is_active:
             return
+        agent_id = agent.id
         from app.services.workforce_runtime import mark_agent_activity
 
         await mark_agent_activity(
@@ -3690,11 +3709,19 @@ async def _generate_agent_reply(
         final_meta: dict = {"usage": tokens}
         if thinking_meta:
             final_meta["thinking"] = thinking_meta
-        await loop.persist_turn(signal, final_metadata=final_meta)
+        saved = await loop.persist_turn(signal, final_metadata=final_meta)
+        await _fill_silent_decision_follow_up(session, signal, saved, agent_id)
         await session.commit()
     except Exception:  # noqa: BLE001 - never break the user's reply
         await session.rollback()
         logger.exception("Failed to generate agent reply for signal %s", signal_id)
+        if agent_id is not None:
+            try:
+                signal = await session.get(Signal, signal_id)
+                if signal is not None and signal.tenant_id == tenant_id:
+                    await _fill_silent_decision_follow_up(session, signal, [], agent_id)
+            except Exception:  # noqa: BLE001
+                logger.exception("Decision follow-up confirm failed for %s", signal_id)
     finally:
         if agent is not None:
             try:
@@ -4099,8 +4126,6 @@ async def resolve_message_decision(
     await session.commit()
 
     if user_id and continue_signal is not None and _should_continue_chat_after_decision(continue_signal):
-        from app.tools.registry import get_tool_spec
-
         chosen_opt = next(
             (
                 o
@@ -4112,12 +4137,7 @@ async def resolve_message_decision(
         action_type = ""
         if isinstance(chosen_opt, dict):
             action_type = str(chosen_opt.get("action_type") or "").strip()
-        tool_ran = bool(
-            action in ("approved", "approve")
-            and action_type
-            and action_type not in ("reject", "defer", "acknowledge")
-            and get_tool_spec(action_type) is not None
-        )
+        tool_ran = _decision_option_already_ran(action, action_type)
         # Soft Yes with other open cards: do not wake — that stacks new asks.
         other_open = 0
         if message.decision_id is not None:
@@ -4341,6 +4361,136 @@ async def resolve_decision_bundle(
     return {"ok": not failed_labels, "results": results}
 
 
+def _decision_option_already_ran(action: str, action_type: str) -> bool:
+    """True when approving this option already did the work.
+
+    Registered tools and resolver actions (inbox rules, module setup, …)
+    both count. A soft yes with no action still wakes the agent without
+    this hint.
+    """
+    from app.tools.builtin import RESOLVER_ACTIONS
+    from app.tools.registry import get_tool_spec
+
+    if action not in ("approved", "approve"):
+        return False
+    kind = (action_type or "").strip()
+    if not kind or kind in ("reject", "defer", "acknowledge"):
+        return False
+    return kind in RESOLVER_ACTIONS or get_tool_spec(kind) is not None
+
+
+_SILENT_TURN_BODIES = frozenset({"", "Done.", "Working on this."})
+
+
+def _turn_has_visible_speech(messages: list[Any]) -> bool:
+    for message in messages or []:
+        text = (getattr(message, "body_text", "") or "").strip()
+        if text and text not in _SILENT_TURN_BODIES:
+            return True
+    return False
+
+
+async def _latest_decision_confirm(session: AsyncSession, signal: Signal) -> str:
+    """Canned line stored on the hidden hint for this thread, if any."""
+    rows = (
+        await session.execute(
+            select(SignalMessage)
+            .where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.tenant_id == signal.tenant_id,
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(12)
+        )
+    ).scalars().all()
+    for row in rows:
+        try:
+            meta = json.loads(row.metadata_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if isinstance(meta, dict) and meta.get("decision_outcome_hint"):
+            return str(meta.get("confirm_text") or "").strip()
+    return ""
+
+
+async def _fill_silent_decision_follow_up(
+    session: AsyncSession,
+    signal: Signal,
+    saved: list[Any],
+    agent_id: UUID | None,
+) -> None:
+    """When a choice-wake saved no sentence, leave the short confirm instead."""
+    if _turn_has_visible_speech(saved):
+        return
+    confirm = await _latest_decision_confirm(session, signal)
+    if not confirm:
+        return
+    from app.gateway.publish import publish_signal_message
+    from app.services.assistant_threads import append_signal_chat_message
+
+    target = next(
+        (
+            message
+            for message in saved
+            if (getattr(message, "body_text", "") or "").strip() in _SILENT_TURN_BODIES
+        ),
+        None,
+    )
+    if target is None:
+        rows = (
+            await session.execute(
+                select(SignalMessage)
+                .where(
+                    SignalMessage.signal_id == signal.id,
+                    SignalMessage.tenant_id == signal.tenant_id,
+                    SignalMessage.kind == "agent_message",
+                )
+                .order_by(SignalMessage.created_at.desc())
+                .limit(4)
+            )
+        ).scalars().all()
+        fresh_after = datetime.utcnow() - timedelta(minutes=2)
+        for row in rows:
+            text = (row.body_text or "").strip()
+            try:
+                meta = json.loads(row.metadata_json or "{}")
+            except json.JSONDecodeError:
+                meta = {}
+            recent = row.created_at is None or row.created_at >= fresh_after
+            if recent and (text in _SILENT_TURN_BODIES or (isinstance(meta, dict) and meta.get("in_progress"))):
+                target = row
+                break
+    if target is not None:
+        try:
+            meta = json.loads(target.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        meta.pop("in_progress", None)
+        meta.pop("turn_failed", None)
+        meta["decision_confirm"] = True
+        target.body_text = confirm
+        target.body_preview = confirm[:200]
+        target.metadata_json = json.dumps(meta, default=str)
+        if agent_id and not target.author_agent_id:
+            target.author_agent_id = agent_id
+        session.add(target)
+        await session.commit()
+        await publish_signal_message(signal, target)
+        return
+    message = await append_signal_chat_message(
+        session,
+        signal,
+        role="assistant",
+        content=confirm,
+        author_agent_id=agent_id,
+        metadata={"decision_confirm": True},
+    )
+    await session.commit()
+    await publish_signal_message(signal, message)
+
+
 def _should_continue_chat_after_decision(signal: Signal) -> bool:
     """Assistant, internal, and Ask/meta chats should keep talking after a decision."""
     if signal.channel in ("assistant", "internal"):
@@ -4444,6 +4594,7 @@ async def _follow_up_after_decision_outcomes(
         metadata={
             "decision_outcome_hint": True,
             "hidden_from_timeline": True,
+            "confirm_text": _decision_confirm_text_from_outcomes(outcomes),
             "decision_ids": [str(o.get("decision_id") or "") for o in outcomes if o.get("decision_id")],
             "decision_action": outcomes[0].get("action"),
         },

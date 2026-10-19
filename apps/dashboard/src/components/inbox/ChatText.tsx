@@ -9,6 +9,7 @@ import {
   type ChatTagMap,
 } from '../../lib/chatText'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
+import { normalizeThreadHref } from '../../lib/messages-paths'
 import { openEntityPath } from '../../lib/open-entity'
 import { TagPill } from '../ui/TagPill'
 import { WebPageLinkIcon } from '../ui/DomainFavicon'
@@ -180,7 +181,7 @@ function renderInline(nodes: ChatInline[]): ReactNode[] {
           return (
             <Link
               key={index}
-              to={node.href}
+              to={normalizeThreadHref(node.href)}
               className={APP_LINK_CLASS}
               data-testid={
                 kind === 'contact' ? 'chat-contact-link' : kind === 'agent' ? 'chat-agent-link' : undefined

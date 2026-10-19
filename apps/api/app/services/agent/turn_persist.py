@@ -24,6 +24,23 @@ from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage, is_internal_channel
 from app.services.agent.reply_mode import CHAT, MAX_CHAT_MESSAGES, split_chat_messages
 
+# Space saved bubbles so a turn lands one cloud at a time. Cap the wait so a
+# long turn does not park the fourth bubble.
+BUBBLE_REVEAL_MS = 450
+BUBBLE_REVEAL_STEPS = 3
+_RULE_SETTINGS_LINK = re.compile(r"/settings/channels#automation-rules", re.IGNORECASE)
+
+
+def bubble_reveal_at(base: datetime, index: int) -> datetime:
+    """When bubble ``index`` (0-based) may appear. Later bubbles share the cap."""
+    step = min(max(index, 0), BUBBLE_REVEAL_STEPS)
+    return base + timedelta(milliseconds=BUBBLE_REVEAL_MS * step)
+
+
+def iso_utc(dt: datetime) -> str:
+    """Naive UTC timestamp with a Z suffix so clients do not read it as local."""
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(dt.microsecond):06d}Z"
+
 
 def _note_item(segment: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -354,9 +371,44 @@ def decision_ids_in_activity(meta: dict[str, Any]) -> set[str]:
     found: set[str] = set()
     for key in ("activity", "activity_after"):
         for item in meta.get(key) or []:
-            if isinstance(item, dict):
-                found |= decision_ids_from_result(item.get("result"))
+            if not isinstance(item, dict):
+                continue
+            raw_ids = item.get("decision_ids")
+            if isinstance(raw_ids, list):
+                found.update(str(value) for value in raw_ids if value)
+            found |= decision_ids_from_result(item.get("result"))
     return found
+
+
+def drop_redundant_rule_link(planned: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop a trailing settings-link bubble when this turn already raised a card.
+
+    The card is the question. A last bubble that only points at Automation
+    rules repeats it.
+    """
+    if len(planned) < 2:
+        return planned
+    if not any(
+        decision_ids_in_activity(
+            {"activity": bubble.get("activity"), "activity_after": bubble.get("activity_after")}
+        )
+        for bubble in planned
+    ):
+        return planned
+    text = str(planned[-1].get("text") or "").strip()
+    if not text or not _RULE_SETTINGS_LINK.search(text):
+        return planned
+    without = _RULE_SETTINGS_LINK.sub("", text)
+    without = re.sub(r"\[[^\]]*\]\([^)]*\)", "", without)
+    if len(re.sub(r"[\W_]+", "", without)) > 80:
+        return planned
+    dropped = planned[-1]
+    kept = planned[:-1]
+    extra = list(dropped.get("activity") or []) + list(dropped.get("activity_after") or [])
+    if extra:
+        host = kept[-1]
+        host["activity_after"] = list(host.get("activity_after") or []) + extra
+    return kept
 
 
 def _message_time(row: SignalMessage) -> datetime:
@@ -401,7 +453,8 @@ async def place_turn_decisions(
         tid = str(meta.get("turn_id") or "").strip()
         if tid:
             turn_ids.add(tid)
-        stamp = _message_time(bubble) or datetime.utcnow()
+        # The card follows the whole explanation, not the tool bubble that raised it.
+        stamp = _message_time(turn_messages[-1]) or datetime.utcnow()
         for did in decision_ids_in_activity(meta):
             anchors[did] = stamp
 
@@ -465,7 +518,12 @@ async def place_turn_decisions(
         if did in anchors:
             anchor = anchors[did]
             before = next((t for t in later_times if t and t > anchor), None)
-            card.received_at = _stamp_after(anchor, before=before)
+            # No later bubble: sit one reveal gap after the last sentence.
+            landed = _stamp_after(anchor, before=before) if before else bubble_reveal_at(anchor, 1)
+            card.received_at = landed
+            card_meta = _json_meta(card)
+            card_meta["reveal_at"] = iso_utc(landed)
+            card.metadata_json = json.dumps(card_meta, default=str)
             continue
         # Heal cards an older bug dragged into a later turn: snap back to
         # created_at when the stamp clearly does not belong to this turn's work.
@@ -980,6 +1038,7 @@ async def seal_in_progress_checkpoints(
     author_agent_id: UUID | None = None,
     replace_with_error: bool = False,
     checkpoint_message_id: UUID | None = None,
+    older_than: timedelta | None = None,
 ) -> list[SignalMessage]:
     """Close open turn checkpoints left by a crash, timeout, or reclaim.
 
@@ -1011,6 +1070,10 @@ async def seal_in_progress_checkpoints(
             meta = {}
         if not isinstance(meta, dict) or not meta.get("in_progress"):
             continue
+        if older_than is not None:
+            started = message.created_at or datetime.utcnow()
+            if started > datetime.utcnow() - older_than:
+                continue
         if preferred is not None and message.id != preferred and sealed:
             # Prefer sealing the known checkpoint; still close other orphans.
             pass
@@ -1135,10 +1198,12 @@ async def persist_agent_turn(
     choice_options: list[dict[str, Any]] = []
     if is_internal_channel(signal.channel or ""):
         planned, choice_options = prepare_choice_repair(planned)
-    if append_to_last:
+    if append_to_last and planned:
         planned[-1]["text"] = f"{planned[-1]['text']}{append_to_last}"
+    planned = drop_redundant_rule_link(planned)
     messages: list[SignalMessage] = []
     replaced = False
+    reveal_base = datetime.utcnow()
     for index, bubble in enumerate(planned):
         meta: dict[str, Any] = dict(metadata or {})
         if index == 0 and first_metadata:
@@ -1156,6 +1221,8 @@ async def persist_agent_turn(
         if index == len(planned) - 1 and final_metadata:
             meta.update(final_metadata)
         meta.pop("in_progress", None)
+        reveal = bubble_reveal_at(reveal_base, index)
+        meta["reveal_at"] = iso_utc(reveal)
         # AI speech only — never strip operator/customer content here.
         speech = strip_emoji(bubble["text"] or "") or (bubble["text"] or "")
         speech = await repair_mentions(session, signal.tenant_id, speech)
@@ -1172,10 +1239,9 @@ async def persist_agent_turn(
             # Checkpoint rows keep the early created_at from "Working on this.".
             # Bump so the finished bubble sorts after mid-turn side effects
             # (tag events, notes) that landed while the turn was open.
-            now = datetime.utcnow()
-            existing.created_at = now
+            existing.created_at = reveal
             if hasattr(existing, "received_at"):
-                existing.received_at = now
+                existing.received_at = reveal
             await session.flush()
             await publish_signal_message(signal, existing)
             msg = existing
@@ -1189,10 +1255,15 @@ async def persist_agent_turn(
                 author_agent_id=author_agent_id,
                 metadata=meta,
             )
+        if (msg.received_at or msg.created_at) != reveal:
+            msg.received_at = reveal
         if messages:
             prev_t = messages[-1].received_at or messages[-1].created_at
             if (msg.received_at or msg.created_at) <= prev_t:
-                msg.received_at = prev_t + timedelta(milliseconds=20)
+                msg.received_at = prev_t + timedelta(milliseconds=BUBBLE_REVEAL_MS)
+                bumped = _json_meta(msg)
+                bumped["reveal_at"] = iso_utc(msg.received_at)
+                msg.metadata_json = json.dumps(bumped, default=str)
         messages.append(msg)
     if choice_options and messages:
         await _raise_tag_choice(

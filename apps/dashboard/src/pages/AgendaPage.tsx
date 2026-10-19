@@ -24,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu'
+import { AgendaGridSkeleton } from '../components/ui/skeleton'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Input } from '../components/ui/input'
 import { toast } from 'sonner'
@@ -683,6 +684,7 @@ export default function AgendaPage() {
           onPickDay={(day) => setAnchor(day)}
           people={people}
           agents={agents}
+          listsLoading={loading}
           hiddenOwners={hiddenOwners}
           onToggleOwner={toggleOwner}
           projectId={projectId}
@@ -730,7 +732,9 @@ export default function AgendaPage() {
               {needle ? t('agendaPage.searchEmpty') : t('agendaPage.filtersHideAll')}
             </p>
           ) : null}
-          {view === 'day' || view === 'week' ? (
+          {loading && shown.length === 0 ? (
+            <AgendaGridSkeleton />
+          ) : view === 'day' || view === 'week' ? (
             <AgendaTimeGrid
               days={range.days}
               items={shown}

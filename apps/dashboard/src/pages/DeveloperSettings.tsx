@@ -18,7 +18,7 @@ import { Button } from '../components/ui/button'
 import { Callout } from '../components/ui/callout'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { EmptyState } from '../components/ui/empty-state'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { GrantRowsSkeleton, TokenRowsSkeleton, WebhookRowsSkeleton } from '../components/ui/skeleton'
 import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -149,7 +149,7 @@ function McpOAuthGrantsSection({
         {t('developersPage.oauthGrants.body')}
       </p>
       {loading ? (
-        <LoadingBlock variant="skeleton" rows={3} className="mt-3" />
+        <GrantRowsSkeleton />
       ) : grants.length === 0 ? (
         <EmptyState tone="plain" size="sm" className="mt-3 px-0 py-2" title={t('developersPage.oauthGrants.empty')} />
       ) : (
@@ -415,7 +415,7 @@ function ApiTokensSection({
       ) : null}
 
       {loading ? (
-        <LoadingBlock variant="inline" label={t('developersPage.loading')} className="mt-4 text-sm" />
+        <TokenRowsSkeleton />
       ) : tokens.length === 0 ? (
         <EmptyState
           tone="plain"
@@ -773,7 +773,7 @@ export default function DeveloperSettings() {
           ) : null}
 
           {loading ? (
-            <LoadingBlock variant="inline" label={t('developersPage.webhooks.loading')} className="mt-6 text-sm" />
+            <WebhookRowsSkeleton />
           ) : error ? (
             <Callout tone="error" title={error} className="mt-6" />
           ) : items.length === 0 ? (

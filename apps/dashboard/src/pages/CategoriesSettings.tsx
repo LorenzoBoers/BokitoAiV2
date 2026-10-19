@@ -18,7 +18,7 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { SettingsFieldsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { inboxPath } from '../lib/messages-paths'
@@ -102,7 +102,7 @@ export default function CategoriesSettings() {
           </div>
         </div>
         {!policy ? (
-          <LoadingBlock variant="inline" label={t('categoriesPage.loading')} />
+          <SettingsFieldsSkeleton rows={3} />
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">

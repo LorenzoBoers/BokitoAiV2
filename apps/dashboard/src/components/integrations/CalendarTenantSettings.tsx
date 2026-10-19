@@ -5,7 +5,7 @@ import { AccessPicker, type AccessState } from '../access/AccessPicker'
 import { CalendarSwatch } from '../agenda/CalendarSwatch'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Input } from '../ui/input'
-import { LoadingBlock } from '../ui/loading-block'
+import { CalendarListSkeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 import { Switch } from '../ui/switch'
 import {
@@ -50,7 +50,7 @@ export function CalendarTenantSettings({
   }, [connectionId])
 
   if (rows == null) {
-    return <LoadingBlock variant="inline" label={t('tenant.loading')} />
+    return <CalendarListSkeleton rows={3} />
   }
   if (rows.length === 0) {
     return <EmptyState tone="plain" size="sm" className="px-0 py-1" title={t('tenant.empty')} />

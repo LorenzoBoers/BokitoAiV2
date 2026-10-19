@@ -11,7 +11,7 @@ import {
   type RoutingPolicy,
 } from '../../lib/ai-handling-api'
 import { RoutingPolicyFields } from '../ai/RoutingPolicyFields'
-import { LoadingBlock } from '../ui/loading-block'
+import { SettingsFieldsSkeleton } from '../ui/skeleton'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 
 /**
@@ -58,7 +58,7 @@ export default function ChannelRoutingSetting({ accountId }: { accountId: string
   }
 
   if (error) return <p className="py-2 text-xs text-status-error">{error}</p>
-  if (!policy) return <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+  if (!policy) return <SettingsFieldsSkeleton rows={3} />
   return (
     <RoutingPolicyFields
       variant="list"

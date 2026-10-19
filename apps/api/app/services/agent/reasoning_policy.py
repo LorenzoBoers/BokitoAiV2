@@ -81,6 +81,12 @@ _LOOKUP_REQUEST = re.compile(
 )
 
 
+def turn_is_small_talk(text: str) -> bool:
+    """A greeting or thanks. No lookup, no opening line."""
+    body = (text or "").strip()
+    return bool(body and _SMALL_TALK_RE.match(body))
+
+
 def turn_is_lookup_request(text: str) -> bool:
     """Whether the message only asks to look something up or summarise it."""
     body = (text or "").strip()

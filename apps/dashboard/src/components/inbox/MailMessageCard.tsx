@@ -1,6 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 import { Fragment, useState, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
+import { THREAD_GUTTER } from './ThreadMeta'
 
 /**
  * Email on the timeline: "coloured envelope, white letter".
@@ -138,7 +139,7 @@ export function MailMessageCard({
         isRight ? 'flex-row-reverse' : 'flex-row',
       )}
     >
-      {isRight ? null : <span className="flex w-7 shrink-0 justify-center">{avatar}</span>}
+      {isRight ? null : <span className={THREAD_GUTTER}>{avatar}</span>}
       {/* group/bubble on the card shell only — not the avatar column. */}
       <div
         className={cn(

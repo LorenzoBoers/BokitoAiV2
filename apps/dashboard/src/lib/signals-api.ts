@@ -492,6 +492,7 @@ export async function getSignalThread(
           deadline: typeof activeRow.deadline === 'string' ? activeRow.deadline : undefined,
           prompt: typeof activeRow.prompt === 'string' ? activeRow.prompt : undefined,
           streak: typeof activeRow.streak === 'number' ? activeRow.streak : undefined,
+          deferred: activeRow.deferred === true ? true : undefined,
         }
       : null
   const handoffRaw = payload.handoff_session
@@ -1594,7 +1595,15 @@ export async function listSignalAssignees(token: string, threadId: string): Prom
 
 export type SignalBadgeCounts = {
   inbox_unread: number
-  inbox_by_queue: { for_you: number; for_you_unread: number; unassigned: number; all: number }
+  inbox_by_queue: {
+    for_you: number
+    for_you_unread: number
+    for_you_total: number
+    unassigned: number
+    unassigned_total: number
+    all: number
+    all_total: number
+  }
   /** Pinned team id → open work waiting on that team. */
   by_team: Record<string, number>
   agents_attention: number
@@ -1614,8 +1623,11 @@ export async function fetchSignalBadgeCounts(token: string): Promise<SignalBadge
     inbox_by_queue: {
       for_you: Number(queue.for_you ?? 0),
       for_you_unread: Number(queue.for_you_unread ?? 0),
+      for_you_total: Number(queue.for_you_total ?? 0),
       unassigned: Number(queue.unassigned ?? 0),
+      unassigned_total: Number(queue.unassigned_total ?? 0),
       all: Number(queue.all ?? 0),
+      all_total: Number(queue.all_total ?? 0),
     },
     by_team: Object.fromEntries(Object.entries(byTeamRaw).map(([k, v]) => [k, Number(v ?? 0)])),
     agents_attention: Number(raw.agents_attention ?? 0),

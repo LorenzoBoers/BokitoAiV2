@@ -7,7 +7,7 @@ import ContentHeader from '../components/shell/ContentHeader'
 import MarkdownView from '../components/docs/MarkdownView'
 import ArticleFeedback from '../components/docs/ArticleFeedback'
 import { SearchField } from '../components/ui/search-field'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { ArticleSkeleton, DocsIndexSkeleton } from '../components/ui/skeleton'
 import { ApiErrorBanner } from '../components/ui/ApiErrorBanner'
 import { InsetPanel } from '../components/ui/inset-panel'
 import {
@@ -90,7 +90,7 @@ function LearnIndex() {
       {error ? (
         <ApiErrorBanner message={t('pageGuides.loadError')} />
       ) : !index ? (
-        <LoadingBlock variant="skeleton" rows={4} />
+        <DocsIndexSkeleton />
       ) : sections.length === 0 ? (
         <p className="text-sm text-text-muted">
           {query.trim() ? t('pageGuides.emptySearch') : t('pageGuides.empty')}
@@ -204,7 +204,7 @@ function LearnArticle({ slug }: { slug: string }) {
       </InsetPanel>
 
       {loading ? (
-        <LoadingBlock variant="skeleton" rows={4} />
+        <ArticleSkeleton />
       ) : error ? (
         <ApiErrorBanner message={error} />
       ) : article ? (

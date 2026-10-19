@@ -17,8 +17,7 @@ import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/l
 import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { legacyModulesPath } from './lib/integration-kind-url'
-import { CockpitPanelsSkeleton, Skeleton } from './components/ui/skeleton'
-import { LoadingBlock } from './components/ui/loading-block'
+import { RouteShellSkeleton, WorkspaceCardsSkeleton } from './components/ui/skeleton'
 import {
   agentChatPath,
   channelPath,
@@ -97,17 +96,8 @@ const WorkspaceAccount = lazy(() => import('./pages/WorkspaceAccount'))
 function RouteFallback() {
   const { t } = useTranslation('nav')
   return (
-    <div
-      className="animate-fade-in space-y-4 px-5 py-6"
-      role="status"
-      aria-busy="true"
-      aria-label={t('app.loading')}
-    >
-      <div className="space-y-2">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-3 w-64" />
-      </div>
-      <CockpitPanelsSkeleton />
+    <div aria-label={t('app.loading')}>
+      <RouteShellSkeleton />
     </div>
   )
 }
@@ -123,7 +113,7 @@ function HomeRoute() {
   const landing = pathForDefaultLanding()
 
   if (workspaceLoading) {
-    return <LoadingBlock variant="skeleton" rows={4} className="px-5 py-6" />
+    return <WorkspaceCardsSkeleton />
   }
 
   if (tenantSubdomain) {
@@ -206,6 +196,18 @@ function LegacyDirectAgentRedirect() {
     <Navigate
       to={`${agentChatPath(agentId ?? '', threadId)}${location.search}`}
       state={location.state}
+      replace
+    />
+  )
+}
+
+/** `/threads/{id}` from older agent prose → that conversation in All. */
+function LegacyThreadShortcutRedirect() {
+  const { threadId } = useParams<{ threadId: string }>()
+  const location = useLocation()
+  return (
+    <Navigate
+      to={`${inboxPath('all', threadId)}${location.search}${location.hash}`}
       replace
     />
   )
@@ -522,6 +524,7 @@ export default function App() {
           <Route path="/sessions" element={<Navigate to={newConversationPath()} replace />} />
           <Route path="/messages/*" element={<LegacyMessagesRedirect />} />
           <Route path="/messages" element={<LegacyMessagesRedirect />} />
+          <Route path="/threads/:threadId" element={<LegacyThreadShortcutRedirect />} />
           <Route path="/inbox/*" element={<LegacyInboxRedirect />} />
           <Route path="/inbox" element={<LegacyInboxRedirect />} />
           <Route path="/govern" element={<RedirectPreserveSearch to="/settings/govern" />} />

@@ -119,6 +119,11 @@ export function participantsToAvatarStack(
   return out
 }
 
+export function visibleFloor(activeTurn?: ThreadActiveTurn): ThreadActiveTurn {
+  if (!activeTurn?.ref_id?.trim() || activeTurn.deferred) return null
+  return activeTurn
+}
+
 export function floorKey(activeTurn?: ThreadActiveTurn): string | null {
   const ref = activeTurn?.ref_id?.trim()
   if (!ref) return null

@@ -9,6 +9,8 @@
  * Stored in `/me/preferences.sidebar` and `rail_pins`; localStorage is a cache.
  */
 
+import { repairHiddenItems } from './sidebar-catalog'
+
 export type SidebarSection = 'folders' | 'flows' | 'channels' | 'agents' | 'teams' | 'settings'
 
 /** Sections that sit in the scrollable middle and can be reordered. */
@@ -43,6 +45,10 @@ export type SidebarPrefs = {
   railPins: RailPin[]
   /** Workspace-default rows this person hid. */
   railHiddenDefaults: string[]
+  /** Child order per parent id (inbox, a section, or a folder). */
+  itemOrder: Record<string, string[]>
+  /** Views hidden from the rail. Sections use `hidden`. */
+  hiddenItems: string[]
 }
 
 export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
@@ -52,9 +58,11 @@ export const DEFAULT_SIDEBAR_PREFS: SidebarPrefs = {
   expandedLeaves: [],
   railPins: [],
   railHiddenDefaults: [],
+  itemOrder: {},
+  hiddenItems: [],
 }
 
-const STORAGE_KEY = 'communication-sidebar-prefs-v6'
+const STORAGE_KEY = 'communication-sidebar-prefs-v7'
 
 function migrateSection(value: unknown): SidebarSection | null {
   if (value === 'hashtags' || value === 'projects' || value === 'folders') return 'folders'
@@ -98,7 +106,35 @@ function freshDefaults(): SidebarPrefs {
     expandedLeaves: [],
     railPins: [],
     railHiddenDefaults: [],
+    itemOrder: {},
+    hiddenItems: [],
   }
+}
+
+function normalizeIdList(raw: unknown, max = 400): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item !== 'string') continue
+    const id = item.trim().slice(0, 120)
+    if (!id || out.includes(id)) continue
+    out.push(id)
+    if (out.length >= max) break
+  }
+  return out
+}
+
+function normalizeItemOrder(raw: unknown): Record<string, string[]> {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, string[]> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const parent = key.trim().slice(0, 80)
+    if (!parent) continue
+    const ids = normalizeIdList(value)
+    if (ids.length) out[parent] = ids
+    if (Object.keys(out).length >= 80) break
+  }
+  return out
 }
 
 function normalizePins(raw: unknown): RailPin[] {
@@ -148,12 +184,17 @@ export function normalizeSidebarPrefs(raw: unknown): SidebarPrefs {
       : Array.isArray(data.rail_hidden_defaults)
         ? data.rail_hidden_defaults.filter((v): v is string => typeof v === 'string')
         : [],
+    itemOrder: normalizeItemOrder(data.itemOrder ?? data.item_order),
+    hiddenItems: repairHiddenItems(normalizeIdList(data.hiddenItems ?? data.hidden_items)),
   }
 }
 
 export function loadSidebarPrefs(): SidebarPrefs {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('communication-sidebar-prefs-v5')
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem('communication-sidebar-prefs-v6') ??
+      localStorage.getItem('communication-sidebar-prefs-v5')
     if (!raw) return freshDefaults()
     return normalizeSidebarPrefs(JSON.parse(raw))
   } catch {

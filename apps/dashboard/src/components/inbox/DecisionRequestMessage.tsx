@@ -73,7 +73,7 @@ import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ChatMessageBubble } from './ChatBubble'
 import ActivityTrail from './ActivityTrail'
-import { THREAD_INDENT } from './ThreadMeta'
+import { CHAT_AVATAR_SIZE, THREAD_INDENT } from './ThreadMeta'
 
 type Props = {
   message: InboxMessage
@@ -671,7 +671,7 @@ export default function DecisionRequestMessage({
         },
         'Agent',
       )}
-      size={28}
+      size={CHAT_AVATAR_SIZE}
       decorative
       mode="static"
     />

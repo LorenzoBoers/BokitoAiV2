@@ -8,6 +8,7 @@ import { normalizeHashtag, stripHash } from '../../lib/hashtag'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listSignalTags, type SignalTag } from '../../lib/signals-api'
 import { formatApiErrorMessage } from './ApiErrorBanner'
+import { ChipCloudSkeleton } from './skeleton'
 import { Button } from './button'
 import {
   Dialog,
@@ -396,7 +397,7 @@ export function TagSetPicker({
 
         <div className="max-h-72 space-y-3 overflow-y-auto pr-0.5">
           {loading ? (
-            <p className="px-1 py-3 text-xs text-text-muted">{t('tags.busy')}</p>
+            <ChipCloudSkeleton />
           ) : options.length === 0 && !isNewName ? (
             <p className="px-1 py-3 text-xs text-text-muted">{t('tags.noMatches')}</p>
           ) : (

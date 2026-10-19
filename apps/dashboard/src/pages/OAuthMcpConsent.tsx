@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Building2, Loader2, ShieldCheck } from 'lucide-react'
+import { ConsentPanelSkeleton } from '../components/ui/skeleton'
 import { Button } from '../components/ui/button'
 import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
 import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
@@ -129,10 +130,7 @@ export default function OAuthMcpConsent() {
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-text-secondary">
-            <Loader2 size={16} className="animate-spin" />
-            {t('oauthMcp.loading')}
-          </div>
+          <ConsentPanelSkeleton />
         ) : error && !ctx ? (
           <div className="space-y-3">
             <p className="text-sm text-destructive">{error}</p>

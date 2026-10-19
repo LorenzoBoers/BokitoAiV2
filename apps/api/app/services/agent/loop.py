@@ -48,6 +48,90 @@ def is_progress_filler(text: str) -> bool:
     return bool(_PROGRESS_FILLER_RE.match((text or "").strip()))
 
 
+# Live chats where a person is waiting. Drafts and wakes stay quiet.
+_OPENING_SURFACES = frozenset({"operator_chat", "thread_reply", "participant_turn"})
+# A reaction or a card attach is not a research session.
+_QUIET_PREFACE_TOOLS = frozenset(
+    {
+        "react_to_message",
+        "note_no_reply",
+        "update_progress",
+        "attach_items",
+        "record_thread_read",
+    }
+)
+_OPENING_SYSTEM = (
+    "A colleague just wrote to you in chat. You are about to look through the "
+    "workspace before you answer. Write one short spoken sentence, in their "
+    "language, saying what you will check. Sound like a person texting. One "
+    "sentence. No list, no question, no tool names, no status label."
+)
+
+
+def should_draft_opening(
+    *,
+    trust: str,
+    canvas_refresh: bool,
+    surface: str,
+    user_text: str,
+) -> bool:
+    """Whether to prepare a one-line acknowledgement while the first call runs."""
+    from app.services.agent.reasoning_policy import turn_is_small_talk
+
+    if canvas_refresh or trust == "external":
+        return False
+    if surface not in _OPENING_SURFACES:
+        return False
+    body = user_text or ""
+    lowered = body.lower()
+    if "scheduled wake" in lowered or "HEARTBEAT" in body:
+        return False
+    if turn_is_small_talk(body):
+        return False
+    return bool(body.strip())
+
+
+def should_preface_tools(
+    *,
+    trust: str,
+    canvas_refresh: bool,
+    surface: str,
+    user_text: str,
+    tool_names: list[str],
+    has_speech: bool,
+    already_prefaced: bool,
+) -> bool:
+    """Show the acknowledgement only when this turn opens on real work."""
+    if already_prefaced or has_speech:
+        return False
+    if not should_draft_opening(
+        trust=trust,
+        canvas_refresh=canvas_refresh,
+        surface=surface,
+        user_text=user_text,
+    ):
+        return False
+    names = [name for name in tool_names if name]
+    if not names or all(name in _QUIET_PREFACE_TOOLS for name in names):
+        return False
+    return True
+
+
+def clean_opening_line(text: str) -> str:
+    """One spoken sentence, or nothing."""
+    from app.services.agent.style import strip_emoji
+
+    line = strip_emoji(text or "").strip().strip("\"'")
+    line = line.split("\n", 1)[0].strip()
+    if len(line) > 180:
+        line = line[:180].rsplit(" ", 1)[0].strip()
+    if len(line) < 8 or line.endswith("?") or "HEARTBEAT" in line:
+        return ""
+    if is_progress_filler(line):
+        return ""
+    return line
+
+
 def _sniff_image_mime(data: bytes) -> str | None:
     """Detect common image formats from magic bytes (uploads may lack a mime)."""
     if data.startswith(b"\xff\xd8\xff"):
@@ -214,6 +298,8 @@ class AgentLoop:
         self._started = 0.0
         self._last_progress = 0.0
         self._progress_count = 0
+        self._opening_usage = {"input_tokens": 0, "output_tokens": 0}
+        self._prefaced = False
 
     # Phrases that mean "I will do X next" without having called a tool yet.
     _WORK_ANNOUNCE_RE = re.compile(
@@ -278,6 +364,108 @@ class AgentLoop:
         self._progress_count += 1
         await self._checkpoint_turn()
         return True
+
+    def _start_opening_draft(self) -> asyncio.Task | None:
+        """One short sentence, in parallel with the first model call."""
+        if not should_draft_opening(
+            trust=self.trust,
+            canvas_refresh=self.canvas_refresh,
+            surface=self.surface,
+            user_text=str(getattr(self, "_turn_user_text", "") or ""),
+        ):
+            return None
+        if self.llm is None:
+            return None
+        return asyncio.create_task(self._draft_opening_line())
+
+    async def _draft_opening_line(self) -> str:
+        user = str(getattr(self, "_turn_user_text", "") or "").strip()[:400]
+        if not user or self.llm is None:
+            return ""
+        try:
+            response = await asyncio.wait_for(
+                self.llm.chat(
+                    [
+                        {"role": "system", "content": _OPENING_SYSTEM},
+                        {"role": "user", "content": user},
+                    ],
+                    tools=[],
+                    model=self.resolved_call.model_id if self.resolved_call else None,
+                    thinking_budget=0,
+                    max_tokens=60,
+                ),
+                timeout=3.5,
+            )
+        except Exception:
+            logger.info("opening line skipped")
+            return ""
+        usage = response.get("usage") or {}
+        bucket = getattr(self, "_opening_usage", None)
+        if isinstance(bucket, dict):
+            bucket["input_tokens"] = int(bucket.get("input_tokens") or 0) + int(
+                usage.get("input_tokens") or 0
+            )
+            bucket["output_tokens"] = int(bucket.get("output_tokens") or 0) + int(
+                usage.get("output_tokens") or 0
+            )
+        blocks = response.get("content") or []
+        text = "\n".join(
+            str(block.get("text") or "")
+            for block in blocks
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+        return clean_opening_line(text)
+
+    async def _take_opening(self, task: asyncio.Task | None) -> str:
+        if task is None:
+            return ""
+        try:
+            return str(await asyncio.wait_for(asyncio.shield(task), timeout=2.0) or "")
+        except Exception:
+            task.cancel()
+            return ""
+
+    async def _preface_if_needed(
+        self,
+        turn: TurnRecorder,
+        tool_names: list[str],
+        *,
+        has_speech: bool,
+        opening_task: asyncio.Task | None,
+    ) -> tuple[str, asyncio.Task | None]:
+        if not should_preface_tools(
+            trust=self.trust,
+            canvas_refresh=self.canvas_refresh,
+            surface=self.surface,
+            user_text=str(getattr(self, "_turn_user_text", "") or ""),
+            tool_names=tool_names,
+            has_speech=has_speech,
+            already_prefaced=bool(self._prefaced),
+        ):
+            if opening_task is not None and not opening_task.done():
+                opening_task.cancel()
+            return "", None
+        if opening_task is None:
+            opening_task = asyncio.create_task(self._draft_opening_line())
+        line = await self._take_opening(opening_task)
+        if line:
+            self._prefaced = True
+            await turn.say(line)
+            await self._checkpoint_turn()
+        return line, None
+
+    def _absorb_opening_usage(self, tokens: dict[str, int]) -> None:
+        bucket = getattr(self, "_opening_usage", None)
+        if not isinstance(bucket, dict):
+            return
+        tokens["input_tokens"] = int(tokens.get("input_tokens") or 0) + int(
+            bucket.get("input_tokens") or 0
+        )
+        tokens["output_tokens"] = int(tokens.get("output_tokens") or 0) + int(
+            bucket.get("output_tokens") or 0
+        )
+        bucket["input_tokens"] = 0
+        bucket["output_tokens"] = 0
 
     def _append_continue_nudge(
         self,
@@ -1281,6 +1469,30 @@ class AgentLoop:
         run_id = self.run.id if self.run else None
         return await is_run_cancelled(self.session, run_id)
 
+    async def _speak_peer_request(self, tool: str, tool_input: Any, result: Any) -> None:
+        """The question to another agent is the next bubble in this turn.
+
+        Posting it as its own row mid-tool put it above the ack that is only
+        saved when the turn ends, and the peer could answer before that ack.
+        """
+        if self.turn is None or tool not in ("invite_to_thread", "request_participant_turn"):
+            return
+        if not isinstance(result, dict) or result.get("error"):
+            return
+        turn = result.get("turn") if isinstance(result.get("turn"), dict) else result
+        if str(turn.get("outcome") or "") not in ("deferred", "queued", "requested"):
+            return
+        active = turn.get("active_turn") if isinstance(turn.get("active_turn"), dict) else {}
+        prompt = str(active.get("prompt") or "").strip()
+        if not prompt and isinstance(tool_input, dict):
+            prompt = str(tool_input.get("message") or tool_input.get("prompt") or "").strip()
+        if not prompt:
+            return
+        already = f"{self.turn.full_text}\n{self.turn.open_speech_text}"
+        if prompt in already:
+            return
+        await self.turn.say(prompt)
+
     async def _execute_tool_loop(
         self,
         llm_messages: list[dict[str, Any]],
@@ -1382,6 +1594,7 @@ class AgentLoop:
             self._append_trace_step("tool_result", name=tool_use["name"], payload={"result": result})
             if self.turn is not None and item is not None:
                 await self.turn.tool_end(item, result)
+                await self._speak_peer_request(tool_use.get("name") or "", tool_use.get("input") or {}, result)
                 await self._checkpoint_turn()
             if (
                 tool_use["name"] == "update_progress"
@@ -1426,6 +1639,7 @@ class AgentLoop:
         started = time.monotonic()
         self._started = started
         ack_first = self._turn_pace() == "reply_then_think"
+        opening_task = self._start_opening_draft()
 
         for loop_idx in range(self.max_loops):
             if await self._is_cancelled():
@@ -1454,11 +1668,24 @@ class AgentLoop:
                     break
                 if text_blocks and all(is_progress_filler(t) for t in text_blocks):
                     turn.discard_open_speech()
+                has_speech = bool(turn.has_open_speech) or any(
+                    (block or "").strip() and not is_progress_filler(block) for block in text_blocks
+                )
+                await self._preface_if_needed(
+                    turn,
+                    [str(tool.get("name") or "") for tool in tool_uses],
+                    has_speech=has_speech,
+                    opening_task=opening_task,
+                )
+                opening_task = None
                 llm_messages.append({"role": "assistant", "content": content})
                 tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
                 llm_messages.append({"role": "user", "content": tool_results})
                 continue
 
+            if opening_task is not None and not opening_task.done():
+                opening_task.cancel()
+            opening_task = None
             joined = "\n".join(text_blocks)
             if (
                 not self._continue_nudged
@@ -1475,6 +1702,9 @@ class AgentLoop:
                 continue
             break
 
+        if opening_task is not None and not opening_task.done():
+            opening_task.cancel()
+        self._absorb_opening_usage(tokens)
         await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
@@ -1539,6 +1769,7 @@ class AgentLoop:
         max_tokens = self._resolve_max_tokens()
         ack_first = self._turn_pace() == "reply_then_think"
         await self._checkpoint_turn()
+        opening_task = self._start_opening_draft()
 
         cancelled = False
         for loop_idx in range(self.max_loops):
@@ -1565,6 +1796,9 @@ class AgentLoop:
                     delta = event.get("text", "")
                     if delta:
                         streamed_text = True
+                        if opening_task is not None and not opening_task.done():
+                            opening_task.cancel()
+                        opening_task = None
                         await turn.speech(delta)
                         yield {
                             "type": "delta",
@@ -1598,6 +1832,24 @@ class AgentLoop:
                     turn.has_open_speech and is_progress_filler(turn.open_speech_text)
                 ):
                     turn.discard_open_speech()
+                has_speech = bool(turn.has_open_speech) or any(
+                    (block or "").strip() and not is_progress_filler(block) for block in text_blocks
+                )
+                preface, _opening_done = await self._preface_if_needed(
+                    turn,
+                    [str(tool.get("name") or "") for tool in tool_uses],
+                    has_speech=has_speech,
+                    opening_task=opening_task,
+                )
+                opening_task = None
+                if preface:
+                    seg_id = turn.segments[-1]["id"] if turn.segments else None
+                    yield {
+                        "type": "delta",
+                        "text": preface,
+                        "segment_id": seg_id,
+                        "parts": [preface],
+                    }
                 llm_messages.append({"role": "assistant", "content": response_content})
                 tool_results = await self._execute_tool_loop(
                     llm_messages, tool_uses, stream_id=stream_id
@@ -1605,6 +1857,9 @@ class AgentLoop:
                 llm_messages.append({"role": "user", "content": tool_results})
                 continue
 
+            if opening_task is not None and not opening_task.done():
+                opening_task.cancel()
+            opening_task = None
             joined = "\n".join(text_blocks) if text_blocks else turn.final_text
             if (
                 not cancelled
@@ -1665,6 +1920,9 @@ class AgentLoop:
             finally:
                 self.tools = saved_tools
 
+        if opening_task is not None and not opening_task.done():
+            opening_task.cancel()
+        self._absorb_opening_usage(tokens)
         await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)

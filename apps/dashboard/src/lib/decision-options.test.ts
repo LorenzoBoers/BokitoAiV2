@@ -22,6 +22,8 @@ describe('decision options', () => {
     expect(decisionOptionLabelKey({ id: 'approve', label: 'Approve' })).toBe('approve')
     expect(decisionOptionLabelKey({ id: 'approve', label: 'Terugzetten' })).toBeNull()
     expect(decisionOptionLabelKey({ id: 'send', label: 'Send it' })).toBe('send')
+    expect(decisionOptionLabelKey({ id: 'later', label: 'Later' })).toBe('later')
+    expect(decisionOptionLabelKey({ id: 'later', label: 'Niet nu' })).toBeNull()
   })
 
   it('maps showcase items to options via item_ref or matching id', () => {

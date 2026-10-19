@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Eye, PenLine, SquarePen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessagesHubNav from '../inbox/MessagesHubNav'
 import SidebarCustomizeDialog from '../inbox/SidebarCustomizeDialog'
+import { SidebarEditorProvider, useSidebarEditor } from '../../context/SidebarEditorContext'
 import { SidebarPrefsProvider } from '../../context/SidebarPrefsContext'
 import { newConversationPath } from '../../lib/messages-paths'
 import { SplitPane, SplitRow } from '../ui/SplitRow'
@@ -13,12 +13,12 @@ import { SplitPane, SplitRow } from '../ui/SplitRow'
  * communication, pinned teams, Settings), thread list and conversation on
  * the right.
  */
-export default function MessagesHub() {
+function MessagesHubFrame() {
   const { t } = useTranslation(['nav', 'communication'])
-  const [customizeOpen, setCustomizeOpen] = useState(false)
+  const { openEditor } = useSidebarEditor()
 
   return (
-    <SidebarPrefsProvider>
+    <>
       <SplitRow
         storageKey="bokito.split.messagesHub"
         minFlex={480}
@@ -44,7 +44,7 @@ export default function MessagesHub() {
               </NavLink>
               <button
                 type="button"
-                onClick={() => setCustomizeOpen(true)}
+                onClick={() => openEditor()}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
                 aria-label={t('support.customize.title')}
                 data-testid="customize-sidebar"
@@ -72,7 +72,17 @@ export default function MessagesHub() {
           </div>
         </SplitPane>
       </SplitRow>
-      <SidebarCustomizeDialog open={customizeOpen} onOpenChange={setCustomizeOpen} />
+      <SidebarCustomizeDialog />
+    </>
+  )
+}
+
+export default function MessagesHub() {
+  return (
+    <SidebarPrefsProvider>
+      <SidebarEditorProvider>
+        <MessagesHubFrame />
+      </SidebarEditorProvider>
     </SidebarPrefsProvider>
   )
 }

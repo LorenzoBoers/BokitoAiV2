@@ -25,7 +25,7 @@ import { inviteMailFeedback } from '../lib/invite-feedback'
 import { isLikelyEmail } from '../lib/invite-email'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { DirectoryRowsSkeleton } from '../components/ui/skeleton'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
 import { Badge, type BadgeTone } from '../components/ui/badge'
@@ -737,7 +737,7 @@ export default function MemberManagement({
             {loading ? (
               <TableRow>
                 <TableCell colSpan={colSpan}>
-                  <LoadingBlock variant="inline" label={t('membersPage.loading')} />
+                  <DirectoryRowsSkeleton rows={6} />
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (

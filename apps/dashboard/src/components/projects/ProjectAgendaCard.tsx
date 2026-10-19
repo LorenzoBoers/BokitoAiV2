@@ -8,7 +8,7 @@ import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { itemStart, layerOf } from '../../lib/agenda-layout'
 import { listTimeItems, timeItemHref, type TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
-import { Skeleton } from '../ui/skeleton'
+import { AgendaMiniSkeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 import { LAYER_DOT, itemSubtitle } from '../agenda/agenda-style'
 
@@ -93,7 +93,7 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
       </CardHeader>
       <CardContent>
         {items == null ? (
-          <Skeleton className="h-16 rounded-md" aria-busy="true" />
+          <AgendaMiniSkeleton />
         ) : rows.length === 0 ? (
           <EmptyState
             tone="plain"

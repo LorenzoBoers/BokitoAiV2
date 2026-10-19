@@ -17,7 +17,7 @@ import { formatWorkLogSubject } from '../../lib/work-log-labels'
 import { humanizeModelId } from '../../lib/model-label'
 import { workLogStatusLabel } from '../../lib/status-labels'
 import { activityTerminalPath } from '../../lib/messages-paths'
-import { LoadingBlock } from '../ui/loading-block'
+import { ActivityStepsSkeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 
 /** Keep the live buffer bounded — long runs otherwise grow forever in RAM. */
@@ -205,7 +205,7 @@ export function LiveWorkLog({ workLogId }: Props) {
       <div className="panel max-h-96 space-y-1.5 overflow-y-auto p-3">
         <p className="mb-2 text-xs text-text-muted">{t('workforce.runLog.stepsHint')}</p>
         {loading && events.length === 0 && !error ? (
-          <LoadingBlock variant="skeleton" rows={3} />
+          <ActivityStepsSkeleton />
         ) : error ? (
           <p className="text-sm text-status-error">{error}</p>
         ) : visibleEvents.length === 0 ? (

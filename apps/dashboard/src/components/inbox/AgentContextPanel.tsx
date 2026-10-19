@@ -14,7 +14,7 @@ import { useAuth } from '../../context/AuthContext'
 import { listSignalThreads } from '../../lib/signals-api'
 import { getAllowances, listAgentPassports } from '../../lib/govern-api'
 import { BrandMark } from '../integrations/BrandMark'
-import { LoadingBlock } from '../ui/loading-block'
+import { ContextSideSkeleton } from '../ui/skeleton'
 import {
   listIntegrationConnections,
   listIntegrationProviders,
@@ -312,7 +312,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
       ) : null}
 
       {loading ? (
-        <LoadingBlock variant="inline" label={t('agentContext.loading')} className="px-4 py-2" />
+        <ContextSideSkeleton />
       ) : null}
 
       <ConversationWorkSection thread={thread} onScheduleChanged={() => onThreadUpdated?.()} />

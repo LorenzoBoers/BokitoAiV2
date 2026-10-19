@@ -10,8 +10,7 @@ const ConversationIcon = ENTITY_ICONS.conversation
 import * as Dialog from '@radix-ui/react-dialog'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
-import { LoadingBlock } from '../components/ui/loading-block'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { ChannelDetailSkeleton, FolderChecklistSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideLink } from '../components/layout/PageGuideLink'
 import ChannelPanel from '../components/channels/ChannelPanel'
@@ -300,7 +299,7 @@ export default function ChannelDetailPage() {
   if (loading) {
     return (
       <PageContent width="lg">
-        <LoadingBlock variant="inline" label={t('channelsPage.loadingChannels')} />
+        <ChannelDetailSkeleton />
       </PageContent>
     )
   }
@@ -490,7 +489,7 @@ export default function ChannelDetailPage() {
             <Dialog.Title className="mb-1 text-base font-semibold">{t('channelsPage.foldersTitle')}</Dialog.Title>
             {foldersError ? <p className="mb-3 text-xs text-status-error">{foldersError}</p> : null}
             {foldersLoading ? (
-              <LoadingBlock variant="inline" label={t('channelsPage.loadingFolders')} className="py-4 text-sm" />
+              <FolderChecklistSkeleton />
             ) : (
               <div className="mb-4 min-h-0 flex-1 space-y-1 overflow-y-auto">
                 {folders.map((folder) => (

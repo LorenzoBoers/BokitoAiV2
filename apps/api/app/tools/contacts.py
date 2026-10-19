@@ -40,22 +40,6 @@ def _serialize(row: Contact, *, thread_count: int | None = None) -> dict[str, An
     return data
 
 
-async def _showcase_contacts(ctx: ToolContext, contact_ids: list[str]) -> list[dict[str, Any]]:
-    """Resolve and stash contact cards for the final reply bubble."""
-    from app.services.proposal_items import resolve_items, stash_attach_items
-
-    if not contact_ids:
-        return []
-    showcase = await resolve_items(
-        ctx.session,
-        ctx.tenant_id,
-        [{"type": "contact", "id": cid} for cid in contact_ids],
-    )
-    if showcase:
-        stash_attach_items(ctx.signal_id, showcase)
-    return showcase
-
-
 async def _find_contacts_by_name(ctx: ToolContext, name: str) -> list[Contact]:
     """Exact display-name match first, then a tight contains match (max 5)."""
     needle = name.strip()
@@ -173,12 +157,7 @@ async def _list_contacts(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         )
         counts = {row[0]: int(row[1]) for row in count_rows.all()}
     contacts = [_serialize(c, thread_count=counts.get(c.id, 0)) for c in rows]
-    showcase = await _showcase_contacts(ctx, [c["id"] for c in contacts])
-    return {
-        "contacts": contacts,
-        "count": len(contacts),
-        "items": showcase,
-    }
+    return {"contacts": contacts, "count": len(contacts)}
 
 
 async def _get_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -207,9 +186,7 @@ async def _get_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
                         "hint": "Pass the contact id or email from matches.",
                     }
         return {"error": "Contact not found"}
-    payload = _serialize(contact, thread_count=await _thread_count(ctx, contact))
-    showcase = await _showcase_contacts(ctx, [payload["id"]])
-    return {**payload, "items": showcase}
+    return _serialize(contact, thread_count=await _thread_count(ctx, contact))
 
 
 async def _upsert_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -477,9 +454,9 @@ register_tool(
         description=(
             "List CRM contacts (name, email, company, thread count, path). "
             "Optional query matches name, email, or company. Aliases merged "
-            "into another contact are left out. Results are showcased as "
-            "contact cards under your reply — keep the text short; for a "
-            "single name in prose use [Name](/contacts/{id}) from path."
+            "into another contact are left out. A lookup does not show cards. "
+            "Call attach_items (type contact) when you want contact cards. "
+            "For a single name in prose use [Name](/contacts/{id}) from path."
         ),
         category="messaging",
         input_schema={
@@ -502,8 +479,8 @@ register_tool(
         description=(
             "Read one contact: CRM profile fields plus how many threads it has. "
             "Pass the contact id, email address, or exact display name when it "
-            "is unique. Prefer id or email when you have them. Showcases the "
-            "contact card under your reply."
+            "is unique. Prefer id or email when you have them. Does not show a "
+            "card. Call attach_items (type contact) when you want one."
         ),
         category="messaging",
         input_schema={

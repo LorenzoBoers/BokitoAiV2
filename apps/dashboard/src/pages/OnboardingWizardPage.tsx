@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { WizardSkeleton } from '../components/ui/skeleton'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
 import { SegmentedControl } from '../components/ui/segmented-control'
@@ -331,9 +332,7 @@ export default function OnboardingWizardPage() {
 
   if (loading || !state) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg-base text-text-muted">
-        <Loader2 className="animate-spin" size={22} />
-      </div>
+      <WizardSkeleton />
     )
   }
 

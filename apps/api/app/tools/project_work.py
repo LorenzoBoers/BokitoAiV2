@@ -69,7 +69,6 @@ async def _resolve_project(
 
 async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.folders import folder_path_label, load_catalog
-    from app.services.proposal_items import resolve_items, stash_attach_items
 
     catalog = await load_catalog(ctx.session, ctx.tenant_id)
     rows = {
@@ -92,15 +91,7 @@ async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         }
         for fs in catalog.folders
     ]
-    # Cards under the reply — do not rely on the model calling attach_items.
-    showcase = await resolve_items(
-        ctx.session,
-        ctx.tenant_id,
-        [{"type": "folder", "id": p["id"]} for p in projects],
-    )
-    if showcase:
-        stash_attach_items(ctx.signal_id, showcase)
-    return {"folders": projects, "items": showcase}
+    return {"folders": projects}
 
 
 def _queue_folder_missing(
@@ -463,11 +454,10 @@ register_tool(
         name="list_folders",
         description=(
             "List the tenant's folders (id, slug, tag_ids, tag_names, label, path). "
-            "Prefer the folder id as parent_id for create_folder. Results are "
-            "showcased as folder cards under your reply — write one short "
-            "sentence and chip names inline with [Name](path) using the returned "
-            "path (always starts with /folders/…). Do not restate them as a "
-            "bullet list after the cards."
+            "Prefer the folder id as parent_id for create_folder. A lookup does "
+            "not show cards. Call attach_items (type folder) when you want "
+            "folder cards, and chip names inline with [Name](path) using the "
+            "returned path (always starts with /folders/…)."
         ),
         category="projects",
         input_schema={"type": "object", "properties": {}},
@@ -696,6 +686,16 @@ async def _resolve_canvas_owner(ctx: ToolContext, tool_input: dict[str, Any]) ->
     return OWNER_TENANT, ctx.tenant_id
 
 
+def _canvas_link(row: dict[str, Any]) -> str | None:
+    """In-app path for a canvas row. Lookups return this; they do not showcase."""
+    cid = row.get("id")
+    if not cid:
+        return None
+    if str(row.get("owner_kind") or "") == "project" and row.get("owner_id"):
+        return f"/projects/{row['owner_id']}?tab=canvas&canvas={cid}"
+    return f"/cockpit/canvas?canvas={cid}"
+
+
 async def _stash_canvas_showcase(
     ctx: ToolContext, canvases: list[dict[str, Any]] | dict[str, Any] | None
 ) -> list[dict[str, Any]]:
@@ -730,8 +730,7 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     canvas_id = str(tool_input.get("canvas_id") or "").strip()
     if canvas_id:
         canvas = await canvas_svc.get_canvas(ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id))
-        showcase = await _stash_canvas_showcase(ctx, canvas)
-        return _canvas_reply(canvas, showcase)
+        return {**canvas, "path": _canvas_link(canvas)}
     owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
     slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
     try:
@@ -742,16 +741,17 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             owner_id=owner_id,
             slug=slug,
         )
-        showcase = await _stash_canvas_showcase(ctx, canvas)
-        return _canvas_reply(canvas, showcase)
+        return {**canvas, "path": _canvas_link(canvas)}
     except HTTPException:
         listed = await canvas_svc.list_canvases(
             ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
         )
-        showcase = await _stash_canvas_showcase(ctx, listed)
         return {
             "error": "Canvas not found. Pass canvas_id or slug from this list.",
-            "items": showcase or [{"id": i["id"], "slug": i["slug"], "title": i["title"]} for i in listed],
+            "canvases": [
+                {"id": i["id"], "slug": i["slug"], "title": i["title"], "path": _canvas_link(i)}
+                for i in listed
+            ],
         }
 
 
@@ -957,8 +957,6 @@ async def _list_canvases_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     listed = await canvas_svc.list_canvases(
         ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
     )
-    showcase = await _stash_canvas_showcase(ctx, listed)
-    paths = {str(item.get("id")): item.get("path") for item in showcase if isinstance(item, dict)}
     return {
         "owner_kind": owner_kind,
         "owner_id": str(owner_id),
@@ -968,11 +966,10 @@ async def _list_canvases_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
                 "slug": i["slug"],
                 "title": i["title"],
                 "empty": i.get("empty"),
-                "path": paths.get(str(i["id"])),
+                "path": _canvas_link(i),
             }
             for i in listed
         ],
-        "items": showcase,
     }
 
 
@@ -982,8 +979,9 @@ register_tool(
         description=(
             "List snapshot canvases for a project or the workspace Overview. "
             "Pass project_id / owner_kind=project for a project; omit or use "
-            "owner_kind=tenant for Overview canvases. Auto-showcases a preview card "
-            "for each canvas. Link each path inline in the same sentence."
+            "owner_kind=tenant for Overview canvases. A lookup does not show cards. "
+            "Call attach_items (type canvas) when you want a preview card. "
+            "Link each path inline in the same sentence."
         ),
         category="projects",
         input_schema={
@@ -1007,8 +1005,9 @@ register_tool(
             "Read a snapshot canvas (project or tenant/Overview). Returns bokito/canvas "
             "source and tree. Not live queue/budget data. Pass canvas_id, or owner_kind "
             "+ slug (project_id for a project canvas; omit for the workspace Overview). "
-            "Auto-showcases a preview card under your reply. Link the returned path "
-            "inline, for example [Title](path)."
+            "A lookup does not show a card. Call attach_items (type canvas) when "
+            "you want a preview card. Link the returned path inline, for example "
+            "[Title](path)."
         ),
         category="projects",
         input_schema={

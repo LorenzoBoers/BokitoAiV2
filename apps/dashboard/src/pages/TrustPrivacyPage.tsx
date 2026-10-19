@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { RetentionFieldsSkeleton } from '../components/ui/skeleton'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -177,7 +177,7 @@ export default function TrustPrivacyPage() {
       <section className="panel space-y-4 p-4">
         <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.retentionTitle')}</h2>
         {loading || !settings ? (
-          <LoadingBlock variant="skeleton" rows={3} />
+          <RetentionFieldsSkeleton />
         ) : (
           <>
             <div className="max-w-sm space-y-1.5">

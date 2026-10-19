@@ -9,6 +9,7 @@ import { createProject } from '../../lib/projects-api'
 import { listSignalTags, type SignalTag } from '../../lib/signals-api'
 import { notifyFoldersChanged } from '../../lib/folders-bus'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { ChipCloudSkeleton } from '../ui/skeleton'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -168,10 +169,7 @@ export function CreateFolderDialog({ open, onOpenChange, parentId = null, onCrea
           ) : null}
           <div className="max-h-40 space-y-1 overflow-y-auto">
             {loading ? (
-              <p className="flex items-center gap-2 px-1 py-2 text-xs text-text-muted">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                {t('projects.page.loading')}
-              </p>
+              <ChipCloudSkeleton chips={5} />
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {options.map((row) => {

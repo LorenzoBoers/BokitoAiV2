@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
-import { LoadingBlock } from '../ui/loading-block'
+import { CalendarListSkeleton } from '../ui/skeleton'
 import { ApiErrorBanner } from '../ui/ApiErrorBanner'
 import { Switch } from '../ui/switch'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
@@ -284,7 +284,7 @@ function CalendarPicker({ connectionId, onSaved }: { connectionId: string; onSav
   }
 
   if (calendars == null) {
-    return <LoadingBlock variant="inline" label={t('calendars.loading')} />
+    return <CalendarListSkeleton />
   }
 
   const writable = calendars.filter((c) => c.enabled && c.writable)

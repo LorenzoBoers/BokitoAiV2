@@ -51,6 +51,21 @@ export type HubScope = {
   agentId?: string | null
 }
 
+/** `/threads/{id}` (and a query or hash) opens that conversation in All. */
+export function normalizeThreadHref(href: string): string {
+  const match = /^\/threads\/([^/?#]+)(.*)$/.exec(href)
+  if (!match) return href
+  let id = match[1]
+  try {
+    id = decodeURIComponent(id)
+  } catch {
+    // Keep the raw segment when it is not valid encoding.
+  }
+  const tail = match[2] ?? ''
+  const suffix = tail.startsWith('?') || tail.startsWith('#') ? tail : ''
+  return `${inboxPath('all', id)}${suffix}`
+}
+
 function withThread(base: string, threadId?: string | null): string {
   return threadId ? `${base}/t/${encodeURIComponent(String(threadId))}` : base
 }

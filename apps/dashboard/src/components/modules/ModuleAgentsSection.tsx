@@ -5,6 +5,7 @@ import { Loader2, Settings2, Star, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AgentOptionRow } from '../ui/AgentOptionRow'
 import { AgentSelect } from '../ui/AgentSelect'
+import { AgentRosterSkeleton } from '../ui/skeleton'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
@@ -270,9 +271,7 @@ export function ModuleAgentsSection({
         ) : null}
       </div>
       {loading ? (
-        <p className="text-sm text-text-muted">
-          {t('integrations.modules.agents.loading', { defaultValue: 'Loading agents…' })}
-        </p>
+        <AgentRosterSkeleton />
       ) : roster.length === 0 ? (
         <div className="space-y-1.5">
           <p className="text-sm text-text-muted">

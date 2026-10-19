@@ -13,6 +13,7 @@ import type { AgentPresenceStatus } from '../../lib/teams-api'
 import { cn } from '../../lib/utils'
 import { AiAvatar, type AiAvatarMode } from '../ui/AiAvatar'
 import { AgentDoneCorner } from '../ui/AgentDoneCorner'
+import { CHAT_AVATAR_SIZE } from './ThreadMeta'
 import type { AgentAvatarKind } from '../../lib/agent-avatar'
 
 type SeatClaim = {
@@ -420,7 +421,7 @@ export type LiveAgentAvatarSlotProps = {
 export function LiveAgentAvatarSlot({
   agentId,
   slotId,
-  size = 28,
+  size = CHAT_AVATAR_SIZE,
   className,
   claim = false,
   spawn,

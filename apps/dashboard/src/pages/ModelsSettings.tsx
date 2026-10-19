@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { ModelsCatalogSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Badge } from '../components/ui/badge'
@@ -299,9 +300,8 @@ export default function ModelsSettings() {
 
   if (loading && !data) {
     return (
-      <PageContent width="md" className="flex items-center gap-2 py-16 text-sm text-text-muted">
-        <Loader2 size={16} className="animate-spin" />
-        {t('modelsPage.loading', { defaultValue: 'Loading…' })}
+      <PageContent width="md">
+        <ModelsCatalogSkeleton />
       </PageContent>
     )
   }

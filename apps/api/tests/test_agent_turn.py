@@ -301,6 +301,48 @@ def test_progress_allowed_waits_then_gaps():
     assert not is_progress_filler("I filed the invoice in Facturen.")
 
 
+def test_opening_line_only_for_a_silent_research_turn():
+    from app.services.agent.loop import clean_opening_line, should_preface_tools
+
+    common = {
+        "trust": "operator",
+        "canvas_refresh": False,
+        "surface": "operator_chat",
+        "user_text": "Wat staat er open?",
+        "already_prefaced": False,
+    }
+    assert should_preface_tools(
+        **common, tool_names=["list_threads"], has_speech=False
+    )
+    assert not should_preface_tools(
+        **common, tool_names=["list_threads"], has_speech=True
+    )
+    assert not should_preface_tools(
+        **common, tool_names=["react_to_message"], has_speech=False
+    )
+    assert not should_preface_tools(
+        **{**common, "surface": "compose"},
+        tool_names=["list_threads"],
+        has_speech=False,
+    )
+    assert not should_preface_tools(
+        **{**common, "trust": "external"},
+        tool_names=["list_threads"],
+        has_speech=False,
+    )
+    assert not should_preface_tools(
+        **{**common, "user_text": "Hoi"},
+        tool_names=["list_threads"],
+        has_speech=False,
+    )
+    assert (
+        clean_opening_line('  "Ik kijk even wat er open staat."')
+        == "Ik kijk even wat er open staat."
+    )
+    assert clean_opening_line("Zal ik kijken?") == ""
+    assert clean_opening_line("Working on this.") == ""
+
+
 def test_activity_from_segments_flattens_mail_turn_for_suggestion_card():
     """Assisted inbound often saves only a decision_request — keep the tool trail."""
     items = activity_from_segments(_segments())
@@ -510,6 +552,74 @@ async def test_seal_in_progress_rewrites_checkpoint_as_error(client: AsyncClient
     statuses = [a.get("status") for a in meta.get("activity") or []]
     assert "running" not in statuses
     assert statuses.count("error") >= 1
+
+
+@pytest.mark.asyncio
+async def test_fresh_checkpoint_is_not_sealed_on_thread_load(client: AsyncClient, session_override):
+    from datetime import timedelta
+
+    from app.services.agent.turn_persist import seal_in_progress_checkpoints, upsert_turn_checkpoint
+
+    _ = client
+    tenant, agent = await _tenant_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id, channel="assistant", source="test", subject="Follow up", status="open"
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    checkpoint = await upsert_turn_checkpoint(
+        session_override,
+        signal,
+        message_id=None,
+        author_agent_id=agent.id,
+        turn_id="turn-live",
+        segments=[],
+    )
+    await session_override.commit()
+    sealed = await seal_in_progress_checkpoints(
+        session_override, signal, older_than=timedelta(minutes=15)
+    )
+    assert sealed == []
+    await session_override.refresh(checkpoint)
+    assert json.loads(checkpoint.metadata_json)["in_progress"] is True
+
+
+@pytest.mark.asyncio
+async def test_silent_decision_follow_up_replaces_placeholder(client: AsyncClient, session_override):
+    from app.services.assistant_threads import append_signal_chat_message
+    from app.services.signal_threads import _fill_silent_decision_follow_up
+
+    _ = client
+    tenant, agent = await _tenant_agent(session_override)
+    signal = Signal(
+        tenant_id=tenant.id, channel="assistant", source="chat", subject="Rule", status="open"
+    )
+    session_override.add(signal)
+    await session_override.commit()
+    await append_signal_chat_message(
+        session_override,
+        signal,
+        role="user",
+        content="[System] approved",
+        metadata={
+            "decision_outcome_hint": True,
+            "hidden_from_timeline": True,
+            "confirm_text": "Gedaan: Ja, altijd.",
+        },
+    )
+    placeholder = await append_signal_chat_message(
+        session_override,
+        signal,
+        role="assistant",
+        content="Working on this.",
+        author_agent_id=agent.id,
+        metadata={"in_progress": True, "turn_id": "wake"},
+    )
+    await session_override.commit()
+    await _fill_silent_decision_follow_up(session_override, signal, [placeholder], agent.id)
+    await session_override.refresh(placeholder)
+    assert placeholder.body_text == "Gedaan: Ja, altijd."
+    assert "in_progress" not in json.loads(placeholder.metadata_json)
 
 
 async def _login(client: AsyncClient) -> None:
@@ -729,9 +839,37 @@ def test_decision_ids_are_read_from_nested_activity_results():
                 "id": "restore",
                 "result": {"asked": {"decision_request_id": "dec-1", "status": "awaiting_human"}},
             },
+            {"id": "rule", "decision_ids": ["dec-2"], "result": '{"rule": "truncated'},
         ]
     }
-    assert decision_ids_in_activity(meta) == {"dec-1"}
+    assert decision_ids_in_activity(meta) == {"dec-1", "dec-2"}
+
+
+def test_settings_link_bubble_drops_when_the_turn_raised_a_card():
+    from app.services.agent.turn_persist import drop_redundant_rule_link
+
+    planned = drop_redundant_rule_link(
+        [
+            {
+                "text": "Ik stel een regel voor.",
+                "activity": [{"decision_ids": ["dec-1"], "result": "truncated"}],
+            },
+            {
+                "text": "U kunt de regel nu bevestigen via [Automatiseringsregels](/settings/channels#automation-rules).",
+                "activity": [],
+            },
+        ]
+    )
+    assert len(planned) == 1
+    assert "stel een regel" in planned[0]["text"]
+
+
+def test_decision_option_already_ran_includes_resolver_actions():
+    from app.services.signal_threads import _decision_option_already_ran
+
+    assert _decision_option_already_ran("approved", "activate_inbox_rule") is True
+    assert _decision_option_already_ran("approved", "defer") is False
+    assert _decision_option_already_ran("rejected", "activate_inbox_rule") is False
 
 
 @pytest.mark.asyncio
@@ -802,7 +940,9 @@ async def test_wait_for_ok_card_sits_after_the_tool_bubble(client: AsyncClient, 
     await session_override.commit()
     await session_override.refresh(card)
     first, second = bubbles
-    assert first.received_at < card.received_at < second.received_at
+    assert first.received_at < second.received_at < card.received_at
+    assert (second.received_at - first.received_at).total_seconds() >= 0.4
+    assert (card.received_at - second.received_at).total_seconds() >= 0.4
     # The proposal rides on the turn's last bubble; the card points back to it.
     assert json.loads(second.metadata_json)["proposal"]["decision_id"] == str(decision.id)
     assert "proposal" not in json.loads(first.metadata_json)

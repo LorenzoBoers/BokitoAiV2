@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { appendSpeechChunk, consumeSpeechResults } from '@bokito/shared'
+import { playDictationStartSound, playDictationStopSound } from '../lib/notification-sound'
 
 export { appendSpeechChunk } from '@bokito/shared'
 
@@ -55,8 +56,10 @@ export function useSpeechDictation(opts: {
   onInterimRef.current = opts.onInterim
 
   const stop = useCallback(() => {
+    const wasLive = !closedRef.current
     // Close first so a late final (same text as the last interim) is ignored.
     closedRef.current = true
+    if (wasLive) void playDictationStopSound()
     const rec = recognitionRef.current
     recognitionRef.current = null
     try {
@@ -110,6 +113,7 @@ export function useSpeechDictation(opts: {
     try {
       rec.start()
       setListening(true)
+      void playDictationStartSound()
       return true
     } catch {
       closedRef.current = true

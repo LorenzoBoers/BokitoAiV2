@@ -315,6 +315,8 @@ export type InboxMessage = {
   decisionResponseDecisionIds?: string[]
   /** On a decision card: the agent bubble that shows it inline. */
   attachedToMessageId?: string | null
+  /** When this bubble may appear. Past values show immediately. */
+  revealAt?: string | null
   receivedAt: string | null
   createdAt: string
 }
@@ -677,6 +679,8 @@ export type ThreadActiveTurn = {
   deadline?: string
   prompt?: string
   streak?: number
+  /** Peer is queued behind the agent who is still speaking. */
+  deferred?: boolean
 } | null
 
 export type ThreadDetail = {
@@ -1112,6 +1116,9 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     reactions: normalizeReactionsField(raw),
     ...normalizeMessageActivity(raw),
     ...messageProposalFields(payload),
+    revealAt: asNullableTimestampString(
+      typeof payload.reveal_at === 'string' ? payload.reveal_at : null,
+    ),
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asTimestampString(raw.created_at),
   }

@@ -48,13 +48,9 @@ export function isInternalThread(thread: Pick<InboxThread, 'channel' | 'folder'>
   return isAgentRunThread(thread) || isAssistantChatThread(thread)
 }
 
-/** Prefer a customer conversation when auto-opening the inbox. */
-export function pickPreferredInboxThread<
-  T extends Pick<InboxThread, 'channel' | 'folder' | 'hasUnread'>,
->(threads: T[]): T | null {
-  const customers = threads.filter((thread) => !isInternalThread(thread))
-  const pool = customers.length > 0 ? customers : threads
-  return pool.find((thread) => thread.hasUnread) ?? pool[0] ?? null
+/** First row of the list already on screen. Folder order is the default open. */
+export function pickPreferredInboxThread<T>(threads: T[]): T | null {
+  return threads[0] ?? null
 }
 
 /**

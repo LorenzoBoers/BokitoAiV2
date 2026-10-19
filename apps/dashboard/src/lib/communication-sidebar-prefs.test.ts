@@ -22,6 +22,15 @@ describe('communication sidebar prefs', () => {
     expect(prefs.railHiddenDefaults).toEqual(['tag:old'])
   })
 
+  it('keeps view order and repairs a double-hidden inbox', () => {
+    const prefs = normalizeSidebarPrefs({
+      item_order: { inbox: ['queue:open', 'queue:for_you'] },
+      hidden_items: ['queue:for_you', 'queue:open', 'queue:spam'],
+    })
+    expect(prefs.itemOrder.inbox).toEqual(['queue:open', 'queue:for_you'])
+    expect(prefs.hiddenItems).toEqual(['queue:for_you', 'queue:spam'])
+  })
+
   it('preserves an explicit flows section in order', () => {
     const prefs = normalizeSidebarPrefs({
       order: ['folders', 'flows', 'channels', 'teams', 'agents', 'settings'],

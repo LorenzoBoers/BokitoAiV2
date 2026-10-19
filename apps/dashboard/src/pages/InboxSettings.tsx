@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { MessageSquare, Plus } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
-import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
 import { PageIntro } from '../components/layout/PageIntro'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
@@ -255,7 +254,6 @@ export default function InboxSettings() {
         </div>
       ) : null}
 
-      {loading ? <LoadingBlock variant="inline" label={t('channelsPage.loadingChannels')} /> : null}
       {error ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-status-error">{error}</p>

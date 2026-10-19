@@ -18,7 +18,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import { TableRowsSkeleton } from '../components/ui/skeleton'
+import { ConversationRowsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -726,7 +726,7 @@ export default function WorkspaceDocs() {
                 ) : null}
               </div>
             ) : loading ? (
-              <TableRowsSkeleton rows={7} className="px-1 py-2" />
+              <ConversationRowsSkeleton rows={7} />
             ) : error ? (
               <p className="px-2 py-4 text-xs text-status-error">{error}</p>
             ) : docs.length === 0 ? (

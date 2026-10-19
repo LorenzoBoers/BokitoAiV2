@@ -1,4 +1,4 @@
-"""list_contacts / get_contact auto-showcase contact cards."""
+"""Lookups return contacts. Cards appear only when the agent calls attach_items."""
 
 import pytest
 from httpx import AsyncClient
@@ -16,7 +16,7 @@ async def _tenant(session) -> Tenant:
 
 
 @pytest.mark.asyncio
-async def test_list_contacts_auto_showcases(client: AsyncClient, session_override):
+async def test_list_contacts_does_not_showcase(client: AsyncClient, session_override):
     tenant = await _tenant(session_override)
     contact = Contact(
         tenant_id=tenant.id,
@@ -43,14 +43,14 @@ async def test_list_contacts_auto_showcases(client: AsyncClient, session_overrid
     assert result["count"] >= 1
     row = next(c for c in result["contacts"] if c["id"] == str(contact.id))
     assert row["path"] == f"/contacts/{contact.id}"
-    assert any(i.get("type") == "contact" and i.get("id") == str(contact.id) for i in result.get("items") or [])
+    assert not result.get("items")
 
     pending = take_attach_items(chat.id)
-    assert any(i.get("type") == "contact" and i.get("id") == str(contact.id) for i in pending)
+    assert pending == []
 
 
 @pytest.mark.asyncio
-async def test_get_contact_auto_showcases(client: AsyncClient, session_override):
+async def test_get_contact_does_not_showcase(client: AsyncClient, session_override):
     tenant = await _tenant(session_override)
     contact = Contact(
         tenant_id=tenant.id,
@@ -74,10 +74,9 @@ async def test_get_contact_auto_showcases(client: AsyncClient, session_override)
     )
     assert "error" not in result, result
     assert result["id"] == str(contact.id)
-    assert any(i.get("type") == "contact" and i.get("id") == str(contact.id) for i in result.get("items") or [])
+    assert not result.get("items")
     pending = take_attach_items(chat.id)
-    assert len(pending) == 1
-    assert pending[0]["type"] == "contact"
+    assert pending == []
 
 
 @pytest.mark.asyncio

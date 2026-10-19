@@ -166,6 +166,55 @@ def deferred_job_block(active: dict[str, Any]) -> str | None:
     return None
 
 
+async def opener_still_writing(session: AsyncSession, signal: Signal, floor: dict[str, Any]) -> bool:
+    """True while the agent who asked still has an open checkpoint on this thread.
+
+    The safety job must not start the peer in that window. Their own bubbles
+    are only saved when the turn ends, so an early peer reply lands above them.
+    After 90s the peer starts anyway, so a missed flush cannot stall the floor.
+    """
+    if str(floor.get("requested_by_kind") or "") != "agent":
+        return False
+    raw = str(floor.get("requested_by_id") or "").strip()
+    if not raw:
+        return False
+    started_raw = str(floor.get("streak_at") or "").strip()
+    if started_raw:
+        try:
+            started = datetime.fromisoformat(started_raw)
+        except ValueError:
+            started = None
+        if started is not None and datetime.utcnow() - started > timedelta(seconds=90):
+            return False
+    try:
+        author_id = UUID(raw)
+    except ValueError:
+        return False
+    from sqlalchemy import select
+
+    from app.models.signal import SignalMessage
+
+    rows = (
+        await session.execute(
+            select(SignalMessage)
+            .where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.author_agent_id == author_id,
+            )
+            .order_by(SignalMessage.received_at.desc())
+            .limit(4)
+        )
+    ).scalars().all()
+    for message in rows:
+        try:
+            meta = json.loads(message.metadata_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if isinstance(meta, dict) and meta.get("in_progress"):
+            return True
+    return False
+
+
 def claim_active_turn(
     signal: Signal,
     *,
@@ -322,18 +371,19 @@ async def request_participant_turn(
         )
     )
     await session.flush()
-    try:
-        await publish_thread_presence(
-            signal.tenant_id,
-            signal.id,
-            phase="thinking",
-            actor_kind="agent",
-            actor_id=str(member_ref_id),
-            actor_name=agent.name,
-            item={"active_turn": floor},
-        )
-    except Exception:  # noqa: BLE001
-        logger.debug("publish active_turn failed", exc_info=True)
+    if not defer:
+        try:
+            await publish_thread_presence(
+                signal.tenant_id,
+                signal.id,
+                phase="thinking",
+                actor_kind="agent",
+                actor_id=str(member_ref_id),
+                actor_name=agent.name,
+                item={"active_turn": floor},
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("publish active_turn failed", exc_info=True)
 
     if not run:
         return {"ok": True, "outcome": "requested", "active_turn": floor, "peers": peers}
@@ -544,6 +594,18 @@ async def flush_deferred_participant_turn(
     signal.active_turn_json = json.dumps(floor)
     session.add(signal)
     await session.flush()
+    try:
+        await publish_thread_presence(
+            signal.tenant_id,
+            signal.id,
+            phase="thinking",
+            actor_kind="agent",
+            actor_id=str(agent.id),
+            actor_name=agent.name,
+            item={"active_turn": floor},
+        )
+    except Exception:  # noqa: BLE001
+        logger.debug("publish flushed floor failed", exc_info=True)
 
     return await _start_or_enqueue_turn(
         session,

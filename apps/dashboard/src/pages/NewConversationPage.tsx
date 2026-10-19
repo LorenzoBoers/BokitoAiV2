@@ -1237,7 +1237,12 @@ export default function NewConversationPage() {
                 }
                 onKeyDown={onComposerKeyDown}
                 onPaste={onComposerPaste}
-                highlighter={<MentionHighlight raw={mention.raw} />}
+                highlighter={
+                  <MentionHighlight
+                    raw={mention.raw}
+                    interim={dictation.listening ? dictationInterim : ''}
+                  />
+                }
                 header={
                   attachments.length || uploading ? (
                     <MessageAttachments

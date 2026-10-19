@@ -177,7 +177,6 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     ])
     const inboxQueues: PaletteItem[] = (
       [
-        { id: 'inbox-all', queue: 'all' as const, labelKey: 'support.inbox.all' },
         { id: 'inbox-open', queue: 'open' as const, labelKey: 'support.inbox.open', hintKey: 'palette.inboxOpenHint' },
         { id: 'inbox-for-you', queue: 'for_you' as const, labelKey: 'support.inbox.forYou', hintKey: 'palette.forYouHint' },
         { id: 'inbox-unassigned', queue: 'unassigned' as const, labelKey: 'support.inbox.unassigned' },

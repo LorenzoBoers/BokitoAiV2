@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react'
+import { StepListSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { PageIntro } from '../components/layout/PageIntro'
 import { useAuth } from '../context/AuthContext'
@@ -227,10 +228,7 @@ export default function SetupHubPage() {
 
       <div className="mx-auto max-w-3xl space-y-6">
         {loading ? (
-          <div className="panel flex items-center gap-2 px-4 py-5 text-sm text-text-muted">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t('setupGuidePage.checking')}
-          </div>
+          <StepListSkeleton />
         ) : (
           <>
             <div className="panel flex items-center gap-3 px-4 py-3">

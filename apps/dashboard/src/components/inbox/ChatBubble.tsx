@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { chatRunCloses, chatRunLeads, type BubbleStack } from '../../lib/chat-layout'
+import { THREAD_GUTTER } from './ThreadMeta'
 import { cn } from '../../lib/utils'
 import { AI_PILL_CLASS } from '../ai/AiMark'
 
@@ -271,7 +272,7 @@ export function ChatMessageBubble({
   )
 
   const avatarSlot = isRight ? null : (
-    <span className="flex w-7 shrink-0 justify-center">{renderAvatar ? avatar : null}</span>
+    <span className={THREAD_GUTTER}>{renderAvatar ? avatar : null}</span>
   )
 
   if (onClick) {

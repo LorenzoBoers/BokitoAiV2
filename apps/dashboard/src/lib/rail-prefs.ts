@@ -16,6 +16,8 @@ export function sidebarFromServer(raw: unknown): SidebarPrefs {
     expandedLeaves: data.expanded_leaves ?? data.expandedLeaves,
     railPins: data.rail_pins ?? data.railPins,
     railHiddenDefaults: data.rail_hidden_defaults ?? data.railHiddenDefaults,
+    itemOrder: data.item_order ?? data.itemOrder,
+    hiddenItems: data.hidden_items ?? data.hiddenItems,
   })
 }
 
@@ -51,6 +53,8 @@ export async function saveRailPrefs(token: string, prefs: SidebarPrefs): Promise
         hidden: prefs.hidden,
         collapsed: prefs.collapsed,
         expanded_leaves: prefs.expandedLeaves,
+        item_order: prefs.itemOrder,
+        hidden_items: prefs.hiddenItems,
       },
       rail_pins: prefs.railPins,
       rail_hidden_defaults: prefs.railHiddenDefaults,

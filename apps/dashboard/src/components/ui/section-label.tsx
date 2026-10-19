@@ -38,6 +38,11 @@ export type SectionLabelProps = {
    * still toggles open/closed.
    */
   titleButtonProps?: ButtonHTMLAttributes<HTMLButtonElement>
+  /**
+   * Keep trailing actions out of the row until the header is hovered, so a
+   * narrow label can use the full width.
+   */
+  hoverActions?: boolean
 } & Omit<HTMLAttributes<HTMLElement>, 'title' | 'children'>
 
 /**
@@ -58,6 +63,7 @@ export function SectionLabel({
   headerClassName,
   fill = false,
   titleButtonProps,
+  hoverActions = false,
   ...sectionProps
 }: SectionLabelProps) {
   const collapsible = typeof onOpenChange === 'function'
@@ -105,7 +111,7 @@ export function SectionLabel({
         className,
       )}
     >
-      <div className={cn('flex items-center gap-0.5', headerClassName)}>
+      <div className={cn('group/header flex items-center gap-0.5', headerClassName)}>
         {collapsible ? (
           <button
             type="button"
@@ -141,7 +147,9 @@ export function SectionLabel({
           <span
             className={cn(
               'inline-flex shrink-0 items-center',
+              hoverActions && 'hidden group-hover/header:inline-flex',
               collapsible &&
+                !hoverActions &&
                 'opacity-0 transition-opacity focus-within:opacity-100 group-hover/section:opacity-100 group-focus-within/section:opacity-100',
             )}
           >

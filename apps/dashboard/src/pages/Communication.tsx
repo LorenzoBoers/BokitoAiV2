@@ -53,12 +53,11 @@ import {
 import {
   dedicatedInboxQueueForStatus,
   pickRemainingInboxThread,
-  resolvedStatusLeavesInboxQueue,
+  inboxQueueForOpenedThread,
   threadFitsInboxQueue,
 } from '../lib/inbox-queue'
 import {
   customersFirst,
-  isAgentRunThread,
   pickPreferredInboxThread,
   threadHubPath,
 } from '../lib/message-composer'
@@ -174,7 +173,8 @@ export default function Communication() {
 
   const listLeaf = useMemo(() => leafForOpenList(leaf), [leaf])
   const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(listLeaf), [listLeaf])
-  const closedShown = leaf.queue === 'closed' || searchParams.get('closed') === '1'
+  const closedSwitch = supportsClosedDisclosure(leaf)
+  const closedMode = closedSwitch && (leaf.queue === 'closed' || searchParams.get('closed') === '1')
 
   const searchKey = searchParams.toString()
   const folderFilter = useMemo(
@@ -328,6 +328,7 @@ export default function Communication() {
     if (priorityFilter) params.set('priority', priorityFilter)
     if (dateFilter) params.set('date', dateFilter)
     if (quickFilter === 'unread' || quickFilter === 'pinned') params.set('filter', quickFilter)
+    if (closedMode) params.set('closed', '1')
     const query = params.toString()
     return query ? `?${query}` : ''
   }, [
@@ -339,6 +340,7 @@ export default function Communication() {
     priorityFilter,
     dateFilter,
     quickFilter,
+    closedMode,
   ])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
@@ -424,6 +426,29 @@ export default function Communication() {
     }
   }, [urlFilter, setQuickFilter, setSearchParams, navigate, searchParams, threadIdParam])
 
+  const listExtras = {
+    search: listSearch,
+    projectId,
+    categoryId,
+    tag: tagParam,
+    stage: stageParam,
+    unread: mode === 'customer' && quickFilter === 'unread',
+    pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
+    assigneeId: assigneeFilter,
+    priority: priorityFilter ?? undefined,
+    activity: dateFilter ?? undefined,
+    agentId: agentParam,
+    needsDecision: needsDecisionParam,
+  }
+  const closedBase = closedCompanionFilters(leaf)
+  const closedListFilters = closedBase ? mergeHubThreadFilters(closedBase, listExtras) : null
+  const openListFilters = mergeHubThreadFilters(leafFilters, listExtras)
+
+  // Open and Gesloten stay loaded on their own. Toggling the switch only
+  // chooses which result to show, so the rows and the two counts do not reload.
+  const openList = useThreads(openListFilters, pinnedIds)
+  const closedList = useThreads(closedListFilters ?? {}, pinnedIds, closedListFilters != null)
+  const activeList = closedMode && closedListFilters != null ? closedList : openList
   const {
     threads,
     outsideThreads,
@@ -434,68 +459,22 @@ export default function Communication() {
     total: threadsTotal,
     hasMore: threadsHaveMore,
     loadMore: loadMoreThreads,
-    refresh: refreshThreads,
     setThreadReadState,
     removeThread,
-  } = useThreads(
-    mergeHubThreadFilters(leafFilters, {
-      search: listSearch,
-      projectId,
-      categoryId,
-      tag: tagParam,
-      stage: stageParam,
-      unread: mode === 'customer' && quickFilter === 'unread',
-      pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
-      assigneeId: assigneeFilter,
-      priority: priorityFilter ?? undefined,
-      activity: dateFilter ?? undefined,
-      agentId: agentParam,
-      needsDecision: needsDecisionParam,
-    }),
-    pinnedIds,
-  )
-
-  const closedBase = closedCompanionFilters(leaf)
-  const {
-    threads: closedThreads,
-    loading: closedLoading,
-    threadsReady: closedReady,
-    total: closedTotal,
-    hasMore: closedHasMore,
-    loadMore: loadMoreClosed,
-  } = useThreads(
-    closedBase
-      ? mergeHubThreadFilters(closedBase, {
-          search: listSearch,
-          projectId,
-          categoryId,
-          tag: tagParam,
-          stage: stageParam,
-          unread: mode === 'customer' && quickFilter === 'unread',
-          pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
-          assigneeId: assigneeFilter,
-          priority: priorityFilter ?? undefined,
-          activity: dateFilter ?? undefined,
-          agentId: agentParam,
-        })
-      : {},
-    pinnedIds,
-    closedBase != null,
-  )
-
-  const onlyClosed =
-    supportsClosedDisclosure(leaf) &&
-    threadsReady &&
-    closedReady &&
-    threads.length === 0 &&
-    (closedTotal ?? 0) > 0 &&
-    !search.trim() &&
-    quickFilter === 'all' &&
-    !hasFolderFilter
-  const revealClosed = closedShown || onlyClosed
+  } = activeList
+  const refreshOpenList = openList.refresh
+  const refreshClosedList = closedList.refresh
+  const closedListOn = closedListFilters != null
+  const refreshThreads = useCallback(() => {
+    void refreshOpenList()
+    if (closedListOn) void refreshClosedList()
+  }, [closedListOn, refreshClosedList, refreshOpenList])
+  const closedTotal = closedListFilters != null ? closedList.total : null
+  const closedReady = closedListFilters != null ? closedList.threadsReady : true
+  const openTotal = openList.total
 
   useEffect(() => {
-    if (leaf.type !== 'agent' || selectedThreadId) return
+    if (closedMode || leaf.type !== 'agent' || selectedThreadId) return
     if (search.trim() || quickFilter !== 'all' || hasFolderFilter) return
     if (assigneeFilter != null || priorityFilter || dateFilter) return
     if (!threadsReady || !closedReady || threadsError) return
@@ -504,6 +483,7 @@ export default function Communication() {
     navigate(newConversationPath({ intent: 'agent', agentId: leaf.agentId }), { replace: true })
   }, [
     assigneeFilter,
+    closedMode,
     closedReady,
     closedTotal,
     dateFilter,
@@ -519,15 +499,30 @@ export default function Communication() {
     threadsTotal,
   ])
 
-  const toggleClosed = useCallback(() => {
-    const next = new URLSearchParams(searchParams)
-    next.delete('closed')
-    if (!closedShown) next.set('closed', '1')
-    const search = next.toString()
-    navigate({ pathname: leafPath(listLeaf), search: search ? `?${search}` : '' })
-  }, [closedShown, listLeaf, navigate, searchParams])
+  const setListStatus = useCallback(
+    (status: 'open' | 'closed') => {
+      const next = new URLSearchParams(searchParams)
+      if (status === 'closed') next.set('closed', '1')
+      else next.delete('closed')
+      const search = next.toString()
+      // Drop a thread from the other status so the list and the URL agree.
+      navigate({ pathname: leafPath(listLeaf), search: search ? `?${search}` : '' })
+    },
+    [listLeaf, navigate, searchParams],
+  )
 
-  const listContextKey = `${leafKey(leaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}:${assigneeFilter ?? ''}:${priorityFilter ?? ''}:${dateFilter ?? ''}`
+  useEffect(() => {
+    if (leaf.queue !== 'closed' || !closedSwitch) return
+    const next = new URLSearchParams(searchParams)
+    next.set('closed', '1')
+    const search = next.toString()
+    navigate(
+      { pathname: leafPath(listLeaf, threadIdParam), search: search ? `?${search}` : '' },
+      { replace: true },
+    )
+  }, [closedSwitch, leaf.queue, listLeaf, navigate, searchParams, threadIdParam])
+
+  const listContextKey = `${leafKey(listLeaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}:${assigneeFilter ?? ''}:${priorityFilter ?? ''}:${dateFilter ?? ''}`
 
   // The quick filter is per folder: every folder opens on "all", unless the
   // URL that opened it carries a deep-linked filter (consumed above).
@@ -670,36 +665,34 @@ export default function Communication() {
   const selectedInOutside =
     selectedThreadId != null &&
     outsideThreads.some((thread) => String(thread.id) === String(selectedThreadId))
+  // The opened conversation stays visible in the list when this page of the
+  // queue does not contain it (notification, chip, or a link from another thread).
+  const listedThreads = useMemo(() => {
+    if (!detail || selectedThreadId == null) return filteredThreads
+    if (String(detail.thread.id) !== String(selectedThreadId)) return filteredThreads
+    if (selectedInFilteredList || selectedInOutside) return filteredThreads
+    return [detail.thread, ...filteredThreads]
+  }, [detail, selectedThreadId, filteredThreads, selectedInFilteredList, selectedInOutside])
 
-  // Auto-select the first match. On For you, also replace orphan detail
-  // (thread left open from another folder) or clear the pane when empty.
+  // Auto-select the first row only when the URL names no conversation.
+  // A thread id from a notification, a chip, or another page stays, even when
+  // that row is not on the loaded page of Aan mij.
   useEffect(() => {
     if (composeOpen || !threadsReady) return
-    if (selectedThreadId == null) {
-      if (firstThreadId == null) return
-      setSkipMarkRead(true)
-      handleSelectThread(firstThreadId, true, { markRead: false })
-      return
-    }
-    if (leaf.queue !== 'for_you' || selectedInFilteredList || selectedInOutside) return
-    if (firstThreadId != null) {
-      setSkipMarkRead(true)
-      handleSelectThread(firstThreadId, true, { markRead: false })
-      return
-    }
-    navigate(`${leafPath(leaf)}${inboxQuery}`, { replace: true })
+    if (supportsClosedDisclosure(leaf) && !closedReady) return
+    if (selectedThreadId != null) return
+    if (firstThreadId == null) return
+    setSkipMarkRead(true)
+    handleSelectThread(firstThreadId, true, { markRead: false })
   }, [
     composeOpen,
     threadsReady,
+    closedReady,
     selectedThreadId,
-    selectedInFilteredList,
-    selectedInOutside,
     firstThreadId,
     listContextKey,
     leaf,
     handleSelectThread,
-    navigate,
-    inboxQuery,
   ])
 
   const handleListMarkRead = useCallback(
@@ -900,31 +893,25 @@ export default function Communication() {
           ) {
             return
           }
-          if (
-            await confirm({
-              description: t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
-            })
-          ) {
-            try {
-              await closeConversationCollecting(token, String(id), { resolve: true, collect: collectStageFields })
-              const undoReopen = () => {
-                void apiPatchThread(token, id, { status: 'open' }).then(() => {
-                  void refreshThreads()
-                  void refreshNavBadges()
-                })
-              }
-              toast.success(t('threadResolved.closed'), {
-                action: { label: t('undoSend.undo'), onClick: undoReopen },
+          try {
+            await closeConversationCollecting(token, String(id), { resolve: true, collect: collectStageFields })
+            const undoReopen = () => {
+              void apiPatchThread(token, id, { status: 'open' }).then(() => {
+                void refreshThreads()
+                void refreshNavBadges()
               })
-              leaveResolvedThread(id, 'closed')
-              void refreshThreads()
-              void refreshNavBadges()
-              return
-            } catch (err) {
-              if (err instanceof TicketStageMoveCancelled) return
-              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
-              return
             }
+            toast.success(t('threadResolved.closed'), {
+              action: { label: t('undoSend.undo'), onClick: undoReopen },
+            })
+            leaveResolvedThread(id, 'closed')
+            void refreshThreads()
+            void refreshNavBadges()
+            return
+          } catch (err) {
+            if (err instanceof TicketStageMoveCancelled) return
+            toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
+            return
           }
         }
         await apiPatchThread(token, id, { status: 'closed' })
@@ -979,63 +966,67 @@ export default function Communication() {
     if (String(detail.thread.id) !== String(selectedThreadId)) return
     if (selectedInOutside) return
     const leafKeyPart = leaf.type === 'inbox' ? leaf.queue : leaf.type
-    const fitKey = `${selectedThreadId}:${detail.thread.status}:${leafKeyPart}`
+    const fitKey = `${selectedThreadId}:${detail.thread.status}:${leafKeyPart}:${closedMode ? '1' : '0'}`
     if (redirectCheckedForThreadRef.current === fitKey) return
 
     redirectCheckedForThreadRef.current = fitKey
 
-    // Deep link into the wrong channel folder → jump to All communication.
+    const threadPath = leafPath(listLeaf, String(detail.thread.id))
+    const withClosed = (on: boolean) => {
+      const next = new URLSearchParams(inboxQuery.replace(/^\?/, ''))
+      if (on) next.set('closed', '1')
+      else next.delete('closed')
+      const search = next.toString()
+      return search ? `${threadPath}?${search}` : threadPath
+    }
+
     if (leaf.type === 'channel' && !threadFitsChannelLeaf(detail.thread, leaf)) {
-      navigate(`${inboxPath('open', String(detail.thread.id))}${inboxQuery}`, { replace: true })
+      const dest = inboxQueueForOpenedThread(detail.thread)
+      const next = new URLSearchParams(inboxQuery.replace(/^\?/, ''))
+      next.delete('closed')
+      if (dest === 'closed') next.set('closed', '1')
+      const search = next.toString()
+      const path = inboxPath(dest === 'closed' ? 'open' : dest, String(detail.thread.id))
+      navigate(search ? `${path}?${search}` : path, { replace: true })
+      return
+    }
+
+    // A named thread stays that thread. Closed flips the switch in this folder.
+    // Reopening, or a reply that reopens, puts the switch back on Open.
+    if (closedSwitch && detail.thread.status === 'closed' && !closedMode) {
+      navigate(withClosed(true), { replace: true })
+      return
+    }
+    if (closedSwitch && detail.thread.status === 'open' && closedMode) {
+      navigate(withClosed(false), { replace: true })
       return
     }
 
     if (leaf.type === 'inbox') {
       const inboxQueue = leaf.queue ?? 'all'
-      // For you keeps the open conversation on screen after you answer; it
-      // drops out of the list on the next refresh.
       if (inboxQueue === 'for_you' && detail.thread.status === 'open') return
       if (threadFitsInboxQueue(detail.thread, inboxQueue, currentUserId)) return
-      if (resolvedStatusLeavesInboxQueue(detail.thread.status, inboxQueue)) {
-        // The closed disclosure is how you reopen: stay on the thread so the
-        // header can offer Heropenen. Otherwise stay in Open and move on.
-        if (closedShown && detail.thread.status === 'closed') return
-        advancingRef.current = true
-        try {
-          leaveResolvedThread(selectedThreadId, detail.thread.status)
-        } finally {
-          advancingRef.current = false
-        }
-        return
-      }
-      const destQueue =
-        detail.thread.status === 'open' && !isAgentRunThread(detail.thread) ? 'open' : 'all'
-      navigate(`${inboxPath(destQueue, String(detail.thread.id))}${inboxQuery}`, { replace: true })
-      return
-    }
-
-    if (
-      (detail.thread.status === 'closed' || detail.thread.status === 'spam') &&
-      !filteredThreads.some((thread) => String(thread.id) === String(selectedThreadId))
-    ) {
-      advancingRef.current = true
-      try {
-        leaveResolvedThread(selectedThreadId, detail.thread.status)
-      } finally {
-        advancingRef.current = false
-      }
+      if (detail.thread.status === 'closed' && closedSwitch) return
+      const dest = inboxQueueForOpenedThread(detail.thread)
+      if (dest === 'closed' && closedSwitch) return
+      if (dest === inboxQueue) return
+      const next = new URLSearchParams(inboxQuery.replace(/^\?/, ''))
+      next.delete('closed')
+      const search = next.toString()
+      const path = inboxPath(dest, String(detail.thread.id))
+      navigate(search ? `${path}?${search}` : path, { replace: true })
     }
   }, [
     detail,
     selectedThreadId,
     leaf,
+    listLeaf,
     currentUserId,
     navigate,
     inboxQuery,
-    filteredThreads,
     selectedInOutside,
-    leaveResolvedThread,
-    closedShown,
+    closedMode,
+    closedSwitch,
   ])
 
   const handlePatch = useCallback(
@@ -1140,22 +1131,16 @@ export default function Communication() {
           ) {
             return
           }
-          if (
-            await confirm({
-              description: t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
+          if (!token) return
+          try {
+            await closeConversationCollecting(token, String(selectedThreadId), {
+              resolve: true,
+              collect: collectStageFields,
             })
-          ) {
-            if (!token) return
-            try {
-              await closeConversationCollecting(token, String(selectedThreadId), {
-                resolve: true,
-                collect: collectStageFields,
-              })
-            } catch (err) {
-              if (err instanceof TicketStageMoveCancelled) return
-              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
-              return
-            }
+          } catch (err) {
+            if (err instanceof TicketStageMoveCancelled) return
+            toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
+            return
           }
         }
         await handlePatch({ status: 'closed' })
@@ -1264,46 +1249,40 @@ export default function Communication() {
           ) {
             return
           }
-          if (
-            await confirm({
-              description: t('threadChrome.closeWithTicketShortcutResolve', { count: openTickets.length }),
-            })
-          ) {
-            try {
-              for (const id of bulkSelectedIds) {
-                await closeConversationCollecting(token, String(id), {
-                  resolve: true,
-                  collect: collectStageFields,
-                })
-              }
-            } catch (err) {
-              if (err instanceof TicketStageMoveCancelled) return
-              toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
-              return
+          try {
+            for (const id of bulkSelectedIds) {
+              await closeConversationCollecting(token, String(id), {
+                resolve: true,
+                collect: collectStageFields,
+              })
             }
-            const ids = [...bulkSelectedIds]
-            toast.success(t(bulkDoneKey('close'), { count: ids.length }), {
-              duration: BULK_UNDO_TOAST_MS,
-              action: {
-                label: t('undoSend.undo'),
-                onClick: () => {
-                  void bulkUpdateSignalThreads(token, ids, 'reopen')
-                    .then((reopened) => {
-                      toast.success(t('bulkActions.reopened', { count: reopened || ids.length }))
-                      void refreshThreads()
-                      void refreshNavBadges()
-                    })
-                    .catch((undoErr) => {
-                      toast.error(undoErr instanceof Error ? undoErr.message : t('bulkActions.failed'))
-                    })
-                },
-              },
-            })
-            setBulkSelectedIds(new Set())
-            void refreshThreads()
-            void refreshNavBadges()
+          } catch (err) {
+            if (err instanceof TicketStageMoveCancelled) return
+            toast.error(formatApiErrorMessage(err, t('threadChrome.closeWithTicketError')))
             return
           }
+          const ids = [...bulkSelectedIds]
+          toast.success(t(bulkDoneKey('close'), { count: ids.length }), {
+            duration: BULK_UNDO_TOAST_MS,
+            action: {
+              label: t('undoSend.undo'),
+              onClick: () => {
+                void bulkUpdateSignalThreads(token, ids, 'reopen')
+                  .then((reopened) => {
+                    toast.success(t('bulkActions.reopened', { count: reopened || ids.length }))
+                    void refreshThreads()
+                    void refreshNavBadges()
+                  })
+                  .catch((undoErr) => {
+                    toast.error(undoErr instanceof Error ? undoErr.message : t('bulkActions.failed'))
+                  })
+              },
+            },
+          })
+          setBulkSelectedIds(new Set())
+          void refreshThreads()
+          void refreshNavBadges()
+          return
         }
       }
       const unreadBeforeRead =
@@ -1795,7 +1774,7 @@ export default function Communication() {
           className={selectedThreadId != null ? 'hidden md:flex' : 'flex'}
         >
           <ThreadList
-            threads={filteredThreads}
+            threads={listedThreads}
             outsideThreads={outsideThreads}
             allThreads={threads}
             loading={!threadsReady}
@@ -1829,15 +1808,23 @@ export default function Communication() {
             onBulkPin={mode === 'customer' ? (next) => void handleBulkPin(next) : undefined}
             onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
             bulkBusy={bulkBusy}
-            listQueue={listLeaf.type === 'inbox' ? (listLeaf.queue ?? null) : (listLeaf.queue ?? 'open')}
-            showClosedToggle={supportsClosedDisclosure(leaf)}
-            closedOpen={revealClosed}
-            closedThreads={revealClosed ? closedThreads : []}
-            closedTotal={closedTotal}
-            closedLoading={revealClosed && !closedReady && closedLoading}
-            closedHasMore={closedHasMore}
-            onToggleClosed={toggleClosed}
-            onLoadMoreClosed={() => void loadMoreClosed()}
+            listQueue={
+              closedMode
+                ? 'closed'
+                : listLeaf.type === 'inbox'
+                  ? (listLeaf.queue ?? null)
+                  : (listLeaf.queue ?? 'open')
+            }
+            statusSegment={
+              closedSwitch
+                ? {
+                    value: closedMode ? 'closed' : 'open',
+                    openCount: openTotal,
+                    closedCount: closedTotal,
+                    onChange: setListStatus,
+                  }
+                : undefined
+            }
             scopedProjectId={projectId ?? null}
             scrollKey={leafKey(leaf)}
             assigneeFilter={assigneeFilter}
@@ -1879,7 +1866,9 @@ export default function Communication() {
             emptyLabel={
               search.trim()
                 ? t('threadList.emptySearch', { query: search.trim() })
-                : hasFolderFilter || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
+                : closedMode
+                  ? t('threadList.emptyClosed')
+                  : hasFolderFilter || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
                   ? t('threadList.emptyScoped')
                   : leaf.type === 'inbox' && leaf.queue === 'for_you'
                     ? t('threadList.emptyForYou')

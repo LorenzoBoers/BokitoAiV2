@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { BRAND_ASSETS } from '../../lib/brand-assets'
 import { hostSlugForProvider } from '../../lib/integration-brand'
+import { DEFAULT_BRAND_MARK } from '../../lib/tenant-branding'
 import type { OrgGraphMark, OrgGraphNode } from '../../lib/teams-api'
 import { AgentMark } from '../ui/AgentMark'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
@@ -80,13 +81,19 @@ export function OrgNodeFace({
   if (node.kind === 'channel' && mark.channel) {
     return <ChannelGlyph channel={mark.channel} size={size} />
   }
-  if (
-    node.kind === 'calendar' ||
-    node.kind === 'connection' ||
-    node.kind === 'module' ||
-    node.kind === 'organization'
-  ) {
-    const slug = node.kind === 'organization' ? 'bokito' : hostSlugForProvider(mark.provider || '')
+  if (node.kind === 'organization') {
+    const image = (mark.avatar_image_url || '').trim() || DEFAULT_BRAND_MARK
+    return (
+      <img
+        src={image}
+        alt=""
+        className="rounded-full object-contain"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  if (node.kind === 'calendar' || node.kind === 'connection' || node.kind === 'module') {
+    const slug = hostSlugForProvider(mark.provider || '')
     const asset = BRAND_ASSETS[slug] ?? BRAND_ASSETS[mark.provider || '']
     if (asset) {
       return (

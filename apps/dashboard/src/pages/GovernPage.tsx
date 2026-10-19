@@ -15,7 +15,7 @@ import { Badge } from '../components/ui/badge'
 import { EmptyState } from '../components/ui/empty-state'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
-import { TableRowsSkeleton } from '../components/ui/skeleton'
+import { GovernTabsSkeleton } from '../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import {
@@ -487,7 +487,7 @@ export default function GovernPage() {
       {error ? <ApiErrorBanner message={error} onRetry={load} /> : null}
 
       {loading ? (
-        <TableRowsSkeleton rows={8} />
+        <GovernTabsSkeleton />
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="flex h-auto w-full flex-wrap items-end justify-start gap-1">

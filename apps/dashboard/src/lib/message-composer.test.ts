@@ -82,13 +82,13 @@ describe('resolveComposerSurface (whatsapp)', () => {
     expect(surface.showRecipient).toBe(false)
   })
 
-  it('prefers an unread customer thread over internal agent work', () => {
+  it('opens the first row in list order', () => {
     const preferred = pickPreferredInboxThread([
       thread({ id: 'internal-1', channel: 'internal', folder: 'internal', hasUnread: true, emailSubject: 'Daily scan' }),
       thread({ id: 'customer-1', channel: 'email', folder: 'customer', hasUnread: false, contactName: 'Sanne' }),
       thread({ id: 'customer-2', channel: 'email', folder: 'customer', hasUnread: true, contactName: 'Erik' }),
     ])
-    expect(preferred?.id).toBe('customer-2')
+    expect(preferred?.id).toBe('internal-1')
   })
 
   it('keeps customer threads above internal agent work', () => {

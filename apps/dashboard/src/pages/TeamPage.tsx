@@ -11,6 +11,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
+import { TeamCardsSkeleton } from '../components/ui/skeleton'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -73,15 +74,19 @@ export default function TeamPage() {
   const [params, setParams] = useSearchParams()
   const { hash } = useLocation()
   const [overview, setOverview] = useState<TeamOverview | null>(null)
+  const [teamsLoading, setTeamsLoading] = useState(true)
   const [editing, setEditing] = useState<Team | null>(null)
   const [creating, setCreating] = useState(false)
 
   const reload = useCallback(async () => {
     if (!token) return
+    setTeamsLoading(true)
     try {
       setOverview(await getTeamOverview(token))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('teamPage.loadError'))
+    } finally {
+      setTeamsLoading(false)
     }
   }, [token, t])
 
@@ -167,6 +172,7 @@ export default function TeamPage() {
           ) : null}
         </div>
         <div className="flex flex-col gap-2">
+          {teamsLoading && !overview ? <TeamCardsSkeleton /> : null}
           {(overview?.teams ?? []).map((team) => {
             const stack = overview ? resolveTeamMembers(team, overview) : []
             return (

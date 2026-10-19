@@ -12,6 +12,7 @@ import {
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Info, Plus } from 'lucide-react'
+import { AgendaRailRowsSkeleton } from '../ui/skeleton'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
 import { Tip } from '../ui/Tip'
@@ -168,6 +169,8 @@ type Props = {
   onPickDay: (day: Date) => void
   people: RailOption[]
   agents: RailOption[]
+  /** People, agents, and calendars are still loading, so the lists show rows. */
+  listsLoading?: boolean
   /** `user:id` / `agent:id` keys hidden like calendar checkboxes. */
   hiddenOwners: Set<string>
   onToggleOwner: (kind: 'user' | 'agent', id: string) => void
@@ -226,11 +229,11 @@ export default function AgendaRail(props: Props) {
 
   const visibleSectionIds = useMemo(() => {
     return sectionOrder.filter((section) => {
-      if (section === 'people') return props.people.length > 0
-      if (section === 'agents') return props.agents.length > 0
+      if (section === 'people') return props.listsLoading || props.people.length > 0
+      if (section === 'agents') return props.listsLoading || props.agents.length > 0
       return true
     })
-  }, [sectionOrder, props.people.length, props.agents.length])
+  }, [sectionOrder, props.listsLoading, props.people.length, props.agents.length])
 
   const onSectionDragEnd = useCallback((event: DragEndEvent) => {
     const activeId = String(event.active.id)
@@ -324,6 +327,7 @@ export default function AgendaRail(props: Props) {
                     data-testid="agenda-people-toggles"
                     contentClassName="space-y-1 pt-0.5"
                   >
+                    {props.listsLoading && props.people.length === 0 ? <AgendaRailRowsSkeleton /> : null}
                     {props.people.map((person) => {
                       const on = !props.hiddenOwners.has(ownerVisibilityKey('user', person.id))
                       return (
@@ -369,6 +373,7 @@ export default function AgendaRail(props: Props) {
                     data-testid="agenda-agents-toggles"
                     contentClassName="space-y-1 pt-0.5"
                   >
+                    {props.listsLoading && props.agents.length === 0 ? <AgendaRailRowsSkeleton /> : null}
                     {props.agents.map((agent) => {
                       const on = !props.hiddenOwners.has(ownerVisibilityKey('agent', agent.id))
                       return (
@@ -421,6 +426,7 @@ export default function AgendaRail(props: Props) {
                     </Link>
                   }
                 >
+                  {props.calendarsLoading && props.calendars.length === 0 ? <AgendaRailRowsSkeleton rows={3} /> : null}
                   {props.calendars.map((connection) => {
                     const tenantSubs = props.tenantCalendars.filter(
                       (c) => c.connection_id === connection.id,

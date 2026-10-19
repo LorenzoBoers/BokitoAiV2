@@ -4,9 +4,11 @@ import { cn } from '../../lib/utils'
 /** Shared thread type scale: speech is `text-base`; everything else is this. */
 export const THREAD_META = 'text-[13px] leading-5'
 export const THREAD_ICON = 14
-export const THREAD_GUTTER = 'flex w-7 shrink-0 justify-center'
-/** Avatar column (28px) + gap-2 (8px) — activity under a bubble lines up with meta. */
-export const THREAD_INDENT = 'pl-9'
+/** Face beside a chat bubble, a mail card, and the matching meta gutter. */
+export const CHAT_AVATAR_SIZE = 32
+export const THREAD_GUTTER = 'flex w-8 shrink-0 justify-center'
+/** Avatar column (32px) + gap-2 (8px) — activity under a bubble lines up with meta. */
+export const THREAD_INDENT = 'pl-10'
 
 const ROW = cn(
   'flex min-h-7 min-w-0 items-center gap-2',
@@ -98,7 +100,7 @@ export function ThreadMetaRow({
   )
 }
 
-/** Avatar column (28px) + content. Empty gutter keeps meta aligned with bubbles. */
+/** Avatar column + content. Empty gutter keeps meta aligned with bubbles. */
 export function ThreadMetaBlock({
   avatar,
   header,

@@ -1,7 +1,8 @@
 import { tokenizeMentions } from '../../lib/mentions'
 
 /** Highlighter layer for composer mention pills. Pair with ComposerCard. */
-export function MentionHighlight({ raw }: { raw: string }) {
+export function MentionHighlight({ raw, interim }: { raw: string; interim?: string }) {
+  const pending = interim?.trim() ?? ''
   return (
     <>
       {tokenizeMentions(raw).map((token, index) =>
@@ -13,6 +14,9 @@ export function MentionHighlight({ raw }: { raw: string }) {
           </span>
         ),
       )}
+      {pending ? (
+        <span className="text-text-muted">{raw.trim() ? ` ${pending}` : pending}</span>
+      ) : null}
       {'\n'}
     </>
   )

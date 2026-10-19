@@ -97,10 +97,16 @@ export function decisionOptionLabelKey(option: DecisionOption): string | null {
     connect: 'connectPackage',
   }
   if (byId[option.id]) {
-    // An agent-written approve/reject label ("Terugzetten") says more than the default.
+    // An agent- or server-written label ("Niet nu", "Terugzetten") says more than the default.
     const label = (option.label || '').trim()
-    const generic = ['approve', 'reject', 'Approve', 'Reject'].includes(label)
-    if ((option.id === 'approve' || option.id === 'reject') && label && label !== option.id && !generic) {
+    const generic: Record<string, string[]> = {
+      approve: ['approve', 'Approve'],
+      reject: ['reject', 'Reject'],
+      later: ['later', 'Later', 'Not now'],
+      defer: ['defer', 'Defer', 'Not now'],
+    }
+    const generics = generic[option.id]
+    if (generics && label && label !== option.id && !generics.includes(label)) {
       return null
     }
     return byId[option.id]

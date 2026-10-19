@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Building2, Loader2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { listStaffTenants, type StaffTenantOption } from '../../lib/staff-api'
+import { StaffSelectSkeleton } from '../ui/skeleton'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 
 export default function StaffTenantBar() {
@@ -69,7 +70,7 @@ export default function StaffTenantBar() {
       <Building2 size={12} className="shrink-0 text-accent" aria-hidden />
       <span className="hidden shrink-0 text-2xs font-medium text-accent sm:inline">{t('staffBar.label')}</span>
       {loading ? (
-        <Loader2 size={12} className="animate-spin text-text-muted" />
+        <StaffSelectSkeleton />
       ) : (
         <ChoiceSelect
           aria-label={t('staffBar.label')}

@@ -5,7 +5,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { BotOrbAvatar } from '../components/ui/BotOrbAvatar'
 import { Button } from '../components/ui/button'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { MemoryRowsSkeleton } from '../components/ui/skeleton'
 import { Card, CardContent } from '../components/ui/card'
 import { SearchField } from '../components/ui/search-field'
 import { DEFAULT_BOT_ORB_COLOR, DEFAULT_BOT_ORB_SHAPE } from '../lib/bot-orb-shapes'
@@ -121,7 +121,7 @@ export default function MyAssistantSettings() {
           />
         ) : null}
         {loading ? (
-          <LoadingBlock variant="skeleton" rows={3} />
+          <MemoryRowsSkeleton />
         ) : !entries?.length ? (
           <p className="text-sm text-text-secondary">{t('assistantSettings.memoryEmpty')}</p>
         ) : visibleEntries.length === 0 ? (

@@ -957,7 +957,19 @@ export default function MailComposer({
           </div>
 
           {/* One letter scroll: body grows with text; signature + quote ride below. */}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {dictation.listening ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-3 py-2.5 text-sm leading-5 text-text-primary"
+              >
+                {body}
+                {dictationInterim.trim() ? (
+                  <span className="text-text-muted">{body.trim() ? ` ${dictationInterim}` : dictationInterim}</span>
+                ) : null}
+                {'\n'}
+              </div>
+            ) : null}
             <textarea
               ref={textareaRef}
               value={composerValue}
@@ -970,7 +982,11 @@ export default function MailComposer({
                 dictation.listening ? t('composer.dictationListening') : t('compose.bodyPlaceholder')
               }
               rows={4}
-              className="block w-full resize-none overflow-hidden bg-transparent px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none"
+              className={
+                dictation.listening
+                  ? 'relative block w-full resize-none overflow-hidden bg-transparent px-3 py-2.5 text-sm leading-5 text-transparent caret-[rgb(var(--color-text-primary))] placeholder:text-text-muted focus:outline-none'
+                  : 'block w-full resize-none overflow-hidden bg-transparent px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none'
+              }
               data-testid="mail-composer-body"
             />
             <div className="px-3">

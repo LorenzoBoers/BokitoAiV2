@@ -23,7 +23,13 @@ import { Card } from '../components/ui/card'
 import { useAutosave } from '../hooks/useAutosave'
 import { EmptyState } from '../components/ui/empty-state'
 import { Input } from '../components/ui/input'
-import { LoadingBlock } from '../components/ui/loading-block'
+import {
+  ChannelRowsSkeleton,
+  DirectoryRowsSkeleton,
+  HandlingCardsSkeleton,
+  SettingsFieldsSkeleton,
+  SwitchRowsSkeleton,
+} from '../components/ui/skeleton'
 import { Label } from '../components/ui/label'
 import { Switch } from '../components/ui/switch'
 import PageContent from '../components/layout/PageContent'
@@ -497,7 +503,7 @@ export default function AiCommunicationSettings() {
           </div>
           {overviewError ? <p className="text-xs text-destructive">{overviewError}</p> : null}
           {!overview ? (
-            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+            <HandlingCardsSkeleton />
           ) : (
             <>
               <AiHandlingPicker
@@ -593,7 +599,7 @@ export default function AiCommunicationSettings() {
             <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.exceptionsDescription')}</p>
           </div>
           {!overview ? (
-            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+            <DirectoryRowsSkeleton rows={3} />
           ) : exceptionGroups.length === 0 ? (
             <p className="text-xs text-text-secondary">{t('ai.communication.exceptionsEmpty')}</p>
           ) : (
@@ -665,7 +671,7 @@ export default function AiCommunicationSettings() {
             <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.safeguardsDescription')}</p>
           </div>
           {!safeguards || !disclosure ? (
-            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+            <SwitchRowsSkeleton rows={4} />
           ) : (
             <div className="space-y-5">
               <SettingRow
@@ -808,7 +814,7 @@ export default function AiCommunicationSettings() {
             <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.routing.description')}</p>
           </div>
           {!routing ? (
-            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+            <SettingsFieldsSkeleton rows={4} />
           ) : (
             <div className="space-y-5">
               <RoutingPolicyFields
@@ -882,7 +888,7 @@ export default function AiCommunicationSettings() {
             <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.languageDescription')}</p>
           </div>
           {!aiSettings ? (
-            <LoadingBlock variant="inline" label={t('ai.communication.loadingConfig')} />
+            <SettingsFieldsSkeleton rows={2} />
           ) : (
             <div className="space-y-5">
               <SettingRow
@@ -949,7 +955,7 @@ export default function AiCommunicationSettings() {
             <p className="mt-0.5 text-xs text-text-muted">{t('ai.communication.mailboxExceptionsDescription')}</p>
           </div>
           {mailboxesLoading || loadingMailboxConfigs ? (
-            <LoadingBlock variant="inline" label={t('ai.communication.loadingMailboxes')} />
+            <ChannelRowsSkeleton rows={3} />
           ) : activeMailboxes.length === 0 ? (
             <EmptyState
               icon={Mail}

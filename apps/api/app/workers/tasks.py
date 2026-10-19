@@ -1376,12 +1376,24 @@ async def run_participant_turn_job(
         ).scalar_one_or_none()
         if signal is None or agent is None:
             return {"ok": False, "error": "not_found"}
-        from app.services.participant_turns import deferred_job_block
+        from app.services.participant_turns import deferred_job_block, opener_still_writing
 
         active = _parse_active(signal)
         # Floor cleared (timeout/pass/sent) or replaced — do not revive a stale job.
         if not active.get("nonce") or (nonce and active.get("nonce") != nonce):
             return {"ok": False, "error": "stale_nonce"}
+        if active.get("deferred") and await opener_still_writing(session, signal, active):
+            await enqueue_participant_turn(
+                tenant_id=tenant_id,
+                signal_id=signal_id,
+                agent_id=agent_id,
+                prompt=prompt or "",
+                requested_by_kind=requested_by_kind or "system",
+                requested_by_id=requested_by_id,
+                nonce=nonce or str(active.get("nonce") or ""),
+                defer_by_s=15,
+            )
+            return {"ok": False, "error": "opener_still_writing"}
         blocked = deferred_job_block(active)
         if blocked:
             return {"ok": False, "error": blocked}

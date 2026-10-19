@@ -6,6 +6,7 @@ import {
   forYouPath,
   inboxPath,
   leafFromPath,
+  normalizeThreadHref,
   leafKey,
   leafPath,
   legacyHubRedirect,
@@ -14,6 +15,18 @@ import {
   type HubLeaf,
 } from './messages-paths'
 import { folderScopeKey, parseInboxFolderPrefs, resolveDefaultQueue } from './inbox-folder-prefs'
+
+describe('normalizeThreadHref', () => {
+  it('opens the short /threads form on All and leaves hub paths alone', () => {
+    expect(normalizeThreadHref('/threads/sig-1')).toBe('/communication/inbox/all/t/sig-1')
+    expect(normalizeThreadHref('/threads/sig-1?message=m1')).toBe(
+      '/communication/inbox/all/t/sig-1?message=m1',
+    )
+    expect(normalizeThreadHref('/communication/inbox/open/t/sig-1')).toBe(
+      '/communication/inbox/open/t/sig-1',
+    )
+  })
+})
 
 describe('leaf path round-trips', () => {
   const leaves: HubLeaf[] = [

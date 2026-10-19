@@ -505,8 +505,8 @@ async def test_agent_scoped_workspace_doc(client: AsyncClient, session_override)
 
 
 @pytest.mark.asyncio
-async def test_list_projects_auto_showcases(client: AsyncClient, session_override):
-    """list_folders stashes folder cards so the reply shows them without attach_items."""
+async def test_list_projects_does_not_showcase(client: AsyncClient, session_override):
+    """list_folders returns folders. Cards wait for attach_items."""
     from app.models.signal import Signal
     from app.services.proposal_items import take_attach_items
     from app.tools import execute_tool
@@ -528,7 +528,7 @@ async def test_list_projects_auto_showcases(client: AsyncClient, session_overrid
     assert "error" not in result, result
     ids = {p["id"] for p in result["folders"]}
     assert str(project.id) in ids
-    assert any(i.get("type") == "folder" and i.get("id") == str(project.id) for i in result.get("items") or [])
+    assert not result.get("items")
 
     pending = take_attach_items(chat.id)
-    assert any(i.get("type") == "folder" and i.get("id") == str(project.id) for i in pending)
+    assert pending == []

@@ -6,7 +6,7 @@ import DocsSiteShell, { useDocsIndex } from '../components/docs/DocsSiteShell'
 import DocsPageToc from '../components/docs/DocsPageToc'
 import { DocsHeader, useDocsLang, useDocsT } from '../components/docs/DocsChrome'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
-import { LoadingBlock } from '../components/ui/loading-block'
+import { ArticleSkeleton, DocsShellSkeleton } from '../components/ui/skeleton'
 import {
   getProductHelpArticle,
   getProductHelpMarkdown,
@@ -84,7 +84,7 @@ function LegacyRedirect({
         header={<DocsHeader lang={lang} setLang={setLang} />}
       >
         <div className="flex items-center justify-center px-6 py-16">
-          <LoadingBlock variant="inline" label={t('pageGuides.loading')} className="text-sm text-[var(--docs-muted)]" />
+          <DocsShellSkeleton />
         </div>
       </DocsScrollShell>
     )
@@ -287,7 +287,7 @@ function ArticleView({
           <p className="text-sm text-status-error">{error}</p>
         </>
       ) : !article ? (
-        <LoadingBlock variant="inline" label={t('pageGuides.loading')} className="text-sm text-[var(--docs-muted)]" />
+        <ArticleSkeleton />
       ) : (
         <article className="pb-20">
           <p className="text-sm text-[var(--docs-muted)]">
