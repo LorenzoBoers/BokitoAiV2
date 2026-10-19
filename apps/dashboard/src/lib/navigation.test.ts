@@ -4,13 +4,19 @@ import {
   PINNED_TABS,
   TAB_GROUPS,
   TAB_PATHS,
+  isNewTab,
+  markTabSeen,
   tabFromPath,
   titleForTab,
 } from './navigation'
 
 describe('navigation', () => {
-  it('pins Overview and Communication above grouped sections', () => {
-    expect(PINNED_TABS).toEqual(['overview', 'communication'])
+  it('pins New chat, Overview and Communication above grouped sections', () => {
+    expect(PINNED_TABS).toEqual(['newChat', 'overview', 'communication'])
+    expect(TAB_PATHS.newChat).toBe('/new')
+    expect(titleForTab('newChat')).toBe('New chat')
+    expect(tabFromPath('/new')).toBe('newChat')
+    expect(tabFromPath('/communication/new')).toBe('newChat')
     expect(TAB_GROUPS.find((g) => g.label === 'Control')).toBeUndefined()
   })
 
@@ -27,6 +33,12 @@ describe('navigation', () => {
     expect(tabFromPath('/grid')).toBe('grid')
     expect(tabFromPath('/team/canvas')).toBe('grid')
     expect(tabFromPath('/team')).toBe('team')
+  })
+
+  it('keeps the Grid New chip after markTabSeen (informational)', () => {
+    expect(isNewTab('grid')).toBe(true)
+    markTabSeen('grid')
+    expect(isNewTab('grid')).toBe(true)
   })
 
   it('keeps Govern out of the primary rail', () => {

@@ -12,9 +12,10 @@ export function ModuleAgentBadges({ row }: { row: ModuleAgentRow }) {
           {t('integrations.modules.agents.defaultBadge', { defaultValue: 'Default' })}
         </Badge>
       ) : null}
-      {row.managed ? (
+      {row.is_pack_specialist || row.managed ? (
         <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
-          {t('integrations.modules.agents.managedBadge', { defaultValue: 'Managed' })}
+          {row.affiliation_label ||
+            t('integrations.modules.agents.specialistBadge', { defaultValue: 'Specialist' })}
         </Badge>
       ) : null}
       {row.can_write ? (

@@ -143,7 +143,7 @@ coloring a pill locally.
 `sm`, `md`, `lg`) holds one icon or logo. One face: `UserAvatar` (members),
 `AiAvatar` (agents), `ContactAvatar` (external people and companies),
 `TeamAvatar` (empty-team fallback). A group of people and agents is
-`AvatarStack`: up to three overlapping faces, then +N. Agent orbs use a
+`AvatarStack`: three faces when there are three people or agents; with more, the third circle is +N. Agent orbs use a
 silhouette cutout; people use a surface ring. `TeamFacepile` is that pile
 for a team (member faces, otherwise `TeamAvatar`). The thread participant
 row uses the same pile.

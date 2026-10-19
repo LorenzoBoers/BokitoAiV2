@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
@@ -71,7 +72,7 @@ export function AgentActionRulesCard({ isAdmin }: { isAdmin: boolean }) {
       <CardContent className="space-y-3">
         <p className="text-xs text-text-muted">{t('agentActionRules.intro')}</p>
         {loaded && rows.length === 0 ? (
-          <p className="text-sm text-text-muted">{t('agentActionRules.empty')}</p>
+          <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('agentActionRules.empty')} />
         ) : null}
         {rows.map((row) => (
           <section key={row.agentId} className="space-y-1.5">

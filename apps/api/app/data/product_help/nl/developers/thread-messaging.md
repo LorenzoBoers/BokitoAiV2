@@ -30,7 +30,7 @@ Gateway-presence kan `active_turn` meenemen zodat de hub **Wacht op …** kan to
 | `request_participant_turn` | Vloer aan een agent; uitkomsten sent / pass / timeout |
 | `start_conversation` | `mode=chat` peer-thread, of `mode=task` achtergrondjob |
 
-Composer-`@agent`-mentions nodigen uit en vragen een beurt.
+Composer-`@` is de beurt. Eén `active_turn` houdt de stok vast of is leeg. Na elk groepsbericht werkt de server de leden bij, verlegt of leegt die stok, en start hooguit één agent-job. Een antwoord zonder doorgeven maakt hem leeg. `signal_participants.unread_count` telt berichten voor mens-leden die het gesprek niet open hebben.
 
 ## Module aannemen
 

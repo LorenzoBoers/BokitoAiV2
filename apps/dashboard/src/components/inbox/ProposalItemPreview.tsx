@@ -1,4 +1,5 @@
 import { useEffect, useState, type ComponentType, MouseEvent } from 'react'
+import { Skeleton } from '../ui/skeleton'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -22,9 +23,12 @@ import { openEntityPath, type EntityRef } from '../../lib/open-entity'
 import { getCanvasById } from '../../lib/project-canvas-api'
 import { renderCanvasTree } from '../../lib/project-canvas/render'
 import { isEmptyCanvasTree, type CanvasNode } from '../../lib/project-canvas/types'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { agentProfileAccentColor, toAiAvatarProps } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
 import { BrandTile } from '../integrations/BrandMark'
+import { ModuleInstallControls } from '../integrations/ModuleInstallControls'
+import { ModulePartnerLogos } from '../integrations/ModuleCard'
+import { patchIntegrationModule, type IntegrationModuleRow } from '../../lib/integrations-api'
 import { EntityRow } from '../ui/entity-row'
 import { IconTile } from '../ui/icon-tile'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -48,6 +52,7 @@ const TYPE_ICON: Partial<Record<ProposalItem['type'], IconComponent>> = {
   marketplace: Store,
   module: Package,
   help_doc: BookOpen,
+  knowledge: BookOpen,
   message: MessageSquareText,
 }
 
@@ -86,6 +91,8 @@ function itemRef(item: ProposalItem): EntityRef | null {
       return { type: 'module', slug: item.slug || item.id }
     case 'help_doc':
       return { type: 'help_doc', path: item.path || item.id }
+    case 'knowledge':
+      return { type: 'knowledge', id: item.id }
     case 'message':
       return {
         type: 'signal',
@@ -162,6 +169,9 @@ export function ProposalItemPreview({
   selected?: boolean
 }) {
   const { t, i18n } = useTranslation('communication')
+  if (item.type === 'module' && !item.missing) {
+    return <ModuleShowcaseCard item={item} onSelect={onSelect} selected={selected} />
+  }
   const typeLabel =
     item.type === 'trash_entry' && item.kind
       ? t(`proposal.binKind.${item.kind}`, { defaultValue: t('proposal.itemType.trash_entry') })
@@ -354,7 +364,7 @@ export function CanvasShowcaseCard({
             : t('proposal.canvasEmpty')}
         </p>
       ) : (
-        <div className="h-16 animate-pulse border-t border-border/50 bg-bg-input/20" />
+        <Skeleton className="h-16 rounded-none border-t border-border/50" />
       )}
     </div>
   )
@@ -371,6 +381,141 @@ export function CanvasShowcaseCard({
   return (
     <Link to={path} className="block no-underline">
       {card}
+    </Link>
+  )
+}
+
+function moduleInstallRow(item: ProposalItem): IntegrationModuleRow {
+  const slug = item.slug || item.id
+  const state = item.installState || item.kind || 'not_installed'
+  const installed = state === 'installed' || state === 'connected' || state === 'on'
+  return {
+    slug,
+    name: item.title,
+    description: item.subtitle,
+    status: item.moduleStatus === 'coming_soon' ? 'coming_soon' : 'available',
+    enabled: installed,
+    tenant_status: (item.kind as IntegrationModuleRow['tenant_status']) || 'not_installed',
+    install_state:
+      state === 'setup' || state === 'installed' || state === 'not_installed' ? state : installed ? 'installed' : 'not_installed',
+    setup_path: item.path || `/connections/${slug}`,
+    specialist_agent_name: item.name,
+    assigned_agent_count: 0,
+  } as IntegrationModuleRow
+}
+
+/** Same card as the marketplace: specialist, blurb, partner logos, install. */
+function ModuleShowcaseCard({
+  item,
+  onSelect,
+  selected,
+}: {
+  item: ProposalItem
+  onSelect?: (item: ProposalItem) => void
+  selected?: boolean
+}) {
+  const { t } = useTranslation(['communication', 'nav'])
+  const slug = item.slug || item.id
+  const name = t(`integrations.modules.${slug}.name`, { ns: 'nav', defaultValue: item.title })
+  const description = t(`integrations.modules.${slug}.description`, {
+    ns: 'nav',
+    defaultValue: item.subtitle,
+  })
+  const agentName = t(`integrations.modules.showcase.personas.${slug}.name`, {
+    ns: 'nav',
+    defaultValue: item.name || name,
+  })
+  const jobTitle = t(`integrations.modules.showcase.personas.${slug}.title`, {
+    ns: 'nav',
+    defaultValue: item.jobTitle || '',
+  })
+  const comingSoon = item.moduleStatus === 'coming_soon' || item.kind === 'coming_soon'
+  const color = agentProfileAccentColor(item.avatarColor || '#9159fe')
+  const row = moduleInstallRow(item)
+  const body = (
+    <article
+      className={cn(
+        'panel relative flex flex-col overflow-hidden p-4 text-left',
+        selected && 'ring-1 ring-ai/50',
+        onSelect && 'cursor-pointer',
+      )}
+      data-testid="module-showcase"
+    >
+      <span
+        aria-hidden
+        className="specialist-glow pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full blur-2xl"
+        style={{ backgroundColor: color }}
+      />
+      <div className="relative z-[1] flex items-stretch gap-4">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
+          <p className="mt-1 line-clamp-3 text-sm leading-snug text-text-secondary">{description}</p>
+          {item.roleBlurb ? (
+            <p className="mt-2 line-clamp-2 text-xs leading-snug text-text-muted">{item.roleBlurb}</p>
+          ) : null}
+          {item.toolCount ? (
+            <p className="mt-2 text-2xs text-text-muted">
+              {t('integrations.modules.showcase.cardTools', {
+                ns: 'nav',
+                count: item.toolCount,
+                defaultValue: '{{count}} agent tools',
+              })}
+            </p>
+          ) : null}
+          <div className="mt-auto pt-3">
+            <ModulePartnerLogos applications={[]} extraHostSlugs={item.providerSlugs ?? []} />
+          </div>
+        </div>
+        <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
+          <AiAvatar
+            {...toAiAvatarProps({
+              id: slug,
+              name: agentName,
+              avatar_kind: item.avatarKind,
+              avatar_icon: item.avatarIcon,
+              avatar_color: item.avatarColor,
+              avatar_shape: item.avatarShape,
+              avatar_image_url: item.avatarImageUrl,
+            })}
+            size={40}
+            mode="live"
+            decorative
+          />
+          <p className="mt-2 max-w-full truncate text-sm font-semibold text-text-heading" title={agentName}>
+            {agentName}
+          </p>
+          {jobTitle ? (
+            <p className="max-w-full truncate text-xs font-medium" style={{ color }} title={jobTitle}>
+              {jobTitle}
+            </p>
+          ) : null}
+          {comingSoon || onSelect ? null : (
+            <div
+              className="mt-auto pt-3"
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <ModuleInstallControls
+                module={row}
+                compact
+                onAction={(moduleSlug, action) => patchIntegrationModule(moduleSlug, { action })}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+  if (onSelect) {
+    return (
+      <button type="button" className="mt-2 block w-full text-left" onClick={() => onSelect(item)}>
+        {body}
+      </button>
+    )
+  }
+  return (
+    <Link to={item.path || `/connections/${slug}`} className="mt-2 block no-underline">
+      {body}
     </Link>
   )
 }

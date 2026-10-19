@@ -639,12 +639,11 @@ async def get_module_sources(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     from app.modules.catalog import get_module
-    from app.services.module_sources import ensure_platform_seeds, list_sources
+    from app.services.module_sources import list_sources
 
     if get_module(slug) is None:
         raise HTTPException(status_code=404, detail="Unknown module")
     await _ensure_module_access(session, auth, slug)
-    await ensure_platform_seeds(session, auth.tenant.id, slug)
     return {"sources": await list_sources(session, auth.tenant.id, slug)}
 
 

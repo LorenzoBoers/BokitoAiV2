@@ -46,3 +46,5 @@ class SignalParticipant(SQLModel, table=True):
     invited_by_id: uuid.UUID | None = Field(default=None)
     # session | mention | assign | a2a | backfill | invite | …
     joined_via: str = Field(default="", max_length=32)
+    # Group-chat unread for a person who is not looking at this thread.
+    unread_count: int = Field(default=0)

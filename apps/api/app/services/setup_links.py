@@ -53,9 +53,11 @@ async def replace_resource_grants(
     channel_account_id: UUID | None = None,
     calendar_id: UUID | None = None,
     connection_id: UUID | None = None,
-    module_install_id: UUID | None = None,
+    module_slug: str | None = None,
+    module_install_id: UUID | None = None,  # noqa: ARG001 — removed; accept for callers
 ) -> None:
     """Replace grants for one resource. None leaves the table untouched."""
+    del module_install_id
     if entries is None:
         return
     filters = [ResourceGrant.tenant_id == tenant_id, ResourceGrant.resource_kind == resource_kind]
@@ -65,8 +67,8 @@ async def replace_resource_grants(
         filters.append(ResourceGrant.calendar_id == calendar_id)
     elif connection_id is not None:
         filters.append(ResourceGrant.connection_id == connection_id)
-    elif module_install_id is not None:
-        filters.append(ResourceGrant.module_install_id == module_install_id)
+    elif module_slug is not None:
+        filters.append(ResourceGrant.module_slug == module_slug)
     await session.execute(delete(ResourceGrant).where(*filters))
     for entry in entries:
         kind = str(entry.get("kind") or entry.get("principal_kind") or "")
@@ -95,7 +97,7 @@ async def replace_resource_grants(
                 channel_account_id=channel_account_id,
                 calendar_id=calendar_id,
                 connection_id=connection_id,
-                module_install_id=module_install_id,
+                module_slug=module_slug,
                 principal_kind=principal,
                 user_id=user_id,
                 agent_id=agent_id,

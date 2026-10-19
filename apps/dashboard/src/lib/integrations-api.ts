@@ -259,18 +259,22 @@ export interface ModuleAgentRow {
   id: string
   module_slug: string
   agent_id: string
+  agent_slug?: string
   name: string
   role: string
   is_active: boolean
   is_default: boolean
+  /** Hired pack specialist for this module (slug module-{slug}). */
+  is_pack_specialist?: boolean
   /** Company/administration ids this agent may access; null = all. */
   company_ids: string[] | null
   /** Without this flag the agent gets read tools only. */
   can_write: boolean
   created_at: string
+  affiliated?: boolean
+  affiliation_label?: string | null
+  /** Alias of affiliated (older clients). */
   managed?: boolean
-  managed_origin?: string | null
-  managed_ref?: string | null
   origin_label?: string | null
   avatar_kind?: string | null
   avatar_icon?: string | null
@@ -278,7 +282,6 @@ export interface ModuleAgentRow {
   avatar_shape?: string | null
   avatar_image_url?: string | null
 }
-
 export interface ModuleWorkstreamTemplate {
   slug: string
   module_slug: string

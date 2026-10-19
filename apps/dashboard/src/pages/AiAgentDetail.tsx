@@ -8,8 +8,10 @@ import { Archive, ArrowLeft, CalendarDays, Copy, MessageSquare, MoreHorizontal, 
 import { NameEdit } from '../components/ui/NameEdit'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
+import { AgentModuleOrigin } from '../components/workforce/AgentModuleOrigin'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
 import { AgentChatAccessCard } from '../components/workforce/AgentChatAccessCard'
@@ -49,8 +51,7 @@ import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
 import { useAgentOrbDrive } from '../hooks/useBotOrbPulse'
 import { presenceOrbMotion } from '../lib/bot-orb-motion'
-import { agentStatusOf, presenceBadgeVariant, presenceLabel } from '../lib/presence'
-import { Badge } from '../components/ui/badge'
+import { agentStatusOf } from '../lib/presence'
 import {
   Dialog,
   DialogContent,
@@ -284,6 +285,7 @@ export default function AiAgentDetail() {
         <>
           <section className="relative py-4">
             <div className="absolute right-0 top-0 z-[1] flex h-8 items-center gap-2">
+              <OpenInGridButton kind="agent" id={agent.id} />
               <Button
                 type="button"
                 size="sm"
@@ -351,18 +353,6 @@ export default function AiAgentDetail() {
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
               ) : null}
-              <Badge
-                variant={
-                  agent.is_active === false
-                    ? presenceBadgeVariant('deactivated')
-                    : presenceBadgeVariant(work)
-                }
-                className="h-8 px-3 text-xs"
-              >
-                {agent.is_active === false
-                  ? presenceLabel('deactivated', t)
-                  : presenceLabel(work, t)}
-              </Badge>
             </div>
 
             <div className="flex flex-col items-center text-center">
@@ -383,7 +373,6 @@ export default function AiAgentDetail() {
                     style={{ width: HERO_MARK_SIZE, height: HERO_MARK_SIZE }}
                     aria-label={t('workforce.agents.editIdentity')}
                   >
-                    {/* No presence corner — working/error/deactivated use the top-right pill. */}
                     <AgentMark
                       agent={agent}
                       size={HERO_MARK_SIZE}
@@ -425,20 +414,6 @@ export default function AiAgentDetail() {
                     label={t('workforce.agents.editIdentity')}
                     onStart={() => setIdentityOpen(true)}
                   />
-                  {agent.managed ? (
-                    <span
-                      className="rounded-md border border-border/70 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
-                      title={
-                        agent.origin_label
-                          ? t('workforce.agents.managedBadgeHint', {
-                              origin: agent.origin_label,
-                            })
-                          : t('workforce.agents.managedBadge')
-                      }
-                    >
-                      {t('workforce.agents.managedBadge')}
-                    </span>
-                  ) : null}
                 </div>
                 {agent.job_title ? (
                   <p
@@ -469,6 +444,7 @@ export default function AiAgentDetail() {
                     {t('workforce.agents.profileAddDescription')}
                   </button>
                 ) : null}
+                <AgentModuleOrigin agent={agent} linked />
                 {work === 'working' && (view?.current_activity_summary || live?.summary) ? (
                   workHref ? (
                     <Link
@@ -558,9 +534,14 @@ export default function AiAgentDetail() {
             {archiveConfirmOpen && agent.is_active !== false ? (
               <div className="mx-auto mt-4 max-w-lg rounded-lg border border-status-error/30 bg-status-error/5 px-3 py-2 text-center">
                 <p className="text-sm text-text-heading">
-                  {agent.managed
-                    ? t('workforce.agents.archiveConfirmManaged', {
-                        origin: agent.origin_label || t('workforce.agents.managedBadge'),
+                  {agent.affiliated || agent.managed
+                    ? t('workforce.agents.archiveConfirmAffiliated', {
+                        place:
+                          agent.affiliation_label ||
+                          agent.department_name ||
+                          agent.module_name ||
+                          agent.origin_label ||
+                          t('workforce.agents.affiliationBadgeFallback'),
                       })
                     : t('workforce.agents.archiveConfirm')}
                 </p>
@@ -869,7 +850,6 @@ export default function AiAgentDetail() {
 
           <PageRelatedLinks
             links={[
-              { to: '/grid', label: t('orgCanvas.link') },
               { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
               { to: '/knowledge', label: t('workforce.agents.relatedKnowledge') },
               { to: '/settings/govern?tab=policy', label: t('workforce.agents.relatedGovern') },

@@ -63,6 +63,7 @@ async def test_wizard_get_and_complete(client: AsyncClient):
     )
     assert created.status_code == 200, created.text
     assert created.json()["lead_agent"]["name"] == "Ada"
+    assert created.json()["lead_agent"]["job_title"] == "Company assistant"
     assert created.json()["lead_agent"]["id"]
 
     done = await client.patch(

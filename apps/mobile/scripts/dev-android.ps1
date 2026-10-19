@@ -50,11 +50,12 @@ function Wait-AdbDevice {
 }
 
 function Test-ApkFresh {
-    param([string]$ExpectedApiUrl)
+    param([string]$ExpectedApiUrl, [string]$Abi)
     if (-not (Test-Path $Apk)) { return $false }
     if (-not (Test-Path $ApkStamp)) { return $false }
     $stamp = Get-Content $ApkStamp -Raw
     if ($stamp -notmatch [regex]::Escape($ExpectedApiUrl)) { return $false }
+    if ($Abi -and $stamp -notmatch [regex]::Escape("abi=$Abi")) { return $false }
     if ($stamp -notmatch "expo-dev-client") { return $false }
     $pkgJson = Get-Content (Join-Path $MobileRoot "package.json") -Raw
     if ($stamp -notmatch [regex]::Escape(($pkgJson | Select-String '"expo-dev-client":\s*"([^"]+)"').Matches[0].Groups[1].Value)) {
@@ -64,18 +65,25 @@ function Test-ApkFresh {
 }
 
 function Build-DebugApk {
-    param([string]$BuildApiUrl)
-    Write-Host "Building debug dev-client APK..." -ForegroundColor Yellow
+    param([string]$BuildApiUrl, [string]$Abi)
+    Write-Host "Building debug dev-client APK ($Abi)..." -ForegroundColor Yellow
     $env:JAVA_HOME = "$env:ProgramFiles\Android\Android Studio\jbr"
     $env:ANDROID_HOME = $AndroidHome
     $env:BOKITO_API_URL = $BuildApiUrl
     Set-Location $MobileRoot
     npx expo prebuild --platform android --no-install | Out-Null
-    npm run android:build
+    Push-Location (Join-Path $MobileRoot "android")
+    try {
+        & .\gradlew.bat app:assembleDebug -x lint "-PreactNativeArchitectures=$Abi"
+        if ($LASTEXITCODE -ne 0) { throw "Gradle debug build failed" }
+    } finally {
+        Pop-Location
+    }
     if (-not (Test-Path $Apk)) { throw "APK build failed: $Apk" }
     $devClientVer = (Get-Content (Join-Path $MobileRoot "package.json") -Raw | Select-String '"expo-dev-client":\s*"([^"]+)"').Matches[0].Groups[1].Value
     @(
         "apiUrl=$BuildApiUrl"
+        "abi=$Abi"
         "expo-dev-client=$devClientVer"
         "builtAt=$(Get-Date -Format o)"
     ) | Set-Content $ApkStamp
@@ -117,7 +125,12 @@ if ($UseLocalApi) {
     }
 }
 
+$serial = (& $Adb devices) | Select-String "^[A-Za-z0-9]+\s+device$" | ForEach-Object { ($_ -split "\s+")[0] } | Where-Object { $_ -notmatch "^emulator-" } | Select-Object -First 1
+if ($serial) {
+    Write-Host "USB phone $serial" -ForegroundColor Green
+} else {
 $serial = (& $Adb devices) | Select-String "emulator-\d+\s+device" | ForEach-Object { ($_ -split "\s+")[0] } | Select-Object -First 1
+}
 if (-not $serial) {
     if (-not (Test-Path $Emulator)) { throw "emulator not found at $Emulator" }
     Write-Host "No authorized emulator — starting $AvdName on port 5556..." -ForegroundColor Yellow
@@ -141,7 +154,7 @@ if (-not $serial) {
     }
 }
 if (-not $serial) {
-    throw "No authorized emulator. Tap Allow on USB debugging, then re-run this script."
+    throw "No authorized phone or emulator. Plug in the phone, tap Allow on USB debugging, then re-run this script."
 }
 
 Write-Host "Using device $serial" -ForegroundColor Green
@@ -154,8 +167,12 @@ if ($UseLocalApi) {
     Write-Host "Port reverse: 8000 (local API)"
 }
 
-if ($ForceRebuild -or -not (Test-ApkFresh -ExpectedApiUrl $ApiUrl)) {
-    Build-DebugApk -BuildApiUrl $ApiUrl
+$abi = (& $Adb -s $serial shell getprop ro.product.cpu.abi).Trim()
+if (-not $abi) { $abi = "arm64-v8a" }
+Write-Host "Device ABI: $abi"
+
+if ($ForceRebuild -or -not (Test-ApkFresh -ExpectedApiUrl $ApiUrl -Abi $abi)) {
+    Build-DebugApk -BuildApiUrl $ApiUrl -Abi $abi
 }
 
 if ($StartMetro) {

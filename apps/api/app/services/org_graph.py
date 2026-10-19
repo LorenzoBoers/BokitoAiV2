@@ -19,9 +19,9 @@ from app.models.auth import Tenant, User
 from app.models.calendar import CalendarTagLink, TenantCalendar
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection
-from app.models.module_agent import AgentScope, ModuleAgent
-from app.models.module_install import ModuleInstall
+from app.models.module_agent import AgentScope
 from app.models.module_source import ModuleSource
+from app.models.team import Department
 from app.models.orchestra import Workstream
 from app.models.project import Project, ProjectTagLink
 from app.models.project_work import ProjectResource
@@ -29,7 +29,7 @@ from app.models.signal import SignalTag
 from app.models.workspace import WorkspaceDoc
 from app.services.access_list import normalize_entries
 from app.services.agent_avatar import avatar_payload
-from app.services.teams import list_teams, team_members
+from app.services.teams import ensure_all_department, list_teams, team_members
 
 _CHANNEL_KEYS = frozenset({"email", "webchat", "internal", "agent", "slack", "whatsapp"})
 
@@ -96,9 +96,19 @@ def _specific_departments(raw: str | None, levels: tuple[str, ...]) -> list[str]
     return found
 
 
-def settle(ids: list[str], pinned: dict[str, tuple[float, float]], links: list[tuple[str, str]]) -> dict[str, tuple[float, float]]:
+def settle(
+    ids: list[str],
+    pinned: dict[str, tuple[float, float]],
+    links: list[tuple[str, str]],
+    *,
+    push_gain: float = 14000.0,
+    rest: float = 150.0,
+    anchors: dict[str, tuple[float, float]] | None = None,
+    anchor_k: float = 0.0,
+) -> dict[str, tuple[float, float]]:
     """Pull linked items together and keep the rest from landing on top of each other."""
     pos: dict[str, tuple[float, float]] = dict(pinned)
+    held = anchors or {}
     for index, node_id in enumerate(ids):
         if node_id in pos:
             continue
@@ -112,7 +122,7 @@ def settle(ids: list[str], pinned: dict[str, tuple[float, float]], links: list[t
                 tx, ty = pos[target]
                 dx, dy = sx - tx, sy - ty
                 dist = math.hypot(dx, dy) or 0.01
-                push = 14000 / (dist * dist)
+                push = push_gain / (dist * dist)
                 ux, uy = dx / dist * push, dy / dist * push
                 disp[source][0] += ux
                 disp[source][1] += uy
@@ -125,12 +135,20 @@ def settle(ids: list[str], pinned: dict[str, tuple[float, float]], links: list[t
             tx, ty = pos[target]
             dx, dy = tx - sx, ty - sy
             dist = math.hypot(dx, dy) or 0.01
-            pull = (dist - 150) * 0.06
+            pull = (dist - rest) * 0.06
             ux, uy = dx / dist * pull, dy / dist * pull
             disp[source][0] += ux
             disp[source][1] += uy
             disp[target][0] -= ux
             disp[target][1] -= uy
+        if anchor_k:
+            for node_id in ids:
+                if node_id in pinned or node_id not in held:
+                    continue
+                ax, ay = held[node_id]
+                x, y = pos[node_id]
+                disp[node_id][0] += (ax - x) * anchor_k
+                disp[node_id][1] += (ay - y) * anchor_k
         cool = 1 - step / 40
         for node_id in ids:
             if node_id in pinned:
@@ -141,6 +159,345 @@ def settle(ids: list[str], pinned: dict[str, tuple[float, float]], links: list[t
             x, y = pos[node_id]
             pos[node_id] = (x + dx / dist * step_len, y + dy / dist * step_len)
     return pos
+
+
+# Outer radius of the All halo around the company logo.
+ALL_AREA_RADIUS = 64.0
+# Open band between that halo and the nearest island edge. Members sit here.
+MEMBER_CORRIDOR = 88.0
+# Two pucks are 9 units across in the scene. Keep a gap so people do not stack.
+MEMBER_CLEARANCE = 38.0
+
+
+def _island_radius(region: dict[str, Any], logical: dict[str, tuple[float, float]]) -> float:
+    rid = str(region["id"])
+    if rid not in logical:
+        return 0.0
+    hx, hy = logical[rid]
+    rad = 0.0
+    for point in region.get("points") or []:
+        rad = max(rad, math.hypot(point[0] - hx, point[1] - hy))
+    return rad
+
+
+def _shift_island(
+    logical: dict[str, tuple[float, float]],
+    home: dict[str, str],
+    regions: list[dict[str, Any]],
+    hid: str,
+    dx: float,
+    dy: float,
+) -> None:
+    for node_id, (x, y) in list(logical.items()):
+        if node_id == hid or home.get(node_id) == hid:
+            logical[node_id] = (x + dx, y + dy)
+    for region in regions:
+        if region["id"] != hid:
+            continue
+        region["points"] = [
+            [round(point[0] + dx, 1), round(point[1] + dy, 1)] for point in region["points"]
+        ]
+        label_at = region.get("labelAt")
+        if label_at:
+            region["labelAt"] = [round(label_at[0] + dx, 1), round(label_at[1] + dy, 1)]
+
+
+def clear_all_halo(
+    logical: dict[str, tuple[float, float]],
+    home: dict[str, str],
+    regions: list[dict[str, Any]],
+    org_id: str,
+    *,
+    all_radius: float = ALL_AREA_RADIUS,
+    corridor: float = MEMBER_CORRIDOR,
+) -> None:
+    """Slide each island outward until its inner edge clears the All halo.
+
+    The free band is where members sit. A large department moves farther out
+    instead of covering the company ring.
+    """
+    for region in regions:
+        hid = str(region["id"])
+        if hid == org_id or hid not in logical or not str(hid).startswith("department:"):
+            continue
+        rad = _island_radius(region, logical)
+        if rad <= 0:
+            continue
+        hx, hy = logical[hid]
+        dist = math.hypot(hx, hy) or 1.0
+        need = all_radius + corridor + rad
+        if dist >= need - 0.5:
+            continue
+        delta = need - dist
+        _shift_island(logical, home, regions, hid, hx / dist * delta, hy / dist * delta)
+
+
+def seat_shared_members(
+    logical: dict[str, tuple[float, float]],
+    member_of: dict[str, set[str]],
+    regions: list[dict[str, Any]] | None = None,
+    *,
+    all_radius: float = ALL_AREA_RADIUS,
+) -> None:
+    """Seat every member in the open band between the All halo and their islands.
+
+    One department: on the ray, halfway between the halo and that island.
+    Several departments: the wedge between those seats. If that average falls
+    back into the halo, keep the angle and sit on the band instead.
+    """
+    island_radius: dict[str, float] = {}
+    for region in regions or []:
+        rad = _island_radius(region, logical)
+        if rad > 0:
+            island_radius[str(region["id"])] = rad
+
+    def gap(hid: str) -> tuple[float, float] | None:
+        if hid not in logical:
+            return None
+        hx, hy = logical[hid]
+        dist = math.hypot(hx, hy) or 1.0
+        island = island_radius.get(hid, 70.0)
+        inner = dist - island
+        seat_r = (all_radius + inner) / 2.0 if inner > all_radius + 24.0 else all_radius + 36.0
+        return (hx / dist * seat_r, hy / dist * seat_r)
+
+    placed: list[tuple[str, float, float]] = []
+    for node_id, homes in member_of.items():
+        seats = [point for hid in homes if (point := gap(hid)) is not None]
+        if not seats:
+            continue
+        ax = sum(point[0] for point in seats) / len(seats)
+        ay = sum(point[1] for point in seats) / len(seats)
+        radius = math.hypot(ax, ay)
+        if radius < all_radius + 20.0:
+            angle = math.atan2(ay, ax) if radius > 1.0 else math.atan2(seats[0][1], seats[0][0])
+            band = sum(math.hypot(point[0], point[1]) for point in seats) / len(seats)
+            ax, ay = math.cos(angle) * band, math.sin(angle) * band
+        placed.append((node_id, ax, ay))
+    _spread_members(logical, placed)
+
+
+def _local_adj(
+    ids: list[str], links: list[tuple[str, str]]
+) -> dict[str, list[str]]:
+    idset = set(ids)
+    adj: dict[str, list[str]] = {node_id: [] for node_id in ids}
+    for source, target in links:
+        if source in idset and target in idset and source != target:
+            adj[source].append(target)
+            adj[target].append(source)
+    return adj
+
+
+def _chain_order(ids: list[str], adj: dict[str, list[str]]) -> list[str]:
+    """Walk linked nodes first so neighbors land next to each other on a ring."""
+    if not ids:
+        return []
+    degree = {node_id: len(set(adj[node_id])) for node_id in ids}
+    remaining = set(ids)
+    start = max(ids, key=lambda node_id: (degree[node_id], node_id))
+    order = [start]
+    remaining.remove(start)
+    while remaining:
+        linked = [node_id for node_id in adj[order[-1]] if node_id in remaining]
+        pool = linked or list(remaining)
+        nxt = max(pool, key=lambda node_id: (degree[node_id], node_id))
+        order.append(nxt)
+        remaining.remove(nxt)
+    return order
+
+
+def cluster_disc(
+    ids: list[str],
+    links: list[tuple[str, str]],
+    ox: float,
+    oy: float,
+    facing: float,
+    inner: float,
+    outer: float,
+) -> dict[str, tuple[float, float]]:
+    """Seat a department's items as a small network, not an alphabetical ring.
+
+    Busy nodes sit on the inner ring. Each other item sits on the outer ring,
+    in the slice of the node it actually links to, so a line stays short.
+    """
+    if not ids:
+        return {}
+    adj = _local_adj(ids, links)
+    degree = {node_id: len(set(adj[node_id])) for node_id in ids}
+    hubs = [node_id for node_id in ids if degree[node_id] >= 3]
+    if len(hubs) > 3:
+        # A dense clique reads clearer as one ring than as nested hubs.
+        order = _chain_order(ids, adj)
+        pos = {}
+        radius = outer if len(ids) > 1 else inner
+        for index, node_id in enumerate(order):
+            angle = facing + 2 * math.pi * index / len(order)
+            pos[node_id] = (
+                ox + math.cos(angle) * radius,
+                oy + math.sin(angle) * radius,
+            )
+        return pos
+    if not hubs:
+        hubs = [max(ids, key=lambda node_id: (degree[node_id], node_id))]
+    hubset = set(hubs)
+    groups: dict[str, list[str]] = {hub: [] for hub in hubs}
+    loose: list[str] = []
+    for node_id in ids:
+        if node_id in hubset:
+            continue
+        choices = [hub for hub in adj[node_id] if hub in hubset]
+        if not choices:
+            loose.append(node_id)
+            continue
+        primary = max(choices, key=lambda hub: (degree[hub], hub))
+        groups[primary].append(node_id)
+    for members in groups.values():
+        members.sort()
+    loose.sort()
+    parts = [(hub, groups[hub]) for hub in _chain_order(hubs, adj)]
+    total = sum(max(len(members), 1) for _, members in parts) + len(loose) or 1
+    pos: dict[str, tuple[float, float]] = {}
+    cursor = facing
+
+    def at(angle: float, radius: float) -> tuple[float, float]:
+        return (ox + math.cos(angle) * radius, oy + math.sin(angle) * radius)
+
+    for hub, members in parts:
+        sector = 2 * math.pi * max(len(members), 1) / total
+        mid = cursor + sector / 2
+        hub_r = inner * 0.42 if len(parts) == 1 and not loose else inner
+        pos[hub] = at(mid, hub_r)
+        count = len(members)
+        pad = sector * 0.14
+        span = max(sector - 2 * pad, sector * 0.55)
+        for index, node_id in enumerate(members):
+            angle = mid if count == 1 else mid - span / 2 + span * index / (count - 1)
+            pos[node_id] = at(angle, outer)
+        cursor += sector
+    for node_id in loose:
+        sector = 2 * math.pi / total
+        pos[node_id] = at(cursor + sector / 2, outer)
+        cursor += sector
+    if len(pos) > 1:
+        local = [(source, target) for source, target in links if source in pos and target in pos]
+        settled = settle(
+            list(pos),
+            {},
+            local,
+            push_gain=18000.0,
+            rest=64.0,
+            anchors=dict(pos),
+            anchor_k=0.9,
+        )
+        for node_id, (x, y) in settled.items():
+            dx, dy = x - ox, y - oy
+            dist = math.hypot(dx, dy) or 1.0
+            keep = inner * 0.55
+            if dist < keep:
+                x = ox + dx / dist * keep
+                y = oy + dy / dist * keep
+            cap = outer + 8.0
+            if dist > cap:
+                x = ox + dx / dist * cap
+                y = oy + dy / dist * cap
+            pos[node_id] = (x, y)
+    return pos
+
+
+def _spread_members(
+    logical: dict[str, tuple[float, float]],
+    placed: list[tuple[str, float, float]],
+    *,
+    gap: float = MEMBER_CLEARANCE,
+) -> None:
+    """Fan members who share a seat out along the corridor.
+
+    Everyone in one department would otherwise land on the same point.
+    """
+    groups: dict[tuple[float, float], list[tuple[str, float, float]]] = {}
+    for node_id, ax, ay in placed:
+        key = (round(ax, 1), round(ay, 1))
+        groups.setdefault(key, []).append((node_id, ax, ay))
+    for members in groups.values():
+        members.sort(key=lambda item: item[0])
+        _, ax, ay = members[0]
+        radius = math.hypot(ax, ay) or 1.0
+        tx, ty = -ay / radius, ax / radius
+        count = len(members)
+        span = (count - 1) * gap
+        for index, (node_id, _, _) in enumerate(members):
+            offset = -span / 2.0 + index * gap
+            logical[node_id] = (ax + tx * offset, ay + ty * offset)
+
+
+def relax_islands(
+    logical: dict[str, tuple[float, float]],
+    home: dict[str, str],
+    regions: list[dict[str, Any]],
+    org_id: str,
+) -> bool:
+    """Push department islands apart when their discs overlap.
+
+    Uses ``settle`` on the island hubs only. The company center stays pinned.
+    Hubs spring back toward the ring so a crowded map does not fly apart.
+    Returns whether any hub moved.
+    """
+    hubs: list[str] = []
+    radius: dict[str, float] = {}
+    for region in regions:
+        rid = str(region["id"])
+        if rid == org_id or rid not in logical or not rid.startswith("department:"):
+            continue
+        hx, hy = logical[rid]
+        rad = 0.0
+        for point in region.get("points") or []:
+            rad = max(rad, math.hypot(point[0] - hx, point[1] - hy))
+        if rad <= 0:
+            continue
+        hubs.append(rid)
+        radius[rid] = rad
+    if len(hubs) < 2:
+        return False
+    gap = 16.0
+
+    def overlapping() -> bool:
+        for index, left in enumerate(hubs):
+            lx, ly = logical[left]
+            for right in hubs[index + 1 :]:
+                rx, ry = logical[right]
+                if math.hypot(lx - rx, ly - ry) < radius[left] + radius[right] + gap:
+                    return True
+        return False
+
+    if not overlapping():
+        return False
+    anchors = {hid: logical[hid] for hid in hubs}
+    settled = settle(hubs, {}, [], push_gain=2_400_000.0, anchors=anchors, anchor_k=0.55)
+    moved = False
+    for hid in hubs:
+        ox, oy = anchors[hid]
+        nx, ny = settled[hid]
+        dx, dy = nx - ox, ny - oy
+        dist = math.hypot(dx, dy)
+        if dist < 0.5:
+            continue
+        if dist > 72:
+            dx, dy = dx / dist * 72, dy / dist * 72
+        for node_id, (x, y) in list(logical.items()):
+            if node_id == hid or home.get(node_id) == hid:
+                logical[node_id] = (x + dx, y + dy)
+        for region in regions:
+            if region["id"] != hid:
+                continue
+            region["points"] = [
+                [round(point[0] + dx, 1), round(point[1] + dy, 1)] for point in region["points"]
+            ]
+            label_at = region.get("labelAt")
+            if label_at:
+                region["labelAt"] = [round(label_at[0] + dx, 1), round(label_at[1] + dy, 1)]
+        moved = True
+    return moved
 
 
 _KIND_RANK = {
@@ -320,6 +677,21 @@ def arrange(
         others = [other for other in neighbors.get(node_id, ()) if other in linked and other != org_id]
         if others and all(other in shared for other in others):
             home[node_id] = "shared"
+    # Items whose only area is All sit on that island, even when a flow or
+    # agent link already pulled them onto another island. People and agents
+    # stay on their custom departments; All's roster is not drawn.
+    for node_id in list(linked):
+        if node_id == org_id or node_id in shared:
+            continue
+        if nodes[node_id]["kind"] in ("user", "agent"):
+            continue
+        areas = [
+            other
+            for other in neighbors.get(node_id, ())
+            if other == org_id or nodes.get(other, {}).get("kind") == "department"
+        ]
+        if areas and all(other == org_id for other in areas):
+            home[node_id] = org_id
     leftover = [
         node_id
         for node_id in linked
@@ -340,17 +712,10 @@ def arrange(
                 if other in leftover and other not in seen:
                     seen.add(other)
                     stack.append(other)
-        title_id = max(
-            component,
-            key=lambda node_id: (
-                {"folder": 3, "module": 2}.get(nodes[node_id]["kind"], 0),
-                len(neighbors.get(node_id, ())),
-            ),
-        )
-        plot_id = f"plot:{title_id}"
+        # No live department: sit on All. A spare island would look like an area
+        # the company does not have.
         for node_id in component:
-            home[node_id] = plot_id
-        extra.append((plot_id, nodes[title_id]["label"]))
+            home[node_id] = org_id
 
     def sort_key(node_id: str) -> tuple[int, str]:
         return (_rank_kind(nodes[node_id]["kind"]), nodes[node_id]["label"].lower())
@@ -373,21 +738,30 @@ def arrange(
     home[org_id] = "overview"
     regions: list[dict[str, Any]] = []
 
-    hub_r = 280.0 if len(cards) <= 6 else 320.0
-    shared_r = 130.0
-    # Children orbit the department hub (area model), not the org origin.
-    child_base = 72.0
-    child_step = 58.0
-    per_ring = 6
-    pad = 48.0
+    center_ids = sorted(
+        (node_id for node_id, plot in home.items() if plot == org_id and node_id != org_id),
+        key=sort_key,
+    )
+    center_extent = 0.0
+    if center_ids:
+        # One ring around the logo. Linked items share a slice so chords stay short.
+        center_ring = 58.0 if len(center_ids) <= 8 else 70.0
+        for node_id, (x, y) in cluster_disc(
+            center_ids, links, 0.0, 0.0, -math.pi / 2, center_ring, center_ring
+        ).items():
+            logical[node_id] = (x, y)
+            center_extent = max(center_extent, math.hypot(x, y))
 
-    n_shared = len(shared_ids)
-    for index, node_id in enumerate(shared_ids):
-        angle = -math.pi / 2 + (2 * math.pi * index / n_shared if n_shared else 0)
-        # Offset shared slightly so they sit in the gaps between department rays.
-        if cards:
-            angle += math.pi / max(len(cards), 1)
-        logical[node_id] = (math.cos(angle) * shared_r, math.sin(angle) * shared_r)
+    # Keep the map compact: wide rings leave a huge empty stage on the Grid.
+    hub_r = 170.0 if len(cards) <= 6 else 200.0
+    shared_r = 78.0 if not center_ids else center_extent + 52.0
+    if center_ids and hub_r < shared_r + 88.0:
+        hub_r = shared_r + 88.0
+    # Children orbit the department hub. Tighter rings keep a busy island
+    # (accounting) from swallowing the center; clearance still pushes it out.
+    child_base = 44.0
+    child_step = 36.0
+    pad = 22.0
 
     n_cards = max(len(cards), 1)
     for index, (plot_id, label, items) in enumerate(cards):
@@ -395,20 +769,21 @@ def arrange(
         hx = math.cos(angle) * hub_r
         hy = math.sin(angle) * hub_r
         hub = plot_id if plot_id in nodes else None
-        children = sorted((node_id for node_id in items if node_id != hub), key=sort_key)
+        children = sorted(
+            (
+                node_id
+                for node_id in items
+                if node_id != hub and nodes[node_id]["kind"] not in ("user", "agent")
+            ),
+            key=sort_key,
+        )
         if hub:
             logical[hub] = (hx, hy)
             home[hub] = plot_id
         cluster_pts = [(hx, hy)]
-        for child_index, node_id in enumerate(children):
-            ring = child_index // per_ring
-            slot = child_index % per_ring
-            on_ring = min(per_ring, len(children) - ring * per_ring)
-            # Full circle around the department center so the area reads as one island.
-            slot_angle = angle + (2 * math.pi * slot / on_ring if on_ring else 0)
-            local_r = child_base + ring * child_step
-            cx = hx + math.cos(slot_angle) * local_r
-            cy = hy + math.sin(slot_angle) * local_r
+        # Face the open side of the island outward, away from the company.
+        seated = cluster_disc(children, links, hx, hy, angle, child_base, child_base + child_step)
+        for node_id, (cx, cy) in seated.items():
             logical[node_id] = (cx, cy)
             home[node_id] = plot_id
             cluster_pts.append((cx, cy))
@@ -432,6 +807,48 @@ def arrange(
                 "labelAt": [round(hx, 1), round(hy, 1)],
             }
         )
+
+    # All is the halo around the logo. Grow it only enough to hold center items.
+    all_radius = max(ALL_AREA_RADIUS, center_extent + 26.0)
+    all_ring = []
+    for step in range(24):
+        t = 2 * math.pi * step / 24
+        all_ring.append(
+            [round(math.cos(t) * all_radius, 1), round(math.sin(t) * all_radius, 1)]
+        )
+    regions.insert(
+        0,
+        {
+            "id": org_id,
+            "label": nodes.get(org_id, {}).get("label") or "",
+            "href": nodes.get(org_id, {}).get("href"),
+            "points": all_ring,
+            "labelAt": [0.0, 0.0],
+            "shape": "ring",
+        },
+    )
+
+    # Islands already sit on a ring. Settle only when two discs actually overlap,
+    # and keep the company node pinned so the radial map stays put.
+    relax_islands(logical, home, regions, org_id)
+    clear_all_halo(logical, home, regions, org_id, all_radius=all_radius)
+    seat_shared_members(logical, member_of, regions, all_radius=all_radius)
+    # A channel that only touches people has no island. Park it beside those
+    # people instead of dropping it on the company logo.
+    for node_id in list(linked):
+        if node_id in logical or node_id == org_id:
+            continue
+        anchors = [
+            logical[other]
+            for other in neighbors.get(node_id, ())
+            if other in logical
+        ]
+        if not anchors:
+            logical[node_id] = (0.0, all_radius + 28.0)
+            continue
+        ax = sum(point[0] for point in anchors) / len(anchors)
+        ay = sum(point[1] for point in anchors) / len(anchors)
+        logical[node_id] = (ax + 28.0, ay)
 
     positions = {node_id: (round(x, 1), round(y, 1)) for node_id, (x, y) in logical.items()}
     return positions, home, regions
@@ -477,6 +894,9 @@ def _stage_owners(raw: str) -> list[tuple[str, str]]:
 
 async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
     tenant = await session.get(Tenant, tenant_id)
+    # The center node is the All root. Kind stays organization so the company
+    # logo remains the puck and the name "All" never appears on the map.
+    all_row = await ensure_all_department(session, tenant_id)
     departments = await list_teams(session, tenant_id, include_system=False)
     nodes: dict[str, dict[str, Any]] = {}
     links: list[tuple[str, str]] = []
@@ -496,18 +916,28 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         seen.add(key)
         links.append((source, target))
 
-    org_id = f"organization:{tenant_id}"
+    org_id = f"department:{all_row.id}"
     add(org_id, "organization", tenant.name if tenant else "", "/team")
     dept_ids = {str(row.id) for row in departments}
+    # Custom departments only. All's full roster is not drawn, or everyone
+    # would leave their own island for the shared ring.
     for department in departments:
         dep = f"department:{department.id}"
         add(dep, "department", department.name, f"/communication/team/{department.id}")
-        link(org_id, dep)
         for member in await team_members(session, department):
             mid = f"{member.kind}:{member.id}"
             href = f"/agents/{member.id}" if member.kind == "agent" else "/team"
             add(mid, member.kind, member.duty, href)
             link(dep, mid)
+    # Nest under the parent department when that parent is on the map.
+    # Top-level departments parent to All, which is the center node.
+    for department in departments:
+        dep = f"department:{department.id}"
+        parent_dep = f"department:{department.parent_id}" if department.parent_id else ""
+        if parent_dep and parent_dep in nodes:
+            link(dep, parent_dep)
+        else:
+            link(org_id, dep)
 
     user_ids = [UUID(node_id.split(":", 1)[1]) for node_id in nodes if node_id.startswith("user:")]
     user_rows = []
@@ -527,12 +957,12 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
             )
         ).scalars().all()
     }
+    # Module specialists appear via department membership (or flow/stage owners),
+    # not via managed_origin provenance — that was a parallel path into the map.
     for agent_id, agent in agents.items():
         node_id = f"agent:{agent_id}"
         if node_id in nodes:
             nodes[node_id]["label"] = agent.name
-        elif agent.managed_origin == "module" and agent.managed_ref:
-            add(node_id, "agent", agent.name, f"/agents/{agent_id}")
     for user_id, name in users.items():
         node = nodes.get(f"user:{user_id}")
         if node and name:
@@ -684,32 +1114,25 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         for department_id in _specific_departments(json.dumps(meta.get("access")), ("use", "manage")):
             link(node_id, f"department:{department_id}")
 
-    for agent_id, agent in agents.items():
-        node_id = f"agent:{agent_id}"
-        if agent.managed_origin == "module" and agent.managed_ref:
-            add(f"module:{agent.managed_ref}", "module", agent.managed_ref, f"/connections/{agent.managed_ref}")
-            add(node_id, "agent", agent.name, f"/agents/{agent_id}")
-            link(node_id, f"module:{agent.managed_ref}")
-
-    installs = list(
+    # ModuleAgent roster is tool ACL, not org structure — do not draw agent↔module.
+    origin_depts = list(
         (
             await session.execute(
-                select(ModuleInstall).where(
-                    ModuleInstall.tenant_id == tenant_id,
-                    ModuleInstall.install_state != "not_installed",
+                select(Department).where(
+                    Department.tenant_id == tenant_id,
+                    Department.origin_module_slug.is_not(None),
+                    Department.deleted_at.is_(None),
                 )
             )
         ).scalars().all()
     )
-    for install in installs:
-        add(f"module:{install.module_slug}", "module", install.module_slug, f"/connections/{install.module_slug}")
-    for row in (
-        await session.execute(select(ModuleAgent).where(ModuleAgent.tenant_id == tenant_id))
-    ).scalars().all():
-        if str(row.agent_id) in agents:
-            add(f"module:{row.module_slug}", "module", row.module_slug, f"/connections/{row.module_slug}")
-            add(f"agent:{row.agent_id}", "agent", agents[str(row.agent_id)].name, f"/agents/{row.agent_id}")
-            link(f"agent:{row.agent_id}", f"module:{row.module_slug}")
+    for dept in origin_depts:
+        slug = dept.origin_module_slug or ""
+        if not slug:
+            continue
+        add(f"module:{slug}", "module", slug, f"/connections/{slug}")
+        if f"department:{dept.id}" in nodes:
+            link(f"module:{slug}", f"department:{dept.id}")
     for flow in flows:
         if flow.module_slug:
             add(f"module:{flow.module_slug}", "module", flow.module_slug, f"/connections/{flow.module_slug}")
@@ -725,13 +1148,15 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         ).scalars().all()
     )
     for doc in docs:
-        if not doc.project_id and not doc.agent_id:
+        if not doc.project_id and not doc.agent_id and not doc.department_id:
             continue
         add(f"doc:{doc.id}", "doc", doc.title or doc.path, "/knowledge")
         if doc.project_id:
             link(f"doc:{doc.id}", f"folder:{doc.project_id}")
         if doc.agent_id:
             link(f"doc:{doc.id}", f"agent:{doc.agent_id}")
+        if doc.department_id:
+            link(f"doc:{doc.id}", f"department:{doc.department_id}")
 
     for row in (
         await session.execute(select(ModuleSource).where(ModuleSource.tenant_id == tenant_id))
@@ -772,12 +1197,6 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
     )
     from app.models.webhook import WebhookEndpoint
 
-    installs = {
-        row.id: row.module_slug
-        for row in (
-            await session.execute(select(ModuleInstall).where(ModuleInstall.tenant_id == tenant_id))
-        ).scalars().all()
-    }
     for grant in (
         await session.execute(select(ResourceGrant).where(ResourceGrant.tenant_id == tenant_id))
     ).scalars().all():
@@ -790,8 +1209,8 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
             link(f"calendar:{grant.calendar_id}", target)
         elif grant.connection_id:
             link(f"connection:{grant.connection_id}", target)
-        elif grant.module_install_id and installs.get(grant.module_install_id):
-            slug = installs[grant.module_install_id]
+        elif grant.module_slug:
+            slug = grant.module_slug
             add(f"module:{slug}", "module", slug, f"/connections/{slug}")
             link(f"module:{slug}", target)
 
@@ -871,6 +1290,8 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         pair = {nodes[source]["kind"], nodes[target]["kind"]}
         if "organization" in pair:
             relation = "org"
+        elif pair == {"department"}:
+            relation = "hierarchy"
         elif "department" in pair and pair <= {"department", "user", "agent"}:
             relation = "member"
         else:

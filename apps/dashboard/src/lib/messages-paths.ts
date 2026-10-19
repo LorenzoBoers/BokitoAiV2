@@ -16,17 +16,13 @@ export type InboxQueue = (typeof INBOX_QUEUES)[number]
 export const CHANNEL_KEYS = ['email', 'webchat', 'internal', 'agent', 'slack', 'whatsapp'] as const
 export type ChannelKey = (typeof CHANNEL_KEYS)[number]
 
-/** Sub-folders under All communication, teams, channels and agents. */
+/** Sub-folders that still exist. Closed is a disclosure in the list, not a row. */
 export const SUB_QUEUES = ['for_you', 'open', 'unassigned', 'closed'] as const
 export type SubQueue = (typeof SUB_QUEUES)[number]
-/** Agent folders only split live work from finished threads. */
-export const AGENT_SUB_QUEUES = ['open', 'closed'] as const satisfies readonly SubQueue[]
-/** Flow (action-tag) folders: same Open / Closed split as agents. */
-export const FLOW_SUB_QUEUES = ['open', 'closed'] as const satisfies readonly SubQueue[]
-/** Channel folders (mailbox, website chat, WhatsApp, …): Open / Closed only. */
-export const CHANNEL_SUB_QUEUES = ['open', 'closed'] as const satisfies readonly SubQueue[]
-/** Saved folder rows in the Communication rail: Open / Closed only. */
-export const FOLDER_SUB_QUEUES = ['open', 'closed'] as const satisfies readonly SubQueue[]
+/** All communication: personal work, every open conversation, and the shared pool. */
+export const INBOX_WORK_QUEUES = ['for_you', 'open', 'unassigned'] as const satisfies readonly SubQueue[]
+/** A department folder keeps one child: work the team still owns. */
+export const TEAM_SUB_QUEUES = ['unassigned'] as const satisfies readonly SubQueue[]
 
 /** Legacy agent-folder Activity queue; redirects to `/agents/:id#activity`. */
 export type AgentQueue = SubQueue | 'activity'

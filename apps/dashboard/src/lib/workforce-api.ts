@@ -91,11 +91,16 @@ export interface RuntimeAgent extends AgentPassport {
   /** Who the agent asks when it needs a person ("Ask questions to"). */
   ask_target?: AskTarget
   chat_access?: 'everyone' | 'selected' | 'nobody'
-  /** Stack/module-owned agent; archive is respected until a restore Decision is accepted. */
+  /** Pack/module/department place; archive respects restore Decision until accepted. */
+  affiliated?: boolean
+  affiliation_kind?: string | null
+  affiliation_label?: string | null
+  module_slug?: string | null
+  module_name?: string | null
+  department_id?: string | null
+  department_name?: string | null
+  /** Alias of affiliated (older clients). */
   managed?: boolean
-  managed_origin?: string | null
-  managed_ref?: string | null
-  template_slug?: string | null
   origin_label?: string | null
   current_session_id: string | null
   current_activity_id: string | null

@@ -61,7 +61,11 @@ async def list_providers(
         return {"connections": [], "presets": serialize_presets()}
     connections = await provider_connections.list_connections(session, auth.tenant.id)
     return {
-        "connections": [provider_connections.serialize_connection(c) for c in connections],
+        "connections": [
+            provider_connections.serialize_connection(c)
+            for c in connections
+            if (c.origin or "tenant") != "platform"
+        ],
         "presets": serialize_presets(),
     }
 
@@ -283,6 +287,9 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
     from app.services import model_policy, tenant_models as tenant_models_svc
 
     tenant_id = tenant.id
+    from app.services.bokito_model_nodes import ensure_default_model_nodes
+
+    await ensure_default_model_nodes(session, tenant_id)
     status = tenant_features.custom_models_status(tenant)
     active = status["active"]
     has_tenant_rows = await tenant_model_catalog.tenant_has_models(session, tenant_id)
@@ -308,10 +315,14 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
     if status["allowed"]:
         connections = await provider_connections.list_connections(session, tenant_id)
         custom_block["connections"] = [
-            provider_connections.serialize_connection(c) for c in connections
+            provider_connections.serialize_connection(c)
+            for c in connections
+            if (c.origin or "tenant") != "platform"
         ]
         if active and has_tenant_rows:
-            models = await tenant_model_catalog.list_models_with_connections(session, tenant_id)
+            models = await tenant_model_catalog.list_models_with_connections(
+                session, tenant_id, user_only=True
+            )
             custom_block["models"] = models
             custom_block["default_chat"] = next(
                 (m["slug"] for m in models if m.get("is_default_chat")), ""
@@ -343,6 +354,7 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
                 selectable.append(row)
 
     data_region = await _data_region_block(session, tenant_id)
+    image_models = await _image_model_rows(session, tenant_id, prefs)
 
     return {
         "source": "managed" if not active else "tenant",
@@ -363,7 +375,34 @@ async def _tenant_models_payload(session: AsyncSession, tenant) -> dict:
         "default_embedding": (
             custom_block["default_embedding"] or managed["embedding"]["slug"]
         ),
+        "image_model": (prefs.get("image_model") or "").strip() or "bokito-image",
+        "image_models": image_models,
     }
+
+
+async def _image_model_rows(session: AsyncSession, tenant_id: UUID, prefs: dict) -> list[dict]:
+    """Platform-seeded and workspace-added image models, one list."""
+    from app.services.image_generation import BOKITO_IMAGE_SLUG, resolve_image_call
+
+    selected = (prefs.get("image_model") or "").strip() or BOKITO_IMAGE_SLUG
+    rows = await tenant_model_catalog.list_models_with_connections(
+        session, tenant_id, kind="image", enabled_only=True
+    )
+    out: list[dict] = []
+    for row in rows:
+        resolved = await resolve_image_call(session, tenant_id, model_slug=row["slug"])
+        out.append(
+            {
+                **row,
+                "ready": resolved.live,
+                "key_source": resolved.key_source,
+                "region": resolved.region,
+                "selected": row["slug"] == selected or (
+                    selected == BOKITO_IMAGE_SLUG and row["slug"] == BOKITO_IMAGE_SLUG
+                ),
+            }
+        )
+    return out
 
 
 async def _data_region_block(session: AsyncSession, tenant_id: UUID) -> dict:
@@ -427,6 +466,33 @@ async def patch_workspace_chat_mode(
     if mode not in model_policy.WORKSPACE_MODES:
         raise HTTPException(status_code=400, detail="Invalid workspace chat mode")
     await set_tenant_model_prefs(session, auth.tenant.id, workspace_chat_mode=mode)
+    refreshed = await tenant_features.get_tenant(session, auth.tenant.id)
+    return await _tenant_models_payload(session, refreshed or auth.tenant)
+
+
+class ImageModelBody(BaseModel):
+    image_model: str
+
+
+@router.patch("/models/image-model")
+async def patch_image_model(
+    body: ImageModelBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Pick which image node Bokito uses. Same list as custom image models."""
+    from app.services.bokito_model_nodes import ensure_default_model_nodes
+    from app.services.tenant_models import set_tenant_model_prefs
+
+    auth.require_role("owner", "admin")
+    await ensure_default_model_nodes(session, auth.tenant.id)
+    slug = (body.image_model or "").strip()
+    rows = await tenant_model_catalog.list_models(
+        session, auth.tenant.id, kind="image", enabled_only=True
+    )
+    if slug not in {row.slug for row in rows}:
+        raise HTTPException(status_code=400, detail="Unknown image model")
+    await set_tenant_model_prefs(session, auth.tenant.id, image_model=slug)
     refreshed = await tenant_features.get_tenant(session, auth.tenant.id)
     return await _tenant_models_payload(session, refreshed or auth.tenant)
 
@@ -583,7 +649,10 @@ async def delete_tenant_model(
 ):
     auth.require_role("owner", "admin")
     _require_custom_models_write(auth.tenant)
-    deleted = await tenant_model_catalog.delete_model(session, auth.tenant.id, model_id)
+    try:
+        deleted = await tenant_model_catalog.delete_model(session, auth.tenant.id, model_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not deleted:
         raise HTTPException(status_code=404, detail="Model not found")
     return {"ok": True}

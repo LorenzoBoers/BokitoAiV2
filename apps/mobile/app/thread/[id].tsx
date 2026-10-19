@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -37,6 +37,7 @@ import {
   listChatTargets,
   listContactThreads,
   patchContact,
+  streamChatMessage,
   type Attachment,
   type Contact,
   type ReplyAction,
@@ -138,8 +139,9 @@ export default function ThreadScreen() {
   const { colors } = useTheme()
   const styles = useThemedStyles(threadStyles)
   const { user } = useAuth()
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, continue: continueFlag } = useLocalSearchParams<{ id: string; continue?: string }>()
   const threadId = id ?? ''
+  const continued = useRef(false)
   const insets = useSafeAreaInsets()
   const [menuOpen, setMenuOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
@@ -158,6 +160,14 @@ export default function ThreadScreen() {
   const { data: members = [] } = useSignalMembers()
   const myUserId = userNumericId(user?.id)
   const gatewayStream = useSignalStream(threadId || null)
+
+  useEffect(() => {
+    if (continueFlag !== '1' || !threadId || continued.current) return
+    continued.current = true
+    void streamChatMessage(threadId, '', () => {}, undefined, { continuePending: true })
+      .then(() => refetch())
+      .catch(() => undefined)
+  }, [continueFlag, threadId, refetch])
 
   const thread = detail?.thread
   const heldManual = thread?.ai_handling?.own === 'manual'
@@ -291,7 +301,7 @@ export default function ThreadScreen() {
           threadId,
         )
           .then((created) => {
-            router.push({ pathname: '/(tabs)/assistant', params: { conversationId: created.id } })
+            router.push(`/thread/${created.id}`)
           })
           .catch(failAction)
       },
@@ -398,7 +408,7 @@ export default function ThreadScreen() {
         <EmptyState
           title={isError ? t('thread.loadError') : t('thread.notFound')}
           actionLabel={isError ? t('common.retry') : t('inbox.openAssistant')}
-          onAction={() => (isError ? void refetch() : router.replace('/(tabs)/inbox'))}
+          onAction={() => (isError ? void refetch() : router.replace('/(tabs)/conversations'))}
         />
       </View>
     )

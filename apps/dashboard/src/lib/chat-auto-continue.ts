@@ -12,7 +12,7 @@ const PREFIX = 'bokito:chat-continue:'
 
 export type ChatContinuePayload =
   | { mode: 'continue' }
-  | { mode: 'send'; text: string }
+  | { mode: 'send'; text: string; attachments?: unknown[] }
 
 function key(threadId: string): string {
   return `${PREFIX}${threadId}`
@@ -35,8 +35,11 @@ export function takeChatContinue(threadId: string): ChatContinuePayload | null {
     sessionStorage.removeItem(key(threadId))
     const parsed = JSON.parse(raw) as ChatContinuePayload
     if (parsed?.mode === 'continue') return parsed
-    if (parsed?.mode === 'send' && typeof parsed.text === 'string' && parsed.text.trim()) {
-      return { mode: 'send', text: parsed.text.trim() }
+    if (parsed?.mode === 'send' && typeof parsed.text === 'string') {
+      const text = parsed.text.trim()
+      const attachments = Array.isArray(parsed.attachments) ? parsed.attachments : undefined
+      if (!text && !attachments?.length) return null
+      return { mode: 'send', text, attachments }
     }
   } catch {
     try {

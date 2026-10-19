@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { channelFolderPath } from '../lib/open-entity'
 
@@ -10,6 +10,7 @@ const ConversationIcon = ENTITY_ICONS.conversation
 import * as Dialog from '@radix-ui/react-dialog'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
 import { PageGuideLink } from '../components/layout/PageGuideLink'
@@ -489,10 +490,7 @@ export default function ChannelDetailPage() {
             <Dialog.Title className="mb-1 text-base font-semibold">{t('channelsPage.foldersTitle')}</Dialog.Title>
             {foldersError ? <p className="mb-3 text-xs text-status-error">{foldersError}</p> : null}
             {foldersLoading ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-text-muted">
-                <RefreshCw size={14} className="animate-spin" />
-                {t('channelsPage.loadingFolders')}
-              </div>
+              <LoadingBlock variant="inline" label={t('channelsPage.loadingFolders')} className="py-4 text-sm" />
             ) : (
               <div className="mb-4 min-h-0 flex-1 space-y-1 overflow-y-auto">
                 {folders.map((folder) => (

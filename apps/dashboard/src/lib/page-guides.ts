@@ -135,7 +135,12 @@ export function isPageGuideSlug(value: string | undefined): value is PageGuideSl
 
 /** Compact help icon next to the shell topbar title. */
 export function pageGuideForPath(pathname: string): PageGuideSlug | null {
-  if (pathname.startsWith('/communication')) return 'communication'
+  if (
+    pathname === '/new' ||
+    pathname.startsWith('/new/') ||
+    pathname.startsWith('/communication')
+  )
+    return 'communication'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/folders') || pathname.startsWith('/projects')) return 'projects'
   if (pathname.startsWith('/cockpit')) return 'cockpit'

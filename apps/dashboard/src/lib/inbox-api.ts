@@ -241,6 +241,12 @@ export type InboxThread = {
 
 export type InboxMessage = {
   id: ThreadId
+  /**
+   * Stable Virtuoso key across the optimistic → server hand-off.
+   * The real `id` still changes; this does not, so the enter animation
+   * does not restart.
+   */
+  listKey?: string
   threadId: ThreadId
   connectionId: number | null
   kind?: string
@@ -296,6 +302,8 @@ export type InboxMessage = {
   turnId?: string | null
   /** True while the agent is still writing this turn onto the thread. */
   inProgress?: boolean
+  /** Collapsed tool rows and image frames, already grouped by the API. */
+  history?: import('./agentActivity').HistoryView | null
   /** Approval the agent attached to this bubble (buttons render under it). */
   proposal?: MessageProposal | null
   /** Showcase cards on any agent bubble (with or without a proposal). */
@@ -329,6 +337,7 @@ export type ProposalItemType =
   | 'marketplace'
   | 'module'
   | 'help_doc'
+  | 'knowledge'
   | 'message'
 
 /** Snapshot of an object shown as a showcase card (or on a proposal). */
@@ -359,6 +368,13 @@ export type ProposalItem = {
   empty?: boolean
   /** Compact canvas tree for the chat preview card. */
   preview?: CanvasNode | null
+  /** Marketplace module card: specialist job, partner slugs, install state. */
+  jobTitle?: string | null
+  roleBlurb?: string | null
+  toolCount?: number | null
+  providerSlugs?: string[]
+  installState?: string | null
+  moduleStatus?: string | null
 }
 
 /** Server-side description of the tool call behind an action row. */
@@ -465,6 +481,7 @@ const PROPOSAL_ITEM_TYPES = new Set<ProposalItemType>([
   'marketplace',
   'module',
   'help_doc',
+  'knowledge',
   'message',
 ])
 
@@ -498,6 +515,14 @@ export function normalizeProposalItem(row: unknown): ProposalItem | null {
     missing: raw.missing === true,
     empty: raw.empty === true,
     preview: asCanvasPreview(raw.preview),
+    jobTitle: asNullableString(raw.job_title),
+    roleBlurb: asNullableString(raw.role_blurb),
+    toolCount: typeof raw.tool_count === 'number' ? raw.tool_count : null,
+    providerSlugs: Array.isArray(raw.provider_slugs)
+      ? raw.provider_slugs.filter((slug): slug is string => typeof slug === 'string' && Boolean(slug))
+      : undefined,
+    installState: asNullableString(raw.install_state),
+    moduleStatus: asNullableString(raw.module_status),
   }
 }
 
@@ -634,6 +659,7 @@ export type ThreadParticipant = {
   name: string
   email?: string
   joined_via?: string
+  unread_count?: number
   /** People photo (data URI or URL); agents/teams use avatar_* mark fields. */
   avatar_url?: string | null
   avatar_kind?: string | null
@@ -690,8 +716,10 @@ export type ThreadFilters = {
     | 'all'
     | 'all_open'
     | 'unassigned'
-    /** Yours: owned, your turn or your team's, questions to All people, mentions. */
+    /** Assigned to you, a question or draft addressed to you, or an unread mention. */
     | 'for_you'
+    | 'for_you_closed'
+    | 'unassigned_closed'
     | 'pending'
     /** Threads with a date: agenda items, look-agains, recurring tasks. */
     | 'scheduled'
@@ -1390,6 +1418,16 @@ export async function draftThreadReply(
 ): Promise<string> {
   const payload = await apiPost<{ draft?: string }>(
     appRoutes.signals.threadDraft(String(threadId)),
+    { instruction },
+    token,
+  )
+  return typeof payload.draft === 'string' ? payload.draft : ''
+}
+
+/** Draft composer text with the lead agent when the message has no thread yet. */
+export async function draftComposerText(token: string, instruction: string): Promise<string> {
+  const payload = await apiPost<{ draft?: string }>(
+    appRoutes.signals.composeDraft,
     { instruction },
     token,
   )

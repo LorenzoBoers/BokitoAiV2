@@ -1,6 +1,6 @@
 # Bokito Mobile
 
-Native Expo app on the Bokito gateway protocol: assistant chat, unified inbox (Signals), inline decision approve/reject, and push notifications.
+Native Expo app on the Bokito API. Home is a new conversation (the same shape as the workspace `/new` page): write to an agent, then open that thread. Conversations is the Assigned to me list. Decisions are answered inside the conversation. Account holds sign-out, the workspace name and push switches.
 
 ## Development
 
@@ -100,6 +100,21 @@ BOKITO_API_URL=https://app.bokito.ai eas build -p android --profile preview
 
 Download the APK from the Expo build page when complete.
 
+### JavaScript fixes without a new APK
+
+The `preview` profile publishes to the EAS channel `preview` (`runtimeVersion` follows `app.config.ts` version). After a cloud build that includes `expo-updates`, a later JS-only change can ship with:
+
+```bash
+cd apps/mobile
+eas update --channel preview --message "short note"
+```
+
+Native plugins (push, secure store, a new Expo module) still need a new APK from **Mobile APK**.
+
+### Apple, later
+
+The same Expo project and bundle id `ai.bokito.mobile` build for iOS in the cloud. That needs an Apple Developer Program membership, then an iOS `preview` build and `eas submit` to TestFlight. No Mac is required for the cloud build. The Play Store and the App Store wait until the app should leave sideload and TestFlight.
+
 ## Architecture
 
 - `src/lib/api.ts` — REST client (auth, signals, chat, decisions, push)
@@ -107,7 +122,7 @@ Download the APK from the Expo build page when complete.
 - `src/lib/push.ts` — Expo push registration; tokens stored via `POST /api/push/subscribe` with an `expo:` endpoint prefix
 - `src/lib/notification-routing.ts` — deep-link from push taps to thread or Decisions tab
 - `src/context/AuthContext.tsx` — token persistence in SecureStore, session bootstrap
-- `app/` — expo-router routes: login, tabs (Assistant, Messages, Decisions, Settings), thread detail
+- `app/` — expo-router routes: login, tabs (Home, Conversations, Account), thread detail
 
 Live updates arrive on gateway topics `threads`, `signal:<id>`, and `decisions`.
 

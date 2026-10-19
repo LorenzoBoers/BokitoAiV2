@@ -8,8 +8,9 @@ missing.
 Writes: ``build_proposal`` shapes a DecisionRequest whose approve option is
 the matching ``accounting_apply_*`` tool. Apply verbs run here only after
 human approval and only when both write switches are on (``accounting`` in
-the ``MODULE_WRITES_ENABLED`` env + the tenant's ModuleInstall
-``writes_enabled`` pref); otherwise they return a ``writes_disabled`` error.
+the ``MODULE_WRITES_ENABLED`` env + the tenant department
+``settings_json.modules.writes_enabled`` pref); otherwise they return a
+``writes_disabled`` error.
 """
 
 from __future__ import annotations
@@ -539,7 +540,7 @@ async def _summarize(
 
 
 async def writes_gate(session: AsyncSession, tenant_id: UUID) -> dict[str, Any] | None:
-    """Both write switches (platform env + tenant ModuleInstall pref) must be on."""
+    """Both write switches (platform env + tenant module writes_enabled) must be on."""
     from app.modules.dispatch import module_writes_gate
 
     return await module_writes_gate(session, tenant_id, "accounting")

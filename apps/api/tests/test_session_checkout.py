@@ -88,6 +88,97 @@ async def test_propose_checkout_closes_the_session(
     assert result["status"] == "closed"
     assert "decision_request_id" not in result
 
+
+@pytest.mark.asyncio
+async def test_inline_session_bypasses_channel_access_on_host(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """Invited session tools may mutate the host even when the agent lacks channel Access."""
+    import json
+
+    from app.models.auth import User
+    from app.models.channel import ChannelAccount
+    from app.services.channel_access import set_account_access
+    from app.tools import execute_tool
+
+    headers = await _login(client)
+    tenant_id = (
+        await session_override.execute(select(Agent).where(Agent.kind == "company"))
+    ).scalars().first().tenant_id
+    owner = (
+        await session_override.execute(select(User).where(User.email == TEST_EMAIL))
+    ).scalar_one()
+    account = ChannelAccount(
+        tenant_id=tenant_id,
+        channel="email",
+        provider="smtp_imap",
+        address="restricted@bokito.ai",
+        credentials_json=json.dumps({"access_token": "tok"}),
+    )
+    session_override.add(account)
+    await session_override.commit()
+    await session_override.refresh(account)
+    # Restrict to the human owner only — no agents on the Access list.
+    await set_account_access(
+        session_override,
+        account,
+        [{"kind": "user", "id": str(owner.id), "level": "handle"}],
+    )
+    await session_override.commit()
+
+    thread = Signal(
+        tenant_id=tenant_id,
+        channel="email",
+        subject="Restricted invoice",
+        contact_email="vendor@example.com",
+        channel_account_id=account.id,
+    )
+    session_override.add(thread)
+    await session_override.commit()
+    await session_override.refresh(thread)
+
+    conversation, agent = await _started_session(
+        client, session_override, headers, thread
+    )
+
+    # Without a session this agent must still be denied.
+    other = Signal(
+        tenant_id=tenant_id,
+        channel="email",
+        subject="Other restricted mail",
+        channel_account_id=account.id,
+    )
+    session_override.add(other)
+    await session_override.commit()
+    await session_override.refresh(other)
+    denied = await execute_tool(
+        session_override,
+        tenant_id,
+        None,
+        "note_no_reply",
+        {"summary": "Automated notice", "signal_id": str(other.id)},
+        signal_id=other.id,
+        agent=agent,
+    )
+    assert denied.get("reason") == "channel_access", denied
+
+    allowed = await execute_tool(
+        session_override,
+        tenant_id,
+        None,
+        "note_no_reply",
+        {"summary": "Automated notice", "signal_id": str(thread.id)},
+        signal_id=thread.id,
+        agent=agent,
+    )
+    assert allowed.get("error") is None or allowed.get("ok") or allowed.get(
+        "awaiting_approval"
+    ), allowed
+
+    result = await _propose(session_override, thread, agent)
+    assert result.get("ok") is True, result
+    assert result["session_id"] == str(conversation.id)
+
     cards = (
         await session_override.execute(
             select(DecisionRequest).where(

@@ -203,32 +203,10 @@ async def delete_connection(session: AsyncSession, tenant_id: UUID, connection_i
     return True
 
 
-async def test_connection(session: AsyncSession, tenant_id: UUID, connection_id: UUID) -> dict[str, Any]:
-    conn = await get_connection(session, tenant_id, connection_id)
-    if not conn:
-        raise ValueError("Provider connection not found")
-
-    api_key = await get_decrypted_key(session, conn)
-    if not api_key:
-        return {"ok": False, "message": "No API key configured"}
-
+async def _probe_openai_compatible(api_key: str, base_url: str, provider_type: str) -> dict[str, Any]:
+    """Fallback probe for provider types that are not in the spec registry."""
+    base = _normalize_base_url(base_url) or default_base_url(provider_type)
     try:
-        if conn.provider_type == "anthropic":
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(
-                    "https://api.anthropic.com/v1/models",
-                    headers={
-                        "x-api-key": api_key,
-                        "anthropic-version": "2023-06-01",
-                    },
-                )
-                if response.status_code == 401:
-                    return {"ok": False, "message": "Invalid API key"}
-                response.raise_for_status()
-                return {"ok": True, "message": "Connection successful"}
-
-        # mistral, openai and openai_compatible share the OpenAI client shape
-        base = _normalize_base_url(conn.base_url) or default_base_url(conn.provider_type)
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
                 f"{base}/models",
@@ -240,3 +218,22 @@ async def test_connection(session: AsyncSession, tenant_id: UUID, connection_id:
             return {"ok": True, "message": "Connection successful"}
     except httpx.HTTPError as exc:
         return {"ok": False, "message": f"Connection failed: {exc}"}
+
+
+async def test_connection(session: AsyncSession, tenant_id: UUID, connection_id: UUID) -> dict[str, Any]:
+    conn = await get_connection(session, tenant_id, connection_id)
+    if not conn:
+        raise ValueError("Provider connection not found")
+
+    api_key = await get_decrypted_key(session, conn)
+    if not api_key:
+        return {"ok": False, "message": "No API key configured"}
+
+    from app.services.provider_spec import get_provider_spec
+
+    spec = get_provider_spec(conn.provider_type)
+    if spec is not None and spec.probe is not None:
+        return await spec.probe(api_key, conn.base_url or "")
+
+    # Unknown types keep the OpenAI-compatible /models probe.
+    return await _probe_openai_compatible(api_key, conn.base_url or "", conn.provider_type)

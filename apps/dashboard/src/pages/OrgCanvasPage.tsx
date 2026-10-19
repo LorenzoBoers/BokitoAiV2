@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 import { OrgMakeScene } from '../components/org/OrgMakeScene'
@@ -12,11 +12,14 @@ import { getOrgGraph, type OrgGraph, type OrgGraphNode } from '../lib/teams-api'
 export default function OrgCanvasPage() {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { token } = useAuth()
   const [graph, setGraph] = useState<OrgGraph | null>(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null)
+  const highlightRef = useRef<(id: string | null) => void>(() => {})
+  const focusParam = searchParams.get('focus')?.trim() || null
 
   useEffect(() => {
     if (!token) return
@@ -33,6 +36,21 @@ export default function OrgCanvasPage() {
     }
     return ids
   }, [graph])
+
+  // Deep link from "Open in Grid": same path as clicking a legend row.
+  useEffect(() => {
+    if (!graph || !focusParam) return
+    if (!linkedIds.has(focusParam)) return
+    setFocusNodeId(focusParam)
+  }, [graph, focusParam, linkedIds])
+
+  const clearFocusParam = () => {
+    setFocusNodeId(null)
+    if (!searchParams.has('focus')) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('focus')
+    setSearchParams(next, { replace: true })
+  }
 
   const kindLabel = (kind: string) =>
     t(`orgCanvas.kinds.${kind}`, { defaultValue: kind })
@@ -68,14 +86,14 @@ export default function OrgCanvasPage() {
   return (
     <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-bg">
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start px-4 pt-3">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start px-4 pt-3">
           <div className="pointer-events-auto max-w-xl rounded-xl border border-border/40 bg-bg-surface/80 px-3 py-2 shadow-sm backdrop-blur-sm">
             <h1 className="text-sm font-semibold tracking-tight text-text-heading">{t('orgCanvas.title')}</h1>
             <p className="mt-0.5 text-[11px] leading-4 text-text-muted">{t('orgCanvas.subtitle')}</p>
           </div>
         </div>
         {error ? (
-          <div className="absolute inset-x-4 top-16 z-10">
+          <div className="absolute inset-x-4 top-16 z-20">
             <ApiErrorBanner message={error} />
           </div>
         ) : null}
@@ -84,7 +102,8 @@ export default function OrgCanvasPage() {
             graph={graph}
             linkedIds={linkedIds}
             focusNodeId={focusNodeId}
-            onFocused={() => setFocusNodeId(null)}
+            onFocused={clearFocusParam}
+            highlightRef={highlightRef}
             kindLabel={kindLabel}
             openHint={t('orgCanvas.openHint')}
             onOpenNode={(node) => {
@@ -129,6 +148,8 @@ export default function OrgCanvasPage() {
                       <button
                         type="button"
                         title={t('orgCanvas.findAction', { name: node.label })}
+                        onMouseEnter={() => highlightRef.current(node.id)}
+                        onMouseLeave={() => highlightRef.current(null)}
                         onClick={() => setFocusNodeId(node.id)}
                         className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-heading"
                       >

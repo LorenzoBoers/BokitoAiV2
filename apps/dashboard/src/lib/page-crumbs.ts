@@ -13,7 +13,8 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (/^\/(?:folders|projects)\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.folder' }]
   if (/^\/knowledge\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.document' }]
   if (pathname.startsWith('/knowledge')) return []
-  if (pathname.startsWith('/communication/new')) return [{ labelKey: 'crumbs.newConversation' }]
+  if (pathname === '/new' || pathname.startsWith('/new/') || pathname.startsWith('/communication/new'))
+    return []
   if (pathname.startsWith('/communication/inbox/for_you')) return [{ labelKey: 'crumbs.forYou' }]
   if (pathname.startsWith('/communication/team/')) return [{ labelKey: 'crumbs.team' }]
   if (/^\/settings\/channels\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.channel' }]

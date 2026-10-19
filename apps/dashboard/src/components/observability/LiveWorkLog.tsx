@@ -17,6 +17,8 @@ import { formatWorkLogSubject } from '../../lib/work-log-labels'
 import { humanizeModelId } from '../../lib/model-label'
 import { workLogStatusLabel } from '../../lib/status-labels'
 import { activityTerminalPath } from '../../lib/messages-paths'
+import { LoadingBlock } from '../ui/loading-block'
+import { EmptyState } from '../ui/empty-state'
 
 /** Keep the live buffer bounded — long runs otherwise grow forever in RAM. */
 const MAX_EVENTS = 500
@@ -203,11 +205,11 @@ export function LiveWorkLog({ workLogId }: Props) {
       <div className="panel max-h-96 space-y-1.5 overflow-y-auto p-3">
         <p className="mb-2 text-xs text-text-muted">{t('workforce.runLog.stepsHint')}</p>
         {loading && events.length === 0 && !error ? (
-          <p className="text-sm text-text-muted">{t('workforce.runLog.loadingEvents')}</p>
+          <LoadingBlock variant="skeleton" rows={3} />
         ) : error ? (
           <p className="text-sm text-status-error">{error}</p>
         ) : visibleEvents.length === 0 ? (
-          <p className="text-sm text-text-muted">{t('workforce.runLog.waiting')}</p>
+          <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('workforce.runLog.waiting')} />
         ) : (
           visibleEvents.map((ev, i) => {
             const label =

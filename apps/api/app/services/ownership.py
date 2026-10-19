@@ -298,45 +298,10 @@ def _recompute_turns(session: Session, _ctx) -> None:
 # ── queries ──────────────────────────────────────────────────────────
 
 
-def for_you_predicate(
-    user_id: UUID,
-    team_ids: set[UUID],
-    all_department_id: UUID | None = None,
-):
-    """Work in conversations that is yours.
-
-    - you own it;
-    - the turn is yours, or any team you are in (custom teams and All people);
-    - a custom team you are in owns the conversation (not standing group rooms);
-    - you were mentioned and have not opened it since;
-    - the customer asked for a person (handoff / escalate).
-
-    Unassigned still lists every team-owned conversation; For you overlaps when
-    it is that team's turn (including All people waiting for a reply).
-    """
+def _unread_mention_exists(user_id: UUID):
     from app.models.notification import Notification
 
-    clauses = [
-        and_(Signal.assignee_kind == "user", Signal.assignee_id == user_id),
-        and_(Signal.turn_kind == "user", Signal.turn_ref_id == user_id),
-    ]
-    custom = {t for t in team_ids if t != all_department_id}
-    teams_for_turn = set(custom)
-    if all_department_id is not None:
-        teams_for_turn.add(all_department_id)
-    if teams_for_turn:
-        clauses.append(and_(Signal.turn_kind == "department", Signal.turn_ref_id.in_(teams_for_turn)))
-    if custom:
-        # Team-owned customer work belongs here. Standing group rooms do not —
-        # they only appear when it is actually the team's turn.
-        clauses.append(
-            and_(
-                Signal.assignee_kind == "department",
-                Signal.assignee_id.in_(custom),
-                Signal.source != "department",
-            )
-        )
-    clauses.append(
+    return (
         select(Notification.id)
         .where(
             Notification.signal_id == Signal.id,
@@ -346,31 +311,62 @@ def for_you_predicate(
         )
         .exists()
     )
-    # A customer who asked for a person is yours even when the thread sits
-    # with All people (that queue is Unassigned, not For you).
-    clauses.append(Signal.ai_handling_reason.in_(("handoff_requested", "escalated")))
-    return or_(*clauses)
+
+
+def for_you_predicate(
+    user_id: UUID,
+    team_ids: set[UUID] | None = None,
+    all_department_id: UUID | None = None,
+):
+    """Assigned to you, plus a question or draft addressed to you, plus an unread mention.
+
+    Team ownership and a team's turn stay in Unassigned. A customer who asked
+    for a person stays there until someone picks the conversation up.
+    ``team_ids`` and ``all_department_id`` are accepted so older callers keep
+    working; membership no longer widens this queue.
+    """
+    del team_ids, all_department_id
+    return or_(
+        and_(Signal.assignee_kind == "user", Signal.assignee_id == user_id),
+        and_(
+            Signal.turn_kind == "user",
+            Signal.turn_ref_id == user_id,
+            Signal.turn_reason.in_(("question", "draft_ready")),
+        ),
+        _unread_mention_exists(user_id),
+    )
 
 
 def turn_is_mine_predicate(
     user_id: UUID,
-    team_ids: set[UUID],
+    team_ids: set[UUID] | None = None,
     all_department_id: UUID | None = None,
 ):
-    """The subset of For you where you must act now (sorted first, counted on the badge)."""
-    clauses = [and_(Signal.turn_kind == "user", Signal.turn_ref_id == user_id)]
-    custom = {t for t in team_ids if t != all_department_id}
-    teams_for_turn = set(custom)
-    if all_department_id is not None:
-        teams_for_turn.add(all_department_id)
-    if teams_for_turn:
-        clauses.append(and_(Signal.turn_kind == "department", Signal.turn_ref_id.in_(teams_for_turn)))
-    return or_(*clauses)
+    """The subset of Assigned to me where you must act now (sorted first, counted on the badge).
+
+    Your turn (a reply, a question or a draft) or an unread mention. A reply
+    you already sent stays in the list and does not count.
+    """
+    del team_ids, all_department_id
+    return or_(
+        and_(Signal.turn_kind == "user", Signal.turn_ref_id == user_id),
+        _unread_mention_exists(user_id),
+    )
 
 
 def unassigned_predicate():
-    """Team-owned and not picked up by anyone yet."""
-    return Signal.assignee_kind == "department"
+    """Team-owned and not picked up, and not waiting on one person.
+
+    A question or draft addressed to a person leaves this queue and sits in
+    Assigned to me for that person.
+    """
+    return and_(
+        Signal.assignee_kind == "department",
+        or_(
+            Signal.turn_kind != "user",
+            Signal.turn_reason.notin_(("question", "draft_ready")),
+        ),
+    )
 
 
 async def my_teams(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> tuple[set[UUID], UUID]:

@@ -91,8 +91,10 @@ type SidebarFolderProps = {
   leading?: ReactNode
   /** Extra rows under the standard For you / Open / Unassigned / Closed list. */
   extra?: ReactNode
-  /** Sub-views under this folder. Defaults to every queue. */
+  /** Sub-views under this folder. An empty list means no queue children. */
   queues?: readonly SubQueue[]
+  /** Queue the header opens. `null` opens the folder's own open list. */
+  headerQueue?: SubQueue | null
   /** Optional trailing control on the folder header (e.g. compose +). */
   headerAction?: ReactNode
   /** Project scope keys that stay open when this folder opens (its parents). */
@@ -124,6 +126,7 @@ export function SidebarFolder({
   leading,
   extra,
   queues,
+  headerQueue,
   headerAction,
   retainOnExpand,
   closeOnCollapse,
@@ -138,26 +141,43 @@ export function SidebarFolder({
   const revealed = flashKey === scopeKey
   const scopeActive = sameLeafScope(activeLeaf, baseLeaf)
   const expanded = prefs.expandedLeaves.includes(scopeKey)
+  const queueList = queues ?? SUB_QUEUES
+  const hasQueueRows = queueList.length > 0
+  const hasNested = hasQueueRows || leading != null || extra != null
   const headerActive =
-    activeLeaf != null && leafKey(activeLeaf) === leafKey(baseLeaf)
+    activeLeaf != null &&
+    (leafKey(activeLeaf) === leafKey(baseLeaf) || (!hasQueueRows && scopeActive))
 
   // Auto-expand once when the folder becomes active (deep link), so the
   // highlighted sub-row is visible — accordion keeps others collapsed.
   const wasScopeActive = useRef(false)
   useEffect(() => {
+    if (!hasNested) return
     if (scopeActive && !wasScopeActive.current) {
       setLeafExpanded(scopeKey, true, { retain: retainOnExpand })
     }
     wasScopeActive.current = scopeActive
-  }, [scopeActive, scopeKey, setLeafExpanded, retainOnExpand])
+  }, [hasNested, scopeActive, scopeKey, setLeafExpanded, retainOnExpand])
+
+  const openHeader = () => {
+    if (headerQueue === null || !hasQueueRows) {
+      navigate(leafPath(baseLeaf))
+      return
+    }
+    navigate(leafPath({ ...baseLeaf, queue: headerQueue ?? defaultQueue } as HubLeaf))
+  }
 
   const toggleFolder = () => {
+    if (!hasNested) {
+      openHeader()
+      return
+    }
     if (expanded) {
       setLeafExpanded(scopeKey, false, { close: closeOnCollapse })
       return
     }
     setLeafExpanded(scopeKey, true, { retain: retainOnExpand })
-    navigate(leafPath({ ...baseLeaf, queue: defaultQueue } as HubLeaf))
+    openHeader()
   }
 
   const onDragOver = (event: DragEvent) => {
@@ -189,7 +209,7 @@ export function SidebarFolder({
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onDrop={onDrop}
-          aria-expanded={expanded}
+          aria-expanded={hasNested ? expanded : undefined}
           data-nav-folder={scopeKey}
           data-active={headerActive || (scopeActive && !expanded) ? 'true' : undefined}
           data-nav-reveal={revealed ? 'true' : undefined}
@@ -218,6 +238,7 @@ export function SidebarFolder({
           <NavCountBadge count={badgeCount} placement="inline" />
         </button>
       </Tip>
+      {hasNested ? (
       <div className="nav-fold" data-open={expanded ? 'true' : undefined} aria-hidden={!expanded}>
         <div className="nav-fold-inner">
           <QueueSublist
@@ -225,12 +246,13 @@ export function SidebarFolder({
             activeLeaf={activeLeaf}
             counts={queueCounts}
             leading={leading}
-            queues={queues}
+            queues={queueList}
           >
             {extra}
           </QueueSublist>
         </div>
       </div>
+      ) : null}
     </div>
   )
 }

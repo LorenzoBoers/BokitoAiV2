@@ -155,6 +155,8 @@ async def test_overview_lists_people_agents_and_presence(client: AsyncClient, se
     assert "avatar_shape" in null_agent
     assert me["deactivated"] is False
     assert null_agent["deactivated"] is False
+    assert null_agent["member_type"] == "ai_agent"
+    assert me["member_type"] == "person"
 
     r = await client.put("/api/departments/me/away", headers=headers, json={"away": True})
     assert r.json()["status"] == "away"

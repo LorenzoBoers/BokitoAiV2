@@ -78,8 +78,12 @@ What you do not do:
 - You never pretend a change happened. When a change needs approval it
   becomes a decision the person can see and approve.
 
+When they ask you to react to a message (a thumbs up, and the other
+reaction kinds), call react_to_message in that turn and omit message_id.
+Do not tell them to do it themselves.
+
 Style: short, concrete, calm. Say what you did and what happens next. No
-emoji. Answer in the language the person writes in."""
+emoji in the words you write. Answer in the language the person writes in."""
 
 # Deliberate passport. Reading and understanding the workspace, proposing and
 # setting up, delegating execution. Customer-facing execution and the module
@@ -128,6 +132,8 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "create_decision_request",
     "propose_action",
     "attach_items",
+    "react_to_message",
+    "generate_image",
     "update_progress",
     "list_tags",
     "delete_tag",

@@ -360,7 +360,7 @@ async def test_interrupt_clears_session(client, session_override, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_ask_stream_two_agents_starts_handoff(client, session_override, monkeypatch):
-    """Ask SSE with ≥2 @agents starts a handoff instead of a solo drive."""
+    """Ask SSE with ≥2 @agents hands one stick to the first agent."""
     import json
 
     from scripts.seed import TEST_EMAIL, TEST_PASSWORD
@@ -402,11 +402,9 @@ async def test_ask_stream_two_agents_starts_handoff(client, session_override, mo
 
     assert any(c.get("handoff") for c in chunks)
     assert called == [str(a.id)]
+    assert any(c.get("opener_id") == str(a.id) for c in chunks)
     await session_override.refresh(signal)
-    state = get_handoff_session(signal)
-    assert state is not None
-    assert state["status"] == "open"
-    assert set(state["agent_ids"]) == {str(a.id), str(b.id)}
+    assert get_handoff_session(signal) is None
 
 
 @pytest.mark.asyncio

@@ -33,11 +33,16 @@ class StartThreadBody(BaseModel):
 
     ``whatsapp`` sends the first message on the configured number (one thread
     per customer number). ``ticket`` opens an internal thread already filed
-    on an action tag, with an optional project.
+    on an action tag, with an optional project. ``note`` opens an internal
+    thread whose first message is the note (a meeting transcript uses this too).
+    ``chat`` opens an internal chat with a teammate; the first line is a chat
+    bubble, not an email and not a note.
     """
 
-    kind: Literal["whatsapp", "ticket"]
+    kind: Literal["whatsapp", "ticket", "note", "chat"]
     channel_account_id: UUID | None = None
+    # Teammate to open a plain internal chat with (kind=chat).
+    member_id: UUID | None = None
     to: str = ""
     body_text: str = ""
     tag_id: UUID | None = None
@@ -53,9 +58,13 @@ async def start_thread(
     auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Create a WhatsApp thread or an internal ticket thread."""
+    """Create a WhatsApp thread, an internal ticket, a note, or a teammate chat."""
     if body.kind == "whatsapp":
         return await _start_whatsapp(session, auth, body)
+    if body.kind == "note":
+        return await _start_note(session, auth, body)
+    if body.kind == "chat":
+        return await _start_chat(session, auth, body)
     return await _start_ticket(session, auth, body)
 
 
@@ -249,6 +258,148 @@ async def _start_ticket(session: AsyncSession, auth: AuthContext, body: StartThr
     return {"ok": True, "thread_id": str(signal.id), "channel": "internal"}
 
 
+async def _start_note(session: AsyncSession, auth: AuthContext, body: StartThreadBody) -> dict:
+    from app.models.signal import Signal, SignalEvent, SignalMessage
+    from app.services.ownership import set_owner
+
+    text = (body.note or body.body_text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="A note is required")
+    subject = (body.subject or "").strip() or text.split("\n", 1)[0][:80] or "Note"
+
+    now = datetime.utcnow()
+    signal = Signal(
+        tenant_id=auth.tenant.id,
+        channel="internal",
+        source="operator",
+        subject=subject[:300],
+        status="open",
+        priority="normal",
+        has_unread=False,
+        last_message_at=now,
+    )
+    set_owner(signal, "user", auth.user.id, by_user_id=auth.user.id)
+    session.add(signal)
+    await session.flush()
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=auth.tenant.id,
+            event_type="signal_created",
+            actor_type="user",
+            actor_id=str(auth.user.id),
+            payload_json=json.dumps({"source": "note"}),
+        )
+    )
+    msg = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=auth.tenant.id,
+        kind="internal_note",
+        direction="internal",
+        role="user",
+        author_user_id=auth.user.id,
+        body_text=text,
+        body_preview=text[:200],
+        received_at=now,
+    )
+    session.add(msg)
+    await session.commit()
+    await session.refresh(signal)
+    await session.refresh(msg)
+    from app.gateway.publish import publish_signal_message, publish_thread_update
+
+    await publish_signal_message(signal, msg)
+    await publish_thread_update(signal)
+    return {"ok": True, "thread_id": str(signal.id), "channel": "internal"}
+
+
+async def _start_chat(session: AsyncSession, auth: AuthContext, body: StartThreadBody) -> dict:
+    from app.models.auth import Membership, User
+    from app.models.signal import Signal, SignalEvent, SignalMessage
+    from app.services.ownership import apply_owner
+    from app.services.participants import ensure_participant
+
+    text = (body.body_text or body.note or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="A message is required")
+    if body.member_id is None:
+        raise HTTPException(status_code=400, detail="A teammate is required")
+    if body.member_id == auth.user.id:
+        raise HTTPException(status_code=400, detail="Choose another person")
+    teammate = (
+        await session.execute(
+            select(User)
+            .join(Membership, Membership.user_id == User.id)
+            .where(
+                User.id == body.member_id,
+                Membership.tenant_id == auth.tenant.id,
+                Membership.is_active.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if teammate is None:
+        raise HTTPException(status_code=404, detail="Teammate not found")
+
+    name = (teammate.display_name or "").strip() or teammate.email
+    subject = (body.subject or "").strip() or text.split("\n", 1)[0][:80] or name
+    now = datetime.utcnow()
+    signal = Signal(
+        tenant_id=auth.tenant.id,
+        channel="internal",
+        source="operator",
+        subject=subject[:300],
+        contact_name=name,
+        contact_email=teammate.email or "",
+        status="open",
+        priority="normal",
+        has_unread=False,
+        last_message_at=now,
+    )
+    session.add(signal)
+    await session.flush()
+    await apply_owner(session, signal, "user", auth.user.id, by_user_id=auth.user.id)
+    await ensure_participant(
+        session,
+        signal,
+        kind="user",
+        ref_id=teammate.id,
+        role="member",
+        invited_by_kind="user",
+        invited_by_id=auth.user.id,
+        joined_via="invite",
+    )
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=auth.tenant.id,
+            event_type="signal_created",
+            actor_type="user",
+            actor_id=str(auth.user.id),
+            payload_json=json.dumps({"source": "chat", "member_id": str(teammate.id)}),
+        )
+    )
+    msg = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=auth.tenant.id,
+        kind="user_message",
+        direction="internal",
+        role="user",
+        author_user_id=auth.user.id,
+        body_text=text,
+        body_preview=text[:200],
+        received_at=now,
+    )
+    session.add(msg)
+    await session.commit()
+    await session.refresh(signal)
+    await session.refresh(msg)
+    from app.gateway.publish import publish_signal_message, publish_thread_update
+
+    await publish_signal_message(signal, msg)
+    await publish_thread_update(signal)
+    return {"ok": True, "thread_id": str(signal.id), "channel": "internal"}
+
+
 class InboundSignalBody(BaseModel):
     channel: str = "email"
     source: str = "mock"
@@ -387,6 +538,42 @@ class DraftBody(BaseModel):
     """Optional operator guidance for the AI draft (e.g. 'decline politely')."""
 
     instruction: str = ""
+
+
+@router.post("/compose")
+async def compose_draft(
+    body: DraftBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Draft composer text with the lead agent when there is no thread yet.
+
+    Used for a message to a teammate. Nothing is sent or stored.
+    """
+    from app.services.chat_runtime import build_agent_loop
+    from app.services.lead_agent import get_lead_agent
+    from app.services.suggestion_format import split_suggestion
+
+    extra = (body.instruction or "").strip()
+    if not extra:
+        raise HTTPException(status_code=400, detail="An instruction is required")
+    agent = await get_lead_agent(session, auth.tenant.id)
+    if agent is None:
+        raise HTTPException(status_code=409, detail="No active agent for this workspace")
+    loop = build_agent_loop(
+        session,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+        agent=agent,
+        signal_id=None,
+        trust="operator",
+        user_role=auth.role,
+        surface="compose_draft",
+    )
+    loop.tools = []
+    draft_text, tokens = await loop.run_chat([{"role": "user", "content": extra}])
+    cleaned = split_suggestion(draft_text or "").body
+    return {"draft": cleaned or (draft_text or "").strip(), "usage": tokens}
 
 
 class NotePatchBody(BaseModel):
@@ -628,8 +815,10 @@ async def list_signal_threads(
 ):
     """List conversations.
 
-    ``view``: ``for_you`` (yours: owned, your turn, your team's turn, mentions),
-    ``all_open``, ``unassigned`` (team-owned, not picked up), ``closed``,
+    ``view``: ``for_you`` (assigned to you, a question or draft addressed to you,
+    or an unread mention), ``for_you_closed`` (the same, closed),
+    ``all_open``, ``unassigned`` (team-owned, not picked up), ``unassigned_closed``,
+    ``closed``,
     ``scheduled`` (threads with a date, soonest first), ``spam``, ``all``.
     ``team_id`` narrows to one team's work. ``activity`` keeps threads whose last
     message falls in ``today`` / ``7d`` / ``30d`` / ``90d``. ``scheduled_from`` /
@@ -699,6 +888,14 @@ async def get_signal(
     )
     if not detail:
         raise HTTPException(status_code=404, detail="Signal not found")
+    from app.services.pass_stick import mark_member_read
+
+    await mark_member_read(session, auth.tenant.id, signal_id, auth.user.id)
+    await session.commit()
+    me = str(auth.user.id)
+    for row in detail.get("participants") or []:
+        if isinstance(row, dict) and row.get("kind") == "user" and str(row.get("ref_id") or "") == me:
+            row["unread_count"] = 0
     return detail
 
 

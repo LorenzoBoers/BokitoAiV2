@@ -64,7 +64,15 @@ def plan_turn_messages(
     bubbles: list[dict[str, Any]] = []
     carry: list[dict[str, Any]] = []
     for seg in segments:
-        parts = split_chat_messages(seg.get("text") or "", max_messages=0)
+        activity_rows = [*(seg.get("activity") or []), *(seg.get("activity_after") or [])]
+        echoed: list[str] = []
+        for row in activity_rows:
+            if not isinstance(row, dict) or row.get("tool") != "generate_image":
+                continue
+            echoed.extend(str(url) for url in (row.get("image_urls") or []) if url)
+            echoed.extend(_generated_image_urls(row.get("result")))
+        spoken = strip_generated_image_echo(seg.get("text") or "", echoed)
+        parts = split_chat_messages(spoken, max_messages=0)
         before = [*carry, *(seg.get("activity") or [])]
         carry = []
         if not parts:
@@ -173,14 +181,67 @@ _DETAIL_KEYS = ("input", "result", "text")
 NOTE_TEXT_MAX = 280
 
 
+_MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]+\)")
+
+
+def strip_generated_image_echo(text: str, urls: list[str]) -> str:
+    """The frame already shows the file. Drop a second copy the model pasted.
+
+    Any generated URL means this bubble's pictures belong to the frames, so a
+    markdown image is removed even when the model rewrote the address.
+    """
+    cleaned = text or ""
+    known = [url for url in urls if url]
+    for url in known:
+        escaped = re.escape(url)
+        cleaned = re.sub(rf"!\[[^\]]*\]\({escaped}\)", "", cleaned)
+        cleaned = re.sub(rf"\[[^\]]*\]\({escaped}\)", "", cleaned)
+        cleaned = cleaned.replace(url, "")
+    if known:
+        cleaned = _MARKDOWN_IMAGE.sub("", cleaned)
+    cleaned = re.sub(r"[ \t]+\n", "\n", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def _generated_image_urls(result: Any) -> list[str]:
+    """Short URLs the chat frame needs. The rest of the tool payload stays off the stream."""
+    if not isinstance(result, dict):
+        return []
+    urls: list[str] = []
+    images = result.get("images")
+    if isinstance(images, list):
+        for row in images:
+            if isinstance(row, str) and row.strip():
+                urls.append(row.strip()[:800])
+    if not urls:
+        for row in result.get("items") or []:
+            if not isinstance(row, dict):
+                continue
+            url = str(row.get("image_url") or row.get("url") or "").strip()
+            if url:
+                urls.append(url[:800])
+    return urls[:4]
+
+
 def slim_activity_item(item: dict[str, Any]) -> dict[str, Any]:
     """List/stream shape: no tool payloads or thinking text. A note keeps its
-    (short) text: it is the label operators read."""
+    (short) text: it is the label operators read. Image generation keeps the
+    file URL so the frame can replace its placeholder without a second fetch."""
     out = {k: v for k, v in item.items() if k not in _DETAIL_KEYS}
     if item.get("kind") == "think":
         out["has_text"] = bool(str(item.get("text") or "").strip())
     if item.get("label") == "note" and item.get("text"):
         out["text"] = str(item["text"])[:NOTE_TEXT_MAX]
+    if item.get("tool") == "generate_image":
+        urls = _generated_image_urls(item.get("result"))
+        if urls:
+            out["image_urls"] = urls
+    from app.services.agent.turn_surface import present_activity
+
+    for key, value in present_activity(item).items():
+        if value is not None:
+            out[key] = value
     return out
 
 
@@ -244,7 +305,16 @@ def message_activity(meta: dict[str, Any], *, detail: bool) -> dict[str, Any]:
     activity = meta.get("activity")
     if not isinstance(activity, list) and not isinstance(meta.get("activity_after"), list):
         activity = _legacy_activity(meta)
-    return {"activity": shape(activity), "activity_after": shape(meta.get("activity_after"))}
+    shown = shape(activity)
+    shown_after = shape(meta.get("activity_after"))
+    from app.services.agent.turn_surface import history_view
+
+    public = [slim_activity_item(i) for i in [*shown, *shown_after] if isinstance(i, dict)]
+    return {
+        "activity": shown,
+        "activity_after": shown_after,
+        "history": history_view(public),
+    }
 
 
 async def touch_agent_activity(session: AsyncSession, agent_id: UUID | None) -> None:
@@ -449,62 +519,334 @@ def _merge_items(*groups: list[Any] | None) -> list[dict[str, Any]]:
     return out
 
 
-def _items_from_attach_activity(messages: list[SignalMessage]) -> list[dict[str, Any]]:
-    """Rebuild showcase rows from tool activity when the in-memory stash is empty.
+_CHOICE_WORD = re.compile(
+    r"\b(welke|which|kies|pick one|what kind|wat voor)\b",
+    re.IGNORECASE,
+)
+_OPTION_LINE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+(.+?)\s*$")
+_CATALOG_LEAD = re.compile(
+    r"^\s*(de beschikbare|the available|hier zijn|here are)\b.*:?\s*$",
+    re.IGNORECASE,
+)
+_RAISES_DECISION = frozenset({"propose_action", "create_decision_request"})
 
-    ``list_folders`` / ``list_agents`` / ``attach_items`` (and similar) stash
-    cards under ``result.items`` — harvest any of those, not only attach_items.
+
+def _is_choice_question(text: str) -> bool:
+    body = text or ""
+    return "?" in body and _CHOICE_WORD.search(body) is not None
+
+
+def _activity_rows(blob: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for key in ("activity", "activity_after"):
+        for entry in blob.get(key) or []:
+            if isinstance(entry, dict):
+                rows.append(entry)
+    return rows
+
+
+def _result_dict(entry: dict[str, Any]) -> dict[str, Any]:
+    result = entry.get("result")
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            return {}
+    return result if isinstance(result, dict) else {}
+
+
+def _items_in_entry(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in _result_dict(entry).get("items") or []
+        if isinstance(row, dict) and row.get("type")
+    ]
+
+
+def tags_from_bubbles(bubbles: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Tag rows kept on ``list_tags`` activity (id, name, kind)."""
+    found: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for bubble in bubbles:
+        for entry in _activity_rows(bubble):
+            if entry.get("tool") != "list_tags":
+                continue
+            for row in _result_dict(entry).get("tags") or []:
+                if not isinstance(row, dict):
+                    continue
+                name = str(row.get("name") or "").strip()
+                tag_id = str(row.get("id") or "").strip()
+                if not name or not tag_id or tag_id in seen:
+                    continue
+                seen.add(tag_id)
+                found.append(
+                    {"id": tag_id, "name": name, "kind": str(row.get("kind") or "")}
+                )
+    return found
+
+
+def turn_has_decision(bubbles: list[dict[str, Any]]) -> bool:
+    for bubble in bubbles:
+        meta = {
+            "activity": bubble.get("activity") or [],
+            "activity_after": bubble.get("activity_after") or [],
+        }
+        if decision_ids_in_activity(meta):
+            return True
+        for entry in _activity_rows(bubble):
+            if entry.get("tool") in _RAISES_DECISION:
+                return True
+    return False
+
+
+def _bullet_labels(text: str) -> list[str]:
+    labels: list[str] = []
+    for line in (text or "").splitlines():
+        match = _OPTION_LINE.match(line)
+        if not match:
+            continue
+        raw = re.sub(r"\s*\([^)]*\)\s*$", "", match.group(1)).strip().lstrip("#").strip()
+        if raw:
+            labels.append(raw)
+    return labels
+
+
+def choice_options_from_tags(speech: str, tags: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Options for a choice the model asked in prose after ``list_tags``."""
+    if not tags or not _is_choice_question(speech):
+        return []
+    by_name = {str(tag["name"]).lower(): tag for tag in tags}
+    picked: list[dict[str, Any]] = []
+    for label in _bullet_labels(speech):
+        key = label.lower()
+        tag = by_name.get(key)
+        if tag is None:
+            head = key.split()[0] if key.split() else ""
+            tag = by_name.get(head)
+        if tag is not None and tag not in picked:
+            picked.append(tag)
+    if len(picked) >= 2:
+        return picked
+    named = [
+        tag
+        for tag in tags
+        if re.search(rf"(?<![\w]){re.escape(str(tag['name']))}(?![\w])", speech, flags=re.IGNORECASE)
+    ]
+    if len(named) >= 2:
+        return named
+    action = [tag for tag in tags if tag.get("kind") == "action_tag"]
+    if len(action) >= 2 and re.search(r"categor|ticket|tag|label", speech, flags=re.IGNORECASE):
+        return action[:8]
+    return []
+
+
+def choice_question_text(speech: str) -> str:
+    lines = [line.strip() for line in (speech or "").splitlines() if line.strip() and "?" in line]
+    if lines:
+        return lines[-1][:400]
+    return (speech or "").strip()[:400]
+
+
+def strip_option_catalog(text: str) -> str:
+    """Drop a bullet catalog once those choices are decision buttons."""
+    kept: list[str] = []
+    for line in (text or "").splitlines():
+        if _OPTION_LINE.match(line) or _CATALOG_LEAD.match(line):
+            continue
+        kept.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+
+
+def prepare_choice_repair(
+    bubbles: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """When a turn asks which tag and never calls propose_action, plan the buttons.
+
+    Returns the bubbles with the catalog lines removed, plus the tag options.
     """
-    out: list[dict[str, Any]] = []
-    for msg in messages:
-        meta = _json_meta(msg)
-        for key in ("activity", "activity_after"):
-            for entry in meta.get(key) or []:
-                if not isinstance(entry, dict):
+    if not bubbles or turn_has_decision(bubbles):
+        return bubbles, []
+    speech = "\n".join(str(bubble.get("text") or "") for bubble in bubbles)
+    options = choice_options_from_tags(speech, tags_from_bubbles(bubbles))
+    if len(options) < 2:
+        return bubbles, []
+    cleaned: list[dict[str, Any]] = []
+    carry_activity: list[Any] = []
+    carry_after: list[Any] = []
+    for bubble in bubbles:
+        text = strip_option_catalog(str(bubble.get("text") or ""))
+        activity = [*carry_activity, *(bubble.get("activity") or [])]
+        after = [*carry_after, *(bubble.get("activity_after") or [])]
+        carry_activity, carry_after = [], []
+        if not text:
+            # A catalog-only bubble would render blank. Keep its tools on the next line.
+            carry_activity = activity
+            carry_after = after
+            continue
+        cleaned.append({**bubble, "text": text, "activity": activity, "activity_after": after})
+    if carry_activity or carry_after:
+        if not cleaned:
+            return bubbles, []
+        cleaned[-1]["activity_after"] = [
+            *(cleaned[-1].get("activity_after") or []),
+            *carry_activity,
+            *carry_after,
+        ]
+    return cleaned, options
+
+
+def assign_bubble_showcases(
+    bubbles: list[dict[str, Any]],
+    pending: list[dict[str, Any]] | None = None,
+    extra: list[dict[str, Any]] | None = None,
+) -> list[list[dict[str, Any]]]:
+    """Put each showcase on the bubble whose tool produced it.
+
+    Contact cards stay off a choice question. They stay on the bubble that
+    looked the contact up when that bubble is not the question.
+    """
+    from app.services.proposal_items import MAX_ITEMS
+
+    pool: dict[tuple[Any, str], dict[str, Any]] = {}
+    order: list[tuple[Any, str]] = []
+
+    def remember(item: dict[str, Any]) -> None:
+        if not item.get("type") or not item.get("id"):
+            return
+        key = (item.get("type"), str(item.get("id")))
+        if key in pool:
+            return
+        pool[key] = item
+        order.append(key)
+
+    for item in pending or []:
+        if isinstance(item, dict):
+            remember(item)
+
+    assigned: set[tuple[Any, str]] = set()
+    out: list[list[dict[str, Any]]] = [[] for _ in bubbles]
+    for index, bubble in enumerate(bubbles):
+        choice = _is_choice_question(str(bubble.get("text") or ""))
+        for entry in _activity_rows(bubble):
+            for item in _items_in_entry(entry):
+                key = (item.get("type"), str(item.get("id") or ""))
+                if not item.get("id") or key in assigned:
                     continue
-                result = entry.get("result")
-                if isinstance(result, str):
-                    try:
-                        result = json.loads(result)
-                    except json.JSONDecodeError:
-                        continue
-                if not isinstance(result, dict):
+                rich = pool.get(key, item)
+                assigned.add(key)
+                if rich.get("type") == "contact" and choice:
                     continue
-                for row in result.get("items") or []:
-                    if isinstance(row, dict) and row.get("type"):
-                        out.append(row)
-    return out
+                out[index].append(rich)
+                if len(out[index]) >= MAX_ITEMS:
+                    break
+    target = len(bubbles) - 1
+    for index, bubble in enumerate(bubbles):
+        if not _is_choice_question(str(bubble.get("text") or "")):
+            target = index
+    if bubbles and target >= 0:
+        choice = _is_choice_question(str(bubbles[target].get("text") or ""))
+        for key in order:
+            if key in assigned:
+                continue
+            item = pool[key]
+            if item.get("type") == "contact" and choice:
+                continue
+            out[target].append(item)
+        for item in extra or []:
+            if isinstance(item, dict) and item.get("type"):
+                key = (item.get("type"), str(item.get("id") or ""))
+                if key in assigned or (item.get("type") == "contact" and choice):
+                    continue
+                assigned.add(key)
+                out[target].append(item)
+    return [group[:MAX_ITEMS] for group in out]
+
+
+async def _raise_tag_choice(
+    session: AsyncSession,
+    signal: Signal,
+    bubble: SignalMessage,
+    tags: list[dict[str, Any]],
+    *,
+    author_agent_id: UUID | None,
+    turn_id: str | None,
+) -> None:
+    """Soft decision for a category question the model asked without propose_action."""
+    from app.services.signal_decisions import create_decision
+
+    question = choice_question_text(bubble.body_text or "")
+    if not question:
+        return
+    options = [{"id": str(tag["id"]), "label": str(tag["name"])} for tag in tags if tag.get("id")]
+    if len(options) < 2:
+        return
+    decision, _ = await create_decision(
+        session,
+        signal.tenant_id,
+        title=question[:200],
+        question=question,
+        options=options,
+        agent_id=author_agent_id,
+        signal_id=signal.id,
+        source_type="agent",
+        source_id=str(author_agent_id) if author_agent_id else None,
+        selection="single",
+        bundle_id=turn_id or "",
+        reveal=False,
+    )
+    meta = _json_meta(bubble)
+    activity = list(meta.get("activity") or [])
+    activity.append(
+        {
+            "id": f"choice-{decision.id}",
+            "kind": "other",
+            "label": "decision",
+            "tool": "propose_action",
+            "status": "ok",
+            "result": {"decision_request_id": str(decision.id)},
+        }
+    )
+    meta["activity"] = activity
+    bubble.metadata_json = json.dumps(meta, default=str)
 
 
 def _attach_showcase_items(
     signal_id: Any,
-    last_bubble: SignalMessage,
+    messages: list[SignalMessage],
     *,
     extra_items: list[dict[str, Any]] | None = None,
-    turn_messages: list[SignalMessage] | None = None,
 ) -> None:
-    """Write pending attach_items (and proposal items) onto the last bubble."""
-    from app.services.proposal_items import infer_marketplace_items_from_text, take_attach_items
+    """Write showcases onto the bubble that produced them, not the last one."""
+    from app.services.proposal_items import take_attach_items
 
-    bubble_meta = _json_meta(last_bubble)
-    proposal = bubble_meta.get("proposal") if isinstance(bubble_meta.get("proposal"), dict) else {}
-
-    pending = take_attach_items(signal_id)
-    from_activity = _items_from_attach_activity(turn_messages or [last_bubble])
-    proposal_items = proposal.get("items") if isinstance(proposal.get("items"), list) else []
-    existing = bubble_meta.get("items") if isinstance(bubble_meta.get("items"), list) else []
-    speech = "\n".join((m.body_text or "") for m in (turn_messages or [last_bubble]))
-    inferred = infer_marketplace_items_from_text(speech)
-    items = _merge_items(existing, pending, extra_items, from_activity, proposal_items, inferred)
-    if not items:
+    if not messages:
         return
-    bubble_meta["items"] = items
-    if proposal:
-        # Items live once on the bubble; keep decision_id / question / selection.
-        proposal = {k: v for k, v in proposal.items() if k != "items"}
-        proposal["items"] = items
-        bubble_meta["proposal"] = proposal
-    last_bubble.metadata_json = json.dumps(bubble_meta, default=str)
+    pending = take_attach_items(signal_id)
+    blobs: list[dict[str, Any]] = []
+    metas: list[dict[str, Any]] = []
+    for message in messages:
+        meta = _json_meta(message)
+        metas.append(meta)
+        blobs.append(
+            {
+                "text": message.body_text or "",
+                "activity": meta.get("activity") or [],
+                "activity_after": meta.get("activity_after") or [],
+            }
+        )
+    groups = assign_bubble_showcases(blobs, pending, extra_items)
+    for message, meta, items in zip(messages, metas, groups):
+        existing = meta.get("items") if isinstance(meta.get("items"), list) else []
+        merged = _merge_items(existing, items)
+        if not merged:
+            continue
+        meta["items"] = merged
+        proposal = meta.get("proposal") if isinstance(meta.get("proposal"), dict) else None
+        if proposal is not None:
+            proposal = {k: v for k, v in proposal.items() if k != "items"}
+            proposal["items"] = merged
+            meta["proposal"] = proposal
+        message.metadata_json = json.dumps(meta, default=str)
 
 
 _CHOICE_ECHO = re.compile(
@@ -790,6 +1132,9 @@ async def persist_agent_turn(
     from app.services.agent.style import strip_emoji
 
     planned = plan_turn_messages(segments, reply_mode, fallback_text=fallback_text)
+    choice_options: list[dict[str, Any]] = []
+    if is_internal_channel(signal.channel or ""):
+        planned, choice_options = prepare_choice_repair(planned)
     if append_to_last:
         planned[-1]["text"] = f"{planned[-1]['text']}{append_to_last}"
     messages: list[SignalMessage] = []
@@ -849,14 +1194,22 @@ async def persist_agent_turn(
             if (msg.received_at or msg.created_at) <= prev_t:
                 msg.received_at = prev_t + timedelta(milliseconds=20)
         messages.append(msg)
+    if choice_options and messages:
+        await _raise_tag_choice(
+            session,
+            signal,
+            messages[-1],
+            choice_options,
+            author_agent_id=author_agent_id,
+            turn_id=turn_id,
+        )
     await place_turn_decisions(session, signal, messages)
     # Attach after place_turn_decisions so decision cards can also contribute items.
     if messages:
         _attach_showcase_items(
             signal.id,
-            messages[-1],
+            messages,
             extra_items=showcase_items,
-            turn_messages=messages,
         )
     await touch_agent_activity(session, author_agent_id)
     return messages

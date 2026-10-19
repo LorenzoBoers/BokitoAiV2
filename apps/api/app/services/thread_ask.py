@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import User
+from app.models.agent import Agent
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, is_internal_channel
 
@@ -134,7 +135,6 @@ async def prepare_ask(
     from fastapi import HTTPException
 
     from app.services.agent_sessions import resolve_session_agent, start_session
-    from app.services.participant_turns import request_participant_turn
 
     signal = (
         await session.execute(
@@ -156,18 +156,22 @@ async def prepare_ask(
     talks_direct = is_internal_channel(signal.channel) or (signal.channel or "") == "internal"
     addressed = list(dict.fromkeys(addressed_agent_ids or []))
     if talks_direct and agent_id is not None and len(addressed) < 2:
-        # Floor chip only. run=true stacked a second worker turn beside the stream.
-        await request_participant_turn(
-            session,
-            signal,
-            member_kind="agent",
-            member_ref_id=agent_id,
-            prompt=plain[:2000],
-            requested_by_kind="user",
-            requested_by_id=user.id,
-            run=False,
-        )
-        await session.commit()
+        from app.services.archived_agents import agent_is_live, retarget_archived_handler
+
+        await retarget_archived_handler(session, signal)
+        target = await session.get(Agent, agent_id)
+        if not agent_is_live(target):
+            agent_id = signal.agent_id
+        if agent_id is None:
+            return {
+                "kind": "stream",
+                "session_id": str(signal.id),
+                "agent_id": None,
+                "talks_direct": True,
+            }
+        # The stream is the turn. A run=false floor chip used to stick on
+        # "Thinking" after the stream ended, so the screen reads active_turn
+        # only when a worker actually holds the stick.
         return {
             "kind": "stream",
             "session_id": str(signal.id),

@@ -38,9 +38,11 @@ type Props = {
   onAction: (slug: string, action: LifecycleAction) => Promise<unknown>
   /** Compact buttons for cards; default shows primary + secondary. */
   compact?: boolean
+  /** Marketplace cards keep install and manage. Uninstall stays on the module page. */
+  hideUninstall?: boolean
 }
 
-export function ModuleInstallControls({ module, onAction, compact = false }: Props) {
+export function ModuleInstallControls({ module, onAction, compact = false, hideUninstall = false }: Props) {
   const { t } = useTranslation(['nav', 'common'])
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
@@ -150,6 +152,7 @@ export function ModuleInstallControls({ module, onAction, compact = false }: Pro
         >
           {t('integrations.modules.finishSetup', { defaultValue: 'Finish setup' })}
         </Button>
+        {hideUninstall ? null : (
         <Button
           type="button"
           size="sm"
@@ -159,6 +162,7 @@ export function ModuleInstallControls({ module, onAction, compact = false }: Pro
         >
           {t('integrations.modules.uninstall', { defaultValue: 'Uninstall' })}
         </Button>
+        )}
         <UninstallDialog
           open={uninstallStep > 0}
           step={uninstallStep}
@@ -172,9 +176,11 @@ export function ModuleInstallControls({ module, onAction, compact = false }: Pro
     )
   }
 
+  if (installed && hideUninstall) return null
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {installed ? (
+      {installed && !hideUninstall ? (
         <Button
           type="button"
           size="sm"

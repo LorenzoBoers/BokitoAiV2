@@ -4,7 +4,6 @@ import pytest
 from sqlalchemy import select
 
 from app.models.auth import Tenant
-from app.models.module_install import ModuleInstall
 from app.models.orchestra import Workstream
 from app.models.team import Department, is_root_department
 from app.models.workspace import WorkspaceDoc
@@ -14,6 +13,7 @@ from app.services.module_department import (
     doc_in_agent_scope,
     require_one_scope,
 )
+from app.services.module_origin import get_module_department, module_is_installed
 
 
 def test_scope_rules():
@@ -56,15 +56,14 @@ async def test_install_binds_accounting_department(client, session_override):
     del client
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     tenant_id = tenant.id
-    session_override.add(
-        ModuleInstall(tenant_id=tenant_id, module_slug="accounting", install_state="setup")
-    )
-    await session_override.commit()
 
     department = await bind_module_department(session_override, tenant_id, "accounting")
+    department_id = department.id
     assert department.name == "Accounting"
     assert department.parent_id is not None
     assert not is_root_department(department)
+    assert department.origin_module_slug == "accounting"
+    assert await module_is_installed(session_override, tenant_id, "accounting")
 
     skill = (
         await session_override.execute(
@@ -91,17 +90,25 @@ async def test_install_binds_accounting_department(client, session_override):
     }
     assert all(row.department_id == department.id for row in flows)
 
-    department_id = department.id
+    # Create-once: second bind must not overwrite skill content.
+    skill.content = "operator edited"
+    session_override.add(skill)
+    await session_override.commit()
+    await bind_module_department(session_override, tenant_id, "accounting")
+    session_override.expire_all()
+    skill_again = (
+        await session_override.execute(
+            select(WorkspaceDoc).where(
+                WorkspaceDoc.tenant_id == tenant_id,
+                WorkspaceDoc.path == "modules/accounting/skill.md",
+            )
+        )
+    ).scalar_one()
+    assert skill_again.content == "operator edited"
+
     await archive_module_department(session_override, tenant_id, "accounting")
     session_override.expire_all()
     trashed = await session_override.get(Department, department_id)
     assert trashed is not None and trashed.deleted_at is not None
-    install = (
-        await session_override.execute(
-            select(ModuleInstall).where(
-                ModuleInstall.tenant_id == tenant_id,
-                ModuleInstall.module_slug == "accounting",
-            )
-        )
-    ).scalar_one()
-    assert install.department_id is None
+    assert await get_module_department(session_override, tenant_id, "accounting") is None
+    assert not await module_is_installed(session_override, tenant_id, "accounting")

@@ -24,6 +24,8 @@ import { formatAppDate } from '../lib/app-locale'
 import { inviteMailFeedback } from '../lib/invite-feedback'
 import { isLikelyEmail } from '../lib/invite-email'
 import { Button } from '../components/ui/button'
+import { EmptyState } from '../components/ui/empty-state'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
 import { Badge, type BadgeTone } from '../components/ui/badge'
@@ -681,7 +683,7 @@ export default function MemberManagement({
             <p className="text-sm font-medium text-text-heading">{t('membersPage.hireAgentsTitle')}</p>
             <p className="mt-0.5 text-xs text-text-muted">{t('membersPage.hireAgentsBody')}</p>
           </div>
-          <Button asChild variant="ai" className="shrink-0">
+          <Button asChild variant="default" className="shrink-0">
             <Link to={connectionsPathWithKind('modules')}>
               <Store size={14} />
               {t('membersPage.hireAgentsCta')}
@@ -734,48 +736,55 @@ export default function MemberManagement({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={colSpan} className="text-sm text-text-muted">{t('membersPage.loading')}</TableCell>
+                <TableCell colSpan={colSpan}>
+                  <LoadingBlock variant="inline" label={t('membersPage.loading')} />
+                </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={colSpan}>
-                  <div className="py-6 text-center">
-                    <p className="text-sm text-text-muted">{t('membersPage.empty')}</p>
-                    <p className="mt-1 text-xs text-text-muted">
-                      {search.trim() || filterTab !== 'all'
+                  <EmptyState
+                    tone="plain"
+                    size="sm"
+                    className="px-2 py-4"
+                    title={t('membersPage.empty')}
+                    description={
+                      search.trim() || filterTab !== 'all'
                         ? t('membersPage.emptyFiltered')
                         : canInviteMembers
                           ? t('membersPage.emptyHint')
-                          : t('membersPage.askAdminEmpty')}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                      {search.trim() || filterTab !== 'all' ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSearch('')
-                            setFilterTab('all')
-                          }}
-                          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                          : t('membersPage.askAdminEmpty')
+                    }
+                    action={
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        {search.trim() || filterTab !== 'all' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearch('')
+                              setFilterTab('all')
+                            }}
+                            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                          >
+                            {t('membersPage.clearFilters')}
+                          </button>
+                        ) : canInviteMembers ? (
+                          <a
+                            href="#member-invite"
+                            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                          >
+                            {t('membersPage.inviteFromEmpty')}
+                          </a>
+                        ) : null}
+                        <Link
+                          to="/settings/setup"
+                          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                         >
-                          {t('membersPage.clearFilters')}
-                        </button>
-                      ) : canInviteMembers ? (
-                        <a
-                          href="#member-invite"
-                          className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-                        >
-                          {t('membersPage.inviteFromEmpty')}
-                        </a>
-                      ) : null}
-                      <Link
-                        to="/settings/setup"
-                        className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
-                      >
-                        {t('membersPage.openSetup')}
-                      </Link>
-                    </div>
-                  </div>
+                          {t('membersPage.openSetup')}
+                        </Link>
+                      </div>
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -989,7 +998,11 @@ export default function MemberManagement({
                       </Link>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm font-medium text-ai">{t('membersPage.typeAgent')}</span>
+                      <span className="text-sm text-text-secondary">
+                        {agent.member_type === 'person'
+                          ? t('membersPage.typePerson')
+                          : t('membersPage.typeAiAgent')}
+                      </span>
                     </TableCell>
                     <TableCell>
                       {canManageMembers && !deactivated ? (

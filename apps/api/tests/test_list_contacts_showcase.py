@@ -78,3 +78,62 @@ async def test_get_contact_auto_showcases(client: AsyncClient, session_override)
     pending = take_attach_items(chat.id)
     assert len(pending) == 1
     assert pending[0]["type"] == "contact"
+
+
+@pytest.mark.asyncio
+async def test_get_contact_accepts_unique_display_name(client: AsyncClient, session_override):
+    tenant = await _tenant(session_override)
+    contact = Contact(
+        tenant_id=tenant.id,
+        channel="email",
+        address="no-reply@mistral.ai",
+        display_name="Mistral AI SAS",
+        status="approved",
+    )
+    chat = Signal(tenant_id=tenant.id, channel="assistant", subject="Contact?")
+    session_override.add(contact)
+    session_override.add(chat)
+    await session_override.commit()
+
+    result = await execute_tool(
+        session_override,
+        tenant.id,
+        None,
+        "get_contact",
+        {"contact_id": "Mistral AI SAS"},
+        signal_id=chat.id,
+    )
+    assert "error" not in result, result
+    assert result["id"] == str(contact.id)
+
+
+@pytest.mark.asyncio
+async def test_get_contact_ambiguous_name_returns_matches(client: AsyncClient, session_override):
+    tenant = await _tenant(session_override)
+    for address, name in (
+        ("a@ex.com", "Acme Corp"),
+        ("b@ex.com", "Acme Corp NL"),
+    ):
+        session_override.add(
+            Contact(
+                tenant_id=tenant.id,
+                channel="email",
+                address=address,
+                display_name=name,
+                status="approved",
+            )
+        )
+    chat = Signal(tenant_id=tenant.id, channel="assistant", subject="Which Acme?")
+    session_override.add(chat)
+    await session_override.commit()
+
+    result = await execute_tool(
+        session_override,
+        tenant.id,
+        None,
+        "get_contact",
+        {"contact_id": "Acme"},
+        signal_id=chat.id,
+    )
+    assert result.get("error") == "Multiple contacts match that name"
+    assert len(result.get("matches") or []) >= 2

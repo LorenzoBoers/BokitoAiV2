@@ -31,9 +31,8 @@ class ResourceGrant(SQLModel, table=True):
     connection_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="integration_connections.id", index=True
     )
-    module_install_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="module_installs.id", index=True
-    )
+    # Module resource identity after ModuleInstall drop (catalog slug).
+    module_slug: Optional[str] = Field(default=None, max_length=64, index=True)
     principal_kind: str = Field(max_length=32)
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id", index=True)

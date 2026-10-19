@@ -5,7 +5,6 @@ import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { toast } from 'sonner'
 import {
   Check,
-  Loader2,
   Mail,
   OctagonAlert,
   Phone,
@@ -15,6 +14,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
+import { LoadingBlock } from '../ui/loading-block'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ContactAvatar } from '../ui/ContactAvatar'
@@ -58,8 +58,6 @@ import { inboxPath } from '../../lib/messages-paths'
 import { IdentitySeenLine } from './IdentitySeenLine'
 import { timeAgo } from '../../lib/time-ago'
 import { useMembers } from '../../hooks/useMembers'
-import { useAiHandling } from '../../hooks/useAiHandling'
-import AiHandlingPicker from '../ai/AiHandlingPicker'
 import { threadStatusLabel } from '../../lib/status-labels'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
@@ -218,7 +216,6 @@ export default function ContactPanel({
   // The thread prop catches up through the realtime thread update; until
   // then the panel follows the link result.
   const [linked, setLinked] = useState<{ contactId: string | null; basis: string } | null>(null)
-  const aiHandling = useAiHandling('contact', contact?.id ?? null)
   const effectiveContactId = linked ? linked.contactId : contactId
   const basis = normalizeContactBasis(linked ? linked.basis : contactBasis)
 
@@ -462,9 +459,8 @@ export default function ContactPanel({
   if (loading) {
     return (
       <>
-        <div className="flex items-center gap-2 px-4 py-4 text-sm text-text-muted">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="min-w-0 flex-1">{t('contactPanel.loading')}</span>
+        <div className="flex items-center gap-2 px-4 py-4">
+          <LoadingBlock variant="inline" label={t('contactPanel.loading')} className="min-w-0 flex-1 text-sm" />
           {closeAction}
         </div>
         {children}
@@ -686,19 +682,8 @@ export default function ContactPanel({
           </div>
         ) : null}
 
+        {!anonymous && (contact.owner || (contact.tags?.length ?? 0) > 0 || (contact.companyTags?.length ?? 0) > 0) ? (
         <div className="mt-3 divide-y divide-border/40">
-          <AiHandlingPicker
-            variant="row"
-            scope="contact"
-            handling={aiHandling.handling}
-            canRaise={aiHandling.canRaise}
-            saving={aiHandling.saving}
-            onChange={(mode) => void aiHandling.change(mode)}
-            label={t('aiHandling.title', { ns: 'common' })}
-            testId="contact-ai-handling"
-            triggerAppearance="text"
-            className="py-1.5"
-          />
           {!anonymous && contact.owner ? (
             <SettingRow label={t('contactPanel.owner')} className="py-1.5">
               <ContactOwnerPicker
@@ -738,6 +723,7 @@ export default function ContactPanel({
             </div>
           ) : null}
         </div>
+        ) : null}
 
         {notesDraft.trim() || notesDirty ? (
           <div className="mt-2.5">
@@ -796,27 +782,29 @@ export default function ContactPanel({
           <p className="text-xs text-text-muted">{t('contactPanel.noPrevious')}</p>
         ) : (
           <div className="space-y-1">
-            {previousThreads.slice(0, 5).map((thread) => (
+            {previousThreads.slice(0, 5).map((thread) => {
+              const status = threadStatusLabel(thread.status, t)
+              const when = thread.lastMessageAt ? timeAgo(thread.lastMessageAt, t) : ''
+              const detail = [status, when, thread.hasOpenProposal ? t('contactPanel.openProposalShort') : '']
+                .filter(Boolean)
+                .join(' - ')
+              return (
               <Link
                 key={thread.id}
                 to={inboxPath('open', thread.id)}
-                className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 transition-colors hover:bg-bg-hover/70"
+                title={detail}
+                className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-bg-hover/70"
                 data-testid="contact-other-conversation"
               >
-                <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
+                <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={status} />
                 <ChannelGlyph channel={thread.channel} size={13} className="shrink-0 text-text-muted" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate-fade text-xs font-medium text-text-primary">
-                    {thread.subject || t('contactPanel.noSubject')}
-                  </span>
-                  <span className="block truncate-fade text-2xs text-text-muted">
-                    {threadStatusLabel(thread.status, t)}
-                    {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
-                    {thread.hasOpenProposal ? ` - ${t('contactPanel.openProposalShort')}` : ''}
-                  </span>
+                <span className="min-w-0 flex-1 truncate-fade text-xs text-text-primary">
+                  {thread.subject || t('contactPanel.noSubject')}
                 </span>
+                {when ? <span className="shrink-0 text-2xs text-text-muted">{when}</span> : null}
               </Link>
-            ))}
+              )
+            })}
             {previousThreads.length > 5 && contactId && namedHeadline ? (
               <Link
                 to={`/contacts/${contactId}#conversations`}

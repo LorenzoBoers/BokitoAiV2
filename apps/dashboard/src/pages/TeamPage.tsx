@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -142,11 +143,7 @@ export default function TeamPage() {
         guide="team"
         title={t('tabs.team.title')}
         subtitle={t('tabs.team.subtitle')}
-        meta={
-          <Button size="sm" variant="outline" asChild>
-            <Link to="/grid">{t('orgCanvas.link')}</Link>
-          </Button>
-        }
+        meta={<OpenInGridButton />}
       />
 
       <MemberManagement
@@ -174,77 +171,78 @@ export default function TeamPage() {
             const stack = overview ? resolveTeamMembers(team, overview) : []
             return (
               <Card key={team.id} className="px-4 py-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                    {/* Team mark = member facepile (not a separate icon/illustration). */}
+                {/* Fixed facepile column so names line up regardless of avatar count. */}
+                <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto]">
+                  <div className="flex h-8 w-[5.75rem] shrink-0 items-center justify-center">
                     {stack.length > 0 ? (
-                      <AvatarStack members={stack} size={32} className="mt-0.5 shrink-0" />
+                      <AvatarStack members={stack} size={32} linkAgents={false} />
                     ) : (
                       <TeamFacepile
                         team={team}
                         size={32}
                         linkAgents={false}
                         presence={team.presence?.status}
-                        className="mt-0.5"
                       />
                     )}
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-text-heading">
-                        {team.system ? (
-                          <span className="truncate-fade">{teamNames[team.id]}</span>
-                        ) : (
-                          <Link
-                            to={openEntityPath({ type: 'team', id: team.id })}
-                            className="truncate-fade hover:text-accent hover:underline"
-                            title={t('teamPage.openFolder', { name: teamNames[team.id] })}
-                            data-testid="team-folder-link"
-                          >
-                            {teamNames[team.id]}
-                          </Link>
-                        )}
-                        {team.system ? <Badge variant="secondary">{t('teamPage.systemBadge')}</Badge> : null}
-                      </p>
-                      <p className="truncate-fade text-xs text-text-muted">
-                        {team.system
-                          ? t('teamPage.systemHint.all')
-                          : team.description || t('teamPage.noDescription')}
-                      </p>
-                      <p className="text-xs text-text-secondary">
-                        {team.system ? null : (
-                          <>
-                            {t(`teamPage.pickup.${team.pickup}`)}
-                            <span className="text-text-muted">{' · '}</span>
-                          </>
-                        )}
-                        <span className="text-text-muted" data-testid="team-metrics">
-                          {t('teamPage.metrics', {
-                            questions: team.metrics.questions,
-                            answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
-                            pickedUp: team.metrics.picked_up,
-                          })}
-                        </span>
-                        {stack.length === 0 ? (
-                          <>
-                            <span className="text-text-muted">{' · '}</span>
-                            {t('teamPage.memberCount', { count: team.member_count })}
-                          </>
-                        ) : null}
-                      </p>
-                    </div>
                   </div>
-                  {team.system ? null : (
-                    <Button size="sm" variant="ghost" className="shrink-0" asChild>
-                      <Link to={openEntityPath({ type: 'team', id: team.id })}>
-                        <ConversationIcon size={13} aria-hidden />
-                        {t('teamPage.openConversations')}
-                      </Link>
-                    </Button>
-                  )}
-                  {canManage && !team.system ? (
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
-                      {t('teamPage.edit')}
-                    </Button>
-                  ) : null}
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-text-heading">
+                      {team.system ? (
+                        <span className="truncate-fade">{teamNames[team.id]}</span>
+                      ) : (
+                        <Link
+                          to={openEntityPath({ type: 'team', id: team.id })}
+                          className="truncate-fade hover:text-accent hover:underline"
+                          title={t('teamPage.openFolder', { name: teamNames[team.id] })}
+                          data-testid="team-folder-link"
+                        >
+                          {teamNames[team.id]}
+                        </Link>
+                      )}
+                      {team.system ? <Badge variant="secondary">{t('teamPage.systemBadge')}</Badge> : null}
+                    </p>
+                    <p className="truncate-fade text-xs text-text-muted">
+                      {team.system
+                        ? t('teamPage.systemHint.all')
+                        : team.description || t('teamPage.noDescription')}
+                    </p>
+                    <p className="truncate-fade text-xs text-text-secondary">
+                      {team.system ? null : (
+                        <>
+                          {t(`teamPage.pickup.${team.pickup}`)}
+                          <span className="text-text-muted">{' · '}</span>
+                        </>
+                      )}
+                      <span className="text-text-muted" data-testid="team-metrics">
+                        {t('teamPage.metrics', {
+                          questions: team.metrics.questions,
+                          answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
+                          pickedUp: team.metrics.picked_up,
+                        })}
+                      </span>
+                      {stack.length === 0 ? (
+                        <>
+                          <span className="text-text-muted">{' · '}</span>
+                          {t('teamPage.memberCount', { count: team.member_count })}
+                        </>
+                      ) : null}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    {team.system ? null : (
+                      <Button size="sm" variant="ghost" className="shrink-0" asChild>
+                        <Link to={openEntityPath({ type: 'team', id: team.id })}>
+                          <ConversationIcon size={13} aria-hidden />
+                          {t('teamPage.openConversations')}
+                        </Link>
+                      </Button>
+                    )}
+                    {canManage && !team.system ? (
+                      <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
+                        {t('teamPage.edit')}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               </Card>
             )

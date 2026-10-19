@@ -48,38 +48,23 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: t('tabs.home'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
+          title: t('home.title'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="create-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="inbox"
+        name="conversations"
         options={{
           title: t('tabs.messages'),
-          tabBarBadge: badge(badges?.inbox_unread),
-          tabBarIcon: ({ color, size }) => <Ionicons name="mail-outline" size={size} color={color} />,
+          tabBarBadge: badge(badges?.inbox_by_queue.for_you_unread),
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="assistant"
-        options={{
-          title: t('tabs.assistant'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="decisions"
-        options={{
-          title: t('tabs.decisions'),
-          tabBarBadge: badge(badges?.agents_attention),
-          tabBarIcon: ({ color, size }) => <Ionicons name="checkmark-circle-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
+        name="account"
         options={{
           title: t('tabs.settings'),
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
     </Tabs>

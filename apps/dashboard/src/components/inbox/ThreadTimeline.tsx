@@ -245,7 +245,7 @@ export function buildTimelineRows(
       .map((m) => ({
       kind: 'message' as const,
       time: m.receivedAt ?? m.createdAt,
-      id: `m-${m.id}`,
+      id: `m-${m.listKey || m.id}`,
       data: m,
     })),
     ...events
@@ -390,6 +390,14 @@ function isSkippableLandingMessage(message: InboxMessage): boolean {
   )
 }
 
+/** Fresh sends animate once. Older rows stay still when Virtuoso recycles them. */
+const BUBBLE_ENTER_MS = 900
+
+function bubbleEnterFresh(message: InboxMessage): boolean {
+  const at = Date.parse(message.createdAt || message.receivedAt || '')
+  return Number.isFinite(at) && Date.now() - at < BUBBLE_ENTER_MS
+}
+
 function isMailDocument(message: InboxMessage): boolean {
   return message.direction !== 'internal' && !isSkippableLandingMessage(message)
 }
@@ -489,6 +497,7 @@ type Props = {
   contactName?: string
   contactEmail?: string
   contactPhone?: string
+  contactId?: string | null
   agentName?: string | null
   agentId?: string | null
   /** Bound mailbox for signature preview on decision cards. */
@@ -597,6 +606,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     contactName,
     contactEmail,
     contactPhone,
+    contactId,
     agentName,
     agentId,
     channelAccountId = null,
@@ -639,6 +649,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const scrollerNode = useRef<HTMLDivElement | null>(null)
   const bottomTimersRef = useRef<number[]>([])
   const flushRafRef = useRef(0)
+  /** Ease toward the latest pixel. One loop; each frame reads the live height. */
+  const followRafRef = useRef(0)
+  const pinFrameRef = useRef(0)
   /** True after the operator scrolls away from the latest row. */
   const readingHistoryRef = useRef(false)
   const atBottomRef = useRef(true)
@@ -691,6 +704,14 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       window.cancelAnimationFrame(flushRafRef.current)
       flushRafRef.current = 0
     }
+    if (followRafRef.current) {
+      window.cancelAnimationFrame(followRafRef.current)
+      followRafRef.current = 0
+    }
+    if (pinFrameRef.current) {
+      window.cancelAnimationFrame(pinFrameRef.current)
+      pinFrameRef.current = 0
+    }
     for (const id of bottomTimersRef.current) window.clearTimeout(id)
     bottomTimersRef.current = []
   }, [])
@@ -716,16 +737,54 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     if (readingHistoryRef.current) return
     const el = scrollerNode.current
     if (!el) return
-    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
+    const dest = Math.max(0, el.scrollHeight - el.clientHeight)
+    const delta = dest - el.scrollTop
+    // Already on the last pixel, or past it. Writing scrollTop here makes
+    // Virtuoso correct the other way, and the next follow pulls back.
+    if (delta < 1) return
+    el.scrollTop = dest
   }, [])
 
-  /** Quiet pin: only the scroller, no Virtuoso index or settle loop. */
+  /**
+   * Glide downward to the latest pixel. Never pulls upward: that correction
+   * and Virtuoso's item measure bounce the thread until the operator scrolls.
+   */
+  const glideScrollerToEnd = useCallback(() => {
+    if (readingHistoryRef.current) return
+    if (followRafRef.current) return
+    let frames = 0
+    const tick = () => {
+      frames += 1
+      if (readingHistoryRef.current || frames > 24) {
+        followRafRef.current = 0
+        return
+      }
+      const el = scrollerNode.current
+      if (!el) {
+        followRafRef.current = 0
+        return
+      }
+      const dest = Math.max(0, el.scrollHeight - el.clientHeight)
+      const delta = dest - el.scrollTop
+      if (delta < 1) {
+        followRafRef.current = 0
+        return
+      }
+      el.scrollTop += Math.max(1, delta * 0.35)
+      followRafRef.current = window.requestAnimationFrame(tick)
+    }
+    followRafRef.current = window.requestAnimationFrame(tick)
+  }, [])
+
+  /** One follow per frame. A write that does not move is skipped. */
   const pinScrollerToEnd = useCallback(() => {
     if (readingHistoryRef.current) return
-    const el = scrollerNode.current
-    if (!el) return
-    el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
-  }, [])
+    if (pinFrameRef.current) return
+    pinFrameRef.current = window.requestAnimationFrame(() => {
+      pinFrameRef.current = 0
+      snapScrollerToEnd()
+    })
+  }, [snapScrollerToEnd])
 
   const attachFooter = useCallback(
     (node: HTMLDivElement | null) => {
@@ -756,21 +815,17 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       stopSettling()
       // Footer holds the live bubble. Index-snap on the last message hides
       // it and fights the quiet pin — only move the scroller.
-      snapScrollerToEnd()
+      // A per-frame loop here bounces against Virtuoso after the last bubble
+      // lands. A few measure beats are enough, then the follow stops.
+      if (behavior === 'smooth') glideScrollerToEnd()
+      else snapScrollerToEnd()
       if (settleMs <= 0) return
       settleUntilRef.current = Date.now() + settleMs
-      const loop = () => {
-        if (readingHistoryRef.current || Date.now() > settleUntilRef.current) {
-          flushRafRef.current = 0
-          return
-        }
-        snapScrollerToEnd()
-        flushRafRef.current = window.requestAnimationFrame(loop)
-      }
-      flushRafRef.current = window.requestAnimationFrame(loop)
-      bottomTimersRef.current = [40, 120].map((ms) => window.setTimeout(snapScrollerToEnd, ms))
+      bottomTimersRef.current = [40, 120, 240]
+        .filter((ms) => ms <= settleMs)
+        .map((ms) => window.setTimeout(snapScrollerToEnd, ms))
     },
-    [snapScrollerToEnd, stopSettling],
+    [glideScrollerToEnd, snapScrollerToEnd, stopSettling],
   )
 
   // Cleanup only: a stopSettling() here would run after the layout effect
@@ -879,7 +934,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     // Live overlay → saved bubbles: height churn underscrolls a single pin.
     // Settle briefly so Virtuoso can lay out the revealed rows.
     if (liveEnded) {
-      scrollToAbsoluteBottom('auto', 200)
+      scrollToAbsoluteBottom('auto', 240)
       return
     }
     pinScrollerToEnd()
@@ -969,6 +1024,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       contactName={contactName}
       contactEmail={contactEmail}
       contactPhone={contactPhone}
+      contactId={contactId}
       agentName={agentName}
       agentId={agentId}
       agentAvatarKind={agentAvatarKind}
@@ -985,7 +1041,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       onMailAction={onMailAction}
       mailOwnAddresses={mailOwnAddresses}
       onRetrySend={onRetrySend}
-      enterAnimation={!(message.turnId && quietTurnIds?.has(message.turnId))}
+      enterAnimation={
+        bubbleEnterFresh(message) && !(message.turnId && quietTurnIds?.has(message.turnId))
+      }
       mailCollapsedByDefault={
         openMailIds != null &&
         opts.rowId != null &&

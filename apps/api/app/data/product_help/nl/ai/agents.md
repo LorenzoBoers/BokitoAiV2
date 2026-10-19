@@ -36,7 +36,7 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 1. Open de agent. De profielheader toont het mark, de **naam**, de verplichte **functie** (in de markkleur) en optioneel de **omschrijving**. Kies het tandwiel rechtsboven. Onder **Instructies** staat een korte preview. Kies **Bewerken** om de volledige prompt te wijzigen. Wijzig ook **Model en runtime**.
 2. Kies onder **Model en runtime** **Workspace-standaard** (volgt [Modellen](/docs/govern/models)), **Automatisch** (Bokito kiest een niveau per actie), of zet **Maki**, **Bokito** of **Kong** vast. Nieuwe agents starten op Workspace-standaard.
 3. Kies onder **Tools en toestemmingen** de tool-allowlist. Zet **Web search** en **Fetch page** aan als de agent openbare feiten mag opzoeken of een openbare URL mag lezen (workspace-zoeken blijft via **search index** / docs). De workspace-houding en het beleid per type of draaiboek in [Govern](/docs/govern/govern) begrenzen elke toegestane tool.
-4. Kies op [Kanalen](/docs/inbox/channels) per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint altijd. **Deactiveren** verbergt de agent uit de bibliotheek en wist de kanaalstandaarden; run-geschiedenis blijft.
+4. Kies op [Kanalen](/docs/inbox/channels) per verbonden kanaal één standaardagent. Een agent die op het gesprek is vastgezet wint zolang die agent actief is. **Deactiveren** verbergt de agent uit de bibliotheek, wist de kanaalstandaarden en zet open gesprekken op de lead van de workspace. Oude berichten houden de vorige auteur. Run-geschiedenis blijft.
 5. Nadat je een bedrijfsagent hebt aangemaakt, open je een chat en laat je hem zijn eigen briefing uit de bedrijfsdocs voorstellen. De wijziging landt als Govern-concept; keur dat goed onder [Govern](/docs/govern/govern) **Openstaande concepten** of pas de briefing hier zelf aan.
 
 ## Bepaal wanneer de agent zelf handelt
@@ -63,16 +63,17 @@ Versturen naar klanten vraagt altijd, wat de regels ook zeggen. Agents kunnen ze
 ## Neem een modulespecialist aan
 
 1. Open **Koppelingen**, daarna een module zoals **Boekhouding**.
-2. Onder toegewezen agents kies **Neem specialist aan**. Bokito maakt een beheerde agent voor die module, zet hem op de roster en opent een setup-chat.
+2. Onder toegewezen agents kies **Neem specialist aan**. Bokito maakt een specialist voor die module, zet die op de roster en de module-afdeling, en opent een setup-chat.
 3. Of wijs een bestaande bedrijfsagent toe. Alleen agents op de roster krijgen de tools van die module.
+4. In een gesprek kan een agent een module aanraden die je nog niet hebt geïnstalleerd. Het antwoord toont dezelfde kaart als bij Koppelingen: de specialist, wat de module doet, partnerlogo's en **Installeren**. **Aanzetten** goedkeuren neemt die specialist aan.
 
-## Beheerde agents
+## Module- en afdelingsagents
 
-Sommige agents horen bij een platformstack of module (bijvoorbeeld Trading of een aangenomen modulespecialist). Die tonen een badge **Beheerd** op de bibliotheekkaart en de detailpagina.
+Sommige agents horen bij een module (bijvoorbeeld een aangenomen Boekhouding-specialist, of een Trading-packagent). Onder de naam staat in het klein dat ze uit die module komen, en die regel opent de module op Koppelingen.
 
-1. Open **Agents** en zoek een kaart met het label **Beheerd**.
-2. Open de agent. De badge noemt bij hover het pakket dat de agent beheert.
-3. Als je een beheerde agent **Deactiveert**, zetten stack-seed of updates hem niet stil terug. Bokito opent een herstel-Decision in Communicatie; keur die goed om de agent weer in de bibliotheek te zetten, of wijs af om hem gedeactiveerd te houden.
+1. Open **Agents**. Een modulespecialist toont **Uit de module Boekhouding** onder de omschrijving.
+2. Open de agent. Die regel linkt naar de module op Koppelingen.
+3. Als je zo’n agent **Deactiveert**, zet pack- of moduleherinstallatie hem niet stil terug. Bokito opent een herstel-Decision in Communicatie; keur die goed om de agent weer in de bibliotheek te zetten, of wijs af om hem gedeactiveerd te houden.
 
 ## Beperk wie mag chatten
 

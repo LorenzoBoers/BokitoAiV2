@@ -19,6 +19,8 @@ import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { EmptyState } from '../components/ui/empty-state'
+import { ApiErrorBanner } from '../components/ui/ApiErrorBanner'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { IconTile } from '../components/ui/icon-tile'
 import { Input } from '../components/ui/input'
@@ -39,6 +41,7 @@ import {
   deleteTenantModel,
   getTenantModels,
   setCustomModelsOptIn,
+  setImageModel,
   setWorkspaceChatMode,
   testProvider,
   updateProvider,
@@ -164,6 +167,20 @@ export default function ModelsSettings() {
     }
   }
 
+  const handleImageModel = async (slug: string) => {
+    if (!token || busy || !isAdmin) return
+    if (slug === (data?.image_model || 'bokito-image')) return
+    setBusy(true)
+    try {
+      setData(await setImageModel(token, slug))
+      flashSaved()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('modelsPage.setDefaultError'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const handleWorkspaceMode = async (mode: string) => {
     if (!token || busy || !isAdmin) return
     const current = data ? workspaceChatMode(data) : ''
@@ -211,16 +228,17 @@ export default function ModelsSettings() {
     const modelId = (pickedModelId || customModelId).trim()
     if (!modelId) return
     const preset = presetModels.find((m) => m.model_id === modelId || m.slug === modelId)
+    const kind = preset?.kind || 'chat'
     setBusy(true)
     try {
       await createTenantModel(token, {
         connection_id: connectionId,
         model_id: modelId,
         display_name: displayName.trim() || preset?.display_name || modelId,
-        kind: 'chat',
+        kind,
         slug: preset?.slug || undefined,
         enabled: true,
-        is_default_chat: true,
+        is_default_chat: kind === 'chat',
         is_default_embedding: false,
       })
       flashSaved()
@@ -355,7 +373,7 @@ export default function ModelsSettings() {
           ) : null
         }
       />
-      {error ? <p className="text-sm text-status-error">{error}</p> : null}
+      {error ? <ApiErrorBanner message={error} /> : null}
 
       {/* Bokito AI models + workspace default */}
       <section className="panel space-y-3 px-4 py-3.5">
@@ -470,6 +488,43 @@ export default function ModelsSettings() {
         ) : null}
       </section>
 
+      {data?.image_models && data.image_models.length > 0 ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.image.title')}</h2>
+            <p className="mt-1 text-sm text-text-muted">{t('modelsPage.image.body')}</p>
+          </div>
+          <OptionCardGrid>
+            {data.image_models.map((row) => (
+              <OptionCard
+                key={row.slug}
+                tone="ai"
+                selected={row.selected || data.image_model === row.slug}
+                readOnly={!isAdmin}
+                disabled={busy}
+                onClick={() => void handleImageModel(row.slug)}
+                icon={<ModelIcon slug={row.slug} provider={row.provider_type} size={28} />}
+                title={row.display_name || row.slug}
+                description={row.provider_type || ''}
+                badge={
+                  row.selected || data.image_model === row.slug ? (
+                    <Badge variant="ai">{t('modelsPage.image.selected')}</Badge>
+                  ) : null
+                }
+              >
+                <Badge
+                  variant={row.ready ? 'success' : 'warning'}
+                  dot={Boolean(row.ready)}
+                  className="mt-auto w-fit"
+                >
+                  {row.ready ? t('modelsPage.managed.active') : t('modelsPage.managed.notConfigured')}
+                </Badge>
+              </OptionCard>
+            ))}
+          </OptionCardGrid>
+        </section>
+      ) : null}
+
       {/* Models list */}
       {!custom?.allowed ? (
         <section className="rounded-lg border border-dashed border-border/70 bg-bg-elevated px-5 py-4">
@@ -499,7 +554,7 @@ export default function ModelsSettings() {
           {custom.enabled ? (
             <div className="space-y-4 border-t border-border/50 pt-4">
               {chatModels.length === 0 && !wizardOpen ? (
-                <p className="text-sm text-text-muted">{t('modelsPage.custom.empty')}</p>
+                <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('modelsPage.custom.empty')} />
               ) : null}
 
               {chatModels.map((row) => (

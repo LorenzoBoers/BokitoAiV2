@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
@@ -184,6 +185,12 @@ export function MarketplaceModuleCard({
           ) : null}
           <div className="mt-auto space-y-2 pt-3">
             <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
+            {installed ? (
+              <p className="inline-flex items-center gap-1 text-xs font-medium text-status-success">
+                <Check size={12} aria-hidden />
+                {t('integrations.modules.showcase.installedBadge', { defaultValue: 'Installed' })}
+              </p>
+            ) : null}
             <p
               className={cn(
                 'text-xs',
@@ -236,7 +243,7 @@ export function MarketplaceModuleCard({
               </Button>
             ) : null}
             {comingSoon ? null : (
-              <ModuleInstallControls module={module} onAction={onAction} compact />
+              <ModuleInstallControls module={module} onAction={onAction} compact hideUninstall />
             )}
           </div>
         </div>

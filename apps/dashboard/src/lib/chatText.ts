@@ -8,8 +8,6 @@
  * `**bold` never flashes raw asterisks.
  */
 
-import { splitMarketplaceMentions } from './marketplace-mentions'
-
 export type ChatTagKind = 'tag' | 'action_tag'
 
 export type ChatInline =
@@ -230,17 +228,7 @@ export function parseChatInline(
     last = match.index + match[0].length
   }
   if (last < text.length) out.push(...tailInline(text.slice(last), streaming))
-  return chipMarketplaceInlines(out)
-}
-
-function chipMarketplaceInlines(nodes: ChatInline[]): ChatInline[] {
-  return nodes.flatMap((node) => {
-    if (node.type === 'bold' || node.type === 'italic' || node.type === 'strike') {
-      return [{ ...node, children: chipMarketplaceInlines(node.children) }]
-    }
-    if (node.type !== 'text' || !node.text) return [node]
-    return splitMarketplaceMentions(node.text) as ChatInline[]
-  })
+  return out
 }
 
 function inlineToPlain(nodes: ChatInline[]): string {

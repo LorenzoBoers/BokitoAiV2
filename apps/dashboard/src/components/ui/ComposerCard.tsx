@@ -36,6 +36,8 @@ type Props = {
    * the textarea text turns transparent and this layer provides the visuals.
    */
   highlighter?: React.ReactNode
+  /** Left side of the action row (attach). Children stay on the right. */
+  leading?: React.ReactNode
   children?: React.ReactNode
   /** Increment to play the 2s AI-draft arrival glow. */
   aiFlashNonce?: number
@@ -92,7 +94,7 @@ function measureTextareaContentHeight(el: HTMLTextAreaElement): number {
 }
 
 export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function ComposerCard(
-  { mode, tone = 'default', value, className, textareaClassName, overlay, header, highlighter, children, aiFlashNonce, ...textareaProps },
+  { mode, tone = 'default', value, className, textareaClassName, overlay, header, highlighter, leading, children, aiFlashNonce, ...textareaProps },
   forwardedRef,
 ) {
   const { t } = useTranslation('communication')
@@ -202,9 +204,6 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
   }, [])
 
   const expanded = floor >= preset.max - 8
-  // Email/note drafts are multi-line; keep the editor full width and the
-  // actions on a row underneath. Chat stays one line + send on the right.
-  const stacked = mode === 'email' || mode === 'note'
 
   return (
     <div
@@ -277,7 +276,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
         )}
       </div>
       {header ? <div className="mb-2">{header}</div> : null}
-      <div className={cn(stacked ? 'flex flex-col gap-2' : 'flex items-end gap-2')}>
+      <div className="flex flex-col gap-2">
         <div className="relative min-w-0 w-full flex-1">
           {highlighter ? (
             <div
@@ -304,12 +303,15 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
             )}
           />
         </div>
-        {children ? (
+        {leading || children ? (
           <div
-            className="flex shrink-0 items-center justify-end gap-1.5"
+            className="flex w-full items-center gap-1"
             style={launcherGutter ? { paddingRight: launcherGutter } : undefined}
           >
-            {children}
+            {leading ? <div className="flex min-w-0 items-center gap-0.5">{leading}</div> : null}
+            {children ? (
+              <div className="ml-auto flex shrink-0 items-center gap-0.5">{children}</div>
+            ) : null}
           </div>
         ) : null}
       </div>

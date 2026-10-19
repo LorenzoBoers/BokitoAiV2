@@ -14,6 +14,8 @@ import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Card } from '../ui/card'
+import { ApiErrorBanner } from '../ui/ApiErrorBanner'
+import { LoadingBlock } from '../ui/loading-block'
 import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
@@ -172,9 +174,9 @@ export default function AutomationRulesManager() {
         ) : null}
       </div>
       <div className="divide-y divide-border/40">
-        {error ? <p className="px-4 py-2 text-xs text-status-error">{error}</p> : null}
+        {error ? <ApiErrorBanner message={error} className="mx-4 my-2" /> : null}
         {loading ? (
-          <p className="px-4 py-4 text-xs text-text-muted">{t('automationRules.loading')}</p>
+          <LoadingBlock variant="skeleton" rows={3} className="px-4 py-3" />
         ) : rules.length === 0 && !creating ? (
           <div className="px-4 py-4">
             <p className="text-xs text-text-muted">

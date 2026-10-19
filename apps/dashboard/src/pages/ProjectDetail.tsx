@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
 import { runFolderMoveUndo, setFolderMoveUndo } from '../lib/folder-move-undo'
 import { PageContent } from '../components/layout/PageContent'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { Button } from '../components/ui/button'
 import {
   DropdownMenu,
@@ -211,6 +212,7 @@ export default function ProjectDetail() {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              <OpenInGridButton kind="folder" id={project.id} />
               <Button type="button" size="sm" variant="outline" asChild>
                 <Link to={hubHref}>
                   <MessageSquare size={14} className="mr-1" aria-hidden />

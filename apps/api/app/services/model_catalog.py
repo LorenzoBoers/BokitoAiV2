@@ -62,6 +62,13 @@ DEFAULT_MODELS: list[tuple] = [
      "Embedding 3 Small", 8191, 2, 0, False, False, False, True, 60),
     ("text-embedding-3-large", "openai", "embedding", "text-embedding-3-large",
      "Embedding 3 Large", 8191, 13, 0, False, False, False, False, 70),
+    # Image rows. Token columns hold the per-image list price in cents (input).
+    ("bokito-image", "bokito", "image", "dall-e-2", "Bokito Image",
+     0, 2, 0, False, False, False, False, 80),
+    ("dall-e-2", "openai", "image", "dall-e-2", "DALL-E 2",
+     0, 2, 0, False, False, False, False, 81),
+    ("mistral-image", "mistral", "image", "mistral-small-latest", "Mistral Image",
+     0, 10, 0, False, False, False, False, 82),
 ]
 
 

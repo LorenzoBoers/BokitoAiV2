@@ -72,7 +72,7 @@ import {
 } from '../../lib/mail-reply'
 import { uploadAttachment } from '../../lib/uploads-api'
 import ComposerWriteAssist from './ComposerWriteAssist'
-import { DictationMicButton } from './DictationMicButton'
+import { ComposerDictationRow } from './DictationMicButton'
 import MessageAttachments from './MessageAttachments'
 
 export type MailSendPayload = {
@@ -112,6 +112,11 @@ type Props = {
    * That body wins over a stored mail draft for this open.
    */
   preferSeedBody?: boolean
+  /**
+   * When false, this open ignores a stored draft. A fresh email start uses
+   * that so To stays empty; the draft chip resumes with the default true.
+   */
+  restoreDraft?: boolean
   /**
    * 'thread': grows out of the standard composer at the bottom of a thread.
    * 'page': static full-height card (New conversation page).
@@ -342,6 +347,7 @@ export default function MailComposer({
   recipientSuggestions,
   initialBody,
   preferSeedBody = false,
+  restoreDraft = true,
   variant = 'thread',
   saving,
   onSend,
@@ -354,7 +360,9 @@ export default function MailComposer({
   // back; recipients and subject only when the draft targets the same mail
   // and mode, otherwise the fresh intent wins. For a new mail an explicit
   // deeplinked recipient or subject beats the stored draft.
-  const [restoredDraft] = useState<StoredMailDraft | null>(() => readStoredMailDraft(draftKey))
+  const [restoredDraft] = useState<StoredMailDraft | null>(() =>
+    restoreDraft ? readStoredMailDraft(draftKey) : null,
+  )
   const restoredMatchesIntent =
     restoredDraft != null &&
     restoredDraft.mode === intent.mode &&
@@ -713,11 +721,18 @@ export default function MailComposer({
 
   const validTo = parseAddressList(to).length > 0
   const canSend =
-    validTo && invalidAddresses.length === 0 && (Boolean(body.trim()) || attachments.length > 0)
+    validTo &&
+    invalidAddresses.length === 0 &&
+    (Boolean(body.trim() || dictationInterim.trim()) || attachments.length > 0)
   const busy = saving || sending
 
   const handleSend = async () => {
     if (!canSend || busy) return
+    const pending = dictation.listening ? dictationInterimRef.current.trim() : ''
+    if (dictation.listening) dictation.stop()
+    const text = (pending ? appendSpeechChunk(body, pending) : body).trim()
+    if (pending) setBody(text)
+    setDictationInterim('')
     setSending(true)
     // Clear the stored draft up front so the unmount flush after a
     // successful send cannot write the sent text back as a leftover draft.
@@ -726,7 +741,7 @@ export default function MailComposer({
     try {
       if (selectedChannelAccountId) writeLastMailboxChannelAccountId(selectedChannelAccountId)
       await onSend({
-        bodyText: body.trim(),
+        bodyText: text,
         to: to.trim(),
         cc: cc.trim() || undefined,
         bcc: bcc.trim() || undefined,
@@ -1030,14 +1045,6 @@ export default function MailComposer({
                 }}
               />
             ) : null}
-            {dictation.supported ? (
-              <DictationMicButton
-                listening={dictation.listening}
-                disabled={busy}
-                onStart={() => dictation.start()}
-                onConfirm={confirmDictation}
-              />
-            ) : null}
             <button
               type="button"
               disabled={uploading || busy}
@@ -1053,19 +1060,29 @@ export default function MailComposer({
                   ? `${t('mailComposer.draftSaved')} · ${t('composer.sendShortcut')}`
                   : t('composer.sendShortcut')}
               </span>
-              <button
-                type="button"
-                disabled={!canSend || busy || uploading}
-                onClick={() => void handleSend()}
-                title={`${t('composer.sendTitle')} — ${t('composer.hintEmail')}`}
-                className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-                data-testid="mail-composer-send"
+              <ComposerDictationRow
+                supported={dictation.supported}
+                listening={dictation.listening}
+                disabled={busy}
+                onStart={() => dictation.start()}
+                onConfirm={confirmDictation}
               >
-                <Send size={13} />
-                <span className="text-xs font-medium">
-                  {sending ? t('compose.sending') : t('compose.send')}
-                </span>
-              </button>
+              <div className="flex h-8 items-stretch overflow-hidden rounded-lg">
+                <button
+                  type="button"
+                  disabled={!canSend || busy || uploading}
+                  onClick={() => void handleSend()}
+                  title={`${t('composer.sendTitle')} — ${t('composer.hintEmail')}`}
+                  className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+                  data-testid="mail-composer-send"
+                >
+                  <Send size={13} />
+                  <span className="text-xs font-medium">
+                    {sending ? t('compose.sending') : t('compose.send')}
+                  </span>
+                </button>
+              </div>
+              </ComposerDictationRow>
             </div>
           </div>
         </div>

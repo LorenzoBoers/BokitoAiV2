@@ -1,19 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowUp,
   Bot,
-  CalendarClock,
-  Check,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Hash,
   Loader2,
   Mail,
-  User,
+  Mic,
+  Plus,
+  StickyNote,
   X as XIcon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
 import {
@@ -24,7 +35,7 @@ import {
   type NavRow,
 } from '../lib/signals-api'
 import { useCommunicationNav } from '../hooks/useCommunicationNav'
-import { agentRoleLabel } from '../lib/agent-role-label'
+import { agentFunctionLabel } from '../lib/workforce-nav-agents'
 import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, channelPath, inboxPath } from '../lib/messages-paths'
 import PlanDialog from '../components/inbox/PlanDialog'
@@ -47,17 +58,28 @@ import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
 import { AgentMark } from '../components/ui/AgentMark'
+import { UserAvatar } from '../components/ui/UserAvatar'
+import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
+import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { BrandMark } from '../components/integrations/BrandMark'
+import { DotGridBackground } from '../components/ui/DotGridBackground'
+import { PROVIDER_TO_HOST_SLUG } from '../lib/integration-brand'
 import { listChannelAccounts, type ChannelAccountRow } from '../lib/channel-accounts-api'
 import { listCategories, type CategoryRow } from '../lib/tickets-api'
 import { useMembers } from '../hooks/useMembers'
 import { useMentionDraft } from '../hooks/useMentionDraft'
+import { useSpeechDictation, appendSpeechChunk } from '../hooks/useSpeechDictation'
 import MentionPopover from '../components/inbox/MentionPopover'
 import { MentionHighlight } from '../components/inbox/MentionHighlight'
+import ComposerWriteAssist from '../components/inbox/ComposerWriteAssist'
+import { ComposerDictationRow, DictationMicButton } from '../components/inbox/DictationMicButton'
+import MessageAttachments from '../components/inbox/MessageAttachments'
 import type { MentionItem } from '../lib/mentions'
+import type { MessageAttachment } from '../lib/inbox-api'
+import { uploadAttachment } from '../lib/uploads-api'
 import {
   fetchOutboundConnectionId,
   readLocalOutboundConnectionId,
@@ -66,7 +88,7 @@ import {
 } from '../lib/outbound-channel-pref'
 import { cn } from '../lib/utils'
 
-type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket'
+type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket' | 'note' | 'transcript'
 
 const NO_PROJECT = '__none__'
 
@@ -79,8 +101,25 @@ function flattenNavFolders(rows: NavRow[], prefix: string[] = []): { id: string;
   })
 }
 
+function brandSlugFor(provider: string, channel: string): string {
+  const raw = (provider || '').trim().toLowerCase()
+  if (raw && raw !== 'email' && raw !== 'mail') return PROVIDER_TO_HOST_SLUG[raw] || raw
+  const ch = (channel || '').trim().toLowerCase()
+  if (ch && ch !== 'email' && ch !== 'mail') return PROVIDER_TO_HOST_SLUG[ch] || ch
+  return 'smtp'
+}
+
 function parseIntent(raw: string | null): Intent | null {
-  if (raw === 'contact' || raw === 'agent' || raw === 'teammate' || raw === 'whatsapp' || raw === 'ticket') {
+  if (
+    raw === 'contact' ||
+    raw === 'agent' ||
+    raw === 'teammate' ||
+    raw === 'whatsapp' ||
+    raw === 'ticket' ||
+    raw === 'note' ||
+    raw === 'transcript' ||
+    raw === 'channel'
+  ) {
     return raw
   }
   return null
@@ -90,8 +129,28 @@ function parseIntent(raw: string | null): Intent | null {
  * Draft "New conversation" surface inside Communication.
  * Intent first (Contact / Agent / Teammate); thread is created only on send.
  */
+const NEW_COMPOSER_GLASS =
+  'rounded-2xl border-[rgb(var(--color-border-light))] bg-bg-surface shadow-none'
+
+function NewComposerHalo({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-x-24 -top-16 bottom-0"
+        style={{
+          background:
+            'radial-gradient(closest-side, rgb(var(--color-bg)) 34%, rgb(var(--color-bg) / 0.72) 62%, transparent 100%)',
+        }}
+      />
+      <div className="relative">{children}</div>
+    </div>
+  )
+}
+
 export default function NewConversationPage() {
   const { t } = useTranslation(['communication', 'nav'])
+  const { t: tNav } = useTranslation('nav')
   const { token, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -118,8 +177,6 @@ export default function NewConversationPage() {
   const [loadingTargets, setLoadingTargets] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<ChatTarget | null>(null)
-  const [agentPickerOpen, setAgentPickerOpen] = useState(false)
-  const [agentQuery, setAgentQuery] = useState('')
   const [toAddress, setToAddress] = useState(toParam)
   const [connectionId, setConnectionId] = useState<number | null>(
     connectionParam ? Number(connectionParam) || null : readLocalOutboundConnectionId(),
@@ -127,6 +184,13 @@ export default function NewConversationPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(memberParam || null)
+  const [mailOpen, setMailOpen] = useState(false)
+  const [mailRestore, setMailRestore] = useState(false)
+  const [mailBody, setMailBody] = useState('')
+  const pendingMailResume = useRef(false)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [noteBody, setNoteBody] = useState('')
+  const [channelAccounts, setChannelAccounts] = useState<ChannelAccountRow[]>([])
   const [whatsappAccounts, setWhatsappAccounts] = useState<ChannelAccountRow[]>([])
   const [categories, setCategories] = useState<CategoryRow[]>([])
   const [whatsappAccountId, setWhatsappAccountId] = useState('')
@@ -188,7 +252,94 @@ export default function NewConversationPage() {
     items: mentionItems,
   })
   const composerRef = mention.textareaRef
-  const agentPickerRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [dictationInterim, setDictationInterim] = useState('')
+  const dictationInterimRef = useRef('')
+  dictationInterimRef.current = dictationInterim
+
+  const setMentionRaw = mention.setRaw
+  const appendDictation = useCallback(
+    (chunk: string) => {
+      setMentionRaw((prev) => appendSpeechChunk(prev, chunk))
+      setDictationInterim('')
+    },
+    [setMentionRaw],
+  )
+  const dictation = useSpeechDictation({
+    onFinal: appendDictation,
+    onInterim: setDictationInterim,
+  })
+  const confirmDictation = useCallback(() => {
+    const pending = dictationInterimRef.current.trim()
+    dictation.stop()
+    if (pending) appendDictation(pending)
+    else setDictationInterim('')
+  }, [appendDictation, dictation])
+  const composerValue = useMemo(() => {
+    if (!dictation.listening || !dictationInterim.trim()) return mention.display
+    return mention.display ? `${mention.display} ${dictationInterim}` : dictationInterim
+  }, [mention.display, dictation.listening, dictationInterim])
+
+  const onPickFiles = useCallback(
+    async (files: FileList | File[] | null) => {
+      const list = files ? Array.from(files) : []
+      if (!list.length || !token) return
+      setUploading(true)
+      try {
+        const uploaded: MessageAttachment[] = []
+        for (const file of list) {
+          uploaded.push(await uploadAttachment(token, file))
+        }
+        setAttachments((prev) => [...prev, ...uploaded])
+      } catch (err) {
+        toast.error(formatApiErrorMessage(err, t('composer.uploadError')))
+      } finally {
+        setUploading(false)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    },
+    [token, t],
+  )
+
+  const onComposerPaste = useCallback(
+    (e: ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!token) return
+      const images: File[] = []
+      const items = e.clipboardData?.items
+      if (items?.length) {
+        for (const item of Array.from(items)) {
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const file = item.getAsFile()
+            if (file && file.size > 0) images.push(file)
+          }
+        }
+      }
+      if (!images.length && e.clipboardData?.files?.length) {
+        for (const file of Array.from(e.clipboardData.files)) {
+          if (file.type.startsWith('image/') && file.size > 0) images.push(file)
+        }
+      }
+      if (!images.length) return
+      e.preventDefault()
+      const named = images.map((file, index) => {
+        const type = file.type || 'image/png'
+        const ext = type.split('/')[1] || 'png'
+        const generic = !file.name || file.name === 'image.png' || file.name === 'blob'
+        const stamp = Date.now()
+        return generic
+          ? new File(
+              [file],
+              `pasted-${stamp}${images.length > 1 ? `-${index + 1}` : ''}.${ext}`,
+              { type },
+            )
+          : file
+      })
+      void onPickFiles(named)
+    },
+    [token, onPickFiles],
+  )
 
   const setIntent = useCallback(
     (next: Intent | null, extra?: Record<string, string>) => {
@@ -218,12 +369,12 @@ export default function NewConversationPage() {
       setContacts(people)
       const last = readLastChatTarget()
       const defaultId = data.default_agent_id
+      const leadFirst = [...data.items.filter((row) => row.is_lead), ...data.items.filter((row) => !row.is_lead)]
       const preselect =
         data.items.find((row) => row.id === agentParam) ??
-        (intent === 'agent'
-          ? data.items.find((row) => row.id === last) ??
-            (defaultId ? data.items.find((row) => row.id === defaultId) : undefined)
-          : undefined) ??
+        data.items.find((row) => row.id === last) ??
+        (defaultId ? data.items.find((row) => row.id === defaultId) : undefined) ??
+        leadFirst[0] ??
         null
       setSelectedAgent(preselect ?? null)
     } catch {
@@ -232,7 +383,7 @@ export default function NewConversationPage() {
     } finally {
       setLoadingTargets(false)
     }
-  }, [token, t, agentParam, intent])
+  }, [token, t, agentParam])
 
   useEffect(() => {
     void loadTargets()
@@ -279,7 +430,9 @@ export default function NewConversationPage() {
       listCategories().catch(() => [] as CategoryRow[]),
     ]).then(([accounts, tags]) => {
       if (cancelled) return
-      const ready = accounts.filter((row) => row.channel === 'whatsapp' && row.isEnabled)
+      const enabled = accounts.filter((row) => row.isEnabled)
+      setChannelAccounts(enabled)
+      const ready = enabled.filter((row) => row.channel === 'whatsapp')
       setWhatsappAccounts(ready)
       setWhatsappAccountId((prev) => prev || ready[0]?.id || '')
       setCategories(tags.filter((row) => row.workstream_id))
@@ -306,36 +459,14 @@ export default function NewConversationPage() {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      if (agentPickerOpen) {
-        setAgentPickerOpen(false)
-        return
-      }
-      // Email intents: the mail composer handles Esc itself (and autosaves
-      // its draft); this listener only fires when it is not focused.
       if (mention.raw.trim() && intent === 'agent') return
       event.preventDefault()
-      if (intent) setIntent(null)
+      if (intent && intent !== 'agent' && intent !== 'teammate') setIntent(null)
       else navigate(lastInboxPath())
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [agentPickerOpen, mention.raw, intent, setIntent, navigate])
-
-  useEffect(() => {
-    if (!agentPickerOpen) return
-    const onClick = (e: MouseEvent) => {
-      if (agentPickerRef.current && !agentPickerRef.current.contains(e.target as Node)) {
-        setAgentPickerOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [agentPickerOpen])
-
-  const filteredAgents = useMemo(() => {
-    const q = agentQuery.trim().toLowerCase()
-    return targets.filter((row) => !q || row.name.toLowerCase().includes(q))
-  }, [targets, agentQuery])
+  }, [mention.raw, intent, setIntent, navigate])
 
   // Contact typeahead inside the mail composer's To field.
   const recipientSuggestions = useMemo<MailRecipientSuggestion[]>(() => {
@@ -371,7 +502,6 @@ export default function NewConversationPage() {
   const chooseAgent = (target: ChatTarget) => {
     writeLastChatTarget(target.id)
     setSelectedAgent(target)
-    setAgentPickerOpen(false)
     setIntent('agent', { agent: target.id })
     composerRef.current?.focus()
   }
@@ -382,18 +512,176 @@ export default function NewConversationPage() {
     setIntent('teammate', { member: memberId, to: email })
   }
 
-  const canSendAgent = Boolean(selectedAgent && mention.raw.trim())
+  const chooseNote = () => setIntent('note')
+
+  const chooseTranscript = () => setIntent('transcript')
+
+  const chooseMailbox = (id: number) => {
+    setConnectionId(id)
+    if (!toParam) setToAddress('')
+    setIntent('contact', { connectionId: String(id) })
+  }
+
+  const chooseChannel = (account: ChannelAccountRow) => {
+    if (account.channel === 'whatsapp') {
+      setWhatsappAccountId(account.id)
+      setIntent('whatsapp', { account: account.id })
+      return
+    }
+    setIntent('channel', { account: account.id })
+  }
+
+  const carouselItems = useMemo(() => {
+    const mailboxAddress = new Set(
+      sendableMailboxes.map((row) => row.mailboxEmail.trim().toLowerCase()).filter(Boolean),
+    )
+    return [
+      ...[...targets.filter((row) => row.is_lead), ...targets.filter((row) => !row.is_lead)].map((agent) => ({
+        key: `agent:${agent.id}`,
+        kind: 'agent' as const,
+        agent,
+      })),
+      ...teammateOptions.map((member) => ({
+        key: `member:${member.id}`,
+        kind: 'member' as const,
+        member,
+      })),
+      { key: 'note', kind: 'note' as const },
+      { key: 'transcript', kind: 'transcript' as const },
+      ...sendableMailboxes.map((mailbox) => ({
+        key: `email:${mailbox.id}`,
+        kind: 'email' as const,
+        mailbox,
+      })),
+      ...channelAccounts
+        .filter((account) => {
+          if (account.channel === 'email' && mailboxAddress.has(account.address.trim().toLowerCase())) return false
+          return true
+        })
+        .map((account) => ({
+          key: `channel:${account.id}`,
+          kind: 'channel' as const,
+          account,
+        })),
+    ]
+  }, [targets, teammateOptions, sendableMailboxes, channelAccounts])
+
+  const accountParam = searchParams.get('account')?.trim() || ''
+  const activeCarousel =
+    (intent === 'note'
+      ? carouselItems.find((item) => item.kind === 'note')
+      : intent === 'transcript'
+        ? carouselItems.find((item) => item.kind === 'transcript')
+      : intent === 'contact'
+        ? carouselItems.find((item) => item.kind === 'email' && item.mailbox.id === connectionId) ??
+          carouselItems.find((item) => item.kind === 'email')
+        : intent === 'whatsapp'
+          ? carouselItems.find(
+              (item) =>
+                item.kind === 'channel' &&
+                item.account.channel === 'whatsapp' &&
+                item.account.id === (accountParam || whatsappAccountId),
+            ) ?? carouselItems.find((item) => item.kind === 'channel' && item.account.channel === 'whatsapp')
+          : intent === 'channel'
+            ? carouselItems.find((item) => item.kind === 'channel' && item.account.id === accountParam)
+            : intent === 'teammate'
+              ? carouselItems.find((item) => item.kind === 'member' && String(item.member.id) === selectedMemberId)
+              : carouselItems.find((item) => item.kind === 'agent' && item.agent.id === selectedAgent?.id)) ??
+    carouselItems[0]
+
+  const resumeNewMailDraft = () => {
+    if (!toParam) setToAddress('')
+    if (intent === 'contact' && activeCarousel?.kind === 'email') {
+      setMailRestore(true)
+      setMailOpen(true)
+      return
+    }
+    pendingMailResume.current = true
+    setIntent('contact')
+  }
+
+  useEffect(() => {
+    if (pendingMailResume.current) {
+      pendingMailResume.current = false
+      setMailRestore(true)
+      setMailOpen(true)
+      setNoteOpen(false)
+      setNoteBody('')
+      return
+    }
+    setMailOpen(false)
+    setMailRestore(false)
+    setMailBody('')
+    setNoteOpen(false)
+    setNoteBody('')
+  }, [activeCarousel?.key])
+
+  const [slideDir, setSlideDir] = useState<-1 | 1>(1)
+  const [dragX, setDragX] = useState(0)
+  const dragOrigin = useRef<{ x: number; y: number } | null>(null)
+
+  const stepCarousel = (direction: -1 | 1) => {
+    if (carouselItems.length < 2 || !activeCarousel) return
+    const index = carouselItems.findIndex((item) => item.key === activeCarousel.key)
+    const next = carouselItems[(index + direction + carouselItems.length) % carouselItems.length]
+    if (!next || next.key === activeCarousel.key) return
+    setSlideDir(direction)
+    setDragX(0)
+    if (next.kind === 'agent') chooseAgent(next.agent)
+    else if (next.kind === 'member') chooseTeammate(String(next.member.id), next.member.email)
+    else if (next.kind === 'note') chooseNote()
+    else if (next.kind === 'transcript') chooseTranscript()
+    else if (next.kind === 'email') chooseMailbox(next.mailbox.id)
+    else chooseChannel(next.account)
+  }
+
+  const onCarouselPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (carouselItems.length < 2) return
+    if ((event.target as HTMLElement).closest('button')) return
+    dragOrigin.current = { x: event.clientX, y: event.clientY }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onCarouselPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const origin = dragOrigin.current
+    if (!origin) return
+    const dx = event.clientX - origin.x
+    const dy = event.clientY - origin.y
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dx) < 10) return
+    setDragX(Math.max(-96, Math.min(96, dx)))
+  }
+
+  const onCarouselPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    const origin = dragOrigin.current
+    dragOrigin.current = null
+    if (!origin) return
+    const dx = event.clientX - origin.x
+    setDragX(0)
+    if (dx <= -40) stepCarousel(1)
+    else if (dx >= 40) stepCarousel(-1)
+  }
+
+  const canSendAgent = Boolean(
+    selectedAgent && (mention.raw.trim() || dictationInterim.trim() || attachments.length > 0) && !uploading,
+  )
 
   const startAgent = useCallback(async () => {
-    const content = mention.raw.trim()
-    if (!content || !token || !selectedAgent || sending) return
+    const pending = dictation.listening ? dictationInterimRef.current.trim() : ''
+    if (dictation.listening) dictation.stop()
+    const content = (pending ? appendSpeechChunk(mention.raw, pending) : mention.raw).trim()
+    if (pending) setMentionRaw(content)
+    setDictationInterim('')
+    if ((!content && attachments.length === 0) || !token || !selectedAgent || sending || uploading) {
+      return
+    }
     setSending(true)
     setError(null)
     try {
       // Persist the opener with the thread so a lost navigation state cannot
       // leave an empty "Untitled chat". ThreadDetail then continues the agent.
       const created = await bokitoCreateConversation(token, 'New conversation', selectedAgent.id, {
-        message: content,
+        message: content || undefined,
+        attachments: attachments.length ? attachments : undefined,
       })
       const path = agentChatPath(selectedAgent.id, created.id)
       if (created.has_opener) {
@@ -401,7 +689,11 @@ export default function NewConversationPage() {
         navigate(path, { state: { continuePending: true } })
       } else {
         // Server did not store the opener — fall back to a re-send.
-        stashChatContinue(created.id, { mode: 'send', text: content })
+        stashChatContinue(created.id, {
+          mode: 'send',
+          text: content,
+          attachments: attachments.length ? attachments : undefined,
+        })
         navigate(path, { state: { autoSend: content } })
       }
       void refreshSessions()
@@ -414,7 +706,19 @@ export default function NewConversationPage() {
       }
       setSending(false)
     }
-  }, [mention.raw, token, selectedAgent, sending, navigate, refreshSessions, t])
+  }, [
+    mention.raw,
+    attachments,
+    token,
+    selectedAgent,
+    sending,
+    uploading,
+    navigate,
+    refreshSessions,
+    dictation,
+    setMentionRaw,
+    t,
+  ])
 
   // Send from the embedded mail composer: creates the thread and delivers
   // the mail in one call, then opens the new conversation.
@@ -501,9 +805,52 @@ export default function NewConversationPage() {
     t,
   ])
 
+  const startNote = useCallback(async (subject: string, note: string) => {
+    if (!token || sending) return
+    const text = note.trim()
+    if (!text) return
+    setSending(true)
+    setError(null)
+    try {
+      const result = await startConversation(token, {
+        kind: 'note',
+        subject: subject.trim(),
+        note: text,
+      })
+      navigate(channelPath('internal', { threadId: result.threadId }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('newConversation.startError'))
+      setSending(false)
+    }
+  }, [token, sending, navigate, t])
+
+  const startTeammate = useCallback(async () => {
+    const member = activeCarousel?.kind === 'member' ? activeCarousel.member : null
+    const pending = dictation.listening ? dictationInterimRef.current.trim() : ''
+    if (dictation.listening) dictation.stop()
+    const content = (pending ? appendSpeechChunk(mention.raw, pending) : mention.raw).trim()
+    if (pending) setMentionRaw(content)
+    setDictationInterim('')
+    if (!content || !token || !member?.uuid || sending) return
+    setSending(true)
+    setError(null)
+    try {
+      const result = await startConversation(token, {
+        kind: 'chat',
+        memberId: member.uuid,
+        message: content,
+      })
+      navigate(channelPath('internal', { threadId: result.threadId }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('newConversation.startError'))
+      setSending(false)
+    }
+  }, [activeCarousel, mention.raw, token, sending, navigate, dictation, setMentionRaw, t])
+
   const start = useCallback(async () => {
-    if (intent === 'agent') return startAgent()
-  }, [intent, startAgent])
+    if (activeCarousel?.kind === 'member') return startTeammate()
+    return startAgent()
+  }, [activeCarousel, startTeammate, startAgent])
 
   useEffect(() => {
     if (!autoSendRequested.current || intent !== 'agent') return
@@ -516,7 +863,16 @@ export default function NewConversationPage() {
     mention.onKeyDown(e, () => void start())
   }
 
-  const noAgents = !loadingTargets && targets.length === 0 && intent === 'agent'
+  const showAgentHome =
+    !intent ||
+    intent === 'agent' ||
+    intent === 'teammate' ||
+    intent === 'note' ||
+    intent === 'transcript' ||
+    intent === 'contact' ||
+    intent === 'whatsapp' ||
+    intent === 'channel'
+  const noAgents = !loadingTargets && carouselItems.length === 0 && showAgentHome
 
   // Intent for the embedded mail composer; the recipient follows deeplinks
   // (?to=) and teammate chips, the subject follows ?subject=.
@@ -524,13 +880,15 @@ export default function NewConversationPage() {
     () => ({
       mode: 'new',
       sourceMessageId: '',
-      to: toAddress,
+      // A resumed draft fills To itself. A fresh start stays empty unless
+      // the link named a recipient (?to=).
+      to: mailRestore || !toParam ? '' : toAddress,
       cc: '',
-      subject: subjectParam,
+      subject: mailRestore ? '' : subjectParam,
       quotedHtml: '',
       quotedPreview: '',
     }),
-    [toAddress, subjectParam],
+    [mailRestore, toAddress, toParam, subjectParam],
   )
   const defaultFromAddress = useMemo(
     () => sendableMailboxes.find((c) => c.id === connectionId)?.mailboxEmail ?? null,
@@ -538,46 +896,49 @@ export default function NewConversationPage() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border/40 px-4">
+    <div className="relative flex h-full min-h-0 flex-col">
+      <DotGridBackground />
+      <div className="relative z-10 flex h-11 shrink-0 items-center gap-3 border-b border-border/40 bg-bg px-4">
         <button
           type="button"
-          onClick={() => (intent ? setIntent(null) : navigate(lastInboxPath()))}
+          onClick={() => (showAgentHome ? navigate(lastInboxPath()) : setIntent(null))}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-text-primary"
         >
           <ArrowLeft size={13} />
-          {intent ? t('newConversation.changeType') : t('newConversation.back')}
+          {showAgentHome ? t('newConversation.back') : t('newConversation.changeType')}
         </button>
-        <p className="text-sm font-medium text-text-primary">
-          {intent === 'contact' || intent === 'teammate'
-            ? t('newConversation.draftContact')
-            : intent === 'agent'
-              ? t('newConversation.draftAgent')
-              : intent === 'whatsapp'
-                ? t('newConversation.draftWhatsapp')
-                : intent === 'ticket'
-                  ? t('newConversation.draftTicket')
-                  : t('newConversation.title')}
-        </p>
-        <span className="rounded-md border border-border/50 bg-bg-elevated px-1.5 py-0.5 text-2xs font-medium text-text-muted">
-          {t('newConversation.draftBadge')}
-        </span>
+        {showAgentHome && !noAgents ? null : (
+          <>
+            <p className="text-sm font-medium text-text-primary">
+              {intent === 'contact' || intent === 'teammate'
+                ? t('newConversation.draftContact')
+                : intent === 'whatsapp'
+                  ? t('newConversation.draftWhatsapp')
+                  : intent === 'ticket'
+                    ? t('newConversation.draftTicket')
+                    : intent === 'note'
+                      ? t('newConversation.draftNote')
+                      : intent === 'transcript'
+                        ? t('newConversation.draftTranscript')
+                        : t('newConversation.title')}
+            </p>
+            <span className="rounded-md border border-border/50 bg-bg-elevated px-1.5 py-0.5 text-2xs font-medium text-text-muted">
+              {t('newConversation.draftBadge')}
+            </span>
+          </>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[720px] px-4 pt-8 pb-10">
-          {!intent ? (
-            <div className="space-y-4">
-              <div>
-                <h1 className="text-lg font-semibold text-text-primary">{t('newConversation.pickTitle')}</h1>
-                <p className="mt-1 text-sm text-text-muted">{t('newConversation.pickHint')}</p>
-              </div>
+      <div className="relative z-10 min-h-0 flex-1 overflow-y-auto">
+        {showAgentHome && !noAgents ? (
+          <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
+            <div className="w-full max-w-[560px] space-y-6">
               {newMailDraft ? (
                 <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
                   <Mail size={14} className="shrink-0 text-accent" />
                   <button
                     type="button"
-                    onClick={() => setIntent('contact')}
+                    onClick={resumeNewMailDraft}
                     className="min-w-0 flex-1 text-left"
                   >
                     <span className="block truncate-fade text-xs font-medium text-text-primary">
@@ -590,7 +951,7 @@ export default function NewConversationPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIntent('contact')}
+                    onClick={resumeNewMailDraft}
                     className="shrink-0 text-xs font-medium text-accent hover:underline"
                   >
                     {t('mailComposer.draftChipResume')}
@@ -609,81 +970,378 @@ export default function NewConversationPage() {
                   </button>
                 </div>
               ) : null}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <IntentCard
-                  icon={<Mail size={22} />}
-                  title={t('newConversation.intentEmail')}
-                  hint={t('newConversation.intentEmailHint')}
-                  disabled={!canSendEmail}
-                  onClick={() => setIntent('contact')}
-                />
-                {whatsappAccounts.length > 0 ? (
-                  <IntentCard
-                    icon={<BrandMark slug="whatsapp" size={22} />}
-                    title={t('newConversation.intentWhatsapp')}
-                    hint={t('newConversation.intentWhatsappHint')}
-                    onClick={() => setIntent('whatsapp')}
-                  />
-                ) : null}
-                <IntentCard
-                  icon={<Hash size={22} />}
-                  title={t('newConversation.intentTicket')}
-                  hint={t('newConversation.intentTicketHint')}
-                  onClick={() => setIntent('ticket')}
-                />
-                <IntentCard
-                  icon={<Bot size={22} />}
-                  title={t('newConversation.intentAgent')}
-                  hint={t('newConversation.intentAgentHint')}
-                  onClick={() => setIntent('agent')}
-                />
-                <IntentCard
-                  icon={<CalendarClock size={22} />}
-                  title={t('newConversation.intentPlan')}
-                  hint={t('newConversation.intentPlanHint')}
-                  onClick={() => setPlanOpen(true)}
-                />
-              </div>
               {!canSendEmail ? (
-                <p className="text-xs text-text-muted">
+                <p className="text-center text-xs text-text-muted">
                   {t('newConversation.connectMailboxHint')}{' '}
                   <Link to="/settings/channels" className="font-medium text-accent hover:underline">
                     {t('newConversation.connectMailbox')}
                   </Link>
                 </p>
               ) : null}
-            </div>
-          ) : null}
-
-          {intent === 'contact' || intent === 'teammate' ? (
-            <div className="space-y-3">
-              {intent === 'teammate' ? (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-text-muted">{t('newConversation.teammate')}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {teammateOptions.map((member) => {
-                      const active = selectedMemberId === String(member.id)
-                      return (
-                        <button
-                          key={member.id}
-                          type="button"
-                          onClick={() => chooseTeammate(String(member.id), member.email)}
-                          className={cn(
-                            'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs',
-                            active
-                              ? 'border-border-light bg-bg-hover text-text-heading'
-                              : 'border-border/60 text-text-secondary hover:border-border-light hover:text-text-primary',
-                          )}
-                        >
-                          <User size={12} />
-                          {member.name || member.email}
-                        </button>
-                      )
-                    })}
+              <div
+                className="relative h-[16.125rem] touch-pan-y overflow-hidden pt-20 text-center"
+                onPointerDown={onCarouselPointerDown}
+                onPointerMove={onCarouselPointerMove}
+                onPointerUp={onCarouselPointerUp}
+                onPointerCancel={onCarouselPointerUp}
+              >
+                {carouselItems.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => stepCarousel(-1)}
+                      aria-label={t('newConversation.previousAgent')}
+                      className="absolute left-0 top-1/2 z-[1] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                    >
+                      <ChevronLeft size={22} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => stepCarousel(1)}
+                      aria-label={t('newConversation.nextAgent')}
+                      className="absolute right-0 top-1/2 z-[1] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                    >
+                      <ChevronRight size={22} />
+                    </button>
+                  </>
+                ) : null}
+                {activeCarousel ? (
+                  <div
+                    key={activeCarousel.key}
+                    className={cn('flex flex-col items-center', dragX === 0 && 'carousel-slide')}
+                    style={{
+                      transform: dragX ? `translateX(${dragX}px)` : undefined,
+                      ['--slide-from' as string]: slideDir > 0 ? '40px' : '-40px',
+                    }}
+                  >
+                    <div className="flex h-[72px] items-center justify-center">
+                      {activeCarousel.kind === 'agent' ? (
+                        <div className="relative" style={{ width: 72, height: 72 }}>
+                          <span
+                            aria-hidden
+                            className="specialist-glow pointer-events-none absolute inset-[-28%] rounded-full blur-2xl"
+                            style={{
+                              backgroundColor: agentProfileAccentColor(
+                                resolveAgentAvatarColor(activeCarousel.agent.avatar_color),
+                              ),
+                            }}
+                          />
+                          <AgentMark
+                            agent={activeCarousel.agent}
+                            size={72}
+                            decorative={false}
+                            mode="live"
+                            className="relative z-[1]"
+                          />
+                        </div>
+                      ) : activeCarousel.kind === 'member' ? (
+                        <UserAvatar
+                          name={activeCarousel.member.name || activeCarousel.member.email}
+                          email={activeCarousel.member.email}
+                          avatarUrl={activeCarousel.member.avatarUrl}
+                          presence={activeCarousel.member.presence}
+                          size={72}
+                        />
+                      ) : activeCarousel.kind === 'note' || activeCarousel.kind === 'transcript' ? (
+                        <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-bg-elevated text-accent">
+                          {activeCarousel.kind === 'note' ? <StickyNote size={32} /> : <Mic size={32} />}
+                        </span>
+                      ) : (
+                        <BrandMark
+                          slug={
+                            activeCarousel.kind === 'email'
+                              ? brandSlugFor(activeCarousel.mailbox.provider, 'email')
+                              : brandSlugFor(activeCarousel.account.provider, activeCarousel.account.channel)
+                          }
+                          size={64}
+                        />
+                      )}
+                    </div>
+                    <CarouselCaption item={activeCarousel} />
                   </div>
+                ) : (
+                  <span className="mx-auto flex h-[72px] w-14 items-center justify-center rounded-full border border-border/50 bg-bg-surface text-text-muted">
+                    <Bot size={24} />
+                  </span>
+                )}
+              </div>
+
+              {error ? (
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-xs text-status-error">{error}</p>
+                  {loadFailed ? (
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-accent hover:underline"
+                      onClick={() => void loadTargets()}
+                    >
+                      {t('newConversation.retry')}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
 
+              <div className="flex w-full flex-col gap-3">
+              <NewComposerHalo>
+              {activeCarousel?.kind === 'note' || activeCarousel?.kind === 'transcript' ? (
+                noteOpen ? (
+                  <NoteStart
+                    mode={activeCarousel.kind}
+                    sending={sending}
+                    error={error}
+                    initialNote={noteBody}
+                    onSubmit={(subject, note) => void startNote(subject, note)}
+                  />
+                ) : (
+                  <ComposerCard
+                    className={NEW_COMPOSER_GLASS}
+                    mode="chat"
+                    tone="default"
+                    value={noteBody}
+                    onChange={(event) => {
+                      const next = event.currentTarget.value
+                      if (next.trim()) {
+                        setNoteBody(next)
+                        setNoteOpen(true)
+                        return
+                      }
+                      setNoteBody(next)
+                    }}
+                    placeholder={t('newConversation.messageName', {
+                      name: t(
+                        activeCarousel.kind === 'note'
+                          ? 'newConversation.carouselNote'
+                          : 'newConversation.carouselTranscript',
+                      ),
+                    })}
+                  >
+                    <button
+                      type="button"
+                      disabled
+                      title={t('newConversation.send')}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg opacity-40"
+                    >
+                      <ArrowUp size={16} strokeWidth={2.25} />
+                    </button>
+                  </ComposerCard>
+                )
+              ) : activeCarousel?.kind === 'email' ||
+                (activeCarousel?.kind === 'channel' && activeCarousel.account.channel === 'email') ? (
+                mailOpen ? (
+                  <MailComposer
+                    key={mailRestore ? 'resume' : 'fresh'}
+                    intent={mailIntent}
+                    draftKey="new"
+                    restoreDraft={mailRestore}
+                    defaultFromAddress={
+                      activeCarousel.kind === 'email'
+                        ? activeCarousel.mailbox.mailboxEmail
+                        : activeCarousel.account.address
+                    }
+                    recipientSuggestions={recipientSuggestions}
+                    initialBody={mailBody || bodyParam}
+                    preferSeedBody={!mailRestore}
+                    variant="page"
+                    saving={sending}
+                    onSend={handleMailSend}
+                    onCancel={() => {
+                      setMailOpen(false)
+                      setMailBody('')
+                    }}
+                  />
+                ) : (
+                  <ComposerCard
+                    className={NEW_COMPOSER_GLASS}
+                    mode="chat"
+                    tone="default"
+                    value={mailBody}
+                    onChange={(event) => {
+                      const next = event.currentTarget.value
+                      if (next.trim()) {
+                        setMailBody(next)
+                        if (!toParam) setToAddress('')
+                        setMailRestore(false)
+                        setMailOpen(true)
+                        return
+                      }
+                      setMailBody(next)
+                    }}
+                    placeholder={t('newConversation.writeMessage')}
+                  >
+                    <button
+                      type="button"
+                      disabled
+                      title={t('newConversation.send')}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg opacity-40"
+                    >
+                      <ArrowUp size={16} strokeWidth={2.25} />
+                    </button>
+                  </ComposerCard>
+                )
+              ) : activeCarousel?.kind === 'channel' && activeCarousel.account.channel === 'whatsapp' ? (
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void startWhatsapp()
+                  }}
+                >
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-text-muted">{t('newConversation.whatsappTo')}</span>
+                    <Input
+                      value={whatsappTo}
+                      onChange={(event) => setWhatsappTo(event.target.value)}
+                      placeholder={t('newConversation.whatsappToPlaceholder')}
+                      inputMode="tel"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-medium text-text-muted">{t('newConversation.writeMessage')}</span>
+                    <Textarea
+                      value={whatsappBody}
+                      onChange={(event) => setWhatsappBody(event.target.value)}
+                      placeholder={t('newConversation.whatsappBodyPlaceholder')}
+                      rows={4}
+                    />
+                  </label>
+                  <p className="text-xs text-text-muted">{t('newConversation.whatsappHint')}</p>
+                  <button
+                    type="submit"
+                    disabled={sending || whatsappTo.trim().length < 8 || !whatsappBody.trim()}
+                    className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+                  >
+                    {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.send')}
+                  </button>
+                </form>
+              ) : activeCarousel?.kind === 'channel' ? (
+                <p className="text-center text-xs text-text-muted">{t('newConversation.channelInbound')}</p>
+              ) : (
+              <ComposerCard
+                className={NEW_COMPOSER_GLASS}
+                ref={composerRef}
+                mode="chat"
+                tone="default"
+                value={composerValue}
+                onChange={(e) =>
+                  mention.onChange(
+                    e.currentTarget.value,
+                    e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+                  )
+                }
+                onClick={(e) =>
+                  mention.refreshMentionState(
+                    e.currentTarget.value,
+                    e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+                  )
+                }
+                onKeyDown={onComposerKeyDown}
+                onPaste={onComposerPaste}
+                highlighter={<MentionHighlight raw={mention.raw} />}
+                header={
+                  attachments.length || uploading ? (
+                    <MessageAttachments
+                      placement="composer"
+                      attachments={attachments}
+                      pending={uploading}
+                      onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
+                    />
+                  ) : null
+                }
+                overlay={
+                  mention.mentionOpen ? (
+                    <MentionPopover
+                      items={mention.mentionMatches}
+                      activeIndex={mention.mentionIndex}
+                      onSelect={mention.selectMention}
+                      onHover={mention.setMentionIndex}
+                    />
+                  ) : null
+                }
+                placeholder={
+                  activeCarousel?.kind === 'member'
+                    ? t('newConversation.messageName', {
+                        name: activeCarousel.member.name || activeCarousel.member.email,
+                      })
+                    : selectedAgent
+                      ? t('newConversation.messageName', { name: selectedAgent.name })
+                      : t('newConversation.chooseAndType')
+                }
+                leading={
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => void onPickFiles(e.target.files)}
+                    />
+                    <button
+                      type="button"
+                      disabled={uploading || sending}
+                      onClick={() => fileInputRef.current?.click()}
+                      title={t('composer.attachFile')}
+                      aria-label={t('composer.attachFile')}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </>
+                }
+              >
+                {activeCarousel?.kind === 'member' ? (
+                  <ComposerWriteAssist
+                    body={mention.raw}
+                    disabled={sending || uploading}
+                    onApply={(text) => {
+                      setMentionRaw(text)
+                      requestAnimationFrame(() => composerRef.current?.focus())
+                    }}
+                  />
+                ) : null}
+                <ComposerDictationRow
+                  supported={dictation.supported}
+                  listening={dictation.listening}
+                  disabled={sending || uploading}
+                  onStart={() => dictation.start()}
+                  onConfirm={confirmDictation}
+                >
+                  <button
+                    type="button"
+                    onClick={() => void start()}
+                    disabled={sending || !(activeCarousel?.kind === 'member' ? mention.raw.trim() || dictationInterim.trim() : canSendAgent)}
+                    title={t('newConversation.send')}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={16} strokeWidth={2.25} />}
+                  </button>
+                </ComposerDictationRow>
+              </ComposerCard>
+              )}
+              </NewComposerHalo>
+              <HomeShortcuts />
+              </div>
+            </div>
+          </div>
+        ) : (
+        <div className="mx-auto w-full max-w-[720px] px-4 pb-10 pt-8">
+          {showAgentHome && noAgents ? (
+            <div className="mx-auto flex min-h-full max-w-[560px] flex-col justify-center gap-6 py-12">
+              <HomeShortcuts />
+              <div className="panel px-5 py-8 text-center">
+                <Bot size={28} className="mx-auto text-text-muted" />
+                <p className="mt-3 text-lg font-medium text-text-primary">
+                  {t('newConversation.noAgentsAvailable')}
+                </p>
+                <Link to="/agents" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
+                  {t('newConversation.openAgents')}
+                </Link>
+              </div>
+            </div>
+          ) : null}
+
+          {intent === 'contact' ? (
+            <div className="space-y-3">
               {!canSendEmail ? (
                 <p className="text-xs text-text-muted">
                   {t('newConversation.connectMailboxHint')}{' '}
@@ -778,6 +1436,15 @@ export default function NewConversationPage() {
             </form>
           ) : null}
 
+          {intent === 'note' || intent === 'transcript' ? (
+            <NoteStart
+              mode={intent}
+              sending={sending}
+              error={error}
+              onSubmit={(subject, note) => void startNote(subject, note)}
+            />
+          ) : null}
+
           {intent === 'ticket' ? (
             <TicketStart
               categories={categories}
@@ -801,150 +1468,8 @@ export default function NewConversationPage() {
             />
           ) : null}
 
-          {intent === 'agent' ? (
-            <div ref={agentPickerRef} className="relative">
-              {noAgents ? (
-                <div className="panel px-5 py-8 text-center">
-                  <Bot size={28} className="mx-auto text-text-muted" />
-                  <p className="mt-3 text-lg font-medium text-text-primary">
-                    {t('newConversation.noAgentsAvailable')}
-                  </p>
-                  <Link to="/agents" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
-                    {t('newConversation.openAgents')}
-                  </Link>
-                </div>
-              ) : (
-                <div className="panel flex items-center gap-2 px-3 py-2">
-                  <span className="text-xs font-medium text-text-muted">{t('newConversation.to')}</span>
-                  {agentPickerOpen ? (
-                    <input
-                      value={agentQuery}
-                      onChange={(e) => setAgentQuery(e.target.value)}
-                      placeholder={t('newConversation.searchAgents')}
-                      className="min-w-0 flex-1 bg-transparent text-sm focus:outline-none"
-                      autoFocus
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAgentQuery('')
-                        setAgentPickerOpen(true)
-                      }}
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                    >
-                      {loadingTargets ? (
-                        <span className="inline-flex items-center gap-1.5 text-sm text-text-muted">
-                          <Loader2 size={12} className="animate-spin" /> {t('newConversation.loading')}
-                        </span>
-                      ) : selectedAgent ? (
-                        <>
-                          <AgentMark agent={selectedAgent} size={20} decorative={false} mode="static" />
-                          <span className="truncate-fade text-sm text-text-primary">{selectedAgent.name}</span>
-                        </>
-                      ) : (
-                        <span className="text-sm text-text-muted">{t('newConversation.chooseRecipient')}</span>
-                      )}
-                      <ChevronDown size={13} className="ml-auto shrink-0 text-text-muted" />
-                    </button>
-                  )}
-                </div>
-              )}
-              {agentPickerOpen ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
-                  <div className="max-h-[280px] overflow-y-auto p-1">
-                    {filteredAgents.map((target) => (
-                      <button
-                        key={target.id}
-                        type="button"
-                        onClick={() => chooseAgent(target)}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-bg-hover/60"
-                      >
-                        <AgentMark agent={target} size={24} decorative={false} mode="static" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate-fade text-sm text-text-primary">{target.name}</span>
-                          <span className="block text-2xs text-text-muted">
-                            {t('newConversation.companyAgentRole', { role: agentRoleLabel(target.role, t) })}
-                          </span>
-                        </span>
-                        {selectedAgent?.id === target.id ? <Check size={13} className="text-accent" /> : null}
-                      </button>
-                    ))}
-                    {!filteredAgents.length ? (
-                      <p className="px-3 py-2.5 text-xs text-text-muted">{t('newConversation.noMatches')}</p>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {intent === 'agent' && !noAgents ? (
-            <div className="mt-6">
-              {error ? (
-                <div className="mb-2 flex items-center gap-2 px-1">
-                  <p className="text-xs text-status-error">{error}</p>
-                  {loadFailed ? (
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-accent hover:underline"
-                      onClick={() => void loadTargets()}
-                    >
-                      {t('newConversation.retry')}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-              <p className="mb-2 px-1 text-xs text-text-muted">{t('newConversation.draftHint')}</p>
-              <ComposerCard
-                ref={composerRef}
-                mode="chat"
-                tone="ai"
-                value={mention.display}
-                onChange={(e) =>
-                  mention.onChange(
-                    e.currentTarget.value,
-                    e.currentTarget.selectionStart ?? e.currentTarget.value.length,
-                  )
-                }
-                onClick={(e) =>
-                  mention.refreshMentionState(
-                    e.currentTarget.value,
-                    e.currentTarget.selectionStart ?? e.currentTarget.value.length,
-                  )
-                }
-                onKeyDown={onComposerKeyDown}
-                highlighter={<MentionHighlight raw={mention.raw} />}
-                overlay={
-                  mention.mentionOpen ? (
-                    <MentionPopover
-                      items={mention.mentionMatches}
-                      activeIndex={mention.mentionIndex}
-                      onSelect={mention.selectMention}
-                      onHover={mention.setMentionIndex}
-                    />
-                  ) : null
-                }
-                placeholder={
-                  selectedAgent
-                    ? t('newConversation.messageName', { name: selectedAgent.name })
-                    : t('newConversation.chooseAndType')
-                }
-                className="border-border/60 bg-bg-surface"
-              >
-                <button
-                  type="button"
-                  onClick={() => void start()}
-                  disabled={sending || !canSendAgent}
-                  title={t('newConversation.send')}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
-                >
-                  {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
-                </button>
-              </ComposerCard>
-            </div>
-          ) : null}
         </div>
+        )}
       </div>
       <PlanDialog
         open={planOpen}
@@ -1100,34 +1625,200 @@ function TicketStart({
   )
 }
 
-function IntentCard({
-  icon,
-  title,
-  hint,
-  onClick,
-  disabled,
+function CarouselCaption({
+  item,
 }: {
-  icon: ReactNode
-  title: string
-  hint: string
-  onClick: () => void
-  disabled?: boolean
+  item:
+    | { kind: 'agent'; agent: ChatTarget }
+    | { kind: 'member'; member: { name: string; email: string } }
+    | { kind: 'note' }
+    | { kind: 'transcript' }
+    | { kind: 'email'; mailbox: { displayName: string; mailboxEmail: string } }
+    | { kind: 'channel'; account: ChannelAccountRow }
 }) {
+  const { t } = useTranslation('communication')
+  const { t: tNav } = useTranslation('nav')
+  const address =
+    item.kind === 'email' ? item.mailbox.mailboxEmail : item.kind === 'channel' ? item.account.address : ''
+  const title =
+    item.kind === 'agent'
+      ? item.agent.name
+      : item.kind === 'member'
+        ? item.member.name || item.member.email
+        : item.kind === 'note'
+          ? t('newConversation.carouselNote')
+          : item.kind === 'transcript'
+            ? t('newConversation.carouselTranscript')
+            : item.kind === 'email'
+            ? item.mailbox.displayName || address
+            : item.account.displayName || address
+  const channelKind = item.kind === 'channel' ? item.account.channel : item.kind === 'email' ? 'email' : ''
+  const kicker =
+    channelKind === 'email'
+      ? t('newConversation.mailFromLabel')
+      : channelKind === 'whatsapp'
+        ? t('newConversation.whatsappFromLabel')
+        : channelKind
+          ? t(`newConversation.channel.${channelKind}`, { defaultValue: channelKind })
+          : t('newConversation.messageTo')
+  const detail =
+    item.kind === 'member'
+      ? t('newConversation.teammate')
+      : item.kind === 'note'
+        ? t('newConversation.carouselNoteHint')
+        : item.kind === 'transcript'
+          ? t('newConversation.carouselTranscriptHint')
+          : address && address.trim() !== title.trim()
+          ? address
+          : ''
+  const detailText = item.kind === 'agent' ? agentFunctionLabel(item.agent, tNav) : detail
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        'panel flex flex-col items-start gap-2 p-4 text-left transition-colors',
-        disabled
-          ? 'cursor-not-allowed opacity-50'
-          : 'hover:border-border-light hover:bg-bg-hover/40',
-      )}
-    >
-      <span className="text-accent">{icon}</span>
-      <span className="text-base font-semibold text-text-primary">{title}</span>
-      <span className="text-xs leading-snug text-text-muted">{hint}</span>
-    </button>
+    <div className="mt-4 flex h-[5.625rem] w-full max-w-lg flex-col items-center px-6">
+      <p className="text-xs leading-4 text-text-muted">{kicker}</p>
+      <h1 className="mt-0.5 line-clamp-1 max-w-full text-xl font-semibold leading-7 tracking-tight text-text-heading">
+        {title}
+      </h1>
+      <p
+        className={cn(
+          'mt-1 line-clamp-2 h-10 max-w-full text-sm font-medium leading-5',
+          item.kind === 'agent' ? '' : 'break-all text-text-secondary',
+        )}
+        style={
+          item.kind === 'agent'
+            ? { color: agentProfileAccentColor(resolveAgentAvatarColor(item.agent.avatar_color)) }
+            : undefined
+        }
+      >
+        {detailText || '\u00a0'}
+      </p>
+    </div>
   )
 }
+
+function NoteStart({
+  mode,
+  sending,
+  error,
+  initialNote = '',
+  onSubmit,
+}: {
+  mode: 'note' | 'transcript'
+  sending: boolean
+  error: string | null
+  initialNote?: string
+  onSubmit: (subject: string, note: string) => void
+}) {
+  const { t } = useTranslation('communication')
+  const [subject, setSubject] = useState('')
+  const [note, setNote] = useState(initialNote)
+  const [interim, setInterim] = useState('')
+  const interimRef = useRef('')
+  interimRef.current = interim
+  const append = useCallback((chunk: string) => {
+    setNote((prev) => appendSpeechChunk(prev, chunk))
+    setInterim('')
+  }, [])
+  const dictation = useSpeechDictation({ onFinal: append, onInterim: setInterim })
+  const shown = dictation.listening && interim.trim() ? (note ? `${note} ${interim}` : interim) : note
+  const confirm = () => {
+    const pending = interimRef.current.trim()
+    dictation.stop()
+    if (pending) append(pending)
+    else setInterim('')
+  }
+  const recording = mode === 'transcript'
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        const pending = dictation.listening ? interimRef.current.trim() : ''
+        if (dictation.listening) dictation.stop()
+        const text = (pending ? appendSpeechChunk(note, pending) : note).trim()
+        onSubmit(subject, text)
+      }}
+    >
+      <label className="block space-y-1.5">
+        <span className="text-xs font-medium text-text-muted">{t('newConversation.subjectPlaceholder')}</span>
+        <Input
+          value={subject}
+          onChange={(event) => setSubject(event.target.value)}
+          placeholder={recording ? t('newConversation.transcriptSubjectPlaceholder') : t('newConversation.noteSubjectPlaceholder')}
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-medium text-text-muted">
+          {recording ? t('newConversation.transcriptBody') : t('newConversation.ticketNote')}
+        </span>
+        <Textarea
+          value={shown}
+          readOnly={dictation.listening}
+          onChange={(event) => {
+            if (dictation.listening) return
+            setNote(event.target.value)
+          }}
+          placeholder={
+            dictation.listening
+              ? t('composer.dictationListening')
+              : recording
+                ? t('newConversation.transcriptPlaceholder')
+                : t('newConversation.notePlaceholder')
+          }
+          rows={8}
+        />
+      </label>
+      {recording && dictation.supported ? (
+        <div className="flex items-center gap-2">
+          <DictationMicButton
+            listening={dictation.listening}
+            disabled={sending}
+            onStart={() => dictation.start()}
+            onConfirm={confirm}
+          />
+          <span className="text-xs text-text-muted">
+            {dictation.listening ? t('newConversation.transcriptListening') : t('newConversation.transcriptMic')}
+          </span>
+        </div>
+      ) : recording ? (
+        <p className="text-xs text-text-muted">{t('newConversation.transcriptNoMic')}</p>
+      ) : null}
+      {error ? <p className="text-xs text-status-error">{error}</p> : null}
+      <p className="text-xs text-text-muted">
+        {recording ? t('newConversation.transcriptHint') : t('newConversation.noteHint')}
+      </p>
+      <button
+        type="submit"
+        disabled={sending || !shown.trim()}
+        className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
+      >
+        {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.saveNote')}
+      </button>
+    </form>
+  )
+}
+
+function HomeShortcuts() {
+  const { t } = useTranslation('communication')
+  const links = [
+    { to: lastInboxPath(), label: t('newConversation.pageCommunication') },
+    { to: '/agenda', label: t('newConversation.pageAgenda') },
+    { to: '/contacts', label: t('newConversation.pageContacts') },
+  ]
+  return (
+    <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+      <p className="text-2xs text-text-muted">{t('newConversation.poweredBy')}</p>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        {links.map((link) => (
+          <Link
+            key={link.label}
+            to={link.to}
+            className="text-xs text-text-muted transition-colors hover:text-text-primary"
+          >
+            {link.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+

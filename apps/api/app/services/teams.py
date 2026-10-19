@@ -75,6 +75,45 @@ async def ensure_all_department(session: AsyncSession, tenant_id: UUID) -> Team:
     return team
 
 
+async def ensure_agent_on_all(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> bool:
+    """Seat one company agent on All. Idempotent. Does not add every other agent."""
+    root = await ensure_all_department(session, tenant_id)
+    existing = (
+        await session.execute(
+            select(TeamMember.id).where(
+                TeamMember.department_id == root.id,
+                TeamMember.member_kind == "agent",
+                TeamMember.agent_id == agent_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return False
+    position = int(
+        (
+            await session.execute(
+                select(TeamMember.position)
+                .where(TeamMember.department_id == root.id)
+                .order_by(TeamMember.position.desc())
+                .limit(1)
+            )
+        ).scalar()
+        or -1
+    ) + 1
+    session.add(
+        TeamMember(
+            tenant_id=tenant_id,
+            department_id=root.id,
+            member_kind="agent",
+            agent_id=agent_id,
+            duty="member",
+            position=position,
+        )
+    )
+    await session.flush()
+    return True
+
+
 async def all_department(session: AsyncSession, tenant_id: UUID) -> Team:
     return await ensure_all_department(session, tenant_id)
 

@@ -5,6 +5,7 @@ import { Info, Trash2, type LucideIcon } from 'lucide-react'
 import ContentHeader from './ContentHeader'
 import ScrollFade from '../ui/ScrollFade'
 import { SearchField } from '../ui/search-field'
+import { EmptyState } from '../ui/empty-state'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { cn } from '../../lib/utils'
@@ -295,7 +296,7 @@ function SettingsNav({
   )
   if (visible.length === 0) {
     if (hideEmpty) return null
-    return <p className="px-2 py-2 text-xs text-text-muted">{t('settings.searchEmpty')}</p>
+    return <EmptyState tone="plain" size="sm" className="px-2 py-2" title={t('settings.searchEmpty')} />
   }
   return (
     <TooltipProvider delayDuration={250}>

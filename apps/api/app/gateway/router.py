@@ -348,6 +348,12 @@ async def gateway_websocket(
                 topics = frame.get("topics") or []
                 allowed, denied = await _authorize_topics(session, connection, topics)
                 connection.topics.update(allowed)
+                if connection.kind == "user" and connection.user_id:
+                    from app.services.pass_stick import remember_thread_viewer
+
+                    for topic in allowed:
+                        if topic.startswith("signal:"):
+                            await remember_thread_viewer(topic.removeprefix("signal:"), connection.user_id)
                 response: dict = {"type": "sub_ok", "topics": allowed}
                 if denied:
                     response["denied"] = denied
@@ -360,8 +366,15 @@ async def gateway_websocket(
                         include_agents="presence" in allowed or "agents" in allowed,
                     )
             elif frame_type == "unsub":
-                for topic in frame.get("topics") or []:
+                dropped = [topic for topic in frame.get("topics") or [] if isinstance(topic, str)]
+                for topic in dropped:
                     connection.topics.discard(topic)
+                if connection.kind == "user" and connection.user_id:
+                    from app.services.pass_stick import forget_thread_viewer
+
+                    for topic in dropped:
+                        if topic.startswith("signal:"):
+                            await forget_thread_viewer(topic.removeprefix("signal:"), connection.user_id)
                 await websocket.send_json({"type": "unsub_ok"})
             elif frame_type == "connect":
                 # Already connected; ignore re-auth frames.
@@ -373,6 +386,12 @@ async def gateway_websocket(
     except Exception:
         logger.debug("gateway connection error", exc_info=True)
     finally:
+        if connection.kind == "user" and connection.user_id:
+            from app.services.pass_stick import forget_thread_viewer
+
+            for topic in list(connection.topics):
+                if topic.startswith("signal:"):
+                    await forget_thread_viewer(topic.removeprefix("signal:"), connection.user_id)
         manager.unregister(connection)
         if is_operator:
             try:

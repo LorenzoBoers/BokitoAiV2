@@ -25,6 +25,7 @@ import { useConfirm } from '../components/ui/confirm-dialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
@@ -425,6 +426,7 @@ export default function ConnectionsHub() {
         title={t('tabs.modules.title', { defaultValue: 'Connections' })}
         subtitle={t('integrations.pageMeta.connected.description')}
         className="mb-0"
+        meta={<OpenInGridButton />}
       />
 
       {loadError || catalogError ? (

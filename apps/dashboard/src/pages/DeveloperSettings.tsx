@@ -18,6 +18,7 @@ import { Button } from '../components/ui/button'
 import { Callout } from '../components/ui/callout'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { EmptyState } from '../components/ui/empty-state'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
@@ -148,9 +149,9 @@ function McpOAuthGrantsSection({
         {t('developersPage.oauthGrants.body')}
       </p>
       {loading ? (
-        <p className="mt-3 text-xs text-text-muted">{t('developersPage.oauthGrants.loading')}</p>
+        <LoadingBlock variant="skeleton" rows={3} className="mt-3" />
       ) : grants.length === 0 ? (
-        <p className="mt-3 text-xs text-text-muted">{t('developersPage.oauthGrants.empty')}</p>
+        <EmptyState tone="plain" size="sm" className="mt-3 px-0 py-2" title={t('developersPage.oauthGrants.empty')} />
       ) : (
         <ul className="mt-3 space-y-2">
           {grants.map((grant) => (
@@ -414,24 +415,27 @@ function ApiTokensSection({
       ) : null}
 
       {loading ? (
-        <div className="mt-4 flex items-center gap-2 text-sm text-text-muted">
-          <Loader2 size={14} className="animate-spin" /> {t('developersPage.loading')}
-        </div>
+        <LoadingBlock variant="inline" label={t('developersPage.loading')} className="mt-4 text-sm" />
       ) : tokens.length === 0 ? (
-        <div className="mt-4">
-          <p className="text-sm text-text-muted">{t('developersPage.empty')}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {showAdd ? null : (
-              <Button size="sm" variant="secondary" onClick={() => setShowAdd(true)}>
-                <Plus size={14} className="mr-1" />
-                {t('developersPage.newToken')}
+        <EmptyState
+          tone="plain"
+          size="sm"
+          className="mt-4 px-0 py-2"
+          title={t('developersPage.empty')}
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              {showAdd ? null : (
+                <Button size="sm" variant="secondary" onClick={() => setShowAdd(true)}>
+                  <Plus size={14} className="mr-1" />
+                  {t('developersPage.newToken')}
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => navigate('/connections')}>
+                {t('developersPage.openIntegrations')}
               </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={() => navigate('/connections')}>
-              {t('developersPage.openIntegrations')}
-            </Button>
-          </div>
-        </div>
+            </div>
+          }
+        />
       ) : (
         <div className="mt-4 space-y-2">
           {tokens.filter((row) => showRevoked || !row.revoked_at).map((row) => (
@@ -769,9 +773,7 @@ export default function DeveloperSettings() {
           ) : null}
 
           {loading ? (
-            <div className="mt-6 flex items-center gap-2 text-sm text-text-muted">
-              <Loader2 size={14} className="animate-spin" /> {t('developersPage.webhooks.loading')}
-            </div>
+            <LoadingBlock variant="inline" label={t('developersPage.webhooks.loading')} className="mt-6 text-sm" />
           ) : error ? (
             <Callout tone="error" title={error} className="mt-6" />
           ) : items.length === 0 ? (

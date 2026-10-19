@@ -785,21 +785,22 @@ async def reveal_decision(
         question=str(pending["question"]) if pending.get("question") else None,
         selection=str(pending["selection"]) if pending.get("selection") else None,
     )
-    if notification is None:
-        return message
+    if notification is not None:
+        bell_status = str(pending.get("bell_status") or "unread")
+        notif_payload = pending.get("notification_payload")
+        if not isinstance(notif_payload, dict):
+            notif_payload = {}
+        await _finalize_decision_notification(
+            session,
+            tenant_id,
+            decision,
+            notification,
+            message=message,
+            notification_payload=notif_payload,
+            bell_user_id=notification.user_id,
+            bell_status=bell_status,
+        )
+    from app.services.agent_calls import maybe_ring_for_decision
 
-    bell_status = str(pending.get("bell_status") or "unread")
-    notif_payload = pending.get("notification_payload")
-    if not isinstance(notif_payload, dict):
-        notif_payload = {}
-    await _finalize_decision_notification(
-        session,
-        tenant_id,
-        decision,
-        notification,
-        message=message,
-        notification_payload=notif_payload,
-        bell_user_id=notification.user_id,
-        bell_status=bell_status,
-    )
+    await maybe_ring_for_decision(session, tenant_id, decision)
     return message

@@ -13,6 +13,10 @@
     "ariaLabel": "Related"
   },
   "tabs": {
+    "newChat": {
+      "title": "New chat",
+      "subtitle": "Start a conversation"
+    },
     "overview": {
       "title": "Overview",
       "subtitle": "Daily scan, attention and usage"
@@ -391,7 +395,7 @@
     "connectedTools": "Connected tools",
     "connected": "Connections",
     "myAssistant": "My assistant",
-    "forYou": "For you",
+    "forYou": "Assigned to me",
     "team": "Team",
     "bin": "Bin"
   },
@@ -738,6 +742,18 @@
         {
           "title": "Backlog",
           "body": "Requests that keep arriving without a match land in the backlog. Attach a flow when it is worth tracking."
+        }
+      ]
+    },
+    "team": {
+      "bannerTitle": "Workforce is who runs the company",
+      "bannerBody": "Invite people, hire agents, and group them into departments that pick up conversations.",
+      "pageTitle": "How Workforce works",
+      "intro": "People, agents and departments on one page, with who is available.",
+      "sections": [
+        {
+          "title": "Library",
+          "body": "Every agent is a card. The default handler has a Lead badge. Open a card to change instructions, model, tools and chat access."
         }
       ]
     }
@@ -1687,7 +1703,7 @@
     "openDecisions": "Open decisions",
     "openDecisionsHint": "Cards waiting on a person in Communication.",
     "openDecisionsEmpty": "No decision cards waiting.",
-    "openForYou": "Open For you",
+    "openForYou": "Open Assigned to me",
     "loading": "Loading usage...",
     "byModel": "By model ({{days}}d)",
     "billable": "Billable {{amount}}",
@@ -1741,12 +1757,12 @@
     "title": "Notifications",
     "markAll": "Mark all read",
     "empty": "No system notices",
-    "emptyHint": "Work that needs you lives in For you. The list below is for system notices.",
+    "emptyHint": "Work assigned to you lives in Assigned to me. The list below is for system notices.",
     "settings": "Settings",
     "openChannels": "Email & messages",
     "openCommunication": "Open Communication",
-    "openForYou": "Open For you",
-    "forYouEmpty": "Nothing in For you right now",
+    "openForYou": "Open Assigned to me",
+    "forYouEmpty": "Nothing assigned to you right now",
     "staleDays": "{{count}}d ago — still open",
     "similarCount": "{{count}} similar — still waiting",
     "markRead": "Read",
@@ -1754,8 +1770,8 @@
     "handoffBody": "{{who}} asked for a person. AI replies are paused until someone takes over.",
     "dayToday": "Today",
     "dayOlder": "Earlier",
-    "forYouLine_one": "Now {{count}} conversation in For you",
-    "forYouLine_other": "Now {{count}} conversations in For you",
+    "forYouLine_one": "Now {{count}} conversation assigned to you",
+    "forYouLine_other": "Now {{count}} conversations assigned to you",
     "digestGroup_one": "Digest: {{count}} update",
     "digestGroup_other": "Digest: {{count}} updates"
   },
@@ -2167,7 +2183,7 @@
     "pushNotConfigured": "Push is not enabled on this server. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in the API environment (see docs/PRODUCTION_READINESS.md).",
     "pushFailed": "Could not enable push notifications.",
     "channelsTitle": "Where conversation notices go",
-    "channelsBody": "Assignments, mentions, decisions, handoffs and new messages land in For you; opening the conversation marks them read on every device. The bell keeps system notices only.",
+    "channelsBody": "Assignments, mentions and decisions aimed at you land in Assigned to me; opening the conversation marks them read on every device. The bell keeps system notices only.",
     "connectSlack": "Connect Slack",
     "enableSlack": "to enable the Slack toggles.",
     "budgetHint": "Budget alerts follow spend caps on",
@@ -2421,7 +2437,7 @@
     "openKnowledge": "Open Knowledge",
     "openGovernDrafts": "Review Govern drafts",
     "activity": "Activity",
-    "forYouHint": "Questions, drafts and replies that wait on you",
+    "forYouHint": "Assigned to you, plus questions, drafts and mentions aimed at you",
     "planAgentTask": "Plan an agent task",
     "newReminder": "New reminder",
     "checkupsDue": "Tasks due",
@@ -2677,15 +2693,15 @@
       "allCommunication": "All communication",
       "allCommunicationHint": "Every conversation across channels — or open a channel or agent folder below",
       "open": "Open",
-      "openHint": "Still waiting for someone to finish them",
+      "openHint": "Every open conversation, assigned or not",
       "unassigned": "Unassigned",
       "unassignedHint": "Nobody owns these yet",
       "closed": "Closed",
       "closedHint": "Finished conversations",
       "spam": "Spam",
       "spamHint": "Hidden from the open queue",
-      "forYou": "For you",
-      "forYouHint": "Yours, your turn, your team's turn, questions to everyone and mentions",
+      "forYou": "Assigned to me",
+      "forYouHint": "Assigned to you, plus questions, drafts and mentions aimed at you",
       "scheduled": "Scheduled",
       "scheduledHint": "Conversations with a date or repeat"
     },
@@ -4158,14 +4174,18 @@
         "error": "Error"
       },
       "archiveConfirm": "Deactivate this agent? It leaves the working roster. Conversations and run history stay.",
-      "archiveConfirmManaged": "This agent belongs to {{origin}}. Deactivating hides it from the list and stops stack updates from bringing it back until you accept a restore proposal. History is kept.",
+      "archiveConfirmManaged": "This agent belongs to {{place}}. Deactivating hides it from the list and stops pack updates from bringing it back until you accept a restore proposal. History is kept.",
+      "archiveConfirmAffiliated": "This agent belongs to {{place}}. Deactivating hides it from the list and stops pack updates from bringing it back until you accept a restore proposal. History is kept.",
       "statusUpdateError": "Could not update agent status.",
       "archiveError": "Could not deactivate agent.",
       "leadBadge": "Default",
       "leadBadgeShort": "Default",
       "managedBadge": "Managed",
       "managedBadgeShort": "Managed",
-      "managedBadgeHint": "Owned by {{origin}}. Deactivation is respected until you accept a restore proposal.",
+      "managedBadgeHint": "{{place}}. Deactivation is respected until you accept a restore proposal.",
+      "affiliationBadgeFallback": "Module",
+      "fromModule": "From the {{place}} module",
+      "affiliationBadgeHint": "{{place}}. Deactivation is respected until you accept a restore proposal.",
       "leadHint": "Used when nothing more specific is assigned.",
       "makeLead": "Make default agent",
       "makeLeadConfirm": "Make this the default agent? It will handle work and conversations that have no more specific assignment.",
@@ -6200,6 +6220,11 @@
     "testFailed": "Test failed",
     "noKey": "No key",
     "keySet": "Key set ····{{last4}}",
+    "image": {
+      "title": "Image models",
+      "body": "Bokito Image uses DALL-E 2 when an OpenAI key is available, and Mistral's image tool otherwise. Add your own image model on a provider to use that instead.",
+      "selected": "Selected"
+    },
     "pageTitle": "Models",
     "pageSubtitle": "Set the workspace Bokito AI default (or Automatic), then pick a mode per agent. Add your own models when your plan includes them.",
     "saved": "Saved",
@@ -6345,6 +6370,9 @@
     "hireAgentsSoon": "Coming soon",
     "hireAgentsBody": "Pick specialists from the Marketplace and put them next to your team.",
     "hireAgentsCta": "Marketplace",
+    "agentsSectionHint": "Company agents next to your people. Hire more from the Marketplace.",
+    "agentsEmpty": "No company agents yet.",
+    "agentsEmptyHint": "Use Hire new agents to pick specialists from the Marketplace.",
     "emailPlaceholder": "name@company.com",
     "role": "Role",
     "invite": "Invite",
@@ -6372,7 +6400,8 @@
     "colDate": "Date",
     "colActions": "Actions",
     "typePerson": "Person",
-    "typeAgent": "Agent",
+    "typeAgent": "AI agent",
+    "typeAiAgent": "AI agent",
     "typeInvite": "Invite",
     "invitedByLine": "{{name}} · {{date}}",
     "agentExtra": "{{questions}} questions · {{answerTime}}",
@@ -6526,10 +6555,13 @@
     "title": "Organization",
     "subtitle": "Company in the center, each department as an island. Drag to pan, right-drag to tilt, wheel to zoom. Hover a mark for details; use the legend to find one.",
     "link": "Grid",
+    "openInGrid": "Open in Grid",
+    "teaserTitle": "Grid",
+    "teaserHint": "People, agents and departments on the map",
     "loadError": "Could not load the organization map.",
     "back": "Back to Agents",
     "legend": "Legend",
-    "legendHint": "Click an item to find it on the map.",
+    "legendHint": "Hover an item to light it and its direct links. Click to find it on the map.",
     "findPlaceholder": "Find on map…",
     "findEmpty": "Nothing matches.",
     "findAction": "Find {{name}} on the map",
@@ -6625,7 +6657,7 @@
     "cancel": "Cancel",
     "save": "Save",
     "pinLabel": "Show in the Communication sidebar",
-    "pinHint": "Everyone sees this team as a folder with For you, Open, Unassigned and Closed.",
+    "pinHint": "Everyone sees this department in Communication, with Unassigned as a sub-row.",
     "pinnedBadge": "In sidebar",
     "metrics": "30 days: {{questions}} questions, answered in {{answerTime}}, {{pickedUp}} picked up"
   },
@@ -6836,9 +6868,9 @@
   },
   "communicationTags": {
     "title": "Communication rail",
-    "description": "Every row in the Communication rail has the same sub-views: For you, Open, Unassigned and Closed. Pin labels under Settings, Labels.",
-    "defaultTitle": "Default sub-view",
-    "defaultDescription": "The view a rail row opens on when you click it. Set a different one per row below.",
+    "description": "All communication opens on Assigned to me, Open or Unassigned. Other rows open their own list; closed conversations sit behind Show closed.",
+    "defaultTitle": "All communication opens on",
+    "defaultDescription": "The list that opens when you click All communication.",
     "useGlobal": "Default ({{queue}})",
     "saveFailed": "Could not save the Communication settings."
   },

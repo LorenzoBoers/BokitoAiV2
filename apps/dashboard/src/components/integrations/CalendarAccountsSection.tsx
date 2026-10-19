@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { LoadingBlock } from '../ui/loading-block'
+import { ApiErrorBanner } from '../ui/ApiErrorBanner'
 import { Switch } from '../ui/switch'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { useConfirm } from '../ui/confirm-dialog'
@@ -90,7 +92,7 @@ export function CalendarAccountsSection() {
           ))}
         </div>
       </div>
-      {error ? <p className="text-xs text-status-error">{error}</p> : null}
+      {error ? <ApiErrorBanner message={error} /> : null}
       {rows == null ? (
         <div className="flex justify-center py-4">
           <Loader2 size={16} className="animate-spin text-text-muted" aria-hidden />
@@ -282,7 +284,7 @@ function CalendarPicker({ connectionId, onSaved }: { connectionId: string; onSav
   }
 
   if (calendars == null) {
-    return <p className="text-xs text-text-muted">{t('calendars.loading')}</p>
+    return <LoadingBlock variant="inline" label={t('calendars.loading')} />
   }
 
   const writable = calendars.filter((c) => c.enabled && c.writable)
@@ -336,7 +338,7 @@ function CalendarPicker({ connectionId, onSaved }: { connectionId: string; onSav
             ]}
           />
         )}
-        {error ? <p className="text-xs text-status-error">{error}</p> : null}
+        {error ? <ApiErrorBanner message={error} /> : null}
       </div>
     </div>
   )

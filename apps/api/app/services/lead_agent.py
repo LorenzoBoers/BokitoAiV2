@@ -17,6 +17,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 
+# Titles the wizard used before the company assistant had a fixed function name.
+LEGACY_LEAD_JOB_TITLES = frozenset({"", "onboarding specialist", "assistant", "assistent"})
+
+
+def company_assistant_job_title(language: str | None) -> str:
+    """Function line under the lead's name. The display name stays the owner's."""
+    lang = (language or "").strip().lower()
+    if lang.startswith("en"):
+        return "Company assistant"
+    return "Bedrijfsassistent"
+
 
 async def _lead_candidate(session: AsyncSession, tenant_id: UUID) -> Agent | None:
     """Best agent to act as lead when no flag is set: oldest active company
@@ -110,18 +121,34 @@ async def set_lead_agent(
     return agent
 
 
+async def _settle_company_assistant(session: AsyncSession, agent: Agent, language: str | None) -> bool:
+    """Give the lead the company-assistant title when it still has a wizard default, and a seat on All."""
+    from app.services.teams import ensure_agent_on_all
+
+    changed = False
+    if (agent.job_title or "").strip().lower() == "onboarding specialist":
+        agent.job_title = company_assistant_job_title(language)
+        session.add(agent)
+        changed = True
+    if await ensure_agent_on_all(session, agent.tenant_id, agent.id):
+        changed = True
+    return changed
+
+
 async def ensure_lead_agents(session: AsyncSession) -> None:
     """Startup backfill: every tenant with company agents gets exactly one lead."""
     from app.models.auth import Tenant
+    from app.services.workspaces_portal import parse_settings
 
-    tenant_ids = (await session.execute(select(Tenant.id))).scalars().all()
+    tenants = (await session.execute(select(Tenant))).scalars().all()
     changed = False
-    for tenant_id in tenant_ids:
+    for tenant in tenants:
+        language = str(parse_settings(tenant).get("ai_workspace_language") or "")
         leads = (
             await session.execute(
                 select(Agent)
                 .where(
-                    Agent.tenant_id == tenant_id,
+                    Agent.tenant_id == tenant.id,
                     Agent.kind == "company",
                     Agent.is_lead.is_(True),
                     Agent.is_active.is_(True),
@@ -129,18 +156,22 @@ async def ensure_lead_agents(session: AsyncSession) -> None:
                 .order_by(Agent.created_at)
             )
         ).scalars().all()
-        if len(leads) == 1:
-            continue
+        lead: Agent | None = None
         if len(leads) > 1:
             for extra in leads[1:]:
                 extra.is_lead = False
                 session.add(extra)
             changed = True
-            continue
-        candidate = await _lead_candidate(session, tenant_id)
-        if candidate:
-            candidate.is_lead = True
-            session.add(candidate)
+            lead = leads[0]
+        elif len(leads) == 1:
+            lead = leads[0]
+        else:
+            lead = await _lead_candidate(session, tenant.id)
+            if lead:
+                lead.is_lead = True
+                session.add(lead)
+                changed = True
+        if lead is not None and await _settle_company_assistant(session, lead, language):
             changed = True
     if changed:
         await session.commit()

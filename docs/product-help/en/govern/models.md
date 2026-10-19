@@ -25,6 +25,14 @@ Models live under **Settings**, then **Models**. The page shows **Bokito AI mode
 3. Each model card shows context window (and tools / vision when supported) and the list price per 1 million tokens (input and output). Below the cards: **EU-hosted**, **Always current**, **Never trains on your data**, and **Keeps pace with leading models**.
 4. New workspaces start on **Automatic**. Agents set to **Workspace default** fall back to this choice. Agents with their own mode (Automatic or a pinned tier) ignore it.
 
+## Choose an image model
+
+1. On the same **Models** page, the **Image models** block lists Bokito Image, DALL-E 2 and Mistral Image. These rows are already linked when the workspace is opened.
+2. Click a card to make it the image model for the workspace. Bokito Image uses DALL-E 2 when an OpenAI key is available, and Mistral's image tool otherwise.
+3. A card shows **Active** when a key is available for that provider. **Not configured** means the call would stay on the mock adapter.
+4. When your plan includes own keys, add another provider and an image model. It appears in the same list. Several providers can be registered; agents can later point at different models.
+5. Asking an agent in a conversation to generate an image uses the selected card. When nothing is selected, the agent uses Bokito Image. The conversation shows a frame as soon as generation starts, and the image fills that frame when it is ready. That frame is the only copy of the picture. After the reply, the message keeps one tool row you can open.
+
 ## Choose a mode on an agent
 
 1. Open an [agent](/docs/ai/agents). Under **Model and runtime**, pick:

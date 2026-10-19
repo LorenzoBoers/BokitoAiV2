@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { FlaskConical, Plus, Trash2 } from 'lucide-react'
 import { Card } from '../ui/card'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
 import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -168,7 +169,9 @@ export function AgentRulesEditor({
 
       <div className="mt-4 space-y-2">
         <p className="text-xs font-medium text-text-secondary">{t('agentRules.rulesTitle')}</p>
-        {allRules.length === 0 ? <p className="text-sm text-text-muted">{t('agentRules.empty')}</p> : null}
+        {allRules.length === 0 ? (
+          <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('agentRules.empty')} />
+        ) : null}
         {allRules.map((rule) => (
           <div
             key={`${rule.inherited ? 'w' : 'a'}-${rule.id}`}

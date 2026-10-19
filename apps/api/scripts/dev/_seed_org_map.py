@@ -22,7 +22,6 @@ from app.models.calendar import CalendarTagLink, TenantCalendar
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection
 from app.models.module_agent import AgentScope
-from app.models.module_install import ModuleInstall
 from app.models.module_source import ModuleSource
 from app.models.orchestra import Workstream
 from app.models.project import Project, ProjectTagLink
@@ -264,33 +263,15 @@ async def main() -> None:
                 session, tid, support.id, "agent", agent_id=assistant.id, duty="primary"
             )
 
-        # Accounting module: department + Boekito + shipped items.
-        from app.modules.catalog import install_module, set_module_enabled
-        from app.services.module_agents import module_agent_count
-        from app.services.module_department import bind_module_department
+        # Accounting module: one-time drop (department + Boekito + shipped items).
+        from app.modules.catalog import install_module
+        from app.services.module_origin import module_is_installed
 
-        install = (
-            await session.execute(
-                select(ModuleInstall).where(
-                    ModuleInstall.tenant_id == tid,
-                    ModuleInstall.module_slug == "accounting",
-                )
-            )
-        ).scalars().first()
-        if install is None or install.install_state == "not_installed":
+        if not await module_is_installed(session, tid, "accounting"):
             await install_module(session, tid, "accounting", hire_specialist=True)
-            print("accounting install started")
+            print("accounting installed")
         else:
-            await bind_module_department(session, tid, "accounting")
-            print("accounting department rebound")
-
-        # Finish setup when a specialist is on the roster.
-        if await module_agent_count(session, tid, "accounting") >= 1:
-            try:
-                await set_module_enabled(session, tid, "accounting", True)
-                print("accounting marked installed")
-            except ValueError as exc:
-                print("accounting finish skipped:", exc)
+            print("accounting already installed")
 
         session.expire_all()
         agents = {row.name: row for row in (await one(Agent)).scalars()}
@@ -310,25 +291,15 @@ async def main() -> None:
         orchestrator = agents.get("Orchestrator")
         assistant = agents.get("Bokito assistant") or agents.get("Bokito")
         boekito = agents.get("Boekito")
-        install = (
-            await session.execute(
-                select(ModuleInstall).where(
-                    ModuleInstall.tenant_id == tid,
-                    ModuleInstall.module_slug == "accounting",
-                )
-            )
-        ).scalars().first()
         accounting = (
             await session.execute(
                 select(Department).where(
                     Department.tenant_id == tid,
-                    Department.name == "Accounting",
+                    Department.origin_module_slug == "accounting",
                     Department.deleted_at.is_(None),
                 )
             )
         ).scalars().first()
-        if accounting is None and install is not None and install.department_id:
-            accounting = await session.get(Department, install.department_id)
         accounting_id = accounting.id if accounting else None
         if accounting_id:
             print("Accounting department", accounting_id)

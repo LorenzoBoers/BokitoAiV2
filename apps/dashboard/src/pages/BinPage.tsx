@@ -8,6 +8,7 @@ import { restoredEntityPath } from '../lib/open-entity'
 import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Button } from '../components/ui/button'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { EmptyState } from '../components/ui/empty-state'
 import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
 import { SearchField } from '../components/ui/search-field'
@@ -171,7 +172,7 @@ export default function BinPage() {
       <SearchField value={q} onChange={setQ} placeholder={t('binPage.search')} />
 
       {loading ? (
-        <p className="text-sm text-text-muted">{t('binPage.loading')}</p>
+        <LoadingBlock variant="skeleton" rows={4} />
       ) : items.length === 0 ? (
         <EmptyState
           icon={Trash2}

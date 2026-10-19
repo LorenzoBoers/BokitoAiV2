@@ -26,6 +26,7 @@ import { CapBar } from '../components/ui/cap-bar'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { Chart } from '../components/ui/chart'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { InsetPanel } from '../components/ui/inset-panel'
 import { StatGrid, StatTile } from '../components/ui/stat-tile'
 import { formatAppTime } from '../lib/app-locale'
@@ -412,7 +413,7 @@ export default function UsagePage() {
                 </div>
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-text-muted">{t('usagePage.loading')}</p>
+              <LoadingBlock variant="skeleton" rows={3} className="py-4" />
             )}
           </div>
         </section>
@@ -531,7 +532,7 @@ export default function UsagePage() {
             </div>
           </section>
         ) : !summary && !error ? (
-          <p className="px-1 py-6 text-sm text-text-muted">{t('usagePage.loading')}</p>
+          <LoadingBlock variant="skeleton" rows={3} className="px-1 py-4" />
         ) : null}
 
         {breakdown ? (

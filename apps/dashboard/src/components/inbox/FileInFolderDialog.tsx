@@ -6,6 +6,9 @@ import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { folderRows, folderSubtreeIds } from '../../lib/project-folders'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
+import { ApiErrorBanner } from '../ui/ApiErrorBanner'
+import { LoadingBlock } from '../ui/loading-block'
 import {
   Dialog,
   DialogContent,
@@ -111,7 +114,7 @@ export default function FileInFolderDialog({
           className="h-8 w-full rounded-md border border-border/70 bg-bg-input px-2 text-sm text-text-heading outline-none focus:border-accent"
         />
         <div className="max-h-64 space-y-1 overflow-y-auto">
-          {loading ? <p className="px-2 py-3 text-sm text-text-muted">{t('threadChrome.fileLoading')}</p> : null}
+          {loading ? <LoadingBlock variant="skeleton" rows={3} className="py-1" /> : null}
           {allowRoot ? (
             <button
               type="button"
@@ -147,10 +150,10 @@ export default function FileInFolderDialog({
             )
           })}
           {!loading && visible.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-text-muted">{t('threadChrome.fileEmpty')}</p>
+            <EmptyState tone="plain" size="sm" className="px-2 py-3" title={t('threadChrome.fileEmpty')} />
           ) : null}
         </div>
-        {error ? <p className="text-sm text-status-error">{error}</p> : null}
+        {error ? <ApiErrorBanner message={error} /> : null}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {t('threadChrome.fileCancel')}

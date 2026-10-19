@@ -119,8 +119,11 @@ async def merge_connection_into(
     the source is marked ``merged`` and no longer counts as active. With
     ``take_credentials`` the source's (newer) tokens and verify stamps win.
     """
-    from app.models.module_install import ModuleInstall
+    import json
+
     from app.models.project_work import ProjectResource
+    from app.models.team import Department
+    from app.services.module_origin import MODULES_SETTINGS_KEY, write_module_prefs_to_department
 
     if take_credentials:
         target.credentials_json = source.credentials_json
@@ -197,13 +200,27 @@ async def merge_connection_into(
     source_ids = {str(source.id), *(str(s) for s in await _mcp_server_ids(session, tenant_id, source.id))}
     target_servers = await _mcp_server_ids(session, tenant_id, target.id)
     target_ref = str(target_servers[0]) if target_servers else str(target.id)
-    installs = (
-        await session.execute(select(ModuleInstall).where(ModuleInstall.tenant_id == tenant_id))
+    depts = (
+        await session.execute(
+            select(Department).where(
+                Department.tenant_id == tenant_id,
+                Department.origin_module_slug.is_not(None),
+                Department.deleted_at.is_(None),
+            )
+        )
     ).scalars().all()
-    for install in installs:
-        if install.default_connection_id and install.default_connection_id in source_ids:
-            install.default_connection_id = target_ref
-            session.add(install)
+    for dept in depts:
+        try:
+            settings = json.loads(dept.settings_json or "{}")
+        except json.JSONDecodeError:
+            settings = {}
+        mods = settings.get(MODULES_SETTINGS_KEY) if isinstance(settings, dict) else {}
+        if not isinstance(mods, dict):
+            continue
+        default = str(mods.get("default_connection_id") or "")
+        if default and default in source_ids:
+            write_module_prefs_to_department(dept, {"default_connection_id": target_ref})
+            session.add(dept)
 
     source.status = MERGED_STATUS
     source.instance_key = ""

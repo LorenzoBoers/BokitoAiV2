@@ -13,6 +13,10 @@
     "ariaLabel": "Gerelateerd"
   },
   "tabs": {
+    "newChat": {
+      "title": "New chat",
+      "subtitle": "Start een gesprek"
+    },
     "overview": {
       "title": "Overview",
       "subtitle": "Dagelijkse scan, aandacht en verbruik"
@@ -391,7 +395,7 @@
     "connectedTools": "Gekoppelde tools",
     "connected": "Koppelingen",
     "myAssistant": "Mijn assistent",
-    "forYou": "Voor jou",
+    "forYou": "Aan mij",
     "team": "Team",
     "bin": "Prullenbak"
   },
@@ -738,6 +742,18 @@
         {
           "title": "Backlog",
           "body": "Verzoeken die zonder match blijven binnenkomen landen in de backlog. Koppel er een flow aan als het waard is om te volgen."
+        }
+      ]
+    },
+    "team": {
+      "bannerTitle": "Workforce is wie het bedrijf draait",
+      "bannerBody": "Nodig mensen uit, neem agents aan en groepeer ze in afdelingen die gesprekken oppakken.",
+      "pageTitle": "Zo werkt Workforce",
+      "intro": "Mensen, agents en afdelingen op één pagina, met wie er beschikbaar is.",
+      "sections": [
+        {
+          "title": "Bibliotheek",
+          "body": "Elke agent is een kaart. De standaardbehandelaar heeft een Lead-badge. Open een kaart om instructies, model, tools en chattoegang te wijzigen."
         }
       ]
     }
@@ -1687,7 +1703,7 @@
     "openDecisions": "Open beslissingen",
     "openDecisionsHint": "Kaarten die in Communicatie op een persoon wachten.",
     "openDecisionsEmpty": "Geen beslissingskaarten in afwachting.",
-    "openForYou": "Voor jou openen",
+    "openForYou": "Aan mij openen",
     "loading": "Verbruik laden...",
     "byModel": "Per model ({{days}}d)",
     "billable": "Factureerbaar {{amount}}",
@@ -1741,12 +1757,12 @@
     "title": "Notificaties",
     "markAll": "Alles gelezen",
     "empty": "Geen systeemmeldingen",
-    "emptyHint": "Werk dat jou nodig heeft staat in Voor jou. De lijst hieronder is voor systeemmeldingen.",
+    "emptyHint": "Werk dat aan jou is toegewezen staat in Aan mij. De lijst hieronder is voor systeemmeldingen.",
     "settings": "Instellingen",
     "openChannels": "E-mail en berichten",
     "openCommunication": "Communicatie openen",
-    "openForYou": "Voor jou openen",
-    "forYouEmpty": "Niets in Voor jou nu",
+    "openForYou": "Aan mij openen",
+    "forYouEmpty": "Niets aan mij nu",
     "staleDays": "{{count}}d geleden — nog open",
     "similarCount": "{{count}} vergelijkbaar — nog open",
     "markRead": "Gelezen",
@@ -1754,8 +1770,8 @@
     "handoffBody": "{{who}} vroeg om een medewerker. AI-antwoorden staan gepauzeerd tot iemand dit gesprek overneemt.",
     "dayToday": "Vandaag",
     "dayOlder": "Eerder",
-    "forYouLine_one": "Nu {{count}} gesprek in Voor jou",
-    "forYouLine_other": "Nu {{count}} gesprekken in Voor jou",
+    "forYouLine_one": "Nu {{count}} gesprek aan mij",
+    "forYouLine_other": "Nu {{count}} gesprekken aan mij",
     "digestGroup_one": "Overzicht: {{count}} update",
     "digestGroup_other": "Overzicht: {{count}} updates"
   },
@@ -2167,7 +2183,7 @@
     "pushNotConfigured": "Push staat niet aan op deze server. Zet VAPID_PUBLIC_KEY en VAPID_PRIVATE_KEY in de API-omgeving (zie docs/PRODUCTION_READINESS.md).",
     "pushFailed": "Pushnotificaties konden niet worden ingeschakeld.",
     "channelsTitle": "Waar gespreksmeldingen heen gaan",
-    "channelsBody": "Toewijzingen, vermeldingen, beslissingen, overdrachten en nieuwe berichten komen in Voor jou; het gesprek openen markeert ze gelezen op elk apparaat. De bel bevat alleen systeemmeldingen.",
+    "channelsBody": "Toewijzingen, vermeldingen en beslissingen aan jou komen in Aan mij; het gesprek openen markeert ze gelezen op elk apparaat. De bel bevat alleen systeemmeldingen.",
     "connectSlack": "Slack koppelen",
     "enableSlack": "om de Slack-schakelaars te gebruiken.",
     "budgetHint": "Budgetwaarschuwingen volgen de uitgavenlimieten op",
@@ -2421,7 +2437,7 @@
     "openKnowledge": "Kennis openen",
     "openGovernDrafts": "Govern-concepten bekijken",
     "activity": "Activiteit",
-    "forYouHint": "Vragen, concepten en antwoorden die op jou wachten",
+    "forYouHint": "Aan jou toegewezen, plus vragen, concepten en vermeldingen aan jou",
     "planAgentTask": "Agenttaak plannen",
     "newReminder": "Nieuwe herinnering",
     "checkupsDue": "Openstaande taken",
@@ -2677,15 +2693,15 @@
       "allCommunication": "Alle communicatie",
       "allCommunicationHint": "Elk gesprek over alle kanalen — of open hieronder een kanaal- of agentmap",
       "open": "Open",
-      "openHint": "Wachten nog tot iemand ze afrondt",
+      "openHint": "Alle open gesprekken, toegewezen of niet",
       "unassigned": "Niet toegewezen",
       "unassignedHint": "Niemand is hier nog eigenaar van",
       "closed": "Gesloten",
       "closedHint": "Afgeronde gesprekken",
       "spam": "Spam",
       "spamHint": "Verborgen uit de open wachtrij",
-      "forYou": "Voor jou",
-      "forYouHint": "Van jou, jouw beurt, de beurt van je team, vragen aan iedereen en vermeldingen",
+      "forYou": "Aan mij",
+      "forYouHint": "Aan jou toegewezen, plus vragen, concepten en vermeldingen aan jou",
       "scheduled": "Gepland",
       "scheduledHint": "Gesprekken met een datum of herhaling"
     },
@@ -4158,14 +4174,18 @@
         "error": "Fout"
       },
       "archiveConfirm": "Deze agent deactiveren? Die verdwijnt uit het werkrooster. Gesprekken en run-geschiedenis blijven.",
-      "archiveConfirmManaged": "Deze agent hoort bij {{origin}}. Deactiveren verbergt hem uit de lijst en voorkomt dat stack-updates hem terugzetten tot je een herstelvoorstel accepteert. Geschiedenis blijft bewaard.",
+      "archiveConfirmManaged": "Deze agent hoort bij {{place}}. Deactiveren verbergt hem uit de lijst en voorkomt dat pack-updates hem terugzetten tot je een herstelvoorstel accepteert. Geschiedenis blijft bewaard.",
+      "archiveConfirmAffiliated": "Deze agent hoort bij {{place}}. Deactiveren verbergt hem uit de lijst en voorkomt dat pack-updates hem terugzetten tot je een herstelvoorstel accepteert. Geschiedenis blijft bewaard.",
       "statusUpdateError": "Kon de agentstatus niet bijwerken.",
       "archiveError": "Kon de agent niet deactiveren.",
       "leadBadge": "Standaard",
       "leadBadgeShort": "Standaard",
       "managedBadge": "Beheerd",
       "managedBadgeShort": "Beheerd",
-      "managedBadgeHint": "Beheerd door {{origin}}. Deactiveren blijft gelden tot je een herstelvoorstel accepteert.",
+      "managedBadgeHint": "{{place}}. Deactiveren blijft gelden tot je een herstelvoorstel accepteert.",
+      "affiliationBadgeFallback": "Module",
+      "fromModule": "Uit de module {{place}}",
+      "affiliationBadgeHint": "{{place}}. Deactiveren blijft gelden tot je een herstelvoorstel accepteert.",
       "leadHint": "Wordt gebruikt als niets specifiekers is toegewezen.",
       "makeLead": "Maak standaardagent",
       "makeLeadConfirm": "Deze agent de standaardagent maken? Die behandelt werk en gesprekken zonder specifiekere toewijzing.",
@@ -6200,6 +6220,11 @@
     "testFailed": "Test mislukt",
     "noKey": "Geen sleutel",
     "keySet": "Sleutel ingesteld ····{{last4}}",
+    "image": {
+      "title": "Beeldmodellen",
+      "body": "Bokito Image gebruikt DALL-E 2 wanneer er een OpenAI-sleutel is, en anders de image-tool van Mistral. Voeg een eigen beeldmodel op een provider toe om dat te gebruiken.",
+      "selected": "Gekozen"
+    },
     "pageTitle": "Modellen",
     "pageSubtitle": "Stel de workspace Bokito AI-standaard in (of Automatisch), kies daarna een modus per agent. Voeg eigen modellen toe wanneer je plan dat toelaat.",
     "saved": "Opgeslagen",
@@ -6345,6 +6370,9 @@
     "hireAgentsSoon": "binnenkort",
     "hireAgentsBody": "Kies specialisten uit de Marketplace en zet ze naast je team.",
     "hireAgentsCta": "Marketplace",
+    "agentsSectionHint": "Bedrijfsagents naast je mensen. Neem er meer aan via de Marketplace.",
+    "agentsEmpty": "Nog geen bedrijfsagents.",
+    "agentsEmptyHint": "Gebruik Neem nieuwe agents aan om specialisten uit de Marketplace te kiezen.",
     "emailPlaceholder": "naam@bedrijf.com",
     "role": "Rol",
     "invite": "Uitnodigen",
@@ -6372,7 +6400,8 @@
     "colDate": "Datum",
     "colActions": "Acties",
     "typePerson": "Persoon",
-    "typeAgent": "Agent",
+    "typeAgent": "AI agent",
+    "typeAiAgent": "AI agent",
     "typeInvite": "Uitnodiging",
     "invitedByLine": "{{name}} · {{date}}",
     "agentExtra": "{{questions}} vragen · {{answerTime}}",
@@ -6526,10 +6555,13 @@
     "title": "Organisatie",
     "subtitle": "Bedrijf in het midden, elke afdeling als een eiland. Sleep om te verschuiven, rechtermuis om te kantelen, wiel om te zoomen. Hover een markering voor details; gebruik de legenda om iets te vinden.",
     "link": "Grid",
+    "openInGrid": "Open in Grid",
+    "teaserTitle": "Grid",
+    "teaserHint": "Mensen, agents en afdelingen op de kaart",
     "loadError": "De organisatiekaart kon niet worden geladen.",
     "back": "Terug naar Agents",
     "legend": "Legenda",
-    "legendHint": "Klik op een item om het op de kaart te vinden.",
+    "legendHint": "Hover een item om het en de directe koppelingen te laten oplichten. Klik om het op de kaart te vinden.",
     "findPlaceholder": "Zoek op de kaart…",
     "findEmpty": "Geen resultaten.",
     "findAction": "{{name}} op de kaart vinden",
@@ -6625,7 +6657,7 @@
     "cancel": "Annuleren",
     "save": "Opslaan",
     "pinLabel": "Tonen in de zijbalk van Communicatie",
-    "pinHint": "Iedereen ziet dit team als map met Voor jou, Open, Niet toegewezen en Gesloten.",
+    "pinHint": "Iedereen ziet deze afdeling in Communicatie, met Niet toegewezen als subrij.",
     "pinnedBadge": "In zijbalk",
     "metrics": "30 dagen: {{questions}} vragen, beantwoord in {{answerTime}}, {{pickedUp}} opgepakt"
   },
@@ -6836,9 +6868,9 @@
   },
   "communicationTags": {
     "title": "Communicatie-menu",
-    "description": "Elke rij in het Communicatie-menu heeft dezelfde submappen: Voor jou, Open, Niet toegewezen en Gesloten. Labels vastzetten doe je onder Instellingen, Labels.",
-    "defaultTitle": "Standaard submap",
-    "defaultDescription": "De weergave die een rij opent als je erop klikt. Stel hieronder per rij een andere in.",
+    "description": "Alle communicatie opent op Aan mij, Open of Niet toegewezen. Andere rijen openen hun eigen lijst; gesloten gesprekken staan onderaan achter Toon gesloten.",
+    "defaultTitle": "Alle communicatie opent op",
+    "defaultDescription": "De lijst die opent als je op Alle communicatie klikt.",
     "useGlobal": "Standaard ({{queue}})",
     "saveFailed": "Kon de Communicatie-instellingen niet opslaan."
   },

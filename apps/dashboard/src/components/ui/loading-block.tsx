@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { Skeleton } from './skeleton'
 
 interface LoadingBlockProps {
   /**
@@ -48,10 +49,7 @@ export function LoadingBlock({
         aria-live="polite"
       >
         {Array.from({ length: rows }).map((_, i) => (
-          <div
-            key={i}
-            className="h-12 animate-pulse rounded-lg border border-border/40 bg-bg-elevated/60"
-          />
+          <Skeleton key={i} className="h-12 rounded-lg border border-border/40" />
         ))}
       </div>
     )

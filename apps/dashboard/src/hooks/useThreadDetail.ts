@@ -272,6 +272,7 @@ export function useThreadDetail(
     const unsub = onGatewayEvent(`signal:${threadId}`, (event) => {
       if (
         event.event === 'message.delta' ||
+        event.event === 'message.part' ||
         event.event === 'agent.thinking' ||
         event.event === 'agent.step' ||
         event.event === 'agent.activity' ||

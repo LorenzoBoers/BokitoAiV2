@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     # Platform kill switch for module writes (apply_* verbs), as a
     # comma-separated list of module slugs (e.g. "accounting,banking").
     # Default empty: approved decisions return writes_disabled instead of
-    # touching the external package. The tenant's ModuleInstall.writes_enabled
+    # touching the external package. The tenant's department modules.writes_enabled
     # must ALSO be on for a write to execute.
     module_writes_enabled: str = ""
 
@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     mistral_api_key: str = ""
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    # In-app agent calls. Off unless AGENT_CALLS_ENABLED=true, so production
+    # neither rings nor shows the call screen. Dev turns it on in its own env.
+    agent_calls_enabled: bool = False
+    agent_call_ring_seconds: int = 25
+    openai_realtime_model: str = "gpt-realtime"
+    openai_realtime_voice: str = "marin"
     # Agent web_search: prefer self-hosted SearXNG. Empty falls back to Brave.
     searxng_url: str = ""
     # Brave Search API fallback when searxng_url is empty.

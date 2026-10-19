@@ -954,18 +954,9 @@ def _split_content_chunks(content: Any) -> tuple[str, str]:
 
 def get_chat_provider(provider_type: str, api_key: str, base_url: str | None = None):
     """Return a chat provider instance by provider type (or mock when unknown)."""
-    if provider_type == "anthropic" and api_key:
-        return AnthropicLLMProvider(api_key=api_key, base_url=base_url)
-    if provider_type == "mistral" and api_key:
-        from app.services.provider_presets import MISTRAL_BASE_URL
+    from app.services.provider_spec import get_capability_adapter
 
-        # Mistral exposes an OpenAI-compatible Chat Completions API (EU-hosted).
-        provider = OpenAILLMProvider(api_key=api_key, base_url=base_url or MISTRAL_BASE_URL)
-        provider.provider_type = "mistral"
-        return provider
-    if provider_type in ("openai", "openai_compatible") and api_key:
-        return OpenAILLMProvider(api_key=api_key, base_url=base_url)
-    return MockLLMProvider()
+    return get_capability_adapter(provider_type, "chat", api_key, base_url)
 
 
 def get_llm_provider(config: "TenantLLMConfig | None" = None):

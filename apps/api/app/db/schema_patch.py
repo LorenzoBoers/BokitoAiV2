@@ -62,13 +62,13 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "acts_for_user": "BOOLEAN DEFAULT 0",
         "default_channels_json": "VARCHAR DEFAULT '[]'",
         "default_signal_types_json": "VARCHAR DEFAULT '[]'",
-        "managed_origin": "VARCHAR DEFAULT ''",
-        "managed_ref": "VARCHAR DEFAULT ''",
-        "template_slug": "VARCHAR DEFAULT ''",
         "description": "VARCHAR DEFAULT ''",
     },
     "channel_accounts": {
         "default_agent_id": "VARCHAR",
+    },
+    "signal_participants": {
+        "unread_count": "INTEGER DEFAULT 0",
     },
     "signals": {
         "agent_id": "VARCHAR",

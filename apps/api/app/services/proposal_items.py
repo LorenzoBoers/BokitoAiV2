@@ -36,6 +36,7 @@ ITEM_TYPES = (
     "marketplace",
     "module",
     "help_doc",
+    "knowledge",
     "message",
 )
 
@@ -57,7 +58,11 @@ _TYPE_ALIASES = {
     "koppeling": "marketplace",
     "docs": "help_doc",
     "article": "help_doc",
-    "doc": "help_doc",
+    "help": "help_doc",
+    "document": "knowledge",
+    "doc": "knowledge",
+    "workspace_doc": "knowledge",
+    "knowledge": "knowledge",
     "quote": "message",
     "img": "image",
     "picture": "image",
@@ -89,10 +94,6 @@ def take_attach_items(signal_id: UUID | None) -> list[dict[str, Any]]:
     if not signal_id:
         return []
     return _PENDING_ATTACH.pop(str(signal_id), [])
-
-
-_SKIP_BARE_NAMES = frozenset({"google", "microsoft", "custom", "custom tool", "custom mcp"})
-_NAME_INDEX: list[tuple[str, str]] | None = None
 
 
 def snapshot_marketplace_slug(slug: str) -> dict[str, Any] | None:
@@ -130,85 +131,14 @@ def snapshot_marketplace_slug(slug: str) -> dict[str, Any] | None:
     }
 
 
-def marketplace_name_index() -> list[tuple[str, str]]:
-    """``(lowercase name, provider slug)`` longest first, for mention scans."""
-    global _NAME_INDEX
-    if _NAME_INDEX is not None:
-        return _NAME_INDEX
-    from app.services.integrations_catalog import HOST_BY_SLUG, PROVIDER_BY_SLUG, PROVIDERS
-
-    names: dict[str, str] = {}
-
-    def add(label: str, slug: str) -> None:
-        key = " ".join(label.lower().split())
-        if len(key) < 3 or key in _SKIP_BARE_NAMES:
-            return
-        if key not in names or len(key) > len(names[key]):
-            names[key] = slug
-
-    for slug, row in PROVIDER_BY_SLUG.items():
-        if not isinstance(row, dict):
-            continue
-        add(str(row.get("name") or ""), slug)
-        add(slug.replace("_", " "), slug)
-        if slug.endswith("_mcp"):
-            add(slug[:-4].replace("_", " "), slug)
-    for host_slug, host in HOST_BY_SLUG.items():
-        provider_slug = next(
-            (
-                str(p["slug"])
-                for p in PROVIDERS
-                if (p.get("host") or {}).get("slug") == host_slug
-            ),
-            host_slug,
-        )
-        add(str(host.get("name") or ""), provider_slug)
-        add(host_slug.replace("_", " "), provider_slug)
-    extras = {
-        "king accountancy": "king_accountancy",
-        "king": "king_accountancy",
-        "exact online": "exact",
-        "gocardless bank account data": "gocardless",
-        "gocardless bankaccountdata": "gocardless",
-        "one drive": "onedrive",
-        "sharepoint": "onedrive",
-    }
-    for label, slug in extras.items():
-        add(label, slug)
-    _NAME_INDEX = sorted(names.items(), key=lambda item: -len(item[0]))
-    return _NAME_INDEX
-
-
 def infer_marketplace_items_from_text(text: str) -> list[dict[str, Any]]:
-    """Safety net: catalog cards for connector names the model listed in prose."""
-    import re
+    """Marketplace cards are not inferred from prose.
 
-    body = text or ""
-    if not body.strip():
-        return []
-    found: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for name, slug in marketplace_name_index():
-        if slug in seen:
-            continue
-        match = re.search(rf"(?<![\w/]){re.escape(name)}(?![\w])", body, flags=re.IGNORECASE)
-        if not match:
-            continue
-        slice_ = body[match.start() : match.end()]
-        if len(name) < 6 and " " not in name and slice_[:1].islower():
-            continue
-        snap = snapshot_marketplace_slug(slug)
-        if not snap:
-            continue
-        key = str(snap.get("id") or slug)
-        if key in seen:
-            continue
-        seen.add(key)
-        seen.add(slug)
-        found.append(snap)
-        if len(found) >= MAX_ITEMS:
-            break
-    return found
+    A word such as Outlook inside an email address used to become a connector
+    card. Cards come from ``attach_items`` or a tool that showcases on purpose.
+    """
+    del text
+    return []
 
 
 _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
@@ -324,6 +254,58 @@ def _missing(item_type: str, ref: dict[str, Any]) -> dict[str, Any]:
         "title": _clip(ref.get("title") or ref.get("name") or ""),
         "subtitle": "",
         "missing": True,
+    }
+
+
+async def _knowledge_card(
+    session: AsyncSession,
+    tenant_id: UUID,
+    ref: dict[str, Any],
+    raw_id: Any,
+) -> dict[str, Any] | None:
+    """A workspace doc card. Product-help articles stay ``help_doc``."""
+    from app.models.workspace import WorkspaceDoc
+
+    row_id = _uuid(raw_id) or _uuid(ref.get("id"))
+    row = None
+    if row_id:
+        row = (
+            await session.execute(
+                select(WorkspaceDoc).where(WorkspaceDoc.id == row_id, WorkspaceDoc.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+    if row is None:
+        path = str(ref.get("path") or raw_id or "").strip().strip("/")
+        if path:
+            candidates = [path, path if path.endswith(".md") else f"{path}.md"]
+            row = (
+                await session.execute(
+                    select(WorkspaceDoc).where(
+                        WorkspaceDoc.tenant_id == tenant_id,
+                        WorkspaceDoc.path.in_(candidates),
+                    )
+                )
+            ).scalar_one_or_none()
+    if row is None:
+        title = str(ref.get("title") or ref.get("name") or raw_id or "").strip()
+        if len(title) > 2:
+            row = (
+                await session.execute(
+                    select(WorkspaceDoc).where(
+                        WorkspaceDoc.tenant_id == tenant_id,
+                        func.lower(WorkspaceDoc.title) == title.lower(),
+                    )
+                )
+            ).scalar_one_or_none()
+    if row is None:
+        return None
+    return {
+        "type": "knowledge",
+        "id": str(row.id),
+        "title": _clip(row.title or row.path),
+        "subtitle": _clip((row.kind or "doc").replace("_", " ")),
+        "kind": row.kind,
+        "path": f"/knowledge/{row.id}",
     }
 
 
@@ -645,38 +627,44 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         }
 
     if item_type == "module":
-        from app.models.module_install import ModuleInstall
-        from app.modules.catalog import get_module
+        from app.modules.catalog import get_module, serialize_modules_for_tenant
 
         slug = str(ref.get("slug") or raw_id or "").strip().lower()
         spec = get_module(slug) if slug else None
-        if row_id and not spec:
-            install = (
-                await session.execute(
-                    select(ModuleInstall).where(ModuleInstall.id == row_id, ModuleInstall.tenant_id == tenant_id)
-                )
-            ).scalar_one_or_none()
-            if install:
-                slug = install.module_slug
-                spec = get_module(slug)
         if not spec:
             return _missing(item_type, {**ref, "id": slug or str(raw_id or "")})
-        install = (
-            await session.execute(
-                select(ModuleInstall).where(
-                    ModuleInstall.tenant_id == tenant_id,
-                    ModuleInstall.module_slug == slug,
-                )
-            )
-        ).scalar_one_or_none()
-        state = install.install_state if install else "not_installed"
+        rows = await serialize_modules_for_tenant(session, tenant_id)
+        row = next((item for item in rows if item.get("slug") == slug), None)
+        if not isinstance(row, dict):
+            return _missing(item_type, {**ref, "id": slug})
+        package = row.get("package") if isinstance(row.get("package"), dict) else {}
+        persona = package.get("agent_template") if isinstance(package.get("agent_template"), dict) else {}
+        hired = str(row.get("specialist_agent_name") or "").strip()
+        providers = [
+            str(name)
+            for name in list(row.get("provider_slugs") or []) + list(row.get("planned_provider_slugs") or [])
+            if str(name).strip()
+        ]
         return {
             "type": item_type,
             "id": slug,
-            "title": _clip(spec.name),
-            "subtitle": _clip(state.replace("_", " ")),
-            "kind": state,
+            "title": _clip(row.get("name") or spec.name),
+            "subtitle": _clip(row.get("description") or spec.description, 280),
+            "kind": str(row.get("tenant_status") or "not_installed"),
             "slug": slug,
+            "path": str(row.get("setup_path") or spec.setup_path),
+            "module_status": str(row.get("status") or spec.status),
+            "install_state": str(row.get("install_state") or "not_installed"),
+            "tool_count": len(row.get("tool_cards") or []),
+            "provider_slugs": providers,
+            "name": _clip(hired or persona.get("name") or ""),
+            "job_title": _clip(persona.get("job_title") or ""),
+            "role_blurb": _clip(persona.get("role_blurb") or "", 280),
+            "avatar_kind": str(row.get("specialist_avatar_kind") or "orb"),
+            "avatar_icon": row.get("specialist_avatar_icon"),
+            "avatar_color": row.get("specialist_avatar_color") or persona.get("avatar_color"),
+            "avatar_shape": row.get("specialist_avatar_shape") or persona.get("avatar_shape") or "bokito",
+            "avatar_image_url": row.get("specialist_avatar_image_url"),
         }
 
     if item_type == "help_doc":
@@ -687,18 +675,27 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         parts = [p for p in path.split("/") if p]
         slug = parts[-1] if parts else ""
         article = get_article(slug) if slug else None
-        if not article:
-            return _missing(item_type, {**ref, "id": path or slug})
-        return {
-            "type": item_type,
-            "id": f"{article.section}/{article.slug}",
-            "title": _clip(article.title),
-            "subtitle": _clip(article.intro or article.section),
-            "kind": "help_doc",
-            "section": article.section,
-            "slug": article.slug,
-            "path": f"/docs/{article.section}/{article.slug}",
-        }
+        if article:
+            return {
+                "type": item_type,
+                "id": f"{article.section}/{article.slug}",
+                "title": _clip(article.title),
+                "subtitle": _clip(article.intro or article.section),
+                "kind": "help_doc",
+                "section": article.section,
+                "slug": article.slug,
+                "path": f"/docs/{article.section}/{article.slug}",
+            }
+        knowledge = await _knowledge_card(session, tenant_id, ref, raw_id)
+        if knowledge:
+            return knowledge
+        return _missing(item_type, {**ref, "id": path or slug})
+
+    if item_type == "knowledge":
+        card = await _knowledge_card(session, tenant_id, ref, raw_id)
+        if card:
+            return card
+        return _missing(item_type, ref)
 
     if item_type == "message":
         from app.models.signal import SignalMessage

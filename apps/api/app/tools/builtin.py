@@ -36,9 +36,9 @@ PROPOSAL_ITEMS_SCHEMA = {
         "Showcase cards inside your message (EntityRow previews). Prefer #name "
         "for tags in prose. Types: conversation | trash_entry | trigger | file | "
         "image | user | agent | tag | flow | project | canvas | contact | "
-        "integration | marketplace | module | help_doc | message. Pass id (tag: name; file: "
+        "integration | marketplace | module | help_doc | knowledge | message. Pass id (tag: name; file: "
         "message_id + name/index; image: https url in url or id; "
-        "marketplace/module/help_doc: slug or path; marketplace id is the "
+        "marketplace/module/help_doc: slug or path; knowledge: workspace doc id; marketplace id is the "
         "catalog slug e.g. github). "
         "Example: items:[{type:\"marketplace\", id:\"slack\"}] or "
         "[{type:\"image\", url:\"https://…\", title:\"…\"}]."
@@ -151,8 +151,8 @@ async def _get_operator_settings(ctx: ToolContext, tool_input: dict[str, Any]) -
     tenant = await ctx.session.get(Tenant, ctx.tenant_id)
     workspace = resolve_workspace_language(tenant)
     landing = stored.get("default_landing")
-    if landing not in ("communication", "overview"):
-        landing = "communication"
+    if landing not in ("chat", "communication", "overview"):
+        landing = "chat"
     return {
         "user": {
             "id": str(user.id),
@@ -214,7 +214,14 @@ async def _list_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
         agent_id=agent_id,
         scope=str(scope) if scope else None,
     )
-    return {"docs": [serialize_doc(d, include_content=False) for d in docs]}
+    from app.services.proposal_items import resolve_items, stash_attach_items
+
+    rows = [serialize_doc(d, include_content=False) for d in docs]
+    refs = [{"type": "knowledge", "id": row["id"], "title": row.get("title") or "", "path": row.get("path") or ""} for row in rows]
+    showcase = await resolve_items(ctx.session, ctx.tenant_id, refs)
+    if showcase:
+        stash_attach_items(ctx.signal_id, showcase)
+    return {"docs": rows, "items": showcase}
 
 
 async def _read_doc(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -680,6 +687,8 @@ async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     if signal is None:
         return {"error": err or "Signal not found"}
     kind = str(tool_input.get("kind") or "").strip()
+    if kind == "team":
+        kind = "department"
     if kind not in ("user", "agent", "department"):
         return {"error": "kind must be user, agent, or team"}
     try:
@@ -1031,6 +1040,24 @@ async def _note_no_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     return {"ok": True, "awaiting_approval": True, **outcome}
 
 
+async def _latest_user_message(ctx: ToolContext, signal_id: UUID):
+    """Newest teammate message on a conversation — the usual reaction target."""
+    from app.models.signal import SignalMessage
+
+    return (
+        await ctx.session.execute(
+            select(SignalMessage)
+            .where(
+                SignalMessage.signal_id == signal_id,
+                SignalMessage.tenant_id == ctx.tenant_id,
+                SignalMessage.kind == "user_message",
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
 async def _react_to_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Leave a stacked emoji reaction on a timeline message."""
     from app.models.signal import SignalMessage
@@ -1039,28 +1066,46 @@ async def _react_to_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     if not ctx.agent:
         return {"error": "Only an agent can call react_to_message"}
     kind = str(tool_input.get("kind") or "").strip().lower()
-    raw_id = tool_input.get("message_id")
-    if not raw_id:
-        return {"error": "message_id required"}
-    try:
-        message_id = UUID(str(raw_id))
-    except ValueError:
-        return {"error": "message_id must be a UUID"}
-
-    message = (
-        await ctx.session.execute(
-            select(SignalMessage).where(
-                SignalMessage.id == message_id,
-                SignalMessage.tenant_id == ctx.tenant_id,
-            )
-        )
-    ).scalar_one_or_none()
-    if message is None:
-        return {"error": "Message not found"}
+    raw_id = str(tool_input.get("message_id") or "").strip()
+    message_id: UUID | None = None
+    if raw_id:
+        try:
+            message_id = UUID(raw_id)
+        except ValueError:
+            # Models invent ids (thread slugs, "latest") when the transcript
+            # has no UUIDs. Treat that as "the message they just wrote".
+            message_id = None
 
     # Prefer the host conversation when the agent is in an inline session.
     signal, err = await _resolve_messaging_signal(ctx, tool_input)
     host_id = signal.id if signal is not None else ctx.signal_id
+
+    message = None
+    used_latest = message_id is None
+    if message_id is not None:
+        message = (
+            await ctx.session.execute(
+                select(SignalMessage).where(
+                    SignalMessage.id == message_id,
+                    SignalMessage.tenant_id == ctx.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        # A conversation id is not a message id.
+        if message is None and message_id in {host_id, ctx.signal_id}:
+            used_latest = True
+            message = None
+        elif message is None:
+            used_latest = True
+
+    if message is None:
+        if host_id is None:
+            return {"error": err or "message_id required"}
+        message = await _latest_user_message(ctx, host_id)
+        used_latest = True
+        if message is None:
+            return {"error": "No message on this conversation to react to"}
+
     if host_id and message.signal_id != host_id:
         # Allow reacting on the host when the tool is scoped to a session child.
         if signal is None or message.signal_id != getattr(signal, "id", None):
@@ -1072,7 +1117,7 @@ async def _react_to_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         payload = await reactions.set_reaction(
             ctx.session,
             tenant_id=ctx.tenant_id,
-            message_id=message_id,
+            message_id=message.id,
             actor_type="agent",
             actor_id=ctx.agent.id,
             kind=kind,
@@ -1085,13 +1130,17 @@ async def _react_to_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
             return {"error": str(exc.detail)}
         return {"error": str(exc)}
 
-    return {
+    result = {
         "ok": True,
-        "message_id": str(message_id),
+        "message_id": str(message.id),
         "kind": payload.get("mine") or kind,
         "reactions": payload,
         "emoji": reactions.REACTION_EMOJI.get(kind, ""),
     }
+    if used_latest:
+        result["resolved"] = "latest_user_message"
+        result["note"] = "Reacted to the teammate's latest message on this chat."
+    return result
 
 
 async def _propose_session_checkout(
@@ -3046,12 +3095,16 @@ register_tool(
     ToolSpec(
         name="react_to_message",
         description=(
-            "React to a timeline message with a small emoji stack (Communication "
-            "only). Kinds: up (good), down (not good), hundred (very good), "
-            "clap (applause), facepalm (awkward / oh no), thinking (unclear), "
-            "investigating (you will look into it — agent-only). One reaction "
-            "per actor; calling the same kind again clears it. Use investigating "
-            "when you start research instead of a long status note."
+            "React to a timeline message with a small emoji stack, including "
+            "this assistant chat. Kinds: up (good), down (not good), hundred "
+            "(very good), clap (applause), facepalm (awkward / oh no), thinking "
+            "(unclear), investigating (you will look into it — agent-only). "
+            "One reaction per actor; calling the same kind again clears it. "
+            "Omit message_id to react to the teammate's latest message on this "
+            "chat — do that when they ask for a thumbs up and you do not have "
+            "a real message UUID. Never invent an id, and never pass the "
+            "conversation id as message_id. Use investigating when you start "
+            "research instead of a long status note."
         ),
         category="messaging",
         input_schema={
@@ -3059,7 +3112,10 @@ register_tool(
             "properties": {
                 "message_id": {
                     "type": "string",
-                    "description": "Signal message UUID to react to.",
+                    "description": (
+                        "Signal message UUID. Omit to react to the teammate's "
+                        "latest message on this chat."
+                    ),
                 },
                 "kind": {
                     "type": "string",
@@ -3075,7 +3131,7 @@ register_tool(
                 },
                 "signal_id": {"type": "string"},
             },
-            "required": ["message_id", "kind"],
+            "required": ["kind"],
         },
         handler=_react_to_message,
         gated=False,
@@ -3091,7 +3147,10 @@ register_tool(
             "The inbound message needs no customer reply (newsletter, receipt, "
             "no-reply sender, system alert). Records that judgement on the "
             "conversation for a teammate to confirm — this is not a free-form "
-            "team note (use post_internal_note for that). Do not also draft a reply."
+            "team note (use post_internal_note for that). Only call this when "
+            "the teammate asked you to handle the inbound or mark no reply, "
+            "or when that is the clear next step for their ask — not after a "
+            "plain lookup question. Do not also draft a reply."
         ),
         category="messaging",
         input_schema={
@@ -3116,9 +3175,10 @@ register_tool(
         name="propose_session_checkout",
         description=(
             "Close the inline session you were brought into, with a short "
-            "summary of what you did and what you recommend. Call this when "
-            "the work is done. The session closes immediately; do not ask the "
-            "teammate to end it."
+            "summary of what you found, did, or recommend. Call this after "
+            "you have answered the teammate (or finished the work they "
+            "asked). The session closes immediately; do not ask the teammate "
+            "to end it."
         ),
         category="messaging",
         input_schema={
@@ -3832,7 +3892,12 @@ register_tool(
             "recommend, list, or point at objects — do not use a bullet list instead. "
             "Pass items [{type, id}]. Types: conversation, trash_entry, trigger, file, "
             "image, user, agent, tag, flow, project, canvas, contact, integration, "
-            "marketplace, module, help_doc, message. Connectors: type marketplace + catalog slug "
+            "marketplace, module, help_doc, knowledge, message. Modules the workspace "
+            "has not installed yet are type module + catalog slug (accounting, "
+            "banking, investing, documents) — the card matches the marketplace, "
+            "including the specialist. Prefer recommend_module when you want them "
+            "to install it. Workspace docs from "
+            "list_docs are type knowledge with the doc id. Connectors: type marketplace + catalog slug "
             "(github, slack, notion, google_calendar, whatsapp, …). Type integration "
             "only for a connected connection id (falls back to marketplace when not "
             "connected). Remote images: type image with url (https). Tags in prose: "
@@ -4791,6 +4856,9 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     older_than_days = int(older_raw) if older_raw is not None else None
     scheduled_from = _parse_when(tool_input.get("scheduled_from"))
     scheduled_to = _parse_when(tool_input.get("scheduled_to"))
+    tag_raw = tool_input.get("tag")
+    if tag_raw is None and tool_input.get("tags") is not None:
+        tag_raw = tool_input.get("tags")
     payload = await list_threads_summary(
         ctx.session,
         ctx.tenant_id,
@@ -4800,6 +4868,7 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         limit=int(tool_input.get("limit") or 25),
         scheduled_from=scheduled_from,
         scheduled_to=scheduled_to,
+        tag=tag_raw,
     )
     refs = [{"type": "conversation", "id": row["id"]} for row in payload.get("threads") or [] if row.get("id")]
     showcase = await resolve_items(ctx.session, ctx.tenant_id, refs)
@@ -4955,7 +5024,11 @@ register_tool(
             "Summarize Signal threads (subject, channel, status, last activity, path). "
             "This is the only thread list — do not invent list_open_internal_threads. "
             "Open internal threads: channel=internal (status defaults to open). "
-            "Results are showcased as conversation cards; do not repeat them as a numbered list. "
+            "Open tickets for a label (#bug, #feature, …): pass tag (name without #, or "
+            "comma-separated / list). Prefer this over list_queue_items for "
+            "'which bugs/features are open' — those are filed conversations, not folder "
+            "queue rows. Results are showcased as conversation cards; do not repeat them "
+            "as a numbered list. "
             "Not for workspace users or teams — use list_teams (and membership tools) instead. "
             "Defaults to open/pending threads. Does not include Bin items — use list_trash "
             "for deleted conversations (type conversation, alias signal). "
@@ -4973,6 +5046,21 @@ register_tool(
             "properties": {
                 "status": {"type": "string"},
                 "channel": {"type": "string"},
+                "tag": {
+                    "description": (
+                        "Label name without # (e.g. bug), comma-separated names, "
+                        "or a list. Matches ticket action tags and free hashtags."
+                    ),
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "string"}},
+                    ],
+                },
+                "tags": {
+                    "description": "Alias for tag (list of label names without #).",
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
                 "older_than_days": {"type": "integer"},
                 "limit": {"type": "integer"},
                 "scheduled_from": {"type": "string"},

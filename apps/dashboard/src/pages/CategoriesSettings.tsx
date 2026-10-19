@@ -19,6 +19,7 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { LoadingBlock } from '../components/ui/loading-block'
+import { EmptyState } from '../components/ui/empty-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { inboxPath } from '../lib/messages-paths'
 import {
@@ -82,7 +83,7 @@ export default function CategoriesSettings() {
           <p className="mt-0.5 text-xs text-text-muted">{t('categoriesPage.backlogDescription')}</p>
         </div>
         {backlog.length === 0 ? (
-          <p className="text-xs text-text-muted">{t('categoriesPage.backlogEmpty')}</p>
+          <EmptyState tone="plain" size="sm" className="px-0 py-1" title={t('categoriesPage.backlogEmpty')} />
         ) : (
           <ul className="space-y-2">
             {backlog.map((entry) => (

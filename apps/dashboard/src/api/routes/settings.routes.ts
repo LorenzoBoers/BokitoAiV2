@@ -18,6 +18,7 @@ export const settingsRoutes = {
     custom: '/models/custom',
     /** Workspace Bokito AI default: automatic | managed tier slug. */
     workspaceChatMode: '/models/workspace-chat-mode',
+    imageModel: '/models/image-model',
     /** Workspace data-region policy: allow or block US-hosted platform models. */
     dataRegion: '/models/data-region',
   },

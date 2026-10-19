@@ -58,7 +58,7 @@ export function configForLeaf(leaf: HubLeaf): LeafConfig {
         variant: 'customer',
       }
     case 'channel': {
-      const view: View = leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all'
+      const view: View = leaf.queue ? SUB_QUEUE_TO_VIEW[leaf.queue] : 'all_open'
       if (leaf.channelKey === 'email') {
         return {
           filters: {
@@ -181,6 +181,52 @@ export function threadFitsChannelLeaf(
   const expected = signalChannelForNavKey(leaf.channelKey)
   if (expected === 'widget') return ['widget', 'chat', 'webchat', 'livechat'].includes(channel)
   return expected != null && channel === expected
+}
+
+/** Drop a `/closed` URL back to the open list of the same scope. */
+export function leafForOpenList(leaf: HubLeaf): HubLeaf {
+  if (leaf.queue !== 'closed') return leaf
+  switch (leaf.type) {
+    case 'inbox':
+      return { type: 'inbox', queue: 'open' }
+    case 'team':
+      return { type: 'team', teamId: leaf.teamId }
+    case 'channel':
+      return { type: 'channel', channelKey: leaf.channelKey, connectionId: leaf.connectionId }
+    case 'agent':
+      return { type: 'agent', agentId: leaf.agentId }
+    case 'tag':
+      return { type: 'tag', tag: leaf.tag }
+    case 'project':
+      return { type: 'project', projectId: leaf.projectId }
+  }
+}
+
+/** Scopes whose list can reveal closed conversations under the open ones. */
+export function supportsClosedDisclosure(leaf: HubLeaf): boolean {
+  if (leaf.type === 'agent' && leaf.queue === 'activity') return false
+  if (leaf.type === 'inbox') {
+    const queue = leaf.queue ?? 'open'
+    return queue === 'all' || queue === 'for_you' || queue === 'open' || queue === 'unassigned' || queue === 'closed'
+  }
+  return leaf.type === 'team' || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'tag' || leaf.type === 'project'
+}
+
+/** Filters for the closed group under the open list of this leaf. */
+export function closedCompanionFilters(leaf: HubLeaf): Omit<ThreadFilters, 'search'> | null {
+  if (!supportsClosedDisclosure(leaf)) return null
+  const openLeaf = leafForOpenList(leaf)
+  const base = configForLeaf(openLeaf).filters
+  if (openLeaf.type === 'inbox' && openLeaf.queue === 'for_you') {
+    return { ...base, view: 'for_you_closed' }
+  }
+  if (
+    (openLeaf.type === 'inbox' || openLeaf.type === 'team') &&
+    openLeaf.queue === 'unassigned'
+  ) {
+    return { ...base, view: 'unassigned_closed' }
+  }
+  return { ...base, view: 'closed' }
 }
 
 /** @deprecated Use {@link threadFitsChannelLeaf} with a channel folder. */

@@ -25,6 +25,14 @@ Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **
 3. Op elke modelkaart staan het contextvenster (en tools / vision wanneer ondersteund) en de prijs per 1 miljoen tokens (invoer en uitvoer). Onder de kaarten: **EU-gehost**, **Altijd actueel**, **Traint niet op jouw data**, en **Bij met toonaangevende modellen**.
 4. Nieuwe workspaces starten op **Automatisch**. Agents op **Workspace-standaard** vallen terug op deze keuze. Agents met een eigen modus (Automatisch of een vastgezet niveau) negeren die.
 
+## Kies een beeldmodel
+
+1. Op dezelfde pagina **Modellen** staat het blok **Beeldmodellen** met Bokito Image, DALL-E 2 en Mistral Image. Die rijen zijn al gekoppeld wanneer de workspace opent.
+2. Klik op een kaart om dat het beeldmodel van de workspace te maken. Bokito Image gebruikt DALL-E 2 wanneer er een OpenAI-sleutel is, en anders de image-tool van Mistral.
+3. Een kaart toont **Actief** wanneer er een sleutel voor die provider is. **Niet geconfigureerd** betekent dat de aanroep op de mock-adapter blijft.
+4. Wanneer je plan eigen sleutels toelaat, voeg je een extra provider en een beeldmodel toe. Het verschijnt in dezelfde lijst. Meerdere providers kunnen geregistreerd staan; agents kunnen later verschillende modellen gebruiken.
+5. Vraag je een agent in een gesprek om een afbeelding te maken, dan gebruikt die de gekozen kaart. Zonder keuze gebruikt de agent Bokito Image. Het gesprek toont meteen een kader zodra het genereren start, en de afbeelding vult dat kader wanneer ze klaar is. Dat kader is de enige kopie. Na het antwoord houdt het bericht één toolrij bij die je kunt openen.
+
 ## Kies een modus op een agent
 
 1. Open een [agent](/docs/ai/agents). Onder **Model en runtime** kies je:

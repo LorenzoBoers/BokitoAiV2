@@ -35,6 +35,15 @@ export type ActivityItem = {
   hasText?: boolean
   /** The call raises an approval that lands under the agent's message. */
   proposes?: boolean
+  /** File URLs kept on the slim stream for generate_image. */
+  imageUrls?: string[]
+  /** i18n key chosen by the API (`activity.generatingImage`). */
+  labelKey?: string
+  /** Values for that key (`name`, `query`). */
+  labelParams?: Record<string, string>
+  /** Host the API already resolved for a web search or fetch. */
+  host?: string
+  faviconUrl?: string
 }
 
 export type ActivityGroup = {
@@ -97,7 +106,95 @@ export function normalizeActivityItem(raw: unknown): ActivityItem | null {
   if (typeof r.text === 'string') item.text = r.text
   if (typeof r.has_text === 'boolean') item.hasText = r.has_text
   if (r.proposes === true) item.proposes = true
+  const urls = r.image_urls ?? r.imageUrls
+  if (Array.isArray(urls)) {
+    const clean = urls.filter((row): row is string => typeof row === 'string' && row.trim().length > 0)
+    if (clean.length) item.imageUrls = clean
+  }
+  const labelKey = str(r.label_key ?? r.labelKey)
+  if (labelKey) item.labelKey = labelKey
+  const params = r.label_params ?? r.labelParams
+  if (params && typeof params === 'object' && !Array.isArray(params)) {
+    const clean: Record<string, string> = {}
+    for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
+      if (typeof value === 'string' && value) clean[key] = value
+    }
+    if (Object.keys(clean).length) item.labelParams = clean
+  }
+  const host = str(r.host)
+  if (host) item.host = host
+  const favicon = str(r.favicon_url ?? r.faviconUrl)
+  if (favicon) item.faviconUrl = favicon
   return item
+}
+
+export type ImageFrameState = {
+  id: string
+  status: 'running' | 'ready' | 'error'
+  src: string | null
+  alt: string
+}
+
+function urlsFromResult(result: unknown): string[] {
+  if (!result || typeof result !== 'object') return []
+  const row = result as { images?: unknown; items?: unknown }
+  if (Array.isArray(row.images)) {
+    const found = row.images.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    if (found.length) return found
+  }
+  if (!Array.isArray(row.items)) return []
+  const fromItems: string[] = []
+  for (const entry of row.items) {
+    if (!entry || typeof entry !== 'object') continue
+    const rec = entry as { image_url?: unknown; url?: unknown }
+    const url = typeof rec.image_url === 'string' ? rec.image_url : rec.url
+    if (typeof url === 'string' && url.trim()) fromItems.push(url)
+  }
+  return fromItems
+}
+
+/** Drop a picture the model pasted again after generate_image already showed it.
+ * The API removes the same markdown from the saved body. This covers a live
+ * delta that still contains an image while the frame is already on screen.
+ */
+export function stripEchoedImages(text: string, srcs: string[]): string {
+  if (!text || srcs.length === 0) return text
+  let out = text
+  for (const src of srcs) {
+    const escaped = src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    out = out.replace(new RegExp(`!\\[[^\\]]*\\]\\(${escaped}\\)`, 'g'), '')
+    out = out.replace(new RegExp(`\\[[^\\]]*\\]\\(${escaped}\\)`, 'g'), '')
+    out = out.replaceAll(src, '')
+  }
+  out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+  out = out.replace(/!\[[^\]]*$/g, '')
+  return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/** One frame per generate_image call. A running call has no src yet. */
+export function imageGenerationFrames(items: ActivityItem[]): ImageFrameState[] {
+  const frames: ImageFrameState[] = []
+  for (const item of items) {
+    if (item.tool !== 'generate_image') continue
+    const urls = item.imageUrls?.length ? item.imageUrls : urlsFromResult(item.result)
+    const alt =
+      item.input && typeof item.input === 'object' && typeof (item.input as { prompt?: unknown }).prompt === 'string'
+        ? (item.input as { prompt: string }).prompt
+        : item.label
+    if (urls.length) {
+      urls.forEach((src, index) => {
+        frames.push({ id: `${item.id}:${index}`, status: 'ready', src, alt })
+      })
+      continue
+    }
+    frames.push({
+      id: item.id,
+      status: item.status === 'error' ? 'error' : 'running',
+      src: null,
+      alt,
+    })
+  }
+  return frames
 }
 
 /** A running turn already called a tool that ends in an inline approval. */
@@ -176,9 +273,12 @@ export function turnHasWork(turn: LiveTurn | null | undefined): boolean {
   return turn.entries.some((entry) => entry.type === 'activity' && entry.item.kind === 'work')
 }
 
-/** Derive orb face motion from the live turn (thinking / typing / working). */
+const SURFACE_MOTIONS = new Set<BotOrbMotion>(['idle', 'thinking', 'typing', 'working'])
+
+/** Orb face. The socket names it; otherwise a local guess for older events. */
 export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMotion {
   if (!turn?.active) return 'idle'
+  if (turn.motion && SURFACE_MOTIONS.has(turn.motion)) return turn.motion
   // Preparing-proposal uses its own meta line — keep idle there.
   if (turnPreparesProposal(turn)) return 'idle'
   const blocks = liveBlocks(turn)
@@ -221,6 +321,103 @@ export function normalizeActivity(raw: unknown): ActivityItem[] {
   return raw.map(normalizeActivityItem).filter((i): i is ActivityItem => i !== null)
 }
 
+export type HistoryRow = {
+  kind: ActivityKind
+  count: number
+  durationMs: number
+  labelKey: string
+  label: string
+  labelParams?: Record<string, string>
+  /** Tool names behind this row, in order, for the icon stack. */
+  tools?: string[]
+  image?: boolean
+}
+
+export type HistoryView = {
+  rows: HistoryRow[]
+  frames: ImageFrameState[]
+}
+
+function phraseParams(
+  params: Record<string, string> | undefined,
+  t: TFunction,
+): Record<string, string> {
+  if (!params) return {}
+  const next = { ...params }
+  if (next.object) {
+    const readable = next.object.replace(/_/g, ' ')
+    next.object = t(`activity.object.${next.object}`, {
+      ns: 'communication',
+      defaultValue: readable,
+    })
+  }
+  return next
+}
+
+export function historyLabel(row: HistoryRow, t: TFunction): string {
+  if (row.labelKey === 'activity.workedFor' || row.labelKey === 'activity.thoughtFor') {
+    return t(row.labelKey, {
+      ns: 'communication',
+      count: row.count,
+      duration: formatDuration(row.durationMs),
+      defaultValue: row.label,
+    })
+  }
+  if (row.labelKey === 'activity.actionCount') {
+    return t(row.labelKey, { ns: 'communication', count: row.count, defaultValue: row.label })
+  }
+  if (row.labelKey) {
+    return t(row.labelKey, {
+      ns: 'communication',
+      ...(phraseParams(row.labelParams, t)),
+      defaultValue: row.label || row.labelKey,
+    })
+  }
+  return row.label
+}
+
+function readHistory(raw: unknown): HistoryView | null {
+  if (!raw || typeof raw !== 'object') return null
+  const body = raw as Record<string, unknown>
+  const rows = Array.isArray(body.rows)
+    ? body.rows.flatMap((row) => {
+        if (!row || typeof row !== 'object') return []
+        const rec = row as Record<string, unknown>
+        const params = rec.label_params
+        const clean: Record<string, string> = {}
+        if (params && typeof params === 'object' && !Array.isArray(params)) {
+          for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
+            if (typeof value === 'string' && value) clean[key] = value
+          }
+        }
+        const parsed: HistoryRow = {
+          kind: asKind(rec.kind),
+          count: typeof rec.count === 'number' ? rec.count : 0,
+          durationMs: typeof rec.duration_ms === 'number' ? rec.duration_ms : 0,
+          labelKey: str(rec.label_key),
+          label: str(rec.label),
+          image: rec.image === true,
+        }
+        if (Object.keys(clean).length) parsed.labelParams = clean
+        const tools = Array.isArray(rec.tools)
+          ? rec.tools.filter((tool): tool is string => typeof tool === 'string' && Boolean(tool))
+          : []
+        if (tools.length) parsed.tools = tools
+        return [parsed]
+      })
+    : []
+  const frames = Array.isArray(body.frames)
+    ? body.frames.flatMap((frame) => {
+        if (!frame || typeof frame !== 'object') return []
+        const rec = frame as Record<string, unknown>
+        const status = rec.status === 'ready' || rec.status === 'error' ? rec.status : 'running'
+        return [{ id: str(rec.id), status, src: str(rec.src) || null, alt: '' } satisfies ImageFrameState]
+      })
+    : []
+  if (!rows.length && !frames.length) return null
+  return { rows, frames }
+}
+
 export type MessageActivity = {
   activity: ActivityItem[]
   activityAfter: ActivityItem[]
@@ -229,6 +426,7 @@ export type MessageActivity = {
   hasActivity: boolean
   turnId: string | null
   inProgress?: boolean
+  history: HistoryView | null
 }
 
 /** Activity fields of a serialized thread message (`payload.activity`, ...). */
@@ -248,6 +446,7 @@ export function normalizeMessageActivity(raw: Record<string, unknown>): MessageA
     activityAfter.some(isVisibleActivity),
     turnId,
     inProgress: payload.in_progress === true || raw.in_progress === true,
+    history: readHistory(payload.history ?? raw.history),
   }
 }
 
@@ -325,8 +524,9 @@ function hostFromUrl(url: string): string {
   }
 }
 
-/** Hostname for a web_search / fetch_url item. */
+/** Hostname for a web_search / fetch_url item. The API stamps `host` on the public item. */
 export function webSearchHost(item: ActivityItem): string {
+  if (item.host) return item.host
   const result = item.result
   if (result && typeof result === 'object' && !Array.isArray(result)) {
     const rec = result as Record<string, unknown>
@@ -369,8 +569,9 @@ export function webSearchHost(item: ActivityItem): string {
   return match?.[1]?.toLowerCase().replace(/^www\./i, '') || ''
 }
 
-/** Favicon URL from the first hit or a Google s2 icon for the known host. */
+/** Favicon URL from the API, else the first hit, else a Google s2 icon. */
 export function webSearchFavicon(item: ActivityItem): string {
+  if (item.faviconUrl) return item.faviconUrl
   const result = item.result
   if (result && typeof result === 'object' && !Array.isArray(result)) {
     const rows = (result as Record<string, unknown>).results
@@ -408,7 +609,18 @@ export function inviteTarget(item: ActivityItem): { id: string; name: string; ki
 
 /** Line for one action: its label, or a kind fallback. */
 export function itemLabel(item: ActivityItem, t: TFunction): string {
-  if (item.kind === 'think') return t('activity.thinking', { ns: 'communication' })
+  if (item.labelKey) {
+    return t(item.labelKey, {
+      ns: 'communication',
+      ...phraseParams(item.labelParams, t),
+      defaultValue: item.label || item.tool,
+    })
+  }
+  if (item.kind === 'think') {
+    if (item.status === 'running') return t('activity.thinking', { ns: 'communication' })
+    if (item.status === 'error') return t('activity.thoughtFailed', { ns: 'communication' })
+    return t('activity.thought', { ns: 'communication' })
+  }
   const invited = inviteTarget(item)
   if (invited) {
     if (invited.name) {
@@ -441,6 +653,12 @@ export function itemLabel(item: ActivityItem, t: TFunction): string {
       ns: 'communication',
       defaultValue: 'Fetching page',
     })
+  }
+  if (item.tool === 'generate_image') {
+    if (item.status === 'error') {
+      return t('activity.imageFailed', { ns: 'communication', defaultValue: 'Image was not generated' })
+    }
+    return t('activity.generatingImage', { ns: 'communication', defaultValue: 'Generating image' })
   }
   return item.label || item.tool || t('activity.action', { ns: 'communication' })
 }
@@ -483,6 +701,56 @@ export type LiveEntry =
   | { type: 'activity'; item: ActivityItem }
   | { type: 'speech'; segmentId: string; text: string }
 
+/** The one live line, chosen by the API (`status` on turn events). */
+export type TurnStatus = {
+  labelKey: string
+  label: string
+  labelParams?: Record<string, string>
+  tool: string
+  host: string
+  frames: ImageFrameState[]
+}
+
+export function statusLabel(status: TurnStatus | null | undefined, t: TFunction): string {
+  if (!status) return ''
+  if (status.labelKey) {
+    return t(status.labelKey, {
+      ns: 'communication',
+      ...(phraseParams(status.labelParams, t)),
+      defaultValue: status.label || status.tool,
+    })
+  }
+  return status.host || status.label || ''
+}
+
+function readStatus(raw: unknown): TurnStatus | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const labelKey = str(row.label_key ?? row.labelKey)
+  const label = str(row.label)
+  const tool = str(row.tool)
+  const host = str(row.host)
+  const frames = Array.isArray(row.frames)
+    ? row.frames.flatMap((frame) => {
+        if (!frame || typeof frame !== 'object') return []
+        const rec = frame as Record<string, unknown>
+        const frameStatus = rec.status === 'ready' || rec.status === 'error' ? rec.status : 'running'
+        return [{ id: str(rec.id), status: frameStatus, src: str(rec.src) || null, alt: '' } satisfies ImageFrameState]
+      })
+    : []
+  if (!labelKey && !label && !host && frames.length === 0) return null
+  const status: TurnStatus = { labelKey, label, tool, host, frames }
+  const params = row.label_params ?? row.labelParams
+  if (params && typeof params === 'object' && !Array.isArray(params)) {
+    const clean: Record<string, string> = {}
+    for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
+      if (typeof value === 'string' && value) clean[key] = value
+    }
+    if (Object.keys(clean).length) status.labelParams = clean
+  }
+  return status
+}
+
 export type LiveTurn = {
   streamId: string | null
   entries: LiveEntry[]
@@ -492,6 +760,12 @@ export type LiveTurn = {
   ended: boolean
   /** Thinking text per think item id. */
   thinking: Record<string, string>
+  /** Live status line from the API. Null hides it. */
+  status: TurnStatus | null
+  /** Render blocks from the socket `surface`. Null means derive them from entries. */
+  blocks: LiveBlock[] | null
+  /** Orb face from the socket. Null means the older local guess. */
+  motion: BotOrbMotion | null
 }
 
 export const EMPTY_TURN: LiveTurn = {
@@ -500,6 +774,9 @@ export const EMPTY_TURN: LiveTurn = {
   active: false,
   ended: false,
   thinking: {},
+  status: null,
+  blocks: null,
+  motion: null,
 }
 
 function startTurn(streamId: string | null): LiveTurn {
@@ -546,16 +823,22 @@ export function applyTurnEvent(
     if (event === 'agent.turn' && data.phase === 'end') return turn
     current = startTurn(streamId)
   }
+  if ('status' in data) current = { ...current, status: readStatus(data.status) }
+  const fromSurface = applySurface(current, data.surface)
+  if (fromSurface) current = fromSurface
   switch (event) {
     case 'agent.turn':
       if (data.phase === 'end') return { ...current, active: false, ended: true }
       return current.active ? current : { ...current, active: true, ended: false }
     case 'agent.activity': {
+      if (fromSurface) return { ...current, active: true }
+      current = { ...current, blocks: null }
       const item = normalizeActivityItem(data.item)
       if (!item) return current
       return { ...current, active: true, entries: upsertItem(current.entries, item) }
     }
     case 'agent.thinking': {
+      if (fromSurface) return { ...current, active: true }
       const itemId = str(data.item_id)
       const delta = str(data.delta)
       if (!itemId || !delta) return current
@@ -565,7 +848,20 @@ export function applyTurnEvent(
         thinking: { ...current.thinking, [itemId]: (current.thinking[itemId] ?? '') + delta },
       }
     }
+    case 'message.part': {
+      if (fromSurface) return { ...current, active: true }
+      current = { ...current, blocks: null }
+      const segmentId = str(data.segment_id) || 'speech'
+      const text = str(data.text)
+      const entries = current.entries.filter(
+        (row) => !(row.type === 'speech' && row.segmentId === segmentId),
+      )
+      if (text) entries.push({ type: 'speech', segmentId, text })
+      return { ...current, active: true, entries }
+    }
     case 'message.delta': {
+      if (fromSurface) return { ...current, active: true }
+      current = { ...current, blocks: null }
       const delta = str(data.delta)
       if (!delta) return current
       const segmentId = str(data.segment_id) || 'speech'
@@ -593,20 +889,57 @@ export function applyTurnEvent(
   }
 }
 
+/** Replace the open turn with the document the API just published. */
+function applySurface(turn: LiveTurn, raw: unknown): LiveTurn | null {
+  if (!raw || typeof raw !== 'object') return null
+  const body = raw as Record<string, unknown>
+  if (!Array.isArray(body.blocks)) return null
+  const entries: LiveEntry[] = []
+  for (const block of body.blocks) {
+    if (!block || typeof block !== 'object') continue
+    const row = block as Record<string, unknown>
+    if (row.type === 'speech') {
+      const text = str(row.text)
+      if (!text) continue
+      entries.push({ type: 'speech', segmentId: str(row.id) || 'speech', text })
+      continue
+    }
+    if (row.type !== 'activity' || !Array.isArray(row.items)) continue
+    for (const item of row.items) {
+      const norm = normalizeActivityItem(item)
+      if (norm) entries.push({ type: 'activity', item: norm })
+    }
+  }
+  const blocks: LiveBlock[] = []
+  for (const block of body.blocks) {
+    if (!block || typeof block !== 'object') continue
+    const row = block as Record<string, unknown>
+    if (row.type === 'speech') {
+      const text = str(row.text)
+      if (!text) continue
+      blocks.push({ type: 'speech', key: str(row.id) || 'speech', text })
+      continue
+    }
+    if (row.type !== 'activity' || !Array.isArray(row.items)) continue
+    const items = row.items.map(normalizeActivityItem).filter((item): item is ActivityItem => item !== null)
+    if (!items.length) continue
+    blocks.push({ type: 'activity', key: str(row.id) || items[0].id, items })
+  }
+  return {
+    ...turn,
+    entries,
+    blocks,
+    motion: SURFACE_MOTIONS.has(str(body.motion) as BotOrbMotion) ? (str(body.motion) as BotOrbMotion) : turn.motion,
+    status: 'status' in body ? readStatus(body.status) : turn.status,
+  }
+}
+
 function applyThreadPresence(turn: LiveTurn, data: Record<string, unknown>): LiveTurn {
   const phase = str(data.phase)
   if (phase === 'idle') return { ...turn, active: false, ended: true }
-  if (phase === 'writing') {
-    // Presence is the "someone is writing" lamp. Speech text arrives as
-    // `message.delta` from the same publish. Re-applying the echo opened a
-    // new bubble per token (presence has no segment_id, so it never merged).
+  if (phase === 'writing' || phase === 'thinking' || phase === 'working') {
+    // The turn event already carried the surface. Presence is only the lamp.
     return turn.active ? turn : { ...turn, active: true }
-  }
-  if (phase === 'thinking' && data.delta && data.item && typeof data.item === 'object') {
-    const itemId = str((data.item as { id?: unknown }).id)
-    if (itemId) {
-      return applyTurnEvent(turn, 'agent.thinking', { ...data, item_id: itemId, delta: data.delta })
-    }
   }
   const actor =
     data.actor && typeof data.actor === 'object' ? (data.actor as Record<string, unknown>) : {}
@@ -635,7 +968,7 @@ export type LiveBlock =
   | { type: 'speech'; key: string; text: string }
 
 /** Live entries as render blocks: activity runs between speech segments. */
-export function liveBlocks(turn: LiveTurn): LiveBlock[] {
+function blocksFromEntries(turn: LiveTurn): LiveBlock[] {
   const blocks: LiveBlock[] = []
   for (const entry of turn.entries) {
     const last = blocks[blocks.length - 1]
@@ -650,6 +983,21 @@ export function liveBlocks(turn: LiveTurn): LiveBlock[] {
     }
   }
   return blocks
+}
+
+/** Blocks the socket published, otherwise the entries folded locally. */
+export function liveBlocks(turn: LiveTurn): LiveBlock[] {
+  const blocks = turn.blocks ?? blocksFromEntries(turn)
+  if (!Object.keys(turn.thinking).length) return blocks
+  return blocks.map((block) => {
+    if (block.type !== 'activity') return block
+    return {
+      ...block,
+      items: block.items.map((item) =>
+        turn.thinking[item.id] ? { ...item, text: turn.thinking[item.id] } : item,
+      ),
+    }
+  })
 }
 
 /** Showcase `items` from live tool results (attach_items, list_folders, …). */
@@ -706,6 +1054,9 @@ export function liveTurnFromMessage(message: {
     entries,
     active: true,
     ended: false,
+    status: null,
+    blocks: null,
+    motion: null,
     thinking: Object.fromEntries(
       items.filter((item) => item.kind === 'think' && item.text).map((item) => [item.id, item.text!]),
     ),
@@ -739,6 +1090,13 @@ function speechOverlaps(a: string, b: string): boolean {
 export function mergeTurns(base: LiveTurn, overlay: LiveTurn): LiveTurn {
   if (!overlay.streamId) return base
   if (base.streamId && overlay.streamId !== base.streamId) return overlay
+  if (overlay.blocks) {
+    return {
+      ...overlay,
+      active: overlay.active || base.active,
+      thinking: { ...base.thinking, ...overlay.thinking },
+    }
+  }
   let entries = base.entries.slice()
   for (const entry of overlay.entries) {
     if (entry.type === 'activity') entries = upsertItem(entries, entry.item)
@@ -769,16 +1127,29 @@ export function mergeTurns(base: LiveTurn, overlay: LiveTurn): LiveTurn {
     active: overlay.active || base.active,
     ended: overlay.ended,
     thinking: { ...base.thinking, ...overlay.thinking },
+    status: overlay.status ?? base.status,
+    blocks: null,
+    motion: overlay.motion ?? base.motion,
     entries,
   }
 }
 
 /** Active turn from a plain text stream (SSE reply without gateway events). */
-export function textOnlyTurn(text: string): LiveTurn {
+export function textOnlyTurn(text: string, parts?: string[]): LiveTurn {
+  const bubbles = (parts ?? []).map((part) => part.trim()).filter(Boolean)
+  const entries = bubbles.length
+    ? bubbles.map((part, index) => ({ type: 'speech' as const, segmentId: `speech-${index}`, text: part }))
+    : text
+      ? [{ type: 'speech' as const, segmentId: 'speech', text }]
+      : []
   return {
     ...EMPTY_TURN,
     active: true,
-    entries: text ? [{ type: 'speech', segmentId: 'speech', text }] : [],
+    motion: bubbles.length || text ? null : 'thinking',
+    status: bubbles.length || text
+      ? null
+      : { labelKey: 'activity.looking', label: '', tool: '', host: '', frames: [] },
+    entries,
   }
 }
 

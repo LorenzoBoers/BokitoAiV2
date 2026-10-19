@@ -19,7 +19,7 @@ from app.services.participants import ensure_participant, serialize_participants
 
 logger = logging.getLogger(__name__)
 
-MAX_CONSECUTIVE_TURNS = 4
+MAX_CONSECUTIVE_TURNS = 8
 DEFAULT_DEADLINE_S = 120
 
 
@@ -222,6 +222,8 @@ async def request_participant_turn(
     agent = await session.get(Agent, member_ref_id)
     if agent is None or agent.tenant_id != signal.tenant_id:
         return {"ok": False, "error": "Agent not found"}
+    if not agent.is_active or agent.kind == "archived":
+        return {"ok": False, "error": "Agent is not active"}
 
     await ensure_participant(
         session,
@@ -753,9 +755,28 @@ async def execute_participant_turn(
             )
         except Exception:  # noqa: BLE001
             logger.exception("persist participant turn failed for %s", signal.id)
-    clear_active_turn(signal)
-    session.add(signal)
     outcome = "pass" if passed else "sent"
+    handed = False
+    # The stick moves after this bubble is saved. A system wake-back does not
+    # pass it on (that re-opened the Extra/Bokito loop).
+    if outcome == "sent" and text.strip() and requested_by_kind != "system":
+        try:
+            from app.services.pass_stick import pass_stick
+
+            moved = await pass_stick(
+                session,
+                signal,
+                body_text=text,
+                author_kind="agent",
+                author_id=agent.id,
+                author_name=agent.name or "",
+            )
+            handed = moved.get("action") == "give"
+        except Exception:  # noqa: BLE001
+            logger.exception("pass stick after participant turn failed for %s", signal.id)
+    if not handed:
+        clear_active_turn(signal)
+    session.add(signal)
     session.add(
         SignalEvent(
             signal_id=signal.id,
@@ -767,55 +788,31 @@ async def execute_participant_turn(
         )
     )
     await session.flush()
-    try:
-        await publish_thread_presence(
-            signal.tenant_id,
-            signal.id,
-            phase="idle",
-            actor_kind="agent",
-            actor_id=str(agent.id),
-            actor_name=agent.name,
-            item={"active_turn": None},
-        )
-        await publish_thread_update(signal)
-    except Exception:  # noqa: BLE001
-        pass
-
-    # Opener baton: nest only on real agent-authored turns that still have an
-    # open handoff. System wake-backs must not re-nest when the report @tags
-    # the peer (that caused Extra↔Bokito ping-pong until max_consecutive).
-    if (
-        outcome == "sent"
-        and text.strip()
-        and requested_by_kind != "system"
-    ):
+    if not handed:
         try:
-            from app.services.handoff_sessions import get_handoff_session, nest_handoff
-            from app.services.thread_dispatch import entity_mentions
-
-            handoff = get_handoff_session(signal)
-            handoff_open = bool(
-                handoff and handoff.get("status") in ("open", "handed_off")
+            await publish_thread_presence(
+                signal.tenant_id,
+                signal.id,
+                phase="idle",
+                actor_kind="agent",
+                actor_id=str(agent.id),
+                actor_name=agent.name,
+                item={"active_turn": None},
             )
-            if handoff_open and len(entity_mentions(text)) >= 1:
-                nested = await nest_handoff(
-                    session,
-                    signal.tenant_id,
-                    signal,
-                    body_text=text,
-                    from_agent_id=agent.id,
-                )
-                if nested.get("ok"):
-                    return {
-                        "ok": True,
-                        "outcome": outcome,
-                        "active_turn": None,
-                        "agent_id": str(agent.id),
-                        "agent_name": agent.name,
-                        "handoff": nested.get("handoff"),
-                    }
+            await publish_thread_update(signal)
         except Exception:  # noqa: BLE001
-            logger.debug("nest handoff after participant turn failed", exc_info=True)
+            pass
+
+    # A posted reply already passed the stick when it named someone. Only a
+    # silent pass wakes the requester, in one line.
+    if handed:
+        return {
+            "ok": True,
+            "outcome": outcome,
+            "active_turn": _parse_active(signal) or None,
+            "agent_id": str(agent.id),
+            "agent_name": agent.name,
+        }
 
     # A posted reply is already in the thread. Only a silent pass wakes the
     # requester, in one line, so a skipped handoff does not stall.

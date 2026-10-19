@@ -282,6 +282,7 @@ async def serialize_participants(
                 "name": name,
                 "email": email,
                 "joined_via": row.joined_via or "",
+                "unread_count": int(row.unread_count or 0) if row.kind == "user" else 0,
                 "joined_at": row.joined_at.isoformat() if row.joined_at else None,
                 "avatar_url": avatar_url,
                 "avatar_kind": avatar.get("avatar_kind"),

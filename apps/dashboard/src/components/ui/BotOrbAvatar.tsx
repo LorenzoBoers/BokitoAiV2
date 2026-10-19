@@ -22,8 +22,8 @@ type BotOrbSpawnStyle = 'full' | 'quick'
 /** Keys already played this session — seat remounts must not re-rise. */
 const playedBotOrbSpawnKeys = new Set<string>()
 
-const FULL_SPAWN_MS = 1100
-const QUICK_SPAWN_MS = 220
+const FULL_SPAWN_MS = 1550
+const QUICK_SPAWN_MS = 480
 
 function spawnStyleFromKey(spawnKey: string): BotOrbSpawnStyle {
   return spawnKey.startsWith('quick-') ? 'quick' : 'full'
@@ -364,6 +364,8 @@ export function BotOrbAvatar({
   const [spawning, setSpawning] = useState(false)
   const [spawnStyle, setSpawnStyle] = useState<BotOrbSpawnStyle>('full')
   const lastSpawnKey = useRef<string | null>(null)
+  const spawnActiveRef = useRef(false)
+  const spawnStartedAt = useRef(0)
   const trackingRef = useRef(false)
   const rafRef = useRef(0)
   const pendingPtr = useRef<{ x: number; y: number } | null>(null)
@@ -410,40 +412,43 @@ export function BotOrbAvatar({
     moveGaze({ x: 0, y: 0 }, MS_SETTLE)
   }
 
-  // Spawn entrance when spawnKey changes while live (once per key — remounts skip).
-  // Only mark a key played after the animation finishes. Marking on start made
-  // StrictMode / seat remounts skip the rise after the first mount aborted.
-  // While still frozen (static footprint), do not burn the key — the seat often
-  // claims before `live` flips and must still rise on the next paint.
+  // One rise per spawnKey. Cleanup must not drop the class: StrictMode replays
+  // this effect, and removing `.bot-orb--spawn` restarts the CSS animation.
+  // A static footprint must not burn the key — the seat often claims before
+  // `live` flips and still has to rise on the next paint.
   useEffect(() => {
     if (!spawnKey || prefersReducedMotion()) {
       if (spawnKey && prefersReducedMotion()) {
         lastSpawnKey.current = spawnKey
         playedBotOrbSpawnKeys.add(spawnKey)
+        spawnActiveRef.current = false
+        setSpawning(false)
       }
       return
     }
-    if (frozen) return
-    if (lastSpawnKey.current === spawnKey || playedBotOrbSpawnKeys.has(spawnKey)) {
+    if (playedBotOrbSpawnKeys.has(spawnKey)) {
       lastSpawnKey.current = spawnKey
       return
     }
-    lastSpawnKey.current = spawnKey
+    if (frozen && !spawnActiveRef.current) return
     const style = spawnStyleFromKey(spawnKey)
-    setSpawnStyle(style)
-    setPlayingShot(null)
-    settleHome()
-    setSpawning(true)
-    const ms = style === 'quick' ? QUICK_SPAWN_MS : FULL_SPAWN_MS
+    const duration = style === 'quick' ? QUICK_SPAWN_MS : FULL_SPAWN_MS
+    if (lastSpawnKey.current !== spawnKey) {
+      lastSpawnKey.current = spawnKey
+      spawnStartedAt.current = performance.now()
+      spawnActiveRef.current = true
+      setSpawnStyle(style)
+      setPlayingShot(null)
+      settleHome()
+      setSpawning(true)
+    }
+    const remain = Math.max(0, duration - (performance.now() - spawnStartedAt.current))
     const id = window.setTimeout(() => {
       playedBotOrbSpawnKeys.add(spawnKey)
+      spawnActiveRef.current = false
       setSpawning(false)
-    }, ms)
-    return () => {
-      window.clearTimeout(id)
-      // Interrupted before finish — allow the next mount to replay this key.
-      setSpawning(false)
-    }
+    }, remain)
+    return () => window.clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- spawn trigger only
   }, [spawnKey, frozen])
 
@@ -784,7 +789,7 @@ export function BotOrbAvatar({
     ? { 'aria-hidden': true as const }
     : { role: 'img' as const, 'aria-label': label }
 
-  const dataMotion = frozen || spawning ? (frozen ? 'paused' : 'idle') : displayMotion
+  const dataMotion = spawning ? 'idle' : frozen ? 'paused' : displayMotion
   const showChrome = !frozen && !spawning && !prefersReducedMotion()
   const orbitRings = showChrome ? orbitRingsForMotion(displayMotion) : null
   const showThinkMark = showChrome && displayMotion === 'thinking'
@@ -803,7 +808,7 @@ export function BotOrbAvatar({
       ref={rootRef}
       className={cn(
         'bot-orb',
-        frozen && 'bot-orb--paused',
+        frozen && !spawning && 'bot-orb--paused',
         spawning && (spawnStyle === 'quick' ? 'bot-orb--quickspawn' : 'bot-orb--spawn'),
         stackOutline && 'bot-orb--stack',
         className,

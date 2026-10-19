@@ -1,4 +1,5 @@
 import { FileText, X } from 'lucide-react'
+import { Skeleton } from '../ui/skeleton'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { MessageAttachment } from '../../lib/inbox-api'
@@ -126,10 +127,7 @@ export default function MessageAttachments({
           )
         })}
         {pending ? (
-          <span
-            className="h-16 w-24 shrink-0 animate-pulse rounded-lg bg-bg-hover/80 ring-1 ring-border/40"
-            aria-hidden
-          />
+          <Skeleton className="h-16 w-24 shrink-0 rounded-lg ring-1 ring-border/40" aria-hidden />
         ) : null}
       </div>
     )

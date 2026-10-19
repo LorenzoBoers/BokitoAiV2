@@ -2,28 +2,23 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSmoothStreamText } from '../../hooks/useSmoothStreamText'
 import {
+  imageGenerationFrames,
   liveAttachResults,
   liveBlocks,
-  shouldShowWaitingTurn,
-  turnHasWork,
-  turnPreparesProposal,
+  statusLabel,
   type LiveTurn,
 } from '../../lib/agentActivity'
 import type { BubbleStack } from '../../lib/chat-layout'
-import { splitChatMessages } from '../../lib/chatMessages'
 import type { ProposalItem } from '../../lib/inbox-api'
-import {
-  inferMarketplaceItems,
-  itemsFromAttachResult,
-  mergeShowcaseItems,
-} from '../../lib/marketplace-mentions'
+import { itemsFromAttachResult } from '../../lib/marketplace-mentions'
 import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import { cn } from '../../lib/utils'
 import { AiAvatar } from '../ui/AiAvatar'
 import type { AgentAvatarProps } from '../../lib/agent-avatar'
 import ActivityTrail from './ActivityTrail'
+import { EntityAvatarLink } from './EntityAvatarLink'
 import { LiveAgentAvatarSlot, useLiveAgentSeat } from './LiveAgentSeat'
-import { THREAD_GUTTER, ThreadMetaRow } from './ThreadMeta'
+import { THREAD_GUTTER } from './ThreadMeta'
 import { BubbleHeader, ChatBubbleShell, RoleChip } from './ChatBubble'
 import ChatText from './ChatText'
 import { ProposalItemList } from './ProposalItemPreview'
@@ -39,6 +34,10 @@ function TypingDots({ label }: { label: string }) {
 }
 
 /** Where a live bubble sits in the run it will be saved into. */
+/** Matches `.msg-bubble-enter` in index.css, plus a short beat after it lands. */
+const USER_BUBBLE_ENTER_MS = 480
+const AGENT_AFTER_USER_MS = USER_BUBBLE_ENTER_MS + 160
+
 function stackFor(lead: boolean, closes: boolean): BubbleStack {
   if (lead && closes) return 'single'
   if (lead) return 'start'
@@ -161,13 +160,9 @@ function LiveSpeech({
     return () => window.clearTimeout(timer)
   }, [streamActive, caughtUp, onRevealed])
   const writing = smooth.length < text.length
-  const parts = splitChatMessages(smooth)
-  const items = mergeShowcaseItems(
-    attached,
-    writing || !caughtUp ? [] : inferMarketplaceItems(smooth),
-  )
-  const bubbles =
-    parts.length > 0 ? parts : writing || holdReserve || items.length ? [''] : []
+  const items = attached ?? []
+  // The API already split this segment. One segment is one bubble.
+  const bubbles = smooth ? [smooth] : writing || holdReserve || items.length ? [''] : []
   if (!bubbles.length) return null
   return (
     <>
@@ -210,6 +205,8 @@ export default function AgentTurnLive({
   orbPulseId,
   orbBaseMotion,
   continuesRun = false,
+  /** Fresh user bubble is still entering: wait until it lands before this seat rises. */
+  waitForUserBubble = false,
   onPlaybackDone,
 }: {
   turn: LiveTurn
@@ -225,16 +222,75 @@ export default function AgentTurnLive({
   orbBaseMotion?: BotOrbMotion | null
   /** The last saved row is this agent's bubble: no avatar, no author line. */
   continuesRun?: boolean
+  /** Fresh user bubble is still entering: wait until it lands before this seat rises. */
+  waitForUserBubble?: boolean
   /** Saved bubbles may replace this overlay once the reveal has caught up. */
   onPlaybackDone?: (streamId: string) => void
 }) {
   const { t } = useTranslation('communication')
   const seat = useLiveAgentSeat()
+  const [entranceReady, setEntranceReady] = useState(() => !waitForUserBubble)
+  // Once the seat is on screen, a new stream id must not unmount it. That
+  // dropped the orb mid-rise and the next mount played the spawn again.
+  const riseStartedRef = useRef(!waitForUserBubble)
+  const waitTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (riseStartedRef.current) return
+    if (!waitForUserBubble || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (waitTimerRef.current != null) {
+        window.clearTimeout(waitTimerRef.current)
+        waitTimerRef.current = null
+      }
+      riseStartedRef.current = true
+      setEntranceReady(true)
+      return
+    }
+    if (waitTimerRef.current != null) return
+    setEntranceReady(false)
+    waitTimerRef.current = window.setTimeout(() => {
+      waitTimerRef.current = null
+      riseStartedRef.current = true
+      setEntranceReady(true)
+    }, AGENT_AFTER_USER_MS)
+  }, [waitForUserBubble, turn.streamId])
+  useEffect(
+    () => () => {
+      if (waitTimerRef.current != null) window.clearTimeout(waitTimerRef.current)
+    },
+    [],
+  )
+  const seated = Boolean(agentId && avatarMark)
+  const [statusReady, setStatusReady] = useState(!seated)
+  const sawEnterRef = useRef(false)
+  const enteringNow = Boolean(seated && seat?.isEntering(String(agentId)))
+  useEffect(() => {
+    sawEnterRef.current = false
+    if (!seated) {
+      setStatusReady(true)
+      return
+    }
+    setStatusReady(false)
+  }, [seated, turn.streamId])
+  useEffect(() => {
+    if (!seated) return
+    if (enteringNow) {
+      sawEnterRef.current = true
+      setStatusReady(false)
+      return
+    }
+    if (sawEnterRef.current) setStatusReady(true)
+  }, [seated, enteringNow])
   const [revealed, setRevealed] = useState<Record<string, boolean>>({})
   const markRevealed = useCallback((key: string, done: boolean) => {
     setRevealed((prev) => (prev[key] === done ? prev : { ...prev, [key]: done }))
   }, [])
   const blocks = liveBlocks(turn)
+  const frames = turn.status
+    ? turn.status.frames
+    : blocks
+        .filter((block) => block.type === 'activity')
+        .flatMap((block) => imageGenerationFrames(block.items))
+  const shownImages = frames.map((frame) => frame.src).filter((src): src is string => Boolean(src))
   const speechKeys = blocks.filter((block) => block.type === 'speech').map((block) => block.key)
   const playbackDone =
     !turn.active && (speechKeys.length === 0 || speechKeys.every((key) => revealed[key]))
@@ -242,23 +298,35 @@ export default function AgentTurnLive({
     if (playbackDone && turn.streamId) onPlaybackDone?.(turn.streamId)
   }, [onPlaybackDone, playbackDone, turn.streamId])
   if (!turn.active && blocks.length === 0) return null
-  const last = blocks[blocks.length - 1]
-  const lastRunning =
-    last?.type === 'activity' && last.items.some((i) => i.status === 'running')
+  // Keep the row in the footer while the user bubble lands. Unmounting and
+  // mounting again changes the footer height and restarts the bubble motion.
+  if (!entranceReady) {
+    return (
+      <div className="flex items-start gap-2" aria-hidden>
+        <span className={THREAD_GUTTER}>
+          <span className="inline-block size-7 shrink-0" />
+        </span>
+        <div className="min-h-7 min-w-0 flex-1" />
+      </div>
+    )
+  }
   const firstSpeechIndex = blocks.findIndex((block) => block.type === 'speech')
-  const waiting = shouldShowWaitingTurn(turn, {
-    lastRunning,
-    lastIsSpeech: last?.type === 'speech',
-    hasSpeech: firstSpeechIndex >= 0,
-  })
+  const serverLine = statusLabel(turn.status, t)
+  const lastActivityIndex = blocks.reduce(
+    (found, block, index) => (block.type === 'activity' ? index : found),
+    -1,
+  )
   // After gated tools, before speech/card reveal — avoid a blank gap.
-  const preparingProposal =
-    turn.active && turnPreparesProposal(turn) && !lastRunning && firstSpeechIndex < 0
   const lastSpeechIndex = blocks.reduce(
     (found, block, index) => (block.type === 'speech' ? index : found),
     -1,
   )
-  const attached = liveAttachResults(turn).flatMap(itemsFromAttachResult)
+  const attached = liveAttachResults(turn)
+    .flatMap(itemsFromAttachResult)
+    .filter((item) => {
+      const src = item.imageUrl || item.url || ''
+      return !(item.type === 'image' && src && shownImages.includes(src))
+    })
   const lead = !continuesRun
   const header = lead ? (
     <BubbleHeader name={agentName || t('timeline.aiAgent')} chip={<RoleChip kind="ai" />} />
@@ -293,30 +361,41 @@ export default function AgentTurnLive({
       (avatar ?? <AiAvatar name={agentName} kind={null} size={28} decorative mode="live" />)
     )
   const hasActivityBlock = blocks.some((block) => block.type === 'activity')
-  const showStatus =
-    !entering && (hasActivityBlock || preparingProposal || waiting || firstSpeechIndex >= 0)
+  const showBlocks =
+    hasActivityBlock || Boolean(serverLine) || firstSpeechIndex >= 0
+  // Status ("Kiest de volgende stap", "Nadenken") waits until the rise finishes.
+  // The first paint is before the seat claims, so `entering` alone still flashes it.
+  const openingLine = statusReady && !entering && blocks.length === 0 && Boolean(serverLine)
 
   return (
     <div className="flex items-start gap-2">
-      <span className={THREAD_GUTTER}>{avatarNode}</span>
+      <span className={THREAD_GUTTER}>
+        <EntityAvatarLink
+          to={agentId ? `/agents/${agentId}` : null}
+          label={t('timeline.openProfile', { name: agentName || t('timeline.aiAgent') })}
+        >
+          {avatarNode}
+        </EntityAvatarLink>
+      </span>
       <div className="min-w-0 flex-1 space-y-1.5">
-        {!entering && preparingProposal ? (
-          <div role="status" aria-live="polite">
-            <ThreadMetaRow live ai>
-              {t('proposal.preparing')}
-            </ThreadMetaRow>
-          </div>
-        ) : !entering && waiting ? (
-          <div role="status" aria-live="polite">
-            <ThreadMetaRow live ai>
-              {t(turnHasWork(turn) ? 'activity.working' : 'activity.thinking')}
-            </ThreadMetaRow>
-          </div>
+        {openingLine ? (
+          <ActivityTrail items={[]} live showLine holdLabel={serverLine} frames={frames} />
+        ) : blocks.length === 0 ? (
+          <div className="min-h-7" />
         ) : null}
-        {showStatus
+        {showBlocks
           ? blocks.map((block, index) =>
               block.type === 'activity' ? (
-                <ActivityTrail key={block.key} items={block.items} live={turn.active} />
+                statusReady && !entering ? (
+                  <ActivityTrail
+                    key={block.key}
+                    items={block.items}
+                    live
+                    showLine={Boolean(serverLine) && index === blocks.length - 1}
+                    holdLabel={index === blocks.length - 1 ? serverLine || null : null}
+                    frames={index === lastActivityIndex ? frames : []}
+                  />
+                ) : null
               ) : (
                 <LiveSpeech
                   key={block.key}

@@ -157,10 +157,11 @@ describe('default queue resolution', () => {
     ).toEqual({ defaultQueue: 'open', channelDefaults: { 'team:tm-1': 'closed' } })
   })
 
-  it('resolves the per-team override before the global default', () => {
+  it('opens All communication on the saved work queue and other rows on their list', () => {
     const prefs = parseInboxFolderPrefs({ default_queue: 'open', channel_defaults: { 'team:tm-1': 'for_you' } })
-    expect(resolveDefaultQueue(prefs, { type: 'team', teamId: 'tm-1' })).toBe('for_you')
+    expect(resolveDefaultQueue(prefs, { type: 'team', teamId: 'tm-1' })).toBe('open')
     expect(resolveDefaultQueue(prefs, { type: 'inbox' })).toBe('open')
+    expect(resolveDefaultQueue(parseInboxFolderPrefs({ default_queue: 'closed' }), { type: 'inbox' })).toBe('for_you')
     expect(
       resolveDefaultQueue(prefs, { type: 'agent', agentId: 'a1' }),
     ).toBe('open')

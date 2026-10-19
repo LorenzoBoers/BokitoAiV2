@@ -30,7 +30,7 @@ Gateway presence may carry `active_turn` on composing events so the hub can show
 | `request_participant_turn` | Floor to an agent; outcomes sent / pass / timeout |
 | `start_conversation` | `mode=chat` peer thread, or `mode=task` background job |
 
-Composer `@agent` mentions invite and request a turn.
+Composer `@` mentions are the turn. One `active_turn` holds the stick or is empty. After each group message the server updates members, moves or clears that stick, and starts at most one agent job. A reply that does not pass the stick clears it. `signal_participants.unread_count` counts messages for human members who do not have the thread open.
 
 ## Module hire
 

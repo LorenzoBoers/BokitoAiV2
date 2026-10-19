@@ -1,3 +1,4 @@
 apiUrl=https://app.bokito.ai
+abi=arm64-v8a
 expo-dev-client=~55.0.36
-builtAt=2026-06-30T12:49:10.0934988+02:00
+builtAt=2026-10-18T23:15:43.0734548+02:00

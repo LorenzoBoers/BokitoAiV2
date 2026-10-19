@@ -7,6 +7,7 @@ import type { BulkThreadAction, InboxMember, InboxThread, ThreadId } from '../..
 import { listScrollStorageKey } from '../../lib/inbox-ops'
 import { readInboxDensity, writeInboxDensity } from '../../lib/inbox-prefs'
 import { cn } from '../../lib/utils'
+import { useAuth } from '../../context/AuthContext'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
@@ -14,6 +15,7 @@ import { useTeams } from '../../hooks/useTeams'
 import { navRowIndex } from '../../lib/signals-api'
 import { channelKind } from '../ui/ChannelGlyph'
 import { InboxListSkeleton } from '../ui/skeleton'
+import { ApiErrorBanner } from '../ui/ApiErrorBanner'
 import BulkActionsBar from './BulkActionsBar'
 import ThreadListItem from './ThreadListItem'
 import ThreadListQuickFilters from './ThreadListQuickFilters'
@@ -71,6 +73,15 @@ type Props = {
   emptyHint?: ReactNode
   onRetry?: () => void
   lastMailboxSyncAt?: string | null
+  /** Closed conversations of this same scope, behind a disclosure at the bottom. */
+  showClosedToggle?: boolean
+  closedOpen?: boolean
+  closedThreads?: InboxThread[]
+  closedTotal?: number | null
+  closedLoading?: boolean
+  closedHasMore?: boolean
+  onToggleClosed?: () => void
+  onLoadMoreClosed?: () => void
 }
 
 function OutsideFiltersMarker({ label }: { label: string }) {
@@ -135,7 +146,16 @@ export default function ThreadList({
   emptyHint,
   onRetry,
   lastMailboxSyncAt,
+  showClosedToggle = false,
+  closedOpen = false,
+  closedThreads = [],
+  closedTotal = null,
+  closedLoading = false,
+  closedHasMore = false,
+  onToggleClosed,
+  onLoadMoreClosed,
 }: Props) {
+  const { user } = useAuth()
   const { t } = useTranslation('communication')
   const { t: tn } = useTranslation('nav')
   const [density, setDensity] = useState(readInboxDensity)
@@ -208,7 +228,11 @@ export default function ThreadList({
       let assigneeAvatarShape: string | null = null
       let assigneeAvatarImageUrl: string | null = null
 
-      if (thread.assignedToUserId != null) {
+      const hideOwnAssignee =
+        listQueue === 'for_you' &&
+        user?.id != null &&
+        thread.assignedToUserId === user.id
+      if (thread.assignedToUserId != null && !hideOwnAssignee) {
         const member = members.find((m) => m.id === thread.assignedToUserId)
         assigneeKind = 'user'
         assigneeName = member?.name ?? memberNames.get(String(thread.assignedToUserId)) ?? null
@@ -306,8 +330,52 @@ export default function ThreadList({
       foldersById,
       scopedProjectId,
       tn,
+      listQueue,
+      user?.id,
     ],
   )
+
+  const closedCount = closedTotal ?? closedThreads.length
+  const closedRows = (
+    <>
+      {closedLoading && closedThreads.length === 0 ? (
+        <p className="px-2.5 py-2 text-center text-xs text-text-muted">{t('threadList.loadingMore')}</p>
+      ) : closedThreads.length === 0 ? (
+        <p className="px-2.5 py-2 text-center text-xs text-text-muted">{t('threadList.closedEmpty')}</p>
+      ) : (
+        closedThreads.map((thread, index) => renderItem(index, thread, true))
+      )}
+      {closedHasMore && onLoadMoreClosed ? (
+        <button
+          type="button"
+          onClick={onLoadMoreClosed}
+          className="mb-1 mt-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+        >
+          {t('threadList.loadMore')}
+        </button>
+      ) : null}
+    </>
+  )
+  const openGroupLabel =
+    showClosedToggle && threads.length > 0 ? (
+      <p className="px-2.5 py-1.5 text-center text-2xs font-medium text-text-muted">
+        {t('threadList.openGroup')}
+      </p>
+    ) : null
+  const closedIsTheList = threads.length === 0 && closedOpen && closedCount > 0
+  const closedBlock =
+    showClosedToggle && !closedIsTheList && closedCount > 0 ? (
+      <div className="mt-1 border-t border-border/50 pt-1">
+        <button
+          type="button"
+          onClick={onToggleClosed}
+          className="w-full rounded-md px-2.5 py-2 text-center text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+        >
+          {closedOpen ? t('threadList.closedGroup') : t('threadList.showClosed', { count: closedCount })}
+        </button>
+        {closedOpen ? <div>{closedRows}</div> : null}
+      </div>
+    ) : null
 
   const footer = useCallback(() => {
     const loadMore =
@@ -330,10 +398,11 @@ export default function ThreadList({
           )}
         </button>
       ) : null
-    if (!loadMore && outsideThreads.length === 0) return null
+    if (!loadMore && outsideThreads.length === 0 && !closedBlock) return null
     return (
       <div>
         {loadMore}
+        {closedBlock}
         {outsideThreads.length > 0 ? (
           <section aria-label={t('threadList.outsideFilters')}>
             <OutsideFiltersMarker label={t('threadList.outsideFilters')} />
@@ -352,6 +421,7 @@ export default function ThreadList({
     allThreads.length,
     outsideThreads,
     renderItem,
+    closedBlock,
   ])
 
   return (
@@ -415,17 +485,13 @@ export default function ThreadList({
           loading ? (
             <InboxListSkeleton />
           ) : error ? (
-            <div className="px-3 py-4 text-center">
-              <p className="text-xs text-status-error">{error}</p>
-              {onRetry ? (
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="mt-2 text-xs font-medium text-accent hover:underline"
-                >
-                  {t('onboarding.retry')}
-                </button>
-              ) : null}
+            <ApiErrorBanner message={error} onRetry={onRetry} className="mx-2 my-3" />
+          ) : closedIsTheList ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <p className="px-2.5 py-2 text-center text-xs font-medium text-text-secondary">
+                {t('threadList.closedGroup')}
+              </p>
+              {closedRows}
             </div>
           ) : outsideThreads.length > 0 ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -459,6 +525,7 @@ export default function ThreadList({
               ) : (
                 emptyHint
               )}
+              {closedBlock}
             </div>
           )
         ) : (
@@ -472,7 +539,10 @@ export default function ThreadList({
               if (hasMore && onLoadMore && !loadingMore) onLoadMore()
             }}
             increaseViewportBy={200}
-            components={{ Footer: footer }}
+            components={{
+              Header: openGroupLabel ? () => openGroupLabel : undefined,
+              Footer: footer,
+            }}
             scrollerRef={(ref) => {
               if (ref && !restoredRef.current && scrollTopRef.current > 0) {
                 restoredRef.current = true

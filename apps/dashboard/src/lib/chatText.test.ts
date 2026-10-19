@@ -99,10 +99,18 @@ describe('parseChatInline', () => {
     ])
   })
 
-  it('chips catalog connector names as in-app links', () => {
-    const nodes = parseChatInline('Koppel Moneybird en Exact Online.')
+  it('leaves catalog names and email domains as plain text', () => {
+    expect(parseChatInline('Koppel Moneybird en Exact Online.')).toEqual([
+      { type: 'text', text: 'Koppel Moneybird en Exact Online.' },
+    ])
+    expect(parseChatInline('Mail lorenzo_boers@outlook.com')).toEqual([
+      { type: 'text', text: 'Mail lorenzo_boers@outlook.com' },
+    ])
+  })
+
+  it('chips a connector only from an explicit markdown link', () => {
+    const nodes = parseChatInline('Koppel [Moneybird](/connections?connect=moneybird).')
     expect(nodes.find((n) => n.type === 'link' && n.href === '/connections?connect=moneybird')).toBeTruthy()
-    expect(nodes.find((n) => n.type === 'link' && n.href === '/connections?connect=exact')).toBeTruthy()
   })
 })
 

@@ -55,8 +55,11 @@ export function ModuleOverview({ module }: Props) {
   }, [module.slug, loadConnections])
 
   const specialist = useMemo(
-    () => roster.find((r) => r.managed && r.managed_origin === 'module') ?? null,
-    [roster],
+    () =>
+      roster.find(
+        (r) => r.is_pack_specialist || r.agent_slug === `module-${module.slug}`,
+      ) ?? null,
+    [roster, module.slug],
   )
   const customerCards = (module.tool_cards ?? []).filter((card) => card.exposure === 'customer')
   const customerTools = connections?.prefs?.customer_tools ?? {}

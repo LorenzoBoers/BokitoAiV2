@@ -65,6 +65,12 @@ async def trigger_scheduler_loop() -> None:
                 if sent:
                     logger.info("Delivered %s scheduled message(s)", sent)
 
+                from app.services.agent_calls import expire_rings
+
+                missed = await expire_rings(session)
+                if missed:
+                    logger.info("Missed %s agent call(s)", missed)
+
                 from app.services.workforce_runtime import clear_stale_runtime_all_tenants
 
                 stale = await clear_stale_runtime_all_tenants(session)

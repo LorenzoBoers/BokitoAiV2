@@ -5,6 +5,7 @@ import { Loader2, Lock, Search, Shield } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { toast } from 'sonner'
@@ -292,10 +293,7 @@ export default function OpsPage() {
       ) : null}
 
       {loading && !data ? (
-        <div className="flex items-center gap-2 text-sm text-text-muted">
-          <Loader2 size={16} className="animate-spin" />
-          {t('ops.loading')}
-        </div>
+        <LoadingBlock variant="inline" label={t('ops.loading')} className="text-sm" />
       ) : null}
 
       {data ? (
@@ -350,10 +348,7 @@ export default function OpsPage() {
                   {weightsLoading && !weights ? (
                     <tr>
                       <td colSpan={4} className="px-3 py-6 text-center text-text-muted">
-                        <span className="inline-flex items-center gap-2">
-                          <Loader2 size={14} className="animate-spin" />
-                          {t('ops.loading')}
-                        </span>
+                        <LoadingBlock variant="inline" label={t('ops.loading')} className="text-sm" />
                       </td>
                     </tr>
                   ) : null}

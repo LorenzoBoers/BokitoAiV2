@@ -227,29 +227,35 @@ async def test_marketplace_and_unconnected_integration_resolve_to_catalog(
     assert not any(i.get("missing") for i in items)
 
 
-def test_infer_marketplace_items_from_bullet_list():
-    text = (
-        "Hier zijn 10 koppelingen die we kunnen activeren:\n"
-        "- Moneybird\n"
-        "- KING Accountancy\n"
-        "- Exact Online\n"
-        "- Twinfield\n"
-        "- SnelStart\n"
-        "- Yuki\n"
-        "- GoCardless Bank Account Data\n"
-        "- Tink\n"
-        "- Yapily\n"
-        "- Knab\n"
+@pytest.mark.asyncio
+async def test_uninstalled_module_snapshot_matches_marketplace_card(
+    client: AsyncClient, session_override
+):
+    await _login(client)
+    tenant = await _tenant(session_override)
+    items = await resolve_items(
+        session_override,
+        tenant.id,
+        [{"type": "module", "id": "accounting"}],
     )
-    items = infer_marketplace_items_from_text(text)
-    titles = {str(i.get("title") or "").lower() for i in items}
-    slugs = {str(i.get("id") or i.get("provider") or "") for i in items}
-    assert any("moneybird" in t or "moneybird" in slugs for t in titles)
-    assert any("king" in s for s in slugs)
-    assert any("exact" in s for s in slugs)
-    assert any("twinfield" in s for s in slugs)
-    assert any("snelstart" in s for s in slugs)
-    assert any("yuki" in s for s in slugs)
-    assert len(items) >= 8
-    assert all(i.get("type") == "marketplace" and i.get("title") for i in items)
-    assert infer_marketplace_items_from_text("Just chatting, no connectors.") == []
+    assert len(items) == 1
+    card = items[0]
+    assert card["type"] == "module"
+    assert card["slug"] == "accounting"
+    assert card["name"] == "Boekito"
+    assert card["job_title"]
+    assert card["subtitle"]
+    assert card["tool_count"] > 0
+    assert card["provider_slugs"]
+    assert card["install_state"] in ("not_installed", "setup", "installed")
+    assert card["path"].endswith("/accounting")
+
+
+def test_infer_marketplace_items_from_text_stays_empty():
+    text = (
+        "lorenzo_boers@outlook.com ervaart een issue.\n"
+        "Hier zijn koppelingen:\n"
+        "- Moneybird\n"
+        "- Exact Online\n"
+    )
+    assert infer_marketplace_items_from_text(text) == []

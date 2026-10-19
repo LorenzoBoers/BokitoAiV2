@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { AgentMark } from '../ui/AgentMark'
 import { Card } from '../ui/card'
+import { EmptyState } from '../ui/empty-state'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { cn } from '../../lib/utils'
 import { useEntityRefresh } from '../../lib/live-store'
@@ -411,7 +412,7 @@ export function AgentActivityTimeline({
           </div>
         </div>
         {!data || (data.items.length === 0 && !combined) ? (
-          <p className="mt-3 text-xs text-text-muted">{t('workforce.agents.timelineEmpty')}</p>
+          <EmptyState tone="plain" size="sm" className="mt-3 px-0 py-2" title={t('workforce.agents.timelineEmpty')} />
         ) : null}
       </div>
     </Card>

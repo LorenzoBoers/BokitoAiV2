@@ -1041,6 +1041,9 @@ async def persist_inbound_agent_reply(
         metadata["llm_mode"] = "mock"
         metadata["llm_configured"] = False
 
+    from app.services.pass_stick import release_customer_stick
+
+    await release_customer_stick(session, signal, agent.id)
     message = await append_signal_chat_message(
         session,
         signal,

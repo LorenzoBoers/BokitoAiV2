@@ -222,7 +222,8 @@ async def _upsert_first_agent(
     """Create the company lead, or rename the one this wizard already made."""
     from fastapi import HTTPException
 
-    from app.services.lead_agent import set_lead_agent
+    from app.services.lead_agent import company_assistant_job_title, set_lead_agent
+    from app.services.lead_agent import LEGACY_LEAD_JOB_TITLES
     from app.services.onboarding_setup import starter_system_prompt
     from app.services.workforce_runtime import create_agent, update_agent
     from app.tools.policy import AUTONOMY_POSTURES
@@ -246,7 +247,10 @@ async def _upsert_first_agent(
         language=language,
         intake=serialize_intake(block),
     )
-    job_title = str(payload.get("job_title") or "Onboarding specialist").strip()[:32]
+    job_title = str(payload.get("job_title") or "").strip()
+    if job_title.lower() in LEGACY_LEAD_JOB_TITLES:
+        job_title = company_assistant_job_title(language)
+    job_title = job_title[:32]
     if not job_title:
         raise HTTPException(status_code=400, detail="Agent job title is required")
     description = str(payload.get("description") or "").strip()[:280]
@@ -285,6 +289,9 @@ async def _upsert_first_agent(
         agent.autonomy_level = posture
         agent.is_lead = True
         session.add(agent)
+    from app.services.teams import ensure_agent_on_all
+
+    await ensure_agent_on_all(session, tenant.id, agent_id)
     await session.refresh(tenant)
 
 

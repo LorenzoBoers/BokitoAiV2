@@ -32,10 +32,18 @@ const config: ExpoConfig = {
     },
     ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
   },
+  runtimeVersion: '0.1.0',
+  updates: {
+    url: `https://u.expo.dev/${easProjectId}`,
+    enabled: process.env.EAS_BUILD === 'true',
+    checkAutomatically: 'NEVER',
+    fallbackToCacheTimeout: 0,
+  },
   plugins: [
     'expo-dev-client',
     'expo-router',
     'expo-secure-store',
+    'expo-updates',
     [
       'expo-notifications',
       {

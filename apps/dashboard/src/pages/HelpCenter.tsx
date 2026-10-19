@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, Copy, FileText, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import MarkdownView from '../components/docs/MarkdownView'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { formatAppDate } from '../lib/app-locale'
 import {
   getHelpArticle,
@@ -143,7 +144,7 @@ export default function HelpCenter() {
     >
       <main className="mx-auto max-w-3xl px-6 py-8">
         {loading ? (
-          <p className="text-sm text-muted-foreground">{t('helpPublic.loading')}</p>
+          <LoadingBlock variant="skeleton" rows={4} />
         ) : error ? (
           <div className="space-y-3">
             <p className="text-sm text-destructive">{error}</p>

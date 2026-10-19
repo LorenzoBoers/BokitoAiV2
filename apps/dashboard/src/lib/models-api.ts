@@ -36,7 +36,7 @@ export type PresetModel = {
   slug: string
   model_id: string
   display_name: string
-  kind: 'chat' | 'embedding'
+  kind: 'chat' | 'embedding' | 'image'
   context_window: number
   input_cost_per_mtok_cents: number
   output_cost_per_mtok_cents: number
@@ -60,7 +60,7 @@ export type TenantModelRow = {
   slug: string
   model_id: string
   display_name: string
-  kind: 'chat' | 'embedding'
+  kind: 'chat' | 'embedding' | 'image'
   enabled: boolean
   supports_tools: boolean
   supports_vision: boolean
@@ -211,6 +211,10 @@ export type TenantModelsPayload = {
   workspace_chat_mode?: WorkspaceChatMode | string
   default_chat: string
   default_embedding: string
+  image_model?: string
+  image_models?: Array<
+    TenantModelRow & { ready?: boolean; selected?: boolean; key_source?: string }
+  >
   /** Legacy platform-mode fields (may be absent). */
   prefs?: TenantModelPrefs
   byok?: LlmKeyStatus[]
@@ -390,6 +394,14 @@ export async function getLlmRuntime(token: string): Promise<LlmRuntimeStatus> {
 
 export async function getTenantModels(token: string) {
   return settingsGet<TenantModelsPayload>(settingsRoutes.models.list, token)
+}
+
+export async function setImageModel(token: string, imageModel: string) {
+  return settingsPatch<TenantModelsPayload>(
+    settingsRoutes.models.imageModel,
+    { image_model: imageModel },
+    token,
+  )
 }
 
 export async function setCustomModelsOptIn(token: string, enabled: boolean) {

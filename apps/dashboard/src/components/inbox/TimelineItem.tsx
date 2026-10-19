@@ -1,6 +1,7 @@
 import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Flag, Forward, Hash, Layers, Loader2, Mail, Pencil, Phone, Reply, ReplyAll, Trash2, User, Users, X as XIcon } from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { EntityAvatarLink } from './EntityAvatarLink'
 import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { isMockAgentBody, translateMockAgentBody } from '../../lib/activity-labels'
@@ -79,7 +80,6 @@ import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
 import { stageLabel, type TicketStageKind } from '../../lib/tickets-api'
 import { SplitConversationAction } from './SplitConversationAction'
-import { inferMarketplaceItems, mergeShowcaseItems } from '../../lib/marketplace-mentions'
 import { ProposalItemList } from './ProposalItemPreview'
 import { ActionBundleCard } from './ActionBundleCard'
 import { ProposalActions } from './ProposalActions'
@@ -103,6 +103,8 @@ type MessageItemProps = {
   contactName?: string
   contactEmail?: string
   contactPhone?: string
+  /** Linked contact. The external avatar opens this page. */
+  contactId?: string | null
   membersById?: Record<number, InboxMember>
   noteActions?: NoteActions
   /** Name of the agent bound to this thread, shown on AI messages. */
@@ -1784,6 +1786,7 @@ export function MessageTimelineItem({
   contactName,
   contactEmail,
   contactPhone,
+  contactId,
   membersById,
   noteActions,
   agentName,
@@ -1804,6 +1807,17 @@ export function MessageTimelineItem({
   onRetrySend,
 }: MessageItemProps) {
   const { t, i18n } = useTranslation('communication')
+  // Once a bubble starts entering, keep the class. A later render (server id,
+  // stream tick) must not strip it and replay the motion.
+  const enterKey = String(messageProp.listKey || messageProp.id)
+  const enterLatch = useRef<{ key: string; on: boolean } | null>(null)
+  const wantsEnter = enterAnimation || Boolean(messageProp.decisionResponse)
+  if (!enterLatch.current || enterLatch.current.key !== enterKey) {
+    enterLatch.current = { key: enterKey, on: wantsEnter }
+  } else if (wantsEnter) {
+    enterLatch.current.on = true
+  }
+  const playEnter = enterLatch.current.on
   const confirm = useConfirm()
   const { user, token } = useAuth()
   const { agents } = useAgents()
@@ -2104,7 +2118,12 @@ export function MessageTimelineItem({
   )
 
   const contactAvatar = (
-    <ContactAvatarWithHover email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
+    <EntityAvatarLink
+      to={contactId ? `/contacts/${contactId}` : null}
+      label={t('timeline.openProfile', { name: inboundName })}
+    >
+      <ContactAvatarWithHover email={inboundEmail} name={inboundName} phone={contactPhone} size={28} />
+    </EntityAvatarLink>
   )
   // Prefer the live agents catalog so timeline marks stay in sync with the
   // rail (thread-stamped fields can lag after an identity change).
@@ -2141,7 +2160,12 @@ export function MessageTimelineItem({
   // (including stack end / middle). Other bubbles keep the normal lead rule
   // so earlier marks stay visible as static footprints with a done check.
   const showAgentAvatar = thisAgentSeatLive ? true : undefined
-  const agentAvatar = messageAgentId ? (
+  const agentAvatar = (
+    <EntityAvatarLink
+      to={messageAgentId ? `/agents/${messageAgentId}` : null}
+      label={t('timeline.openProfile', { name: displayAgentName })}
+    >
+      {messageAgentId ? (
     <LiveAgentAvatarSlot
       agentId={String(messageAgentId)}
       slotId={agentSlotId}
@@ -2170,6 +2194,8 @@ export function MessageTimelineItem({
       />
       <AgentDoneCorner size={28} />
     </span>
+  )}
+    </EntityAvatarLink>
   )
 
   // Group-chat author model: customer (external), teammate, AI agent, or the
@@ -2198,13 +2224,19 @@ export function MessageTimelineItem({
 
   // Prefer the signed-in profile for own bubbles (notes included) so the
   // avatar stays correct even when the message author is not in membersById.
+  const userDisplayName = isOwn ? user?.name?.trim() || authorName : authorName
   const userAvatar = (
-    <UserAvatar
-      name={isOwn ? user?.name?.trim() || authorName : authorName}
-      email={isOwn ? user?.email || authorEmail || authorName : authorEmail || authorName}
-      avatarUrl={isOwn ? user?.avatarUrl ?? authorAvatarUrl : authorAvatarUrl}
-      size={28}
-    />
+    <EntityAvatarLink
+      to={isOwn ? '/settings/profile' : author?.uuid ? '/team#directory' : null}
+      label={t('timeline.openProfile', { name: userDisplayName })}
+    >
+      <UserAvatar
+        name={userDisplayName}
+        email={isOwn ? user?.email || authorEmail || authorName : authorEmail || authorName}
+        avatarUrl={isOwn ? user?.avatarUrl ?? authorAvatarUrl : authorAvatarUrl}
+        size={28}
+      />
+    </EntityAvatarLink>
   )
 
   const sendFailed =
@@ -2505,10 +2537,7 @@ export function MessageTimelineItem({
       : proposal?.items?.length
         ? proposal.items
         : []
-  const showcaseItems = mergeShowcaseItems(
-    attachedItems,
-    isAgentMessage ? inferMarketplaceItems(displayBody || message.bodyText || '') : [],
-  )
+  const showcaseItems = attachedItems
   const proposalOpen =
     !!proposal && (proposal.status === 'awaiting_human' || proposal.status === 'pending')
   const proposalMulti = proposal?.selection === 'multiple'
@@ -2756,7 +2785,7 @@ export function MessageTimelineItem({
       reactions={reactionOverlay}
       variant={variant}
       stack={stack}
-      enter={enterAnimation || Boolean(message.decisionResponse)}
+      enter={playEnter}
       bubbleClassName={message.decisionResponse ? 'decision-answer-bubble' : undefined}
     />
   )
@@ -2827,12 +2856,22 @@ export function MessageTimelineItem({
   return (
     <div className={cn('flex flex-col gap-1.5', isOwn ? 'items-end' : 'items-start')}>
       {activityBefore.length > 0 ? (
-        <ActivityTrail items={activityBefore} onExpand={loadDetail} className={traceIndent} />
+        <ActivityTrail
+          items={activityBefore}
+          history={activityBefore.length ? message.history : undefined}
+          onExpand={loadDetail}
+          className={traceIndent}
+        />
       ) : null}
       <div className="w-full">{bubble}</div>
       {proposalActions}
       {activityAfter.length > 0 ? (
-        <ActivityTrail items={activityAfter} onExpand={loadDetail} className={traceIndent} />
+        <ActivityTrail
+          items={activityAfter}
+          history={activityBefore.length ? undefined : message.history}
+          onExpand={loadDetail}
+          className={traceIndent}
+        />
       ) : null}
       {workbenchCard}
     </div>
@@ -2918,6 +2957,7 @@ export function EventClusterTimelineItem({
   agentAvatarShape?: string | null
   agentAvatarImageUrl?: string | null
 }) {
+  const { t } = useTranslation('communication')
   if (events.length === 0) return null
   const lane = eventClusterKey(events[0])
   const agentSide = lane === 'agent'
@@ -2967,15 +3007,20 @@ export function EventClusterTimelineItem({
       <ThreadMetaBlock
         header={named || undefined}
         avatar={
-          <LiveAgentMark
-            name={named}
-            agentId={avatarAgentId}
-            agentAvatarKind={agentAvatarKind}
-            agentAvatarIcon={agentAvatarIcon}
-            agentAvatarColor={agentAvatarColor}
-            agentAvatarShape={agentAvatarShape}
-            agentAvatarImageUrl={agentAvatarImageUrl}
-          />
+          <EntityAvatarLink
+            to={avatarAgentId ? `/agents/${avatarAgentId}` : null}
+            label={t('timeline.openProfile', { name: named || t('timeline.aiAgent') })}
+          >
+            <LiveAgentMark
+              name={named}
+              agentId={avatarAgentId}
+              agentAvatarKind={agentAvatarKind}
+              agentAvatarIcon={agentAvatarIcon}
+              agentAvatarColor={agentAvatarColor}
+              agentAvatarShape={agentAvatarShape}
+              agentAvatarImageUrl={agentAvatarImageUrl}
+            />
+          </EntityAvatarLink>
         }
       >
         {pills}
@@ -2989,13 +3034,18 @@ export function EventClusterTimelineItem({
     return (
       <ThreadMetaBlock
         avatar={
-          <UserAvatar
-            name={actorName || '?'}
-            email={actorMember?.email}
-            avatarUrl={actorMember?.avatarUrl}
-            size={28}
-            decorative
-          />
+          <EntityAvatarLink
+            to={isSelf ? '/settings/profile' : actorMember?.uuid ? '/team#directory' : null}
+            label={t('timeline.openProfile', { name: actorName || '?' })}
+          >
+            <UserAvatar
+              name={actorName || '?'}
+              email={actorMember?.email}
+              avatarUrl={actorMember?.avatarUrl}
+              size={28}
+              decorative
+            />
+          </EntityAvatarLink>
         }
       >
         {pills}

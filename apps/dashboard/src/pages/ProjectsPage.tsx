@@ -5,6 +5,7 @@ import { Plus, Search } from 'lucide-react'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { filtersetLocalNames, filtersetPlainLabel } from '../lib/folder-filter-tree'
 import { PageContent } from '../components/layout/PageContent'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Button } from '../components/ui/button'
@@ -197,12 +198,15 @@ export default function ProjectsPage() {
         subtitle={t('projects.page.subtitle')}
         className="mb-0"
         meta={
-          isAdmin ? (
-            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              {t('projects.page.new')}
-            </Button>
-          ) : null
+          <>
+            <OpenInGridButton />
+            {isAdmin ? (
+              <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {t('projects.page.new')}
+              </Button>
+            ) : null}
+          </>
         }
       />
 

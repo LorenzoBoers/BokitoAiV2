@@ -33,8 +33,38 @@ function describePage(pathname: string, search: string): string {
  * even while the launcher is hidden.
  */
 function launcherHiddenFor(pathname: string): boolean {
+  if (pathname === '/new' || pathname.startsWith('/new/')) return true
   if (!pathname.startsWith('/communication')) return false
   return pathname.includes('/t/') || pathname.startsWith('/communication/new')
+}
+
+/**
+ * Hide the host and the floating button inside its shadow root.
+ * `display: none` on the host alone is not enough: the launcher is
+ * `position: fixed`, and a later open/close can put the host back on screen
+ * while this page should stay clear of the button.
+ */
+function applyLauncherVisibility(el: HTMLElement, pathname: string, forceOpen: boolean) {
+  const hidden = !forceOpen && launcherHiddenFor(pathname)
+  el.dataset.launcherHidden = hidden ? 'true' : 'false'
+  if (hidden) {
+    el.setAttribute('hidden', '')
+    el.style.setProperty('display', 'none', 'important')
+  } else {
+    el.removeAttribute('hidden')
+    el.style.removeProperty('display')
+  }
+  const root = el.shadowRoot
+  if (!root) return
+  root.querySelectorAll<HTMLElement>('.bk-launcher, .bk-proactive-bubbles').forEach((node) => {
+    if (hidden) {
+      node.setAttribute('hidden', '')
+      node.style.setProperty('display', 'none', 'important')
+    } else {
+      node.removeAttribute('hidden')
+      node.style.removeProperty('display')
+    }
+  })
 }
 
 function currentTheme(): string {
@@ -88,11 +118,7 @@ export default function PersonalAssistantWidget() {
       const open = Boolean((event as CustomEvent<{ open?: boolean }>).detail?.open)
       forceOpenRef.current = open
       if (!el) return
-      if (open) {
-        el.style.display = ''
-        return
-      }
-      if (launcherHiddenFor(window.location.pathname)) el.style.display = 'none'
+      applyLauncherVisibility(el, window.location.pathname, open)
     }
     void ensureChatWidgetScript()
       .then(() => {
@@ -117,9 +143,10 @@ export default function PersonalAssistantWidget() {
           el.dataset.previewOverrides = JSON.stringify({ main_color: brandColor })
         }
         el.setAttribute('data-theme', currentTheme())
-        if (launcherHiddenFor(window.location.pathname)) el.style.display = 'none'
+        applyLauncherVisibility(el, window.location.pathname, false)
         el.addEventListener('bokito:panel', onPanel)
         document.body.appendChild(el)
+        applyLauncherVisibility(el, window.location.pathname, false)
         widgetRef.current = el
         registerAssistantWidget(el)
         // A thread opened from another workspace survives the reload that a
@@ -151,8 +178,14 @@ export default function PersonalAssistantWidget() {
     const el = widgetRef.current
     if (!el) return
     el.dataset.pageContext = describePage(pathname, search)
-    if (forceOpenRef.current) return
-    el.style.display = launcherHiddenFor(pathname) ? 'none' : ''
+    applyLauncherVisibility(el, pathname, forceOpenRef.current)
+    const root = el.shadowRoot
+    if (!root) return
+    const observer = new MutationObserver(() => {
+      applyLauncherVisibility(el, pathname, forceOpenRef.current)
+    })
+    observer.observe(root, { childList: true })
+    return () => observer.disconnect()
   }, [pathname, search])
 
   // Follow the dashboard's light/dark switch.

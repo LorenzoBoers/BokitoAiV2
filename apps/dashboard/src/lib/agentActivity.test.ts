@@ -8,6 +8,7 @@ import {
   groupActivity,
   groupProvider,
   groupSummary,
+  imageGenerationFrames,
   isVisibleActivity,
   itemLabel,
   liveAttachResults,
@@ -15,12 +16,16 @@ import {
   liveProposalHold,
   liveTurnFromMessage,
   liveTurnOrbMotion,
+  liveTurnOrbMotion,
   mergeTurns,
   normalizeActivity,
   normalizeMessageActivity,
   shouldShowWaitingTurn,
+  statusLabel,
+  stripEchoedImages,
   turnPreparesProposal,
   turnSaved,
+  textOnlyTurn,
   webSearchFavicon,
   webSearchHost,
   webSearchQuery,
@@ -276,6 +281,91 @@ describe('applyTurnEvent', () => {
     expect(ended.ended).toBe(true)
   })
 
+  it('keeps the status line the API sent', () => {
+    const t = ((key: string) => key) as TFunction
+    const turn = applyTurnEvent(EMPTY_TURN, 'agent.activity', {
+      stream_id: 's1',
+      phase: 'start',
+      status: { label_key: 'activity.generatingImage', tool: 'generate_image' },
+      item: { id: 'img', kind: 'work', tool: 'generate_image', status: 'running', label: 'Generate image' },
+    })
+    expect(statusLabel(turn.status, t)).toBe('activity.generatingImage')
+    const withFrame = applyTurnEvent(turn, 'message.delta', {
+      stream_id: 's1',
+      segment_id: 'a',
+      delta: 'Klaar',
+      status: { label_key: '', frames: [{ id: 'img:0', status: 'ready', src: 'https://files.example/a.jpg' }] },
+    })
+    expect(statusLabel(withFrame.status, t)).toBe('')
+    expect(withFrame.status?.frames[0].src).toBe('https://files.example/a.jpg')
+    const quiet = applyTurnEvent(turn, 'message.delta', { stream_id: 's1', segment_id: 'a', delta: 'Klaar', status: null })
+    expect(quiet.status).toBeNull()
+  })
+
+  it('plays the orb motion the surface names', () => {
+    const turn = applyTurnEvent(EMPTY_TURN, 'agent.turn', {
+      stream_id: 's1',
+      phase: 'start',
+      surface: { motion: 'typing', blocks: [{ type: 'speech', id: 'a', text: 'Hoi' }] },
+    })
+    expect(liveTurnOrbMotion(turn)).toBe('typing')
+  })
+
+  it('shows think text from the surface and does not append the delta again', () => {
+    const turn = applyTurnEvent(EMPTY_TURN, 'agent.thinking', {
+      stream_id: 's1',
+      item_id: 'think-1',
+      delta: ' extra',
+      surface: {
+        blocks: [
+          {
+            type: 'activity',
+            id: 'a-1',
+            items: [{ id: 'think-1', kind: 'think', status: 'running', text: 'Hallo daar' }],
+          },
+        ],
+      },
+    })
+    const block = liveBlocks(turn)[0]
+    expect(block.type === 'activity' && block.items[0].text).toBe('Hallo daar')
+    expect(turn.thinking).toEqual({})
+  })
+
+  it('draws the speech blocks from the live surface, not the delta', () => {
+    const turn = applyTurnEvent(EMPTY_TURN, 'message.delta', {
+      stream_id: 's1',
+      segment_id: 'a',
+      delta: 'MORE',
+      surface: {
+        status: null,
+        blocks: [
+          { type: 'speech', id: 'a', text: 'Eerste zin.' },
+          { type: 'speech', id: 'b', text: 'Tweede zin.' },
+        ],
+      },
+    })
+    expect(liveBlocks(turn).filter((block) => block.type === 'speech').map((block) => block.text)).toEqual([
+      'Eerste zin.',
+      'Tweede zin.',
+    ])
+  })
+
+  it('replaces a bubble when the API rewrites that part', () => {
+    let turn = applyTurnEvent(EMPTY_TURN, 'message.delta', {
+      stream_id: 's1',
+      segment_id: 'a',
+      delta: 'Je',
+    })
+    turn = applyTurnEvent(turn, 'message.part', {
+      stream_id: 's1',
+      segment_id: 'a',
+      text: 'Je dashboard is klaar.',
+    })
+    expect(liveBlocks(turn).filter((block) => block.type === 'speech')).toEqual([
+      { type: 'speech', key: 'a', text: 'Je dashboard is klaar.' },
+    ])
+  })
+
   it('starts fresh on a new stream and ignores a late end of an old one', () => {
     const first = applyTurnEvent(EMPTY_TURN, 'message.delta', { stream_id: 's1', delta: 'a' })
     const second = applyTurnEvent(first, 'message.delta', { stream_id: 's2', delta: 'b' })
@@ -310,6 +400,15 @@ describe('web_search activity', () => {
     expect(webSearchHost(row)).toBe('chargecars.nl')
     expect(webSearchFavicon(row)).toContain('chargecars.nl')
     expect(itemLabel(row, t)).toBe('chargecars.nl')
+  })
+
+  it('reads the host the API already put on the public item', () => {
+    const row = normalizeActivity([
+      { id: 's', kind: 'work', tool: 'web_search', status: 'ok', label: 'bokito.ai', host: 'bokito.ai', favicon_url: 'https://icons.example/b.png' },
+    ])[0]
+    expect(webSearchHost(row)).toBe('bokito.ai')
+    expect(webSearchFavicon(row)).toBe('https://icons.example/b.png')
+    expect(itemLabel(row, t)).toBe('bokito.ai')
   })
 })
 
@@ -580,5 +679,79 @@ describe('liveAttachResults', () => {
         items: [{ type: 'folder', id: 'f1', title: '2025', subtitle: '' }],
       },
     ])
+  })
+})
+
+describe('image generation frames', () => {
+  it('shows a placeholder while generate_image is running and the file when the url arrives', () => {
+    const running = normalizeActivity([
+      { id: 'img-1', kind: 'work', tool: 'generate_image', status: 'running', label: 'Generate image' },
+    ])
+    expect(imageGenerationFrames(running)).toEqual([
+      { id: 'img-1', status: 'running', src: null, alt: 'Generate image' },
+    ])
+
+    const ready = normalizeActivity([
+      {
+        id: 'img-1',
+        kind: 'work',
+        tool: 'generate_image',
+        status: 'ok',
+        label: 'Generate image',
+        image_urls: ['https://files.example/generated-1.jpg'],
+      },
+    ])
+    expect(imageGenerationFrames(ready)).toEqual([
+      {
+        id: 'img-1:0',
+        status: 'ready',
+        src: 'https://files.example/generated-1.jpg',
+        alt: 'Generate image',
+      },
+    ])
+
+    const failed = normalizeActivity([
+      { id: 'img-2', kind: 'work', tool: 'generate_image', status: 'error', label: 'Generate image' },
+    ])
+    expect(imageGenerationFrames(failed)[0].status).toBe('error')
+  })
+
+  it('names a running image call as generating, and drops a repeated file link', () => {
+    const t = ((key: string) => key) as TFunction
+    const running = normalizeActivity([
+      { id: 'img-1', kind: 'work', tool: 'generate_image', status: 'running', label: 'Generate image' },
+    ])[0]
+    expect(itemLabel(running, t)).toBe('activity.generatingImage')
+    const keyed = normalizeActivity([
+      {
+        id: 'img-3',
+        kind: 'work',
+        tool: 'generate_image',
+        status: 'ok',
+        label: 'Generate image',
+        label_key: 'activity.generatedImage',
+      },
+    ])[0]
+    expect(itemLabel(keyed, t)).toBe('activity.generatedImage')
+    const url = 'https://files.example/generated-1.jpg'
+    expect(stripEchoedImages(`Hier is hij.\n\n![Haai](${url})`, [url])).toBe('Hier is hij.')
+    expect(stripEchoedImages('Hier is hij.\n\n![Haai](https://cdn.example/other.jpg)', [url])).toBe('Hier is hij.')
+  })
+})
+
+describe('textOnlyTurn', () => {
+  it('draws one bubble per server part', () => {
+    const turn = textOnlyTurn('Hi\n\nThere', ['Hi', 'There'])
+    expect(liveBlocks(turn).filter((block) => block.type === 'speech').map((block) => block.text)).toEqual([
+      'Hi',
+      'There',
+    ])
+  })
+
+  it('names the quiet start before the first word', () => {
+    const turn = textOnlyTurn('')
+    expect(turn.status?.labelKey).toBe('activity.looking')
+    expect(turn.motion).toBe('thinking')
+    expect(textOnlyTurn('Hi').status).toBeNull()
   })
 })

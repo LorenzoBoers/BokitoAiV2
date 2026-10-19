@@ -138,12 +138,13 @@ def serialize_agent(
     latest_run: AgentRun | None = None,
     open_conversations: int = 0,
     awaiting_decision: int = 0,
+    affiliation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The one agent DTO. Views only add fields on top of ``summary``.
 
     - ``summary``: identity, avatar and live status (rows, chips, project orchestrator)
     - ``picker``: summary for chat targets and assignee pickers (callers add their flags)
-    - ``passport``: summary + model, autonomy, tools and scopes (Govern, agent tools)
+    - ``passport``: summary + model, autonomy, tools, scopes and affiliation
     - ``runtime``: everything the Agents page and agent detail render
 
     ``status`` is ``standby | working | error``; an open AgentRun (``running``
@@ -177,6 +178,7 @@ def serialize_agent(
     payload.update(avatar_payload(agent))
     if view in ("passport", "runtime"):
         from app.services.agent_rules import normalize_autonomy
+        from app.services.managed_resources import management_payload
 
         rslug = role_slug(agent)
         payload.update(
@@ -195,11 +197,11 @@ def serialize_agent(
                 "updated_at": _ms(agent.updated_at or agent.created_at),
             }
         )
+        payload.update(management_payload(agent, affiliation=affiliation))
     if view != "runtime":
         return payload
 
     from app.services.addressee import agent_ask_target
-    from app.services.managed_resources import management_payload
     from app.services.signatures import (
         agent_reply_send_as,
         agent_signature_html,
@@ -225,7 +227,6 @@ def serialize_agent(
             "ask_target": agent_ask_target(agent),
         }
     )
-    payload.update(management_payload(agent))
     return payload
 
 
@@ -285,8 +286,10 @@ _MULTI_AGENT_CORE: tuple[str, ...] = (
     "get_tenant_overview",
     "assign_conversation",
     "suggest_thread_reply",
+    "react_to_message",
     "read_doc",
     "search_index",
+    "generate_image",
 )
 
 # Narrow default passports by role convention (orchestrator / channel / personal /
@@ -313,11 +316,16 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "set_thread_tags",
         "create_tag",
         "suggest_thread_reply",
+        "react_to_message",
         "note_no_reply",
+        "list_agents",
+        "list_teams",
+        "get_tenant_overview",
     ),
     "communication": (
         "post_thread_message",
         "suggest_thread_reply",
+        "react_to_message",
         "send_reply",
         "note_no_reply",
         "create_decision_request",
@@ -328,9 +336,11 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "set_thread_tags",
         "invite_to_thread",
         "request_participant_turn",
+        "generate_image",
     ),
     "assistant": (
         "post_thread_message",
+        "react_to_message",
         "create_decision_request",
         "propose_action",
         "delegate_to_agent",
@@ -344,9 +354,11 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "read_doc",
         "search_index",
         "schedule_wake",
+        "generate_image",
     ),
     "builder": (
         "post_thread_message",
+        "react_to_message",
         "create_decision_request",
         "propose_action",
         "delegate_to_agent",
@@ -354,6 +366,7 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "read_doc",
         "search_repo",
         "search_index",
+        "generate_image",
     ),
 }
 
@@ -410,6 +423,9 @@ async def list_runtime_agents(
     open_by, decision_by = await _conversation_counts_by_agent(
         session, tenant_id, [a.id for a in agents]
     )
+    from app.services.managed_resources import affiliations_by_agent_id
+
+    affiliations = await affiliations_by_agent_id(session, tenant_id, agents)
     return [
         serialize_agent(
             agent,
@@ -417,6 +433,7 @@ async def list_runtime_agents(
             latest_run=latest_by_agent.get(agent.id),
             open_conversations=open_by.get(agent.id, 0),
             awaiting_decision=decision_by.get(agent.id, 0),
+            affiliation=affiliations.get(agent.id),
         )
         for agent in agents
     ]
@@ -447,12 +464,16 @@ async def get_runtime_agent(
     )
     latest = runs_result.scalar_one_or_none()
     open_by, decision_by = await _conversation_counts_by_agent(session, tenant_id, [agent.id])
+    from app.services.managed_resources import affiliations_by_agent_id
+
+    affiliations = await affiliations_by_agent_id(session, tenant_id, [agent])
     return serialize_agent(
         agent,
         view="runtime",
         latest_run=latest,
         open_conversations=open_by.get(agent.id, 0),
         awaiting_decision=decision_by.get(agent.id, 0),
+        affiliation=affiliations.get(agent.id),
     )
 
 
@@ -546,7 +567,8 @@ async def update_agent_runtime_status(
 async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> dict[str, Any]:
     """Deactivate a company agent: hidden from the working roster, history preserved.
 
-    Channel defaults are cleared; existing conversation history stays pinned.
+    Channel defaults are cleared. Open conversations move to the workspace lead.
+    Past messages keep this agent as their author.
     """
     result = await session.execute(
         select(Agent).where(
@@ -579,6 +601,9 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     agent.is_lead = False
     agent.updated_at = datetime.utcnow()
     session.add(agent)
+    from app.services.archived_agents import retarget_threads_for_agent
+
+    await retarget_threads_for_agent(session, tenant_id, agent.id)
     await session.commit()
     return {"ok": True, "id": str(agent_id)}
 

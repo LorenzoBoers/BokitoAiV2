@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { Button } from '../components/ui/button'
 import { Switch } from '../components/ui/switch'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -266,6 +267,7 @@ export default function WorkstreamDetail() {
                 {savingMeta ? <Loader2 size={14} className="shrink-0 animate-spin text-text-muted" /> : null}
               </div>
               <div className="flex h-8 shrink-0 items-center gap-2">
+                <OpenInGridButton kind="flow" id={workstream.id} />
                 {isAdmin ? (
                   <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>

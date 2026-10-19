@@ -9,12 +9,13 @@ from sqlalchemy import select
 from app.models.auth import Tenant
 from app.models.channel import Contact
 from app.models.customer_verify import CustomerVerifyToken
-from app.models.module_install import ModuleInstall
 from app.models.signal import Signal
 from app.services.customer_verify import (
     VERIFY_MODEL_RESPONSE,
     request_customer_verify,
 )
+from app.services.module_department import bind_module_department
+from app.services.module_origin import write_module_prefs_to_department
 from app.tools.executor import execute_tool
 from app.tools.registry import filter_tools_for_audience, get_tool_definitions, get_tool_spec
 
@@ -145,14 +146,10 @@ async def test_expired_assurance_denies_customer_invoice_read(
         assurance_expires_at=datetime.utcnow() - timedelta(minutes=1),
     )
     session_override.add(signal)
-    session_override.add(
-        ModuleInstall(
-            tenant_id=tenant.id,
-            module_slug="accounting",
-            install_state="installed",
-            customer_tools_json='{"list_my_invoices": true}',
-        )
-    )
+    await session_override.commit()
+    dept = await bind_module_department(session_override, tenant.id, "accounting")
+    write_module_prefs_to_department(dept, {"customer_tools": {"list_my_invoices": True}})
+    session_override.add(dept)
     await session_override.commit()
 
     denied = await execute_tool(
@@ -224,13 +221,9 @@ async def test_customer_verb_hidden_until_toggle(client: AsyncClient, session_ov
     assert off.get("status") == "denied"
     assert off.get("reason") == "customer_tools_off"
 
-    install = ModuleInstall(
-        tenant_id=tenant.id,
-        module_slug="accounting",
-        install_state="installed",
-        customer_tools_json='{"list_my_invoices": true}',
-    )
-    session_override.add(install)
+    dept = await bind_module_department(session_override, tenant.id, "accounting")
+    write_module_prefs_to_department(dept, {"customer_tools": {"list_my_invoices": True}})
+    session_override.add(dept)
     await session_override.commit()
 
     shown = filter_tools_for_audience(

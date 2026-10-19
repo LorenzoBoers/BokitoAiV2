@@ -220,14 +220,31 @@ async def clear_module_defaults_for(
     session: AsyncSession, tenant_id: UUID, conn: IntegrationConnection
 ) -> None:
     """Drop module defaults that point at this connection (or its MCP server)."""
-    from app.models.module_install import ModuleInstall
+    import json
+
+    from app.models.team import Department
     from app.services.connection_instance import _mcp_server_ids
+    from app.services.module_origin import MODULES_SETTINGS_KEY, write_module_prefs_to_department
 
     refs = {str(conn.id), *(str(s) for s in await _mcp_server_ids(session, tenant_id, conn.id))}
-    installs = (
-        await session.execute(select(ModuleInstall).where(ModuleInstall.tenant_id == tenant_id))
+    depts = (
+        await session.execute(
+            select(Department).where(
+                Department.tenant_id == tenant_id,
+                Department.origin_module_slug.is_not(None),
+                Department.deleted_at.is_(None),
+            )
+        )
     ).scalars().all()
-    for install in installs:
-        if install.default_connection_id and install.default_connection_id in refs:
-            install.default_connection_id = None
-            session.add(install)
+    for dept in depts:
+        try:
+            settings = json.loads(dept.settings_json or "{}")
+        except json.JSONDecodeError:
+            settings = {}
+        mods = settings.get(MODULES_SETTINGS_KEY) if isinstance(settings, dict) else {}
+        if not isinstance(mods, dict):
+            continue
+        default = str(mods.get("default_connection_id") or "")
+        if default and default in refs:
+            write_module_prefs_to_department(dept, {"default_connection_id": None})
+            session.add(dept)

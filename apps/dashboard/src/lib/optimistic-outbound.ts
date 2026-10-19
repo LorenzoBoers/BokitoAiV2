@@ -43,6 +43,7 @@ export function buildOptimisticOutbound(args: {
   const text = args.bodyText.trim()
   return {
     id,
+    listKey: id,
     threadId: args.threadId,
     connectionId: null,
     kind: 'user_message',
@@ -117,6 +118,13 @@ export function readOptimisticReply(
   }
 }
 
+/** Keep the optimistic row identity when the server copy replaces it. */
+export function inheritListKey(local: InboxMessage | undefined, server: InboxMessage): InboxMessage {
+  const listKey = local?.listKey || (local ? String(local.id) : '')
+  if (!listKey || server.listKey) return server
+  return { ...server, listKey }
+}
+
 /** Drop local bubbles that the server has already confirmed (same author + body). */
 export function dropMatchedLocals(
   messages: InboxMessage[],
@@ -125,12 +133,33 @@ export function dropMatchedLocals(
   if (confirmed.direction !== 'outbound') return messages
   const body = (confirmed.bodyText ?? '').trim()
   if (!body && !(confirmed.attachments && confirmed.attachments.length)) return messages
-  return messages.filter((m) => {
+  let matched: InboxMessage | undefined
+  const kept = messages.filter((m) => {
     if (!isLocalOutboundId(m.id)) return true
     if (m.authorUserId != null && confirmed.authorUserId != null && m.authorUserId !== confirmed.authorUserId) {
       return true
     }
-    return (m.bodyText ?? '').trim() !== body
+    if ((m.bodyText ?? '').trim() !== body) return true
+    matched = m
+    return false
+  })
+  if (!matched) return kept
+  return kept.map((m) =>
+    String(m.id) === String(confirmed.id) ? inheritListKey(matched, m) : m,
+  )
+}
+
+/** A refresh must not drop the row key the enter animation is already using. */
+function keepListKeys(prev: InboxMessage[], next: InboxMessage[]): InboxMessage[] {
+  const byId = new Map<string, string>()
+  for (const message of prev) {
+    if (message.listKey) byId.set(String(message.id), message.listKey)
+  }
+  if (!byId.size) return next
+  return next.map((message) => {
+    const listKey = byId.get(String(message.id))
+    if (!listKey || message.listKey) return message
+    return { ...message, listKey }
   })
 }
 
@@ -144,7 +173,7 @@ export function keepPendingLocals(
     const status = m.sendStatus
     return status === 'sending' || (typeof status === 'string' && status.startsWith('failed'))
   })
-  if (!pending.length) return next
+  if (!pending.length) return keepListKeys(prev, next)
   let merged = next
   for (const local of pending) {
     // If the server already has this send, drop the local copy.
@@ -157,14 +186,16 @@ export function keepPendingLocals(
           m.authorUserId === local.authorUserId),
     )
     if (confirmed) {
-      merged = dropMatchedLocals(merged, confirmed)
+      merged = dropMatchedLocals(merged, confirmed).map((m) =>
+        String(m.id) === String(confirmed.id) ? inheritListKey(local, m) : m,
+      )
       continue
     }
     if (!merged.some((m) => String(m.id) === String(local.id))) {
       merged = [...merged, local]
     }
   }
-  return merged
+  return keepListKeys(prev, merged)
 }
 
 export function patchLocalSendStatus(
@@ -180,8 +211,9 @@ export function replaceLocalWithServer(
   localId: string,
   server: InboxMessage,
 ): InboxMessage[] {
+  const local = messages.find((m) => String(m.id) === localId)
   const without = messages.filter(
     (m) => String(m.id) !== localId && String(m.id) !== String(server.id),
   )
-  return [...without, server]
+  return [...without, inheritListKey(local, server)]
 }

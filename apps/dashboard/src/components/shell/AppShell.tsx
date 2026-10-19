@@ -16,6 +16,7 @@ import { tabFromPath, titleForTab } from '../../lib/navigation'
 import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
 import PersonalAssistantWidget from './PersonalAssistantWidget'
+import AgentCallOverlay from './AgentCallOverlay'
 import { TourProvider } from '../tour/TourContext'
 import { TicketStageGateProvider } from '../inbox/TicketStageGate'
 import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
@@ -68,6 +69,8 @@ function isFullBleed(pathname: string): boolean {
   // the shell scroller, not a clipped full-bleed pane.
   if (pathname.startsWith('/ai/modules')) return false
   return (
+    pathname === '/new' ||
+    pathname.startsWith('/new/') ||
     pathname.startsWith('/communication') ||
     pathname.startsWith('/knowledge') ||
     pathname.startsWith('/settings') ||
@@ -87,7 +90,8 @@ function isWide(pathname: string): boolean {
 
 /** Coarse key so thread/doc leaf switches do not replay the shell enter. */
 function contentEnterKey(pathname: string): string {
-  if (pathname.startsWith('/communication')) return 'communication'
+  if (pathname === '/new' || pathname.startsWith('/new/') || pathname.startsWith('/communication'))
+    return 'communication'
   if (pathname.startsWith('/knowledge')) return pathname.split('/').slice(0, 3).join('/') || 'knowledge'
   if (pathname.startsWith('/settings')) return pathname.split('/').slice(0, 3).join('/') || 'settings'
   if (pathname.startsWith('/ai/')) return pathname.split('/').slice(0, 3).join('/') || 'ai'
@@ -99,7 +103,7 @@ function contentEnterKey(pathname: string): string {
 }
 
 export default function AppShell() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   useShellLiveBus()
   useEffect(() => {
     unlockNotificationAudio()
@@ -250,6 +254,7 @@ export default function AppShell() {
             section there hands its threads to this one widget instead of
             rendering a second chat surface. */}
           <PersonalAssistantWidget />
+          {user?.agentCallsEnabled ? <AgentCallOverlay /> : null}
           </TicketStageGateProvider>
           </TourProvider>
         </ChatSessionsProvider>

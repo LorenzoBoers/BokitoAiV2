@@ -686,6 +686,8 @@ def serialize_message(
         if activity["activity_after"]:
             payload["activity_after"] = activity["activity_after"]
         payload["activity_detail"] = include_trace
+        if activity.get("history"):
+            payload["history"] = activity["history"]
     if meta.get("turn_id"):
         payload["turn_id"] = str(meta["turn_id"])
     if meta.get("in_progress"):
@@ -738,6 +740,11 @@ def serialize_message(
         payload["forwarded_from"] = meta["forwarded_from"]
     has_html = bool((message.body_html or "").strip())
     body_html = (message.body_html or None) if include_html else None
+    from app.services.agent.turn_surface import spoken_text
+
+    _raw_body = message.body_text or ""
+    _spoken = spoken_text(_raw_body, activity.get("history") if isinstance(activity, dict) else None)
+    _preview = _spoken[:200] if _spoken != _raw_body else (message.body_preview or _spoken[:200])
     return {
         "id": str(message.id),
         "thread_id": str(message.signal_id),
@@ -754,8 +761,8 @@ def serialize_message(
         "to_header": str(meta.get("to") or "") or None,
         "reply_mode": str(meta.get("reply_mode") or "") or None,
         "subject": message.subject,
-        "body_preview": message.body_preview or (message.body_text or "")[:200],
-        "body_text": message.body_text,
+        "body_preview": _preview,
+        "body_text": _spoken,
         "body_html": body_html,
         "has_html": has_html,
         "has_activity": has_trace,
@@ -826,7 +833,7 @@ async def _resolve_thread_agent(
             select(Agent).where(Agent.id == signal.agent_id, Agent.tenant_id == tenant_id)
         )
         agent = result.scalar_one_or_none()
-        if agent:
+        if agent and agent.is_active and agent.kind != "archived":
             return agent
     if messages:
         for message in reversed(messages):
@@ -839,7 +846,7 @@ async def _resolve_thread_agent(
                 )
             )
             agent = result.scalar_one_or_none()
-            if agent:
+            if agent and agent.is_active and agent.kind != "archived":
                 return agent
     if signal.project_id:
         from app.services.projects import project_default_agent
@@ -1018,8 +1025,9 @@ async def attention_counts(
 ) -> dict[str, Any]:
     """What waits on people: the one source for nav badges, the bell, Cockpit and agents.
 
-    ``for_you`` (only with ``user_id``) counts open conversations where it is your
-    turn; ``decisions`` counts conversations with a real awaiting decision;
+    ``for_you`` (only with ``user_id``) counts open conversations where you must
+    act now (your turn, or an unread mention). ``decisions`` counts conversations
+    with a real awaiting decision;
     ``no_reply_suggestions`` counts the tip cards kept out of ``decisions``.
     ``by_agent`` adds ``decisions_by_agent`` keyed by the owning agent id.
     """
@@ -1389,8 +1397,14 @@ async def list_threads(
             Signal.status == "open", await for_you_clause(session, tenant_id, user_id)
         )
         mine_first = await turn_is_mine_clause(session, tenant_id, user_id)
+    elif view == "for_you_closed":
+        query = query.where(
+            Signal.status == "closed", await for_you_clause(session, tenant_id, user_id)
+        )
     elif view == "unassigned":
         query = query.where(Signal.status == "open", unassigned_predicate())
+    elif view == "unassigned_closed":
+        query = query.where(Signal.status == "closed", unassigned_predicate())
     elif view == "pending":
         query = query.where(Signal.status == "pending")
     elif view == "scheduled":
@@ -1541,7 +1555,7 @@ async def list_threads(
     result = await session.execute(query)
     threads = list(result.scalars().all())
     threads.sort(key=lambda t: t.id not in pinned)
-    items = await _present_thread_rows(session, tenant_id, user_num, threads, pinned)
+    items = await _present_thread_rows(session, tenant_id, user_id, user_num, threads, pinned)
 
     outside_items: list[dict[str, Any]] = []
     if search and search.strip() and page == 1:
@@ -1554,7 +1568,7 @@ async def list_threads(
             visible_account_ids=visible_account_ids,
         )
         outside_items = await _present_thread_rows(
-            session, tenant_id, user_num, outside_rows, pinned
+            session, tenant_id, user_id, user_num, outside_rows, pinned
         )
 
     next_page = page + 1 if page * per_page < items_total else None
@@ -1605,6 +1619,7 @@ async def _threads_outside_current_filters(
 async def _present_thread_rows(
     session: AsyncSession,
     tenant_id: UUID,
+    user_id: UUID,
     user_num: int,
     threads: list[Signal],
     pinned: set,
@@ -1695,6 +1710,13 @@ async def _present_thread_rows(
                 schedule=schedule_payload(rules.get(t.id)),
             )
         )
+    from app.services.pass_stick import viewer_unread_ids
+
+    mine = await viewer_unread_ids(session, tenant_id, user_id, [t.id for t in threads])
+    if mine:
+        for item, thread in zip(items, threads):
+            if thread.id in mine:
+                item["has_unread"] = True
     return items
 
 
@@ -1727,6 +1749,11 @@ async def get_thread(
     ):
         # Hidden accounts 404 for members: existence must not leak.
         return None
+
+    from app.services.archived_agents import retarget_archived_handler
+
+    if await retarget_archived_handler(session, signal):
+        await session.commit()
 
     # Hard refresh must not resurrect a stuck “Update folder canvas” trail after
     # a crashed Ask left ``in_progress`` with no live AgentRun.
@@ -3147,10 +3174,11 @@ async def reply_to_thread(
         author_user_id=user_id,
         author_name=author_name,
     )
+    stick_held = False
     if not scheduled:
         from app.services.thread_dispatch import dispatch_mentions
 
-        await dispatch_mentions(
+        mention_results = await dispatch_mentions(
             session,
             tenant_id,
             signal,
@@ -3158,6 +3186,9 @@ async def reply_to_thread(
             author_user_id=user_id,
             author_name=author_name,
             user_role=actor_role,
+        )
+        stick_held = any(
+            isinstance(row, dict) and row.get("kind") == "stick" for row in mention_results
         )
         # Mention dispatch may set active_turn + enqueue a worker job. Persist
         # before the request session closes (otherwise the job sees stale_nonce
@@ -3171,7 +3202,13 @@ async def reply_to_thread(
     # inline — background sessions cannot see the in-memory SQLite fixture.
     from app.services.ai_handling import is_held
 
-    if direction == "outbound" and signal.channel == "internal" and not is_held(signal) and not scheduled:
+    if (
+        direction == "outbound"
+        and signal.channel == "internal"
+        and not is_held(signal)
+        and not scheduled
+        and not stick_held
+    ):
         from app.config import get_settings
 
         if get_settings().bokito_mock_execution:
@@ -3791,10 +3828,15 @@ async def resolve_message_decision(
             payload_override["body"] = body
             payload_override["body_text"] = body
     elif body is not None:
-        # An edited body replaces the suggested bubbles: blank lines split again.
-        from app.services.agent.reply_mode import split_chat_messages
+        # An edited chat body replaces the suggested bubbles: one paragraph each.
+        # Email keeps the letter, including a short list.
+        from app.services.agent.reply_mode import MAIL, reply_mode_for, split_chat_messages
 
-        payload_override["messages"] = split_chat_messages(body)
+        signal = await session.get(Signal, signal_id)
+        if reply_mode_for(signal.channel if signal else None) == MAIL:
+            payload_override["messages"] = [body.strip()] if body.strip() else []
+        else:
+            payload_override["messages"] = split_chat_messages(body)
 
     # An approved edit is the reply the operator actually wanted. Store it so
     # the next draft can follow that wording.

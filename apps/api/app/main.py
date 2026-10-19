@@ -40,6 +40,7 @@ from app.routers import (
     staff_integration_catalog,
     staff_ops,
     notifications,
+    agent_calls,
     privacy,
     projects,
     public_api,
@@ -262,6 +263,7 @@ app.include_router(health.router, prefix=api_prefix)
 app.include_router(auth.router, prefix=api_prefix)
 app.include_router(me.router, prefix=api_prefix)
 app.include_router(notifications.router, prefix=api_prefix)
+app.include_router(agent_calls.router, prefix=api_prefix)
 app.include_router(integrations.router, prefix=api_prefix)
 app.include_router(calendars.router, prefix=api_prefix)
 app.include_router(privacy.router, prefix=api_prefix)

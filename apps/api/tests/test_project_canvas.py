@@ -628,6 +628,50 @@ async def test_create_canvas_uses_current_thread_or_opens_new(client, session_ov
 
 
 @pytest.mark.asyncio
+async def test_binned_home_thread_does_not_mint_agenda_rows(client: AsyncClient, session_override):
+    """Reading a canvas whose home chat was binned must not spawn a new wake each time."""
+    from datetime import datetime
+    from uuid import UUID
+
+    from sqlalchemy import func, select
+
+    from app.models.signal import Signal
+    from app.models.trigger import Trigger
+
+    headers = await _auth_headers(client)
+    project_id = await _make_project(client, headers, "canvas-binned-home")
+    created = await client.post(
+        f"/api/folders/{project_id}/canvases",
+        headers=headers,
+        json={"title": "Weekly board", "refresh_cadence": "weekly"},
+    )
+    assert created.status_code == 200, created.text
+    body = created.json()
+    home = await session_override.get(Signal, UUID(body["signal_id"]))
+    assert home is not None
+    home.deleted_at = datetime.utcnow()
+    session_override.add(home)
+    await session_override.commit()
+
+    first = await client.get(f"/api/folders/{project_id}/canvases", headers=headers)
+    second = await client.get(f"/api/folders/{project_id}/canvases", headers=headers)
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    assert first.json()["items"][0]["signal_id"] == second.json()["items"][0]["signal_id"]
+    assert second.json()["items"][0]["signal_id"] != str(home.id)
+
+    trigger = await session_override.get(Trigger, UUID(body["refresh_trigger_id"]))
+    assert trigger is not None
+    assert str(trigger.signal_id) == second.json()["items"][0]["signal_id"]
+    live = await session_override.scalar(
+        select(func.count())
+        .select_from(Signal)
+        .where(Signal.deleted_at.is_(None), Signal.subject.like("Refresh canvas%"))
+    )
+    assert live == 1
+
+
+@pytest.mark.asyncio
 async def test_soft_delete_canvas_disables_refresh_trigger(client: AsyncClient, session_override):
     """Binning a canvas must stop its Agenda refresh wake (no ghost day blocks)."""
     from uuid import UUID

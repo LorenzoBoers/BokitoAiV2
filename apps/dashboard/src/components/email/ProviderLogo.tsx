@@ -26,9 +26,9 @@ export function providerLogoSrc(provider: Provider): string {
 
 export default function ProviderLogo({ provider, className }: ProviderLogoProps) {
   const brand = useIntegrationBrand(EMAIL_PROVIDER_SLUG[provider])
-  // SMTP/IMAP is not a brand — same envelope as plain mail, not the old rack mark.
+  // SMTP/IMAP is not a brand — same envelope as plain mail, muted gray.
   if (provider === 'smtp_imap') {
-    return <Mail size={16} className={cn('shrink-0 text-text-heading', className)} aria-hidden />
+    return <Mail size={16} className={cn('shrink-0 text-text-muted', className)} aria-hidden />
   }
   return (
     <IntegrationHostLogo

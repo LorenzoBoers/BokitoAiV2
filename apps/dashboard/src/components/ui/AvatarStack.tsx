@@ -7,8 +7,20 @@ import { AgentMark } from './AgentMark'
 import { TeamAvatar } from './TeamAvatar'
 import { UserAvatar } from './UserAvatar'
 
-/** Faces shown before the overflow chip. */
+/**
+ * Circles in every people/agent pile. Three or fewer show as faces.
+ * Past that, the third circle is +N for everyone who does not fit.
+ */
 export const AVATAR_STACK_MAX = 3
+
+export function splitAvatarStack<T>(members: readonly T[]): { shown: T[]; overflow: number } {
+  if (members.length <= AVATAR_STACK_MAX) return { shown: [...members], overflow: 0 }
+  const faceCount = AVATAR_STACK_MAX - 1
+  return {
+    shown: members.slice(0, faceCount),
+    overflow: members.length - faceCount,
+  }
+}
 
 /** Horizontal pull so faces overlap past the cutout ring. */
 const STACK_OVERLAP_PX = 12
@@ -52,8 +64,6 @@ type Props = {
   linkAgents?: boolean
   /** Member key that wears the accent cutout (thread floor). */
   activeKey?: string | null
-  /** Faces before the +N chip. Defaults to three, same as workforce teams. */
-  max?: number
   /**
    * Color of the overlap cutout. `surface` matches cards; `bg` matches the
    * thread header (`bg-bg`).
@@ -62,8 +72,8 @@ type Props = {
 }
 
 /**
- * Overlapping facepile for people and agents: up to three faces, then a
- * fourth slot with +N when there are more. Agents use AgentMark unclipped
+ * Overlapping facepile for people and agents. Three members show as three
+ * faces. With more, the third circle is +N. Agents use AgentMark unclipped
  * with a silhouette surface outline (same cutout role as the people ring).
  * People stay circular with a surface ring. Agent faces link to the agent page
  * unless ``linkAgents`` is false.
@@ -74,12 +84,10 @@ export function AvatarStack({
   className,
   linkAgents = true,
   activeKey = null,
-  max = AVATAR_STACK_MAX,
   cutout = 'surface',
 }: Props) {
   if (members.length === 0) return null
-  const shown = members.slice(0, max)
-  const overflow = members.length - shown.length
+  const { shown, overflow } = splitAvatarStack(members)
   const overlap = Math.max(6, Math.min(STACK_OVERLAP_PX, Math.round(size * 0.4)))
   const ring = 'ring-cutout'
 

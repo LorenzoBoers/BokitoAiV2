@@ -17,8 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.provider import ProviderConnection
 from app.services.crypto import decrypt_secret, encrypt_secret
+from app.services.provider_spec import llm_provider_types
 
-LLM_PROVIDERS = ("mistral", "anthropic", "openai")
+LLM_PROVIDERS = llm_provider_types()
 
 
 def _last4(raw: str) -> str:
@@ -35,6 +36,7 @@ async def _provider_row(
         .where(
             ProviderConnection.tenant_id == tenant_id,
             ProviderConnection.provider_type == provider,
+            ProviderConnection.encrypted_value != "",
         )
         .order_by(ProviderConnection.created_at.asc())
         .limit(1)

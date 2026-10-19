@@ -36,7 +36,7 @@ New chats in Communication require a **company agent**. If none are available fo
 1. Open the agent. The profile header shows the mark, **name**, required **job title** (in the mark color), and optional **description**. Choose the gear at the top right. Under **Instructions**, a short preview is shown. Choose **Edit** to change the full prompt. Also edit **Model and runtime**.
 2. Under **Model and runtime**, pick **Workspace default** (follows [Models](/docs/govern/models)), **Automatic** (Bokito picks a tier per action), or pin **Maki**, **Bokito** or **Kong**. New agents start on Workspace default.
 3. Under **Tools & permissions**, choose the tool allowlist. Include **Web search** and **Fetch page** when the agent should look up public facts or read a public URL (workspace search stays on **search index** / docs). Workspace posture and the per-type or playbook policy in [Govern](/docs/govern/govern) still bound every allowed tool.
-4. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins. **Deactivate** hides an agent from the library and clears its channel defaults; run history stays.
+4. On [Channels](/docs/inbox/channels), choose one default agent for each connected channel. A conversation-level agent pin always wins while that agent is active. **Deactivate** hides an agent from the library, clears its channel defaults, and moves open conversations to the workspace lead. Past messages keep the old author. Run history stays.
 5. After you create a company agent, open a chat with it and ask it to draft its own brief from the company docs. The change lands as a Govern draft; approve it under [Govern](/docs/govern/govern) **Pending reviews** or edit the brief here yourself.
 
 ## Set when the agent acts on its own
@@ -63,16 +63,17 @@ Sending to customers always asks, whatever the rules say. Agents can propose a r
 ## Hire a module specialist
 
 1. Open **Connections**, then a module such as **Accounting**.
-2. Under assigned agents, choose **Hire specialist**. Bokito creates a managed agent for that module, puts it on the roster, and opens a setup chat.
+2. Under assigned agents, choose **Hire specialist**. Bokito creates a specialist for that module, puts it on the roster and the module department, and opens a setup chat.
 3. Or choose an existing company agent to assign. Only rostered agents get that module’s tools.
+4. In a conversation, an agent can recommend a module you have not installed. The reply shows the same card as Connections: the specialist, what the module does, partner logos, and **Install**. Approving **Turn on** hires that specialist.
 
-## Managed agents
+## Module and department agents
 
-Some agents are owned by a platform stack or module (for example Trading or a hired module specialist). They show a **Managed** badge on the library card and the agent detail page.
+Some agents belong to a module (for example a hired Accounting specialist, or a Trading pack agent). Under the name, a small line says they come from that module, and opens it on Connections.
 
-1. Open **Agents** and find a card with the **Managed** label.
-2. Open the agent. The badge names the owning pack when you hover.
-3. If you **Deactivate** a managed agent, stack seed/update runs do not bring it back by themselves. Bokito opens a restore Decision in Communication; approve it to return the agent to the library, or reject to keep it deactivated.
+1. Open **Agents**. A module specialist shows **From the Accounting module** under the description.
+2. Open the agent. That line links to the module on Connections.
+3. If you **Deactivate** such an agent, pack or module reinstall does not bring it back by itself. Bokito opens a restore Decision in Communication; approve it to return the agent to the library, or reject to keep it deactivated.
 
 ## Limit who can chat
 

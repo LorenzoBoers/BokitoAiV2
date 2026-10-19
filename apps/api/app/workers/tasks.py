@@ -374,6 +374,10 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
 
         # Thread pin, channel agent, or the workspace lead.
         agent = await resolve_inbound_agent_for_signal(session, signal)
+        if agent is not None:
+            from app.services.pass_stick import hold_customer_stick
+
+            await hold_customer_stick(session, signal, agent)
         if not agent:
             session.add(
                 SignalEvent(

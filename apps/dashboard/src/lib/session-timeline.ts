@@ -74,6 +74,7 @@ export function sessionChatToInboxMessage(
     },
     activity: activity.activity,
     activityAfter: activity.activityAfter,
+    history: activity.history,
     // The chat API already returns tool detail; nothing to load on expand.
     activityDetail: true,
     hasActivity: activity.hasActivity,
@@ -107,6 +108,36 @@ export function sessionTimelineMessages(
   return collapseRecentUserEchoes(
     [...rows, ...extras].map((m) => sessionChatToInboxMessage(m, session, currentUserId)),
   )
+}
+
+const askListKeys = new Map<string, { id: string; at: number }>()
+
+/** Remember the optimistic row id so the saved copy keeps the same timeline key. */
+export function rememberAskListKey(body: string, id: string) {
+  const text = body.trim()
+  if (!text || !id) return
+  askListKeys.set(text, { id, at: Date.now() })
+}
+
+export function withAskListKey<
+  T extends { kind?: string; bodyText?: string | null; bodyPreview?: string | null; listKey?: string },
+>(message: T): T {
+  if (message.listKey || message.kind !== 'user_message') return message
+  const key = askListKeyFor(message.bodyText || message.bodyPreview)
+  if (!key) return message
+  return { ...message, listKey: key }
+}
+
+export function askListKeyFor(body: string | null | undefined): string | undefined {
+  const text = (body || '').trim()
+  if (!text) return undefined
+  const row = askListKeys.get(text)
+  if (!row) return undefined
+  if (Date.now() - row.at > 30_000) {
+    askListKeys.delete(text)
+    return undefined
+  }
+  return row.id
 }
 
 /** Drop a second operator bubble that repeats the previous one within a few seconds. */

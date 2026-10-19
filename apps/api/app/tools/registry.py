@@ -232,6 +232,51 @@ CANVAS_WAKE_DENY = frozenset(
 
 
 OPERATOR_PROGRESS_TOOL = "update_progress"
+OPERATOR_REACTION_TOOL = "react_to_message"
+# Reads of who works here. A specialist passport may omit them; an operator
+# chat still needs one request to see agents and teams.
+OPERATOR_ORG_TOOLS = frozenset({"get_tenant_overview", "list_agents", "list_teams"})
+IMAGE_TOOL = "generate_image"
+
+
+def with_default_image_tool(
+    tools: list[dict[str, Any]],
+    *,
+    enabled: bool = True,
+) -> list[dict[str, Any]]:
+    """Every agent can generate images unless the tenant turned the tool off."""
+    if not enabled:
+        return [tool for tool in tools if tool["name"] != IMAGE_TOOL]
+    if any(tool["name"] == IMAGE_TOOL for tool in tools):
+        return tools
+    extra = [tool for tool in get_tool_definitions() if tool["name"] == IMAGE_TOOL]
+    return [*tools, *extra] if extra else tools
+
+
+def with_operator_org_tools(
+    tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
+) -> list[dict[str, Any]]:
+    """Agents and teams are tenant facts, not a specialist skill."""
+    if trust == "external" or refresh:
+        return tools
+    have = {tool["name"] for tool in tools}
+    missing = OPERATOR_ORG_TOOLS - have
+    if not missing:
+        return tools
+    extra = [tool for tool in get_tool_definitions() if tool["name"] in missing]
+    return [*tools, *extra] if extra else tools
+
+
+def with_operator_reaction_tool(
+    tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
+) -> list[dict[str, Any]]:
+    """Reacting on the open chat is part of the conversation, not a specialist passport."""
+    if trust == "external" or refresh:
+        return tools
+    if any(tool["name"] == OPERATOR_REACTION_TOOL for tool in tools):
+        return tools
+    extra = [tool for tool in get_tool_definitions() if tool["name"] == OPERATOR_REACTION_TOOL]
+    return [*tools, *extra] if extra else tools
 
 
 def with_operator_progress_tool(
@@ -300,6 +345,7 @@ def _ensure_builtin_loaded() -> None:
     import app.tools.module_tools  # noqa: F401 — registers {slug}_{verb} tools from the catalog
     import app.tools.modules  # noqa: F401 — registers list_modules / recommend_module
     import app.tools.builtin  # noqa: F401 — registers built-in tools
+    import app.tools.images  # noqa: F401 — registers generate_image
     import app.tools.project_work  # noqa: F401 — registers project queue/doc tools
     import app.tools.tickets  # noqa: F401 — registers ticket tools
     import app.tools.contacts  # noqa: F401 — registers CRM contact tools

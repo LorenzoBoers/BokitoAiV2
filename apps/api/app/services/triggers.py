@@ -388,7 +388,10 @@ async def _surface_result(
     from app.models.signal import Signal
     from app.services.thread_schedule import ensure_trigger_thread, notify_moment, reopen_for_moment
 
-    signal = await ensure_trigger_thread(session, trigger, agent=agent)
+    # Same conversation the wake already started in, including an assistant chat.
+    signal = await ensure_trigger_thread(
+        session, trigger, agent=agent, detach_assistant=False
+    )
     meta = {"trigger_id": str(trigger.id), "trigger_kind": trigger.kind}
     if loop is not None and loop.turn is not None and loop.turn.segments:
         await loop.persist_turn(signal, metadata=meta, fallback_text=text)
@@ -569,7 +572,10 @@ async def fire_trigger(
 
     # The wake happens in its thread: a line marks the start, the agent's
     # turn streams there, and the report (if any) is saved there.
-    signal = await ensure_trigger_thread(session, trigger, agent=agent)
+    # Stay on the conversation the operator scheduled, including an assistant chat.
+    signal = await ensure_trigger_thread(
+        session, trigger, agent=agent, detach_assistant=False
+    )
     await _wake_event(session, signal, "wake_started", trigger, agent)
     await session.commit()
     await publish_thread_update(signal)

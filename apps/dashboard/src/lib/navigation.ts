@@ -1,7 +1,7 @@
 /**
  * Navigation model for the control shell.
  *
- * Rail: Overview + Communication (pinned); Work (Folders, Playbooks, Agenda);
+ * Rail: New chat, Overview + Communication (pinned); Work (Folders, Playbooks, Agenda);
  * AI (Agents, Knowledge, Grid); Organization (Team, Connections, Settings).
  * Govern lives under Settings (not a primary rail item).
  * Overview is the former Reports/Cockpit surface (path stays `/cockpit`).
@@ -17,12 +17,14 @@ import {
   MessageSquare,
   Plug,
   Settings,
+  SquarePen,
   Route,
   Users,
   type LucideIcon,
 } from 'lucide-react'
 
 export type Tab =
+  | 'newChat'
   | 'overview'
   | 'communication'
   | 'agenda'
@@ -35,7 +37,7 @@ export type Tab =
   | 'modules'
   | 'settings'
 
-export const PINNED_TABS: readonly Tab[] = ['overview', 'communication']
+export const PINNED_TABS: readonly Tab[] = ['newChat', 'overview', 'communication']
 
 export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> = [
   { label: 'Work', tabs: ['folders', 'workstreams', 'agenda'] },
@@ -44,6 +46,7 @@ export const TAB_GROUPS: ReadonlyArray<{ label: string; tabs: readonly Tab[] }> 
 ]
 
 export const TAB_PATHS: Record<Tab, string> = {
+  newChat: '/new',
   overview: '/cockpit',
   communication: '/communication/inbox/for_you',
   agenda: '/agenda',
@@ -67,6 +70,7 @@ export const OVERVIEW_PATH = '/cockpit' as const
 export const REPORTS_PATH = OVERVIEW_PATH
 
 const TAB_ICONS: Record<Tab, LucideIcon> = {
+  newChat: SquarePen,
   overview: LayoutDashboard,
   communication: MessageSquare,
   agenda: CalendarDays,
@@ -81,6 +85,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
 }
 
 const TAB_TITLES: Record<Tab, string> = {
+  newChat: 'New chat',
   overview: 'Overview',
   communication: 'Communication',
   agenda: 'Agenda',
@@ -95,6 +100,7 @@ const TAB_TITLES: Record<Tab, string> = {
 }
 
 const TAB_SUBTITLES: Record<Tab, string> = {
+  newChat: 'Start a conversation',
   overview: 'Daily scan, attention and usage',
   communication: 'Chats, customer and agent threads',
   agenda: 'Planned and past trigger occurrences',
@@ -112,11 +118,17 @@ const TAB_SUBTITLES: Record<Tab, string> = {
 const NEW_TABS: ReadonlySet<Tab> = new Set(['modules', 'grid'])
 
 /**
+ * New chips that stay until removed from NEW_TABS (not cleared on open).
+ * Grid stays informational while the map is still being discovered.
+ */
+const PERSISTENT_NEW_TABS: ReadonlySet<Tab> = new Set(['grid'])
+
+/**
  * Bump a tab's revision when the New chip should reappear for everyone
  * (e.g. Grid shipped after an earlier accidental mark-as-seen).
  */
 const NEW_TAB_REVISIONS: Partial<Record<Tab, string>> = {
-  grid: 'v1',
+  grid: 'v2',
 }
 
 const NEW_TAB_SEEN_PREFIX = 'bokito.nav.newTab.seen.'
@@ -153,7 +165,7 @@ export function isNewTab(tab: Tab): boolean {
 
 /** Clear the temporary "New" rail badge after the user opens that area. */
 export function markTabSeen(tab: Tab): void {
-  if (!NEW_TABS.has(tab)) return
+  if (!NEW_TABS.has(tab) || PERSISTENT_NEW_TABS.has(tab)) return
   try {
     localStorage.setItem(newTabSeenKey(tab), '1')
   } catch {
@@ -163,6 +175,8 @@ export function markTabSeen(tab: Tab): void {
 
 /** Resolve the active tab from a pathname (longest-prefix match). */
 export function tabFromPath(pathname: string): Tab | null {
+  if (pathname === '/new' || pathname.startsWith('/new/') || pathname.startsWith('/communication/new'))
+    return 'newChat'
   if (
     pathname.startsWith('/cockpit') ||
     pathname.startsWith('/overview') ||

@@ -1204,6 +1204,7 @@ def _me_payload(auth: AuthContext, memberships: list[dict], *, impersonator: Use
         # Channel kinds parked platform-wide; the dashboard hides their connect
         # and filter surfaces instead of shipping its own copy of the list.
         "parked_channels": sorted(get_settings().parked_channel_set()),
+        "agent_calls_enabled": bool(get_settings().agent_calls_enabled),
         "environment": get_settings().environment,
         "user": _user_dict(
             auth.user, auth.tenant, auth.role, is_staff=auth.is_staff, impersonator=impersonator

@@ -8,7 +8,7 @@ import { Card } from '../ui/card'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { SegmentedControl } from '../ui/segmented-control'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
-import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { useAuth } from '../../context/AuthContext'
 import { listThreads, type InboxThread } from '../../lib/inbox-api'
 import { projectHubPath } from '../../lib/messages-paths'
@@ -17,6 +17,8 @@ import { listProjects } from '../../lib/projects-api'
 import { threadStatusLabel } from '../../lib/status-labels'
 import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
+import { Skeleton } from '../ui/skeleton'
+import { EmptyState } from '../ui/empty-state'
 
 const MessageSquare = ENTITY_ICONS.conversation
 
@@ -154,21 +156,22 @@ export function ProjectConversations({
       {threads == null ? (
         <div className="space-y-1.5" aria-busy="true">
           {Array.from({ length: preview ? 3 : 5 }).map((_, index) => (
-            <div key={index} className="h-11 animate-pulse rounded-lg bg-bg-muted/30" />
+            <Skeleton key={index} className="h-11 rounded-lg" />
           ))}
         </div>
       ) : error && rows.length === 0 ? (
-        <Card className="p-4">
-          <p className="text-sm text-status-error">{error}</p>
-        </Card>
+        <ApiErrorBanner message={error} />
       ) : rows.length === 0 ? (
-        <Card className="p-4">
-          <p className="text-sm text-text-muted">
-            {filter === 'closed'
+        <EmptyState
+          tone="card"
+          size="sm"
+          className="px-4 py-4"
+          title={
+            filter === 'closed'
               ? t('projects.detail.conversationsEmptyClosed')
-              : t('projects.detail.conversationsEmpty')}
-          </p>
-        </Card>
+              : t('projects.detail.conversationsEmpty')
+          }
+        />
       ) : (
         <Card className="divide-y divide-border/50 p-1">
           {rows.map((thread) => (

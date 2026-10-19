@@ -103,7 +103,7 @@ import {
   type ComposerFocusTarget,
   type ComposerReplyFocus,
 } from '../../lib/composer-reply-focus'
-import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
+import { mentionMarkup, stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { useAgents } from '../../hooks/useAgents'
 import {
   liveTurnFromLatestInProgress,
@@ -122,7 +122,7 @@ import {
   type ChatMessage,
   type ThreadSession,
 } from '../../lib/signals-api'
-import { collapseRecentUserEchoes, sessionTimelineMessages } from '../../lib/session-timeline'
+import { collapseRecentUserEchoes, sessionTimelineMessages, withAskListKey } from '../../lib/session-timeline'
 import { useAiChatStream } from '../../lib/use-agent-session-chat'
 import { applyAgentLive, type AgentLiveSnapshot } from '../../hooks/useAgentPresence'
 import { useLiveEntity } from '../../lib/live-store'
@@ -748,11 +748,11 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     if (!talksDirectlyToAgent) {
       const sessionRows = sessionInboxMessages.length ? sessionInboxMessages : []
       if (!sessionRows.length && !decisionExtras.length) {
-        return { ...detail, messages: collapseRecentUserEchoes(detail.messages) }
+        return { ...detail, messages: collapseRecentUserEchoes(detail.messages).map(withAskListKey) }
       }
       return {
         ...detail,
-        messages: collapseRecentUserEchoes([...detail.messages, ...sessionRows, ...decisionExtras]),
+        messages: collapseRecentUserEchoes([...detail.messages, ...sessionRows, ...decisionExtras]).map(withAskListKey),
       }
     }
     const optimistic = sessionStream.optimisticUsers
@@ -762,6 +762,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         (m) =>
           ({
             id: m.id,
+            listKey: m.id,
             threadId: detail.thread.id,
             connectionId: null,
             kind: 'user_message',
@@ -783,11 +784,11 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           }) as ThreadDetailType['messages'][number],
       )
     if (!extras.length && !decisionExtras.length) {
-      return { ...detail, messages: collapseRecentUserEchoes(detail.messages) }
+      return { ...detail, messages: collapseRecentUserEchoes(detail.messages).map(withAskListKey) }
     }
     return {
       ...detail,
-      messages: collapseRecentUserEchoes([...detail.messages, ...extras, ...decisionExtras]),
+      messages: collapseRecentUserEchoes([...detail.messages, ...extras, ...decisionExtras]).map(withAskListKey),
     }
   }, [
     detail,
@@ -1532,12 +1533,17 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       if (!token || !threadIdString) return false
       const continuePending = Boolean(opts?.continuePending)
       // Keep @mention markup so timeline chips render; plain for soft-decision match.
-      const text = bodyText.trim()
-      const plainText = stripMentionMarkup(bodyText).trim()
+      const addressedBody = focusTargets.reduce((body, target) => {
+        if (target.type !== 'agent' && target.type !== 'user') return body
+        if (body.includes(`${target.type}:${target.id}`)) return body
+        return `${body} ${mentionMarkup({ type: target.type, id: target.id, name: target.name })}`.trim()
+      }, bodyText.trim())
+      const text = addressedBody
+      const plainText = stripMentionMarkup(addressedBody).trim()
       if (!continuePending && !plainText && !attachments?.length) return false
       // Mentions in the body win over a stale default (e.g. thread Orchestrator
       // when the operator only tagged Bokito).
-      const mentionedFocus = focusFromMentionBody(bodyText, (type, id, name) =>
+      const mentionedFocus = focusFromMentionBody(addressedBody, (type, id, name) =>
         resolveFocusTarget(type, id, name),
       )
       if (mentionedFocus.targets.length > 0) {
@@ -1559,13 +1565,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         agentCandidates[0]?.id ??
         null
       const wantedAgentId = preferredAsk
-      const audienceAgentIds = focusTargets
-        .filter((target) => target.type === 'agent')
-        .map((target) => target.id)
       const mentionedAgentIds = mentionedFocus.targets
         .filter((target) => target.type === 'agent')
         .map((target) => target.id)
-      const addressedAgentIds = [...new Set([...mentionedAgentIds, ...audienceAgentIds])]
+      const addressedAgentIds = mentionedAgentIds
       let prepared: Awaited<ReturnType<typeof prepareThreadAsk>>
       try {
         prepared = await prepareThreadAsk(token, threadIdString, {
@@ -1601,7 +1604,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           // Internal Ask: drive the focused / @-tagged agent, not only the
           // thread's channel default (Orchestrator on agent chats).
           agentId: prepared.talksDirect ? wantedAgentId : undefined,
-          audienceAgentIds: prepared.talksDirect ? audienceAgentIds : undefined,
           onFinished: async () => {
             setStreamingAskAgentId(null)
             if (!prepared.talksDirect) await loadSessionMessages(sessionId)
@@ -1610,11 +1612,8 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             window.setTimeout(() => timelineRef.current?.pinToEnd(), 120)
           },
         })
-        // Pin the scroller only. A 280ms settle fight Virtuoso and underscrolls.
-        const pin = () => timelineRef.current?.pinToEnd()
-        pin()
-        window.requestAnimationFrame(pin)
-        window.setTimeout(pin, 80)
+        // One follow. Extra snaps during the bubble enter read as a stutter.
+        window.requestAnimationFrame(() => timelineRef.current?.pinToEnd())
         const ok = (await sendPromise) !== false
         if (!ok) setStreamingAskAgentId(null)
         return ok
@@ -1673,14 +1672,18 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     const continuePending = stateContinue || stashed?.mode === 'continue'
     const draft =
       stateDraft || (stashed?.mode === 'send' ? stashed.text : '') || ''
-    if (!continuePending && !draft) return
+    const stashAttachments =
+      stashed?.mode === 'send' && Array.isArray(stashed.attachments)
+        ? (stashed.attachments as MessageAttachment[])
+        : undefined
+    if (!continuePending && !draft && !stashAttachments?.length) return
 
     autoSentThreads.add(threadIdString)
     // Clear navigation state only after we know we will attempt the kick-off.
     if (stateContinue || stateDraft) {
       navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
     }
-    void handleAgentMessage(draft, undefined, { continuePending }).then((ok) => {
+    void handleAgentMessage(draft, stashAttachments, { continuePending }).then((ok) => {
       if (!ok) {
         // Allow a retry if the stream never started (busy / no session).
         autoSentThreads.delete(threadIdString)
@@ -2017,7 +2020,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     // invent an empty "Nadenken" row from stale agent_live working presence —
     // that stuck after leave/re-enter with no avatar and never cleared.
     if (agentStreaming) {
-      return textOnlyTurn(sessionStream.text || sessionStream.thinking || '')
+      return textOnlyTurn(sessionStream.text || sessionStream.thinking || '', sessionStream.parts)
     }
     // Peer floor / nested handoff: keep Nadenken after reload while the
     // worker still holds active_turn (no SSE on participant turns).
@@ -2054,6 +2057,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     sessionCheckpointTurn,
     agentStreaming,
     sessionStream.text,
+    sessionStream.parts,
     sessionStream.thinking,
     liveActiveTurn,
     detail?.activeTurn,
@@ -2085,6 +2089,17 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   // Whether the live turn joins the last saved agent bubble's run (no avatar
   // or author line, flattened top corner), as the saved bubble will.
   const liveContinuesRun = useMemo(() => liveRunContinues(rows), [rows])
+  // The user bubble enters for 0.48s. Hold the agent seat until that lands
+  // when this turn was just started by a message still on screen.
+  const waitForUserBubble = useMemo(() => {
+    if (liveContinuesRun) return false
+    const messages = visibleTimelineDetail?.messages
+    if (!messages?.length) return false
+    const last = messages[messages.length - 1]
+    if (!last || last.kind !== 'user_message') return false
+    const at = Date.parse(last.createdAt || last.receivedAt || '')
+    return Number.isFinite(at) && Date.now() - at < 1200
+  }, [liveContinuesRun, visibleTimelineDetail])
 
   // User's turn: park idle live orb on the latest agent bubble until the user
   // replies or leaves. Mid-turn / rejoin-while-busy uses threadLiveTurn instead.
@@ -2414,15 +2429,12 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
 
   const { thread } = detail
 
-  // Floor holder (active_turn / nested opener) beats Ask-tab focus — otherwise
-  // Extra keeps the “Nadenken” orb after handing the baton to Bokito.
+  // The stick holder is the only live agent. A stream in flight may know
+  // the speaker before active_turn arrives. An empty stick stays quiet.
   const liveSeatAgentId =
-    streamingAskAgentId ??
     floorAgentId ??
-    activeSession?.agentId ??
-    askAgentId ??
-    detail.handoffSession?.openerId ??
-    thread.agentId ??
+    streamingAskAgentId ??
+    (threadLiveTurn ? activeSession?.agentId ?? askAgentId : null) ??
     null
   const liveSeatAgent = liveSeatAgentId
     ? agents.find((row) => String(row.id) === String(liveSeatAgentId))
@@ -2432,7 +2444,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     (liveActiveTurn ?? detail.activeTurn)?.name ??
     activeSession?.agentName ??
     askAgentName ??
-    detail.handoffSession?.openerName ??
     thread.agentName
   const liveAvatarSource = preferLiveAgentAvatar(liveSeatAgent, {
     name: liveSeatName,
@@ -2463,7 +2474,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           // Live turn: prefer the Ask/session target over a leftover handoff
           // opener (that pinned Orchestrator’s orb while @Bokito was streaming).
           threadLiveTurn
-            ? liveOrbAgentId ?? liveSeatAgentId ?? detail.handoffSession?.openerId
+            ? liveOrbAgentId ?? liveSeatAgentId
             : replyFocus.primaryAgentId ?? liveOrbAgentId
         }
       />
@@ -2541,6 +2552,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           contactName={thread.contactName}
           contactEmail={thread.contactEmail}
           contactPhone={thread.contactPhone}
+          contactId={thread.contactId}
           agentName={thread.agentName}
           agentId={thread.agentId}
           channelAccountId={thread.channelAccountId ?? null}
@@ -2595,6 +2607,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                 key={liveSeatAgentId ?? 'live'}
                 turn={threadLiveTurn}
                 continuesRun={liveContinuesRun}
+                waitForUserBubble={waitForUserBubble}
                 onPlaybackDone={handleLivePlaybackDone}
                 // Same source as the saved author line (TimelineItem), so the
                 // hand-off keeps the name.

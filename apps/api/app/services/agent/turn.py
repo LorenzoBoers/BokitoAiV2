@@ -14,6 +14,7 @@ Gateway events (topic ``signal:{id}``):
 - ``agent.activity`` ``{stream_id, phase: start|end, item}``
 - ``agent.thinking`` ``{stream_id, item_id, delta}``
 - ``message.delta``  ``{stream_id, segment_id, delta}``
+- ``message.part``   ``{stream_id, segment_id, text}`` full bubble when a split rewrites it
 - ``thread.presence`` same moments, one envelope (thinking/working/writing/idle).
   Typing for WhatsApp or teammates uses this event too; it is never a row.
 """
@@ -28,6 +29,23 @@ from typing import Any, Awaitable, Callable
 from app.services.agent.turn_persist import slim_activity_item
 
 Publisher = Callable[[str, dict[str, Any]], Awaitable[None]]
+
+
+def _surface_without_think_text(surface: dict[str, Any]) -> dict[str, Any]:
+    """Speech events are visible to visitors. Reasoning stays on the operator socket."""
+    blocks: list[dict[str, Any]] = []
+    for block in surface.get("blocks") or []:
+        if block.get("type") != "activity":
+            blocks.append(block)
+            continue
+        items: list[dict[str, Any]] = []
+        for item in block.get("items") or []:
+            if item.get("kind") == "think" and item.get("text"):
+                item = {key: value for key, value in item.items() if key != "text"}
+                item["has_text"] = True
+            items.append(item)
+        blocks.append({**block, "items": items})
+    return {**surface, "blocks": blocks}
 
 KIND_THINK = "think"
 KIND_WORK = "work"
@@ -112,12 +130,15 @@ def _activity_result(tool: str, result: Any) -> Any:
         return slim
     if tool == "invite_to_thread" and isinstance(result, dict):
         turn = result.get("turn") if isinstance(result.get("turn"), dict) else {}
-        return {
+        slim = {
             "ok": bool(result.get("ok")),
             "kind": str(result.get("kind") or "")[:20],
             "ref_id": str(result.get("ref_id") or "")[:80],
             "name": str(result.get("name") or turn.get("agent_name") or "")[:80],
         }
+        if result.get("error"):
+            slim["error"] = str(result["error"])[:120]
+        return slim
     if tool == "fetch_url" and isinstance(result, dict):
         slim = {
             "url": str(result.get("url") or "")[:240],
@@ -170,6 +191,24 @@ def _activity_result(tool: str, result: Any) -> Any:
             if result.get(key):
                 slim[key] = str(result[key])[:80]
         return slim
+    if tool == "list_tags" and isinstance(result, dict):
+        tags: list[dict[str, Any]] = []
+        for row in result.get("tags") or []:
+            if not isinstance(row, dict):
+                continue
+            name = str(row.get("name") or "").strip()
+            if not name:
+                continue
+            tags.append(
+                {
+                    "id": str(row.get("id") or "")[:40],
+                    "name": name[:80],
+                    "kind": str(row.get("kind") or "")[:20],
+                }
+            )
+            if len(tags) >= 24:
+                break
+        return {"tags": tags, "count": len(tags)}
     if isinstance(result, dict):
         compact = _compact(result)
         if isinstance(compact, dict):
@@ -198,15 +237,79 @@ class TurnRecorder:
         self._think: dict[str, Any] | None = None
         self._speech_id: str | None = None
         self._speech_text = ""
+        self._part_ids: list[str] = []
+        self._part_texts: list[str] = []
         self.started = False
+        self._sealed = False
         # After the first tool, later reasoning must not take the face back
         # to Thinking. The live state stays Working until the next sentence.
         self._worked = False
 
+    def _opening(self) -> bool:
+        """True from the first event until the turn seals. The quiet start is a line."""
+        return self.started and not self._sealed
+
+    def _status(self) -> dict[str, Any] | None:
+        from app.services.agent.turn_surface import status_view
+
+        speaking = any(text.strip() for text in self._part_texts)
+        return status_view(
+            self._pending,
+            worked=self._worked,
+            speaking=speaking,
+            opening=self._opening(),
+        )
+
+    def _surface(self, status: dict[str, Any] | None) -> dict[str, Any]:
+        """The live document. The socket renders this; it does not rebuild the turn."""
+        from app.services.agent.turn_persist import slim_activity_item
+
+        blocks: list[dict[str, Any]] = []
+        for seg in self.live_segments():
+            seg_id = str(seg.get("id") or "")
+
+            def pack(rows: Any, suffix: str) -> None:
+                items: list[dict[str, Any]] = []
+                for row in rows or []:
+                    if not isinstance(row, dict):
+                        continue
+                    shown = slim_activity_item(row)
+                    if row.get("kind") == "think" and str(row.get("text") or "").strip():
+                        shown["text"] = str(row["text"])[:4000]
+                    items.append(shown)
+                if items:
+                    blocks.append({"type": "activity", "id": f"{suffix}-{seg_id}", "items": items})
+
+            pack(seg.get("activity"), "a")
+            text = str(seg.get("text") or "")
+            if text.strip():
+                blocks.append({"type": "speech", "id": seg_id, "text": text})
+            pack(seg.get("activity_after"), "z")
+        from app.services.agent.turn_surface import surface_motion
+
+        speaking = any(text.strip() for text in self._part_texts)
+        return {
+            "status": status,
+            "blocks": blocks,
+            "motion": surface_motion(
+                self._pending,
+                speaking=speaking,
+                worked=self._worked,
+                opening=self._opening(),
+            ),
+        }
+
     async def _emit(self, event: str, data: dict[str, Any]) -> None:
         if self._publish is None:
             return
-        await self._publish(event, {"stream_id": self.stream_id, **data})
+        payload = {"stream_id": self.stream_id, **data}
+        if "status" not in payload:
+            payload["status"] = self._status()
+        surface = self._surface(payload.get("status") if isinstance(payload.get("status"), dict) else None)
+        if event in ("message.delta", "message.part"):
+            surface = _surface_without_think_text(surface)
+        payload["surface"] = surface
+        await self._publish(event, payload)
 
     async def start(self) -> None:
         if self.started:
@@ -260,10 +363,8 @@ class TurnRecorder:
             return
         await self.start()
         await self._end_think()
-        if self._speech_id is None:
-            self._speech_id = f"seg-{uuid.uuid4().hex[:10]}"
         self._speech_text += delta
-        await self._emit("message.delta", {"segment_id": self._speech_id, "delta": delta})
+        await self._sync_speech_parts()
 
     @property
     def current_segment_id(self) -> str | None:
@@ -281,6 +382,8 @@ class TurnRecorder:
         """Drop streamed filler so it does not become a bubble next to tools."""
         self._speech_id = None
         self._speech_text = ""
+        self._part_ids = []
+        self._part_texts = []
 
     def set_speech_text(self, text: str) -> None:
         """Non-streaming loops: one model response's text as a segment."""
@@ -298,13 +401,79 @@ class TurnRecorder:
         await self.speech(cleaned)
         self._close_speech()
 
+    def _echo_urls(self) -> list[str]:
+        from app.services.agent.turn_persist import _generated_image_urls
+
+        urls: list[str] = []
+        for item in self.all_activity():
+            urls.extend(_generated_image_urls(item.get("result")))
+        return urls
+
+    def _visible_speech(self) -> str:
+        from app.services.agent.turn_persist import strip_generated_image_echo
+
+        raw = self._speech_text
+        urls = self._echo_urls()
+        if not urls:
+            return raw
+        return strip_generated_image_echo(raw, urls)
+
+    def speech_parts(self) -> list[str]:
+        """Bubbles already decided for the open reply."""
+        return list(self._part_texts)
+
+    def _speech_parts(self) -> list[str]:
+        """Bubbles for the open reply. The same split the saved messages use."""
+        from app.services.agent.reply_mode import split_chat_messages
+
+        visible = self._visible_speech()
+        if not visible.strip():
+            return []
+        return split_chat_messages(visible, max_messages=0, settle=False)
+
+    async def _sync_speech_parts(self) -> None:
+        parts = self._speech_parts()
+        while len(self._part_ids) < len(parts):
+            self._part_ids.append(f"seg-{uuid.uuid4().hex[:10]}")
+        if len(parts) < len(self._part_ids):
+            for seg_id in self._part_ids[len(parts) :]:
+                await self._emit("message.part", {"segment_id": seg_id, "text": ""})
+            self._part_ids = self._part_ids[: len(parts)]
+        previous = self._part_texts
+        self._part_texts = list(parts)
+        self._speech_id = self._part_ids[0] if self._part_ids else None
+        for index, text in enumerate(parts):
+            old = previous[index] if index < len(previous) else ""
+            if text == old:
+                continue
+            seg_id = self._part_ids[index]
+            if not old or text.startswith(old):
+                piece = text[len(old) :]
+                if piece:
+                    await self._emit("message.delta", {"segment_id": seg_id, "delta": piece})
+            else:
+                await self._emit("message.part", {"segment_id": seg_id, "text": text})
+
     def _close_speech(self) -> None:
-        text = self._speech_text.strip()
-        if text and self._speech_id:
-            self.segments.append({"id": self._speech_id, "text": text, "activity": self._pending})
+        parts = self._speech_parts()
+        if parts:
+            if len(self._part_ids) < len(parts):
+                self._part_ids.extend(
+                    f"seg-{uuid.uuid4().hex[:10]}" for _ in range(len(parts) - len(self._part_ids))
+                )
+            for index, text in enumerate(parts):
+                self.segments.append(
+                    {
+                        "id": self._part_ids[index],
+                        "text": text,
+                        "activity": self._pending if index == 0 else [],
+                    }
+                )
             self._pending = []
         self._speech_id = None
         self._speech_text = ""
+        self._part_ids = []
+        self._part_texts = []
 
     # -- tools --------------------------------------------------------------
 
@@ -366,7 +535,8 @@ class TurnRecorder:
                 self.segments.append({"id": f"seg-{uuid.uuid4().hex[:10]}", "text": "", "activity": self._pending})
             self._pending = []
         if self.started:
-            await self._emit("agent.turn", {"phase": "end"})
+            self._sealed = True
+            await self._emit("agent.turn", {"phase": "end", "status": None})
 
     # -- views --------------------------------------------------------------
 
@@ -387,9 +557,17 @@ class TurnRecorder:
         matches what the operator sees, not only closed bubbles."""
         segs = [dict(s) for s in self.segments]
         pending = list(self._pending)
-        speech = self._speech_text.strip()
-        if speech and self._speech_id:
-            segs.append({"id": self._speech_id, "text": speech, "activity": pending})
+        if self._part_texts and self._part_ids:
+            for index, text in enumerate(self._part_texts):
+                if not text.strip():
+                    continue
+                segs.append(
+                    {
+                        "id": self._part_ids[index],
+                        "text": text,
+                        "activity": pending if index == 0 else [],
+                    }
+                )
             return segs
         if pending:
             if segs:

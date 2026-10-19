@@ -22,8 +22,9 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 ## Daily loop at the top
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*Overview and Communication sit above the grouped sections.*
+*New chat, Overview and Communication sit above the grouped sections.*
 
+- **New chat** — opens `/new` to start a conversation.
 - **Overview** — the morning scan of open work, decisions and usage. See [Overview](/docs/getting-started/cockpit). You can set Overview as your start page under Profile; Communication is the default.
 - **Communication** — the conversations, and the contacts behind them. Standalone in the rail (not under a section). See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
 
@@ -45,7 +46,7 @@ At the bottom of the rail, **Organization** groups the workspace itself:
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
-Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, set **First name** and **Last name** (used in greetings and email signatures), choose **Start page** as **Messages** (default) or **Overview**, **Appearance** as **Light**, **Dark** or **System**, and optionally a personal **Email signature** as the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
+Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, set **First name** and **Last name** (used in greetings and email signatures), choose **Start page** as **Chat** (default), **Messages**, or **Overview**, **Appearance** as **Light**, **Dark** or **System**, and optionally a personal **Email signature** as the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
 
 ## Use the command palette
 
@@ -58,7 +59,7 @@ Communication search in the thread list searches conversations. The palette is f
 
 ## Ask Bokito
 
-1. Choose **Help** in the top bar (next to **Setup** while onboarding is incomplete), or the Bokito button in the bottom-right on pages where the launcher is shown. On Communication with an open thread the corner launcher stays hidden so it does not cover Send; use the top bar **Help** button to force the panel open.
+1. Choose **Help** in the top bar (next to **Setup** while onboarding is incomplete), or the Bokito button in the bottom-right on pages where the launcher is shown. On Communication with an open thread, and on New conversation, the corner launcher stays hidden so it does not cover Send; use the top bar **Help** button to force the panel open.
 2. Type your question. Bokito knows which page you are viewing, so "what does this status mean?" works without explaining where you are.
 3. The conversation runs with your own permissions, and Bokito hands real work to the workspace agents. See [Bokito, your assistant](/docs/getting-started/assistant).
 

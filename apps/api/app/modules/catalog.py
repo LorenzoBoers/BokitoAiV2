@@ -1177,61 +1177,12 @@ async def connected_module_slugs(session: AsyncSession, tenant_id: UUID) -> set[
     return slugs
 
 
-async def _install_rows(
-    session: AsyncSession, tenant_id: UUID
-) -> dict[str, Any]:
-    """All ModuleInstall rows for a tenant keyed by module slug."""
-    from app.models.module_install import ModuleInstall
-
-    result = await session.execute(
-        select(ModuleInstall).where(ModuleInstall.tenant_id == tenant_id)
-    )
-    return {row.module_slug: row for row in result.scalars().all()}
-
-
-async def _get_install(session: AsyncSession, tenant_id: UUID, slug: str) -> Any:
-    from app.models.module_install import ModuleInstall
-
-    result = await session.execute(
-        select(ModuleInstall).where(
-            ModuleInstall.tenant_id == tenant_id,
-            ModuleInstall.module_slug == slug,
-        )
-    )
-    return result.scalar_one_or_none()
-
-
 def _load_json_dict(raw: str | None) -> dict[str, Any]:
     try:
         data = json.loads(raw or "{}")
     except json.JSONDecodeError:
         return {}
     return data if isinstance(data, dict) else {}
-
-
-def _row_prefs(row: Any) -> dict[str, Any]:
-    """Serialize a ModuleInstall row into the prefs dict the API exposes."""
-    if row is None:
-        return {}
-    prefs: dict[str, Any] = {
-        "install_state": row.install_state,
-        "enabled": row.install_state == "installed",
-        "writes_enabled": bool(row.writes_enabled),
-    }
-    if row.default_connection_id:
-        prefs["default_connection_id"] = row.default_connection_id
-    company_map = _load_json_dict(row.default_company_json)
-    if company_map:
-        prefs["default_company_by_connection"] = company_map
-    user_access = _load_json_dict(row.user_access_json)
-    if user_access:
-        prefs["user_access"] = user_access
-    customer_tools = _load_json_dict(getattr(row, "customer_tools_json", None))
-    if customer_tools:
-        prefs["customer_tools"] = {
-            str(k): bool(v) for k, v in customer_tools.items()
-        }
-    return prefs
 
 
 async def tenant_module_flags(session: AsyncSession, tenant_id: UUID) -> dict[str, bool]:
@@ -1244,7 +1195,7 @@ async def tenant_module_sets(
 ) -> tuple[set[str], set[str]]:
     """Return (enabled_slugs, connected_slugs) for a tenant.
 
-    ``enabled_slugs`` means install_state=installed (tools available).
+    ``enabled_slugs`` = live department with ``origin_module_slug``.
     """
     connected = await connected_module_slugs(session, tenant_id)
     states = await tenant_module_install_states(session, tenant_id)
@@ -1255,16 +1206,14 @@ async def tenant_module_sets(
 async def tenant_module_install_states(
     session: AsyncSession, tenant_id: UUID
 ) -> dict[str, InstallState]:
-    rows = await _install_rows(session, tenant_id)
+    from app.services.module_origin import installed_module_slugs
+
+    installed = await installed_module_slugs(session, tenant_id)
     out: dict[str, InstallState] = {}
     for module in MODULES:
         if module.status != "available":
             continue
-        row = rows.get(module.slug)
-        state = row.install_state if row is not None else "not_installed"
-        if state not in ("not_installed", "setup", "installed"):
-            state = "not_installed"
-        out[module.slug] = state  # type: ignore[assignment]
+        out[module.slug] = "installed" if module.slug in installed else "not_installed"
     return out
 
 
@@ -1340,54 +1289,19 @@ async def serialize_modules_for_tenant(
     return rows
 
 
-async def _write_module_row(
-    session: AsyncSession,
-    tenant_id: UUID,
-    slug: str,
-    *,
-    install_state: InstallState,
-    actor_id: Any = None,
-    audit_action: str,
-    summary: str,
-) -> dict[str, Any]:
-    spec = MODULE_BY_SLUG.get(slug)
-    if spec is None:
-        raise ValueError(f"Unknown module '{slug}'")
-    if spec.status == "coming_soon" and install_state != "not_installed":
-        raise ValueError(f"Module '{slug}' is not available yet")
-    from datetime import datetime as _dt
-
-    from app.models.module_install import ModuleInstall
-    from app.services.audit import record_audit
-
-    row = await _get_install(session, tenant_id, slug)
-    if row is None:
-        row = ModuleInstall(tenant_id=tenant_id, module_slug=slug)
-    row.install_state = install_state
-    row.updated_at = _dt.utcnow()
-    session.add(row)
-    await session.commit()
-    await record_audit(
-        session,
-        tenant_id,
-        action=audit_action,
-        actor_type="user" if actor_id else "system",
-        actor_id=str(actor_id) if actor_id else "",
-        resource_type="module",
-        resource_id=slug,
-        summary=summary,
-        after={
-            "slug": slug,
-            "install_state": install_state,
-            "enabled": install_state == "installed",
-        },
-    )
-    if install_state in ("setup", "installed"):
-        from app.services.module_sources import ensure_platform_seeds
-
-        await ensure_platform_seeds(session, tenant_id, slug)
+async def _serialize_module_row(session: AsyncSession, tenant_id: UUID, slug: str) -> dict[str, Any]:
     rows = {m["slug"]: m for m in await serialize_modules_for_tenant(session, tenant_id)}
-    return rows[slug]
+    if slug not in rows:
+        raise ValueError(f"Unknown module '{slug}'")
+    from app.services.module_origin import get_module_department, module_prefs_from_department
+
+    dept = await get_module_department(session, tenant_id, slug)
+    row = rows[slug]
+    prefs = module_prefs_from_department(dept)
+    row.update({k: v for k, v in prefs.items() if k not in ("install_state", "enabled")})
+    if dept is not None:
+        row["department_id"] = str(dept.id)
+    return row
 
 
 async def set_module_enabled(
@@ -1398,51 +1312,10 @@ async def set_module_enabled(
     *,
     actor_id: Any = None,
 ) -> dict[str, Any]:
-    """Legacy on/off: maps to installed / not_installed."""
+    """On = one-time install drop; off = delete origin department."""
     if enabled:
-        from app.services.module_agents import module_agent_count
-
-        if await module_agent_count(session, tenant_id, slug) < 1:
-            raise ValueError(
-                "Assign at least one AI agent to this module before finishing setup"
-            )
-        row = await _write_module_row(
-            session,
-            tenant_id,
-            slug,
-            install_state="installed",
-            actor_id=actor_id,
-            audit_action="module:enabled",
-            summary=f"{MODULE_BY_SLUG[slug].name} installed",
-        )
-        from app.services.module_department import bind_module_department
-
-        department = await bind_module_department(session, tenant_id, slug)
-        row["department_id"] = str(department.id)
-        return row
-    from app.services.module_agents import (
-        clear_module_agents,
-        soft_archive_module_specialists,
-    )
-
-    archived = await soft_archive_module_specialists(session, tenant_id, slug)
-    from app.services.module_department import archive_module_department
-
-    await archive_module_department(session, tenant_id, slug)
-    row = await _write_module_row(
-        session,
-        tenant_id,
-        slug,
-        install_state="not_installed",
-        actor_id=actor_id,
-        audit_action="module:disabled",
-        summary=f"{MODULE_BY_SLUG[slug].name} uninstalled",
-    )
-    await clear_module_agents(session, tenant_id, slug)
-    row["assigned_agent_count"] = 0
-    row["default_agent_id"] = None
-    row["archived_specialist_ids"] = archived
-    return row
+        return await install_module(session, tenant_id, slug, actor_id=actor_id)
+    return await uninstall_module(session, tenant_id, slug, actor_id=actor_id)
 
 
 async def install_module(
@@ -1453,20 +1326,23 @@ async def install_module(
     actor_id: Any = None,
     hire_specialist: bool = True,
 ) -> dict[str, Any]:
-    """Start install: module enters setup until the operator finishes setup.
+    """One-time drop: department + specialist + package assets. Idempotent."""
+    from app.services.audit import record_audit
+    from app.services.module_origin import module_is_installed
+    from app.services.module_sources import ensure_platform_seeds
 
-    By default hires (or restores) the managed module specialist onto the roster
-    without opening a setup chat — the Connections UI / Hire CTA can still open one.
-    """
-    row = await _write_module_row(
-        session,
-        tenant_id,
-        slug,
-        install_state="setup",
-        actor_id=actor_id,
-        audit_action="module:install_started",
-        summary=f"{MODULE_BY_SLUG[slug].name} install started",
-    )
+    spec = MODULE_BY_SLUG.get(slug)
+    if spec is None:
+        raise ValueError(f"Unknown module '{slug}'")
+    if spec.status == "coming_soon":
+        raise ValueError(f"Module '{slug}' is not available yet")
+
+    if await module_is_installed(session, tenant_id, slug):
+        return await _serialize_module_row(session, tenant_id, slug)
+
+    await ensure_platform_seeds(session, tenant_id, slug)
+
+    hire: dict[str, Any] = {}
     if hire_specialist:
         try:
             hire = await hire_module_agent(
@@ -1476,24 +1352,22 @@ async def install_module(
                 actor_id=actor_id,
                 open_setup_chat=False,
             )
-            row["specialist_agent_id"] = hire.get("agent_id")
-            row["specialist_agent_name"] = hire.get("agent_name")
-            row["hire_action"] = hire.get("action")
         except Exception:  # noqa: BLE001
-            pass
-    # One packaged hashtag → install it so labels and the specialist share a path.
+            hire = {}
+
     tags = module_tag_templates(slug)
+    auto_tag = None
     if len(tags) == 1:
         try:
             from app.services.tickets import install_tag_template
 
-            tag_row = await install_tag_template(session, tenant_id, slug, tags[0].slug)
-            row["auto_tag"] = tag_row
+            auto_tag = await install_tag_template(session, tenant_id, slug, tags[0].slug)
         except Exception:  # noqa: BLE001
             pass
+
     from app.services.module_department import bind_module_department
 
-    agent_raw = row.get("specialist_agent_id")
+    agent_raw = hire.get("agent_id")
     try:
         agent_uuid = UUID(str(agent_raw)) if agent_raw else None
     except (ValueError, TypeError):
@@ -1501,6 +1375,29 @@ async def install_module(
     department = await bind_module_department(
         session, tenant_id, slug, agent_id=agent_uuid
     )
+    await record_audit(
+        session,
+        tenant_id,
+        action="module:installed",
+        actor_type="user" if actor_id else "system",
+        actor_id=str(actor_id) if actor_id else "",
+        resource_type="module",
+        resource_id=slug,
+        summary=f"{spec.name} installed",
+        after={
+            "slug": slug,
+            "install_state": "installed",
+            "enabled": True,
+            "department_id": str(department.id),
+        },
+    )
+    row = await _serialize_module_row(session, tenant_id, slug)
+    if hire:
+        row["specialist_agent_id"] = hire.get("agent_id")
+        row["specialist_agent_name"] = hire.get("agent_name")
+        row["hire_action"] = hire.get("action")
+    if auto_tag is not None:
+        row["auto_tag"] = auto_tag
     row["department_id"] = str(department.id)
     return row
 
@@ -1513,18 +1410,18 @@ async def hire_module_agent(
     actor_id: Any = None,
     open_setup_chat: bool = True,
 ) -> dict[str, Any]:
-    """Hire (or reuse) the managed module specialist and put them on the roster.
-
-    Prefer this over assigning the lead. Soft-archives on uninstall stay managed.
-    """
+    """Create the module specialist once (no patch on existing active agents)."""
     from datetime import datetime
 
     from app.models.auth import Tenant
     from app.models.signal import Signal
     from app.services.managed_resources import ensure_managed_agent
     from app.services.module_agents import add_module_agent, list_module_agents
+    from app.services.module_department import bind_module_department
+    from app.services.module_origin import get_module_department
     from app.services.ownership import apply_owner
     from app.services.participants import ensure_participant
+    from app.services.workforce_runtime import default_tools_for_role
 
     if slug not in MODULE_BY_SLUG:
         raise ValueError(f"Unknown module: {slug}")
@@ -1534,9 +1431,6 @@ async def hire_module_agent(
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise ValueError("Tenant not found")
-
-    # Module verb tools are ACL'd by roster; passport from role + template extras.
-    from app.services.workforce_runtime import default_tools_for_role
 
     tools = default_tools_for_role("module_specialist")
     if template and template.extra_tools:
@@ -1571,54 +1465,31 @@ async def hire_module_agent(
         template_slug=f"module-{slug}",
         display_label=module.name,
         create_fields=fields,
-        patch_fields={
-            "job_title": fields["job_title"],
-            "description": fields["description"],
-            "system_prompt": fields["system_prompt"],
-            "tools": tools,
-        },
+        patch_fields=None,
         match_slugs=[f"module-{slug}"],
     )
     agent = result.agent
-    previous = (agent.name or "").strip()
-    if previous in (
-        "",
-        f"{module.name} specialist",
-        "Noor Vale",
-        "Kas Lind",
-        "Jules Hart",
-        "Ada Quill",
-        "Vale",
-        "Kas",
-        "Vega",
-        "Finny",
-        "Stocko",
-        "Quill",
-        "Audito",
-        "Bookito",
-    ):
-        agent.name = template.name
-    if "description" in fields:
-        agent.description = fields["description"]
-    if fields.get("job_title"):
-        agent.job_title = fields["job_title"]
-    _apply_persona_avatar(agent, template)
-    session.add(agent)
-    await session.flush()
+    if result.action == "created":
+        _apply_persona_avatar(agent, template)
+        session.add(agent)
+        await session.flush()
 
     roster = await list_module_agents(session, tenant_id, slug)
     on_roster = any(row.get("agent_id") == str(agent.id) for row in roster)
-    if not on_roster and result.action in ("created", "patched"):
+    if not on_roster and result.action in ("created", "exists", "restore_pending"):
         try:
             await add_module_agent(
                 session, tenant_id, slug, agent.id, is_default=True
             )
         except Exception:  # noqa: BLE001
-            # Already on roster or conflict — ignore.
             pass
 
+    dept = await get_module_department(session, tenant_id, slug)
+    if dept is not None and result.action in ("created", "exists", "restore_pending"):
+        await bind_module_department(session, tenant_id, slug, agent_id=agent.id)
+
     setup_signal_id: str | None = None
-    if open_setup_chat and result.action in ("created", "patched", "restore_pending"):
+    if open_setup_chat and result.action == "created":
         now = datetime.utcnow()
         steps = "\n".join(f"- {s}" for s in module.setup_steps) or "- Finish module setup"
         signal = Signal(
@@ -1666,7 +1537,7 @@ async def hire_module_agent(
             content=(
                 f"Hired {agent.name} for {module.name}.\n\n"
                 f"Setup checklist:\n{steps}\n\n"
-                "Connect the package and finish install when ready."
+                "Connect the package when ready."
             ),
             role="assistant",
             trust="system",
@@ -1682,8 +1553,6 @@ async def hire_module_agent(
         "action": result.action,
         "agent_id": str(agent.id),
         "agent_name": agent.name,
-        "managed_origin": "module",
-        "managed_ref": slug,
         "setup_signal_id": setup_signal_id,
         "path": (
             f"/communication/inbox/all/t/{setup_signal_id}"
@@ -1701,41 +1570,12 @@ async def complete_module_setup(
     *,
     actor_id: Any = None,
 ) -> dict[str, Any]:
-    """Mark setup done → installed (tools + AI nav). Requires ≥1 assigned agent."""
-    from app.services.module_agents import add_module_agent, module_agent_count
+    """Legacy alias: install is already complete after the one-time drop."""
+    from app.services.module_origin import module_is_installed
 
-    states = await tenant_module_install_states(session, tenant_id)
-    current = states.get(slug, "not_installed")
-    if current == "not_installed":
-        raise ValueError("Install the module before finishing setup")
-    if await module_agent_count(session, tenant_id, slug) < 1:
-        # Prefer hiring the managed specialist; fall back to lead.
-        try:
-            await hire_module_agent(
-                session,
-                tenant_id,
-                slug,
-                actor_id=actor_id,
-                open_setup_chat=False,
-            )
-        except Exception:  # noqa: BLE001
-            from app.services.lead_agent import get_lead_agent
-
-            lead = await get_lead_agent(session, tenant_id)
-            if lead is None:
-                raise ValueError(
-                    "Assign at least one AI agent to this module before finishing setup"
-                ) from None
-            await add_module_agent(session, tenant_id, slug, lead.id, is_default=True)
-    return await _write_module_row(
-        session,
-        tenant_id,
-        slug,
-        install_state="installed",
-        actor_id=actor_id,
-        audit_action="module:installed",
-        summary=f"{MODULE_BY_SLUG[slug].name} installed",
-    )
+    if await module_is_installed(session, tenant_id, slug):
+        return await _serialize_module_row(session, tenant_id, slug)
+    return await install_module(session, tenant_id, slug, actor_id=actor_id)
 
 
 async def uninstall_module(
@@ -1745,27 +1585,29 @@ async def uninstall_module(
     *,
     actor_id: Any = None,
 ) -> dict[str, Any]:
-    """Remove module from the tenant. Connections stay on the platform.
-
-    Managed specialists are soft-archived (Govern can restore on re-hire).
-    Operator-assigned agents only leave the roster.
-    """
+    """De-install = soft-delete the origin department. Connections stay."""
+    from app.services.audit import record_audit
     from app.services.module_agents import (
         clear_module_agents,
         soft_archive_module_specialists,
     )
+    from app.services.module_department import archive_module_department
 
     archived = await soft_archive_module_specialists(session, tenant_id, slug)
-    row = await _write_module_row(
+    await archive_module_department(session, tenant_id, slug)
+    await clear_module_agents(session, tenant_id, slug)
+    await record_audit(
         session,
         tenant_id,
-        slug,
-        install_state="not_installed",
-        actor_id=actor_id,
-        audit_action="module:uninstalled",
+        action="module:uninstalled",
+        actor_type="user" if actor_id else "system",
+        actor_id=str(actor_id) if actor_id else "",
+        resource_type="module",
+        resource_id=slug,
         summary=f"{MODULE_BY_SLUG[slug].name} uninstalled",
+        after={"slug": slug, "install_state": "not_installed", "enabled": False},
     )
-    await clear_module_agents(session, tenant_id, slug)
+    row = await _serialize_module_row(session, tenant_id, slug)
     row["assigned_agent_count"] = 0
     row["default_agent_id"] = None
     row["archived_specialist_ids"] = archived
@@ -1775,32 +1617,18 @@ async def uninstall_module(
 async def enable_module_for_provider(
     session: AsyncSession, tenant_id: UUID, provider_slug: str
 ) -> None:
-    """When a package is connected, move the parent module into setup if needed.
-
-    Finishing install still requires assigning at least one agent via
-    ``complete_module_setup``.
-    """
-    slug = module_for_provider(provider_slug)
-    if not slug:
-        return
-    states = await tenant_module_install_states(session, tenant_id)
-    current = states.get(slug, "not_installed")
-    if current in ("installed", "setup"):
-        return
-    await _write_module_row(
-        session,
-        tenant_id,
-        slug,
-        install_state="setup",
-        audit_action="module:install_started",
-        summary=f"{MODULE_BY_SLUG[slug].name} setup started via package",
-    )
+    """Package connect does not install the module (one-time drop is explicit)."""
+    del session, tenant_id, provider_slug
 
 
 async def get_module_prefs(
     session: AsyncSession, tenant_id: UUID, slug: str
 ) -> dict[str, Any]:
-    return _row_prefs(await _get_install(session, tenant_id, slug))
+    from app.services.module_origin import get_module_department, module_prefs_from_department
+
+    return module_prefs_from_department(
+        await get_module_department(session, tenant_id, slug)
+    )
 
 
 async def update_module_prefs(
@@ -1815,23 +1643,29 @@ async def update_module_prefs(
     user_access: dict[str, Any] | None = None,
     customer_tools: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Persist operator defaults for multi-registration modules."""
+    """Persist operator defaults on the origin department settings_json.modules."""
     if MODULE_BY_SLUG.get(slug) is None:
         raise ValueError(f"Unknown module '{slug}'")
-    from datetime import datetime as _dt
+    from app.services.module_department import ensure_module_department
+    from app.services.module_origin import (
+        get_module_department,
+        module_prefs_from_department,
+        write_module_prefs_to_department,
+    )
+    from app.services.setup_links import replace_resource_grants
 
-    from app.models.module_install import ModuleInstall
+    department = await get_module_department(session, tenant_id, slug)
+    if department is None:
+        department = await ensure_module_department(session, tenant_id, slug)
 
-    row = await _get_install(session, tenant_id, slug)
-    if row is None:
-        # Defaults may be set while the module is still in setup.
-        row = ModuleInstall(tenant_id=tenant_id, module_slug=slug)
+    updates: dict[str, Any] = {}
+    prefs_now = module_prefs_from_department(department)
     if clear_default_connection:
-        row.default_connection_id = None
+        updates["default_connection_id"] = None
     elif default_connection_id is not None:
-        row.default_connection_id = str(default_connection_id).strip() or None
+        updates["default_connection_id"] = str(default_connection_id).strip() or None
     if default_company_by_connection is not None:
-        merged = _load_json_dict(row.default_company_json)
+        merged = dict(prefs_now.get("default_company_by_connection") or {})
         for key, value in default_company_by_connection.items():
             cid = str(key).strip()
             company = str(value or "").strip()
@@ -1841,29 +1675,26 @@ async def update_module_prefs(
                 merged[cid] = company
             else:
                 merged.pop(cid, None)
-        row.default_company_json = json.dumps(merged)
+        updates["default_company_by_connection"] = merged
     if writes_enabled is not None:
-        row.writes_enabled = bool(writes_enabled)
+        updates["writes_enabled"] = bool(writes_enabled)
     if user_access is not None:
         mode = str(user_access.get("mode") or "all_members")
         if mode not in ("all_members", "selected"):
             mode = "all_members"
         user_ids = [str(u) for u in (user_access.get("user_ids") or []) if str(u).strip()]
-        row.user_access_json = json.dumps({"mode": mode, "user_ids": user_ids})
+        updates["user_access"] = {"mode": mode, "user_ids": user_ids}
     if customer_tools is not None:
-        cleaned = {
+        updates["customer_tools"] = {
             str(k).strip(): bool(v)
             for k, v in customer_tools.items()
             if str(k).strip()
         }
-        row.customer_tools_json = json.dumps(cleaned)
-    row.updated_at = _dt.utcnow()
-    session.add(row)
+    prefs = write_module_prefs_to_department(department, updates)
+    session.add(department)
     await session.flush()
     if user_access is not None:
-        from app.services.setup_links import replace_resource_grants
-
-        saved = json.loads(row.user_access_json or "{}")
+        saved = prefs.get("user_access") or {}
         mode = str(saved.get("mode") or "all_members")
         user_ids = [str(item) for item in (saved.get("user_ids") or [])]
         grant_entries = (
@@ -1872,11 +1703,11 @@ async def update_module_prefs(
             else [{"kind": "user", "id": user_id, "level": "use"} for user_id in user_ids]
         )
         await replace_resource_grants(
-            session, tenant_id, "module", grant_entries, module_install_id=row.id
+            session, tenant_id, "module", grant_entries, module_slug=slug
         )
     await session.commit()
-    await session.refresh(row)
-    return _row_prefs(row)
+    await session.refresh(department)
+    return module_prefs_from_department(department)
 
 
 def module_skill_text(module_slug: str) -> str:

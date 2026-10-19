@@ -128,3 +128,63 @@ async def test_workspace_context_includes_tenant_snapshot(client: AsyncClient, s
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     ctx = await build_workspace_context(session_override, tenant.id)
     assert "## Tenant snapshot" in ctx
+
+
+@pytest.mark.asyncio
+async def test_list_threads_summary_filters_by_ticket_tag(client: AsyncClient, session_override):
+    from app.models.orchestra import Workstream
+    from app.models.signal import Signal, SignalTag
+    from app.services.tenant_introspection import list_threads_summary
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    flow = Workstream(tenant_id=tenant.id, name="Bugs")
+    session_override.add(flow)
+    await session_override.flush()
+    bug = SignalTag(tenant_id=tenant.id, name="bug", workstream_id=flow.id)
+    feature = SignalTag(tenant_id=tenant.id, name="feature", workstream_id=flow.id)
+    session_override.add(bug)
+    session_override.add(feature)
+    await session_override.flush()
+    session_override.add(
+        Signal(
+            tenant_id=tenant.id,
+            channel="internal",
+            status="open",
+            subject="Login broken",
+            ticket_tag_id=bug.id,
+            stage_key="open",
+        )
+    )
+    session_override.add(
+        Signal(
+            tenant_id=tenant.id,
+            channel="internal",
+            status="open",
+            subject="Dark mode",
+            ticket_tag_id=feature.id,
+            stage_key="open",
+        )
+    )
+    session_override.add(
+        Signal(
+            tenant_id=tenant.id,
+            channel="internal",
+            status="open",
+            subject="Unrelated chat",
+        )
+    )
+    await session_override.commit()
+
+    bugs = await list_threads_summary(session_override, tenant.id, tag="bug")
+    assert bugs["matched"] == 1
+    assert bugs["threads"][0]["subject"] == "Login broken"
+    assert bugs["threads"][0]["ticket_tag"] == "bug"
+
+    both = await list_threads_summary(session_override, tenant.id, tag="bug,feature")
+    assert both["matched"] == 2
+    subjects = {row["subject"] for row in both["threads"]}
+    assert subjects == {"Login broken", "Dark mode"}
+
+    missing = await list_threads_summary(session_override, tenant.id, tag="no_such_label")
+    assert missing["matched"] == 0
+    assert missing["unknown_tags"] == ["no_such_label"]

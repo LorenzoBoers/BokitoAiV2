@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.channel import Contact
 from app.models.customer_verify import CustomerVerifyToken
-from app.models.module_install import ModuleInstall
+from app.models.team import Department
+from app.services.module_origin import MODULES_SETTINGS_KEY
 from app.models.signal import Signal
 
 ASSURANCE_NONE = "none"
@@ -81,16 +82,30 @@ async def enabled_customer_tool_names(
     session: AsyncSession, tenant_id: UUID
 ) -> set[str]:
     """Full registry names (``{module}_{verb}``) the tenant opted into."""
+    import json
+
     rows = (
         await session.execute(
-            select(ModuleInstall).where(ModuleInstall.tenant_id == tenant_id)
+            select(Department).where(
+                Department.tenant_id == tenant_id,
+                Department.origin_module_slug.is_not(None),
+                Department.deleted_at.is_(None),
+            )
         )
     ).scalars().all()
     names: set[str] = set()
     for row in rows:
-        for verb, on in parse_customer_tools(row.customer_tools_json).items():
+        slug = row.origin_module_slug or ""
+        try:
+            settings = json.loads(row.settings_json or "{}")
+        except json.JSONDecodeError:
+            settings = {}
+        mods = settings.get(MODULES_SETTINGS_KEY) if isinstance(settings, dict) else {}
+        tools = mods.get("customer_tools") if isinstance(mods, dict) else {}
+        raw = json.dumps(tools) if isinstance(tools, dict) else "{}"
+        for verb, on in parse_customer_tools(raw).items():
             if on:
-                names.add(f"{row.module_slug}_{verb}")
+                names.add(f"{slug}_{verb}")
     return names
 
 

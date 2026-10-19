@@ -282,6 +282,9 @@ async def bootstrap_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     from app.services.tickets import ensure_platform_tags
 
     await ensure_platform_tags(session, tenant_id, commit=False)
+    from app.services.bokito_model_nodes import ensure_default_model_nodes
+
+    await ensure_default_model_nodes(session, tenant_id)
 
 
 async def ensure_widget_channel(

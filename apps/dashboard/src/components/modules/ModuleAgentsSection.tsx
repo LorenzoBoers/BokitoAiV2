@@ -106,8 +106,11 @@ export function ModuleAgentsSection({
   }
 
   const managedSpecialist = useMemo(
-    () => roster.find((row) => row.managed && row.managed_origin === 'module') ?? null,
-    [roster],
+    () =>
+      roster.find(
+        (row) => row.is_pack_specialist || row.agent_slug === `module-${moduleSlug}`,
+      ) ?? null,
+    [roster, moduleSlug],
   )
 
   const hire = async () => {

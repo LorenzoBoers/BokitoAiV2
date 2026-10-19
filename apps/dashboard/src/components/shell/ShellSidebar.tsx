@@ -98,13 +98,12 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
         label={tabTitle(tab)}
         iconOnly={collapsed}
         active={isTabActive(tab)}
+        className={tab === 'newChat' ? 'nav-row-accent' : undefined}
         count={badge}
         unread={badge > 0}
         trailing={
           showNew && !collapsed ? (
-            <span className="rounded-sm border border-border/70 px-1 text-2xs font-medium text-text-secondary">
-              {newLabel}
-            </span>
+            <span className="text-2xs font-medium text-accent">{newLabel}</span>
           ) : undefined
         }
         data-tour={`nav-${tab}`}

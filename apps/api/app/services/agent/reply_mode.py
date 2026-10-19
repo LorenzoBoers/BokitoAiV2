@@ -3,7 +3,8 @@
 - ``mail``: email threads. One complete, structured message (HTML at send).
 - ``chat``: every conversation that is not email (inline/assistant chat,
   internal threads, sessions, WhatsApp, website chat, Slack, future DMs).
-  The agent sends several short messages with minimal formatting.
+  The agent sends several short messages, one paragraph each. A list is
+  cards on the bubble, not lines of text.
 - ``document``: runs without a conversation (triggers, workstreams). Output is
   a result, not a reply, so structured markdown stays allowed.
 
@@ -45,6 +46,7 @@ def is_customer_channel(channel: str | None) -> bool:
 _FENCE_RE = re.compile(r"^\s*```")
 _VISIBLE_RE = re.compile(r"[^\W_]")
 _LIST_LINE_RE = re.compile(r"^(?:[-*+]|\d+[.)])\s+\S")
+_LIST_MARKER_RE = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s+")
 _HEARTBEAT_PREFIX_RE = re.compile(r"^\s*HEARTBEAT_OK\b\s*[—–\-:]?\s*", re.IGNORECASE)
 
 
@@ -78,42 +80,63 @@ def _strip_heartbeat(block: str) -> str:
     return _HEARTBEAT_PREFIX_RE.sub("", block).strip()
 
 
-def _is_list_block(block: str) -> bool:
-    """A markdown list, including one we already joined under a short lead-in."""
-    lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-    while lines and not _LIST_LINE_RE.match(lines[0]) and (
-        lines[0].startswith("#") or (lines[0].endswith(":") and len(lines[0]) <= 80)
-    ):
-        lines = lines[1:]
-    return bool(lines) and all(_LIST_LINE_RE.match(ln) for ln in lines)
+def _paragraphs(block: str) -> list[str]:
+    """One paragraph per bubble. A markdown list becomes separate sentences.
+
+    Fenced code stays one bubble. Email never reaches this function.
+    """
+    if block.lstrip().startswith("```"):
+        return [block]
+    prose: list[str] = []
+    out: list[str] = []
+
+    def flush() -> None:
+        text = " ".join(part.strip() for part in prose if part.strip())
+        prose.clear()
+        if text:
+            out.append(text)
+
+    for line in block.split("\n"):
+        if _LIST_LINE_RE.match(line.strip()):
+            flush()
+            item = _LIST_MARKER_RE.sub("", line).strip()
+            if item:
+                out.append(item)
+            continue
+        prose.append(line)
+    flush()
+    return out
 
 
-def _is_list_lead(block: str) -> bool:
-    """A one-line label that only exists to introduce the list after it."""
-    text = block.strip()
-    if not text or "\n" in text or text.startswith("```"):
-        return False
-    if text.startswith("#") and len(text) <= 80:
-        return True
-    return text.endswith(":") and len(text) <= 80
-
-
-def split_chat_messages(text: str, max_messages: int = MAX_CHAT_MESSAGES) -> list[str]:
-    """Blank line = new message (as on WhatsApp). Lists and code stay together.
+def split_chat_messages(
+    text: str,
+    max_messages: int = MAX_CHAT_MESSAGES,
+    *,
+    settle: bool = True,
+) -> list[str]:
+    """Blank line = new message (as on WhatsApp). One paragraph per bubble.
 
     Fragments shorter than ``MIN_MESSAGE_CHARS`` join the previous message.
     A short previous opener that the next block restarts (``Je`` then
     ``Je dashboard…``) is replaced so a stream stutter is not two bubbles.
     A short previous that is not a restart joins forward into the next block.
-    Numbered or bulleted blocks join each other, and a short lead-in
-    (``Besluitpunten:``) joins the list that follows, so an enumeration is
-    one bubble. Anything past ``max_messages`` merges into the last one.
+    A markdown list is not a bubble: each item becomes its own sentence, and
+    the cards for a real list hang on the bubble via ``attach_items``.
+    While the reply is still streaming (``settle=False``) the open tail stays
+    exactly as the model wrote it, so the reveal only grows.
+    Anything past ``max_messages`` joins the last bubble as one paragraph,
+    without a blank line.
     """
-    merged: list[str] = []
+    raw_blocks = []
     for raw in _blocks(text or ""):
         block = _strip_heartbeat(raw)
-        if not block or not _VISIBLE_RE.search(block):
-            continue
+        if block and _VISIBLE_RE.search(block):
+            raw_blocks.append(block)
+    open_tail = None
+    if not settle and raw_blocks:
+        open_tail = raw_blocks.pop()
+    merged: list[str] = []
+    for block in raw_blocks:
         if merged and len(block) < MIN_MESSAGE_CHARS:
             merged[-1] = f"{merged[-1]}\n{block}"
             continue
@@ -125,13 +148,18 @@ def split_chat_messages(text: str, max_messages: int = MAX_CHAT_MESSAGES) -> lis
             else:
                 merged[-1] = f"{prev}\n{block}"
             continue
-        if merged and _is_list_block(block) and (_is_list_block(merged[-1]) or _is_list_lead(merged[-1])):
-            merged[-1] = f"{merged[-1]}\n{block}"
-            continue
-        merged.append(block)
+        merged.extend(_paragraphs(block))
+    if open_tail:
+        if merged and len(open_tail) < MIN_MESSAGE_CHARS:
+            merged[-1] = f"{merged[-1]}\n{open_tail}"
+        elif merged and len(merged[-1]) < MIN_MESSAGE_CHARS:
+            prev = merged[-1]
+            merged[-1] = open_tail if open_tail.startswith(prev) else f"{prev}\n{open_tail}"
+        else:
+            merged.append(open_tail)
     if max_messages > 0 and len(merged) > max_messages:
         head = merged[: max_messages - 1]
-        tail = "\n\n".join(merged[max_messages - 1 :])
+        tail = " ".join(merged[max_messages - 1 :])
         merged = [*head, tail]
     return merged
 

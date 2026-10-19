@@ -23,8 +23,8 @@ type SeatClaim = {
 /** Full ground-rise vs in-place grow when relocating from a live seat. */
 export type AgentSpawnStyle = 'full' | 'quick'
 
-const FULL_SPAWN_MS = 1100
-const QUICK_SPAWN_MS = 220
+const FULL_SPAWN_MS = 1550
+const QUICK_SPAWN_MS = 480
 /** No thread activity for this long → last sender's orb goes static. */
 export const IDLE_ORB_MS = 2 * 60 * 1000
 

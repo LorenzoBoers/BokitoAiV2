@@ -19,6 +19,7 @@ const TURN_EVENTS = new Set([
   'agent.activity',
   'agent.thinking',
   'message.delta',
+  'message.part',
   'thread.presence',
 ])
 

@@ -56,25 +56,65 @@ async def _showcase_contacts(ctx: ToolContext, contact_ids: list[str]) -> list[d
     return showcase
 
 
+async def _find_contacts_by_name(ctx: ToolContext, name: str) -> list[Contact]:
+    """Exact display-name match first, then a tight contains match (max 5)."""
+    needle = name.strip()
+    if not needle:
+        return []
+    base = (
+        select(Contact)
+        .where(
+            Contact.tenant_id == ctx.tenant_id,
+            Contact.merged_into_id.is_(None),
+            Contact.deleted_at.is_(None),
+        )
+        .order_by(Contact.last_seen_at.desc().nullslast())
+    )
+    exact = list(
+        (
+            await ctx.session.execute(
+                base.where(func.lower(Contact.display_name) == needle.lower()).limit(5)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if exact:
+        return exact
+    like = f"%{needle}%"
+    return list(
+        (
+            await ctx.session.execute(
+                base.where(Contact.display_name.ilike(like)).limit(5)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
 async def _find_contact(ctx: ToolContext, raw_id: str) -> Contact | None:
-    """Look a contact up by id (or email address), tolerating hyphen-less UUIDs."""
+    """Look a contact up by id, email, or unique display name."""
     try:
         contact_id = UUID(raw_id)
     except ValueError:
         # Models often pass the contact email when they do not have the id.
         email = raw_id.strip().lower()
-        if "@" not in email:
-            return None
-        result = await ctx.session.execute(
-            select(Contact).where(
-                Contact.tenant_id == ctx.tenant_id,
-                Contact.channel == "email",
-                Contact.address == email,
-                Contact.merged_into_id.is_(None),
-                Contact.deleted_at.is_(None),
+        if "@" in email:
+            result = await ctx.session.execute(
+                select(Contact).where(
+                    Contact.tenant_id == ctx.tenant_id,
+                    Contact.channel == "email",
+                    Contact.address == email,
+                    Contact.merged_into_id.is_(None),
+                    Contact.deleted_at.is_(None),
+                )
             )
-        )
-        return result.scalar_one_or_none()
+            return result.scalar_one_or_none()
+        matches = await _find_contacts_by_name(ctx, raw_id)
+        if len(matches) == 1:
+            return matches[0]
+        return None
     hyphenated = str(contact_id)
     result = await ctx.session.execute(
         select(Contact).where(
@@ -147,6 +187,25 @@ async def _get_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
         return {"error": "contact_id is required"}
     contact = await _find_contact(ctx, raw)
     if contact is None:
+        # Ambiguous display name: help the model pick without a wasted list_contacts.
+        if "@" not in raw:
+            try:
+                UUID(raw)
+            except ValueError:
+                matches = await _find_contacts_by_name(ctx, raw)
+                if len(matches) > 1:
+                    return {
+                        "error": "Multiple contacts match that name",
+                        "matches": [
+                            {
+                                "id": str(c.id),
+                                "display_name": c.display_name,
+                                "address": c.address,
+                            }
+                            for c in matches
+                        ],
+                        "hint": "Pass the contact id or email from matches.",
+                    }
         return {"error": "Contact not found"}
     payload = _serialize(contact, thread_count=await _thread_count(ctx, contact))
     showcase = await _showcase_contacts(ctx, [payload["id"]])
@@ -442,8 +501,9 @@ register_tool(
         name="get_contact",
         description=(
             "Read one contact: CRM profile fields plus how many threads it has. "
-            "Pass the contact id, or their email address. Showcases the contact "
-            "card under your reply."
+            "Pass the contact id, email address, or exact display name when it "
+            "is unique. Prefer id or email when you have them. Showcases the "
+            "contact card under your reply."
         ),
         category="messaging",
         input_schema={
@@ -451,7 +511,9 @@ register_tool(
             "properties": {
                 "contact_id": {
                     "type": "string",
-                    "description": "Contact id or email address.",
+                    "description": (
+                        "Contact id, email address, or unique display name."
+                    ),
                 }
             },
             "required": ["contact_id"],

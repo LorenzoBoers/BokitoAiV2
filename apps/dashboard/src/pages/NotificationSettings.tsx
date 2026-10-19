@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { Bell, BellRing, RotateCcw, Volume2 } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
 import { Card } from '../components/ui/card'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
 import { policyRoutes } from '../api/routes/policy.routes'
@@ -342,7 +343,7 @@ export default function NotificationSettings() {
         </div>
       </Card>
 
-      {loading ? <p className="text-sm text-text-muted">{t('notificationsPage.loading')}</p> : null}
+      {loading ? <LoadingBlock variant="skeleton" rows={4} /> : null}
       {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
 
       <Card className={`overflow-hidden ${loading ? 'pointer-events-none opacity-60' : ''}`} data-testid="notification-tiers">

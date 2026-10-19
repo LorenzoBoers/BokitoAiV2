@@ -327,8 +327,9 @@ async def refresh_retired_agent_models(session: AsyncSession, tenant_id: UUID) -
 async def get_or_create_orchestrator(session: AsyncSession, tenant_id: UUID) -> Agent:
     """Strategy Optimizer (orchestrator) — weekly review + Govern drafts.
 
-    Managed by the trading stack. Archive is respected: seed proposes restore
-    via PlatformChange instead of silently reactivating.
+    Trading pack agent (identity = slug). Archive is respected: seed proposes
+    restore via PlatformChange instead of silently reactivating. No managed_*
+    provenance stamp.
     """
     from app.services.managed_resources import ensure_managed_agent
 
@@ -381,7 +382,7 @@ async def get_or_create_mmxm_trader(
     *,
     orchestrator_id: UUID | None = None,
 ) -> Agent:
-    """MMXM Trader — managed by the trading stack (archive → Decision, not force)."""
+    """MMXM Trader — trading pack agent (archive → Decision, not force; no managed_* stamp)."""
     from app.services.managed_resources import ensure_managed_agent
 
     tenant = await session.get(Tenant, tenant_id)

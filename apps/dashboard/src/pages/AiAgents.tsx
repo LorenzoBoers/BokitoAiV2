@@ -11,9 +11,11 @@ import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { PageContent } from '../components/layout/PageContent'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
+import { AgentModuleOrigin } from '../components/workforce/AgentModuleOrigin'
 import { AgentActivityTimeline } from '../components/workforce/AgentActivityTimeline'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
@@ -139,28 +141,14 @@ function AgentLibraryCard({
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className="min-w-0">
                   <p className="truncate-fade text-lg font-semibold tracking-tight text-text-heading">
                     {agent.name}
                   </p>
-                  {agent.managed ? (
-                    <span
-                      className="shrink-0 rounded-md bg-bg-hover/80 px-1.5 py-0.5 text-2xs font-medium text-text-muted"
-                      title={
-                        agent.origin_label
-                          ? t('workforce.agents.managedBadgeHint', { origin: agent.origin_label })
-                          : t('workforce.agents.managedBadge')
-                      }
-                    >
-                      {t('workforce.agents.managedBadgeShort')}
-                    </span>
-                  ) : null}
-                </div>
                 <p className="mt-1 text-sm font-medium leading-snug" style={{ color: profileAccent }}>
                   {functionLabel}
                 </p>
-              </div>
+                </div>
               {!isDeactivatedAgent(agent) ? (
                 <AgentActiveLine
                   at={view.last_active_at}
@@ -172,6 +160,7 @@ function AgentLibraryCard({
             {description ? (
               <p className="mt-1 line-clamp-2 text-sm leading-snug text-text-secondary">{description}</p>
             ) : null}
+            <AgentModuleOrigin agent={agent} />
             {showStatusPill || project ? (
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {isDeactivatedAgent(agent) ? (
@@ -387,6 +376,7 @@ export default function AiAgents() {
         className="mb-0"
         meta={
           <>
+            <OpenInGridButton />
             <Button
               type="button"
               size="icon"

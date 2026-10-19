@@ -17,12 +17,6 @@ REGION_EU = "eu"
 REGION_US = "us"
 REGION_UNKNOWN = "unknown"
 
-_PROVIDER_REGION: dict[str, str] = {
-    "mistral": REGION_EU,
-    "anthropic": REGION_US,
-    "openai": REGION_US,
-}
-
 # Host suffixes of OpenAI-compatible endpoints known to process data in the EU.
 _EU_HOST_SUFFIXES = (
     "mistral.ai",
@@ -46,21 +40,19 @@ REGION_LABELS: dict[str, dict[str, str]] = {
 
 def infer_provider(model_id: str | None) -> str | None:
     """Guess the provider from a raw API model id (used off-catalog)."""
-    value = (model_id or "").strip().lower()
-    if value.startswith(("mistral", "ministral", "codestral", "magistral", "open-mistral")):
-        return "mistral"
-    if value.startswith("claude"):
-        return "anthropic"
-    if value.startswith(("gpt-", "o1", "o3", "text-embedding")):
-        return "openai"
-    return None
+    from app.services.provider_spec import infer_provider_type
+
+    return infer_provider_type(model_id)
 
 
 def provider_region(provider_type: str | None, base_url: str | None = "") -> str:
     """Return ``eu`` | ``us`` | ``unknown`` for a provider type and optional base URL."""
+    from app.services.provider_spec import get_provider_spec
+
     provider = (provider_type or "").strip().lower()
-    if provider in _PROVIDER_REGION:
-        return _PROVIDER_REGION[provider]
+    spec = get_provider_spec(provider)
+    if spec is not None and spec.region:
+        return spec.region
     host = (urlparse((base_url or "").strip()).hostname or "").lower()
     if host and any(host == s or host.endswith("." + s) for s in _EU_HOST_SUFFIXES):
         return REGION_EU

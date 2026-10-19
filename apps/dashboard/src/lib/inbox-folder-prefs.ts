@@ -19,7 +19,7 @@
 
 import { appRoutes } from '../api/routes'
 import { APP_API_BASE } from './api.config'
-import { isSubQueue, type HubLeaf, type SubQueue } from './messages-paths'
+import { INBOX_WORK_QUEUES, isSubQueue, type HubLeaf, type SubQueue } from './messages-paths'
 
 export type InboxFolderPrefs = {
   defaultQueue: SubQueue
@@ -50,10 +50,11 @@ export function folderScopeKey(leaf: HubLeaf): string {
   }
 }
 
-/** The sub-queue a folder opens on when clicked. Agents and channels always open Open. */
+/** The sub-queue All communication opens on. Other rows open their own list. */
 export function resolveDefaultQueue(prefs: InboxFolderPrefs, leaf: HubLeaf): SubQueue {
-  if (leaf.type === 'agent' || leaf.type === 'channel' || leaf.type === 'project') return 'open'
-  return prefs.channelDefaults[folderScopeKey(leaf)] ?? prefs.defaultQueue
+  if (leaf.type !== 'inbox') return 'open'
+  const picked = prefs.channelDefaults[folderScopeKey(leaf)] ?? prefs.defaultQueue
+  return (INBOX_WORK_QUEUES as readonly string[]).includes(picked) ? picked : 'for_you'
 }
 
 export function parseInboxFolderPrefs(raw: unknown): InboxFolderPrefs {

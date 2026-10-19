@@ -18,6 +18,8 @@ from app.tools.registry import (
     get_tool_spec,
     with_operator_canvas_tools,
     with_operator_progress_tool,
+    with_operator_org_tools,
+    with_operator_reaction_tool,
 )
 
 
@@ -61,6 +63,16 @@ def test_narrow_passport_still_gets_canvas_tools():
     assert CANVAS_OPERATOR_TOOLS <= operator
     progress = {tool["name"] for tool in with_operator_progress_tool(narrowed, trust="operator")}
     assert "update_progress" in progress
+    reaction = {tool["name"] for tool in with_operator_reaction_tool(narrowed, trust="operator")}
+    assert "react_to_message" in reaction
+    org = {tool["name"] for tool in with_operator_org_tools(narrowed, trust="operator")}
+    assert {"get_tenant_overview", "list_agents", "list_teams"} <= org
+    assert "get_tenant_overview" not in {
+        tool["name"] for tool in with_operator_org_tools(narrowed, trust="external")
+    }
+    assert "react_to_message" not in {
+        tool["name"] for tool in with_operator_reaction_tool(narrowed, trust="external")
+    }
     assert "update_progress" not in {
         tool["name"] for tool in with_operator_progress_tool(narrowed, trust="operator", refresh=True)
     }

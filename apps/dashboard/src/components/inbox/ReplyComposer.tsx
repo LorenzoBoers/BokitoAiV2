@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Check,
   ChevronDown,
-  Paperclip,
+  Plus,
   Phone,
   PhoneOff,
   Quote,
@@ -73,7 +73,7 @@ import { plainTextToQuotedHtml } from '../../lib/mail-quote'
 import { uploadAttachment } from '../../lib/uploads-api'
 import { parseComposerVerb, composerVerbHelp } from '../../lib/composer-verbs'
 import ComposerWriteAssist from './ComposerWriteAssist'
-import { DictationMicButton } from './DictationMicButton'
+import { ComposerDictationRow } from './DictationMicButton'
 import MentionPopover, { MentionsPickerPanel } from './MentionPopover'
 import { MentionHighlight } from './MentionHighlight'
 import MessageAttachments from './MessageAttachments'
@@ -689,6 +689,8 @@ export default function ReplyComposer({
   }
   const dictationInterimRef = useRef('')
   dictationInterimRef.current = dictationInterim
+  const bodyRef = useRef(body)
+  bodyRef.current = body
   const dictation = useSpeechDictation({
     onFinal: appendDictation,
     onInterim: setDictationInterim,
@@ -700,6 +702,14 @@ export default function ReplyComposer({
     dictation.stop()
     if (pending) appendDictation(pending)
     else setDictationInterim('')
+  }
+  const takeOutgoingText = () => {
+    const pending = dictation.listening ? dictationInterimRef.current.trim() : ''
+    if (dictation.listening) dictation.stop()
+    setDictationInterim('')
+    const next = pending ? appendSpeechChunk(bodyRef.current, pending) : bodyRef.current
+    if (pending) setBody(next)
+    return next.trim()
   }
   // Show committed text plus live interim so the field grows and operators can
   // follow what SpeechRecognition is still refining.
@@ -836,7 +846,8 @@ export default function ReplyComposer({
   const isAsk = mode === 'ask'
   const isReply = mode === 'reply'
   const busy = saving
-  const canSend = Boolean(body.trim()) || attachments.length > 0
+  const canSend =
+    Boolean(body.trim() || dictationInterim.trim()) || attachments.length > 0
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
   const [focusHoverIndex, setFocusHoverIndex] = useState<number | undefined>(undefined)
@@ -904,7 +915,7 @@ export default function ReplyComposer({
     routing?: { handback?: boolean; keepOpen?: boolean },
   ) => {
     if (isReply && replyBlocked) return
-    const text = body.trim()
+    const text = takeOutgoingText()
     if (!text && attachments.length === 0) return
 
     const verb = parseComposerVerb(text)
@@ -1496,46 +1507,41 @@ export default function ReplyComposer({
               />
             ) : null
           }
+          leading={
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => void onPickFiles(e.target.files)}
+              />
+              <button
+                type="button"
+                disabled={uploading || saving || disabled}
+                onClick={() => fileInputRef.current?.click()}
+                title={t('composer.attachFile')}
+                aria-label={t('composer.attachFile')}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+              >
+                <Plus size={16} />
+              </button>
+              {!isNote && !isAsk && showWriteAssist && threadIdForAi ? (
+                <ComposerWriteAssist
+                  threadId={threadIdForAi}
+                  body={body}
+                  disabled={saving || disabled || busy}
+                  onApply={(text, meta) => {
+                    untouchedPrefillRef.current = null
+                    setBody(text)
+                    if (meta?.fromAi) flashAiDraft()
+                    requestAnimationFrame(() => textareaRef.current?.focus())
+                  }}
+                />
+              ) : null}
+            </>
+          }
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => void onPickFiles(e.target.files)}
-          />
-          {!isNote && !isAsk && showWriteAssist && threadIdForAi ? (
-            <ComposerWriteAssist
-              threadId={threadIdForAi}
-              body={body}
-              disabled={saving || disabled || busy}
-              onApply={(text, meta) => {
-                untouchedPrefillRef.current = null
-                setBody(text)
-                if (meta?.fromAi) flashAiDraft()
-                requestAnimationFrame(() => textareaRef.current?.focus())
-              }}
-            />
-          ) : null}
-          {dictation.supported ? (
-            <DictationMicButton
-              listening={dictation.listening}
-              disabled={saving || disabled}
-              onStart={() => {
-                dictation.start()
-              }}
-              onConfirm={confirmDictation}
-            />
-          ) : null}
-          <button
-            type="button"
-            disabled={uploading || saving || disabled}
-            onClick={() => fileInputRef.current?.click()}
-            title={t('composer.attachFile')}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
-          >
-            <Paperclip size={14} />
-          </button>
           <div className="flex h-8 shrink-0 items-center gap-1.5">
             {isAsk && agentStreaming ? (
               <button
@@ -1548,9 +1554,31 @@ export default function ReplyComposer({
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
               </button>
             ) : null}
+            {(isAsk || isNote) && focusHumansOnly && threadIdForAi ? (
+              <ComposerWriteAssist
+                threadId={threadIdForAi}
+                body={body}
+                disabled={saving || disabled || busy}
+                onApply={(text, meta) => {
+                  untouchedPrefillRef.current = null
+                  setBody(text)
+                  if (meta?.fromAi) flashAiDraft()
+                  requestAnimationFrame(() => textareaRef.current?.focus())
+                }}
+              />
+            ) : null}
+            <ComposerDictationRow
+              supported={dictation.supported}
+              listening={dictation.listening}
+              disabled={saving || disabled}
+              onStart={() => {
+                dictation.start()
+              }}
+              onConfirm={confirmDictation}
+            >
             <div
               className={cn(
-                'flex h-8 overflow-hidden rounded-lg border',
+                'flex h-8 items-stretch overflow-hidden rounded-lg border',
                 isAsk && !focusHumansOnly
                   ? 'border-ai'
                   : focusHumansOnly || isReply
@@ -1686,6 +1714,7 @@ export default function ReplyComposer({
               </DropdownMenu>
             ) : null}
             </div>
+            </ComposerDictationRow>
           </div>
         </ComposerCard>
         )}

@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Sparkles, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
-import { draftThreadReply } from '../../lib/inbox-api'
+import { draftComposerText, draftThreadReply } from '../../lib/inbox-api'
+import { cn } from '../../lib/utils'
 import { appendSpeechChunk, useSpeechDictation } from '../../hooks/useSpeechDictation'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
@@ -17,7 +18,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { DictationMicButton } from './DictationMicButton'
+import { DictationLevelMeter, DictationMicButton } from './DictationMicButton'
 
 export type ComposeAiAction =
   | 'compose'
@@ -28,7 +29,8 @@ export type ComposeAiAction =
   | 'friendly'
 
 type Props = {
-  threadId: string
+  /** Existing conversation. Omit to draft from the instruction alone. */
+  threadId?: string | null
   body: string
   disabled?: boolean
   onApply: (text: string, meta?: { fromAi?: boolean }) => void
@@ -135,13 +137,16 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
       toast.error(t('composer.aiNeedText'))
       return
     }
-    if (action === 'compose' && !intent.trim() && !body.trim()) {
-      // Empty compose still drafts from thread context (API default).
+    if (action === 'compose' && !intent.trim() && !body.trim() && !threadId) {
+      toast.error(t('composer.aiNeedText'))
+      return
     }
     setBusy(true)
     try {
       const instruction = buildInstruction(action, body, intentRef.current)
-      const draft = await draftThreadReply(token, threadId, instruction)
+      const draft = threadId
+        ? await draftThreadReply(token, threadId, instruction)
+        : await draftComposerText(token, instruction)
       if (!draft.trim()) {
         toast.error(t('composer.aiEmpty'))
         return
@@ -191,7 +196,10 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
                   ? t('composer.dictationListening')
                   : t('composer.aiIntentPlaceholder')
               }
-              className="w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-2 pl-2.5 pr-11 text-xs leading-5 text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none"
+              className={cn(
+                'w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-2 pl-2.5 text-xs leading-5 text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none',
+                dictation.listening ? 'pr-36' : 'pr-11',
+              )}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault()
@@ -202,6 +210,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
             />
             {dictation.supported ? (
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-1.5">
+                {dictation.listening ? <DictationLevelMeter /> : null}
                 <div className="pointer-events-auto">
                   <DictationMicButton
                     size="sm"

@@ -41,7 +41,7 @@ async def start_run(
     if input_kind not in WORKSTREAM_INPUT_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid input kind: {input_kind}")
     ws = await get_workstream(session, tenant_id, workstream_id)
-    if not ws.enabled:
+    if ws.deleted_at is not None:
         raise HTTPException(status_code=400, detail="Workstream is disabled.")
     now = datetime.utcnow()
     return WorkstreamRun(
@@ -246,7 +246,6 @@ MAX_STEPS_PER_ADVANCE = 30
         '''from app.models.orchestra import (
     WORKSTREAM_INPUT_KINDS,
     Workstream,
-    WorkstreamProject,
     WorkstreamRun,
     WorkstreamStep,
 )

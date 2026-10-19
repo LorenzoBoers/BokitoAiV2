@@ -18,7 +18,7 @@ Everyone who writes in with a real name or address lands here. Open Contacts to 
 
 1. Open a thread in [Communication](/docs/inbox/communication).
 2. For a known person, click their name in the side panel or the thread header to open their contact.
-3. Read their history and other conversations, then jump back to the open work. In the side panel the company sits on the same line as **Contact**. The list spans channels: someone who chats on the website and also emails from the same address shows one combined history, each row marked with its channel icon.
+3. Read their history and other conversations, then jump back to the open work. In the side panel the company sits on the same line as **Contact**. **Other conversations** is a single-line list (status, channel, subject, time). It spans channels: someone who chats on the website and also emails from the same address shows one combined history.
 4. On the contact, **Tags** label the person. Those tags apply to every conversation of this contact (dashed **via contact** chips on the thread). Company tags show as dashed **via company** chips. Changing them refiles every conversation. Above the conversations, **In folders** lists every folder those conversations land in. Click a folder to open it. Companies show the same row for all their people together.
 
 Unknown website visitors stay in the conversation as **Website visitor**. They have no **Profile** and are not listed under Contacts until they fill the widget [pre-chat form](/docs/inbox/widget) or you [link the conversation](#link-a-conversation-to-a-contact).
@@ -58,8 +58,8 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 ![AI handling on a contact](/api/docs/assets/contacts/contact-handling.png)
 *A contact can follow the channel or have its own mode.*
 
-1. Open the contact on Contacts, or open the side panel in a conversation with them.
-2. Find **AI handling** under the contact details in the side panel or on Contacts. It shows the current mode. Open the menu to see what it follows: the inherited mode carries a badge such as **Channel default**.
+1. Open the contact on Contacts.
+2. Find **AI handling** under the profile. It shows the current mode. Open the menu to see what it follows: the inherited mode carries a badge such as **Channel default**. The conversation side panel does not repeat this control; the thread header still sets the mode for that one conversation.
 3. Pick **Autonomous**, **Assisted** or **Manual** to apply it to every conversation with this person. Choose the mode marked **Channel default** to remove it.
 4. On Contacts, filter the list with the **Any AI handling** menu to find contacts with **Custom AI handling** or a specific mode. Rows with their own mode show its icon.
 
@@ -67,7 +67,7 @@ A single conversation can still differ from the contact. See [AI handling](/docs
 
 ## Give a contact a fixed owner
 
-1. Open the contact on Contacts, or open the side panel in a conversation with them. Find the **Owner** row under **AI handling**.
+1. Open the contact on Contacts, or open the side panel in a conversation with them. Find the **Owner** row under the contact details.
 2. Pick a person or a team from the menu; **No fixed owner** clears it.
 3. New conversations from this contact go to that owner when the AI is silent (Manual). On Autonomous or Assisted the agent picks the conversation up first and hands it to the contact owner as soon as a person is needed, before it falls back to the channel team.
 

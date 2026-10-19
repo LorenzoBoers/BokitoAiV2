@@ -22,8 +22,9 @@ Bokito heeft één zijbalk met zeven gebieden. Elk item beantwoordt een andere v
 ## Dagelijkse loop bovenaan
 
 ![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
-*Overview en Communicatie staan boven de gegroepeerde secties.*
+*New chat, Overview en Communicatie staan boven de gegroepeerde secties.*
 
+- **New chat** — opent `/new` om een gesprek te starten.
 - **Overview** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Overview](/docs/getting-started/cockpit). Onder Profiel kun je Overview als startpagina zetten; Communicatie is de standaard.
 - **Communicatie** — de gesprekken, en de contacten erachter. Staat los in de rail (niet onder een sectie). Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
 
@@ -45,7 +46,7 @@ Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).
 
-Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel vul je **Voornaam** en **Achternaam** in (gebruikt in begroetingen en e-mailhandtekeningen), kies je **Startpagina** als **Communicatie** (standaard) of **Overview**, **Weergave** als **Licht**, **Donker** of **Systeem**, en optioneel een persoonlijke **E-mailhandtekening** als terugval wanneer een mailbox ieders eigen handtekening gebruikt of geen gedeelde template heeft. Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**.
+Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel vul je **Voornaam** en **Achternaam** in (gebruikt in begroetingen en e-mailhandtekeningen), kies je **Startpagina** als **Chat** (standaard), **Communicatie** of **Overview**, **Weergave** als **Licht**, **Donker** of **Systeem**, en optioneel een persoonlijke **E-mailhandtekening** als terugval wanneer een mailbox ieders eigen handtekening gebruikt of geen gedeelde template heeft. Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**.
 
 ## Gebruik het commandopalet
 
@@ -58,7 +59,7 @@ Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen
 
 ## Vraag Bokito
 
-1. Kies **Hulp** in de topbalk (naast **Aan de slag** zolang onboarding niet klaar is), of de Bokito-knop rechtsonder op pagina's waar de launcher zichtbaar is. Op Communicatie met een open gesprek blijft de hoek-launcher verborgen zodat die Send niet bedekt; gebruik dan **Hulp** in de topbalk om het paneel geforceerd te openen.
+1. Kies **Hulp** in de topbalk (naast **Aan de slag** zolang onboarding niet klaar is), of de Bokito-knop rechtsonder op pagina's waar de launcher zichtbaar is. Op Communicatie met een open gesprek, en op Nieuw gesprek, blijft de hoek-launcher verborgen zodat die Versturen niet bedekt; gebruik dan **Hulp** in de topbalk om het paneel geforceerd te openen.
 2. Typ je vraag. Bokito weet welke pagina je bekijkt, dus "wat betekent deze status?" werkt zonder uit te leggen waar je bent.
 3. Het gesprek draait met jouw eigen rechten, en Bokito geeft echt werk door aan de agents van de workspace. Zie [Bokito, je assistent](/docs/getting-started/assistant).
 

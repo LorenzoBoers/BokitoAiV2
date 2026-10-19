@@ -185,12 +185,18 @@ async def create_schedule_thread(
 
 
 async def ensure_trigger_thread(
-    session: AsyncSession, trigger: Trigger, *, agent: Agent | None = None
+    session: AsyncSession,
+    trigger: Trigger,
+    *,
+    agent: Agent | None = None,
+    detach_assistant: bool = True,
 ) -> Signal:
     """The thread this rule is the schedule of; created when missing.
 
-    A rule that still points at an assistant chat (the old check-in) moves to
-    its own thread so the chat stays a chat. Caller commits.
+    A legacy check-in that still points at an assistant chat moves to its own
+    thread so that chat stays a chat. An operator (or tool) that already chose
+    this conversation passes ``detach_assistant=False`` and the wake stays here.
+    Caller commits.
     """
     from app.services.ownership import set_owner
 
@@ -198,7 +204,7 @@ async def ensure_trigger_thread(
     if signal is not None and (
         signal.tenant_id != trigger.tenant_id
         or signal.deleted_at is not None
-        or (not trigger.purpose and signal.channel == "assistant")
+        or (detach_assistant and not trigger.purpose and signal.channel == "assistant")
     ):
         signal = None
     created = signal is None
@@ -393,7 +399,9 @@ async def apply_thread_schedule(
         rule.updated_at = datetime.utcnow()
         session.add(rule)
         await session.flush()
-        await ensure_trigger_thread(session, rule, agent=agent)
+        # The caller already picked this conversation (Plan, or a tool with a
+        # signal id). Keep the wake here, including on an assistant chat.
+        await ensure_trigger_thread(session, rule, agent=agent, detach_assistant=False)
     else:
         if rule is not None and rule.kind != "webhook":
             rule.deleted_at = datetime.utcnow()

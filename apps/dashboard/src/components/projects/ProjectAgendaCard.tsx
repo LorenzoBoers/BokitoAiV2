@@ -8,6 +8,8 @@ import { formatAppDate, formatAppTime } from '../../lib/app-locale'
 import { itemStart, layerOf } from '../../lib/agenda-layout'
 import { listTimeItems, timeItemHref, type TimeItem } from '../../lib/time-items'
 import { cn } from '../../lib/utils'
+import { Skeleton } from '../ui/skeleton'
+import { EmptyState } from '../ui/empty-state'
 import { LAYER_DOT, itemSubtitle } from '../agenda/agenda-style'
 
 const MAX_ROWS = 6
@@ -91,14 +93,21 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
       </CardHeader>
       <CardContent>
         {items == null ? (
-          <div className="h-16 animate-pulse rounded-md bg-bg-muted/30" aria-busy="true" />
+          <Skeleton className="h-16 rounded-md" aria-busy="true" />
         ) : rows.length === 0 ? (
-          <p className="text-sm text-text-muted">
-            {t('projects.home.agendaEmpty')}{' '}
-            <Link to={projectAgendaPath(projectId, { plan: true })} className="font-medium text-accent hover:underline">
-              {t('projects.home.agendaPlan')}
-            </Link>
-          </p>
+          <EmptyState
+            tone="plain"
+            size="sm"
+            className="px-0 py-1"
+            title={
+              <>
+                {t('projects.home.agendaEmpty')}{' '}
+                <Link to={projectAgendaPath(projectId, { plan: true })} className="font-medium text-accent hover:underline">
+                  {t('projects.home.agendaPlan')}
+                </Link>
+              </>
+            }
+          />
         ) : (
           <ul className="-mx-1 space-y-0.5">
             {rows.map(({ item, due }) => {

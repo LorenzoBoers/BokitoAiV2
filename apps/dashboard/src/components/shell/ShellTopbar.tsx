@@ -50,36 +50,61 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   ]
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/60 bg-bg pl-2 pr-2">
-      <button
-        type="button"
-        onClick={onOpenNavDrawer}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary lg:hidden"
-        aria-label={t('topbar.openNavigation')}
-      >
-        <Menu size={15} />
-      </button>
+    <header className="relative flex h-11 shrink-0 items-center gap-2 border-b border-border/60 bg-bg pl-2 pr-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenNavDrawer}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary lg:hidden"
+          aria-label={t('topbar.openNavigation')}
+        >
+          <Menu size={15} />
+        </button>
 
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 px-1 text-sm">
-        <span className={`min-w-0 truncate-fade ${crumbs.length ? 'text-text-secondary' : 'font-medium text-text-heading'}`}>
-          {pageTitle}
-        </span>
-        {pageGuide ? <PageGuideLink page={pageGuide} compact className="h-6 w-6" /> : null}
-        {crumbs.map((crumb, index) => {
-          const last = index === crumbs.length - 1
-          return (
-            <span key={`${crumb}-${index}`} className="flex min-w-0 items-center gap-1.5">
-              <span className="shrink-0 text-text-muted/70">/</span>
-              <span className={`min-w-0 truncate-fade ${last ? 'font-medium text-text-heading' : 'text-text-secondary'}`}>
-                {crumb}
+        {/* Breadcrumb */}
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 px-1 text-sm">
+          <span className={`min-w-0 truncate-fade ${crumbs.length ? 'text-text-secondary' : 'font-medium text-text-heading'}`}>
+            {pageTitle}
+          </span>
+          {pageGuide ? <PageGuideLink page={pageGuide} compact className="h-6 w-6" /> : null}
+          {crumbs.map((crumb, index) => {
+            const last = index === crumbs.length - 1
+            return (
+              <span key={`${crumb}-${index}`} className="flex min-w-0 items-center gap-1.5">
+                <span className="shrink-0 text-text-muted/70">/</span>
+                <span className={`min-w-0 truncate-fade ${last ? 'font-medium text-text-heading' : 'text-text-secondary'}`}>
+                  {crumb}
+                </span>
               </span>
-            </span>
-          )
-        })}
-      </nav>
+            )
+          })}
+        </nav>
+      </div>
 
-      <StaffTenantBar />
+      {/* Centered command palette. Conversation search lives in the thread list. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-11 items-center justify-center sm:flex">
+        <Tip label={t('topbar.openPalette')}>
+          <div className="pointer-events-auto w-64">
+            <SearchField
+              value=""
+              onChange={() => {}}
+              size="sm"
+              readOnly
+              placeholder={t('topbar.search')}
+              aria-label={t('topbar.openPalette')}
+              shortcut={isMac ? 'Cmd K' : 'Ctrl K'}
+              onClick={onOpenPalette}
+              onFocus={(event) => {
+                event.currentTarget.blur()
+                onOpenPalette()
+              }}
+            />
+          </div>
+        </Tip>
+      </div>
+
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        <StaffTenantBar />
 
       {setupIncomplete ? (
         <Tip label={t('topbar.resumeSetup')}>
@@ -115,25 +140,6 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         </button>
       </Tip>
 
-      {/* Command palette trigger — conversation search lives in the thread list. */}
-      <Tip label={t('topbar.openPalette')}>
-        <div className="hidden w-56 sm:block">
-          <SearchField
-            value=""
-            onChange={() => {}}
-            size="sm"
-            readOnly
-            placeholder={t('topbar.search')}
-            aria-label={t('topbar.openPalette')}
-            shortcut={isMac ? 'Cmd K' : 'Ctrl K'}
-            onClick={onOpenPalette}
-            onFocus={(event) => {
-              event.currentTarget.blur()
-              onOpenPalette()
-            }}
-          />
-        </div>
-      </Tip>
       <button
         type="button"
         onClick={onOpenPalette}
@@ -143,7 +149,8 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <Search size={14} />
       </button>
 
-      <NotificationDropdown />
+        <NotificationDropdown />
+      </div>
     </header>
   )
 }

@@ -51,11 +51,11 @@ class PreferencesPatch(BaseModel):
 
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
 INBOX_SUB_QUEUES = ("for_you", "open", "unassigned", "closed")
-DEFAULT_LANDINGS = ("communication", "overview")
+DEFAULT_LANDINGS = ("chat", "communication", "overview")
 
 def _default_landing_state(stored: dict) -> str:
     raw = stored.get("default_landing")
-    return raw if raw in DEFAULT_LANDINGS else "communication"
+    return raw if raw in DEFAULT_LANDINGS else "chat"
 
 
 def _outbound_connection_id(stored: dict) -> int | None:
@@ -270,7 +270,7 @@ async def patch_my_preferences(
         if body.default_landing not in DEFAULT_LANDINGS:
             raise HTTPException(
                 status_code=400,
-                detail="default_landing must be communication or overview",
+                detail="default_landing must be chat, communication, or overview",
             )
         stored["default_landing"] = body.default_landing
     if "default_outbound_connection_id" in body.model_fields_set:

@@ -3,7 +3,7 @@ import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import type { ThreadActiveTurn, ThreadOwner, ThreadParticipant } from '../../lib/inbox-api'
 import { floorKey, participantsToAvatarStack } from '../../lib/participant-stack'
-import { AVATAR_STACK_MAX, AvatarStack } from '../ui/AvatarStack'
+import { AvatarStack } from '../ui/AvatarStack'
 
 type Props = {
   participants: ThreadParticipant[]
@@ -11,7 +11,6 @@ type Props = {
   owner?: ThreadOwner | null
   activeTurn?: ThreadActiveTurn
   waitingLabel?: string
-  max?: number
 }
 
 function isOwner(participant: ThreadParticipant, owner: ThreadOwner): boolean {
@@ -27,7 +26,6 @@ export function ParticipantStrip({
   owner = null,
   activeTurn = null,
   waitingLabel,
-  max = AVATAR_STACK_MAX,
 }: Props) {
   const { members: people } = useMembers()
   const { agents } = useAgents()
@@ -62,7 +60,6 @@ export function ParticipantStrip({
           size={18}
           linkAgents={false}
           activeKey={floorKey(activeTurn)}
-          max={max}
           cutout="bg"
         />
       ) : null}

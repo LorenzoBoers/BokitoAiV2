@@ -4,6 +4,7 @@ import { Check, Loader2, MessageSquare } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Badge } from '../ui/badge'
 import { Card } from '../ui/card'
+import { LoadingBlock } from '../ui/loading-block'
 import { OptionCard, OptionCardGrid } from '../ui/option-card'
 import { roleTone } from '../../lib/badge-tones'
 import {
@@ -96,8 +97,8 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
 
   if (loading) {
     return (
-      <Card className="flex items-center gap-2 px-4 py-3 text-sm text-text-muted">
-        <Loader2 size={14} className="animate-spin" /> {t('workforce.agents.chatAccessLoading')}
+      <Card className="px-4 py-3">
+        <LoadingBlock variant="inline" label={t('workforce.agents.chatAccessLoading')} className="text-sm" />
       </Card>
     )
   }

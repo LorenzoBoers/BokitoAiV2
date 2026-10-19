@@ -7,6 +7,8 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { useTranslation } from 'react-i18next'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
+import { LoadingBlock } from '../components/ui/loading-block'
+import { EmptyState } from '../components/ui/empty-state'
 import { buildTenantOrigin, isLocalHostname } from '../lib/host-routing'
 import { useAuth } from '../context/AuthContext'
 import { inboxPath } from '../lib/messages-paths'
@@ -156,7 +158,7 @@ export default function Workspaces() {
   if (workspaceLoading) {
     return (
       <div className="mx-auto w-full max-w-[920px] px-2 py-6">
-        <p className="text-sm text-text-muted">{t('loading')}</p>
+        <LoadingBlock variant="skeleton" rows={4} />
       </div>
     )
   }
@@ -181,7 +183,7 @@ export default function Workspaces() {
           ) : null}
           <div className={`grid gap-4 ${workspaces.length === 0 ? 'mx-auto max-w-[460px] grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
             {visibleWorkspaces.length === 0 && workspaceQuery.trim() ? (
-              <p className="col-span-full text-center text-sm text-text-muted">{t('filterEmpty')}</p>
+              <EmptyState tone="plain" size="sm" className="col-span-full px-0 py-4" title={t('filterEmpty')} />
             ) : null}
             {visibleWorkspaces.map((workspace) => {
               const isCurrent = currentWorkspace?.id === workspace.id

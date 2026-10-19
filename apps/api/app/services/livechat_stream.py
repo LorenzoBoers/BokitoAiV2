@@ -276,6 +276,13 @@ async def widget_stream_events(
         attachments=attachments,
     ):
         if event.get("type") == "delta":
+            parts = event.get("parts")
+            if isinstance(parts, list):
+                texts = [str(part) for part in parts if str(part).strip()]
+                if texts:
+                    full_text = "\n\n".join(texts)
+                    yield f"data: {json.dumps({'type': 'parts', 'parts': texts})}\n\n"
+                    continue
             chunk = str(event.get("text") or "")
             if not chunk:
                 continue

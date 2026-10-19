@@ -18,6 +18,8 @@ import {
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
+import { LoadingBlock } from '../ui/loading-block'
 import { Input } from '../ui/input'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -148,20 +150,23 @@ export function ProjectResourcesSection({
   }
 
   if (loading) {
-    return <p className="text-sm text-text-muted">{t('projects.work.resourcesLoading')}</p>
+    return <LoadingBlock variant="skeleton" rows={3} />
   }
 
   return (
     <div className="space-y-2">
       {resources.length === 0 ? (
-        <div className="space-y-1.5">
-          <p className="text-sm text-text-muted">{t('projects.work.resourcesEmpty')}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <EmptyState
+          tone="plain"
+          size="sm"
+          className="px-0 py-2"
+          title={t('projects.work.resourcesEmpty')}
+          footer={
             <Link to="/connections" className="text-xs font-medium text-accent hover:underline">
               {t('projects.work.openIntegrations')}
             </Link>
-          </div>
-        </div>
+          }
+        />
       ) : (
         <ul className="space-y-1.5">
           {resources.map((resource) => {

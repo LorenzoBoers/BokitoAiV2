@@ -1,25 +1,25 @@
-"""A module install is one department. Shipped items hang on that row.
+"""One-time module drop onto a department (origin_module_slug).
 
-Exclusivity (exactly one of department_id or agent_id) is checked here for
-rows the install writes. It is not a table CHECK: older docs may have neither.
+After the first materialization, operators own the island — no re-stamp,
+skill overwrite, or flow stage rebuild on later calls.
+See docs/architecture/module-one-time-drop.md.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.module_install import ModuleInstall
 from app.models.module_source import ModuleSource
 from app.models.orchestra import Workstream
 from app.models.signal import SignalTag
 from app.models.team import Department, DepartmentMember, is_root_department
 from app.models.workspace import WorkspaceDoc
+from app.services.module_origin import get_module_department
 
 
 def require_one_scope(
@@ -39,11 +39,7 @@ def doc_in_agent_scope(
     membership: set[UUID],
     agent_id: UUID | None,
 ) -> bool:
-    """True when an agent run may score this document.
-
-    Membership is the agent's departments plus ancestors (All included when
-    they belong to a child). A null department and a null agent stay out.
-    """
+    """True when an agent run may score this document."""
     if agent_id is not None and doc_agent_id == agent_id:
         return True
     if doc_department_id is not None and doc_department_id in membership:
@@ -56,47 +52,40 @@ async def ensure_module_department(
     tenant_id: UUID,
     slug: str,
 ) -> Department:
-    """Create or reuse the department this install owns."""
+    """Create or return the origin department for this module slug (idempotent)."""
     from app.modules.catalog import MODULE_BY_SLUG
-    from app.services.teams import create_team, get_team
+    from app.services.teams import create_team
+
+    existing = await get_module_department(session, tenant_id, slug)
+    if existing is not None and not is_root_department(existing):
+        return existing
 
     module = MODULE_BY_SLUG[slug]
-    install = (
-        await session.execute(
-            select(ModuleInstall).where(
-                ModuleInstall.tenant_id == tenant_id,
-                ModuleInstall.module_slug == slug,
-            )
-        )
-    ).scalar_one_or_none()
-    if install is None:
-        raise ValueError("Module install not found")
-    if install.department_id:
-        current = await get_team(session, tenant_id, install.department_id)
-        if current is not None and not is_root_department(current):
-            return current
+    # Prefer an unused department that already has this name (legacy installs).
     named = (
         await session.execute(
             select(Department).where(
                 Department.tenant_id == tenant_id,
                 Department.name == module.name,
                 Department.deleted_at.is_(None),
+                Department.origin_module_slug.is_(None),
             )
         )
     ).scalar_one_or_none()
     if named is not None and not is_root_department(named):
-        install.department_id = named.id
-        session.add(install)
+        named.origin_module_slug = slug
+        session.add(named)
         await session.flush()
         return named
+
     created = await create_team(
         session,
         tenant_id,
         name=module.name,
         description=module.description[:300],
     )
-    install.department_id = created.id
-    session.add(install)
+    created.origin_module_slug = slug
+    session.add(created)
     await session.flush()
     return created
 
@@ -138,7 +127,7 @@ async def _add_agent_member(
     )
 
 
-async def _copy_skill(
+async def _copy_skill_once(
     session: AsyncSession, tenant_id: UUID, slug: str, department_id: UUID
 ) -> None:
     from app.modules.catalog import MODULE_SKILL_DIR
@@ -148,10 +137,26 @@ async def _copy_skill(
     if not path.is_file():
         return
     require_one_scope(department_id=department_id, agent_id=None)
+    doc_path = f"modules/{slug}/skill.md"
+    existing = (
+        await session.execute(
+            select(WorkspaceDoc).where(
+                WorkspaceDoc.tenant_id == tenant_id,
+                WorkspaceDoc.path == doc_path,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        # Create-once: never overwrite operator-edited skill content.
+        if existing.department_id is None:
+            existing.department_id = department_id
+            existing.agent_id = None
+            session.add(existing)
+        return
     doc = await upsert_doc(
         session,
         tenant_id,
-        path=f"modules/{slug}/skill.md",
+        path=doc_path,
         content=path.read_text(encoding="utf-8"),
         kind="skill",
         title=f"{slug} skill",
@@ -179,7 +184,7 @@ def _stage_key(name: str, index: int) -> str:
     return (slug or f"stage-{index}")[:64]
 
 
-async def _copy_flows(
+async def _copy_flows_once(
     session: AsyncSession, tenant_id: UUID, slug: str, department_id: UUID
 ) -> None:
     from app.modules.catalog import module_workstream_templates
@@ -197,6 +202,11 @@ async def _copy_flows(
                 )
             )
         ).scalar_one_or_none()
+        if existing is not None:
+            if existing.department_id is None:
+                existing.department_id = department_id
+                session.add(existing)
+            continue
         stages = []
         last = len(template.steps) - 1
         for index, step in enumerate(template.steps):
@@ -208,25 +218,18 @@ async def _copy_flows(
                     "kind": _stage_kind(str(step.get("kind") or ""), last=index == last),
                 }
             )
-        if existing is None:
-            existing = Workstream(
-                tenant_id=tenant_id,
-                name=template.name,
-                description=template.description,
-                module_slug=slug,
-                template_slug=template.slug,
-                department_id=department_id,
-                stages_json=json.dumps(stages),
-            )
-            session.add(existing)
-            await session.flush()
-        else:
-            existing.department_id = department_id
-            if not (existing.stages_json or "").strip() or existing.stages_json == "[]":
-                existing.stages_json = json.dumps(stages)
-            session.add(existing)
-            await session.flush()
-        await sync_flow_stages(session, existing)
+        flow = Workstream(
+            tenant_id=tenant_id,
+            name=template.name,
+            description=template.description,
+            module_slug=slug,
+            template_slug=template.slug,
+            department_id=department_id,
+            stages_json=json.dumps(stages),
+        )
+        session.add(flow)
+        await session.flush()
+        await sync_flow_stages(session, flow)
 
 
 async def bind_module_department(
@@ -236,15 +239,16 @@ async def bind_module_department(
     *,
     agent_id: UUID | None = None,
 ) -> Department:
-    """Point the install, sources, skill, label and flows at one department.
+    """One-time materialize: create origin dept + missing seeds/tags/flows/skill.
 
-    Platform source rows are seeded by the install write. This stamps them;
-    it does not start another crawl.
+    Idempotent. Does not overwrite existing skill content or flow stages.
+    Only stamps ``department_id`` on rows that still have none.
     """
     department = await ensure_module_department(session, tenant_id, slug)
     require_one_scope(department_id=department.id, agent_id=None)
     if agent_id is not None:
         await _add_agent_member(session, tenant_id, department.id, agent_id)
+
     sources = (
         await session.execute(
             select(ModuleSource).where(
@@ -254,15 +258,18 @@ async def bind_module_department(
         )
     ).scalars().all()
     for source in sources:
-        source.department_id = department.id
-        session.add(source)
+        if source.department_id is None:
+            source.department_id = department.id
+            session.add(source)
         if source.workspace_doc_id:
             doc = await session.get(WorkspaceDoc, source.workspace_doc_id)
-            if doc is not None:
+            if doc is not None and doc.department_id is None:
                 doc.department_id = department.id
                 doc.agent_id = None
                 session.add(doc)
-    await _copy_skill(session, tenant_id, slug, department.id)
+
+    await _copy_skill_once(session, tenant_id, slug, department.id)
+
     tags = (
         await session.execute(
             select(SignalTag).where(
@@ -272,9 +279,11 @@ async def bind_module_department(
         )
     ).scalars().all()
     for tag in tags:
-        tag.department_id = department.id
-        session.add(tag)
-    await _copy_flows(session, tenant_id, slug, department.id)
+        if tag.department_id is None:
+            tag.department_id = department.id
+            session.add(tag)
+
+    await _copy_flows_once(session, tenant_id, slug, department.id)
     await session.commit()
     await session.refresh(department)
     return department
@@ -283,25 +292,10 @@ async def bind_module_department(
 async def archive_module_department(
     session: AsyncSession, tenant_id: UUID, slug: str
 ) -> None:
-    """Uninstall moves the install's department to the bin."""
-    from app.services.teams import delete_team, get_team
+    """Soft-delete the origin department (module de-install)."""
+    from app.services.teams import delete_team
 
-    install = (
-        await session.execute(
-            select(ModuleInstall).where(
-                ModuleInstall.tenant_id == tenant_id,
-                ModuleInstall.module_slug == slug,
-            )
-        )
-    ).scalar_one_or_none()
-    if install is None or install.department_id is None:
-        return
-    department = await get_team(session, tenant_id, install.department_id)
-    install.department_id = None
-    install.updated_at = datetime.utcnow()
-    session.add(install)
-    await session.flush()
+    department = await get_module_department(session, tenant_id, slug)
     if department is None or is_root_department(department):
-        await session.commit()
         return
     await delete_team(session, department, permanent=False)

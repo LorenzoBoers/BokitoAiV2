@@ -1,7 +1,18 @@
 """Stacked message reactions (LinkedIn-style) and learning bridge."""
 
+from uuid import uuid4
+
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.agent import Agent
+from app.models.auth import Tenant
+from app.models.message_reaction import MessageReaction
+from app.models.signal import Signal, SignalMessage
+from app.tools.builtin import _react_to_message
+from app.tools.registry import ToolContext
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
@@ -119,3 +130,67 @@ async def test_legacy_feedback_maps_to_reactions(client: AsyncClient, session_ov
     message = next(m for m in thread.json()["messages"] if m["id"] == message_id)
     assert message["reactions"]["mine"] == "up"
     assert message["my_feedback"] == {"score": 5, "sentiment": "up"}
+
+
+@pytest.mark.asyncio
+async def test_react_tool_resolves_latest_when_id_is_not_a_message(session_override: AsyncSession):
+    tenant = Tenant(slug=f"react-{uuid4().hex[:8]}", name="React")
+    session_override.add(tenant)
+    await session_override.commit()
+    agent = Agent(tenant_id=tenant.id, name="Assistant", kind="personal")
+    signal = Signal(
+        tenant_id=tenant.id, channel="assistant", source="chat", subject="Thumbs", status="open"
+    )
+    session_override.add_all([agent, signal])
+    await session_override.commit()
+    older = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant.id,
+        kind="user_message",
+        direction="inbound",
+        role="user",
+        body_text="earlier",
+    )
+    latest = SignalMessage(
+        signal_id=signal.id,
+        tenant_id=tenant.id,
+        kind="user_message",
+        direction="inbound",
+        role="user",
+        body_text="Kan je mijn bericht een thumbs up geven",
+    )
+    session_override.add_all([older, latest])
+    await session_override.commit()
+
+    ctx = ToolContext(
+        session=session_override,
+        tenant_id=tenant.id,
+        user_id=None,
+        agent=agent,
+        signal_id=signal.id,
+    )
+    invented = await _react_to_message(
+        ctx, {"message_id": "u34_1792089045", "kind": "up", "signal_id": "u34_1792089045"}
+    )
+    assert invented["ok"] is True
+    assert invented["message_id"] == str(latest.id)
+    assert invented["resolved"] == "latest_user_message"
+
+    # Same kind again toggles off; conversation id must not 404 the turn.
+    cleared = await _react_to_message(ctx, {"message_id": str(signal.id), "kind": "up"})
+    assert cleared["ok"] is True
+    assert cleared["message_id"] == str(latest.id)
+    assert cleared["reactions"]["mine"] is None
+
+    targeted = await _react_to_message(ctx, {"message_id": str(older.id), "kind": "up"})
+    assert targeted["ok"] is True
+    assert targeted["message_id"] == str(older.id)
+    assert "resolved" not in targeted
+
+    rows = (
+        await session_override.execute(
+            select(MessageReaction).where(MessageReaction.message_id == older.id)
+        )
+    ).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].kind == "up"

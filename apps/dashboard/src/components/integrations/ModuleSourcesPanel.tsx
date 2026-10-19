@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
 import { useConfirm } from '../ui/confirm-dialog'
 import {
   createModuleSource,
@@ -93,7 +94,7 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-text-muted">{t('integrations.modules.sources.empty')}</p>
+        <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('integrations.modules.sources.empty')} />
       ) : (
         <ul className="space-y-2">
           {rows.map((row) => (

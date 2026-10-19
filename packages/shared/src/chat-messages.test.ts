@@ -5,7 +5,7 @@ describe('splitChatMessages', () => {
   it('starts a new message at every blank line', () => {
     expect(splitChatMessages('Hi Ann\n\nYour order ships today.\nTrack it below.')).toEqual([
       'Hi Ann',
-      'Your order ships today.\nTrack it below.',
+      'Your order ships today. Track it below.',
     ])
   })
 
@@ -26,7 +26,7 @@ describe('splitChatMessages', () => {
   it('caps the number of messages and joins the rest into the last', () => {
     const parts = splitChatMessages('one\n\ntwo\n\nthree\n\nfour\n\nfive\n\nsix', 5)
     expect(parts).toHaveLength(5)
-    expect(parts[4]).toBe('five\n\nsix')
+    expect(parts[4]).toBe('five six')
   })
 })
 

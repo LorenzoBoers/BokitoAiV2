@@ -18,6 +18,7 @@ import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-pref
 import { lastInboxPath } from './lib/inbox-prefs'
 import { legacyModulesPath } from './lib/integration-kind-url'
 import { CockpitPanelsSkeleton, Skeleton } from './components/ui/skeleton'
+import { LoadingBlock } from './components/ui/loading-block'
 import {
   agentChatPath,
   channelPath,
@@ -116,14 +117,13 @@ function LastInboxRedirect() {
 }
 
 function HomeRoute() {
-  const { t } = useTranslation('nav')
   const { workspaceLoading, workspaces, currentWorkspace } = useWorkspace()
   const { user } = useAuth()
   const tenantSubdomain = resolveTenantSubdomainFromHost()
   const landing = pathForDefaultLanding()
 
   if (workspaceLoading) {
-    return <div className="py-6 text-sm text-text-muted">{t('app.loadingWorkspaces')}</div>
+    return <LoadingBlock variant="skeleton" rows={4} className="px-5 py-6" />
   }
 
   if (tenantSubdomain) {
@@ -338,6 +338,7 @@ export default function App() {
           {/* Communication hub: chats + customers + agents */}
           <Route element={<MessagesHub />}>
             <Route path="/communication" element={<LastInboxRedirect />} />
+            <Route path="/new" element={<NewConversationPage />} />
             <Route path="/communication/new" element={<NewConversationPage />} />
 
             {/* Inbox queues */}

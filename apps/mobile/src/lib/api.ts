@@ -406,8 +406,10 @@ export type ChatTarget = {
   name: string
   kind: string
   role?: string
+  role_name?: string
   runtime_status?: string
   is_default?: boolean
+  is_lead?: boolean
 }
 
 export type ChatTargetsResponse = {
@@ -421,11 +423,13 @@ export const createConversation = (
   title?: string,
   agentId?: string,
   contextSignalId?: string,
+  message?: string,
 ) =>
-  apiPost<Conversation>('/api/signals/conversations', {
+  apiPost<Conversation & { has_opener?: boolean }>('/api/signals/conversations', {
     ...(title ? { title } : {}),
     ...(agentId ? { agent_id: agentId } : {}),
     ...(contextSignalId ? { context_signal_id: contextSignalId } : {}),
+    ...(message?.trim() ? { message: message.trim() } : {}),
   })
 
 export const renameConversation = (conversationId: string, title: string) =>
@@ -447,6 +451,14 @@ export const sendChatMessage = (conversationId: string, content: string) =>
 
 export const listChatTargets = () => apiGet<ChatTargetsResponse>('/api/signals/chat/targets')
 
+/** True when this workspace has a WhatsApp number that can send. */
+export async function hasSendableWhatsapp(): Promise<boolean> {
+  const data = await apiGet<{ accounts?: { channel?: string; is_enabled?: boolean }[] }>(
+    '/api/channels/accounts',
+  )
+  return (data.accounts ?? []).some((row) => row.channel === 'whatsapp' && row.is_enabled !== false)
+}
+
 /**
  * Send a message and stream the assistant reply over SSE.
  * Calls `onDelta` for each text chunk; resolves with the final text.
@@ -456,6 +468,7 @@ export async function streamChatMessage(
   content: string,
   onDelta: (text: string) => void,
   signal?: AbortSignal,
+  options?: { continuePending?: boolean },
 ): Promise<string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`
@@ -463,7 +476,7 @@ export async function streamChatMessage(
   const res = await fetch(`${API_URL}/api/signals/conversations/${conversationId}/stream`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, continue_pending: Boolean(options?.continuePending) }),
     signal,
   })
   if (!res.ok || !res.body) {

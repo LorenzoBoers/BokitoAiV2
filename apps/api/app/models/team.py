@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
+from sqlalchemy import Index, text
 from sqlmodel import Field, SQLModel
 
 # Custom departments nest under the All root (parent_id null, name All).
@@ -20,9 +22,27 @@ class Department(SQLModel, table=True):
 
     Every tenant has one root **All** (``parent_id`` null, name All). Custom
     departments are children of All (or of another custom department).
+
+    ``origin_module_slug`` marks a department created by a one-time module drop
+    (see docs/architecture/module-one-time-drop.md). At most one live row per
+    tenant+slug.
     """
 
     __tablename__ = "departments"
+    __table_args__ = (
+        Index(
+            "uq_departments_tenant_origin_module",
+            "tenant_id",
+            "origin_module_slug",
+            unique=True,
+            postgresql_where=text(
+                "origin_module_slug IS NOT NULL AND deleted_at IS NULL"
+            ),
+            sqlite_where=text(
+                "origin_module_slug IS NOT NULL AND deleted_at IS NULL"
+            ),
+        ),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
@@ -36,9 +56,11 @@ class Department(SQLModel, table=True):
     parent_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="departments.id", index=True
     )
+    # Catalog slug when this island was created by a module install drop.
+    origin_module_slug: Optional[str] = Field(default=None, max_length=64, index=True)
     # Round-robin cursor: the member key that was picked last.
     last_pick: str = ""
-    # Legacy light prefs; team marks are member facepiles (not editable).
+    # Legacy light prefs; module prefs live under settings_json.modules.
     settings_json: str = Field(default="{}")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -48,6 +70,13 @@ class Department(SQLModel, table=True):
 
 
 MEMBER_DUTIES = ("primary", "backup", "member")
+
+
+class WorkforceMemberType(str, Enum):
+    """Directory type on Workforce. Stored on agents; people are ``person``."""
+
+    person = "person"
+    ai_agent = "ai_agent"
 
 
 class DepartmentMember(SQLModel, table=True):

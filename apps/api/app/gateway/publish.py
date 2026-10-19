@@ -98,7 +98,7 @@ async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
         return None
 
 
-TURN_EVENTS = frozenset({"agent.turn", "agent.activity", "agent.thinking", "message.delta"})
+TURN_EVENTS = frozenset({"agent.turn", "agent.activity", "agent.thinking", "message.delta", "message.part"})
 # Ephemeral "someone is doing something on this thread" — agent think/work
 # and later WhatsApp / teammate typing. Never a SignalMessage row.
 THREAD_PRESENCE_PHASES = frozenset({"thinking", "working", "writing", "typing", "idle"})
@@ -127,7 +127,7 @@ def _presence_from_turn(event: str, data: dict[str, Any]) -> dict[str, Any] | No
             "delta": data.get("delta"),
             "item": {"id": data.get("item_id"), "kind": "think"} if data.get("item_id") else None,
         }
-    if event == "message.delta":
+    if event in ("message.delta", "message.part"):
         return {
             "phase": "writing",
             "stream_id": stream_id,
@@ -200,7 +200,7 @@ async def publish_turn_event(
     if event not in TURN_EVENTS:
         raise ValueError(f"Unknown turn event: {event}")
     payload = {"signal_id": str(signal_id), **data}
-    if event == "message.delta":
+    if event in ("message.delta", "message.part"):
         payload["audience"] = "all"
     else:
         # Thinking, tool activity and turn bookends stay on the operator socket.

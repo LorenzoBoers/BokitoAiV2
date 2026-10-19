@@ -320,18 +320,48 @@ class RealtimeClient {
 }
 
 /**
+ * Speech blocks already split by the turn recorder. The widget draws these
+ * strings; it does not run `splitChatMessages` on them.
+ */
+function speechTexts(data) {
+  const blocks = data?.surface?.blocks;
+  if (!Array.isArray(blocks)) return null;
+  const texts = [];
+  for (const block of blocks) {
+    if (!block || block.type !== 'speech') continue;
+    const text = String(block.text || '');
+    if (!text.trim()) continue;
+    texts.push(text);
+  }
+  return texts;
+}
+
+/**
  * Map gateway frames onto the legacy widget realtime shape
  * (`{ event_type, object }`) so the existing render pipeline keeps working.
  *
  * Live agent turns use `agent.activity` / `agent.turn` / `message.delta`
- * (see apps/api/app/services/agent/turn.py). Legacy `tool_started` frames
- * are no longer published; map activity items onto those UI events instead.
+ * (see apps/api/app/services/agent/turn.py). When the frame carries
+ * `surface.blocks`, those speech texts replace the bubble list. Legacy
+ * `tool_started` frames are no longer published; map activity items onto
+ * those UI events instead.
  */
 function gatewayFrameToWidgetEvent(frame) {
   const event = frame?.event;
   const data = frame?.data || {};
 
-  if (event === 'message.delta') {
+  if (event === 'message.delta' || event === 'message.part') {
+    const texts = speechTexts(data);
+    if (texts && (texts.length || event === 'message.part')) {
+      return {
+        event_type: 'speech_surface',
+        object: {
+          parts: texts,
+          created_at: data.ts || new Date().toISOString(),
+        },
+      };
+    }
+    if (event === 'message.part') return null;
     const delta = data.delta || '';
     if (!delta) return null;
     return {
@@ -1269,6 +1299,8 @@ class BokitoChatWidget extends HTMLElement {
   #liveSealedCount = 0;
   #livePaintSendMeta = null;
   #livePaintDoneResolve = null;
+  /** Speech bubbles from the livechat `parts` event. When set, paint does not split. */
+  #serverSpeechParts = null;
   #pendingAttachments = []; // [{ localUrl, id, url, uploading }]
   #nonBlockingSend = true;
   /** In-flight POST /conversation so the first message does not double-create. */
@@ -4101,6 +4133,7 @@ class BokitoChatWidget extends HTMLElement {
     this.#liveSealedEls = [];
     this.#liveSealedCount = 0;
     this.#livePaintSendMeta = null;
+    this.#serverSpeechParts = null;
     if (this.#livePaintDoneResolve) {
       this.#livePaintDoneResolve();
       this.#livePaintDoneResolve = null;
@@ -4162,10 +4195,29 @@ class BokitoChatWidget extends HTMLElement {
   }
 
   #paintLiveVisible(visible, writing) {
+    if (Array.isArray(this.#serverSpeechParts)) {
+      this.#paintBubbles(this.#serverSpeechParts, writing);
+      return;
+    }
     const parts = splitChatMessages(visible);
-    const bubbles = parts.length ? parts : writing ? [''] : [];
-    while (this.#liveSealedCount < Math.max(0, bubbles.length - (writing ? 1 : 0))) {
-      const text = bubbles[this.#liveSealedCount] || '';
+    this.#paintBubbles(parts, writing);
+  }
+
+  /**
+   * Draw the bubble list the server already decided. Earlier bubbles stay
+   * sealed; the last one keeps the streaming caret while `writing` is set.
+   * A shorter list drops the extra nodes (a `message.part` rewrite).
+   */
+  #paintBubbles(bubbles, writing) {
+    const list = bubbles.length ? bubbles : writing ? [''] : [];
+    const keepSealed = Math.max(0, list.length - (writing ? 1 : 0));
+    while (this.#liveSealedCount > keepSealed) {
+      const extra = this.#liveSealedEls.pop();
+      extra?.remove();
+      this.#liveSealedCount = this.#liveSealedEls.length;
+    }
+    while (this.#liveSealedCount < keepSealed) {
+      const text = list[this.#liveSealedCount] || '';
       if (this.#streamingMsgEl) {
         const body = this.#bubbleBody(this.#streamingMsgEl);
         if (body) body.textContent = text;
@@ -4174,17 +4226,24 @@ class BokitoChatWidget extends HTMLElement {
         this.#streamingMsgEl = null;
       }
       this.#liveSealedCount += 1;
-      if (writing || this.#liveSealedCount < bubbles.length) {
+      if (writing || this.#liveSealedCount < list.length) {
         this.#ensureLiveStreamShell();
       }
     }
-    const last = bubbles[bubbles.length - 1] ?? '';
+    for (let i = 0; i < this.#liveSealedEls.length; i += 1) {
+      const body = this.#bubbleBody(this.#liveSealedEls[i]);
+      if (body) body.textContent = list[i] || '';
+    }
+    const last = list[list.length - 1] ?? '';
     if (writing || last) {
       const el = this.#ensureLiveStreamShell();
       const body = this.#bubbleBody(el);
       if (body) body.textContent = last;
       el.classList.toggle('bk-msg--streaming', Boolean(writing));
       this.#streamingMsgEl = el;
+    } else if (this.#streamingMsgEl) {
+      this.#streamingMsgEl.remove();
+      this.#streamingMsgEl = null;
     }
     this.#recomputeMessageStacks();
     this.#scrollToBottom();
@@ -4705,6 +4764,21 @@ class BokitoChatWidget extends HTMLElement {
     }
   }
 
+  #sseApplyParts(state, parts, sendMeta) {
+    const texts = (Array.isArray(parts) ? parts : [])
+      .map((part) => String(part || ''))
+      .filter((part) => part.trim());
+    if (!texts.length) return;
+    if (sendMeta && this.#activeSend !== sendMeta) return;
+    state.hadTokenChunks = true;
+    state.fullContent = texts.join('\n\n');
+    this.#streamPaintSource = 'sse';
+    this.#serverSpeechParts = texts;
+    this.#hideThinkingForSpeech();
+    this.#paintBubbles(texts, true);
+    state.streamEl = this.#streamingMsgEl;
+  }
+
   #sseApplyTokenChunk(state, evt, sendMeta) {
     if (evt.t === undefined || evt.t === null) return;
     const chunk = String(evt.t);
@@ -4949,7 +5023,9 @@ class BokitoChatWidget extends HTMLElement {
             let evt;
             try { evt = JSON.parse(jsonStr); } catch { continue; }
 
-            if (evt.t !== undefined) {
+            if (evt.type === 'parts') {
+              this.#sseApplyParts(state, evt.parts, sendMeta);
+            } else if (evt.t !== undefined) {
               this.#sseApplyTokenChunk(state, evt, sendMeta);
             } else if (evt.type === 'title') {
               this.#updateConversationTitle(evt.conversation_id, evt.title);
@@ -5081,7 +5157,9 @@ class BokitoChatWidget extends HTMLElement {
             let evt;
             try { evt = JSON.parse(jsonStr); } catch { continue; }
 
-            if (evt.t !== undefined) {
+            if (evt.type === 'parts') {
+              this.#sseApplyParts(state, evt.parts, sendMeta);
+            } else if (evt.t !== undefined) {
               this.#sseApplyTokenChunk(state, evt, sendMeta);
             } else if (evt.type === 'message_break') {
               this.#sseBreakBubble(state, sendMeta);
@@ -5268,6 +5346,16 @@ class BokitoChatWidget extends HTMLElement {
   #handleRealtimeEvent(data) {
     const type = data.event_type, obj = data.object || {};
     switch (type) {
+      case 'speech_surface': {
+        this.#markProcessingActivity();
+        const parts = Array.isArray(obj.parts) ? obj.parts.map((part) => String(part || '')) : [];
+        if (!this.#activeSend && (this.#suppressedAiQuota > 0 || (Date.now() - this.#lastAbortAt) <= this.#staleSuppressGraceMs)) break;
+        if (this.#streamPaintSource === 'sse') break;
+        this.#streamPaintSource = 'ws';
+        this.#thinkingSteps.innerHTML = '';
+        this.#paintBubbles(parts.filter((part) => part.trim()), parts.length > 0);
+        break;
+      }
       case 'streaming_delta': {
         this.#markProcessingActivity();
         const delta = obj.delta || '';

@@ -5,6 +5,7 @@ import { AlertTriangle, AtSign, Bell, CalendarClock, ChevronDown, ChevronRight, 
 import { useNotifications, type AppNotification, type NotificationKind } from '../../context/NotificationContext'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { translateNotificationCopy } from '../../lib/activity-labels'
 import { collapseNotifications, type GroupedNotification } from '../../lib/notification-groups'
@@ -181,26 +182,31 @@ export default function NotificationDropdown() {
 
         <div className="space-y-1 max-h-96 overflow-y-auto">
           {groupedNotifications.length === 0 && digestNotifications.length === 0 ? (
-            <div className="py-6 text-center">
-              <p className="text-sm text-text-muted">{t('notificationsUi.empty')}</p>
-              <p className="mt-1 text-xs text-text-muted">{t('notificationsUi.emptyHint')}</p>
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-                <button
-                  type="button"
-                  onClick={() => navigate(forYouPath())}
-                  className="text-xs font-medium text-accent hover:underline"
-                >
-                  {t('notificationsUi.openForYou')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/settings/channels')}
-                  className="text-xs font-medium text-accent hover:underline"
-                >
-                  {t('notificationsUi.openChannels')}
-                </button>
-              </div>
-            </div>
+            <EmptyState
+              tone="plain"
+              size="sm"
+              className="px-2 py-4"
+              title={t('notificationsUi.empty')}
+              description={t('notificationsUi.emptyHint')}
+              footer={
+                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate(forYouPath())}
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    {t('notificationsUi.openForYou')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/settings/channels')}
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    {t('notificationsUi.openChannels')}
+                  </button>
+                </div>
+              }
+            />
           ) : (
             <>
               {groupedNotifications.map((notification, index) => {

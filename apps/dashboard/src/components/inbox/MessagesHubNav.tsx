@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { EmptyState } from '../ui/empty-state'
 import {
   DndContext,
   PointerSensor,
@@ -36,8 +37,8 @@ import type { EmailConnection } from '../../lib/email-api'
 import { countForInboxQueue, countForTeam } from '../../lib/nav-badge-counts'
 import type { SidebarSection } from '../../lib/communication-sidebar-prefs'
 import {
-  AGENT_SUB_QUEUES,
-  CHANNEL_SUB_QUEUES,
+  INBOX_WORK_QUEUES,
+  TEAM_SUB_QUEUES,
   inboxPath,
   leafFromPath,
   leafKey,
@@ -196,13 +197,16 @@ const MAILBOX_LOGO: Partial<Record<EmailConnection['provider'], string>> = {
 }
 
 function MailboxMark({ provider, size = 14 }: { provider: EmailConnection['provider']; size?: number }) {
-  // SMTP/IMAP has no brand mark — use the same envelope as other plain mail.
+  // SMTP/IMAP and Bokito address: same Lucide envelope; IMAP muted, Bokito accent.
   if (provider === 'smtp_imap') {
-    return <Mail size={size} className="shrink-0 text-text-heading" aria-hidden />
+    return <Mail size={size} className="shrink-0 text-text-muted" aria-hidden />
+  }
+  if (provider === 'bokito') {
+    return <Mail size={size} className="shrink-0 text-accent" aria-hidden />
   }
   const src = MAILBOX_LOGO[provider]
   if (!src) {
-    return <Mail size={size} className="shrink-0 text-text-heading" aria-hidden />
+    return <Mail size={size} className="shrink-0 text-text-muted" aria-hidden />
   }
   return (
     <img
@@ -331,7 +335,7 @@ function ChannelsSection({
           title={folder.title}
           activeLeaf={activeLeaf}
           defaultQueue="open"
-          queues={CHANNEL_SUB_QUEUES}
+          queues={[]}
           headerAction={
             folder.leaf.type === 'channel' &&
             folder.leaf.channelKey === 'email' &&
@@ -382,7 +386,7 @@ function AgentFolderRow({
       }
       activeLeaf={activeLeaf}
       defaultQueue="open"
-      queues={AGENT_SUB_QUEUES}
+      queues={[]}
       headerAction={
         <ComposePlusLink
           to={newConversationPath({ intent: 'agent', agentId: agent.id })}
@@ -450,20 +454,25 @@ function AgentsSection({
     <div className="space-y-px">
       {loading ? <NavSectionSkeleton rows={2} /> : null}
       {!loading && agents.length === 0 ? (
-        <div className="space-y-1 px-2 py-1">
-          <p className="text-xs text-text-muted">{t('support.agents.empty')}</p>
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-            <Link to="/agents" className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline">
-              {t('tabs.agents.title')}
-            </Link>
-            <Link
-              to="/settings/setup"
-              className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline"
-            >
-              {t('support.settings.setupGuide')}
-            </Link>
-          </div>
-        </div>
+        <EmptyState
+          tone="plain"
+          size="sm"
+          className="px-2 py-1"
+          title={t('support.agents.empty')}
+          footer={
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+              <Link to="/agents" className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline">
+                {t('tabs.agents.title')}
+              </Link>
+              <Link
+                to="/settings/setup"
+                className="text-xs font-medium text-text-secondary hover:text-text-heading hover:underline"
+              >
+                {t('support.settings.setupGuide')}
+              </Link>
+            </div>
+          }
+        />
       ) : null}
       {agents.map((agent) => (
         <AgentFolderRow
@@ -607,7 +616,6 @@ export default function MessagesHubNav() {
         ticketTags={nav.ticketTags}
         loading={!navLoaded}
         activeLeaf={activeLeaf}
-        defaultQueueFor={defaultQueueFor}
         t={t}
       />
     ),
@@ -651,7 +659,9 @@ export default function MessagesHubNav() {
                 <TeamFacepile team={team} size={14} linkAgents={false} presence={team.presence?.status} />
               }
               activeLeaf={activeLeaf}
-              defaultQueue={defaultQueueFor(leaf)}
+              defaultQueue="open"
+              headerQueue={null}
+              queues={TEAM_SUB_QUEUES}
               badgeCount={countForTeam(counts, team.id)}
             />
           )
@@ -672,6 +682,7 @@ export default function MessagesHubNav() {
             icon={<Inbox size={14} className="shrink-0 text-text-muted" />}
             activeLeaf={activeLeaf}
             defaultQueue={defaultQueueFor(inboxBaseLeaf)}
+            queues={INBOX_WORK_QUEUES}
             badgeCount={counts.inboxByQueue.forYou}
             queueCounts={inboxQueueCounts}
             extra={

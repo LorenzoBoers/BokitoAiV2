@@ -15,6 +15,8 @@ class Agent(SQLModel, table=True):
     # company = shared workforce agent. Legacy rows may still have kind=personal
     # (inactive); new agents are always company.
     kind: str = Field(default="company", index=True)  # company
+    # Workforce directory type. Enum: person | ai_agent. Agents are ai_agent.
+    member_type: str = Field(default="ai_agent", max_length=32)
     owner_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     # One operator-facing shape. ``system_prompt`` is retained as the storage
     # column; APIs expose it as purpose while older callers may still send it.
@@ -49,12 +51,8 @@ class Agent(SQLModel, table=True):
     acts_for_user: bool = Field(default=False, index=True)
     is_active: bool = True
     slug: str = ""
-    # Stack/module provenance for managed reconcile (empty = user-created).
-    # Match key: (tenant_id, managed_origin, managed_ref, template_slug).
-    managed_origin: str = Field(default="", index=True)  # "" | platform | module | stack | user
-    managed_ref: str = Field(default="", index=True)  # module/stack slug (trading, …)
-    template_slug: str = Field(default="", index=True)  # id within pack (strategy-optimizer, …)
     # Misc agent settings (e.g. email_signature_html used on outbound replies).
+    # Pack display label may live under settings_json.origin_label.
     settings_json: str = Field(default="{}")
     runtime_status: str = Field(default="standby")
     parent_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")

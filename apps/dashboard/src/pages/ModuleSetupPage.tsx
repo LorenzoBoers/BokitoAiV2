@@ -21,6 +21,7 @@ import { ModuleToolsetDropdown } from '../components/integrations/ModuleToolsetD
 import { ModuleToolsetPanel } from '../components/integrations/ModuleToolsetPanel'
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
@@ -315,6 +316,7 @@ export default function ModuleSetupPage() {
           </div>
           {module && !comingSoon ? (
             <div className="flex flex-wrap items-center gap-2">
+              <OpenInGridButton kind="module" id={module.slug} />
               <ModuleToolsetDropdown module={module} />
               <ModuleInstallControls module={module} onAction={runModuleAction} />
             </div>

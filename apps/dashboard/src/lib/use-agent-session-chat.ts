@@ -12,10 +12,13 @@ import {
   bokitoStreamMessage,
   type ChatMessage,
 } from './signals-api'
+import { rememberAskListKey } from './session-timeline'
 
 export type SessionStreamState = {
   text: string
   thinking: string
+  /** Server speech bubbles. Empty when the stream only sent chunks. */
+  parts: string[]
   active: boolean
   optimisticUsers: ChatMessage[]
 }
@@ -35,6 +38,7 @@ const FLUSH_MS = 64
 const idleStream = (): SessionStreamState => ({
   text: '',
   thinking: '',
+  parts: [],
   active: false,
   optimisticUsers: [],
 })
@@ -64,9 +68,9 @@ export function useAiChatStream(token: string | null, conversationId: string | n
   >(async () => {})
 
   // Batched SSE text — mirrored into React on a timer, not per token.
-  const pendingDeltaRef = useRef({ text: '', thinking: '' })
+  const pendingDeltaRef = useRef({ text: '', thinking: '', replaceText: false, parts: [] as string[] })
   const deltaFlushTimerRef = useRef<number | null>(null)
-  const committedStreamRef = useRef({ text: '', thinking: '' })
+  const committedStreamRef = useRef({ text: '', thinking: '', parts: [] as string[] })
 
   const clearFlushTimer = () => {
     if (flushTimerRef.current != null) {
@@ -80,7 +84,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       window.clearTimeout(deltaFlushTimerRef.current)
       deltaFlushTimerRef.current = null
     }
-    pendingDeltaRef.current = { text: '', thinking: '' }
+    pendingDeltaRef.current = { text: '', thinking: '', replaceText: false, parts: [] }
   }
 
   const flushDeltasNow = useCallback(() => {
@@ -88,18 +92,19 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     // Stop / abort must win over a late batched flush — otherwise Stop and
     // “Nadenken” linger after the operator cancels.
     if (!streamingRef.current) {
-      pendingDeltaRef.current = { text: '', thinking: '' }
+      pendingDeltaRef.current = { text: '', thinking: '', replaceText: false, parts: [] }
       return
     }
     const pending = pendingDeltaRef.current
     if (!pending.text && !pending.thinking) return
-    pendingDeltaRef.current = { text: '', thinking: '' }
+    pendingDeltaRef.current = { text: '', thinking: '', replaceText: false, parts: [] }
     committedStreamRef.current = {
-      text: committedStreamRef.current.text + pending.text,
+      text: pending.replaceText ? pending.text : committedStreamRef.current.text + pending.text,
       thinking: committedStreamRef.current.thinking + pending.thinking,
+      parts: pending.replaceText ? pending.parts : committedStreamRef.current.parts,
     }
-    const { text, thinking } = committedStreamRef.current
-    setStream((prev) => ({ ...prev, text, thinking, active: true }))
+    const { text, thinking, parts } = committedStreamRef.current
+    setStream((prev) => ({ ...prev, text, thinking, parts, active: true }))
   }, [])
 
   const scheduleDeltaFlush = useCallback(() => {
@@ -120,8 +125,8 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     abortRef.current = null
     // Clear busy immediately so Stop / “Nadenken” do not linger while the
     // cancel request is in flight (or if the SSE finally never settles).
-    committedStreamRef.current = { text: '', thinking: '' }
-    pendingDeltaRef.current = { text: '', thinking: '' }
+    committedStreamRef.current = { text: '', thinking: '', parts: [] }
+    pendingDeltaRef.current = { text: '', thinking: '', replaceText: false, parts: [] }
     setStream((prev) => ({
       ...prev,
       text: '',
@@ -138,7 +143,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     }
     // Drop anything that arrived between abort and cancel settling.
     clearDeltaFlush()
-    committedStreamRef.current = { text: '', thinking: '' }
+    committedStreamRef.current = { text: '', thinking: '', parts: [] }
     setStream((prev) => ({
       ...prev,
       text: '',
@@ -204,7 +209,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       sessionIdRef.current = sessionId
       streamingRef.current = true
       clearDeltaFlush()
-      committedStreamRef.current = { text: '', thinking: '' }
+      committedStreamRef.current = { text: '', thinking: '', parts: [] }
       setStream((prev) => ({
         ...prev,
         text: '',
@@ -219,6 +224,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           sessionId,
           text.trim() || ' ',
           (delta) => {
+            if (pendingDeltaRef.current.replaceText) return
             pendingDeltaRef.current.text += delta
             scheduleDeltaFlush()
           },
@@ -232,6 +238,13 @@ export function useAiChatStream(token: string | null, conversationId: string | n
             ...(continuePending ? { continuePending: true } : {}),
             ...(agentId ? { agentId } : {}),
             ...(audienceAgentIds?.length ? { audienceAgentIds } : {}),
+            onParts: (parts) => {
+              const bubbles = parts.filter((part) => part.trim())
+              pendingDeltaRef.current.text = bubbles.join('\n\n')
+              pendingDeltaRef.current.parts = bubbles
+              pendingDeltaRef.current.replaceText = true
+              scheduleDeltaFlush()
+            },
           },
         )
       } catch (err) {
@@ -244,7 +257,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           flushDeltasNow()
         } else {
           clearDeltaFlush()
-          committedStreamRef.current = { text: '', thinking: '' }
+          committedStreamRef.current = { text: '', thinking: '', parts: [] }
         }
         streamingRef.current = false
         abortRef.current = null
@@ -257,7 +270,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           // does not sit next to the local one.
           optimisticUsers: keepOptimistic ? prev.optimisticUsers : [],
         }))
-        committedStreamRef.current = { text: '', thinking: '' }
+        committedStreamRef.current = { text: '', thinking: '', parts: [] }
         await onFinishedRef.current?.()
         if (!aborted && pendingPartsRef.current.length) {
           scheduleFlush(sessionId)
@@ -281,7 +294,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     abortRef.current = null
     streamingRef.current = false
     sessionIdRef.current = null
-    committedStreamRef.current = { text: '', thinking: '' }
+    committedStreamRef.current = { text: '', thinking: '', parts: [] }
     setStream(idleStream())
     return () => {
       clearFlushTimer()
@@ -323,6 +336,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           created_at: new Date().toISOString(),
           attachments: attachments ?? undefined,
         }
+        if (trimmed) rememberAskListKey(trimmed, optimistic.id)
         setStream((prev) => ({
           ...prev,
           optimisticUsers: [...prev.optimisticUsers, optimistic],

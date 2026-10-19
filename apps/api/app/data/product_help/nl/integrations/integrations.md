@@ -41,11 +41,11 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst
 ## Installeer een bedrijfsmodule
 
 1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modules staan in de strook **Verbonden**; gebruik de chip **Modules** om een preset te vinden die nog niet geïnstalleerd is.
-2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Status wordt **Nog inrichten**.
-3. **Installeren** neemt die expert aan op de roster (die kan elke tool, hashtag en flow van het pakket gebruiken) en kan de standaard-hashtag toevoegen. De toast biedt **Praat met specialist**. Op Setup kun je hun chat openen of een andere bedrijfsagent toewijzen. Markeer er één als **Standaard**. Alleen agents op de roster krijgen de tools van deze module. Deïnstalleren archiveert de beheerde specialist zacht en leegt de roster; koppelingen blijven op Koppelingen.
+2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Dat maakt eenmalig het module-department (zichtbaar op Grid), neemt de specialist aan en kopieert hashtags, flows, bronnen en skill. De module is meteen **geïnstalleerd**; de marketplace-kaart toont **Geïnstalleerd** met een vinkje en **Beheren**. Latere bewerkingen op dat department blijven van jou — Bokito overschrijft ze niet bij heropenen.
+3. De toast biedt **Praat met specialist**. Op de modulepagina kun je hun chat openen of een andere bedrijfsagent toewijzen. Markeer er één als **Standaard**. Alleen agents op de roster krijgen de tools van deze module. **Deïnstalleren** soft-verwijdert dat department (en archiveert de specialist); partnerlogins blijven op Koppelingen.
 4. Bekijk **Wat agents kunnen doen**: elke actie toont een korte beschrijving, het pad (`accounting_list_companies`, …), **Lezen** of **Goedkeuring nodig**, en **Websitechat** wanneer de tool in de widget mag (aanzetten onder Overzicht). Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de ontdekte MCP-namen.
 5. Bovenaan de modulepagina, onder **Koppelingen**, kies je **Nieuwe registratie** om het modulepakket (Moneybird, KING of Bjorn Lunden) te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** wanneer er al een login bestaat. Geplande pakketten (Exact Online, SnelStart) blijven grijs. De overige tabs zijn **Overzicht**, **Bronnen** en **Setup**.
-6. Kies **Doorgaan met toegewezen agent** om standaarden en bronnen door te lopen, daarna **Inrichten afronden**. Status wordt **Installatie incompleet** tot er een partnerlogin hangt, daarna **Gekoppeld**. Hashtags en draaiboeken blijven via hun bestaande productschermen bereikbaar; de module blijft onder Koppelingen en voegt geen zijbalkitem toe.
+6. Koppel een partnerlogin wanneer je live data wilt. Tot die tijd is de module geïnstalleerd maar nog incompleet voor koppelingen; na koppelen is die **Gekoppeld**. Hashtags en draaiboeken blijven via hun bestaande schermen bereikbaar; de module voegt geen zijbalkitem toe.
 
 ## Koppel een optionele boekhoudintegratie
 
@@ -126,7 +126,7 @@ Modules leveren één cataloguspakket met hashtags, voorgebouwde draaiboeken en 
 
 ## Indexeer modulebronnen
 
-1. Open op de module-home de tab **Bronnen**. Platformpacks verschijnen als de module in setup of geïnstalleerd is (Boekhouding: Belastingdienst, NBA HRA, RJNet, KvK jaarrekening, BW2 Titel 9). Indexeren start vanzelf.
+1. Open op de module-home de tab **Bronnen**. Platformpacks verschijnen als de module geïnstalleerd is (Boekhouding: Belastingdienst, NBA HRA, RJNet, KvK jaarrekening, BW2 Titel 9). Indexeren start vanzelf.
 2. Elk pack haalt curated startpagina's op en volgt daarna beperkt same-origin links (`robots.txt` wordt gerespecteerd, geen inlogmuren). Status gaat **Wacht** → **Indexeren** → **Klaar** (of **Fout** als de site geen leesbare publieke tekst heeft, zoals een paywall). Je kunt een platformpack **Opnieuw indexeren** of **Uitschakelen**; verwijderen kan niet.
 3. Kies **URL toevoegen** voor kantoorpagina's. Die volgen dezelfde beperkte crawl met een lager paginalimiet. Agents zoeken in klaar-bronnen via modulebron-tools.
 

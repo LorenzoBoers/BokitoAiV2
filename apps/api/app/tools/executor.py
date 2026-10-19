@@ -16,6 +16,8 @@ from app.tools.decision_copy import format_policy_decision
 from app.tools.policy import resolve_tool_mode
 from app.tools.registry import (
     CANVAS_OPERATOR_TOOLS,
+    OPERATOR_ORG_TOOLS,
+    OPERATOR_REACTION_TOOL,
     ToolContext,
     agent_allowed_tools,
     audience_for_trust,
@@ -130,9 +132,15 @@ async def _agent_channel_error(
     signal: Any | None,
     tool_input: dict[str, Any],
 ) -> str | None:
-    """Deny reason when a mutating call targets a conversation on a channel the agent may not handle."""
+    """Deny reason when a mutating call targets a conversation on a channel the agent may not handle.
+
+    An active inline session on that host is an explicit invite: the teammate
+    brought this agent into the thread, so channel Access must not block
+    session tools (note_no_reply, checkout, tags, notes, drafts) on it.
+    """
     from app.models.channel import ChannelAccount
     from app.models.signal import Signal
+    from app.services.agent_sessions import resolve_active_session
     from app.services.channel_access import agent_can_handle
 
     target = signal
@@ -146,6 +154,11 @@ async def _agent_channel_error(
         return None
     account = await session.get(ChannelAccount, target.channel_account_id)
     if await agent_can_handle(session, account, agent.id):
+        return None
+    invited = await resolve_active_session(
+        session, tenant_id, target.id, agent_id=getattr(agent, "id", None)
+    )
+    if invited is not None and getattr(invited, "agent_id", None) == getattr(agent, "id", None):
         return None
     return (
         "This agent has no access to that channel. An operator can grant it under "
@@ -239,6 +252,20 @@ async def _execute_tool(
     # Operator chat can always draw a snapshot canvas, even on a narrow passport.
     if tool_name in CANVAS_OPERATOR_TOOLS and trust != "external":
         allowed_set = None
+    # A thumbs-up on the open chat is conversation, not a specialist tool.
+    if tool_name == OPERATOR_REACTION_TOOL and trust != "external":
+        allowed_set = None
+    if tool_name in OPERATOR_ORG_TOOLS and trust != "external":
+        allowed_set = None
+    # Image generation is a default Bokito tool. A narrow passport does not
+    # remove it; the tenant turns it off with image_generation=off.
+    if tool_name == "generate_image":
+        from app.services.image_generation import image_generation_disabled
+        from app.services.tenant_models import get_tenant_model_prefs
+
+        prefs = await get_tenant_model_prefs(session, tenant_id)
+        if not image_generation_disabled(prefs):
+            allowed_set = None
 
     if allowed_set is not None and tool_name not in allowed_set:
         await record_audit(

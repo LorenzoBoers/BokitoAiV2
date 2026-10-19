@@ -21,14 +21,21 @@ from app.services.work_items import serialize_work_item
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 
-async def _resolve_project(ctx: ToolContext, tool_input: dict[str, Any]) -> Project | None:
-    """Project from explicit id/slug/name, then the thread's project, then the run's."""
+async def _resolve_project(
+    ctx: ToolContext, tool_input: dict[str, Any]
+) -> tuple[Project | None, str | None]:
+    """Project from explicit id/slug/name, then the thread's project, then the run's.
+
+    Returns ``(project, error)``. ``error`` explains a failed explicit ref
+    (unknown, Bin, wrong tenant); omitted when falling back to context.
+    """
     from app.services.projects import resolve_folder_ref
+    from app.services.trash import alive
 
     raw = str(tool_input.get("folder_id") or tool_input.get("project_id") or "").strip()
     if raw:
-        project, _err = await resolve_folder_ref(ctx.session, ctx.tenant_id, raw)
-        return project
+        project, err = await resolve_folder_ref(ctx.session, ctx.tenant_id, raw)
+        return project, err
     if ctx.signal_id:
         signal = (
             await ctx.session.execute(
@@ -38,18 +45,26 @@ async def _resolve_project(ctx: ToolContext, tool_input: dict[str, Any]) -> Proj
         if signal and signal.project_id:
             result = await ctx.session.execute(
                 select(Project).where(
-                    Project.id == signal.project_id, Project.tenant_id == ctx.tenant_id
+                    Project.id == signal.project_id,
+                    Project.tenant_id == ctx.tenant_id,
+                    alive(Project),
                 )
             )
-            return result.scalar_one_or_none()
+            project = result.scalar_one_or_none()
+            if project is not None:
+                return project, None
     if ctx.project_id:
         result = await ctx.session.execute(
             select(Project).where(
-                Project.id == ctx.project_id, Project.tenant_id == ctx.tenant_id
+                Project.id == ctx.project_id,
+                Project.tenant_id == ctx.tenant_id,
+                alive(Project),
             )
         )
-        return result.scalar_one_or_none()
-    return None
+        project = result.scalar_one_or_none()
+        if project is not None:
+            return project, None
+    return None, None
 
 
 async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -88,12 +103,36 @@ async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     return {"folders": projects, "items": showcase}
 
 
+def _queue_folder_missing(
+    *,
+    err: str | None,
+    kind: str | None = None,
+) -> dict[str, Any]:
+    """Shared error when queue tools need a live folder and none resolved."""
+    kind_key = (kind or "").strip().lower()
+    ticket_kinds = {"bug", "feature", "idea", "risk", "task"}
+    hint = (
+        "Pass folder_id from list_folders (live folders only — Bin folders fail). "
+        "list_queue_items is the folder work queue, not open tickets."
+    )
+    if kind_key in ticket_kinds:
+        hint = (
+            f"kind={kind_key!r} alone does not pick a folder. "
+            f"For open #{kind_key} tickets use list_threads with tag={kind_key!r}. "
+            "For a folder queue, pass folder_id from list_folders."
+        )
+    message = err or "No live folder found. Pass folder_id (id or slug)."
+    return {
+        "error": "folder_not_found",
+        "message": message,
+        "hint": hint,
+    }
+
+
 async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    project = await _resolve_project(ctx, tool_input)
+    project, err = await _resolve_project(ctx, tool_input)
     if project is None:
-        return {
-            "error": "No folder found. Pass folder_id (id or slug); use list_folders to see them."
-        }
+        return _queue_folder_missing(err=err, kind=str(tool_input.get("kind") or "") or None)
     title = str(tool_input.get("title") or "").strip()
     if not title:
         return {"error": "title is required"}
@@ -180,9 +219,9 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
 
 
 async def _list_queue_items(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    project = await _resolve_project(ctx, tool_input)
+    project, err = await _resolve_project(ctx, tool_input)
     if project is None:
-        return {"error": "No project found. Pass project_id (id or slug)."}
+        return _queue_folder_missing(err=err, kind=str(tool_input.get("kind") or "") or None)
     from app.services.project_work import list_queue_items
 
     items = await list_queue_items(
@@ -305,9 +344,9 @@ async def _set_doc_section_status(ctx: ToolContext, tool_input: dict[str, Any]) 
 
 
 async def _list_project_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    project = await _resolve_project(ctx, tool_input)
+    project, err = await _resolve_project(ctx, tool_input)
     if project is None:
-        return {"error": "No project found. Pass project_id (id or slug)."}
+        return _queue_folder_missing(err=err)
     from app.services.project_work import (
         active_requests_for_docs,
         links_for_sections,
@@ -348,18 +387,18 @@ async def _list_project_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> di
 
 
 async def _list_project_resources(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    project = await _resolve_project(ctx, tool_input)
+    project, err = await _resolve_project(ctx, tool_input)
     if project is None:
-        return {"error": "No project found. Pass project_id (id or slug)."}
+        return _queue_folder_missing(err=err)
     from app.services.project_work import list_resources
 
     return {"project": project.slug, "resources": await list_resources(ctx.session, ctx.tenant_id, project.id)}
 
 
 async def _propose_project_resource(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    project = await _resolve_project(ctx, tool_input)
+    project, err = await _resolve_project(ctx, tool_input)
     if project is None:
-        return {"error": "No project found. Pass project_id (id or slug)."}
+        return _queue_folder_missing(err=err)
     resource_type = str(tool_input.get("resource_type") or "other")
     if resource_type == "connection":
         return {"error": "Link connections with set_connection_scope (project_ids)."}
@@ -470,14 +509,30 @@ register_tool(
 register_tool(
     ToolSpec(
         name="list_queue_items",
-        description="List a project's queue items with status and linked doc sections.",
+        description=(
+            "List work-queue rows on one live folder (status, kind, linked doc sections). "
+            "Requires folder_id / project_id from list_folders. "
+            "Not for open #bug/#feature tickets — those are conversations; use "
+            "list_threads with tag='bug' (or tag='feature', or tag='bug,feature'). "
+            "kind filters queue rows on that folder only; it does not replace folder_id."
+        ),
         category="projects",
         input_schema={
             "type": "object",
             "properties": {
-                "project_id": {"type": "string"},
+                "folder_id": {
+                    "type": "string",
+                    "description": "Folder id or slug (preferred). Alias: project_id.",
+                },
+                "project_id": {"type": "string", "description": "Alias for folder_id."},
                 "status": {"type": "string"},
-                "kind": {"type": "string"},
+                "kind": {
+                    "type": "string",
+                    "description": (
+                        "Optional queue-row kind filter on that folder (bug/feature/task/…). "
+                        "Does not list tickets workspace-wide."
+                    ),
+                },
             },
         },
         handler=_list_queue_items,
@@ -633,7 +688,7 @@ async def _resolve_canvas_owner(ctx: ToolContext, tool_input: dict[str, Any]) ->
     owner_raw = str(tool_input.get("owner_id") or "").strip()
     if kind == OWNER_TENANT:
         return OWNER_TENANT, ctx.tenant_id
-    project = await _resolve_project(ctx, tool_input)
+    project, _err = await _resolve_project(ctx, tool_input)
     if project is not None:
         return OWNER_PROJECT, project.id
     if owner_raw and kind == OWNER_PROJECT:

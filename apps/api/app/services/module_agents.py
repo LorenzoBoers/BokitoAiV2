@@ -39,21 +39,39 @@ def _serialize(row: ModuleAgent, agent: Agent | None) -> dict[str, Any]:
     from app.services.agent_avatar import avatar_payload
     from app.services.managed_resources import management_payload
 
+    module = MODULE_BY_SLUG.get(row.module_slug)
+    module_name = module.name if module else row.module_slug
+    pack_specialist = bool(
+        agent is not None and (agent.slug or "").strip() == f"module-{row.module_slug}"
+    )
     payload: dict[str, Any] = {
         "id": str(row.id),
         "module_slug": row.module_slug,
         "agent_id": str(row.agent_id),
+        "agent_slug": (agent.slug or "") if agent else "",
         "name": agent.name if agent else "",
         "role": agent.role if agent else "",
         "is_active": bool(agent.is_active) if agent else False,
         "is_default": row.is_default,
+        "is_pack_specialist": pack_specialist,
         "company_ids": parse_company_scope(row),
         "can_write": bool(row.can_write),
         "created_at": _iso(row.created_at),
     }
     payload.update(avatar_payload(agent))
     if agent is not None:
-        payload.update(management_payload(agent))
+        affiliation = None
+        if pack_specialist or row.is_default:
+            affiliation = {
+                "affiliated": True,
+                "affiliation_kind": "module",
+                "affiliation_label": module_name,
+                "module_slug": row.module_slug,
+                "module_name": module_name,
+                "department_id": None,
+                "department_name": None,
+            }
+        payload.update(management_payload(agent, affiliation=affiliation))
     return payload
 
 
@@ -127,19 +145,22 @@ async def module_roster_summaries(
         )
     )
     default_map = {slug: agent_id for slug, agent_id in defaults.all()}
-    specialists = await session.execute(
-        select(Agent).where(
-            Agent.tenant_id == tenant_id,
-            Agent.managed_origin == "module",
-            Agent.kind == "company",
-            Agent.is_active.is_(True),
-        )
-    )
     specialist_by_slug: dict[str, Agent] = {}
-    for agent in specialists.scalars().all():
-        ref = (agent.managed_ref or "").strip()
-        if ref and ref not in specialist_by_slug:
-            specialist_by_slug[ref] = agent
+    pack_slugs = [f"module-{slug}" for slug in MODULE_BY_SLUG]
+    if pack_slugs:
+        for agent in (
+            await session.execute(
+                select(Agent).where(
+                    Agent.tenant_id == tenant_id,
+                    Agent.slug.in_(pack_slugs),
+                    Agent.kind == "company",
+                    Agent.is_active.is_(True),
+                )
+            )
+        ).scalars().all():
+            slug = (agent.slug or "").removeprefix("module-").strip()
+            if slug and slug not in specialist_by_slug:
+                specialist_by_slug[slug] = agent
 
     # Resolve default agent names in one query.
     default_ids = [aid for aid in default_map.values() if aid]
@@ -415,27 +436,32 @@ async def clear_module_agents(
     await session.commit()
 
 
+def _module_specialist_slug(module_slug: str) -> str:
+    return f"module-{module_slug}"
+
+
 async def soft_archive_module_specialists(
     session: AsyncSession, tenant_id: UUID, module_slug: str
 ) -> list[str]:
-    """Soft-archive managed specialists for this module (keep history, Govern restore).
+    """Soft-archive pack specialists for this module (keep history, Govern restore).
 
-    Operator-assigned company agents stay active; only ``managed_origin=module``
-    rows for this slug are archived. Roster rows must be cleared separately.
+    Operator-assigned company agents stay active. Archives the pack agent by
+    slug ``module-{slug}``. Roster rows must be cleared separately.
     """
     from app.services.workforce_runtime import archive_agent
 
-    agents = (
-        await session.execute(
-            select(Agent).where(
-                Agent.tenant_id == tenant_id,
-                Agent.managed_origin == "module",
-                Agent.managed_ref == module_slug,
-                Agent.kind == "company",
-                Agent.is_active.is_(True),
+    agents = list(
+        (
+            await session.execute(
+                select(Agent).where(
+                    Agent.tenant_id == tenant_id,
+                    Agent.slug == _module_specialist_slug(module_slug),
+                    Agent.kind == "company",
+                    Agent.is_active.is_(True),
+                )
             )
-        )
-    ).scalars().all()
+        ).scalars().all()
+    )
     archived: list[str] = []
     for agent in agents:
         try:
@@ -449,13 +475,12 @@ async def soft_archive_module_specialists(
 async def managed_module_specialist(
     session: AsyncSession, tenant_id: UUID, module_slug: str
 ) -> Agent | None:
-    """Active managed specialist for a module, if hired."""
+    """Active pack specialist for a module, if hired (slug ``module-{slug}``)."""
     return (
         await session.execute(
             select(Agent).where(
                 Agent.tenant_id == tenant_id,
-                Agent.managed_origin == "module",
-                Agent.managed_ref == module_slug,
+                Agent.slug == _module_specialist_slug(module_slug),
                 Agent.kind == "company",
                 Agent.is_active.is_(True),
             )

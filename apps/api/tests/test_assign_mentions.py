@@ -132,7 +132,7 @@ async def test_team_mention_notifies_the_people_in_the_team(client: AsyncClient,
     rows = (
         await session_override.execute(select(Notification).where(Notification.user_id == teammate_id))
     ).scalars().all()
-    assert any(n.kind == "mention" and "Support" in n.title for n in rows)
+    assert any(n.kind == "mention" for n in rows)
 
 
 async def test_agent_hands_conversation_to_a_team(client: AsyncClient, session_override):

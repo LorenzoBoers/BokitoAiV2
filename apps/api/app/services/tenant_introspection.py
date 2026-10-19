@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -636,6 +636,7 @@ async def list_threads_summary(
     limit: int = 25,
     scheduled_from: datetime | None = None,
     scheduled_to: datetime | None = None,
+    tag: str | list[str] | None = None,
 ) -> dict[str, Any]:
     """Summarize threads for agents/MCP.
 
@@ -643,11 +644,14 @@ async def list_threads_summary(
     callers know when ``limit`` truncated the page. ``older_than_days`` filters
     on last message / update time. ``scheduled_from`` / ``scheduled_to`` keep
     threads whose date (``next_at``) falls in that window, earliest first,
-    whatever their status.
+    whatever their status. ``tag`` keeps conversations filed as that label
+    (ticket action tag) or carrying it as a free hashtag — e.g. ``bug`` /
+    ``feature`` for open tickets of those flows.
     """
     from datetime import timedelta
 
-    from app.models.signal import Signal
+    from app.models.signal import Signal, SignalTag, SignalTagLink
+    from app.services.signal_tags import normalize_tag, normalize_tags
 
     limit = max(1, min(int(limit or 25), 200))
     filters = [Signal.tenant_id == tenant_id, Signal.deleted_at.is_(None)]
@@ -672,6 +676,55 @@ async def list_threads_summary(
         cutoff = datetime.utcnow() - timedelta(days=days)
         filters.append(_signal_activity_expr() < cutoff)
 
+    tag_names: list[str] = []
+    if isinstance(tag, str) and tag.strip():
+        # Comma-separated "bug,feature" is one round-trip for agents.
+        raw_parts = [p for p in tag.replace(";", ",").split(",") if p.strip()]
+        tag_names = normalize_tags(raw_parts) if len(raw_parts) > 1 else (
+            [normalize_tag(tag)] if normalize_tag(tag) else []
+        )
+    elif isinstance(tag, list):
+        tag_names = normalize_tags(tag)
+
+    unknown_tags: list[str] = []
+    if tag_names:
+        tag_rows = list(
+            (
+                await session.execute(
+                    select(SignalTag).where(
+                        SignalTag.tenant_id == tenant_id,
+                        func.lower(SignalTag.name).in_(tag_names),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        found = {normalize_tag(row.name): row.id for row in tag_rows}
+        unknown_tags = [name for name in tag_names if name not in found]
+        tag_ids = list(found.values())
+        if not tag_ids:
+            payload: dict[str, Any] = {
+                "threads": [],
+                "returned": 0,
+                "matched": 0,
+                "limit": limit,
+                "tag": tag_names,
+                "unknown_tags": unknown_tags,
+                "hint": "No labels with those names — call list_tags (or list_categories for ticket flows).",
+            }
+            if older_than_days is not None:
+                payload["older_than_days"] = max(1, min(int(older_than_days), 3650))
+                payload["cutoff"] = _iso(cutoff)
+            return payload
+        free_tagged = select(SignalTagLink.signal_id).where(
+            SignalTagLink.tenant_id == tenant_id,
+            SignalTagLink.tag_id.in_(tag_ids),
+        )
+        filters.append(
+            or_(Signal.ticket_tag_id.in_(tag_ids), Signal.id.in_(free_tagged))
+        )
+
     matched = int(
         (await session.execute(select(func.count()).select_from(Signal).where(*filters))).scalar_one()
         or 0
@@ -684,6 +737,15 @@ async def list_threads_summary(
     rows = (
         await session.execute(select(Signal).where(*filters).order_by(order).limit(limit))
     ).scalars().all()
+
+    ticket_ids = {s.ticket_tag_id for s in rows if s.ticket_tag_id}
+    ticket_names: dict[UUID, str] = {}
+    if ticket_ids:
+        for row in (
+            await session.execute(select(SignalTag).where(SignalTag.id.in_(ticket_ids)))
+        ).scalars().all():
+            ticket_names[row.id] = row.name
+
     threads = [
         {
             "id": str(s.id),
@@ -695,17 +757,23 @@ async def list_threads_summary(
             "last_message_at": _iso(s.last_message_at),
             "project_id": str(s.project_id) if s.project_id else None,
             "agent_id": str(s.agent_id) if getattr(s, "agent_id", None) else None,
+            "ticket_tag": ticket_names.get(s.ticket_tag_id) if s.ticket_tag_id else None,
+            "stage_key": (s.stage_key or None) or None,
             # In-app chip: [Subject](/communication/inbox/open/t/{id}).
             "path": f"/communication/inbox/open/t/{s.id}",
         }
         for s in rows
     ]
-    payload: dict[str, Any] = {
+    payload = {
         "threads": threads,
         "returned": len(threads),
         "matched": matched,
         "limit": limit,
     }
+    if tag_names:
+        payload["tag"] = tag_names
+        if unknown_tags:
+            payload["unknown_tags"] = unknown_tags
     if older_than_days is not None:
         payload["older_than_days"] = max(1, min(int(older_than_days), 3650))
         payload["cutoff"] = _iso(cutoff)

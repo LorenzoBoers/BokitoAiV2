@@ -20,6 +20,8 @@ import { listWorkstreams, type WorkstreamRow } from '../../lib/workstreams-api'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
+import { ApiErrorBanner } from '../ui/ApiErrorBanner'
 import { useConfirm } from '../ui/confirm-dialog'
 import {
   Dialog,
@@ -140,12 +142,10 @@ export function TagRegistrySection({
           {t('tagRegistry.newTag')}
         </Button>
       </div>
-      {error ? <p className="text-xs text-status-error">{error}</p> : null}
+      {error ? <ApiErrorBanner message={error} /> : null}
 
       {visible.length === 0 ? (
-        <div className="rounded-lg border border-border/60 px-3 py-3">
-          <p className="text-xs text-text-muted">{t('tagRegistry.empty')}</p>
-        </div>
+        <EmptyState tone="dashed" size="sm" className="px-3 py-3" title={t('tagRegistry.empty')} />
       ) : (
         <div className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border/60">
           {visible.map((tag) => (

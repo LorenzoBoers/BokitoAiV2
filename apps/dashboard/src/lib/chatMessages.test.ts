@@ -5,7 +5,7 @@ describe('splitChatMessages', () => {
   it('starts a new message at every blank line', () => {
     expect(splitChatMessages('Hi Ann\n\nYour order ships today.\nTrack it below.')).toEqual([
       'Hi Ann',
-      'Your order ships today.\nTrack it below.',
+      'Your order ships today. Track it below.',
     ])
   })
 
@@ -26,7 +26,7 @@ describe('splitChatMessages', () => {
   it('drops blocks without text, such as a lone horizontal rule', () => {
     expect(
       splitChatMessages('Hier zijn suggesties:\n\n---\n\n#### Actietags\n- #feature\n\n***\n\n**', 0),
-    ).toEqual(['Hier zijn suggesties:\n#### Actietags\n- #feature'])
+    ).toEqual(['Hier zijn suggesties:', '#### Actietags', '#feature'])
   })
 
   it('keeps a numbered list in one bubble and drops a heartbeat prefix', () => {
@@ -36,7 +36,9 @@ describe('splitChatMessages', () => {
         0,
       ),
     ).toEqual([
-      'Besluitpunten die wachten:\n1. Koppelingen\n1. Open beslissingen',
+      'Besluitpunten die wachten:',
+      'Koppelingen',
+      'Open beslissingen',
       'Los daarvan is dit een volgende beat.',
     ])
     expect(splitChatMessages('HEARTBEAT_OK — De workspace is actief.')).toEqual(['De workspace is actief.'])
@@ -49,7 +51,7 @@ describe('splitChatMessages', () => {
   it('caps the number of messages and joins the rest into the last', () => {
     const parts = splitChatMessages('one\n\ntwo\n\nthree\n\nfour\n\nfive\n\nsix', 5)
     expect(parts).toHaveLength(5)
-    expect(parts[4]).toBe('five\n\nsix')
+    expect(parts[4]).toBe('five six')
   })
 })
 

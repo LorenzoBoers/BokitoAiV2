@@ -13,13 +13,8 @@ export type NotificationData = {
 }
 
 export type NotificationRoute =
-  | { type: 'app'; path: '/(tabs)/home' | '/(tabs)/inbox' | '/(tabs)/decisions' | `/thread/${string}` }
+  | { type: 'app'; path: '/(tabs)/home' | '/(tabs)/conversations' | `/thread/${string}` }
   | { type: 'web'; path: string }
-
-function isInternalPayload(data: NotificationData): boolean {
-  const channel = (data.channel ?? '').toLowerCase()
-  return data.folder === 'internal' || channel === 'internal' || channel === 'assistant'
-}
 
 export function resolveNotificationRoute(data: NotificationData | undefined): NotificationRoute {
   if (!data) return { type: 'app', path: '/(tabs)/home' }
@@ -37,7 +32,7 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
     (data.kind ?? '').startsWith('decision')
   ) {
     // No thread yet (or none sent): the queue is the only place to act.
-    return { type: 'app', path: '/(tabs)/decisions' }
+    return { type: 'app', path: '/(tabs)/conversations' }
   }
 
   if (data.platform_change_id) return { type: 'web', path: '/settings/govern?tab=drafts' }
@@ -47,7 +42,7 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
 
   if (data.kind === 'ops_alert') {
     if (data.account_id) return { type: 'web', path: '/settings/channels' }
-    return { type: 'app', path: isInternalPayload(data) ? '/(tabs)/inbox' : '/(tabs)/inbox' }
+    return { type: 'app', path: '/(tabs)/conversations' }
   }
 
   if (
@@ -58,7 +53,7 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
     data.kind === 'handoff' ||
     data.kind === 'status_update'
   ) {
-    return { type: 'app', path: '/(tabs)/inbox' }
+    return { type: 'app', path: '/(tabs)/conversations' }
   }
 
   return { type: 'app', path: '/(tabs)/home' }
@@ -67,7 +62,7 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
 /** App-only path used by existing callers and tests. Web-only kinds land on Home. */
 export function pathFromNotificationData(
   data: NotificationData | undefined,
-): '/(tabs)/home' | '/(tabs)/inbox' | '/(tabs)/decisions' | `/thread/${string}` {
+): '/(tabs)/home' | '/(tabs)/conversations' | `/thread/${string}` {
   const route = resolveNotificationRoute(data)
   return route.type === 'app' ? route.path : '/(tabs)/home'
 }

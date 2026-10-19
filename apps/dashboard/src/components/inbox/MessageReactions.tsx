@@ -2,10 +2,10 @@
  * WhatsApp-style reactions on Communication timeline messages.
  *
  * Applied reactions sit overlapping the bottom edge of the bubble (left for
- * others, right for own). With no reaction yet, bubble hover shows a thumbs-up
- * that opens the palette. Once a stack exists, that stack is the only control —
- * hover it to change; never a second thumbs beside it. Intentional emoji
- * exception for this surface only.
+ * others, right for own). With no reaction yet, bubble hover shows a thumbs-up:
+ * click it to like, hover it to open the rest of the palette. Once a stack
+ * exists, that stack is the only control — hover it to change; never a second
+ * thumbs beside it. Intentional emoji exception for this surface only.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -281,10 +281,11 @@ export function MessageReactions({
           <button
             type="button"
             disabled={busy}
-            aria-label={t('reactions.pickerLabel')}
+            aria-label={labelFor.up}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            onClick={() => setMenuOpen((v) => !v)}
+            onFocus={openMenu}
+            onClick={() => void pick('up')}
             className={cn(CHIP_CLASS, 'text-text-primary transition-colors hover:bg-bg-hover/80')}
           >
             <span aria-hidden="true" className={EMOJI_GLYPH_CLASS}>

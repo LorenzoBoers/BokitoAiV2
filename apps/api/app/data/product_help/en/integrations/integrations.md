@@ -41,11 +41,11 @@ WhatsApp itself is configured under **Channels**, not only here. The card points
 ## Install a business module
 
 1. Open **Connections** in the rail under **Organization**. Installed modules sit in the **Connected** strip; use the **Modules** chip to find a preset that is not installed yet.
-2. Open **Accounting** (or another live module), then choose **Install**. Status becomes **Needs setup**.
-3. Choosing **Install** hires that expert onto the roster (they can use every tool, hashtag and flow in the package) and may add the module’s default hashtag. The toast offers **Talk to specialist**. On Setup you can still open their chat or assign another company agent. Mark one as **Default**. Only rostered agents get this module’s tools. Uninstall soft-archives the managed specialist and clears the roster; connections stay on Connections.
+2. Open **Accounting** (or another live module), then choose **Install**. That creates the module department once (visible on Grid), hires the specialist, and copies packaged hashtags, flows, sources and skill. The module is **installed** immediately; the marketplace card shows **Installed** with a check and **Manage**. Later edits on that department stay yours — Bokito does not overwrite them on re-open.
+3. The toast offers **Talk to specialist**. On the module page you can open their chat or assign another company agent. Mark one as **Default**. Only rostered agents get this module’s tools. **Uninstall** soft-deletes that department (and archives the specialist); partner logins stay on Connections.
 4. Review **What agents can do**: each action shows a short description, the path (`accounting_list_companies`, …), **Read** or **Needs approval**, and **Website chat** when the tool can run in the installable widget (enable under Overview). When partners are attached, **Tools from connected MCP servers** lists discovered MCP names.
 5. At the top of the module page, under **Connections**, choose **New registration** to connect the module package (Moneybird, KING, or Bjorn Lunden) and attach it in one step, or **Use an existing connection** when a login already exists. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Overview**, **Sources**, and **Setup**.
-6. Choose **Continue with assigned agent** to chat through defaults and sources, then **Finish setup**. Status becomes **Installation incomplete** until a partner login is attached, then **Connected**. Its hashtags and playbooks remain available through their existing product surfaces; the module stays in Connections and adds no rail item.
+6. Attach a partner login when you want live data. Until then the module is installed but shows as incomplete for connections; after attach it is **Connected**. Hashtags and playbooks stay on their existing surfaces; the module adds no rail item.
 
 ## Connect an optional accounting integration
 
@@ -126,7 +126,7 @@ Modules ship one catalog package containing hashtags, pre-built playbooks, and o
 
 ## Index module sources
 
-1. Open the module home **Sources** tab. Platform packs appear when the module is in setup or installed (Accounting: Belastingdienst, NBA HRA, RJNet, KvK annual accounts, BW2 Title 9). Indexing starts on its own.
+1. Open the module home **Sources** tab. Platform packs appear when the module is installed (Accounting: Belastingdienst, NBA HRA, RJNet, KvK annual accounts, BW2 Title 9). Indexing starts on its own.
 2. Each pack fetches curated start pages, then a limited set of same-origin links (`robots.txt` respected, no login walls). Status moves **Pending** → **Indexing** → **Ready** (or **Error** if the site has no readable public text, such as a paywall). You can **Reindex** or **Disable** a platform pack; you cannot delete it.
 3. Choose **Add URL** for office pages. Those follow the same shallow crawl with a lower page cap. Agents search ready sources through module source tools.
 

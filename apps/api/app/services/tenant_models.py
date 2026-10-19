@@ -41,6 +41,7 @@ _DEFAULT_PREFS: dict[str, Any] = {
     "default_embedding": "",
     "allowed_chat": [],
     "non_eu_platform_models": NON_EU_BLOCKED,
+    "image_model": "",
 }
 
 
@@ -57,6 +58,8 @@ def _coerce(raw: Any) -> dict[str, Any]:
             prefs["allowed_chat"] = [str(s) for s in raw["allowed_chat"] if isinstance(s, str)]
         if raw.get("non_eu_platform_models") in (NON_EU_BLOCKED, NON_EU_ALLOWED):
             prefs["non_eu_platform_models"] = raw["non_eu_platform_models"]
+        if isinstance(raw.get("image_model"), str):
+            prefs["image_model"] = raw["image_model"]
     return prefs
 
 
@@ -85,6 +88,7 @@ async def set_tenant_model_prefs(
     default_embedding: str | None = None,
     allowed_chat: list[str] | None = None,
     non_eu_platform_models: str | None = None,
+    image_model: str | None = None,
 ) -> dict[str, Any]:
     from app.services import model_policy
 
@@ -117,6 +121,8 @@ async def set_tenant_model_prefs(
         if non_eu_platform_models not in (NON_EU_BLOCKED, NON_EU_ALLOWED):
             raise ValueError("non_eu_platform_models must be 'blocked' or 'allowed'")
         prefs["non_eu_platform_models"] = non_eu_platform_models
+    if image_model is not None:
+        prefs["image_model"] = image_model.strip()
     settings[MODELS_KEY] = prefs
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)

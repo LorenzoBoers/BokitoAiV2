@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { TableRowsSkeleton } from '../components/ui/skeleton'
+import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Badge, badgeVariants } from '../components/ui/badge'
@@ -729,7 +730,7 @@ export default function WorkspaceDocs() {
             ) : error ? (
               <p className="px-2 py-4 text-xs text-status-error">{error}</p>
             ) : docs.length === 0 ? (
-              <p className="px-2 py-4 text-xs text-text-muted">{t('knowledgePage.emptyHint')}</p>
+              <EmptyState tone="plain" size="sm" className="px-2 py-4" title={t('knowledgePage.emptyHint')} />
             ) : (
               presentSections.map(({ kind, rows }) => (
                   <div key={kind} className="mb-3">

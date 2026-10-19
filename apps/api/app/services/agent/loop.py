@@ -816,11 +816,15 @@ class AgentLoop:
         from app.tools.registry import (
             CANVAS_WAKE_DENY,
             with_operator_canvas_tools,
+            with_operator_org_tools,
             with_operator_progress_tool,
+            with_operator_reaction_tool,
         )
 
         tools = with_operator_canvas_tools(tools, trust=self.trust, refresh=self.canvas_refresh)
         tools = with_operator_progress_tool(tools, trust=self.trust, refresh=self.canvas_refresh)
+        tools = with_operator_reaction_tool(tools, trust=self.trust, refresh=self.canvas_refresh)
+        tools = with_operator_org_tools(tools, trust=self.trust, refresh=self.canvas_refresh)
         if self.canvas_refresh:
             tools = [t for t in tools if t["name"] not in CANVAS_WAKE_DENY]
         return tools
@@ -1043,6 +1047,16 @@ class AgentLoop:
                 enabled_customer_tools=enabled_customer,
             )
             self.tools = self._with_canvas_tools(self.tools)
+            if not self.canvas_refresh:
+                from app.services.image_generation import image_generation_disabled
+                from app.services.tenant_models import get_tenant_model_prefs
+                from app.tools.registry import with_default_image_tool
+
+                prefs = await get_tenant_model_prefs(self.session, self.tenant_id)
+                self.tools = with_default_image_tool(
+                    self.tools,
+                    enabled=not image_generation_disabled(prefs),
+                )
             self._module_tools_applied = True
         if self.trust == "external" and not getattr(self, "_reachability_tools_applied", False):
             await self._apply_reachability_tools()
@@ -1274,9 +1288,22 @@ class AgentLoop:
         stream_id: str | None = None,
     ) -> list[dict[str, Any]]:
         tool_results = []
-        for tool_use in response_content:
-            if tool_use.get("type") != "tool_use":
-                continue
+        tool_uses = [step for step in response_content if step.get("type") == "tool_use"]
+        opened: dict[str, dict[str, Any]] = {}
+        if self.turn is not None:
+            for tool_use in tool_uses:
+                if tool_use.get("name") != "generate_image":
+                    continue
+                shown = await self._tool_presentation(tool_use["name"], tool_use.get("input", {}))
+                opened[tool_use["id"]] = await self.turn.tool_start(
+                    tool_use["name"],
+                    tool_use.get("input", {}),
+                    label=shown["label"],
+                    provider=shown["provider"],
+                )
+            if opened:
+                await self._checkpoint_turn()
+        for tool_use in tool_uses:
             if await self._is_cancelled():
                 tool_results.append(
                     {
@@ -1311,8 +1338,8 @@ class AgentLoop:
             await self._log_event("tool_call", tool_use["name"], tool_use.get("input"))
             tool_input = tool_use.get("input", {})
             self._append_trace_step("tool_call", name=tool_use["name"], payload={"input": tool_input})
-            item = None
-            if self.turn is not None:
+            item = opened.get(tool_use["id"])
+            if item is None and self.turn is not None:
                 shown = await self._tool_presentation(tool_use["name"], tool_input)
                 item = await self.turn.tool_start(
                     tool_use["name"], tool_input, label=shown["label"], provider=shown["provider"]
@@ -1366,7 +1393,13 @@ class AgentLoop:
                 if not posted:
                     result["skipped"] = "too_soon_or_recent"
             if isinstance(result, dict) and result.get("error"):
-                if self.thinking_budget > 1024:
+                # Denied / timed-out tools should not burn another long think
+                # before a short recovery reply.
+                if result.get("status") in ("denied", "timeout") or result.get(
+                    "reason"
+                ) in ("channel_access", "audience"):
+                    self.thinking_budget = 0
+                elif self.thinking_budget > 1024:
                     self.thinking_budget = 1024
             tool_results.append(
                 {
@@ -1533,7 +1566,12 @@ class AgentLoop:
                     if delta:
                         streamed_text = True
                         await turn.speech(delta)
-                        yield {"type": "delta", "text": delta, "segment_id": turn.current_segment_id}
+                        yield {
+                            "type": "delta",
+                            "text": delta,
+                            "segment_id": turn.current_segment_id,
+                            "parts": turn.speech_parts(),
+                        }
                 elif event["type"] == "done":
                     usage = event.get("usage", {})
                     tokens["input_tokens"] += usage.get("input_tokens", 0)
@@ -1616,7 +1654,12 @@ class AgentLoop:
                     summary = "\n".join(text_blocks).strip()
                     await turn.say(summary)
                     seg_id = turn.segments[-1]["id"] if turn.segments else None
-                    yield {"type": "delta", "text": summary, "segment_id": seg_id}
+                    yield {
+                        "type": "delta",
+                        "text": summary,
+                        "segment_id": seg_id,
+                        "parts": turn.speech_parts(),
+                    }
             except Exception:
                 logger.exception("tool-turn finalize chat failed")
             finally:

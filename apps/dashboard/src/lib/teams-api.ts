@@ -64,7 +64,14 @@ export type OrgGraphEdge = {
   target: string
   points: number[][]
 }
-export type OrgGraphRegion = { id: string; label: string; href?: string; points: number[][]; labelAt?: number[] }
+export type OrgGraphRegion = {
+  id: string
+  label: string
+  href?: string
+  points: number[][]
+  labelAt?: number[]
+  shape?: string
+}
 export type OrgGraph = {
   revision: number
   projection?: string
@@ -107,8 +114,11 @@ export type Presence = {
   away_until: string | null
 }
 
+export type WorkforceMemberType = 'person' | 'ai_agent'
+
 export type OverviewPerson = {
   uuid: string
+  member_type?: WorkforceMemberType
   name: string
   email: string
   avatar_url: string | null
@@ -131,6 +141,7 @@ export type OverviewMetrics = {
 }
 
 export type OverviewAgent = AgentPassport & {
+  member_type?: WorkforceMemberType
   team_ids: string[]
   open_owned: number
   deactivated?: boolean

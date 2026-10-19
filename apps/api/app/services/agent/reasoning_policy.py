@@ -67,6 +67,25 @@ _EXPLAIN_REQUEST = re.compile(
     re.IGNORECASE,
 )
 
+# Polite lookup / "what do you know" — not an action. Keep pace at reply so a
+# short contact or thread question does not burn a full thinking budget.
+_LOOKUP_REQUEST = re.compile(
+    r"(?:"
+    r"\b(?:wat|what)\b.+\b(?:kan|kun|can|could)\b.+\b(?:je|jullie|you)\b.+\b"
+    r"(?:vinden|vertellen|zeggen|zien|weten|find|tell|say|see|know)\b|"
+    r"\b(?:vertel|tell)\b.+\b(?:me|ons|us)?\b.+\b(?:over|about)\b|"
+    r"\b(?:wie|wat|who|what)\s+is\s+(?:dit|deze|dat|this|that|het)\b|"
+    r"\b(?:wat weet je|what do you know)\b.+\b(?:over|about)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def turn_is_lookup_request(text: str) -> bool:
+    """Whether the message only asks to look something up or summarise it."""
+    body = (text or "").strip()
+    return bool(body and _LOOKUP_REQUEST.search(body))
+
 
 def turn_is_action_request(text: str) -> bool:
     """Whether the latest message asks the agent to do something, not to explain."""
@@ -75,6 +94,8 @@ def turn_is_action_request(text: str) -> bool:
         return False
     if _EXPLAIN_REQUEST.search(body):
         return False
+    if turn_is_lookup_request(body):
+        return False
     return True
 
 
@@ -82,6 +103,9 @@ def turn_pace(text: str, *, has_attachments: bool = False) -> str:
     """Which of the three paces this message gets."""
     body = (text or "").strip()
     if body and _SMALL_TALK_RE.match(body) and not has_attachments:
+        return PACE_REPLY
+    # Lookups stay fast even when they contain "kan je" / "can you".
+    if turn_is_lookup_request(body) and not has_attachments:
         return PACE_REPLY
     if turn_is_action_request(body):
         return PACE_REPLY_THEN_THINK

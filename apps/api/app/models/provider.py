@@ -24,6 +24,8 @@ class ProviderConnection(SQLModel, table=True):
     encrypted_value: str = Field(default="")
     last4: str = Field(default="")
     enabled: bool = Field(default=True)
+    # platform = seeded Bokito link (no tenant key). tenant = a key the workspace added.
+    origin: str = Field(default="tenant")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -54,5 +56,7 @@ class TenantModel(SQLModel, table=True):
     is_default_chat: bool = Field(default=False)
     is_default_embedding: bool = Field(default=False)
     sort_order: int = Field(default=0)
+    # platform = seeded Bokito model. tenant = a model the workspace added.
+    origin: str = Field(default="tenant")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

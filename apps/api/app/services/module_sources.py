@@ -441,7 +441,7 @@ async def list_sources(
 async def ensure_platform_seeds(
     session: AsyncSession, tenant_id: UUID, module_slug: str
 ) -> list[ModuleSource]:
-    """Copy platform seed catalog into the tenant on first open/enable."""
+    """Create missing platform seed rows once (never overwrite existing meta)."""
     seeds = PLATFORM_SEEDS.get(module_slug) or ()
     if not seeds:
         return []
@@ -461,22 +461,11 @@ async def ensure_platform_seeds(
         by_key[key] = row
 
     created: list[ModuleSource] = []
-    changed = False
     for seed in seeds:
         key = str(seed["seed_key"])
-        start_urls = list(seed.get("start_urls") or [seed["url"]])
         if key in by_key:
-            row = by_key[key]
-            meta = _row_meta(row)
-            meta["seed_key"] = key
-            meta["start_urls"] = start_urls
-            row.metadata_json = json.dumps(meta)
-            row.title = str(seed["title"])
-            row.url = str(seed["url"])
-            row.updated_at = datetime.utcnow()
-            session.add(row)
-            changed = True
             continue
+        start_urls = list(seed.get("start_urls") or [seed["url"]])
         row = ModuleSource(
             tenant_id=tenant_id,
             module_slug=module_slug,
@@ -490,13 +479,13 @@ async def ensure_platform_seeds(
         )
         session.add(row)
         created.append(row)
-        changed = True
-    if changed:
+        by_key[key] = row
+    if created:
         await session.commit()
         for row in created:
             await session.refresh(row)
-    rows = list(by_key.values()) + created
-    await queue_idle_sources(session, rows)
+    rows = list(by_key.values())
+    await queue_idle_sources(session, created)
     return rows
 
 
@@ -552,20 +541,13 @@ async def create_tenant_source(
     clean_url = (url or "").strip()
     if not clean_url.startswith("http://") and not clean_url.startswith("https://"):
         raise ValueError("URL must start with http:// or https://")
-    from app.models.module_install import ModuleInstall
+    from app.services.module_origin import get_module_department
 
-    install = (
-        await session.execute(
-            select(ModuleInstall).where(
-                ModuleInstall.tenant_id == tenant_id,
-                ModuleInstall.module_slug == module_slug,
-            )
-        )
-    ).scalar_one_or_none()
+    origin = await get_module_department(session, tenant_id, module_slug)
     row = ModuleSource(
         tenant_id=tenant_id,
         module_slug=module_slug,
-        department_id=install.department_id if install else None,
+        department_id=origin.id if origin else None,
         kind="web",
         origin="tenant",
         title=(title or "").strip() or clean_url,
@@ -736,24 +718,17 @@ async def search_module_sources(
 ) -> list[dict[str, Any]]:
     from app.services.workspace import hybrid_search
 
-    from app.models.module_install import ModuleInstall
+    from app.services.module_origin import get_module_department
 
-    install = (
-        await session.execute(
-            select(ModuleInstall).where(
-                ModuleInstall.tenant_id == tenant_id,
-                ModuleInstall.module_slug == module_slug,
-            )
-        )
-    ).scalar_one_or_none()
+    origin = await get_module_department(session, tenant_id, module_slug)
     source_filter = [
         ModuleSource.tenant_id == tenant_id,
         ModuleSource.module_slug == module_slug,
         ModuleSource.status == "ready",
         ModuleSource.workspace_doc_id.is_not(None),
     ]
-    if install is not None and install.department_id is not None:
-        source_filter.append(ModuleSource.department_id == install.department_id)
+    if origin is not None:
+        source_filter.append(ModuleSource.department_id == origin.id)
     doc_ids = {
         str(row.workspace_doc_id)
         for row in (
@@ -768,7 +743,7 @@ async def search_module_sources(
         tenant_id,
         query,
         top_k=top_k * 4,
-        department_id=install.department_id if install else None,
+        department_id=origin.id if origin else None,
     )
     filtered: list[dict[str, Any]] = []
     for hit in hits or []:

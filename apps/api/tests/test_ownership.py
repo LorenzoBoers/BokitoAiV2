@@ -250,6 +250,42 @@ async def test_for_you_predicate(client: AsyncClient, session_override: AsyncSes
 
 
 @pytest.mark.asyncio
+async def test_unread_mention_is_assigned_to_me(client: AsyncClient, session_override: AsyncSession):
+    from app.models.notification import Notification
+    from app.models.signal import Signal
+    from app.services.ownership import for_you_predicate, turn_is_mine_predicate
+
+    tenant, user = await _tenant_and_user(session_override)
+    mentioned = await _email_thread(session_override, tenant)
+    assert mentioned.assignee_kind == "department"
+    session_override.add(
+        Notification(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            kind="mention",
+            title="Mentioned",
+            status="unread",
+            signal_id=mentioned.id,
+        )
+    )
+    await session_override.commit()
+
+    for_you = set(
+        (
+            await session_override.execute(select(Signal.id).where(for_you_predicate(user.id, set())))
+        ).scalars().all()
+    )
+    mine_now = set(
+        (
+            await session_override.execute(
+                select(Signal.id).where(turn_is_mine_predicate(user.id, set()))
+            )
+        ).scalars().all()
+    )
+    assert mentioned.id in for_you and mentioned.id in mine_now
+
+
+@pytest.mark.asyncio
 async def test_personal_agent_chat_assigns_opener_not_agent(
     client: AsyncClient, session_override: AsyncSession
 ):
@@ -297,19 +333,32 @@ async def test_personal_agent_chat_assigns_opener_not_agent(
 
 
 @pytest.mark.asyncio
-async def test_for_you_includes_all_department_turn(
+async def test_team_turn_stays_unassigned(
     client: AsyncClient, session_override: AsyncSession
 ):
-    """When All must reply, every member sees it in For you — not only personal assignees."""
+    """All-people work waits in Unassigned until a person owns it or is asked."""
+    from app.models.notification import DecisionRequest
     from app.models.signal import Signal
-    from app.services.ownership import for_you_predicate, turn_is_mine_predicate
+    from app.services.ownership import for_you_predicate, turn_is_mine_predicate, unassigned_predicate
     from app.services.teams import ensure_all_department
 
     tenant, user = await _tenant_and_user(session_override)
     waiting = await _email_thread(session_override, tenant)
     assert waiting.assignee_kind == "department" and waiting.turn_reason == "reply_needed"
     root = await ensure_all_department(session_override, tenant.id)
+    asked = await _email_thread(session_override, tenant)
+    session_override.add(
+        DecisionRequest(
+            tenant_id=tenant.id,
+            signal_id=asked.id,
+            title="Which invoice?",
+            status="awaiting_human",
+            addressee_kind="user",
+            addressee_user_id=user.id,
+        )
+    )
     await session_override.commit()
+    await session_override.refresh(asked)
 
     for_you = set(
         (
@@ -325,5 +374,12 @@ async def test_for_you_includes_all_department_turn(
             )
         ).scalars().all()
     )
-    assert waiting.id in for_you
-    assert waiting.id in mine_now
+    unassigned = set(
+        (await session_override.execute(select(Signal.id).where(unassigned_predicate()))).scalars().all()
+    )
+    assert waiting.id not in for_you
+    assert waiting.id not in mine_now
+    assert waiting.id in unassigned
+    assert asked.id in for_you and asked.id in mine_now
+    assert asked.id not in unassigned
+    assert asked.turn_reason == "question"

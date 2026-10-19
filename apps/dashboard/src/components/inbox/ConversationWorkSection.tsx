@@ -1,16 +1,14 @@
-import { ArrowUpRight, ChevronDown, Sparkles } from 'lucide-react'
+import { ArrowUpRight, ChevronDown } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
-import { useAuth } from '../../context/AuthContext'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import type { InboxThread, PatchThreadInput, ProposalItem } from '../../lib/inbox-api'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { isInternalThread } from '../../lib/message-composer'
 import { openEntityPath } from '../../lib/open-entity'
 import { listCanvasesForThread, type ProjectCanvas } from '../../lib/project-canvas-api'
-import { findNavRowPath, queueThreadTriage, type NavRow } from '../../lib/signals-api'
+import { findNavRowPath, type NavRow } from '../../lib/signals-api'
 import { CanvasShowcaseCard } from './ProposalItemPreview'
 import {
   DropdownMenu,
@@ -54,6 +52,27 @@ const FolderIcon = ENTITY_ICONS.project
 
 type FolderChoice = { id: string; name: string; depth: number }
 
+/** Side panel shows the folder itself. Ancestors stay on the tooltip. */
+function projectFolderLabel(
+  thread: InboxThread,
+  projectId: string | null,
+  projects: NavRow[],
+  emptyLabel: string,
+  missingLabel: string,
+): { name: string; path: string | null } {
+  if (!projectId) return { name: emptyLabel, path: null }
+  const chain = findNavRowPath(projects, projectId)?.map((row) => row.name).filter(Boolean)
+  const stored = thread.folderPaths?.find((path) => path.projectId === projectId)?.label
+  const parts = chain?.length
+    ? chain
+    : stored
+      ? stored.replace(/#/g, '').split('/').map((part) => part.trim()).filter(Boolean)
+      : []
+  if (!parts.length) return { name: missingLabel, path: null }
+  const path = parts.join(' / ')
+  return { name: parts[parts.length - 1] ?? missingLabel, path: parts.length > 1 ? path : null }
+}
+
 function flattenFolders(rows: NavRow[], depth = 0): FolderChoice[] {
   return rows.flatMap((row) =>
     row.virtual ? [] : [{ id: row.id, name: row.name, depth }, ...flattenFolders(row.children ?? [], depth + 1)],
@@ -85,21 +104,21 @@ function canvasItem(row: ProjectCanvas, cadence: string, writingLabel: string): 
  */
 export function ConversationWorkSection({ thread, saving = false, onPatch, onPlan, onScheduleChanged }: Props) {
   const { t } = useTranslation(['communication', 'nav'])
-  const { token } = useAuth()
   const { nav } = useCommunicationNav()
   const [ticketBump, setTicketBump] = useState(0)
-  const [rereading, setRereading] = useState(false)
   const [canvases, setCanvases] = useState<ProjectCanvas[]>([])
   const priority = thread.priority || 'normal'
   const priorityMeta = PRIORITY_META[priority] ?? PRIORITY_META.normal
   const internal = isInternalThread(thread)
   const folders = flattenFolders(nav.projects)
   const projectId = thread.projectId ?? null
-  const projectName = projectId
-    ? thread.folderPaths?.find((path) => path.projectId === projectId)?.label ||
-      findNavRowPath(nav.projects, projectId)?.map((row) => row.name).join(' / ') ||
-      t('tickets.project', { ns: 'nav' })
-    : t('tickets.noProject', { ns: 'nav' })
+  const project = projectFolderLabel(
+    thread,
+    projectId,
+    nav.projects,
+    t('tickets.noProject', { ns: 'nav' }),
+    t('tickets.project', { ns: 'nav' }),
+  )
 
   useEffect(() => {
     let cancel = false
@@ -115,41 +134,12 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
     }
   }, [thread.id])
 
-  async function handleReread() {
-    if (!token || rereading) return
-    setRereading(true)
-    try {
-      await queueThreadTriage(token, String(thread.id))
-      toast.success(t('sidePanel.rereadQueued', { defaultValue: 'Agent will review this conversation again' }))
-    } catch {
-      toast.error(t('sidePanel.rereadFailed', { defaultValue: 'Could not start another review' }))
-    } finally {
-      setRereading(false)
-    }
-  }
-
   return (
     <div className="space-y-2 border-t border-border/40 px-4 py-3">
       <SectionLabel
         title={t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
         className="[&_.nav-folder]:h-5 [&_.nav-folder]:text-[10px] [&_.nav-folder]:font-normal"
         headerClassName="-mx-1"
-        actions={
-          !internal && token ? (
-            <button
-              type="button"
-              onClick={() => void handleReread()}
-              disabled={rereading || saving}
-              className="inline-flex max-w-full items-center gap-0.5 px-0.5 text-[10px] font-medium text-text-muted hover:text-ai-ink hover:underline disabled:opacity-40"
-              title={t('sidePanel.rereadHint', {
-                defaultValue: 'Wake channel agent to review this conversation again',
-              })}
-            >
-              <Sparkles size={10} className={rereading ? 'animate-pulse' : undefined} aria-hidden />
-              <span className="truncate">{t('sidePanel.reread')}</span>
-            </button>
-          ) : null
-        }
       />
 
       {!internal && thread.aiSummary ? (
@@ -190,7 +180,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                     className={VALUE_BUTTON}
                   >
                     <FolderIcon size={12} className="shrink-0 text-text-muted" />
-                    <span className="truncate">{projectName}</span>
+                    <span className="truncate" title={project.path ?? undefined}>{project.name}</span>
                     <ChevronDown size={10} className="text-text-muted" />
                   </button>
                 </DropdownMenuTrigger>
@@ -225,7 +215,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
             ) : (
               <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-text-heading">
                 <FolderIcon size={12} className="shrink-0 text-text-muted" />
-                <span className="truncate">{projectName}</span>
+                <span className="truncate" title={project.path ?? undefined}>{project.name}</span>
               </span>
             )}
             {projectId ? (

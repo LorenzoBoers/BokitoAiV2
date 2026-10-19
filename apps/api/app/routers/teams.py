@@ -16,6 +16,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.models.agent import Agent
 from app.models.auth import Membership, User
 from app.models.signal import Signal
+from app.models.team import WorkforceMemberType
 from app.services import presence
 from app.services import teams as teams_svc
 from app.gateway.publish import publish_presence
@@ -79,6 +80,7 @@ class PresenceOut(BaseModel):
 
 class OverviewPerson(BaseModel):
     uuid: str
+    member_type: Literal["person", "ai_agent"] = "person"
     name: str
     email: str
     avatar_url: str | None = None
@@ -101,6 +103,7 @@ class OverviewMetrics(BaseModel):
 
 class OverviewAgent(BaseModel):
     id: str
+    member_type: Literal["person", "ai_agent"] = "ai_agent"
     name: str
     role: str
     job_title: str = ""
@@ -381,6 +384,7 @@ async def team_overview(
     people = [
         {
             "uuid": str(user.id),
+            "member_type": WorkforceMemberType.person.value,
             "name": user.display_name or user.email,
             "email": user.email,
             "avatar_url": user.avatar_url,
@@ -437,6 +441,7 @@ async def team_overview(
             row["status"] = "standby"
         row.update(
             {
+                "member_type": agent.member_type or WorkforceMemberType.ai_agent.value,
                 "team_ids": membership.get(f"agent:{agent.id}", []),
                 "open_owned": int(open_owned_agent.get(agent.id, 0)),
                 "deactivated": deactivated,

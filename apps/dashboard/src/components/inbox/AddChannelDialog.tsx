@@ -419,7 +419,7 @@ export default function AddChannelDialog({
                   <ProviderCard
                     onClick={() => setChoice('smtp_imap')}
                     disabled={connectBusy !== null}
-                    icon={<ProviderLogo provider="smtp_imap" className="h-5 w-5 object-contain" />}
+                    icon={<Mail size={16} className="text-text-muted" />}
                     title={t('channelsPage.email.imap')}
                     hint={t('channelsPage.email.imapShort')}
                   />

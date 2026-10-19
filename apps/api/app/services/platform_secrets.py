@@ -15,8 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.model_catalog import PlatformSecret
 from app.services.crypto import decrypt_secret, encrypt_secret
+from app.services.provider_spec import platform_provider_types
 
-PLATFORM_PROVIDERS = ("mistral", "anthropic", "openai")
+PLATFORM_PROVIDERS = platform_provider_types()
 
 
 def _last4(raw: str) -> str:

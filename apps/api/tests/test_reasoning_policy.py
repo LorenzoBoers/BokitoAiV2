@@ -46,6 +46,28 @@ def test_action_requests_skip_the_opening_think():
     assert not turn_is_action_request("Waarom krijgt deze klant geen antwoord?")
     assert not turn_is_action_request("Hoe kan ik WhatsApp koppelen?")
     assert not turn_is_action_request("Hoi")
+    assert not turn_is_action_request("Wat kan je vinden over dit contact")
+    assert not turn_is_action_request("What can you find about this contact?")
+
+
+def test_lookup_questions_stay_reply_pace():
+    from app.services.agent.reasoning_policy import turn_is_lookup_request
+
+    for text in (
+        "Wat kan je vinden over dit contact",
+        "What can you find about this contact?",
+        "Vertel me over deze klant",
+        "Wie is dit?",
+        "What do you know about this contact",
+    ):
+        assert turn_is_lookup_request(text), text
+        assert turn_pace(text) == PACE_REPLY, text
+        assert (
+            turn_thinking_budget(
+                1024, model_slug="bokito-ai-3-1", user_text=text, agent_pinned=False
+            )
+            == 0
+        ), text
 
 
 def test_pace_splits_reply_then_think_from_explain():

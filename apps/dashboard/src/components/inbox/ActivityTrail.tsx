@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AlertCircle, Brain, ChevronDown, ChevronRight, CircleDot, Globe, Tags, UserRound, Wrench } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { AlertCircle, Brain, Calendar, Check, ChevronDown, ChevronRight, CircleDot, FileText, Globe, Image, List, Mail, Pencil, Plus, Search, Send, Tags, ThumbsUp, Trash2, UserRound, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
 import {
@@ -7,8 +7,10 @@ import {
   groupActivity,
   groupLiveLabel,
   groupSummary,
+  historyLabel,
   isHandoffTool,
   isKnowledgeTool,
+  imageGenerationFrames,
   isVisibleActivity,
   itemDurationMs,
   inviteTarget,
@@ -18,11 +20,14 @@ import {
   type ActivityGroup,
   type ActivityItem,
   type ActivityKind,
+  type HistoryView,
+  type ImageFrameState,
 } from '../../lib/agentActivity'
 import { cn } from '../../lib/utils'
 import { useAgents } from '../../hooks/useAgents'
 import { KnowledgeMark } from '../knowledge/KnowledgeMark'
 import { AgentMark } from '../ui/AgentMark'
+import { ImageGenerationFrames } from './ImageGenerationFrame'
 import { LiveEllipsis, THREAD_ICON, THREAD_META, ThreadMetaRow } from './ThreadMeta'
 
 function ProviderLogo({ provider, size }: { provider: string; size: number }) {
@@ -88,7 +93,47 @@ function WebSearchLead({
 
 const GROUP_ICON_MAX = 6
 
-/** Inline icons for every action in a group (globe+favicon for web search). */
+/** Same mark twice (two list calls, two searches) collapses to one icon. */
+function groupIconKey(item: ActivityItem): string {
+  const tool = item.tool || ''
+  const invited = inviteTarget(item)
+  if (invited) return `invite:${invited.id || invited.name || 'person'}`
+  if (item.kind === 'think') return 'think'
+  if (tool === 'web_search' || tool === 'fetch_url') {
+    const host = webSearchHost(item)
+    return host ? `web:${host}` : 'web'
+  }
+  if (tool.startsWith('search_')) return 'search'
+  if (tool === 'list_tags' || tool.includes('tag')) return 'tags'
+  if (tool.startsWith('list_') || tool.includes('_list_')) return 'list'
+  if (tool.startsWith('read_') || tool.startsWith('get_')) return 'file'
+  if (tool.startsWith('create_') || tool.startsWith('add_')) return 'plus'
+  if (tool.startsWith('update_') || tool.startsWith('set_') || tool.startsWith('write_')) return 'pencil'
+  if (tool.startsWith('delete_') || tool.startsWith('cancel_')) return 'trash'
+  if (tool.startsWith('send_') || tool.startsWith('post_') || tool.includes('reply')) return 'send'
+  if (tool.startsWith('schedule_') || tool.includes('calendar') || tool.includes('trigger')) return 'calendar'
+  if (tool.includes('mail') || tool.includes('email')) return 'mail'
+  if (tool === 'generate_image') return 'image'
+  if (tool === 'react_to_message') return 'react'
+  if (item.kind === 'other') return isHandoffTool(tool) ? 'handoff' : 'note'
+  if (item.provider) return `provider:${item.provider}`
+  if (isKnowledgeTool(tool)) return 'knowledge'
+  return 'wrench'
+}
+
+function uniqueIconItems(items: ActivityItem[]): ActivityItem[] {
+  const seen = new Set<string>()
+  const unique: ActivityItem[] = []
+  for (const item of items) {
+    const key = groupIconKey(item)
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(item)
+  }
+  return unique
+}
+
+/** One icon per kind of action in a group (globe+favicon for web search). */
 function GroupIconStrip({
   items,
   size = THREAD_ICON,
@@ -98,9 +143,10 @@ function GroupIconStrip({
   size?: number
   liveLast?: boolean
 }) {
-  if (!items.length) return null
-  const shown = items.slice(0, GROUP_ICON_MAX)
-  const overflow = items.length - shown.length
+  const unique = uniqueIconItems(items)
+  if (!unique.length) return null
+  const shown = unique.slice(0, GROUP_ICON_MAX)
+  const overflow = unique.length - shown.length
   return (
     <span aria-hidden className="inline-flex shrink-0 items-center gap-0.5">
       {shown.map((item, index) => {
@@ -163,8 +209,18 @@ export function ActivityIcon({
   let icon
   if (item && inviteTarget(item)) icon = <InviteMark item={item} size={size} live={live} />
   else if (kind === 'think') icon = <Brain size={size} className="shrink-0" />
-  else if (tool === 'web_search' || tool === 'fetch_url') icon = <Globe size={size} className="shrink-0" />
-  else if (tool === 'list_tags') icon = <Tags size={size} className="shrink-0" />
+  else if (tool === 'web_search' || tool === 'fetch_url' || tool.startsWith('search_')) icon = <Search size={size} className="shrink-0" />
+  else if (tool === 'list_tags' || tool.includes('tag')) icon = <Tags size={size} className="shrink-0" />
+  else if (tool.startsWith('list_') || tool.includes('_list_')) icon = <List size={size} className="shrink-0" />
+  else if (tool.startsWith('read_') || tool.startsWith('get_')) icon = <FileText size={size} className="shrink-0" />
+  else if (tool.startsWith('create_') || tool.startsWith('add_')) icon = <Plus size={size} className="shrink-0" />
+  else if (tool.startsWith('update_') || tool.startsWith('set_') || tool.startsWith('write_')) icon = <Pencil size={size} className="shrink-0" />
+  else if (tool.startsWith('delete_') || tool.startsWith('cancel_')) icon = <Trash2 size={size} className="shrink-0" />
+  else if (tool.startsWith('send_') || tool.startsWith('post_') || tool.includes('reply')) icon = <Send size={size} className="shrink-0" />
+  else if (tool.startsWith('schedule_') || tool.includes('calendar') || tool.includes('trigger')) icon = <Calendar size={size} className="shrink-0" />
+  else if (tool.includes('mail') || tool.includes('email')) icon = <Mail size={size} className="shrink-0" />
+  else if (tool === 'generate_image') icon = <Image size={size} className="shrink-0" />
+  else if (tool === 'react_to_message') icon = <ThumbsUp size={size} className="shrink-0" />
   else if (kind === 'other') {
     icon = isHandoffTool(tool) ? (
       <UserRound size={size} className="shrink-0" />
@@ -233,6 +289,8 @@ function ItemRow({ item }: { item: ActivityItem }) {
         <span className="min-w-0 truncate-fade">{line}</span>
         {item.status === 'error' ? (
           <AlertCircle size={THREAD_ICON} className="shrink-0 text-status-error" aria-label={t('activity.failed')} />
+        ) : item.status !== 'running' ? (
+          <Check size={THREAD_ICON} className="shrink-0 text-status-success" aria-hidden />
         ) : null}
         {duration > 0 ? (
           <span className="ml-auto shrink-0 tabular-nums text-text-muted">
@@ -246,6 +304,38 @@ function ItemRow({ item }: { item: ActivityItem }) {
         </pre>
       ) : null}
     </li>
+  )
+}
+
+/** One status line. A new action pushes the previous one up and out. */
+function LiveActionSlot({ rowKey, children }: { rowKey: string; children: ReactNode }) {
+  const nodeRef = useRef(children)
+  nodeRef.current = children
+  const [current, setCurrent] = useState<{ key: string; node: ReactNode }>({ key: rowKey, node: children })
+  const [leaving, setLeaving] = useState<{ key: string; node: ReactNode } | null>(null)
+  useEffect(() => {
+    setCurrent((prev) => {
+      if (prev.key === rowKey) return { key: rowKey, node: nodeRef.current }
+      setLeaving(prev)
+      return { key: rowKey, node: nodeRef.current }
+    })
+  }, [rowKey])
+  useEffect(() => {
+    if (!leaving) return
+    const timer = window.setTimeout(() => setLeaving(null), 340)
+    return () => window.clearTimeout(timer)
+  }, [leaving])
+  return (
+    <div className="activity-slot">
+      {leaving ? (
+        <div className="activity-slot-row" data-phase="out">
+          {leaving.node}
+        </div>
+      ) : null}
+      <div key={current.key} className="activity-slot-row" data-phase="in">
+        {current.key === rowKey ? children : current.node}
+      </div>
+    </div>
   )
 }
 
@@ -398,11 +488,11 @@ export function ActivityGroupLine({
         className="group w-full min-w-0 text-left"
       >
         <ThreadMetaRow
-          lead={<GroupIconStrip items={group.items} />}
-          suffix={
-            <>
-              {hasError ? <AlertCircle size={THREAD_ICON} className="text-status-error" /> : null}
-              {expanded ? (
+            suffix={
+              <>
+                <GroupIconStrip items={group.items} />
+                {hasError ? <AlertCircle size={THREAD_ICON} className="text-status-error" /> : <Check size={THREAD_ICON} className="text-status-success" />}
+                {expanded ? (
                 <ChevronDown size={THREAD_ICON} className="opacity-70" />
               ) : (
                 <ChevronRight size={THREAD_ICON} className="opacity-0 transition-opacity group-hover:opacity-70" />
@@ -426,38 +516,163 @@ export function ActivityGroupLine({
 }
 
 /**
- * Activity between two agent bubbles. With `live`, the last group is the
- * running line; earlier groups are already collapsed.
+ * Activity between two agent bubbles.
+ * Live: one sliding status line, then any image frames.
+ * Saved: one collapsed tool row for that message, then the frames.
  */
+function SavedHistory({
+  history,
+  items,
+  onExpand,
+}: {
+  history: HistoryView
+  items: ActivityItem[]
+  onExpand?: () => void
+}) {
+  const { t } = useTranslation('communication')
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          if (!expanded) onExpand?.()
+          setExpanded((open) => !open)
+        }}
+        aria-expanded={expanded}
+        className="group w-full min-w-0 text-left"
+      >
+        {history.rows.map((row, index) => {
+          const tools = row.tools ?? []
+          const iconItems: ActivityItem[] = tools.map((tool, toolIndex) => ({
+            id: `${tool}:${toolIndex}`,
+            kind: row.kind,
+            tool,
+            label: '',
+            provider: '',
+            startedAt: null,
+            endedAt: null,
+            durationMs: null,
+            status: 'ok',
+          }))
+          return (
+          <ThreadMetaRow
+            key={`${row.kind}:${row.labelKey}:${index}`}
+            suffix={
+              <>
+                {iconItems.length ? <GroupIconStrip items={iconItems} /> : null}
+                <Check size={THREAD_ICON} className="text-status-success" />
+                {index === history.rows.length - 1 ? (
+                expanded ? (
+                  <ChevronDown size={THREAD_ICON} className="opacity-70" />
+                ) : (
+                  <ChevronRight size={THREAD_ICON} className="opacity-0 transition-opacity group-hover:opacity-70" />
+                )
+              ) : null}
+              </>
+            }
+          >
+            {historyLabel(row, t)}
+          </ThreadMetaRow>
+          )
+        })}
+      </button>
+      {expanded ? (
+        <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border/60 pl-3">
+          {items.filter(isVisibleActivity).map((item) => (
+            <ItemRow key={item.id} item={item} />
+          ))}
+        </ul>
+      ) : null}
+      <ImageGenerationFrames frames={history.frames} />
+    </>
+  )
+}
+
 export default function ActivityTrail({
   items,
   live = false,
+  showLine = true,
+  holdLabel = null,
+  history = null,
+  frames: framesFromServer,
   onExpand,
   className,
 }: {
   items: ActivityItem[]
   live?: boolean
+  /** Live overlay: hide the status line once the reply itself is on screen. */
+  showLine?: boolean
+  /** Gap with no running tool. Slides into the same slot as the last action. */
+  holdLabel?: string | null
+  /** Saved summary from the API. When set, the client does not regroup tools. */
+  history?: HistoryView | null
+  /** Live frames from the turn status. When set, the client does not rebuild them. */
+  frames?: ImageFrameState[]
   onExpand?: () => void
   className?: string
 }) {
+  const { t } = useTranslation('communication')
   const now = useNow(live)
-  const groups = groupActivity(items.filter(isVisibleActivity), now)
-  if (groups.length === 0) return null
-  // The running line is the current occupation. It leads so it sits on the
-  // avatar row; finished groups follow underneath.
-  const runningAt = live ? groups.findIndex((group) => group.running) : -1
-  const ordered =
-    runningAt > 0 ? [groups[runningAt], ...groups.filter((_, index) => index !== runningAt)] : groups
+  const visible = items.filter(isVisibleActivity)
+  const frames = framesFromServer ?? imageGenerationFrames(visible)
+  const groups = groupActivity(
+    live ? visible.filter((item) => item.tool !== 'generate_image') : visible,
+    now,
+  )
+  if (!live && groups.length === 0 && frames.length === 0) return null
+  const running = visible.filter((item) => item.status === 'running')
+  const current = running[running.length - 1] ?? null
+  const lineText = holdLabel || (current ? itemLabel(current, t) : '')
+  const lineKey = lineText ? `${current?.id ?? 'hold'}:${lineText}` : ''
+  const line =
+    showLine && lineKey ? (
+      <LiveActionSlot rowKey={lineKey}>
+        {holdLabel && !current ? (
+          <ThreadMetaRow live>{holdLabel}</ThreadMetaRow>
+        ) : current ? (
+          <ThreadMetaRow
+            live
+            icon={
+              <ActivityIcon
+                kind={current.kind}
+                tool={current.tool}
+                provider={current.provider}
+                item={current}
+                live
+              />
+            }
+          >
+            {lineText}
+          </ThreadMetaRow>
+        ) : null}
+      </LiveActionSlot>
+    ) : null
+  if (live) {
+    if (!line && frames.length === 0) return null
+    return (
+      <div className={cn('min-w-0 max-w-[85%]', className)}>
+        {line}
+        <ImageGenerationFrames frames={frames} />
+      </div>
+    )
+  }
+  if (history) {
+    if (history.rows.length === 0 && history.frames.length === 0) return null
+    return (
+      <div className={cn('min-w-0 max-w-[85%]', className)}>
+        <SavedHistory history={history} items={items} onExpand={onExpand} />
+      </div>
+    )
+  }
+  const ordered = groups
+  if (ordered.length === 0 && frames.length === 0) return null
   return (
     <div className={cn('min-w-0 max-w-[85%]', className)}>
       {ordered.map((group) => (
-        <ActivityGroupLine
-          key={group.key}
-          group={group}
-          live={runningAt >= 0 && group === groups[runningAt]}
-          onExpand={onExpand}
-        />
+        <ActivityGroupLine key={group.key} group={group} onExpand={onExpand} />
       ))}
+      <ImageGenerationFrames frames={frames} />
     </div>
   )
 }

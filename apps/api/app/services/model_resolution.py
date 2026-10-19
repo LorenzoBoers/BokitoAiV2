@@ -91,15 +91,9 @@ class ResolvedModelCall:
 
 
 def _env_key(provider: str) -> str:
-    if settings.llm_mode != "live":
-        return ""
-    if provider == "mistral":
-        return settings.mistral_api_key or ""
-    if provider in ("anthropic",):
-        return settings.anthropic_api_key or ""
-    if provider in ("openai", "openai_compatible"):
-        return settings.openai_api_key or ""
-    return ""
+    from app.services.provider_spec import env_api_key
+
+    return env_api_key(provider, live=settings.llm_mode == "live", settings=settings)
 
 
 async def platform_key_for(session: AsyncSession, provider: str) -> str:

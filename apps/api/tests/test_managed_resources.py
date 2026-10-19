@@ -1,8 +1,9 @@
-"""Managed agent reconcile: create/patch active; archive proposes restore."""
+"""Pack agent reconcile: create/patch active; archive proposes restore (slug identity)."""
 
 from __future__ import annotations
 
 import json
+from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
@@ -11,11 +12,7 @@ from sqlalchemy import select
 from app.models.agent import Agent
 from app.models.auth import Tenant, User
 from app.models.platform_change import PlatformChange
-from app.services.managed_resources import (
-    ensure_managed_agent,
-    is_managed,
-    management_payload,
-)
+from app.services.managed_resources import ensure_managed_agent, management_payload
 from app.services.platform_changes import accept_platform_change
 from app.services.workforce_runtime import archive_agent, serialize_agent
 
@@ -49,13 +46,12 @@ async def test_ensure_creates_and_patches_active(client: AsyncClient, session_ov
         create_fields=_fields(),
     )
     assert created.action == "created"
-    assert is_managed(created.agent)
-    assert created.agent.managed_origin == "stack"
-    assert created.agent.template_slug == "strategy-optimizer"
+    assert created.agent.slug == "strategy-optimizer"
     assert created.agent.kind == "company"
+    assert json.loads(created.agent.settings_json or "{}").get("origin_label") == "Trading"
     payload = management_payload(created.agent)
-    assert payload["managed"] is True
-    assert payload["origin_label"] == "Trading"
+    assert payload["managed"] is False
+    assert payload["affiliated"] is False
 
     patched = await ensure_managed_agent(
         session_override,
@@ -92,7 +88,6 @@ async def test_ensure_archived_proposes_restore_not_reactivate(client: AsyncClie
     agent = await session_override.get(Agent, created.agent.id)
     assert agent is not None
     assert agent.kind == "archived"
-    assert is_managed(agent)
 
     result = await ensure_managed_agent(
         session_override,
@@ -114,7 +109,6 @@ async def test_ensure_archived_proposes_restore_not_reactivate(client: AsyncClie
     assert agent.kind == "archived"
     assert agent.is_active is False
 
-    # Second ensure dedupes to pending (no second Decision storm).
     again = await ensure_managed_agent(
         session_override,
         tenant,
@@ -130,7 +124,7 @@ async def test_ensure_archived_proposes_restore_not_reactivate(client: AsyncClie
 
 
 @pytest.mark.asyncio
-async def test_accept_restore_unarchives_managed_agent(client: AsyncClient, session_override):
+async def test_accept_restore_unarchives_pack_agent(client: AsyncClient, session_override):
     _ = client
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     user = (await session_override.execute(select(User).limit(1))).scalar_one()
@@ -172,12 +166,75 @@ async def test_accept_restore_unarchives_managed_agent(client: AsyncClient, sess
     assert agent is not None
     assert agent.kind == "company"
     assert agent.is_active is True
-    assert agent.managed_origin == "stack"
-    assert agent.template_slug == "strategy-optimizer"
+    assert agent.slug == "strategy-optimizer-restore"
 
     serialized = serialize_agent(agent, view="runtime")
-    assert serialized["managed"] is True
-    assert serialized["origin_label"] == "Trading"
+    assert serialized["managed"] is False
+
+
+@pytest.mark.asyncio
+async def test_affiliation_payload_uses_module_department(client: AsyncClient, session_override):
+    """Agents expose module department place for the badge."""
+    from app.modules.catalog import hire_module_agent
+    from app.services.managed_resources import affiliations_by_agent_id
+    from app.services.module_department import bind_module_department
+
+    _ = client
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    department = await bind_module_department(session_override, tenant.id, "accounting")
+    hire = await hire_module_agent(
+        session_override, tenant.id, "accounting", open_setup_chat=False
+    )
+    agent = await session_override.get(Agent, UUID(str(hire["agent_id"])))
+    assert agent is not None
+    aff = (await affiliations_by_agent_id(session_override, tenant.id, [agent]))[agent.id]
+    assert aff["affiliated"] is True
+    assert aff["affiliation_kind"] == "module"
+    assert aff["module_slug"] == "accounting"
+    assert aff["department_id"] == str(department.id)
+    assert aff["affiliation_label"] == department.name
+    payload = management_payload(agent, affiliation=aff)
+    assert payload["affiliated"] is True
+    assert payload["affiliation_label"] == department.name
+    assert payload["managed"] is True
+    assert "managed_origin" not in payload
+
+
+@pytest.mark.asyncio
+async def test_hire_module_agent_uses_roster_not_provenance(client: AsyncClient, session_override):
+    """Module hire creates a slug specialist on ModuleAgent."""
+    from app.models.module_agent import ModuleAgent
+    from app.modules.catalog import hire_module_agent
+    from app.services.module_department import bind_module_department
+
+    _ = client
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    await bind_module_department(session_override, tenant.id, "accounting")
+
+    hire = await hire_module_agent(
+        session_override,
+        tenant.id,
+        "accounting",
+        open_setup_chat=False,
+    )
+    assert hire["ok"] is True
+    assert "managed_origin" not in hire
+    agent_id = UUID(str(hire["agent_id"]))
+    agent = await session_override.get(Agent, agent_id)
+    assert agent is not None
+    assert agent.slug == "module-accounting"
+
+    roster = (
+        await session_override.execute(
+            select(ModuleAgent).where(
+                ModuleAgent.tenant_id == tenant.id,
+                ModuleAgent.module_slug == "accounting",
+                ModuleAgent.agent_id == agent_id,
+            )
+        )
+    ).scalar_one_or_none()
+    assert roster is not None
+    assert roster.is_default is True
 
 
 @pytest.mark.asyncio
@@ -192,7 +249,6 @@ async def test_trading_bootstrap_respects_archive(client: AsyncClient, session_o
     first = await get_or_create_orchestrator(session_override, tenant.id)
     await session_override.commit()
     assert first.slug == STRATEGY_OPTIMIZER_SLUG
-    assert first.managed_origin == "stack"
 
     await archive_agent(session_override, tenant.id, first.id)
 

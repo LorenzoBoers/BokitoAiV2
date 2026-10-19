@@ -10,6 +10,7 @@ const FolderKanban = ENTITY_ICONS.project
 const Workflow = ENTITY_ICONS.flow
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
+import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
 import type { LabelColor } from '../lib/signals-api'
 import { EmptyState } from '../components/ui/empty-state'
@@ -93,12 +94,15 @@ export default function WorkstreamsPage() {
         subtitle={t('workstreamsPage.subtitle')}
         className="mb-0"
         meta={
-          isAdmin ? (
-            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              {t('workstreamsPage.new')}
-            </Button>
-          ) : null
+          <>
+            <OpenInGridButton />
+            {isAdmin ? (
+              <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                {t('workstreamsPage.new')}
+              </Button>
+            ) : null}
+          </>
         }
       />
 

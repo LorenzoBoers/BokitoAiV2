@@ -524,23 +524,28 @@ export default function GovernPage() {
               <CardContent className="space-y-3 pt-6">
                 {changes.length > 0 ? searchField : null}
                 {changes.length === 0 ? (
-                  <div className="space-y-3">
-                    <p className="text-sm text-text-muted">{t('drafts.empty')}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" asChild>
-                        <Link to={inboxPath('open')}>{t('drafts.openCommunication')}</Link>
-                      </Button>
-                      <Button size="sm" variant="outline" asChild>
-                        <Link to="/agents">{t('drafts.openAgents')}</Link>
-                      </Button>
-                      <Button size="sm" variant="outline" asChild>
-                        <Link to="/settings/communication">{t('drafts.openInboxAi')}</Link>
-                      </Button>
-                    </div>
-                  </div>
+                  <EmptyState
+                    tone="plain"
+                    size="sm"
+                    className="px-0 py-2"
+                    title={t('drafts.empty')}
+                    action={
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <Button size="sm" asChild>
+                          <Link to={inboxPath('open')}>{t('drafts.openCommunication')}</Link>
+                        </Button>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to="/agents">{t('drafts.openAgents')}</Link>
+                        </Button>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link to="/settings/communication">{t('drafts.openInboxAi')}</Link>
+                        </Button>
+                      </div>
+                    }
+                  />
                 ) : (
                   filteredChanges.length === 0 ? (
-                    <p className="text-sm text-text-muted">{t('filterEmpty')}</p>
+                    <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('filterEmpty')} />
                   ) : (
                   filteredChanges.map((change) => (
                     <div key={change.id} className="rounded-lg border border-border p-3">
@@ -679,7 +684,7 @@ export default function GovernPage() {
                   <section key={kind} className="space-y-2">
                     <h3 className="text-xs font-semibold text-text-muted">{title}</h3>
                     {rows.length === 0 ? (
-                      <p className="text-xs text-text-muted">{t('scopes.empty')}</p>
+                      <EmptyState tone="plain" size="sm" className="px-0 py-1" title={t('scopes.empty')} />
                     ) : (
                       rows.map((row) => (
                         <div
@@ -855,7 +860,7 @@ export default function GovernPage() {
                   />
                 ) : (
                   filteredHistory.length === 0 ? (
-                    <p className="text-sm text-text-muted">{t('filterEmpty')}</p>
+                    <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('filterEmpty')} />
                   ) : (
                     <>
                       {visibleHistory.map((row) => (
@@ -949,7 +954,7 @@ export default function GovernPage() {
                   />
                 ) : (
                   filteredPassports.length === 0 ? (
-                    <p className="text-sm text-text-muted">{t('filterEmpty')}</p>
+                    <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('filterEmpty')} />
                   ) : (
                   filteredPassports.map((row) => (
                     <div key={row.id} className="rounded-lg border border-border p-3">
@@ -1019,7 +1024,7 @@ export default function GovernPage() {
                   />
                 ) : (
                   filteredAudit.length === 0 ? (
-                    <p className="text-sm text-text-muted">{t('filterEmpty')}</p>
+                    <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('filterEmpty')} />
                   ) : (
                     <>
                   {visibleAudit.map((event) => {

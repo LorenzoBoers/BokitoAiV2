@@ -23,10 +23,12 @@ from app.services.agent.reply_mode import (
 )
 from app.services.agent.turn_persist import (
     activity_from_segments,
+    assign_bubble_showcases,
     attach_activity_to_message,
     message_activity,
     plan_customer_bubbles,
     plan_turn_messages,
+    prepare_choice_repair,
 )
 from app.services.chat_delivery import MAX_PAUSE_S, MIN_PAUSE_S, typing_pause
 from app.services.signal_threads import message_delivered_to_customer
@@ -67,18 +69,20 @@ def test_split_chat_messages_merges_fragments_and_caps():
     assert split_chat_messages("Ok\n\nIk regel dat vandaag.") == ["Ok\nIk regel dat vandaag."]
     parts = split_chat_messages("\n\n".join(f"part {i}" for i in range(7)), max_messages=5)
     assert len(parts) == 5
-    assert parts[-1] == "part 4\n\npart 5\n\npart 6"
+    assert parts[-1] == "part 4 part 5 part 6"
     assert split_chat_messages("Run:\n\n```\na\n\nb\n```") == ["Run:", "```\na\n\nb\n```"]
 
 
 def test_split_chat_messages_drops_blocks_without_text():
     text = "Hier zijn suggesties:\n\n---\n\n#### Actietags\n- #feature\n\n***\n\n**"
     assert split_chat_messages(text, max_messages=0) == [
-        "Hier zijn suggesties:\n#### Actietags\n- #feature",
+        "Hier zijn suggesties:",
+        "#### Actietags",
+        "#feature",
     ]
 
 
-def test_split_chat_messages_keeps_an_enumeration_in_one_bubble():
+def test_split_chat_messages_gives_each_list_item_its_own_bubble():
     text = (
         "Besluitpunten die wachten:\n\n"
         "1. Koppelingen voor de workspace.\n\n"
@@ -86,7 +90,9 @@ def test_split_chat_messages_keeps_an_enumeration_in_one_bubble():
         "Ik zet ze als kaarten neer."
     )
     assert split_chat_messages(text, max_messages=0) == [
-        "Besluitpunten die wachten:\n1. Koppelingen voor de workspace.\n1. Open beslissingen in het overzicht.",
+        "Besluitpunten die wachten:",
+        "Koppelingen voor de workspace.",
+        "Open beslissingen in het overzicht.",
         "Ik zet ze als kaarten neer.",
     ]
 
@@ -96,6 +102,38 @@ def test_split_chat_messages_strips_heartbeat_prefix():
         "De workspace is actief.",
     ]
     assert split_chat_messages("HEARTBEAT_OK") == []
+
+
+def test_live_tail_stays_a_growing_prefix():
+    chunks = ["Belang", "rijke documenten.", "\n\nNog een zin"]
+    buf = ""
+    prev: list[str] = []
+    for chunk in chunks:
+        buf += chunk
+        parts = split_chat_messages(buf, max_messages=0, settle=False)
+        for index, part in enumerate(parts):
+            if index < len(prev):
+                assert part.startswith(prev[index])
+        prev = parts
+    assert split_chat_messages(buf, max_messages=0) == [
+        "Belangrijke documenten.",
+        "Nog een zin",
+    ]
+    text = (
+        "Er zijn 2 open tickets:\n\n"
+        "- Live chat: product demo\n"
+        "- Receipt from Mistral\n\n"
+        "Wil je dat ik die tag verwijder?"
+    )
+    parts = split_chat_messages(text, max_messages=0)
+    assert parts == [
+        "Er zijn 2 open tickets:",
+        "Live chat: product demo",
+        "Receipt from Mistral",
+        "Wil je dat ik die tag verwijder?",
+    ]
+    fenced = split_chat_messages("Kijk:\n\n```\n- keep this\n```", max_messages=0)
+    assert fenced == ["Kijk:", "```\n- keep this\n```"]
 
 
 def test_format_for_channel_converts_markup():
@@ -164,6 +202,53 @@ def test_live_segments_include_open_tools():
 
 
 @pytest.mark.asyncio
+async def test_blank_line_opens_a_second_bubble_before_save():
+    from app.services.agent.turn import TurnRecorder
+
+    events: list[tuple[str, dict]] = []
+
+    async def publish(event: str, data: dict) -> None:
+        events.append((event, data))
+
+    turn = TurnRecorder(publish, stream_id="s1")
+    await turn.speech("Eerste zin.\n\nTweede zin.")
+    await turn.finish()
+    assert [seg["text"] for seg in turn.segments] == ["Eerste zin.", "Tweede zin."]
+    surface = events[-1][1]["surface"]
+    spoken = [block["text"] for block in surface["blocks"] if block["type"] == "speech"]
+    assert spoken == ["Eerste zin.", "Tweede zin."]
+    segments = {data["segment_id"] for name, data in events if name == "message.delta"}
+    assert len(segments) == 2
+
+
+@pytest.mark.asyncio
+async def test_think_text_rides_the_operator_surface_only():
+    from app.services.agent.turn import TurnRecorder
+
+    events: list[tuple[str, dict]] = []
+
+    async def publish(event: str, data: dict) -> None:
+        events.append((event, data))
+
+    turn = TurnRecorder(publish, stream_id="s1")
+    await turn.thinking("Hallo")
+    await turn.thinking(" daar")
+    think = events[-1][1]["surface"]["blocks"][0]["items"][0]
+    assert think["text"] == "Hallo daar"
+    await turn.speech("Hoi")
+    speech = [data for name, data in events if name == "message.delta"][-1]
+    leaked = [
+        item
+        for block in speech["surface"]["blocks"]
+        if block["type"] == "activity"
+        for item in block["items"]
+        if item.get("kind") == "think"
+    ]
+    assert leaked
+    assert "text" not in leaked[0]
+    assert leaked[0]["has_text"] is True
+
+
 async def test_say_closes_a_check_in_bubble():
     from app.services.agent.turn import TurnRecorder
 
@@ -843,4 +928,67 @@ async def test_place_turn_decisions_does_not_drag_old_cards_into_new_turn(
     # The old card stays with its own turn: no proposal on the new bubbles.
     assert all("proposal" not in json.loads(b.metadata_json or "{}") for b in bubbles)
     assert "attached_to_message_id" not in json.loads(card.metadata_json or "{}")
+
+
+def test_choice_repair_turns_tag_bullets_into_options():
+    bubbles = [
+        {
+            "text": "Er is al een contact voor Lorenzo Boers (lorenzo_boers@outlook.com).",
+            "activity": [
+                {
+                    "tool": "get_contact",
+                    "result": {
+                        "items": [
+                            {
+                                "type": "contact",
+                                "id": "c1",
+                                "title": "Lorenzo Boers",
+                            }
+                        ]
+                    },
+                }
+            ],
+        },
+        {
+            "text": "De beschikbare ticketcategorieën zijn:\n- bug (voor problemen)\n- feature (voor nieuwe functionaliteit)",
+            "activity": [
+                {
+                    "tool": "list_tags",
+                    "result": {
+                        "tags": [
+                            {"id": "t-bug", "name": "bug", "kind": "action_tag"},
+                            {"id": "t-feature", "name": "feature", "kind": "action_tag"},
+                        ]
+                    },
+                }
+            ],
+        },
+        {"text": "Welke categorie past het beste bij het issue?", "activity": []},
+    ]
+    cleaned, options = prepare_choice_repair(bubbles)
+    assert [row["id"] for row in options] == ["t-bug", "t-feature"]
+    speech = "\n".join(row["text"] for row in cleaned)
+    assert "- bug" not in speech
+    assert "Welke categorie" in speech
+    groups = assign_bubble_showcases(cleaned)
+    assert groups[0][0]["id"] == "c1"
+    assert all(item.get("type") != "contact" for item in groups[-1])
+
+
+def test_assign_showcases_skips_contact_on_the_question_bubble():
+    bubbles = [
+        {
+            "text": "Welke categorie past het beste?",
+            "activity": [
+                {
+                    "tool": "get_contact",
+                    "result": {
+                        "items": [{"type": "contact", "id": "c1", "title": "Lorenzo Boers"}]
+                    },
+                }
+            ],
+        }
+    ]
+    groups = assign_bubble_showcases(bubbles)
+    assert groups == [[]]
 

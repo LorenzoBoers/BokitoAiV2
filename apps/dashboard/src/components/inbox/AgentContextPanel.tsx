@@ -9,12 +9,12 @@ import {
   ChevronDown,
   ChevronRight,
   Cpu,
-  Loader2,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { listSignalThreads } from '../../lib/signals-api'
 import { getAllowances, listAgentPassports } from '../../lib/govern-api'
 import { BrandMark } from '../integrations/BrandMark'
+import { LoadingBlock } from '../ui/loading-block'
 import {
   listIntegrationConnections,
   listIntegrationProviders,
@@ -312,10 +312,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
       ) : null}
 
       {loading ? (
-        <div className="flex items-center gap-2 px-4 py-2 text-xs text-text-muted">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          {t('agentContext.loading')}
-        </div>
+        <LoadingBlock variant="inline" label={t('agentContext.loading')} className="px-4 py-2" />
       ) : null}
 
       <ConversationWorkSection thread={thread} onScheduleChanged={() => onThreadUpdated?.()} />

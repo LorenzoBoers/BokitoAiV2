@@ -1659,6 +1659,7 @@ export type ConversationWithAgent = Conversation & {
 export type ChatTarget = AgentSummary & {
   kind: 'company'
   is_default: boolean
+  is_lead?: boolean
 }
 
 export type ChatDecisionOption = {
@@ -1704,6 +1705,8 @@ export type ChatMessage = {
   activity_after?: ActivityItem[] | unknown[]
   turn_id?: string | null
   in_progress?: boolean
+  /** Saved tool rows and image frames from `message_activity`. */
+  history?: import('./agentActivity').HistoryView | null
 }
 
 export async function bokitoListChatTargets(token: string) {
@@ -1760,6 +1763,8 @@ export async function bokitoCreateConversation(
      * auto-send cannot leave an empty "Untitled chat".
      */
     message?: string
+    /** Files / pasted images on that opener. */
+    attachments?: unknown[]
   },
 ) {
   const body: Record<string, unknown> = { title }
@@ -1767,6 +1772,7 @@ export async function bokitoCreateConversation(
   if (options?.contextSignalId) body.context_signal_id = options.contextSignalId
   const opener = options?.message?.trim()
   if (opener) body.message = opener
+  if (options?.attachments?.length) body.attachments = options.attachments
   return apiPost<{
     id: string
     title: string
@@ -1790,7 +1796,9 @@ export async function startConversation(
         note?: string
         projectId?: string | null
         fields?: Record<string, string>
-      },
+      }
+    | { kind: 'note'; subject?: string; note: string }
+    | { kind: 'chat'; memberId: string; message: string },
 ): Promise<{ threadId: string; channel: string }> {
   const payload: Record<string, unknown> =
     body.kind === 'whatsapp'
@@ -1800,6 +1808,18 @@ export async function startConversation(
           body_text: body.bodyText,
           ...(body.channelAccountId ? { channel_account_id: body.channelAccountId } : {}),
         }
+      : body.kind === 'note'
+        ? {
+            kind: 'note',
+            subject: body.subject ?? '',
+            note: body.note,
+          }
+        : body.kind === 'chat'
+          ? {
+              kind: 'chat',
+              member_id: body.memberId,
+              body_text: body.message,
+            }
       : {
           kind: 'ticket',
           tag_id: body.tagId,
@@ -1877,6 +1897,8 @@ export async function bokitoStreamMessage(
     agentId?: string | null
     /** Ask-tab agents. The server unions these with @mentions in the body. */
     audienceAgentIds?: string[]
+    /** Full speech bubbles from the turn. Replaces the assembled delta. */
+    onParts?: (parts: string[]) => void
   },
 ): Promise<string> {
   const payload: Record<string, unknown> = { content }
@@ -1918,9 +1940,13 @@ export async function bokitoStreamMessage(
 
   const handleEvent = (name: string, data: string) => {
     try {
-      const payload = JSON.parse(data) as { text?: string }
+      const payload = JSON.parse(data) as { text?: string; parts?: unknown }
       if (name === 'thinking' && payload.text) {
         onThinking?.(payload.text)
+      } else if (name === 'delta' && Array.isArray(payload.parts)) {
+        const parts = payload.parts.filter((part): part is string => typeof part === 'string')
+        options?.onParts?.(parts)
+        finalText = parts.join('\n\n')
       } else if (name === 'delta' && payload.text) {
         onDelta(payload.text)
       } else if (name === 'done') {

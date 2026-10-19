@@ -140,7 +140,9 @@ async def test_edited_draft_lands_in_the_next_prompt(client: AsyncClient, sessio
 
 
 @pytest.mark.asyncio
-async def test_for_you_includes_a_handoff_on_all_people(client: AsyncClient, session_override):
+async def test_handoff_on_all_people_stays_unassigned(client: AsyncClient, session_override):
+    from app.services.ownership import unassigned_predicate
+
     tenant = await _tenant(session_override)
     user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
     signal = await _signal(
@@ -156,7 +158,13 @@ async def test_for_you_includes_a_handoff_on_all_people(client: AsyncClient, ses
             select(Signal.id).where(Signal.id == signal.id, for_you_predicate(user.id, set()))
         )
     ).scalar_one_or_none()
-    assert match == signal.id
+    assert match is None
+    parked = (
+        await session_override.execute(
+            select(Signal.id).where(Signal.id == signal.id, unassigned_predicate())
+        )
+    ).scalar_one_or_none()
+    assert parked == signal.id
 
 
 @pytest.mark.asyncio

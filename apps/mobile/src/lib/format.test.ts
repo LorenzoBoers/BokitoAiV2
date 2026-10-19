@@ -41,7 +41,7 @@ assert.equal(relativeTime(new Date().toISOString(), 'en'), 'now')
 assert.equal(isCustomerChannel('whatsapp'), true)
 assert.equal(isCustomerChannel('assistant'), false)
 assert.equal(translate('en', 'home.autonomy', { pct: 42 }), '42% handled automatically')
-assert.equal(pathFromNotificationData({ kind: 'decision_request' }), '/(tabs)/decisions')
+assert.equal(pathFromNotificationData({ kind: 'decision_request' }), '/(tabs)/conversations')
 assert.equal(pathFromNotificationData({ signal_id: 'abc' }), '/thread/abc')
 
 assert.equal(isPlaceholderContactAddress('visitor@web'), true)

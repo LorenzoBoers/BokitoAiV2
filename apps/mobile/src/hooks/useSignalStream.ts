@@ -32,8 +32,38 @@ function stepFromItem(item: Record<string, unknown>): AgentStep | null {
 }
 
 /**
- * Live agent turn on a thread (`agent.turn`, `agent.activity`, `message.delta`).
- * A saved message mid-turn does not end it; only `agent.turn end` does.
+ * Speech and steps from the turn surface. When the frame carries blocks, those
+ * replace the bubble text and the step list. Deltas are only a fallback.
+ */
+function readSurface(data: Record<string, unknown>): { streamText: string; steps: AgentStep[] } | null {
+  const surface = data.surface
+  if (!surface || typeof surface !== 'object') return null
+  const blocks = (surface as { blocks?: unknown }).blocks
+  if (!Array.isArray(blocks) || blocks.length === 0) return null
+  const texts: string[] = []
+  const steps: AgentStep[] = []
+  for (const block of blocks) {
+    if (!block || typeof block !== 'object') continue
+    const row = block as { type?: unknown; text?: unknown; items?: unknown }
+    if (row.type === 'speech') {
+      const text = String(row.text ?? '')
+      if (text.trim()) texts.push(text)
+      continue
+    }
+    if (row.type !== 'activity' || !Array.isArray(row.items)) continue
+    for (const item of row.items) {
+      if (!item || typeof item !== 'object') continue
+      const step = stepFromItem(item as Record<string, unknown>)
+      if (step) steps.push(step)
+    }
+  }
+  return { streamText: texts.join('\n\n'), steps }
+}
+
+/**
+ * Live agent turn on a thread. The socket surface is the document: speech
+ * blocks are the bubble text, activity blocks are the steps. A saved message
+ * mid-turn does not end it; only `agent.turn` end does.
  */
 export function useSignalStream(signalId: string | null) {
   const [state, setState] = useState<SignalStreamState>(EMPTY)
@@ -52,7 +82,20 @@ export function useSignalStream(signalId: string | null) {
       if (event.event === 'agent.turn') {
         if (data.phase === 'end') setState(EMPTY)
         else setState((prev) => (prev.streaming ? prev : { ...EMPTY, streaming: true }))
-      } else if (event.event === 'message.delta') {
+        return
+      }
+      const surface = readSurface(data)
+      if (
+        surface &&
+        (event.event === 'message.delta' ||
+          event.event === 'message.part' ||
+          event.event === 'agent.activity' ||
+          event.event === 'agent.thinking')
+      ) {
+        setState({ streaming: true, streamText: surface.streamText, steps: surface.steps })
+        return
+      }
+      if (event.event === 'message.delta') {
         const delta = String(data.delta ?? '')
         if (!delta) return
         setState((prev) => ({ ...prev, streaming: true, streamText: prev.streamText + delta }))

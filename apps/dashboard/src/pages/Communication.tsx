@@ -17,8 +17,11 @@ import {
   type SubQueue,
 } from '../lib/messages-paths'
 import {
+  closedCompanionFilters,
   configForLeaf,
+  leafForOpenList,
   mergeHubThreadFilters,
+  supportsClosedDisclosure,
   threadFitsChannelLeaf,
 } from '../lib/hub-list-filters'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
@@ -169,7 +172,9 @@ export default function Communication() {
     [location.pathname],
   )
 
-  const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(leaf), [leaf])
+  const listLeaf = useMemo(() => leafForOpenList(leaf), [leaf])
+  const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(listLeaf), [listLeaf])
+  const closedShown = leaf.queue === 'closed' || searchParams.get('closed') === '1'
 
   const searchKey = searchParams.toString()
   const folderFilter = useMemo(
@@ -449,6 +454,78 @@ export default function Communication() {
     }),
     pinnedIds,
   )
+
+  const closedBase = closedCompanionFilters(leaf)
+  const {
+    threads: closedThreads,
+    loading: closedLoading,
+    threadsReady: closedReady,
+    total: closedTotal,
+    hasMore: closedHasMore,
+    loadMore: loadMoreClosed,
+  } = useThreads(
+    closedBase
+      ? mergeHubThreadFilters(closedBase, {
+          search: listSearch,
+          projectId,
+          categoryId,
+          tag: tagParam,
+          stage: stageParam,
+          unread: mode === 'customer' && quickFilter === 'unread',
+          pinnedOnly: mode === 'customer' && quickFilter === 'pinned',
+          assigneeId: assigneeFilter,
+          priority: priorityFilter ?? undefined,
+          activity: dateFilter ?? undefined,
+          agentId: agentParam,
+        })
+      : {},
+    pinnedIds,
+    closedBase != null,
+  )
+
+  const onlyClosed =
+    supportsClosedDisclosure(leaf) &&
+    threadsReady &&
+    closedReady &&
+    threads.length === 0 &&
+    (closedTotal ?? 0) > 0 &&
+    !search.trim() &&
+    quickFilter === 'all' &&
+    !hasFolderFilter
+  const revealClosed = closedShown || onlyClosed
+
+  useEffect(() => {
+    if (leaf.type !== 'agent' || selectedThreadId) return
+    if (search.trim() || quickFilter !== 'all' || hasFolderFilter) return
+    if (assigneeFilter != null || priorityFilter || dateFilter) return
+    if (!threadsReady || !closedReady || threadsError) return
+    if (threadsTotal == null || threadsTotal > 0) return
+    if (closedTotal == null || closedTotal > 0) return
+    navigate(newConversationPath({ intent: 'agent', agentId: leaf.agentId }), { replace: true })
+  }, [
+    assigneeFilter,
+    closedReady,
+    closedTotal,
+    dateFilter,
+    hasFolderFilter,
+    leaf,
+    navigate,
+    priorityFilter,
+    quickFilter,
+    search,
+    selectedThreadId,
+    threadsError,
+    threadsReady,
+    threadsTotal,
+  ])
+
+  const toggleClosed = useCallback(() => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('closed')
+    if (!closedShown) next.set('closed', '1')
+    const search = next.toString()
+    navigate({ pathname: leafPath(listLeaf), search: search ? `?${search}` : '' })
+  }, [closedShown, listLeaf, navigate, searchParams])
 
   const listContextKey = `${leafKey(leaf)}:${listFilterQuery(folderFilter)}:${agentParam ?? ''}:${needsDecisionParam ? '1' : ''}:${assigneeFilter ?? ''}:${priorityFilter ?? ''}:${dateFilter ?? ''}`
 
@@ -920,7 +997,9 @@ export default function Communication() {
       if (inboxQueue === 'for_you' && detail.thread.status === 'open') return
       if (threadFitsInboxQueue(detail.thread, inboxQueue, currentUserId)) return
       if (resolvedStatusLeavesInboxQueue(detail.thread.status, inboxQueue)) {
-        // Stay in Open / For you / … — do not follow the thread into Closed or Spam.
+        // The closed disclosure is how you reopen: stay on the thread so the
+        // header can offer Heropenen. Otherwise stay in Open and move on.
+        if (closedShown && detail.thread.status === 'closed') return
         advancingRef.current = true
         try {
           leaveResolvedThread(selectedThreadId, detail.thread.status)
@@ -956,6 +1035,7 @@ export default function Communication() {
     filteredThreads,
     selectedInOutside,
     leaveResolvedThread,
+    closedShown,
   ])
 
   const handlePatch = useCallback(
@@ -1669,12 +1749,10 @@ export default function Communication() {
     return <Navigate to={activityTerminalPath(leaf.agentId)} replace />
   }
 
-  // Agent folders only have Open and Closed. Open is the one that expands.
+  // Retired queue rows. Closed stays, and opens the disclosure on the open list.
   if (leaf.type === 'agent' && (leaf.queue === 'for_you' || leaf.queue === 'unassigned')) {
-    return <Navigate to={leafPath({ type: 'agent', agentId: leaf.agentId, queue: 'open' })} replace />
+    return <Navigate to={leafPath({ type: 'agent', agentId: leaf.agentId })} replace />
   }
-
-  // Channel folders use the same Open / Closed split.
   if (leaf.type === 'channel' && (leaf.queue === 'for_you' || leaf.queue === 'unassigned')) {
     return (
       <Navigate
@@ -1682,30 +1760,22 @@ export default function Communication() {
           type: 'channel',
           channelKey: leaf.channelKey,
           connectionId: leaf.connectionId,
-          queue: 'open',
         })}
         replace
       />
     )
   }
-
-  // Saved folders use the same Open / Closed split.
   if (leaf.type === 'project' && (leaf.queue === 'for_you' || leaf.queue === 'unassigned')) {
-    return (
-      <Navigate
-        to={leafPath({ type: 'project', projectId: leaf.projectId, queue: 'open' })}
-        replace
-      />
-    )
+    return <Navigate to={leafPath({ type: 'project', projectId: leaf.projectId })} replace />
   }
-
-  // Flow (action-tag) folders use the same Open / Closed split.
+  if (leaf.type === 'team' && leaf.queue === 'for_you') {
+    return <Navigate to={leafPath({ type: 'team', teamId: leaf.teamId })} replace />
+  }
   if (
     leaf.type === 'tag' &&
-    (leaf.queue === 'for_you' || leaf.queue === 'unassigned') &&
-    communicationNav.ticketTags.some((row) => row.name === leaf.tag || row.name === leaf.tag.replace(/^#/, ''))
+    (leaf.queue === 'for_you' || leaf.queue === 'unassigned')
   ) {
-    return <Navigate to={leafPath({ type: 'tag', tag: leaf.tag, queue: 'open' })} replace />
+    return <Navigate to={leafPath({ type: 'tag', tag: leaf.tag })} replace />
   }
 
   return (
@@ -1759,7 +1829,15 @@ export default function Communication() {
             onBulkPin={mode === 'customer' ? (next) => void handleBulkPin(next) : undefined}
             onClearBulkSelection={mode === 'customer' ? handleClearBulkSelection : undefined}
             bulkBusy={bulkBusy}
-            listQueue={leaf.queue ?? null}
+            listQueue={listLeaf.type === 'inbox' ? (listLeaf.queue ?? null) : (listLeaf.queue ?? 'open')}
+            showClosedToggle={supportsClosedDisclosure(leaf)}
+            closedOpen={revealClosed}
+            closedThreads={revealClosed ? closedThreads : []}
+            closedTotal={closedTotal}
+            closedLoading={revealClosed && !closedReady && closedLoading}
+            closedHasMore={closedHasMore}
+            onToggleClosed={toggleClosed}
+            onLoadMoreClosed={() => void loadMoreClosed()}
             scopedProjectId={projectId ?? null}
             scrollKey={leafKey(leaf)}
             assigneeFilter={assigneeFilter}

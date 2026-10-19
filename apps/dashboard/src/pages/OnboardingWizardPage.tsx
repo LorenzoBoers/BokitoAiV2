@@ -40,7 +40,6 @@ import { cn } from '../lib/utils'
 import { markTourPendingAfterWizard } from '../lib/tour-handoff'
 
 const DEFAULT_LEAD_SHAPE = 'blob'
-const DEFAULT_LEAD_JOB_TITLE = 'Onboarding specialist'
 
 function visualKind(value: string | null | undefined): 'initials' | 'orb' {
   return (value || '').trim().toLowerCase() === 'initials' ? 'initials' : 'orb'
@@ -132,7 +131,7 @@ export default function OnboardingWizardPage() {
   const [workspaceLang, setWorkspaceLang] = useState('nl')
   const [posture, setPostureLocal] = useState<AutonomyPostureId>('assisted')
   const [agentName, setAgentName] = useState('')
-  const [agentJobTitle, setAgentJobTitle] = useState(DEFAULT_LEAD_JOB_TITLE)
+  const [agentJobTitle, setAgentJobTitle] = useState(() => t('agent.jobTitleDefault'))
   const [agentDescription, setAgentDescription] = useState('')
   const [avatarKind, setAvatarKind] = useState<'initials' | 'orb'>('orb')
   const [avatarColor, setAvatarColor] = useState(DEFAULT_BOT_ORB_COLOR)
@@ -159,11 +158,8 @@ export default function OnboardingWizardPage() {
           const storedName = res.lead_agent.name || ''
           setAgentName(!storedName || storedName === company ? suggested : storedName)
           const storedTitle = (res.lead_agent.job_title || '').trim()
-          setAgentJobTitle(
-            !storedTitle || storedTitle === 'Assistent' || storedTitle === 'Assistant'
-              ? DEFAULT_LEAD_JOB_TITLE
-              : storedTitle,
-          )
+          const legacyTitle = !storedTitle || storedTitle === 'Assistent' || storedTitle === 'Assistant' || storedTitle === 'Onboarding specialist'
+          setAgentJobTitle(legacyTitle ? t('agent.jobTitleDefault') : storedTitle)
           setAgentDescription(res.lead_agent.description || '')
           setAvatarKind(visualKind(res.lead_agent.avatar_kind))
           setAvatarColor(resolveAgentAvatarColor(res.lead_agent.avatar_color))
@@ -173,7 +169,7 @@ export default function OnboardingWizardPage() {
           )
         } else {
           setAgentName(res.suggested_agent_name || '')
-          setAgentJobTitle(DEFAULT_LEAD_JOB_TITLE)
+          setAgentJobTitle(t('agent.jobTitleDefault'))
           setAgentDescription('')
           setAvatarKind('orb')
           setAvatarColor(DEFAULT_BOT_ORB_COLOR)

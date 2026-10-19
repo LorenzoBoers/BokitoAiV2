@@ -156,7 +156,10 @@ export function threadMatchesFilters(
       }
       return null
     case 'unassigned':
-      viewMatch = thread.status === 'open' && (thread.owner ? thread.owner.kind === 'team' : thread.assignedToUserId == null)
+      viewMatch =
+        thread.status === 'open' &&
+        (thread.owner ? thread.owner.kind === 'team' : thread.assignedToUserId == null) &&
+        !(thread.turn?.kind === 'user' && (thread.turn.reason === 'question' || thread.turn.reason === 'draft_ready'))
       break
     case 'pending':
       viewMatch = thread.status === 'pending'
@@ -166,6 +169,19 @@ export function threadMatchesFilters(
       break
     case 'closed':
       viewMatch = thread.status === 'closed'
+      break
+    case 'for_you_closed':
+      if (currentUserId == null) return null
+      if (thread.status === 'closed' && thread.assignedToUserId === currentUserId) {
+        viewMatch = true
+        break
+      }
+      return null
+    case 'unassigned_closed':
+      viewMatch =
+        thread.status === 'closed' &&
+        (thread.owner ? thread.owner.kind === 'team' : thread.assignedToUserId == null) &&
+        !(thread.turn?.kind === 'user' && (thread.turn.reason === 'question' || thread.turn.reason === 'draft_ready'))
       break
     case 'spam':
       viewMatch = thread.status === 'spam'
@@ -229,6 +245,13 @@ export function upsertThreadRow(prev: InboxThread[], row: InboxThread): InboxThr
   if (idx === -1) return [row, ...prev]
   const next = [...prev]
   next[idx] = mergeThreadRow(prev[idx], row)
+  // A thread that just entered this view (closed into the closed group, or
+  // reopened into the open list) belongs at the top. Otherwise it sits at its
+  // old position and a one-page closed list never shows the one you just closed.
+  if (next[idx].status !== prev[idx].status) {
+    const [moved] = next.splice(idx, 1)
+    return [moved, ...next]
+  }
   return next
 }
 

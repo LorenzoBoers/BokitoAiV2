@@ -41,6 +41,7 @@ def serialize_tenant_model(
         "is_default_chat": model.is_default_chat,
         "is_default_embedding": model.is_default_embedding,
         "sort_order": model.sort_order,
+        "origin": model.origin or "tenant",
     }
     if connection:
         data["provider_type"] = connection.provider_type
@@ -51,7 +52,10 @@ def serialize_tenant_model(
 
 async def tenant_has_models(session: AsyncSession, tenant_id: UUID) -> bool:
     result = await session.execute(
-        select(TenantModel.id).where(TenantModel.tenant_id == tenant_id).limit(1)
+        select(TenantModel.id).where(
+            TenantModel.tenant_id == tenant_id,
+            TenantModel.origin != "platform",
+        ).limit(1)
     )
     return result.scalar_one_or_none() is not None
 
@@ -62,8 +66,11 @@ async def list_models(
     *,
     kind: str | None = None,
     enabled_only: bool = False,
+    user_only: bool = False,
 ) -> list[TenantModel]:
     stmt = select(TenantModel).where(TenantModel.tenant_id == tenant_id)
+    if user_only:
+        stmt = stmt.where(TenantModel.origin != "platform")
     if kind:
         stmt = stmt.where(TenantModel.kind == kind)
     if enabled_only:
@@ -162,7 +169,7 @@ async def create_model(
     if existing.scalar_one_or_none():
         raise ValueError("A model with this slug already exists")
 
-    if kind not in ("chat", "embedding"):
+    if kind not in ("chat", "embedding", "image"):
         raise ValueError("Invalid model kind")
 
     now = datetime.utcnow()
@@ -310,15 +317,24 @@ async def delete_model(session: AsyncSession, tenant_id: UUID, model_id: UUID) -
     model = result.scalar_one_or_none()
     if not model:
         return False
+    if (model.origin or "tenant") == "platform":
+        raise ValueError("Platform models stay linked to the workspace")
     await session.delete(model)
     await session.commit()
     return True
 
 
 async def list_models_with_connections(
-    session: AsyncSession, tenant_id: UUID, *, enabled_only: bool = False
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    enabled_only: bool = False,
+    user_only: bool = False,
+    kind: str | None = None,
 ) -> list[dict[str, Any]]:
-    models = await list_models(session, tenant_id, enabled_only=enabled_only)
+    models = await list_models(
+        session, tenant_id, enabled_only=enabled_only, user_only=user_only, kind=kind
+    )
     if not models:
         return []
     conn_ids = {m.connection_id for m in models}

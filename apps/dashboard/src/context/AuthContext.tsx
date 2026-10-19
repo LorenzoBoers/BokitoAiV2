@@ -136,6 +136,8 @@ interface User {
   environment: string;
   /** Channel kinds parked platform-wide; their connect surfaces stay hidden. */
   parkedChannels: string[];
+  /** In-app agent calls. Off unless the API env enables them. */
+  agentCallsEnabled: boolean;
 }
 
 /** Thrown by `login` when the account requires a TOTP code as a second step. */
@@ -403,6 +405,7 @@ function normalizeAuthUser(raw: unknown): User {
     memberships,
     environment: toString(payload.environment).toLowerCase(),
     parkedChannels: normalizeParkedChannels(payload.parked_channels),
+    agentCallsEnabled: payload.agent_calls_enabled === true,
   };
 }
 

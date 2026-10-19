@@ -350,6 +350,47 @@
     @apply text-text-primary;
   }
 
+  /* Primary rail action: a soft accent wash, not a second solid row. */
+  .nav-row-accent {
+    background-color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--color-accent) / 0.18),
+      rgb(var(--color-accent) / 0.05) 62%,
+      transparent
+    );
+    @apply font-medium text-text-primary;
+  }
+  .nav-row-accent > svg {
+    @apply text-accent;
+  }
+  .nav-row-accent:hover {
+    background-color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--color-accent) / 0.26),
+      rgb(var(--color-accent) / 0.08) 68%,
+      transparent
+    );
+    @apply text-text-heading;
+  }
+  .nav-row-accent[data-active='true'],
+  .nav-row-accent[aria-current='page'] {
+    background-color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--color-accent) / 0.32),
+      rgb(var(--color-accent) / 0.1) 74%,
+      transparent
+    );
+    @apply text-text-heading;
+  }
+  .nav-row-accent:hover > svg,
+  .nav-row-accent[data-active='true'] > svg,
+  .nav-row-accent[aria-current='page'] > svg {
+    @apply text-accent;
+  }
+
   /*
    * Nested nav children under a parent .nav-row. ml-[15px] lines the border up
    * with the centre of the parent's leading mark (px-2 + half of 14px icon).
@@ -521,23 +562,6 @@
   .stream-tail {
     color: rgb(var(--color-ai-ink));
     text-shadow: 0 0 14px rgb(var(--color-ai) / 0.28);
-  }
-
-  /* Dictation mic: SVG bars share geometry with @bokito/shared SPEECH_WAVE_BARS. */
-  .dictation-wave-bar {
-    transform-origin: center bottom;
-    animation: dictation-wave-pulse 0.8s ease-in-out infinite;
-  }
-  @keyframes dictation-wave-pulse {
-    0%,
-    100% {
-      transform: scaleY(0.4);
-      opacity: 0.8;
-    }
-    50% {
-      transform: scaleY(1);
-      opacity: 1;
-    }
   }
 
   /* Interactive cards/rows: border steps up on hover. No translate, no shadow. */
@@ -985,40 +1009,40 @@
     transform-box: view-box;
     transform-origin: 32px 58px;
     /* Slow crawl out of the ground, then accelerate into the hop. */
-    animation: bot-orb-spawn-rise 1.05s linear both;
+    animation: bot-orb-spawn-rise 1.5s linear both;
   }
   .bot-orb--spawn .bot-orb__eyes,
   .bot-orb--spawn .bot-orb__nose {
     transform-box: view-box;
     transform-origin: 32px 31px;
-    animation: bot-orb-spawn-eyes 1.05s linear both;
+    animation: bot-orb-spawn-eyes 1.5s linear both;
   }
-  /* Quickspawn: grow in place from a prior live seat (no hop / ground rise). */
+  /* Quickspawn: ease in place from a prior live seat (no hop / ground rise). */
   .bot-orb--quickspawn .bot-orb__figure {
     transform-box: view-box;
     transform-origin: 32px 32px;
-    animation: bot-orb-quickspawn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: bot-orb-quickspawn 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes bot-orb-spawn-rise {
     0% {
-      transform: translateY(78%) scaleX(1.14) scaleY(0.36);
+      transform: translateY(128%) scaleX(1.24) scaleY(0.18);
     }
     /* Linger underground / slow peek */
-    18% {
-      transform: translateY(62%) scaleX(1.12) scaleY(0.44);
+    24% {
+      transform: translateY(104%) scaleX(1.2) scaleY(0.28);
     }
-    36% {
-      transform: translateY(38%) scaleX(1.06) scaleY(0.62);
+    42% {
+      transform: translateY(62%) scaleX(1.1) scaleY(0.48);
     }
     /* Accelerate upward */
-    52% {
-      transform: translateY(0) scaleX(0.94) scaleY(1.12);
+    60% {
+      transform: translateY(0) scaleX(0.88) scaleY(1.2);
     }
-    64% {
-      transform: translateY(-10%) scaleX(1.05) scaleY(0.94);
+    72% {
+      transform: translateY(-18%) scaleX(1.1) scaleY(0.88);
     }
-    78% {
-      transform: translateY(2px) scaleX(1.02) scaleY(0.97);
+    84% {
+      transform: translateY(5px) scaleX(1.04) scaleY(0.95);
     }
     100% {
       transform: translateY(0) scaleX(1) scaleY(1);
@@ -1026,19 +1050,19 @@
   }
   @keyframes bot-orb-spawn-eyes {
     0%,
-    50% {
+    58% {
       opacity: 0;
       transform: scaleY(0);
     }
-    62% {
+    68% {
       opacity: 1;
-      transform: scaleY(0.12);
+      transform: scaleY(0.08);
     }
-    74% {
-      transform: scaleY(1.14);
+    80% {
+      transform: scaleY(1.24);
     }
-    86% {
-      transform: scaleY(0.88);
+    90% {
+      transform: scaleY(0.8);
     }
     100% {
       opacity: 1;
@@ -1047,26 +1071,25 @@
   }
   @keyframes bot-orb-quickspawn {
     0% {
-      transform: scale(0.15);
-      opacity: 0.4;
+      transform: translateY(8px) scale(0.86);
+      opacity: 0;
+    }
+    45% {
+      opacity: 1;
     }
     100% {
-      transform: scale(1);
+      transform: translateY(0) scale(1);
       opacity: 1;
     }
   }
-  /* Done check pops in when a live seat becomes a static footprint. */
+  /* Done check eases in when a live seat becomes a static footprint. */
   .agent-done-corner--enter {
-    animation: agent-done-corner-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: agent-done-corner-enter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes agent-done-corner-enter {
     0% {
-      transform: scale(0);
+      transform: scale(0.55);
       opacity: 0;
-    }
-    70% {
-      transform: scale(1.18);
-      opacity: 1;
     }
     100% {
       transform: scale(1);
@@ -1390,6 +1413,25 @@
     }
     50% {
       box-shadow: 0 0 10px 1px rgb(var(--color-ai) / 0.22);
+    }
+  }
+
+  @keyframes carousel-slide-in {
+    from {
+      transform: translateX(var(--slide-from, 40px));
+      opacity: 0.35;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  .carousel-slide {
+    animation: carousel-slide-in 180ms cubic-bezier(0.16, 0.84, 0.24, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .carousel-slide {
+      animation: none;
     }
   }
 
@@ -1786,9 +1828,9 @@
     .pulse-dot::after,
     .thinking-shimmer-text,
     .thinking-wave-bar,
-    .dictation-wave-bar,
     .activity-live-icon,
     .activity-live-label,
+    .activity-slot-row,
     .ai-avatar[data-working]::after,
     .typing-dots > span,
     .live-ellipsis > span {
@@ -1860,7 +1902,7 @@
 
 .msg-bubble-enter {
   transform-origin: 0 100%;
-  animation: msg-bubble-enter 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: msg-bubble-enter 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* First live bubble: short lift + fade. Finished before the row grows much. */
@@ -1876,7 +1918,7 @@
 }
 
 .msg-bubble-enter-live {
-  animation: msg-bubble-enter-live 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: msg-bubble-enter-live 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Settle when a live agent bubble is fully written. Shadow only — no scale,
@@ -1921,7 +1963,7 @@
 
 .bubble-pop-enter {
   transform-origin: 0 100%;
-  animation: bubble-pop-enter 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: bubble-pop-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes proposal-preparing-in {
@@ -2133,6 +2175,46 @@
   color: rgb(var(--color-ai-ink));
   filter: drop-shadow(0 0 6px rgb(var(--color-ai) / 0.35));
   animation: agent-live-dot 1.35s ease-in-out infinite;
+}
+
+/** One live action. The previous line leaves upward; the next arrives from below. */
+.activity-slot {
+  position: relative;
+  min-height: 1.75rem;
+  overflow: hidden;
+}
+
+.activity-slot-row[data-phase='out'] {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  animation: activity-slot-out 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.activity-slot-row[data-phase='in'] {
+  animation: activity-slot-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes activity-slot-in {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes activity-slot-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
 }
 
 /** A new action replaces the live label: slide the new one in. */

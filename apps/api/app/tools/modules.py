@@ -18,6 +18,14 @@ async def _list_modules(ctx: ToolContext, _tool_input: dict[str, Any]) -> dict[s
     return {"modules": rows}
 
 
+async def _showcase_module(ctx: ToolContext, slug: str) -> None:
+    """Marketplace-style card under the reply, including modules not installed yet."""
+    from app.services.proposal_items import resolve_items, stash_attach_items
+
+    items = await resolve_items(ctx.session, ctx.tenant_id, [{"type": "module", "id": slug}])
+    stash_attach_items(ctx.signal_id, items)
+
+
 async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.tools.builtin import _create_decision_request, proposal_cooldown
 
@@ -27,6 +35,7 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         known = ", ".join(m.slug for m in MODULES)
         return {"error": f"Unknown module '{slug}'. Known: {known}."}
     if spec.status == "coming_soon":
+        await _showcase_module(ctx, spec.slug)
         return {
             "ok": False,
             "code": "coming_soon",
@@ -133,6 +142,7 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
             "action_type": "enable_module",
             "payload": payload,
         }
+    await _showcase_module(ctx, spec.slug)
     summary = reason or f"Use when {spec.needs_when}."
     if provider:
         summary = f"{summary} Suggested package: {provider}."
@@ -293,14 +303,13 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
 
 
 async def _list_module_sources(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.module_sources import ensure_platform_seeds, list_sources
+    from app.services.module_sources import list_sources
 
     slug = str(tool_input.get("slug") or "").strip()
     if get_module(slug) is None:
         return {"error": f"Unknown module '{slug}'."}
     if not await module_is_on(ctx.session, ctx.tenant_id, slug):
         return {"error": f"Module '{slug}' is off."}
-    await ensure_platform_seeds(ctx.session, ctx.tenant_id, slug)
     return {"sources": await list_sources(ctx.session, ctx.tenant_id, slug)}
 
 
@@ -379,11 +388,13 @@ register_tool(
     ToolSpec(
         name="recommend_module",
         description=(
-            "Route module work: if the module is off, open a decision to turn it on; "
-            "if it is on and has a managed specialist, invite that specialist into "
-            "this conversation (wake their turn). Use after list_modules when "
-            "invoices, VAT, ledgers, or similar work comes up. Leads should not run "
-            "module_* tools themselves. Do not recommend coming_soon modules as connectable."
+            "Recommend a marketplace module. Always shows the marketplace card "
+            "(specialist, description, partner logos), including modules the "
+            "workspace has not installed. If it is off, also ask to turn it on. "
+            "If it is on and has a specialist, invite that specialist into this "
+            "conversation. Use when the task fits a module the operator does not "
+            "have yet. Leads should not run module_* tools themselves. "
+            "Do not recommend coming_soon modules as connectable."
         ),
         category="integrations",
         input_schema={

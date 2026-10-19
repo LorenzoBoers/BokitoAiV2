@@ -7,6 +7,8 @@ import ContentHeader from '../components/shell/ContentHeader'
 import MarkdownView from '../components/docs/MarkdownView'
 import ArticleFeedback from '../components/docs/ArticleFeedback'
 import { SearchField } from '../components/ui/search-field'
+import { LoadingBlock } from '../components/ui/loading-block'
+import { ApiErrorBanner } from '../components/ui/ApiErrorBanner'
 import { InsetPanel } from '../components/ui/inset-panel'
 import {
   getProductHelpArticle,
@@ -86,9 +88,9 @@ function LearnIndex() {
       <SearchField value={query} onChange={setQuery} placeholder={t('pageGuides.search')} />
 
       {error ? (
-        <p className="text-sm text-status-error">{t('pageGuides.loadError')}</p>
+        <ApiErrorBanner message={t('pageGuides.loadError')} />
       ) : !index ? (
-        <p className="text-sm text-text-muted">{t('pageGuides.loading')}</p>
+        <LoadingBlock variant="skeleton" rows={4} />
       ) : sections.length === 0 ? (
         <p className="text-sm text-text-muted">
           {query.trim() ? t('pageGuides.emptySearch') : t('pageGuides.empty')}
@@ -202,9 +204,9 @@ function LearnArticle({ slug }: { slug: string }) {
       </InsetPanel>
 
       {loading ? (
-        <p className="text-sm text-text-muted">{t('pageGuides.loading')}</p>
+        <LoadingBlock variant="skeleton" rows={4} />
       ) : error ? (
-        <p className="text-sm text-status-error">{error}</p>
+        <ApiErrorBanner message={error} />
       ) : article ? (
         <MarkdownView content={article.content} />
       ) : null}

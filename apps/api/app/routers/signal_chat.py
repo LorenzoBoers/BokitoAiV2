@@ -148,6 +148,8 @@ class ConversationCreate(BaseModel):
     # Opener from "New conversation": persisted with the thread so a lost
     # client-side auto-send cannot leave an empty "Untitled chat".
     message: str = ""
+    # Files / pasted images on that opener (same shape as MessageCreate).
+    attachments: list[dict] = []
 
 
 class ConversationUpdate(BaseModel):
@@ -248,7 +250,7 @@ def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = N
 def _serialize_target(agent: Agent, *, is_default: bool = False) -> dict:
     from app.services.workforce_runtime import serialize_agent
 
-    return {**serialize_agent(agent, view="picker"), "is_default": is_default}
+    return {**serialize_agent(agent, view="picker"), "is_default": is_default, "is_lead": bool(agent.is_lead)}
 
 
 @router.get("/chat/targets")
@@ -322,6 +324,7 @@ async def create_conversation(
         if ctx_result.scalar_one_or_none():
             context_signal_id = body.context_signal_id
     opener = (body.message or "").strip()
+    attachments = [a for a in (body.attachments or []) if isinstance(a, dict)]
     signal = Signal(
         tenant_id=auth.tenant.id,
         channel="assistant",
@@ -339,15 +342,18 @@ async def create_conversation(
     set_owner(signal, "user", auth.user.id, by_user_id=auth.user.id)
     session.add(signal)
     await session.flush()
-    if opener:
+    has_opener = bool(opener or attachments)
+    if has_opener:
         await append_signal_chat_message(
             session,
             signal,
             role="user",
-            content=opener,
+            content=opener or " ",
             author_user_id=auth.user.id,
+            attachments=attachments or None,
         )
-        _apply_intent_title_once(signal, opener)
+        if opener:
+            _apply_intent_title_once(signal, opener)
     await session.commit()
     await session.refresh(signal)
     return {
@@ -357,7 +363,7 @@ async def create_conversation(
         "agent_id": str(agent.id),
         "agent_name": agent.name,
         "agent_kind": agent.kind,
-        "has_opener": bool(opener),
+        "has_opener": has_opener,
     }
 
 
@@ -816,11 +822,14 @@ async def _drive_operator_chat_turn(
                         if event["type"] == "thinking":
                             await _put_sse(queue, "thinking", {"text": event.get("text", "")})
                         elif event["type"] == "delta":
-                            await _put_sse(
-                                queue,
-                                "delta",
-                                {"text": event["text"], "segment_id": event.get("segment_id")},
-                            )
+                            body: dict[str, Any] = {
+                                "text": event["text"],
+                                "segment_id": event.get("segment_id"),
+                            }
+                            parts = event.get("parts")
+                            if isinstance(parts, list):
+                                body["parts"] = parts
+                            await _put_sse(queue, "delta", body)
                         elif event["type"] == "done":
                             cancelled = bool(event.get("cancelled"))
                             persist_text = _operator_stream_persist_text(
@@ -848,6 +857,17 @@ async def _drive_operator_chat_turn(
                                 status="cancelled" if cancelled else "completed",
                                 tokens=event.get("usage") or {},
                             )
+                            if not cancelled and agent is not None and persist_text.strip():
+                                from app.services.pass_stick import pass_stick
+
+                                await pass_stick(
+                                    session,
+                                    signal,
+                                    body_text=persist_text,
+                                    author_kind="agent",
+                                    author_id=agent.id,
+                                    author_name=agent.name or "",
+                                )
                             await session.commit()
                             if run:
                                 clear_cancel(run.id)
@@ -954,9 +974,10 @@ async def stream_message(
         if is_held(signal):
             await _hand_back_on_operator_ask(session, signal, auth)
 
-        # Multi-agent Ask (≥2 invitees with ≥1 agent) starts a nestable handoff
-        # instead of a solo SSE drive — same opener path as Note @mentions.
-        from app.services.handoff_sessions import expand_invitees, start_handoff_session
+        # Two or more people in the message: one stick, one agent job.
+        # The worker streams over the gateway. This SSE only confirms the handoff.
+        from app.services.handoff_sessions import expand_invitees
+        from app.services.pass_stick import pass_stick
 
         invitees = await expand_invitees(
             session,
@@ -969,25 +990,33 @@ async def stream_message(
             author_name = (
                 (auth.user.display_name or auth.user.email) if auth.user else ""
             )
-            started = await start_handoff_session(
+            # Focus-picker agents that are not in the text still count.
+            extra = ""
+            for raw_id in body.audience_agent_ids or []:
+                agent_row = await session.get(Agent, raw_id)
+                if agent_row is None:
+                    continue
+                chip = f"@[{agent_row.name}](agent:{agent_row.id})"
+                if chip not in turn_content:
+                    extra += f" {chip}"
+            moved = await pass_stick(
                 session,
-                auth.tenant.id,
                 signal,
-                body_text=turn_content,
-                author_user_id=auth.user.id,
+                body_text=(turn_content + extra).strip(),
+                author_kind="user",
+                author_id=auth.user.id,
                 author_name=author_name or "",
-                user_role=auth.role,
+                wake_default=False,
                 channel_agent_id=signal.agent_id,
-                extra_agent_ids=body.audience_agent_ids,
             )
             await session.commit()
-            opener_id = (started or {}).get("opener_id")
+            opener_id = moved.get("holder_id")
             payload = {
                 "text": "",
                 "handoff": True,
                 "opener_id": opener_id,
                 "llm_configured": True,
-                "llm_mode": "handoff",
+                "llm_mode": "stick",
                 "llm_key_source": "n/a",
             }
 

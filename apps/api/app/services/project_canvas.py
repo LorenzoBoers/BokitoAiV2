@@ -384,9 +384,18 @@ async def ensure_canvas_thread(
 async def _bind_home(
     session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
 ) -> bool:
-    """Heal a canvas that predates signal_id so the tab always has a thread."""
+    """Heal a canvas that predates signal_id so the tab always has a thread.
+
+    A binned home must be dropped before the refresh rule is pointed at it.
+    Otherwise every read sets the rule back onto that binned thread, and
+    ``ensure_trigger_thread`` mints a new Agenda row.
+    """
+    from app.models.signal import Signal
+
     changed = False
-    if not canvas.signal_id:
+    home = await session.get(Signal, canvas.signal_id) if canvas.signal_id else None
+    if home is None or home.tenant_id != tenant_id or home.deleted_at is not None:
+        canvas.signal_id = None
         await ensure_canvas_thread(session, tenant_id, canvas)
         changed = True
     trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
@@ -396,6 +405,8 @@ async def _bind_home(
         from app.services.thread_schedule import ensure_trigger_thread
 
         await ensure_trigger_thread(session, trigger)
+        if trigger.signal_id and trigger.signal_id != canvas.signal_id:
+            canvas.signal_id = trigger.signal_id
         changed = True
     if changed:
         session.add(canvas)

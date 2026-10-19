@@ -1,4 +1,5 @@
 from app.models.agent import Agent, AgentChatUser, AgentRun, RunEvent
+from app.models.agent_call import AgentCall
 from app.models.audit import AuditEvent
 from app.models.auth import Invite, Membership, Session, Tenant, User, UserPreference
 from app.models.auth_token import AuthToken
@@ -50,7 +51,6 @@ from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetti
 from app.models.provider import ProviderConnection, TenantModel
 from app.models.module_source import ModuleSource
 from app.models.module_agent import AgentScope, ModuleAgent
-from app.models.module_install import ModuleInstall
 from app.models.calendar import CalendarEvent, CalendarTagLink, TenantCalendar
 from app.models.user_memory import UserAssistantMemory
 from app.models.customer_verify import CustomerVerifyToken, HandoverCode
@@ -77,6 +77,7 @@ __all__ = [
     "Notification",
     "UserNotificationPreference",
     "DecisionRequest",
+    "AgentCall",
     "WorkspaceDoc",
     "DocSection",
     "DocChunk",
@@ -138,7 +139,6 @@ __all__ = [
     "ModuleSource",
     "AgentScope",
     "ModuleAgent",
-    "ModuleInstall",
     "CalendarEvent",
     "TenantCalendar",
     "CalendarTagLink",

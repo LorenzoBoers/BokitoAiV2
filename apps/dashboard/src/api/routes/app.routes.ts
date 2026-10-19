@@ -69,6 +69,8 @@ export const appRoutes = {
     threadComposing: (threadId: string) => `/signals/${threadId}/composing`,
     messageCancel: (messageId: string) => `/signals/messages/${messageId}/cancel`,
     threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
+    /** Draft composer text when there is no thread yet (teammate chat). */
+    composeDraft: '/signals/compose',
     threadHandledExternally: (threadId: string) => `/signals/${threadId}/handled-externally`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,

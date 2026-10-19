@@ -1,8 +1,8 @@
-"""Managed resources: stack/module desired state without silent un-archive.
+"""Pack/stack agent reconcile: create and patch without silent un-archive.
 
-Platform and tenant stacks may create and patch agents they own. When an
-operator archives a managed agent, reconcile must not force it back — it
-proposes a PlatformChange (Decision) instead.
+Callers identify agents by slug. Module affiliation lives on origin department
+/ ModuleAgent / department membership. When an operator archives a pack agent,
+reconcile proposes a PlatformChange (Decision) instead of reactivating.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from app.models.auth import Tenant
 from app.models.platform_change import PlatformChange
 from app.services.agent_rules import parse_autonomy_level
 
-MANAGED_ORIGINS = frozenset({"platform", "module", "stack", "user"})
+PACK_KINDS = frozenset({"platform", "module", "stack", "user"})
 RESTORE_REJECT_COOLDOWN = timedelta(days=7)
 
 # Display labels for known packs (fallback when settings_json has no label).
@@ -37,33 +37,139 @@ class EnsureResult:
     change: PlatformChange | None = None
 
 
-def is_managed(agent: Agent) -> bool:
-    return bool((agent.managed_origin or "").strip())
-
-
 def origin_label(agent: Agent) -> str:
     stored = _settings(agent).get("origin_label")
     if isinstance(stored, str) and stored.strip():
         return stored.strip()
-    key = ((agent.managed_origin or "").strip(), (agent.managed_ref or "").strip())
-    if key in _ORIGIN_LABELS:
-        return _ORIGIN_LABELS[key]
-    ref = (agent.managed_ref or "").strip()
-    if ref:
-        return ref.replace("-", " ").replace("_", " ").title()
-    origin = (agent.managed_origin or "").strip()
-    return origin.title() if origin else ""
+    return ""
 
 
-def management_payload(agent: Agent) -> dict[str, Any]:
-    managed = is_managed(agent)
+def empty_affiliation() -> dict[str, Any]:
     return {
-        "managed": managed,
-        "managed_origin": (agent.managed_origin or "").strip() or None,
-        "managed_ref": (agent.managed_ref or "").strip() or None,
-        "template_slug": (agent.template_slug or "").strip() or None,
-        "origin_label": origin_label(agent) if managed else None,
+        "affiliated": False,
+        "affiliation_kind": None,
+        "affiliation_label": None,
+        "module_slug": None,
+        "module_name": None,
+        "department_id": None,
+        "department_name": None,
     }
+
+
+def management_payload(
+    agent: Agent, *, affiliation: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Module/department (or stack) place for Agents UI."""
+    del agent  # identity comes from affiliation / settings only
+    aff = dict(affiliation or empty_affiliation())
+    affiliated = bool(aff.get("affiliated"))
+    label = (aff.get("affiliation_label") or "").strip() or None
+    return {
+        "affiliated": affiliated,
+        "affiliation_kind": aff.get("affiliation_kind"),
+        "affiliation_label": label,
+        "module_slug": aff.get("module_slug"),
+        "module_name": aff.get("module_name"),
+        "department_id": aff.get("department_id"),
+        "department_name": aff.get("department_name"),
+        # Short aliases still used by some clients.
+        "managed": affiliated,
+        "origin_label": label,
+    }
+
+
+async def affiliations_by_agent_id(
+    session: AsyncSession,
+    tenant_id: UUID,
+    agents: list[Agent],
+) -> dict[UUID, dict[str, Any]]:
+    """Resolve module / department place for pack agents (batch)."""
+    from app.models.module_agent import ModuleAgent
+    from app.models.team import Department
+    from app.modules.catalog import MODULE_BY_SLUG
+
+    out: dict[UUID, dict[str, Any]] = {agent.id: empty_affiliation() for agent in agents}
+    if not agents:
+        return out
+
+    agent_ids = [agent.id for agent in agents]
+    roster_rows = list(
+        (
+            await session.execute(
+                select(ModuleAgent).where(
+                    ModuleAgent.tenant_id == tenant_id,
+                    ModuleAgent.agent_id.in_(agent_ids),
+                )
+            )
+        ).scalars().all()
+    )
+    roster_by_agent: dict[UUID, ModuleAgent] = {}
+    for row in sorted(roster_rows, key=lambda r: (not r.is_default, r.created_at or datetime.min)):
+        roster_by_agent.setdefault(row.agent_id, row)
+
+    slug_hint: dict[UUID, str] = {}
+    for agent in agents:
+        slug = (agent.slug or "").strip()
+        if slug.startswith("module-") and len(slug) > 7:
+            slug_hint[agent.id] = slug[7:]
+
+    module_slugs = {
+        *(row.module_slug for row in roster_by_agent.values()),
+        *slug_hint.values(),
+    }
+    origin_depts: dict[str, Department] = {}
+    if module_slugs:
+        for row in (
+            await session.execute(
+                select(Department).where(
+                    Department.tenant_id == tenant_id,
+                    Department.origin_module_slug.in_(sorted(module_slugs)),
+                    Department.deleted_at.is_(None),
+                )
+            )
+        ).scalars().all():
+            if row.origin_module_slug:
+                origin_depts[row.origin_module_slug] = row
+
+    for agent in agents:
+        module_slug = None
+        roster = roster_by_agent.get(agent.id)
+        if roster is not None:
+            module_slug = roster.module_slug
+        elif agent.id in slug_hint:
+            module_slug = slug_hint[agent.id]
+
+        if module_slug:
+            module = MODULE_BY_SLUG.get(module_slug)
+            module_name = module.name if module else module_slug.replace("-", " ").title()
+            department = origin_depts.get(module_slug)
+            department_id = department.id if department else None
+            department_name = department.name if department else None
+            label = department_name or module_name
+            out[agent.id] = {
+                "affiliated": True,
+                "affiliation_kind": "module",
+                "affiliation_label": label,
+                "module_slug": module_slug,
+                "module_name": module_name,
+                "department_id": str(department_id) if department_id else None,
+                "department_name": department_name,
+            }
+            continue
+
+        # Stack packs (e.g. Trading) use settings origin_label without a module roster.
+        label = origin_label(agent)
+        if label:
+            out[agent.id] = {
+                "affiliated": True,
+                "affiliation_kind": "stack",
+                "affiliation_label": label,
+                "module_slug": None,
+                "module_name": None,
+                "department_id": None,
+                "department_name": None,
+            }
+    return out
 
 
 def _settings(agent: Agent) -> dict[str, Any]:
@@ -83,24 +189,8 @@ def _set_origin_label(agent: Agent, label: str) -> None:
         management = {}
     management["origin_label"] = label.strip()
     stored["management"] = management
-    # Flat key for quick UI reads without nested parse elsewhere.
     stored["origin_label"] = label.strip()
     agent.settings_json = json.dumps(stored)
-
-
-def stamp_provenance(
-    agent: Agent,
-    *,
-    managed_origin: str,
-    managed_ref: str,
-    template_slug: str,
-    origin_label: str = "",
-) -> None:
-    agent.managed_origin = (managed_origin or "").strip()
-    agent.managed_ref = (managed_ref or "").strip()
-    agent.template_slug = (template_slug or "").strip()
-    if origin_label:
-        _set_origin_label(agent, origin_label)
 
 
 def _is_archived(agent: Agent) -> bool:
@@ -108,7 +198,7 @@ def _is_archived(agent: Agent) -> bool:
 
 
 def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
-    """Patch stack-owned columns. Never clears provenance or un-archives."""
+    """Patch pack-owned columns. Never un-archives."""
     for key in (
         "name",
         "role",
@@ -141,26 +231,12 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
     agent.updated_at = datetime.utcnow()
 
 
-async def _find_managed_agent(
+async def _find_pack_agent(
     session: AsyncSession,
     tenant_id: UUID,
     *,
-    managed_origin: str,
-    managed_ref: str,
-    template_slug: str,
     match_slugs: list[str],
 ) -> Agent | None:
-    by_prov = await session.execute(
-        select(Agent).where(
-            Agent.tenant_id == tenant_id,
-            Agent.managed_origin == managed_origin,
-            Agent.managed_ref == managed_ref,
-            Agent.template_slug == template_slug,
-        )
-    )
-    found = by_prov.scalars().first()
-    if found:
-        return found
     if not match_slugs:
         return None
     by_slug = await session.execute(
@@ -234,7 +310,7 @@ async def _propose_restore(
     channel = await ensure_agent_channel(session, tenant.id, agent=agent)
     label = origin_label_text or origin_label(agent) or "the platform"
     summary = (
-        f"Restore managed agent “{agent.name}” from {label}. "
+        f"Restore pack agent “{agent.name}” from {label}. "
         "It was archived by an operator; approving brings it back to the library."
     )
     change, _ = await propose_platform_change(
@@ -274,17 +350,19 @@ async def ensure_managed_agent(
     patch_fields: dict[str, Any] | None = None,
     match_slugs: list[str] | None = None,
 ) -> EnsureResult:
-    """Create, patch, or propose restore for a stack/module-owned agent.
+    """Create, patch, or propose restore for a pack/stack agent.
 
-    Never silently un-archives. Archived managed agents get a Decision.
+    Identity is the agent slug (``match_slugs`` / create slug). ``managed_origin`` /
+    ``managed_ref`` / ``template_slug`` are pack labels for display only — they are
+    not stored on the agent row. Never silently un-archives.
     """
     origin = (managed_origin or "").strip()
     ref = (managed_ref or "").strip()
     tmpl = (template_slug or "").strip()
-    if origin not in MANAGED_ORIGINS:
-        raise ValueError(f"invalid managed_origin: {managed_origin!r}")
-    if not ref or not tmpl:
-        raise ValueError("managed_ref and template_slug are required")
+    if origin and origin not in PACK_KINDS:
+        raise ValueError(f"invalid pack kind: {managed_origin!r}")
+    if not tmpl and not (match_slugs or create_fields.get("slug")):
+        raise ValueError("template_slug or match_slugs / create slug is required")
 
     label = (display_label or "").strip() or _ORIGIN_LABELS.get((origin, ref), "")
     slugs = list(match_slugs or [])
@@ -292,14 +370,7 @@ async def ensure_managed_agent(
     if create_slug and create_slug not in slugs:
         slugs.insert(0, create_slug)
 
-    agent = await _find_managed_agent(
-        session,
-        tenant.id,
-        managed_origin=origin,
-        managed_ref=ref,
-        template_slug=tmpl,
-        match_slugs=slugs,
-    )
+    agent = await _find_pack_agent(session, tenant.id, match_slugs=slugs)
 
     if agent is None:
         from app.services.workforce_runtime import assert_unique_agent_name
@@ -309,19 +380,13 @@ async def ensure_managed_agent(
         fields.setdefault("kind", "company")
         fields.setdefault("is_active", True)
         fields.setdefault("runtime_status", "standby")
-        # Managed packs must not collide with an active operator-named agent.
         wanted_name = await assert_unique_agent_name(
-            session, tenant.id, str(fields.get("name") or tmpl)
+            session, tenant.id, str(fields.get("name") or tmpl or "Agent")
         )
         fields["name"] = wanted_name
         agent = Agent(tenant_id=tenant.id, name=wanted_name)
-        stamp_provenance(
-            agent,
-            managed_origin=origin,
-            managed_ref=ref,
-            template_slug=tmpl,
-            origin_label=label,
-        )
+        if label:
+            _set_origin_label(agent, label)
         _apply_fields(agent, fields)
         if not (agent.job_title or "").strip():
             agent.job_title = (agent.name or "Agent").strip()[:20]
@@ -331,14 +396,8 @@ async def ensure_managed_agent(
         await session.flush()
         return EnsureResult(agent=agent, action="created")
 
-    # Legacy row matched by slug: stamp provenance so archive stays managed.
-    stamp_provenance(
-        agent,
-        managed_origin=origin,
-        managed_ref=ref,
-        template_slug=tmpl,
-        origin_label=label or origin_label(agent),
-    )
+    if label and not origin_label(agent):
+        _set_origin_label(agent, label)
 
     if _is_archived(agent):
         pending = await _pending_restore(session, tenant.id, agent.id)
@@ -356,8 +415,14 @@ async def ensure_managed_agent(
         )
         return EnsureResult(agent=agent, action="restore_proposed", change=change)
 
-    _apply_fields(agent, patch_fields or create_fields)
-    # Active path: never flip kind/is_active via patch accidentally.
+    # ``patch_fields is None`` = create-once callers (module hire): leave active
+    # agents untouched. Explicit dict (even empty) still applies.
+    if patch_fields is None:
+        session.add(agent)
+        await session.flush()
+        return EnsureResult(agent=agent, action="exists")
+
+    _apply_fields(agent, patch_fields)
     agent.kind = "company"
     agent.is_active = True
     session.add(agent)

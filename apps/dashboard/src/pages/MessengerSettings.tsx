@@ -17,6 +17,7 @@ import {
 import { PageGuideLink } from '../components/layout/PageGuideLink'
 import { AutosaveStatus } from '../components/ui/AutosaveStatus'
 import { Button } from '../components/ui/button'
+import { LoadingBlock } from '../components/ui/loading-block'
 import { Input } from '../components/ui/input'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { Switch } from '../components/ui/switch'
@@ -759,7 +760,7 @@ function MessengerSettingsContent({
 
                 <FoldableSection title={t('messengerPage.availability')} defaultOpen>
                   {!widgetBehaviour ? (
-                    <p className="pt-1 text-sm text-text-muted">{t('messengerPage.loading')}</p>
+                    <LoadingBlock variant="inline" label={t('messengerPage.loading')} className="pt-1" />
                   ) : (
                     <div className="space-y-4 pt-1">
                       <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">

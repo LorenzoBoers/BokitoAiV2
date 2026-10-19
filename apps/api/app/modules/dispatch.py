@@ -77,7 +77,7 @@ async def module_writes_gate(
     """Return a writes_disabled error unless BOTH write switches are on.
 
     Platform: env MODULE_WRITES_ENABLED contains the slug (default off).
-    Tenant: ModuleInstall.writes_enabled pref (default off).
+    Tenant: department settings_json.modules.writes_enabled pref (default off).
     """
     from app.config import get_settings
     from app.modules.catalog import get_module_prefs

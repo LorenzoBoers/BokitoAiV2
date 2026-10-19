@@ -51,6 +51,7 @@ describe('optimistic-outbound', () => {
     const confirmed = serverMsg({ id: 'srv-1', bodyText: 'Hallo', authorUserId: 7 })
     const next = dropMatchedLocals([local, confirmed], confirmed)
     expect(next.map((m) => m.id)).toEqual(['srv-1'])
+    expect(next[0]?.listKey).toBe(local.id)
   })
 
   it('keeps failed locals across a quiet refresh', () => {
@@ -77,6 +78,7 @@ describe('optimistic-outbound', () => {
     const next = replaceLocalWithServer([local], String(local.id), server)
     expect(next).toHaveLength(1)
     expect(next[0].id).toBe('srv-9')
+    expect(next[0].listKey).toBe(local.id)
     expect(next[0].sendStatus).toBe('sent')
   })
 })

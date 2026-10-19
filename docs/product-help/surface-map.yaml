@@ -300,6 +300,9 @@ decisions:
     - apps/dashboard/src/components/inbox/DecisionGroupsBanner.tsx
     - apps/dashboard/src/lib/decision-groups-api.ts
     - apps/api/app/services/signal_decisions.py
+    - apps/api/app/services/agent_calls.py
+    - apps/api/app/routers/agent_calls.py
+    - apps/dashboard/src/components/shell/AgentCallOverlay.tsx
     - apps/api/app/routers/notifications.py
   screenshots:
     - approve

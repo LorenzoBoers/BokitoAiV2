@@ -927,6 +927,7 @@ export function ProfileSettingsContent() {
       <Section title={t('profile:landing.title')} description={t('profile:landing.description')}>
         <div className="flex gap-2">
           {([
+            { id: 'chat' as const, label: t('profile:landing.chat') },
             { id: 'communication' as const, label: t('profile:landing.communication') },
             { id: 'overview' as const, label: t('profile:landing.overview') },
           ]).map((option) => (

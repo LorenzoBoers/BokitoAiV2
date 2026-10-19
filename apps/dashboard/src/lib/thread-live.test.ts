@@ -236,6 +236,14 @@ describe('upsertThreadRow', () => {
     expect(next[0].emailSubject).toBe('Hoe gaat het?')
   })
 
+  it('moves a thread to the top when its status changes', () => {
+    const older = thread({ id: 'sig-old' })
+    const existing = thread({ id: 'sig-1', status: 'open' })
+    const next = upsertThreadRow([older, existing], thread({ id: 'sig-1', status: 'closed' }))
+    expect(next.map((t) => t.id)).toEqual(['sig-1', 'sig-old'])
+    expect(next[0].status).toBe('closed')
+  })
+
   it('keeps AI handling when the live row carries none', () => {
     const handling = {
       effective: 'manual',

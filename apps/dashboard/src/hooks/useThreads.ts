@@ -34,6 +34,7 @@ function buildFilterKey(filters: ThreadFilters): string {
 export function useThreads(
   filters: ThreadFilters = {},
   pinnedIds: ThreadId[] = [],
+  enabled = true,
 ) {
   const { token, user } = useAuth()
   const filterKey = useMemo(() => buildFilterKey(filters), [
@@ -75,6 +76,15 @@ export function useThreads(
   // Drop stale rows synchronously when queue/search/channel changes so callers
   // never auto-select from the previous folder while the new fetch is in flight.
   useLayoutEffect(() => {
+    if (!enabled) {
+      setRawThreads([])
+      setRawOutside([])
+      setSyncedFilterKey(null)
+      setLoading(false)
+      setTotal(null)
+      setHasMore(false)
+      return
+    }
     setRawThreads([])
     setRawOutside([])
     setSyncedFilterKey(null)
@@ -82,10 +92,10 @@ export function useThreads(
     setError(null)
     setHasMore(false)
     pagesLoadedRef.current = 1
-  }, [filterKey])
+  }, [filterKey, enabled])
 
   const fetchThreads = useCallback(async (opts?: { quiet?: boolean }) => {
-    if (!token) {
+    if (!enabled || !token) {
       setRawThreads([])
       setRawOutside([])
       setSyncedFilterKey(null)
@@ -127,6 +137,7 @@ export function useThreads(
       if (!quiet && keyAtStart === filterKeyRef.current) setLoading(false)
     }
   }, [
+    enabled,
     token,
     filterKey,
     filters.view,
@@ -148,8 +159,9 @@ export function useThreads(
   ])
 
   useEffect(() => {
+    if (!enabled) return
     void fetchThreads()
-  }, [fetchThreads])
+  }, [enabled, fetchThreads])
 
   const loadMore = useCallback(async () => {
     if (!token || loadingMore) return

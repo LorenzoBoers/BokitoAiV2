@@ -362,30 +362,28 @@ async def dispatch_mentions(
     Multi-agent (or agent+human) bodies start one nestable handoff session
     with a single opener instead of N parallel floors.
     """
-    from app.services.handoff_sessions import expand_invitees, start_handoff_session
+    from app.services.pass_stick import pass_stick
 
-    invitees = await expand_invitees(session, tenant_id, signal, body_text)
-    if invitees["agents"] and invitees["total"] >= 2:
-        started = await start_handoff_session(
-            session,
-            tenant_id,
-            signal,
-            body_text=body_text,
-            author_user_id=author_user_id,
-            author_name=author_name,
-            user_role=user_role,
-            channel_agent_id=signal.agent_id,
-        )
-        if started:
-            return [
-                {
-                    "kind": "handoff",
-                    "id": started.get("handoff", {}).get("id"),
-                    "dispatched": True,
-                    "opener_id": started.get("opener_id"),
-                    "handoff": started.get("handoff"),
-                }
-            ]
+    moved = await pass_stick(
+        session,
+        signal,
+        body_text=body_text,
+        author_kind="user",
+        author_id=author_user_id,
+        author_name=author_name,
+        wake_default=False,
+        channel_agent_id=signal.agent_id,
+    )
+    if moved.get("action") in ("give", "clear") or moved.get("reason") == "human_only":
+        return [
+            {
+                "kind": "stick",
+                "dispatched": moved.get("action") == "give",
+                "action": moved.get("action"),
+                "holder_id": moved.get("holder_id"),
+                "reason": moved.get("reason"),
+            }
+        ]
 
     results = []
     for kind, target_id in entity_mentions(body_text):
