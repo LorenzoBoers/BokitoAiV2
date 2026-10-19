@@ -37,6 +37,8 @@ async def _prepare() -> None:
     # This process stays alive as the Playwright webServer parent. An open
     # SQLite pool here holds the file while uvicorn (a child) migrates again.
     await engine.dispose()
+    # Give aiosqlite's worker thread a moment to drop the file lock.
+    await asyncio.sleep(0.5)
 
 
 def main() -> None:

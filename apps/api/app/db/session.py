@@ -10,6 +10,10 @@ from app.config import get_settings
 
 settings = get_settings()
 _engine_kwargs: dict = {"echo": settings.debug, "pool_pre_ping": True}
+if "sqlite" in (settings.database_url or ""):
+    # Default sqlite wait is 5s. E2e seeds in the parent process, then uvicorn
+    # migrates the same file; a leftover pool connection used to fail startup.
+    _engine_kwargs["connect_args"] = {"timeout": 30}
 if "postgresql" in (settings.database_url or ""):
     # SSE routes used to hold a checked-out connection for the whole stream.
     # Give the in-process chat drive room, and fail checkout instead of hanging.
