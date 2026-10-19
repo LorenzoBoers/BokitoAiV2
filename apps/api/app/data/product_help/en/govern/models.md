@@ -9,7 +9,7 @@ related: govern,agents,integrations
 
 # Models
 
-Models live under **Settings**, then **Models**. The page shows **Bokito AI models** (Automatic plus Maki, Bokito and Kong) and, when entitled, models you add with your own keys. Canceling **Add model** asks before discarding what you typed. **Replace key** opens a field on the page. Spend shows on Cockpit **Usage**.
+Models live under **Settings**, then **Models**. The page shows **Bokito AI models** (Automatic plus Maki, Bokito and Kong) and, when entitled, models you add with your own keys. Canceling **Add model** asks before discarding what you typed. **Replace key** opens a field on the page. Spend shows on Overview **Usage**.
 
 ## Set the workspace Bokito AI default
 
@@ -55,7 +55,7 @@ Models live under **Settings**, then **Models**. The page shows **Bokito AI mode
 
 ## Spend does not bypass approval
 
-Token budgets sit on Cockpit **Usage** (daily token cap and monthly spend cap). When the workspace budget is exhausted, platform-key calls pause; your own keys keep working. [Govern](/docs/govern/govern) still decides whether an agent may act.
+Token budgets sit on Overview **Usage** (daily token cap and monthly spend cap). When the workspace budget is exhausted, platform-key calls pause; your own keys keep working. [Govern](/docs/govern/govern) still decides whether an agent may act.
 
 ## When the provider refuses
 
@@ -68,4 +68,4 @@ When a model provider rejects calls for the whole workspace (out of credits, inv
 
 ## What to do next
 
-Set the workspace default on **Bokito AI models**, choose a mode per [agent](/docs/ai/agents), then watch **Usage** on the [Cockpit](/docs/getting-started/cockpit).
+Set the workspace default on **Bokito AI models**, choose a mode per [agent](/docs/ai/agents), then watch **Usage** on [Overview](/docs/getting-started/cockpit).

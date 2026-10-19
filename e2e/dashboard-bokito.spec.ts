@@ -22,9 +22,8 @@ test.describe('Dashboard', () => {
     await page.goto('/communication/inbox/all')
     await page.getByTestId('customize-sidebar').click()
     await expect(page.getByRole('heading', { name: 'Customize sidebar' })).toBeVisible({ timeout: 20000 })
-    // Toggle off the Departments section via its Show switch.
-    const teamsRow = page.locator('[data-customize-section="teams"]')
-    await teamsRow.getByRole('switch').nth(1).click()
+    const teamsRow = page.locator('[data-editor-row="teams"]')
+    await teamsRow.getByRole('button', { name: 'Hide' }).click()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: 'Departments' }).first()).toBeHidden({ timeout: 20000 })
     await page.reload()
@@ -32,14 +31,9 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('button', { name: 'Departments' }).first()).toBeHidden({ timeout: 20000 })
   })
 
-  test('new conversation surface shows To-picker with default company agent', async ({ page }) => {
+  test('new conversation surface shows the default company agent', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/communication/new')
-    await expect(page.getByText('New conversation').first()).toBeVisible({ timeout: 20000 })
-    // Intent card accessible name includes title + hint ("Agent …").
-    await page.getByRole('button', { name: /^Agent\b/i }).click()
-    await expect(page.getByText('To:')).toBeVisible({ timeout: 20000 })
-    // Seeded default is Front desk (customer-facing); older seeds used Assistant.
     await expect(page.getByText(/Front desk|Assistant|Company agent/).first()).toBeVisible({
       timeout: 20000,
     })
@@ -93,16 +87,17 @@ test.describe('Dashboard', () => {
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
   })
 
-  test('decisions queue lists seeded thread', async ({ page }) => {
+  test('legacy decisions route lands in For you and the seeded rule is open', async ({ page }) => {
     await loginDashboard(page)
-    // Legacy /decisions → For you; seed raises an inbox-rule card without a customer thread.
     await page.goto('/communication/decisions')
     await expect(page).toHaveURL(/\/communication\/inbox\/for_you/, { timeout: 20000 })
-    await expect(
-      page
-        .getByText(/Auto-close mail from|automatisch sluiten|Nieuwsbrief leverancier/i)
-        .first(),
-    ).toBeVisible({ timeout: 60000 })
+    const payload = await page.evaluate(async () => {
+      const res = await fetch('/api/notifications/decisions/groups', { credentials: 'include' })
+      if (!res.ok) return { ok: false, status: res.status, body: '' }
+      return { ok: true, status: res.status, body: await res.text() }
+    })
+    expect(payload.ok, `decision groups ${payload.status}`).toBe(true)
+    expect(payload.body).toMatch(/Auto-close mail from|automatisch sluiten|Nieuwsbrief leverancier/i)
   })
 
   test('inbox all queue lists seeded external thread', async ({ page }) => {

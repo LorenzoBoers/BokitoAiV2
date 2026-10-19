@@ -16,8 +16,8 @@ Bokito is an operations platform for teams that want AI to do real work. Custome
 ![Bokito sidebar](/api/docs/assets/welcome/rail.png)
 *One sidebar: Overview and Communication at the top, then Work, AI and Organization.*
 
-- [Communication](/docs/inbox/communication) collects email, website chat and WhatsApp. [AI handling](/docs/inbox/inbox-ai) decides whether the AI answers on its own, drafts for review, or stays quiet. [Categories](/docs/ai/categories) are hashtags with a playbook: filing one turns a conversation into a ticket that moves through the playbook's stages. [Govern](/docs/govern/govern) decides which tools an agent may use and when a human must approve.
-- [Agents](/docs/ai/agents) are coworkers with a purpose, knowledge and tools. [Playbooks](/docs/ai/workstreams) are the step-by-step processes they run.
+- [Communication](/docs/inbox/communication) collects email, website chat and WhatsApp. [AI handling](/docs/inbox/inbox-ai) decides whether the AI answers on its own, drafts for review, or stays quiet. [Labels](/docs/ai/categories) are hashtags; a label with a flow turns a conversation into a ticket that moves through that flow's stages. [Govern](/docs/govern/govern) decides which tools an agent may use and when a human must approve.
+- [Agents](/docs/ai/agents) are coworkers with a purpose, knowledge and tools. [Flows](/docs/ai/workstreams) are the stage pipelines those tickets move through.
 - Decision cards appear in the thread when a step needs judgment. Structural changes land as drafts on Govern.
 
 ## How a day runs

@@ -13,7 +13,7 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** b
 
 ## Maak of open een map
 
-![Projectenlijst](/api/docs/assets/folders/project.png)
+![Mappenlijst](/api/docs/assets/folders/project.png)
 *Elke kaart is een map met open werk.*
 
 1. Open **Mappen**. Het linkermenu toont de boom. Kies **Nieuwe map**, geef een naam en kies optioneel labels voor lidmaatschap.

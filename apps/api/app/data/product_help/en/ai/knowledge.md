@@ -55,4 +55,4 @@ Customer help articles live in Knowledge, not under a separate **Help center** s
 
 ## What to do next
 
-Keep project-specific docs on the [Projects](/docs/ai/folders) Documentation tab — they appear under Knowledge when you click that project name. Point agents at Skills and Memory so replies stay grounded.
+Keep folder-specific docs on the [Folders](/docs/ai/folders) Documentation tab — they appear under Knowledge when you click that name (the chip still reads **Project**). Point agents at Skills and Memory so replies stay grounded.

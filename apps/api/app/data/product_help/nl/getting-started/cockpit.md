@@ -30,12 +30,12 @@ Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview sta
 
 1. Open **Overview**, daarna het tabblad **Canvas** (derde tab). Canvasnamen staan van links naar rechts; de **+** ná de laatste naam voegt een canvas toe. Kies een **Agent** en **Start gesprek**.
 2. In die chat vraagt de agent wat je wilt zien, stelt een kort plan voor (titel, widgets, verversen), bouwt daarna de snapshot en zet de verversperiode. Verversen is de herhaling van dat gesprek in [Agenda](/docs/ai/agenda).
-3. Latere aanpassingen gebeuren in hetzelfde gesprek. De canvas-werkbalk toont de beheeragent (avatar en naam), bijgewerkt, de verversperiode en een vernieuw-icoon op één regel; rechts staan de gespreks-link en **Bron tonen**. Verwijderen zit in het **⋯**-menu. Open dat gesprek om een aanpassing te vragen. Projectcanvasses staan op het [Canvas](/docs/ai/folders)-tabblad van het project.
+3. Latere aanpassingen gebeuren in hetzelfde gesprek. De canvas-werkbalk toont de beheeragent (avatar en naam), bijgewerkt, de verversperiode en een vernieuw-icoon op één regel; rechts staan de gespreks-link en **Bron tonen**. Verwijderen zit in het **⋯**-menu. Open dat gesprek om een aanpassing te vragen. Mapcanvassen staan op het [Canvas](/docs/ai/folders)-tabblad van de map.
 
 ## Open werk dat op jou wacht
 
 ![Overview-aandachtspunten](/api/docs/assets/cockpit/awaiting-decision.png)
-*Wacht op beslissing springt naar dezelfde lijst als Agent-runs.*
+*Needs you opent hetzelfde gesprek als Beslissingen in Communicatie.*
 
 1. Zoek het gesprek onder **Jij bent nodig**. De rij toont dezelfde avatar, hetzelfde onderwerp en dezelfde beslissingsmarkering als Communicatie.
 2. Open het. Je landt op het bijbehorende gesprek in Communicatie.

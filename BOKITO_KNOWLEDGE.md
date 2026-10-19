@@ -1180,7 +1180,11 @@ Doel: het dashboard voelt overal als één product — zelfde spacing, surfaces,
 
 ## 3. Mobiele App – Schermen & Features
 
-Tech stack: React Native + Expo Router + Gesture Handler + Reanimated. Fonts: Jaro, Montserrat, JetBrainsMono.
+Actuele app (2026-10): `apps/mobile` is Expo 55 + React Native 0.83 + Expo Router. Tabs zijn Home (nieuwe chat), Berichten (For you-lijst) en Account. Een thread staat op `app/thread/[id].tsx`. Er is geen agenda-scherm; agenda-notificaties wijzen naar het webpad `/agenda`. Kleuren staan in `apps/mobile/src/theme.ts` en lopen achter op de dashboardtokens in `apps/dashboard/src/index.css`. UI wordt niet gedeeld met het dashboard. Plan om dat te doen: `docs/plans/shared-ui-library.md`.
+
+Onderstaande schermen beschrijven een eerdere port (pager, cloud agents) en zijn niet de huidige Expo-app.
+
+Tech stack van die eerdere port: React Native + Expo Router + Gesture Handler + Reanimated. Fonts: Jaro, Montserrat, JetBrainsMono.
 
 ### 3.1 Home (`/`) – Twee-pagina pager
 Horizontaal veegbaar met paginadots bovenaan.

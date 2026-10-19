@@ -63,4 +63,4 @@ Elk gesprek blijft in de workspace waar je het voerde. Wat Bokito over *jou* ont
 2. Lees de feiten die Bokito over jou bewaarde. Kies **Vergeten** bij één regel of **Alles wissen**.
 3. Open de helper opnieuw met **Praat met assistent** als je iets nieuws wilt laten onthouden. Bedrijfsagents en de websitewidget zijn apart — zie [Agents](/docs/ai/agents) en [Chatwidget](/docs/inbox/widget).
 
-De websitechatwidget is een andere instelling: **Instellingen**, daarna **Chatwidget**. Die pagina is voor bezoekers op je site, niet voor deze helper. De helper volgt het lichte of donkere thema van het dashboard. Intake van die widget wordt een [ticket](/docs/ai/categories) op het gesprek.
+De websitechatwidget is een andere instelling: **Instellingen**, daarna **Kanalen**, daarna de rij **Websitechat**. Die pagina is voor bezoekers op je site, niet voor deze helper. De helper volgt het lichte of donkere thema van het dashboard. Intake van die widget wordt een [ticket](/docs/ai/categories) op het gesprek.

@@ -1,7 +1,7 @@
 ---
 title: Beslissingen goedkeuren en afwijzen
 intro: Agents vragen in het gesprek om jouw oordeel. Elke open goedkeuring staat in Communicatie onder Beslissingen.
-description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via de map Beslissingen, Cockpit of een notificatie.
+description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via de map Beslissingen, Overview of een notificatie.
 keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop, alles afwijzen, dubbele vragen, alles goedkeuren, altijd toestaan, niet toestaan, actiebundel
 sort: 20
 related: communication,agent-runs,autonomy,govern
@@ -16,9 +16,9 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 ## Vind een wachtende beslissing
 
 ![Een wachtende beslissing in het gesprek](/api/docs/assets/decisions/approve.png)
-*Open het gesprek via Beslissingen, Cockpit of een notificatie.*
+*Open het gesprek via Beslissingen, Overview of een notificatie.*
 
-1. Open **Communicatie**, dan **Beslissingen**. Cockpit **Wacht op beslissing** / **Vraagt aandacht** en het bel-menu landen op dezelfde lijst. Een badge **Wacht op beslissing** markeert de rijen.
+1. Open **Communicatie**, dan **Beslissingen**. Overview **Needs you** en het bel-menu landen op dezelfde lijst. Een badge **Wacht op beslissing** markeert de rijen.
 2. Selecteer een gesprek (de eerste match opent automatisch) en scroll naar de keuzekaart. Die toont de voorgestelde actie en waarom de agent stopte.
 3. Als niets op jou wacht, toont Beslissingen een lege staat met links terug naar de inbox en Agents.
 

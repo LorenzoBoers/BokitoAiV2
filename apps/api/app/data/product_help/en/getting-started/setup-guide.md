@@ -9,7 +9,7 @@ related: quickstart,channels,team,agents,autonomy
 
 # Workspace setup guide
 
-The quickstart gets you running. This guide gets you configured. The settings sidebar has a search field; Escape clears it. Open **Settings**, then **Support**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). Owners first finish the first-run wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**), then the product tour. After that, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, projects, Govern, numbers on Overview).
+The quickstart gets you running. This guide gets you configured. The settings sidebar has a search field; Escape clears it. Open **Settings**, then **Support**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). Owners first finish the first-run wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**), then the product tour. After that, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, folders, Govern, numbers on Overview).
 
 ## Workspace basics and branding
 
@@ -23,7 +23,7 @@ The quickstart gets you running. This guide gets you configured. The settings si
 ## Invite the team
 
 1. Open **Workforce** in the rail under **Organization**.
-2. Invite the people who will answer customers. Group them into teams on the **Teams** tab when more than one group answers.
+2. Invite the people who will answer customers. Group them into departments under **Departments** when more than one group answers.
 3. See [How Workforce works](/docs/getting-started/team).
 
 ## Connect channels and set AI handling
@@ -38,7 +38,7 @@ The quickstart gets you running. This guide gets you configured. The settings si
 1. Add daily documents in [Knowledge](/docs/ai/knowledge). Start with Voice and Memory.
 2. Review the default assistant under [Agents](/docs/ai/agents). Deactivate agents you do not want on the roster; tighten chat access if they should not appear in Communication.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
-4. Optional: open **Projects** when work should be grouped around a goal. See [Projects](/docs/ai/folders).
+4. Optional: open **Folders** when work should be grouped around a place. See [Folders](/docs/ai/folders).
 5. Optional: open **Connections** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
 
 ## Schedule recurring work
@@ -55,6 +55,6 @@ On first login, owners complete the **first-run wizard**, then the product tour.
 4. **Resolve your first decision** — the checklist card (and **Try the demo** where offered) starts a sample thread so you can approve a card.
 5. **Turn on check-in** — say yes in the setup conversation, or turn it on from the setup guide, when you want watching.
 
-**Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), projects, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Data & privacy](/docs/govern/privacy-security) (retention, data region, and data subject requests).
+**Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), folders, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Data & privacy](/docs/govern/privacy-security) (retention, data region, and data subject requests).
 
 **Hide setup** only hides the card. The checklist on Settings stays until those steps are done. You are ready when mail flows in, one decision is understood, and the assistant is watching.

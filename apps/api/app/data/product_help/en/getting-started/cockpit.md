@@ -30,12 +30,12 @@ Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-
 
 1. Open **Overview**, then the **Canvas** tab (third tab). Canvas names sit left to right; the **+** after the last name adds a canvas. Choose an **Agent** and **Start conversation**.
 2. In that chat the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Refresh is that conversation's repeat in [Agenda](/docs/ai/agenda).
-3. A later change happens in the same conversation. The canvas toolbar shows the owner agent (avatar and name), the last-updated time, the refresh period and a refresh icon inline; on the right sit the conversation link and **Show source**. Delete sits in the **⋯** menu. Open the conversation to ask for a change. Project canvases live on the project [Canvas](/docs/ai/folders) tab.
+3. A later change happens in the same conversation. The canvas toolbar shows the owner agent (avatar and name), the last-updated time, the refresh period and a refresh icon inline; on the right sit the conversation link and **Show source**. Delete sits in the **⋯** menu. Open the conversation to ask for a change. Folder canvases live on the folder [Canvas](/docs/ai/folders) tab.
 
 ## Open work that is waiting on you
 
 ![Overview attention items](/api/docs/assets/cockpit/awaiting-decision.png)
-*Awaiting decision jumps to the same list as Agent runs.*
+*Needs you opens the same thread as Decisions in Communication.*
 
 1. Find the conversation under **Needs you**. The row uses the same avatar, subject and decision mark as Communication.
 2. Open it. You land on the matching thread in Communication.

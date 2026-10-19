@@ -55,4 +55,4 @@ Klantartikelen leven in Kennis, niet onder een aparte **Helpcentrum**-instelling
 
 ## Wat nu
 
-Houd projectsgebonden docs op het tabblad Documentatie van [Projecten](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die projectnaam klikt. Laat agents Skills en Geheugen gebruiken zodat antwoorden onderbouwd blijven.
+Houd mapgebonden docs op het tabblad Documentatie van [Mappen](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die naam klikt (de chip heet nog **Project**). Laat agents Skills en Geheugen gebruiken zodat antwoorden onderbouwd blijven.

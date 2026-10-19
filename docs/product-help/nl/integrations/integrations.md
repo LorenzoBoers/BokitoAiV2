@@ -9,7 +9,7 @@ related: mcp,models,channels,govern,categories
 
 # Integraties koppelen
 
-Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, draaiboeken en optioneel een Project, plus de tools voor toegestane partners. **Koppelingen** in de zijbalk op `/connections` is één pagina voor dit alles: wat verbonden is bovenaan, daaronder één grid met elke module, integratie en AI-tool. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
+Integraties zijn partnerlogins. Een **module** is één pakket met hashtags, flows en een afdeling, plus de tools voor toegestane partners. **Koppelingen** in de zijbalk op `/connections` is één pagina voor dit alles: wat verbonden is bovenaan, daaronder één grid met elke module, integratie en AI-tool. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
 
 ## Zie wat gekoppeld is
 
@@ -81,7 +81,7 @@ Koppel een registratie aan projecten wanneer hij bij één klant of afdeling hoo
 3. Een gekoppelde registratie is exclusief: agents gebruiken hem alleen voor werk in die projecten (een gesprek dat op het project staat, of een run met dat project). Daarbuiten is hij niet beschikbaar.
 4. Zonder geselecteerd project toont de registratie **Alle projecten** en werkt hij overal. Binnen een project kiezen agents de registratie van dat project vóór de modulestandaard.
 
-Je kunt ook koppelen vanaf de projectpagina; zie [Projecten](/docs/ai/folders).
+Je kunt ook koppelen vanaf de mappagina; zie [Mappen](/docs/ai/folders). Het koppelingspaneel noemt die lijst nog **Projecten** en de knop **Projecten opslaan**.
 
 ## Kies wie een koppeling mag gebruiken
 
@@ -115,13 +115,13 @@ Elk Google- of Microsoft-account is één koppeling; voeg er zoveel toe als nodi
 4. Kies onder **Administratie-scope** de administraties die de agent mag benaderen. Geen selectie betekent toegang tot alle administraties.
 5. Elke voorgestelde schrijfactie landt als beslissingskaart met de administratie en de inhoud. Goedkeuren voert de actie alleen uit als beide schrijfschakelaars aan staan.
 
-## Installeer een werkstroom-sjabloon
+## Installeer een flowsjabloon
 
-Modules leveren één cataloguspakket met hashtags, voorgebouwde draaiboeken en optioneel een Project. Voorbeelden zijn **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding en **Bankreconciliatie** op Bankieren.
+Modules leveren één cataloguspakket met hashtags en voorgebouwde flows. Voorbeelden zijn **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding en **Bankreconciliatie** op Bankieren.
 
-1. Open de modulepagina vanuit **Koppelingen**. Als de module aan staat, toont het paneel **Werkstroom-sjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
+1. Open de modulepagina vanuit **Koppelingen**. Als de module aan staat, toont het paneel **Flowsjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
 2. Een sjabloon dat nog niet kan draaien, laat zien waarom (moduleverbinding ontbreekt, vereiste agentrol niet toegewezen). Los eerst die vereiste op.
-3. Kies **Installeren**. De werkstroom wordt naar je workspace gekopieerd — jij bent eigenaar en mag de kopie bewerken. **Open werkstroom** brengt je ernaartoe onder [Werkstromen](/docs/ai/workstreams).
+3. Kies **Installeren**. De flow wordt naar je workspace gekopieerd — jij bent eigenaar en mag de kopie bewerken. **Flow openen** brengt je ernaartoe onder [Flows](/docs/ai/workstreams).
 4. Voor elke run van een geïnstalleerd sjabloon controleert Bokito de vereisten opnieuw; een kapotte vereiste pauzeert de run met een beslissing in plaats van stil te falen.
 
 ## Indexeer modulebronnen

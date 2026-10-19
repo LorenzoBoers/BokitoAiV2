@@ -9,7 +9,7 @@ related: mcp,models,channels,govern,categories
 
 # Connect integrations
 
-Integrations are partner logins. A **module** is one package of hashtags, playbooks, and an optional Project, plus the tools allowed for its listed partners. **Connections** in the rail at `/connections` is one page for all of it: what is connected on top, then one grid with every module, integration and AI tool. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
+Integrations are partner logins. A **module** is one package of hashtags, flows and a department, plus the tools allowed for its listed partners. **Connections** in the rail at `/connections` is one page for all of it: what is connected on top, then one grid with every module, integration and AI tool. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
 
 ## See what is connected
 
@@ -81,7 +81,7 @@ Link a registration to projects when it belongs to one client or department.
 3. A linked registration is exclusive: agents use it only for work in those projects (a conversation filed on the project, or a run with that project). Outside them it is not available.
 4. With no project selected the registration shows **All projects** and works everywhere. Inside a project, agents pick that project's registration before the module default.
 
-You can also link from the project page; see [Projects](/docs/ai/folders).
+You can also link from the folder page; see [Folders](/docs/ai/folders). The connection panel still labels that list **Projects** and the button **Save projects**.
 
 ## Choose who may use a connection
 
@@ -115,13 +115,13 @@ Each Google or Microsoft account is one connection; add as many as you need and 
 4. Under **Administration scope**, pick the administrations the agent may address. No selection means access to all administrations.
 5. Every proposed write lands as a decision card showing the administration and the payload. Approving applies it to the package only when both write switches are on.
 
-## Install a workstream template
+## Install a flow template
 
-Modules ship one catalog package containing hashtags, pre-built playbooks, and optionally a Project. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
+Modules ship one catalog package containing hashtags and pre-built flows. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
 
-1. Open the module page from **Connections**. When the module is on, the **Workstream templates** panel lists what it ships, with the step count per template.
+1. Open the module page from **Connections**. When the module is on, the **Flow templates** panel lists what it ships, with the step count per template.
 2. A template that cannot run yet shows why (module connection missing, required agent role not assigned). Fix the requirement first.
-3. Choose **Install**. The workstream is copied to your workspace — you own and can edit the copy. **Open workstream** takes you to it under [Workstreams](/docs/ai/workstreams).
+3. Choose **Install**. The flow is copied to your workspace — you own and can edit the copy. **Open flow** takes you to it under [Flows](/docs/ai/workstreams).
 4. Before every run of an installed template, Bokito re-checks the requirements; a broken requirement pauses the run with a decision instead of failing silently.
 
 ## Index module sources

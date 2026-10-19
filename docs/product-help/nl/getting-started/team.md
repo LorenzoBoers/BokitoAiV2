@@ -38,7 +38,7 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
 ## Lees de directory
 
 1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Onder de naam van een agent staat de functie in de kleur van die agent. **Type** is gewone tekst: **Persoon** voor mensen en uitnodigingen, **AI agent** voor bedrijfsagents (`ai_agent`). Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen. De kolom **Laatst actief** toont wanneer iemand voor het laatst online was en wanneer een agent voor het laatst draaide. Via Gerelateerd open je **Agents** (zelfde filter **Gedeactiveerd** daar).
-2. Elke persoon toont rol, teams, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). In **Rol / plafond** wijzigt een eigenaar of beheerder de rol van een persoon, en het plafond van een agent met hetzelfde soort menu: **Handmatig**, **Geassisteerd** of **Autonoom**. Alleen een eigenaar of beheerder kan een plafond naar **Autonoom** zetten. Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout**. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)). **Open in Grid** in de paginakop opent de organisatiekaart (zelfde knop op Agents, Playbooks, Mappen en Koppelingen).
+2. Elke persoon toont rol, teams, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). In **Rol / plafond** wijzigt een eigenaar of beheerder de rol van een persoon, en het plafond van een agent met hetzelfde soort menu: **Handmatig**, **Geassisteerd** of **Autonoom**. Alleen een eigenaar of beheerder kan een plafond naar **Autonoom** zetten. Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout**. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)). **Open in Grid** in de paginakop opent de organisatiekaart (zelfde knop op Agents, Flows, Mappen en Koppelingen).
 3. Mensen en agents gebruiken hun eigen markering; teams gebruiken een facepile van leden. De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents beschikbaar zijn, grijs als iedereen offline is.
 
 ## Deactiveer een persoon of agent
@@ -47,17 +47,17 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
 2. Status op die rij (en op de agentpagina) is **Gedeactiveerd**. Open het filter **Gedeactiveerd** om iedereen te zien die buiten het rooster staat.
 3. Kies **Opnieuw activeren** op de rij, of **Opnieuw activeren** op de agentpagina, om hen terug te zetten. Dezelfde e-mail opnieuw uitnodigen brengt een gedeactiveerd persoon ook terug als die de uitnodiging accepteert.
 
-## Maak een team
+## Maak een afdeling
 
-1. Scroll naar **Teams** en kies **Nieuw team**. **Alle mensen** en **Alle agents** bestaan altijd; hun leden volgen de workspace. Die systeemteams kun je niet bewerken of qua oppakken wijzigen, en ze verschijnen nooit als map in Communicatie.
-2. Geef een eigen team een naam en eventueel een omschrijving. Vink de mensen en agents aan. Een team mag beide mengen. De teammarkering is altijd de facepile van de leden — er is geen aparte keuze voor initialen of icoon.
-3. Kies onder **Gesprekken oppakken** wat er gebeurt met nieuwe gesprekken van het team:
+1. Scroll naar **Afdelingen** en kies **Nieuwe afdeling**. **Alle mensen** en **Alle agents** bestaan altijd; hun leden volgen de workspace. Die systeemafdelingen kun je niet bewerken of qua oppakken wijzigen, en ze verschijnen nooit als map in Communicatie.
+2. Geef een eigen afdeling een naam en eventueel een omschrijving. Vink de mensen en agents aan. Een afdeling mag beide mengen. De markering is altijd de facepile van de leden — er is geen aparte keuze voor initialen of icoon.
+3. Kies onder **Gesprekken oppakken** wat er gebeurt met nieuwe gesprekken van de afdeling:
    - **Mensen pakken op**: het gesprek blijft bij het team; wie als eerste reageert, neemt het.
    - **Agent eerst**: een agent in het team antwoordt eerst; mensen springen bij als hij iets vraagt.
    - **Om de beurt**: elk nieuw gesprek gaat direct naar het volgende beschikbare lid.
    - **Minst open**: elk nieuw gesprek gaat naar het beschikbare lid met de minste open gesprekken.
 4. Kies **Opslaan**. Elke eigen afdeling verschijnt onder **Afdelingen** in de Communicatie-zijbalk. Klikken toont het open werk van die afdeling, met **Niet toegewezen** daaronder.
-5. Terug op **Workforce** openen de naam van een eigen team en de knop **Gesprekken** diezelfde teammap. Links op elke teamrij — en in de toewijskieser, vermeldingen en Communicatie-mappen — staat die facepile: drie ledenmarkeringen bij drie mensen of agents; bij meer is de derde cirkel **+N**. Agentmarkeringen op Workforce openen de agentpagina en komen overeen met de markering op die pagina. De systeemteams **Alle mensen** en **Alle agents** hebben geen map; hun naam blijft gewone tekst.
+5. Terug op **Workforce** openen de naam van een eigen afdeling en de knop **Gesprekken** diezelfde map. Links op elke afdelingsrij — en in de toewijskieser, vermeldingen en Communicatie-mappen — staat die facepile: drie ledenmarkeringen bij drie mensen of agents; bij meer is de derde cirkel **+N**. Agentmarkeringen op Workforce openen de agentpagina en komen overeen met de markering op die pagina. De systeemafdelingen **Alle mensen** en **Alle agents** hebben geen map; hun naam blijft gewone tekst.
 
 Om de beurt en minst open geven alleen werk aan mensen die beschikbaar zijn en agents die het kanaal mogen afhandelen. Past niemand, dan blijft het gesprek bij het team. Elke toewijzing staat in de tijdlijn en in het auditlog. Maak een team eigenaar van een kanaal onder **Instellingen**, **Kanalen** (zie [Kanalen](/docs/inbox/channels)).
 

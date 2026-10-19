@@ -9,7 +9,7 @@ related: quickstart,channels,team,agents,autonomy
 
 # Workspace-setupgids
 
-De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Het instellingenmenu heeft een zoekveld; Escape maakt het leeg. Open **Instellingen**, daarna **Support**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). Owners ronden eerst de eerste-setupwizard af (**Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal**), daarna de producttour. Daarna volgt de gids dezelfde activatiestappen als de eerste-keer-kaart, en een rustige lijst **Later** (branding, team, modules, projecten, Govern, cijfers op Overview).
+De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Het instellingenmenu heeft een zoekveld; Escape maakt het leeg. Open **Instellingen**, daarna **Support**, en dan **Setupgids** voor de live checklist (of de knop **Aan de slag** in de topbalk zolang onboarding niet klaar is). Owners ronden eerst de eerste-setupwizard af (**Over jou**, **Talen**, **Meldingen**, **Autonomie**, **Je agent**, optioneel **Kanaal**), daarna de producttour. Daarna volgt de gids dezelfde activatiestappen als de eerste-keer-kaart, en een rustige lijst **Later** (branding, team, modules, mappen, Govern, cijfers op Overview).
 
 ## Workspace-basics en branding
 
@@ -23,7 +23,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Het instelling
 ## Nodig het team uit
 
 1. Open **Workforce** in de zijbalk onder **Organisatie**.
-2. Nodig de mensen uit die klanten beantwoorden. Deel ze in teams in op het tabblad **Teams** wanneer meer dan een groep antwoordt.
+2. Nodig de mensen uit die klanten beantwoorden. Deel ze in afdelingen in onder **Afdelingen** wanneer meer dan een groep antwoordt.
 3. Zie [Zo werkt Workforce](/docs/getting-started/team).
 
 ## Koppel kanalen en stel AI-afhandeling in
@@ -38,7 +38,7 @@ De quickstart krijgt je draaiende. Deze gids krijgt je ingericht. Het instelling
 1. Voeg dagelijkse documenten toe in [Kennis](/docs/ai/knowledge). Begin met Stem en Geheugen.
 2. Beoordeel de standaardassistent onder [Agents](/docs/ai/agents). Deactiveer agents die je niet op het rooster wilt; beperk chattoegang als ze niet in Communicatie mogen staan.
 3. Zet de houding onder [Autonomie](/docs/govern/autonomy). Begin voorzichtig.
-4. Optioneel: open **Projecten** wanneer werk rond één doel moet groeperen. Zie [Projecten](/docs/ai/folders).
+4. Optioneel: open **Mappen** wanneer werk rond één plek moet groeperen. Zie [Mappen](/docs/ai/folders).
 5. Optioneel: open **Connections** in de zijbalk en zet Boekhouding aan wanneer facturen of btw ter sprake komen. Zie [Integraties](/docs/integrations/integrations).
 
 ## Plan terugkerend werk
@@ -55,6 +55,6 @@ Bij de eerste login ronden owners de **eerste-setupwizard** af, daarna de produc
 4. **Los je eerste beslissing op** — de checklistkaart (en **Probeer de demo** waar die staat) start een voorbeeldgesprek zodat je een kaart kunt goedkeuren.
 5. **Zet check-in aan** — zeg ja in het setup-gesprek, of zet hem aan vanuit de setupgids, wanneer je wilt dat de assistent waakt.
 
-**Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Connections](/docs/integrations/integrations), projecten, [Govern](/docs/govern/govern), **Cijfers op Overview** (eigen KPI's), en [Data en privacy](/docs/govern/privacy-security) (bewaartermijn, dataregio en verzoeken van betrokkenen).
+**Later** (geen nummers): branding, team uitnodigen, een vakgebied toevoegen op [Connections](/docs/integrations/integrations), mappen, [Govern](/docs/govern/govern), **Cijfers op Overview** (eigen KPI's), en [Data en privacy](/docs/govern/privacy-security) (bewaartermijn, dataregio en verzoeken van betrokkenen).
 
 **Setup verbergen** verbergt alleen de kaart. De checklist onder Instellingen blijft staan tot die stappen klaar zijn. Je bent klaar wanneer mail binnenkomt, één beslissing duidelijk is, en de assistent waakt.

@@ -13,7 +13,7 @@ A folder has a **name** and a place in a free tree. Optional **labels** decide w
 
 ## Create or open a folder
 
-![Projects list](/api/docs/assets/folders/project.png)
+![Folders list](/api/docs/assets/folders/project.png)
 *Each card is a folder with open work.*
 
 1. Open **Folders**. The left menu shows the tree. Choose **New folder**, give it a name, and optionally pick labels that define membership.

@@ -1,7 +1,7 @@
 ---
 title: Product tour
 intro: A quick map of the interface — what each area is for and when you use it.
-description: A guided map of Bokito: the sidebar, command palette, Communication, Agenda, Projects, Agents, Modules and Settings.
+description: A guided map of Bokito: the sidebar, command palette, Communication, Folders, Flows, Grid, Agents and Settings.
 keywords: tour, interface, navigation, command palette, sidebar
 sort: 40
 related: welcome,cockpit,communication
@@ -17,7 +17,7 @@ After you create a workspace, owners finish a short **first-run wizard** (`/onbo
 2. Your new lead opens one conversation in Communication and asks if the name is right, then about the company and how work should run.
 3. Proposals wait in Govern. A daily check-in starts only if you say yes in that conversation.
 
-Bokito has one sidebar with seven areas. Each item answers a different question. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
+Bokito has one sidebar. Pinned items sit above three groups: Work, AI and Organization. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
 
 ## Daily loop at the top
 
@@ -30,19 +30,20 @@ Bokito has one sidebar with seven areas. Each item answers a different question.
 
 ## Work and AI
 
-- **Projects** — work that spans days. See [Projects](/docs/ai/folders).
-- **Playbooks** — repeatable step-by-step processes agents execute. See [Playbooks](/docs/ai/workstreams).
+- **Folders** — a tag with a place: conversations, boards and docs under one path. See [Folders](/docs/ai/folders).
+- **Flows** — ticket pipelines, each titled with its label. See [Flows](/docs/ai/workstreams).
 - **Agenda** — when agents wake; lives under **Work**. See [Agenda](/docs/ai/agenda).
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).
 - **Knowledge** — docs, skills and memory; equal sibling next to Agents. See [Knowledge](/docs/ai/knowledge).
+- **Grid** — the organization map: departments, people, agents and links. See [Workforce](/docs/getting-started/team).
 
 ## Organization: people, tools and config
 
 At the bottom of the rail, **Organization** groups the workspace itself:
 
-- **Workforce** — the people, the agents and the teams they form, with who is available now. See [Workforce](/docs/getting-started/team).
+- **Workforce** — the people, the agents and the departments they form, with who is available now. See [Workforce](/docs/getting-started/team).
 - **Connections** — modules, partner logins, tools and AI tools on one page. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Integrations](/docs/integrations/integrations).
-- **Settings** — grouped as Personal, Workspace, Communication (**Channels**, **Chat widget**, **AI handling**, **Labels with a flow**), AI and control (**Govern**, **Models**, **Data & privacy**) and Advanced (**Developers**). **Support** at the bottom opens the setup guide, product tour, docs, API reference and contact options. See [Labels and tickets](/docs/ai/categories).
+- **Settings** — grouped as Personal (**Profile & security**, **Notifications**, **My assistant**), Workspace (**General**, **Branding**), Communication (**Channels**, **AI handling**, **Labels**), AI and control (**Govern**, **Models**, **Data & privacy**) and Advanced (**Developers**). **Bin** and **Support** sit at the bottom of the settings sidebar. **Support** opens the setup guide, product tour, docs, API reference and contact options. Website chat is a channel row under **Channels**, not its own settings item. See [Labels and tickets](/docs/ai/categories).
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
@@ -52,7 +53,7 @@ Personal screens — **Profile** and **Notifications** — are yours, not worksp
 
 1. Press `Ctrl+K` (Windows) or `Cmd+K` (Mac) from any signed-in page.
 2. Type to jump. Results group under **Recent**, **Go to**, **Actions**, **Sessions**, **Threads**, **Contacts**, **Messages queues**, **Knowledge** and **Settings**.
-3. With an empty query, **Actions** also offers **New chat**, **Talk to an agent**, **Open agent**, **Open playbook**, **Open project**, **Open Knowledge**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **Connect mailbox**, **Open setup guide**, **Open help (Bokito)** and **Open support**.
+3. With an empty query, **Actions** also offers **New conversation**, **Talk to an agent**, **Open agent**, **Open flow**, **Open project**, **Open Knowledge**, **Open Agenda**, **New flow**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **New project**, **Connect mailbox**, **Open setup guide**, **Open help (Bokito)** and **Open support**. **Open project** and **New project** open a folder.
 4. Settings pages appear after you type. You can **Switch to light mode** or **Switch to dark mode** from the palette too.
 
 Communication search in the thread list searches conversations. The palette is for jumping, not for inbox filters.

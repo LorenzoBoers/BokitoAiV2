@@ -1,7 +1,7 @@
 ---
 title: Approve and decline decisions
 intro: Agents ask inside the thread when a step needs your judgment. Every open approval lives in Communication under Decisions.
-description: Approve, edit or decline decision cards in the thread, from the Decisions folder, Cockpit, or a notification.
+description: Approve, edit or decline decision cards in the thread, from the Decisions folder, Overview, or a notification.
 keywords: decisions, approvals, decision requests, notifications, human in the loop, dismiss all, duplicate questions, approve all, always allow, never allow, action bundle
 sort: 20
 related: communication,agent-runs,autonomy,govern
@@ -16,9 +16,9 @@ Automated mail (receipts, newsletters, no-reply senders) does not raise decision
 ## Find a waiting decision
 
 ![A waiting decision in the thread](/api/docs/assets/decisions/approve.png)
-*Open the thread from Decisions, Cockpit, or a notification.*
+*Open the thread from Decisions, Overview, or a notification.*
 
-1. Open **Communication**, then **Decisions**. Cockpit **Awaiting decision** / **Needs attention** and the bell menu land on the same list. A **Needs decision** badge marks the rows.
+1. Open **Communication**, then **Decisions**. Overview **Needs you** and the bell menu land on the same list. A **Needs decision** badge marks the rows.
 2. Select a thread (the first match opens automatically) and scroll to the decision card. It shows the proposed action and why the agent stopped.
 3. When nothing waits on you, Decisions shows an empty state with links back to the inbox and Agents.
 
