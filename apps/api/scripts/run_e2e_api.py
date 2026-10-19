@@ -29,11 +29,14 @@ sys.path.insert(0, str(ROOT))
 
 
 async def _prepare() -> None:
-    from app.db.session import init_db
+    from app.db.session import engine, init_db
     from scripts.seed import seed
 
     await init_db()
     await seed()
+    # This process stays alive as the Playwright webServer parent. An open
+    # SQLite pool here holds the file while uvicorn (a child) migrates again.
+    await engine.dispose()
 
 
 def main() -> None:

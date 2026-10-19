@@ -1,6 +1,7 @@
 """Gateway control plane: WS auth, topic fanout, and domain event publishing."""
 
 import asyncio
+import threading
 import time
 import uuid
 from datetime import datetime, timedelta
@@ -283,8 +284,19 @@ def test_websocket_connect_frame_auth():
     token = _access_token(tenant_id, str(uuid.uuid4()))
     with TestClient(app) as client:
         with client.websocket_connect("/api/ws") as ws:
+            # The in-process client deadlocks if the server writes "connected"
+            # before this thread is already waiting to read it.
+            box: dict = {}
+
+            def _read() -> None:
+                box["frame"] = ws.receive_json()
+
+            reader = threading.Thread(target=_read)
+            reader.start()
             ws.send_json({"type": "connect", "token": token, "device": "mobile"})
-            connected = ws.receive_json()
+            reader.join(timeout=10)
+            assert not reader.is_alive()
+            connected = box["frame"]
             assert connected["type"] == "connected"
             assert connected["session"]["device"] == "mobile"
 

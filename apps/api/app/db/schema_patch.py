@@ -99,7 +99,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "started_at": "DATETIME",
         "completed_at": "DATETIME",
         "task_id": "VARCHAR",
-        "step_id": "VARCHAR",
         "parent_run_id": "VARCHAR",
         "run_role": "VARCHAR DEFAULT 'main'",
         "segment_index": "INTEGER DEFAULT 0",
