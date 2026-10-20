@@ -481,7 +481,8 @@ def test_cadence_labels_presets_and_custom():
 
 
 @pytest.mark.asyncio
-async def test_custom_refresh_cron_roundtrip(client: AsyncClient, _session_override):
+async def test_custom_refresh_cron_roundtrip(client: AsyncClient, session_override):
+    del session_override  # fixture required for DB session override
     headers = await _auth_headers(client)
 
     missing = await client.post(
