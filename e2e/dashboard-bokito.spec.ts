@@ -39,16 +39,13 @@ test.describe('Dashboard', () => {
     })
   })
 
-  test('cockpit page renders stats', async ({ page }) => {
+  test('overview and cockpit redirect into today in Communication', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/overview')
-    await expect(page).toHaveURL(/\/cockpit/, { timeout: 20000 })
-    // The Overview header is titled with the workspace name; the greeting and
-    // date sit in its subtitle. Any visible page heading proves the render.
+    await expect(page).toHaveURL(/\/communication\/today/, { timeout: 20000 })
     await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('link', { name: /^(Overview|Overzicht)$/i }).first()).toBeVisible({
-      timeout: 20000,
-    })
+    await page.goto('/cockpit')
+    await expect(page).toHaveURL(/\/communication\/today/, { timeout: 20000 })
   })
 
   test('legacy chat, messages and inbox routes redirect into the communication hub', async ({ page }) => {
@@ -72,7 +69,7 @@ test.describe('Dashboard', () => {
   test('legacy routes redirect to new nav', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/home')
-    await expect(page).toHaveURL(/\/cockpit/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/communication\/today/, { timeout: 20000 })
     await page.goto('/os')
     await expect(page).toHaveURL(/\/agents/, { timeout: 20000 })
     await page.goto('/automations')
@@ -84,7 +81,7 @@ test.describe('Dashboard', () => {
     await page.goto('/govern')
     await expect(page).toHaveURL(/\/settings\/govern/, { timeout: 20000 })
     await page.goto('/os/docs')
-    await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/agents\/knowledge/, { timeout: 20000 })
   })
 
   test('legacy decisions route lands in For you and the seeded rule is open', async ({ page }) => {
