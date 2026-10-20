@@ -10,11 +10,20 @@ from app.config import get_settings
 
 settings = get_settings()
 _engine_kwargs: dict = {"echo": settings.debug, "pool_pre_ping": True}
-if "sqlite" in (settings.database_url or ""):
+_db_url = settings.database_url or ""
+if "sqlite" in _db_url:
     # Default sqlite wait is 5s. E2e seeds in the parent process, then uvicorn
     # migrates the same file; a leftover pool connection used to fail startup.
     _engine_kwargs["connect_args"] = {"timeout": 30}
-if "postgresql" in (settings.database_url or ""):
+    if ":memory:" in _db_url:
+        # Each pooled connection would otherwise get its own empty memory DB,
+        # so create_all then reclaim/seed on a later checkout see no tables and
+        # TestClient lifespan can hang under CI load.
+        from sqlalchemy.pool import StaticPool
+
+        _engine_kwargs["connect_args"]["check_same_thread"] = False
+        _engine_kwargs["poolclass"] = StaticPool
+if "postgresql" in _db_url:
     # SSE routes used to hold a checked-out connection for the whole stream.
     # Give the in-process chat drive room, and fail checkout instead of hanging.
     _engine_kwargs.update(pool_size=20, max_overflow=20, pool_timeout=10)

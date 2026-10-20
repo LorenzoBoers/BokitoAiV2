@@ -1226,10 +1226,17 @@ def _should_reclaim_chat_run(conversation_id: UUID, started: datetime) -> bool:
 
 async def reclaim_orphaned_chat_runs() -> int:
     """Finalize leftover chat runs after API boot (in-process turns die with uvicorn)."""
+    from sqlalchemy import inspect
+
     from app.services.agent.run_cancel import clear_cancel
     from app.services.agent.turn_persist import end_dead_turns
 
     async with async_session_factory() as session:
+        has_runs = await session.run_sync(
+            lambda sync_conn: inspect(sync_conn).has_table("agent_runs")
+        )
+        if not has_runs:
+            return 0
         result = await session.execute(
             select(AgentRun).where(
                 AgentRun.trigger_type == "chat",
