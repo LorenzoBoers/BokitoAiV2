@@ -15,7 +15,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import User
-from app.models.agent import Agent
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, is_internal_channel
 

@@ -14,10 +14,12 @@ test.describe('Dashboard', () => {
       await page.goto(path)
       const work = page.locator('[data-tour="nav-group-work"]')
       const team = page.locator('[data-tour="nav-group-team"]')
+      await expect(page.locator('[data-testid="nav-communication"]')).toBeVisible({ timeout: 20000 })
       await expect(work).toBeVisible({ timeout: 20000 })
       await expect(work).toContainText('Work')
       await expect(team).toContainText('Team')
-      for (const tab of ['communication', 'agenda', 'folders', 'workstreams']) {
+      await expect(work.locator('[data-testid="nav-communication"]')).toHaveCount(0)
+      for (const tab of ['agenda', 'folders', 'workstreams']) {
         await expect(work.locator(`[data-tour="nav-${tab}"]`)).toBeVisible()
       }
       for (const tab of ['agents', 'team']) {
